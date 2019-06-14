@@ -1,6 +1,7 @@
 package structure
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -25,8 +26,10 @@ func minFloat64(numbers []float64) float64 {
 
 type ConcreteBox interface {
 	AllChildren() []*Box
+	IsTableBox() bool
 }
 
+// Box is an abstract base class for all boxes.
 type Box struct {
 	//Definitions for the rules generating anonymous table boxes
 	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
@@ -60,7 +63,8 @@ type Box struct {
 	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float64
 
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
-	concrete                                                                                   ConcreteBox
+
+	concrete ConcreteBox
 }
 
 func (self *Box) init(elementTag TBD, style css.StyleDict) {
@@ -267,4 +271,100 @@ func (self Box) isInNormalFlow() bool {
 // Return start and end page values.
 func (self Box) pageValues() (int, int) {
 	return self.style.Page, self.style.Page
+}
+
+// ParentBox is a box that has children.
+type ParentBox struct {
+	Box
+
+	children          []*Box
+	outsideListMarker TBD
+}
+
+func (p *ParentBox) init(elementTag TBD, style css.StyleDict, children []*Box) {
+	p.Box.init(elementTag, style)
+	p.children = children
+	p.Box.concrete = p
+}
+
+func (self ParentBox) AllChildren() []*Box {
+	return self.children
+}
+
+func (self ParentBox) IsTableBox() bool {
+	return false
+}
+
+// Set to 0 the margin, padding and border of ``side``.
+func (self *ParentBox) ResetSpacing(side css.Side) {
+	self.style.Margin[side] = css.Dimension{Unit: "px"}
+	self.style.Padding[side] = css.Dimension{Unit: "px"}
+	self.style.BorderWidth[side] = 0
+	switch side {
+	case css.Top:
+		self.marginTop = 0
+		self.paddingTop = 0
+		self.borderTopWidth = 0
+	case css.Right:
+		self.marginRight = 0
+		self.paddingRight = 0
+		self.borderRightWidth = 0
+	case css.Left:
+		self.marginLeft = 0
+		self.paddingLeft = 0
+		self.borderLeftWidth = 0
+	case css.Bottom:
+		self.marginBottom = 0
+		self.paddingBottom = 0
+		self.borderBottomWidth = 0
+
+	}
+}
+
+func (self *ParentBox) removeDecoration(start, end bool) {
+	if start || end {
+		self.style = self.style.Copy()
+	}
+	if start {
+		self.ResetSpacing(css.Top)
+	}
+	if end {
+		self.ResetSpacing(css.Bottom)
+	}
+}
+
+// Create a new equivalent box with given ``newChildren``.
+func (self ParentBox) copyWithChildren(newChildren []*Box, isStart, isEnd bool) ParentBox {
+	newBox := self
+	newBox.children = newChildren
+	if !isStart {
+		newBox.outsideListMarker = TBD{}
+	}
+	newBox.removeDecoration(!isStart, !isEnd)
+	return newBox
+}
+
+//// A flat generator for a box, its chien and descendants."""
+//func (self ParentBox) descendants(self) {
+//	yield self
+//	for child in self.children:
+//	if hasattr(child, 'descendants'):
+//	for grandChild in child.descendants():
+//	yield grandChild
+//	else:
+//	yield child
+//}
+
+// Get the table wrapped by the box.
+// Warning, might be nil
+func (self ParentBox) getWrappedTable() (*Box, error) {
+	if self.isTableWrapper {
+		for _, child := range self.children {
+			if child.concrete.IsTableBox() {
+				return child, nil
+			}
+		}
+		return nil, errors.New("Table wrapper without a table")
+	}
+	return nil, nil
 }
