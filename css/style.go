@@ -15,6 +15,8 @@ type Dimension struct {
 type Side string
 
 type StyleDict struct {
+	Anonymous bool
+
 	Float    string
 	Position string
 	Page     int
@@ -22,6 +24,10 @@ type StyleDict struct {
 	Margin      map[Side]Dimension
 	Padding     map[Side]Dimension
 	BorderWidth map[Side]float64
+
+	Direction string
+
+	TextTransform, Hyphens string
 }
 
 // Deep copy

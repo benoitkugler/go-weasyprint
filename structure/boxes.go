@@ -4,24 +4,28 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
+
+	"github.com/labstack/gommon/log"
 
 	"github.com/benoitkugler/go-weasyprint/css"
 )
+
+// http://stackoverflow.com/questions/16317534/
+var asciiToWide = map[rune]string{}
+
+func init() {
+	for i := 33; i < 127; i++ {
+		asciiToWide[rune(i)] = string(i + 0xfee0)
+	}
+	asciiToWide[0x20] = "\u3000"
+	asciiToWide[0x2D] = "\u2212"
+}
 
 type TBD struct{}
 
 type point struct {
 	x, y float64
-}
-
-func minFloat64(numbers []float64) float64 {
-	var out float64 = math.Inf(1)
-	for _, n := range numbers {
-		if n <= out {
-			out = n
-		}
-	}
-	return out
 }
 
 type ConcreteBox interface {
@@ -31,6 +35,8 @@ type ConcreteBox interface {
 
 // Box is an abstract base class for all boxes.
 type Box struct {
+	ConcreteBox
+
 	//Definitions for the rules generating anonymous table boxes
 	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 	properTableChild       bool
@@ -63,8 +69,6 @@ type Box struct {
 	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float64
 
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
-
-	concrete ConcreteBox
 }
 
 func (self *Box) init(elementTag TBD, style css.StyleDict) {
@@ -85,7 +89,7 @@ func (self *Box) Translate(dx, dy float64, ignoreFloats bool) {
 	}
 	self.positionX += dx
 	self.positionY += dy
-	for _, child := range self.concrete.AllChildren() {
+	for _, child := range self.AllChildren() {
 		if !(ignoreFloats && child.isFloated()) {
 			child.Translate(dx, dy, ignoreFloats)
 		}
@@ -273,30 +277,8 @@ func (self Box) pageValues() (int, int) {
 	return self.style.Page, self.style.Page
 }
 
-// ParentBox is a box that has children.
-type ParentBox struct {
-	Box
-
-	children          []*Box
-	outsideListMarker TBD
-}
-
-func (p *ParentBox) init(elementTag TBD, style css.StyleDict, children []*Box) {
-	p.Box.init(elementTag, style)
-	p.children = children
-	p.Box.concrete = p
-}
-
-func (self ParentBox) AllChildren() []*Box {
-	return self.children
-}
-
-func (self ParentBox) IsTableBox() bool {
-	return false
-}
-
 // Set to 0 the margin, padding and border of ``side``.
-func (self *ParentBox) ResetSpacing(side css.Side) {
+func (self *Box) resetSpacing(side css.Side) {
 	self.style.Margin[side] = css.Dimension{Unit: "px"}
 	self.style.Padding[side] = css.Dimension{Unit: "px"}
 	self.style.BorderWidth[side] = 0
@@ -317,8 +299,29 @@ func (self *ParentBox) ResetSpacing(side css.Side) {
 		self.marginBottom = 0
 		self.paddingBottom = 0
 		self.borderBottomWidth = 0
-
 	}
+}
+
+// ParentBox is a box that has children.
+type ParentBox struct {
+	Box
+
+	children          []*Box
+	outsideListMarker *Box
+}
+
+func (p *ParentBox) init(elementTag TBD, style css.StyleDict, children []*Box) {
+	p.Box.init(elementTag, style)
+	p.children = children
+	p.ConcreteBox = p
+}
+
+func (self ParentBox) AllChildren() []*Box {
+	return self.children
+}
+
+func (self ParentBox) IsTableBox() bool {
+	return false
 }
 
 func (self *ParentBox) removeDecoration(start, end bool) {
@@ -326,10 +329,10 @@ func (self *ParentBox) removeDecoration(start, end bool) {
 		self.style = self.style.Copy()
 	}
 	if start {
-		self.ResetSpacing(css.Top)
+		self.resetSpacing(css.Top)
 	}
 	if end {
-		self.ResetSpacing(css.Bottom)
+		self.resetSpacing(css.Bottom)
 	}
 }
 
@@ -338,7 +341,7 @@ func (self ParentBox) copyWithChildren(newChildren []*Box, isStart, isEnd bool) 
 	newBox := self
 	newBox.children = newChildren
 	if !isStart {
-		newBox.outsideListMarker = TBD{}
+		newBox.outsideListMarker = nil
 	}
 	newBox.removeDecoration(!isStart, !isEnd)
 	return newBox
@@ -360,11 +363,185 @@ func (self ParentBox) copyWithChildren(newChildren []*Box, isStart, isEnd bool) 
 func (self ParentBox) getWrappedTable() (*Box, error) {
 	if self.isTableWrapper {
 		for _, child := range self.children {
-			if child.concrete.IsTableBox() {
+			if child.IsTableBox() {
 				return child, nil
 			}
 		}
 		return nil, errors.New("Table wrapper without a table")
 	}
 	return nil, nil
+}
+
+func (self ParentBox) pageValues() (int, int) {
+	start, end := self.Box.pageValues()
+	if len(self.children) > 0 {
+		startBox, endBox := self.children[0], self.children[len(self.children)-1]
+		childStart, _ := startBox.pageValues()
+		_, childEnd := endBox.pageValues()
+		if childStart > 0 {
+			start = childStart
+		}
+		if childEnd > 0 {
+			end = childEnd
+		}
+	}
+	return start, end
+}
+
+// BlockLevelBox is a box that participates in an block formatting context.
+//An element with a ``display`` value of ``block``, ``list-item`` or
+//``table`` generates a block-level box.
+type BlockLevelBox struct {
+	Box
+
+	clearance TBD
+}
+
+// BlockContainerBox is a box that contains only block-level boxes or only line boxes.
+//
+//A box that either contains only block-level boxes or establishes an inline
+//formatting context and thus contains only line boxes.
+//
+//A non-replaced element with a ``display`` value of ``block``,
+//``list-item``, ``inline-block`` or 'table-cell' generates a block container
+//box.
+type BlockContainerBox struct {
+	ParentBox
+}
+
+// BlockBox is a block-level box that is also a block container.
+//
+//A non-replaced element with a ``display`` value of ``block``, ``list-item``
+//generates a block box.
+type BlockBox struct {
+	BlockContainerBox
+	BlockLevelBox
+}
+
+func (self BlockBox) AllChildren() []*Box {
+	if self.outsideListMarker != nil {
+		return append(self.children, self.outsideListMarker)
+	}
+	return self.children
+}
+
+// LineBox is a box that represents a line in an inline formatting context.
+//
+//Can only contain inline-level boxes.
+//
+//In early stages of building the box tree a single line box contains many
+//consecutive inline boxes. Later, during layout phase, each line boxes will
+//be split into multiple line boxes, one for each actual line.
+type LineBox struct {
+	ParentBox
+}
+
+func (l *LineBox) init(elementTag TBD, style css.StyleDict, children []*Box) {
+	if !style.Anonymous {
+		log.Fatal("style must be anonymous")
+	}
+	l.ParentBox.init(elementTag, style, children)
+}
+
+// InlineLevelBox is a box that participates in an inline formatting context.
+//
+//An inline-level box that is not an inline box is said to be "atomic". Such
+//boxes are inline blocks, replaced elements and inline tables.
+//
+//An element with a ``display`` value of ``inline``, ``inline-table``, or
+//``inline-block`` generates an inline-level box.
+type InlineLevelBox struct {
+	Box
+}
+
+func (self *InlineLevelBox) removeDecoration(start, end bool) {
+	if start || end {
+		self.style = self.style.Copy()
+	}
+	ltr := self.style.Direction == "ltr"
+	if start {
+		side := css.Right
+		if ltr {
+			side = css.Left
+		}
+		self.resetSpacing(side)
+	}
+	if end {
+		side := css.Left
+		if ltr {
+			side = css.Right
+		}
+		self.resetSpacing(side)
+	}
+}
+
+// InlineBox is an inline box with inline children.
+//
+//A box that participates in an inline formatting context and whose content
+//also participates in that inline formatting context.
+//
+//A non-replaced element with a ``display`` value of ``inline`` generates an
+//inline box.
+type InlineBox struct {
+	InlineLevelBox
+	ParentBox
+}
+
+// Return the (x, y, w, h) rectangle where the box is clickable.
+func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
+	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
+}
+
+// TextBox is a box that contains only text and has no box children.
+//
+//Any text in the document ends up in a text box. What CSS calls "anonymous
+//inline boxes" are also text boxes.
+type TextBox struct {
+	InlineLevelBox
+
+	justificationSpacing int
+	text                 string
+}
+
+func (self *TextBox) init(elementTag TBD, style css.StyleDict, text string) {
+	if !style.Anonymous {
+		log.Fatal("style is not anonymous")
+	}
+	if len(text) == 0 {
+		log.Fatal("empty text")
+	}
+	self.InlineLevelBox.init(elementTag, style)
+	textTransform := style.TextTransform
+	if textTransform != "none" {
+		switch textTransform {
+		case "uppercase":
+			text = strings.ToUpper(text)
+		case "lowercase":
+			text = strings.ToLower(text)
+		// Python’s unicode.captitalize is not the same.
+		case "capitalize":
+			text = strings.ToTitle(text)
+		case "full-width":
+			var chars []string
+			for _, u := range []rune(text) {
+				chars = append(chars, asciiToWide[u])
+			}
+			text = strings.Join(chars, "")
+		}
+
+		if style.Hyphens == "none" {
+			text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
+		}
+	}
+	self.text = text
+}
+
+// Return a new TextBox identical to this one except for the text.
+func (self TextBox) copyWithText(text string) TextBox {
+	if len(text) == 0 {
+		log.Fatal("empty text")
+	}
+	newBox := self
+	newBox.text = text
+	return newBox
 }
