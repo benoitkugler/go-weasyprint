@@ -498,11 +498,21 @@ type BlockBox struct {
 	BlockLevelBox
 }
 
+func NewBlockBox(elementTag TBD, style css.StyleDict, children []AllBox) *BlockBox {
+	var out BlockBox
+	out.BlockContainerBox.ParentBox.init(elementTag, style, children)
+	return &out
+}
+
 func (self BlockBox) AllChildren() []AllBox {
 	if self.outsideListMarker != nil {
 		return append(self.children, self.outsideListMarker)
 	}
 	return self.children
+}
+
+func (self BlockBox) pageValues() (int, int) {
+	return self.BlockContainerBox.pageValues()
 }
 
 // LineBox is a box that represents a line in an inline formatting context.
@@ -565,6 +575,12 @@ func (self *InlineLevelBox) removeDecoration(start, end bool) {
 type InlineBox struct {
 	InlineLevelBox
 	ParentBox
+}
+
+func NewInlineBox(elementTag TBD, style css.StyleDict, children []AllBox) *InlineBox {
+	var out InlineBox
+	out.init(elementTag, style, children)
+	return &out
 }
 
 // Return the (x, y, w, h) rectangle where the box is clickable.
@@ -641,6 +657,12 @@ type InlineBlockBox struct {
 	BlockContainerBox
 }
 
+func NewInlineBlockBox(elementTag TBD, style css.StyleDict, children []AllBox) *InlineBlockBox {
+	var out InlineBlockBox
+	out.init(elementTag, style, children)
+	return &out
+}
+
 // ReplacedBox is a box whose content is replaced.
 // For example, ``<img>`` are replaced: their content is rendered externally
 // and is opaque from CSS’s point of view.
@@ -682,6 +704,13 @@ type TableBox struct {
 	columnPositions  []float64
 }
 
+func NewTableBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableBox {
+	var out TableBox
+	out.init(elementTag, style, children)
+	out.tabularContainer = true
+	return &out
+}
+
 // Definitions for the rules generating anonymous table boxes
 // http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 
@@ -708,6 +737,10 @@ type InlineTableBox struct {
 	TableBox
 }
 
+func NewInlineTableBox(elementTag TBD, style css.StyleDict, children []AllBox) *InlineTableBox {
+	return &InlineTableBox{*NewTableBox(elementTag, style, children)}
+}
+
 // TableRowGroupBox is a box for elements with ``display: table-row-group``
 type TableRowGroupBox struct {
 	ParentBox
@@ -722,6 +755,15 @@ type TableRowGroupBox struct {
 	isFooter bool
 }
 
+func NewTableRowGroupBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableRowGroupBox {
+	var out TableRowGroupBox
+	out.init(elementTag, style, children)
+	out.properTableChild = true
+	out.internalTableOrCaption = true
+	out.tabularContainer = true
+	return &out
+}
+
 // TableRowBox is a box for elements with ``display: table-row``
 type TableRowBox struct {
 	ParentBox
@@ -729,6 +771,15 @@ type TableRowBox struct {
 	internalTableOrCaption bool // default weight true
 	tabularContainer       bool // default weight true
 	//properParents = (TableBox, InlineTableBox, TableRowGroupBox)
+}
+
+func NewTableRowBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableRowBox {
+	var out TableRowBox
+	out.init(elementTag, style, children)
+	out.properTableChild = true
+	out.internalTableOrCaption = true
+	out.tabularContainer = true
+	return &out
 }
 
 // TableColumnGroupBox is a box for elements with ``display: table-column-group``
@@ -745,6 +796,15 @@ type TableColumnGroupBox struct {
 
 	//Default weight. May be overriden on instances.
 	span int // default weight 1
+}
+
+func NewTableColumnGroupBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableColumnGroupBox {
+	var out TableColumnGroupBox
+	out.init(elementTag, style, children)
+	out.span = 1
+	out.properTableChild = true
+	out.internalTableOrCaption = true
+	return &out
 }
 
 // Return cells that originate in the group's columns.
@@ -784,8 +844,14 @@ type TableColumnBox struct {
 	span int // default weight 1
 }
 
-func (s *TableColumnBox) init() {
+func NewTableColumnBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableColumnBox {
+	var out TableColumnBox
+	out.init(elementTag, style, children)
+	out.span = 1
+	out.properTableChild = true
+	out.internalTableOrCaption = true
 
+	return &out
 }
 
 // Return cells that originate in the column.
@@ -805,6 +871,15 @@ type TableCellBox struct {
 	rowspan int // default weight 1
 }
 
+func NewTableCellBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableCellBox {
+	var out TableCellBox
+	out.init(elementTag, style, children)
+	out.colspan = 1
+	out.rowspan = 1
+	out.internalTableOrCaption = true
+	return &out
+}
+
 // TableCaptionBox is a box for elements with ``display: table-caption``
 type TableCaptionBox struct {
 	BlockBox
@@ -812,6 +887,16 @@ type TableCaptionBox struct {
 	properTableChild       bool // default weight true
 	internalTableOrCaption bool // default weight true
 	//properParents = (TableBox, InlineTableBox)
+}
+
+func NewTableCaptionBox(elementTag TBD, style css.StyleDict, children []AllBox) *TableCaptionBox {
+	var out TableCaptionBox
+	out.BlockBox = *NewBlockBox(elementTag, style, children)
+
+	out.properTableChild = true
+	out.internalTableOrCaption = true
+
+	return &out
 }
 
 // PageBox is a box for a page
