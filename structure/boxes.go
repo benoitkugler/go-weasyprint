@@ -469,7 +469,7 @@ func (self ParentBox) pageValues() (int, int) {
 }
 
 // BlockLevelBox is a box that participates in an block formatting context.
-//An element with a ``display`` value of ``block``, ``list-item`` or
+//An element with a ``display`` weight of ``block``, ``list-item`` or
 //``table`` generates a block-level box.
 type BlockLevelBox struct {
 	Box
@@ -482,7 +482,7 @@ type BlockLevelBox struct {
 //A box that either contains only block-level boxes or establishes an inline
 //formatting context and thus contains only line boxes.
 //
-//A non-replaced element with a ``display`` value of ``block``,
+//A non-replaced element with a ``display`` weight of ``block``,
 //``list-item``, ``inline-block`` or 'table-cell' generates a block container
 //box.
 type BlockContainerBox struct {
@@ -491,7 +491,7 @@ type BlockContainerBox struct {
 
 // BlockBox is a block-level box that is also a block container.
 //
-//A non-replaced element with a ``display`` value of ``block``, ``list-item``
+//A non-replaced element with a ``display`` weight of ``block``, ``list-item``
 //generates a block box.
 type BlockBox struct {
 	BlockContainerBox
@@ -528,7 +528,7 @@ func (l *LineBox) init(elementTag TBD, style css.StyleDict, children []AllBox) {
 //An inline-level box that is not an inline box is said to be "atomic". Such
 //boxes are inline blocks, replaced elements and inline tables.
 //
-//An element with a ``display`` value of ``inline``, ``inline-table``, or
+//An element with a ``display`` weight of ``inline``, ``inline-table``, or
 //``inline-block`` generates an inline-level box.
 type InlineLevelBox struct {
 	Box
@@ -560,7 +560,7 @@ func (self *InlineLevelBox) removeDecoration(start, end bool) {
 //A box that participates in an inline formatting context and whose content
 //also participates in that inline formatting context.
 //
-//A non-replaced element with a ``display`` value of ``inline`` generates an
+//A non-replaced element with a ``display`` weight of ``inline`` generates an
 //inline box.
 type InlineBox struct {
 	InlineLevelBox
@@ -634,7 +634,7 @@ type AtomicInlineLevelBox struct {
 
 // InlineBlockBox is a box that is both inline-level and a block container.
 // It behaves as inline on the outside and as a block on the inside.
-// A non-replaced element with a 'display' value of 'inline-block' generates
+// A non-replaced element with a 'display' weight of 'inline-block' generates
 // an inline-block box.
 type InlineBlockBox struct {
 	AtomicInlineLevelBox
@@ -656,7 +656,7 @@ func (self *ReplacedBox) init(elementTag TBD, style css.StyleDict, replacement T
 }
 
 // BlockReplacedBox is a box that is both replaced and block-level.
-// A replaced element with a ``display`` value of ``block``, ``liste-item`` or
+// A replaced element with a ``display`` weight of ``block``, ``liste-item`` or
 //``table`` generates a block-level replaced box.
 type BlockReplacedBox struct {
 	ReplacedBox
@@ -664,7 +664,7 @@ type BlockReplacedBox struct {
 }
 
 // InlineReplacedBox is a box that is both replaced and inline-level.
-// A replaced element with a ``display`` value of ``inline``,
+// A replaced element with a ``display`` weight of ``inline``,
 //``inline-table``, or ``inline-block`` generates an inline-level replaced
 //box.
 type InlineReplacedBox struct {
@@ -711,9 +711,9 @@ type InlineTableBox struct {
 // TableRowGroupBox is a box for elements with ``display: table-row-group``
 type TableRowGroupBox struct {
 	ParentBox
-	properTableChild       bool // default value true
-	internalTableOrCaption bool // default value true
-	tabularContainer       bool // default value true
+	properTableChild       bool // default weight true
+	internalTableOrCaption bool // default weight true
+	tabularContainer       bool // default weight true
 
 	//properParents = (TableBox, InlineTableBox)
 
@@ -725,9 +725,9 @@ type TableRowGroupBox struct {
 // TableRowBox is a box for elements with ``display: table-row``
 type TableRowBox struct {
 	ParentBox
-	properTableChild       bool // default value true
-	internalTableOrCaption bool // default value true
-	tabularContainer       bool // default value true
+	properTableChild       bool // default weight true
+	internalTableOrCaption bool // default weight true
+	tabularContainer       bool // default weight true
 	//properParents = (TableBox, InlineTableBox, TableRowGroupBox)
 }
 
@@ -735,16 +735,16 @@ type TableRowBox struct {
 type TableColumnGroupBox struct {
 	ParentBox
 
-	properTableChild       bool // default value true
-	internalTableOrCaption bool // default value true
+	properTableChild       bool // default weight true
+	internalTableOrCaption bool // default weight true
 	//properParents = (TableBox, InlineTableBox)
 
 	//Columns groups never have margins or paddings
 	marginTop, marginBottom, marginLeft, marginRight     float64
 	paddingTop, paddingBottom, paddingLeft, paddingRight float64
 
-	//Default value. May be overriden on instances.
-	span int // default value 1
+	//Default weight. May be overriden on instances.
+	span int // default weight 1
 }
 
 // Return cells that originate in the group's columns.
@@ -772,16 +772,16 @@ func (self TableColumnGroupBox) getCells() []AllBox {
 type TableColumnBox struct {
 	ParentBox
 
-	properTableChild       bool // default value true
-	internalTableOrCaption bool // default value true
+	properTableChild       bool // default weight true
+	internalTableOrCaption bool // default weight true
 	//properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
 
 	//Columns never have margins or paddings
 	marginTop, marginBottom, marginLeft, marginRight     float64
 	paddingTop, paddingBottom, paddingLeft, paddingRight float64
 
-	//Default value. May be overriden on instances.
-	span int // default value 1
+	//Default weight. May be overriden on instances.
+	span int // default weight 1
 }
 
 func (s *TableColumnBox) init() {
@@ -798,19 +798,19 @@ func (self TableColumnBox) getCells() []AllBox {
 type TableCellBox struct {
 	BlockContainerBox
 
-	internalTableOrCaption bool // default value true
+	internalTableOrCaption bool // default weight true
 
 	// Default values. May be overriden on instances.
-	colspan int // default value 1
-	rowspan int // default value 1
+	colspan int // default weight 1
+	rowspan int // default weight 1
 }
 
 // TableCaptionBox is a box for elements with ``display: table-caption``
 type TableCaptionBox struct {
 	BlockBox
 
-	properTableChild       bool // default value true
-	internalTableOrCaption bool // default value true
+	properTableChild       bool // default weight true
+	internalTableOrCaption bool // default weight true
 	//properParents = (TableBox, InlineTableBox)
 }
 

@@ -1,684 +1,293 @@
-package structure
-
-# coding: utf-8
+// coding: utf-8
 """
-weasyprint.formattingStructure.boxes
--------------------------------------
+    weasyprint.formattingStructure.counters
+    ----------------------------------------
 
-Classes for all types of boxes in the CSS formatting structure / box model.
+    Implement the various counter types and list-style-type values.
 
-See http://www.w3.org/TR/CSS21/visuren.html
+    These are defined in the same terms as CSS 3 Lists:
+    http://dev.w3.org/csswg/css3-lists/#predefined-counters
 
-Names are the same as in CSS 2.1 with the exception of ``TextBox``. In
-WeasyPrint, any text is in a ``TextBox``. What CSS calls anonymous
-inline boxes are text boxes but not all text boxes are anonymous
-inline boxes.
-
-See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-
-Abstract classes, should not be instantiated:
-
-* Box
-* BlockLevelBox
-* InlineLevelBox
-* BlockContainerBox
-* ReplacedBox
-* ParentBox
-* AtomicInlineLevelBox
-
-Concrete classes:
-
-* PageBox
-* BlockBox
-* InlineBox
-* InlineBlockBox
-* BlockReplacedBox
-* InlineReplacedBox
-* TextBox
-* LineBox
-* Various table-related Box subclasses
-
-All concrete box classes whose name contains "Inline" or "Block" have
-one of the following "outside" behavior:
-
-* Block-level (inherits from :class:`BlockLevelBox`)
-* Inline-level (inherits from :class:`InlineLevelBox`)
-
-and one of the following "inside" behavior:
-
-* Block container (inherits from :class:`BlockContainerBox`)
-* Inline content (InlineBox and :class:`TextBox`)
-* Replaced content (inherits from :class:`ReplacedBox`)
-
-... with various combinasions of both.
-
-See respective docstrings for details.
-
-:copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-:license: BSD, see LICENSE for details.
+    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
 
 """
 
-from _Future_ import division, unicodeLiterals
-
-import itertools
-
-from ..compat import unichr, xrange
-from ..css.properties import Dimension
-
-# The *Box classes have many attributes and methods, but that's the way it is
-# pylint: disable=R0904,R0902
-
-
-class Box(object):
-"""Abstract base class for all boxes."""
-# Definitions for the rules generating anonymous table boxes
-# http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-properTableChild = False
-internalTableOrCaption = False
-tabularContainer = False
-
-# Keep track of removed collapsing spaces for wrap opportunities.
-leadingCollapsibleSpace = False
-trailingCollapsibleSpace = False
-
-# Default, may be overriden on instances.
-isTableWrapper = False
-isForRootElement = False
-isColumn = False
-transformationMatrix = None
-bookmarkLabel = None
-stringSet = None
-
-# Default, overriden on some subclasses
-def allChildren(self):
-return ()
-
-def _Init_(self, elementTag, style):
-self.elementTag = elementTag
-self.style = style
-
-def _Repr_(self):
-return '<%s %s>' % (type(self)._Name_, self.elementTag)
-
-@classmethod
-def anonymousFrom(cls, parent, *args, **kwargs):
-"""Return an anonymous box that inherits from ``parent``."""
-return cls(
-parent.elementTag, parent.style.inheritFrom(), *args, **kwargs)
-
-def copy(self):
-"""Return shallow copy of the box."""
-cls = type(self)
-# Create a new instance without calling _Init_: initializing
-# styles may be kinda expensive, no need to do it again.
-newBox = cls._New_(cls)
-# Copy attributes
-newBox._Dict_.update(self._Dict_)
-newBox.style = self.style
-return newBox
-
-def translate(self, dx=0, dy=0, ignoreFloats=False):
-"""Change the box’s position.
-
-Also update the children’s positions accordingly.
-
-"""
-# Overridden in ParentBox to also translate children, if any.
-if dx == 0 and dy == 0:
-return
-self.positionX += dx
-self.positionY += dy
-for child in self.allChildren():
-if not (ignoreFloats and child.isFloated()):
-child.translate(dx, dy, ignoreFloats)
-
-# Heights and widths
-
-def paddingWidth(self):
-"""Width of the padding box."""
-return self.width + self.paddingLeft + self.paddingRight
-
-def paddingHeight(self):
-"""Height of the padding box."""
-return self.height + self.paddingTop + self.paddingBottom
-
-def borderWidth(self):
-"""Width of the border box."""
-return self.paddingWidth() + self.borderLeftWidth + \
-self.borderRightWidth
-
-def borderHeight(self):
-"""Height of the border box."""
-return self.paddingHeight() + self.borderTopWidth + \
-self.borderBottomWidth
-
-def marginWidth(self):
-"""Width of the margin box (aka. outer box)."""
-return self.borderWidth() + self.marginLeft + self.marginRight
-
-def marginHeight(self):
-"""Height of the margin box (aka. outer box)."""
-return self.borderHeight() + self.marginTop + self.marginBottom
-
-# Corners positions
-
-def contentBoxX(self):
-"""Absolute horizontal position of the content box."""
-return self.positionX + self.marginLeft + self.paddingLeft + \
-self.borderLeftWidth
-
-def contentBoxY(self):
-"""Absolute vertical position of the content box."""
-return self.positionY + self.marginTop + self.paddingTop + \
-self.borderTopWidth
-
-def paddingBoxX(self):
-"""Absolute horizontal position of the padding box."""
-return self.positionX + self.marginLeft + self.borderLeftWidth
-
-def paddingBoxY(self):
-"""Absolute vertical position of the padding box."""
-return self.positionY + self.marginTop + self.borderTopWidth
-
-def borderBoxX(self):
-"""Absolute horizontal position of the border box."""
-return self.positionX + self.marginLeft
-
-def borderBoxY(self):
-"""Absolute vertical position of the border box."""
-return self.positionY + self.marginTop
-
-def hitArea(self):
-"""Return the (x, y, w, h) rectangle where the box is clickable."""
-# "Border area. That's the area that hit-testing is done on."
-# http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
-# TODO: manage the border radii, use outerBorderRadii instead
-return (self.borderBoxX(), self.borderBoxY(),
-self.borderWidth(), self.borderHeight())
-
-def roundedBox(self, bt, br, bb, bl):
-"""Position, size and radii of a box inside the outer border box.
-
-bt, br, bb, and bl are distances from the outer border box,
-defining a rectangle to be rounded.
-
-"""
-tlrx, tlry = self.borderTopLeftRadius
-trrx, trry = self.borderTopRightRadius
-brrx, brry = self.borderBottomRightRadius
-blrx, blry = self.borderBottomLeftRadius
-
-tlrx = max(0, tlrx - bl)
-tlry = max(0, tlry - bt)
-trrx = max(0, trrx - br)
-trry = max(0, trry - bt)
-brrx = max(0, brrx - br)
-brry = max(0, brry - bb)
-blrx = max(0, blrx - bl)
-blry = max(0, blry - bb)
-
-x = self.borderBoxX() + bl
-y = self.borderBoxY() + bt
-width = self.borderWidth() - bl - br
-height = self.borderHeight() - bt - bb
-
-# Fix overlapping curves
-# See http://www.w3.org/TR/css3-background/#corner-overlap
-ratio = min([1] + [
-extent / sumRadii
-for extent, sumRadii in [
-(width, tlrx + trrx),
-(width, blrx + brrx),
-(height, tlry + blry),
-(height, trry + brry),
-]
-if sumRadii > 0
-])
-return (
-x, y, width, height,
-(tlrx * ratio, tlry * ratio),
-(trrx * ratio, trry * ratio),
-(brrx * ratio, brry * ratio),
-(blrx * ratio, blry * ratio))
-
-def roundedBoxRatio(self, ratio):
-return self.roundedBox(
-self.borderTopWidth * ratio,
-self.borderRightWidth * ratio,
-self.borderBottomWidth * ratio,
-self.borderLeftWidth * ratio)
-
-def roundedPaddingBox(self):
-"""Return the position, size and radii of the rounded padding box."""
-return self.roundedBox(
-self.borderTopWidth,
-self.borderRightWidth,
-self.borderBottomWidth,
-self.borderLeftWidth)
-
-def roundedBorderBox(self):
-"""Return the position, size and radii of the rounded border box."""
-return self.roundedBox(0, 0, 0, 0)
-
-def roundedContentBox(self):
-"""Return the position, size and radii of the rounded content box."""
-return self.roundedBox(
-self.borderTopWidth + self.paddingTop,
-self.borderRightWidth + self.paddingRight,
-self.borderBottomWidth + self.paddingBottom,
-self.borderLeftWidth + self.paddingLeft)
-
-# Positioning schemes
-
-def isFloated(self):
-"""Return whether this box is floated."""
-return self.style.float != 'none'
-
-def isAbsolutelyPositioned(self):
-"""Return whether this box is in the absolute positioning scheme."""
-return self.style.position in ('absolute', 'fixed')
-
-def isInNormalFlow(self):
-"""Return whether this box is in normal flow."""
-return not (self.isFloated() or self.isAbsolutelyPositioned())
-
-# Start and end page values for named pages
-
-def pageValues(self):
-"""Return start and end page values."""
-return (self.style['page'], self.style['page'])
-
-
-class ParentBox(Box):
-"""A box that has children."""
-def _Init_(self, elementTag, style, children):
-super(ParentBox, self)._Init_(elementTag, style)
-self.children = tuple(children)
-
-def allChildren(self):
-return self.children
-
-def enumerateSkip(self, skipNum=0):
-"""Yield ``(child, childIndex)`` tuples for each child.
-
-``skipNum`` children are skipped before iterating over them.
-
-"""
-for index in xrange(skipNum, len(self.children)):
-yield index, self.children[index]
-
-def ResetSpacing(self, side):
-"""Set to 0 the margin, padding and border of ``side``."""
-self.style['margin%s' % side] = Dimension(0, 'px')
-self.style['padding%s' % side] = Dimension(0, 'px')
-self.style['border%sWidth' % side] = 0
-setattr(self, 'margin%s' % side, 0)
-setattr(self, 'padding%s' % side, 0)
-setattr(self, 'border%sWidth' % side, 0)
-
-def RemoveDecoration(self, start, end):
-if start or end:
-self.style = self.style.copy()
-if start:
-self.ResetSpacing('top')
-if end:
-self.ResetSpacing('bottom')
-
-def copyWithChildren(self, newChildren, isStart=True, isEnd=True):
-"""Create a new equivalent box with given ``newChildren``."""
-newBox = self.copy()
-newBox.children = tuple(newChildren)
-if not isStart:
-newBox.outsideListMarker = None
-newBox.RemoveDecoration(not isStart, not isEnd)
-return newBox
-
-def descendants(self):
-"""A flat generator for a box, its children and descendants."""
-yield self
-for child in self.children:
-if hasattr(child, 'descendants'):
-for grandChild in child.descendants():
-yield grandChild
-else:
-yield child
-
-def getWrappedTable(self):
-"""Get the table wrapped by the box."""
-if self.isTableWrapper:
-for child in self.children:
-if isinstance(child, TableBox):
-return child
-else:  # pragma: no cover
-raise ValueError('Table wrapper without a table')
-
-def pageValues(self):
-startValue, endValue = super(ParentBox, self).pageValues()
-if self.children:
-startBox, endBox = self.children[0], self.children[-1]
-startValue = startBox.pageValues()[0] or startValue
-endValue = endBox.pageValues()[1] or endValue
-return startValue, endValue
-
-
-class BlockLevelBox(Box):
-"""A box that participates in an block formatting context.
-
-An element with a ``display`` value of ``block``, ``list-item`` or
-``table`` generates a block-level box.
-
-"""
-clearance = None
-
-
-class BlockContainerBox(ParentBox):
-"""A box that contains only block-level boxes or only line boxes.
-
-A box that either contains only block-level boxes or establishes an inline
-formatting context and thus contains only line boxes.
-
-A non-replaced element with a ``display`` value of ``block``,
-``list-item``, ``inline-block`` or 'table-cell' generates a block container
-box.
-
-"""
-
-
-class BlockBox(BlockContainerBox, BlockLevelBox):
-"""A block-level box that is also a block container.
-
-A non-replaced element with a ``display`` value of ``block``, ``list-item``
-generates a block box.
-
-"""
-# TODO: remove this when outside list marker are absolute children
-def allChildren(self):
-marker = getattr(self, 'outsideListMarker', None)
-return (itertools.chain(self.children, [marker])
-if marker else self.children)
-
-
-class LineBox(ParentBox):
-"""A box that represents a line in an inline formatting context.
-
-Can only contain inline-level boxes.
-
-In early stages of building the box tree a single line box contains many
-consecutive inline boxes. Later, during layout phase, each line boxes will
-be split into multiple line boxes, one for each actual line.
-
-"""
-def _Init_(self, elementTag, style, children):
-assert style.anonymous
-super(LineBox, self)._Init_(elementTag, style, children)
-
-
-class InlineLevelBox(Box):
-"""A box that participates in an inline formatting context.
-
-An inline-level box that is not an inline box is said to be "atomic". Such
-boxes are inline blocks, replaced elements and inline tables.
-
-An element with a ``display`` value of ``inline``, ``inline-table``, or
-``inline-block`` generates an inline-level box.
-
-"""
-def RemoveDecoration(self, start, end):
-if start or end:
-self.style = self.style.copy()
-ltr = self.style.direction == 'ltr'
-        if start:
-self.ResetSpacing('left' if ltr else 'right')
-if end:
-self.ResetSpacing('right' if ltr else 'left')
-
-
-class InlineBox(InlineLevelBox, ParentBox):
-"""An inline box with inline children.
-
-A box that participates in an inline formatting context and whose content
-also participates in that inline formatting context.
-
-A non-replaced element with a ``display`` value of ``inline`` generates an
-inline box.
-
-"""
-def hitArea(self):
-"""Return the (x, y, w, h) rectangle where the box is clickable."""
-# Use line-height (marginHeight) rather than borderHeight
-return (self.borderBoxX(), self.positionY,
-self.borderWidth(), self.marginHeight())
-
-
-class TextBox(InlineLevelBox):
-"""A box that contains only text and has no box children.
-
-Any text in the document ends up in a text box. What CSS calls "anonymous
-inline boxes" are also text boxes.
-
-"""
-justificationSpacing = 0
-
-# http://stackoverflow.com/questions/16317534/
-asciiToWide = dict((i, unichr(i + 0xfee0)) for i in range(0x21, 0x7f))
-asciiToWide.update({0x20: '\u3000', 0x2D: '\u2212'})
-
-def _Init_(self, elementTag, style, text):
-assert style.anonymous
-assert text
-super(TextBox, self)._Init_(elementTag, style)
-textTransform = style.textTransform
-if textTransform != 'none':
-text = {
-'uppercase': lambda t: t.upper(),
-'lowercase': lambda t: t.lower(),
-# Python’s unicode.captitalize is not the same.
-'capitalize': lambda t: t.title(),
-'full-width': lambda t: t.translate(self.asciiToWide),
-}[textTransform](text)
-if style.hyphens == 'none':
-text = text.replace('\u00AD', '')  # U+00AD SOFT HYPHEN (SHY)
-self.text = text
-
-def copyWithText(self, text):
-"""Return a new TextBox identical to this one except for the text."""
-assert text
-newBox = self.copy()
-newBox.text = text
-return newBox
-
-
-class AtomicInlineLevelBox(InlineLevelBox):
-"""An atomic box in an inline formatting context.
-
-This inline-level box cannot be split for line breaks.
-
-"""
-
-
-class InlineBlockBox(AtomicInlineLevelBox, BlockContainerBox):
-"""A box that is both inline-level and a block container.
-
-It behaves as inline on the outside and as a block on the inside.
-
-A non-replaced element with a 'display' value of 'inline-block' generates
-an inline-block box.
-
-"""
-
-
-class ReplacedBox(Box):
-"""A box whose content is replaced.
-
-For example, ``<img>`` are replaced: their content is rendered externally
-and is opaque from CSS’s point of view.
-
-"""
-def _Init_(self, elementTag, style, replacement):
-super(ReplacedBox, self)._Init_(elementTag, style)
-self.replacement = replacement
-
-
-class BlockReplacedBox(ReplacedBox, BlockLevelBox):
-"""A box that is both replaced and block-level.
-
-A replaced element with a ``display`` value of ``block``, ``liste-item`` or
-``table`` generates a block-level replaced box.
-
-"""
-
-
-class InlineReplacedBox(ReplacedBox, AtomicInlineLevelBox):
-"""A box that is both replaced and inline-level.
-
-A replaced element with a ``display`` value of ``inline``,
-``inline-table``, or ``inline-block`` generates an inline-level replaced
-box.
-
-"""
-
-
-class TableBox(BlockLevelBox, ParentBox):
-"""Box for elements with ``display: table``"""
-# Definitions for the rules generating anonymous table boxes
-# http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-tabularContainer = True
-
-def allChildren(self):
-return itertools.chain(self.children, self.columnGroups)
-
-def translate(self, dx=0, dy=0, ignoreFloats=False):
-if dx == 0 and dy == 0:
-return
-self.columnPositions = [
-position + dx for position in self.columnPositions]
-return super(TableBox, self).translate(dx, dy, ignoreFloats)
-
-def pageValues(self):
-return (self.style['page'], self.style['page'])
-
-
-class InlineTableBox(TableBox):
-"""Box for elements with ``display: inline-table``"""
-
-
-class TableRowGroupBox(ParentBox):
-"""Box for elements with ``display: table-row-group``"""
-properTableChild = True
-internalTableOrCaption = True
-tabularContainer = True
-properParents = (TableBox, InlineTableBox)
-
-# Default values. May be overriden on instances.
-isHeader = False
-isFooter = False
-
-
-class TableRowBox(ParentBox):
-"""Box for elements with ``display: table-row``"""
-properTableChild = True
-internalTableOrCaption = True
-tabularContainer = True
-properParents = (TableBox, InlineTableBox, TableRowGroupBox)
-
-
-class TableColumnGroupBox(ParentBox):
-"""Box for elements with ``display: table-column-group``"""
-properTableChild = True
-internalTableOrCaption = True
-properParents = (TableBox, InlineTableBox)
-
-# Default value. May be overriden on instances.
-span = 1
-
-# Columns groups never have margins or paddings
-marginTop = 0
-marginBottom = 0
-marginLeft = 0
-marginRight = 0
-
-paddingTop = 0
-paddingBottom = 0
-paddingLeft = 0
-paddingRight = 0
-
-def getCells(self):
-"""Return cells that originate in the group's columns."""
-return [
-cell for column in self.children for cell in column.getCells()]
-
-
-# Not really a parent box, but pretending to be removes some corner cases.
-class TableColumnBox(ParentBox):
-"""Box for elements with ``display: table-column``"""
-properTableChild = True
-internalTableOrCaption = True
-properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
-
-# Default value. May be overriden on instances.
-span = 1
-
-# Columns never have margins or paddings
-marginTop = 0
-marginBottom = 0
-marginLeft = 0
-marginRight = 0
-
-paddingTop = 0
-paddingBottom = 0
-paddingLeft = 0
-paddingRight = 0
-
-def getCells(self):
-"""Return cells that originate in the column.
-
-May be overriden on instances.
-
-"""
-return []
-
-
-class TableCellBox(BlockContainerBox):
-"""Box for elements with ``display: table-cell``"""
-internalTableOrCaption = True
-
-# Default values. May be overriden on instances.
-colspan = 1
-rowspan = 1
-
-
-class TableCaptionBox(BlockBox):
-"""Box for elements with ``display: table-caption``"""
-properTableChild = True
-internalTableOrCaption = True
-properParents = (TableBox, InlineTableBox)
-
-
-class PageBox(ParentBox):
-"""Box for a page.
-
-Initially the whole document will be in the box for the root element.
-During layout a new page box is created after every page break.
-
-"""
-def _Init_(self, pageType, style):
-self.pageType = pageType
-# Page boxes are not linked to any element.
-super(PageBox, self)._Init_(
-elementTag=None, style=style, children=[])
-
-def _Repr_(self):
-return '<%s %s>' % (type(self)._Name_, self.pageType)
-
-
-class MarginBox(BlockContainerBox):
-"""Box in page margins, as defined in CSS3 Paged Media"""
-def _Init_(self, atKeyword, style):
-self.atKeyword = atKeyword
-# Margin boxes are not linked to any element.
-super(MarginBox, self)._Init_(
-elementTag=None, style=style, children=[])
-
-def _Repr_(self):
-return '<%s %s>' % (type(self)._Name_, self.atKeyword)
+from Future__ import division, unicodeLiterals
+
+import functools
+
+All__ = ["format", "formatListMarker"]
+
+
+// Initial values for counter style descriptors.
+INITIALVALUES = dict(
+    negative=("-", ""),
+    prefix="",
+    suffix=".",
+    range=(float("-inf"), float("inf")),
+    fallback="decimal",
+    # type and symbols ommited here.
+)
+
+// Maps counter-style names to a dict of descriptors.
+STYLES = {
+    # Included here for formatListMarker().
+    # format() special-cases decimal and does not use this.
+    "decimal": INITIALVALUES,
+}
+
+// Maps counter types to a function implementing it.
+// The functions take three arguments: the values of the `symbols`
+// (or `additive-symbols` for the additive type) and `negative` descriptors,
+// and the integer value being formatted.
+// They return the representation as a string or None. None means that
+// the value can not represented and the fallback should be used.
+FORMATTERS = {}
+
+
+def registerStyle(name, type="symbolic", **descriptors):
+    """Register a counter style."""
+    if type == "override":
+        # TODO: when @counter-style rules are supported, change override
+        # to bind when a value is generated, not when the @rule is parsed.
+        style = dict(STYLES[descriptors.pop("override")])
+    else:
+        style = dict(INITIALVALUES, formatter=functools.partial(
+            FORMATTERS[type],
+            descriptors.pop("symbols"),
+            descriptors.pop("negative", INITIALVALUES["negative"])))
+    style.update(descriptors)
+    STYLES[name] = style
+
+
+def registerFormatter(function):
+    """Register a counter type/algorithm."""
+    FORMATTERS[function.Name.replace("", "-")] = function
+    return function
+
+
+@registerFormatter
+def repeating(symbols, Negative, value):
+    """Implement the algorithm for `type: repeating`."""
+    return symbols[(value - 1) % len(symbols)]
+
+
+@registerFormatter
+def numeric(symbols, negative, value):
+    """Implement the algorithm for `type: numeric`."""
+    if value == 0:
+        return symbols[0]
+    isNegative = value < 0
+    if isNegative:
+        value = abs(value)
+        prefix, suffix = negative
+        reversedParts = [suffix]
+    else:
+        reversedParts = []
+    length = len(symbols)
+    value = abs(value)
+    while value != 0:
+        reversedParts.append(symbols[value % length])
+        value //= length
+    if isNegative:
+        reversedParts.append(prefix)
+    return "".join(reversed(reversedParts))
+
+
+@registerFormatter
+def alphabetic(symbols, Negative, value):
+    """Implement the algorithm for `type: alphabetic`."""
+    if value <= 0:
+        return None
+    length = len(symbols)
+    reversedParts = []
+    while value != 0:
+        value -= 1
+        reversedParts.append(symbols[value % length])
+        value //= length
+    return "".join(reversed(reversedParts))
+
+
+@registerFormatter
+def symbolic(symbols, Negative, value):
+    """Implement the algorithm for `type: symbolic`."""
+    if value <= 0:
+        return None
+    length = len(symbols)
+    return symbols[value % length] * ((value - 1) // length)
+
+
+@registerFormatter
+def nonRepeating(symbols, Negative, value):
+    """Implement the algorithm for `type: non-repeating`."""
+    firstSymbolValue, symbols = symbols
+    value -= firstSymbolValue
+    if 0 <= value < len(symbols):
+        return symbols[value]
+
+
+@registerFormatter
+def additive(symbols, negative, value):
+    """Implement the algorithm for `type: additive`."""
+    if value == 0:
+        for weight, symbol in symbols:
+            if weight == 0:
+                return symbol
+    isNegative = value < 0
+    if isNegative:
+        value = abs(value)
+        prefix, suffix = negative
+        parts = [prefix]
+    else:
+        parts = []
+    for weight, symbol in symbols:
+        repetitions = value // weight
+        parts.extend([symbol] * repetitions)
+        value -= weight * repetitions
+        if value == 0:
+            if isNegative:
+                parts.append(suffix)
+            return "".join(parts)
+    return None  # Failed to find a representation for this value
+
+
+// "decimal" behaves the same as this, but defining it this way is silly.
+// We’ll special-case it and just use str().
+// registerStyle(
+//     "decimal",
+//     type="numeric",
+//     symbols="0 1 2 3 4 5 6 7 8 9".split(),
+// )
+registerStyle(
+    "decimal-leading-zero",
+    type="non-repeating",
+    symbols=(-9, """-09 -08 -07 -06 -05 -04 -03 -02 -01
+                    00 01 02 03 04 05 06 07 08 09""".split()),
+)
+registerStyle(
+    "lower-roman",
+    type="additive",
+    range=(1, 4999),
+    symbols=[(1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+             (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+             (10, "x"), (9, "ix"), (5, "v"), (4, "iv"),
+             (1, "i")],
+)
+registerStyle(
+    "upper-roman",
+    type="additive",
+    range=(1, 4999),
+    symbols=[(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+             (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+             (10, "X"), (9, "IX"), (5, "V"), (4, "IV"),
+             (1, "I")],
+)
+registerStyle(
+    "georgian",
+    type="additive",
+    range=(1, 19999),
+    symbols=[
+        (10000, "ჵ"), (9000, "ჰ"), (8000, "ჯ"), (7000, "ჴ"), (6000, "ხ"),
+        (5000, "ჭ"), (4000, "წ"), (3000, "ძ"), (2000, "ც"), (1000, "ჩ"),
+        (900, "შ"), (800, "ყ"), (700, "ღ"), (600, "ქ"),
+        (500, "ფ"), (400, "ჳ"), (300, "ტ"), (200, "ს"), (100, "რ"),
+        (90, "ჟ"), (80, "პ"), (70, "ო"), (60, "ჲ"),
+        (50, "ნ"), (40, "მ"), (30, "ლ"), (20, "კ"), (10, "ი"),
+        (9, "თ"), (8, "ჱ"), (7, "ზ"), (6, "ვ"),
+        (5, "ე"), (4, "დ"), (3, "გ"), (2, "ბ"), (1, "ა")],
+)
+registerStyle(
+    "armenian",
+    type="additive",
+    range=(1, 9999),
+    symbols=[
+        (9000, "Ք"), (8000, "Փ"), (7000, "Ւ"), (6000, "Ց"),
+        (5000, "Ր"), (4000, "Տ"), (3000, "Վ"), (2000, "Ս"), (1000, "Ռ"),
+        (900, "Ջ"), (800, "Պ"), (700, "Չ"), (600, "Ո"),
+        (500, "Շ"), (400, "Ն"), (300, "Յ"), (200, "Մ"), (100, "Ճ"),
+        (90, "Ղ"), (80, "Ձ"), (70, "Հ"), (60, "Կ"),
+        (50, "Ծ"), (40, "Խ"), (30, "Լ"), (20, "Ի"), (10, "Ժ"),
+        (9, "Թ"), (8, "Ը"), (7, "Է"), (6, "Զ"),
+        (5, "Ե"), (4, "Դ"), (3, "Գ"), (2, "Բ"), (1, "Ա")],
+)
+registerStyle(
+    "lower-alpha",
+    type="alphabetic",
+    symbols="a b c d e f g h i j k l m n o p q r s t u v w x y z".split(),
+)
+registerStyle(
+    "upper-alpha",
+    type="alphabetic",
+    symbols="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z".split(),
+)
+registerStyle(
+    "lower-greek",
+    type="alphabetic",
+    symbols="α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω".split()
+)
+registerStyle(
+    "disc",
+    type="repeating",
+    symbols=["•"],  # U+2022, BULLET
+    suffix="",
+)
+registerStyle(
+    "circle",
+    type="repeating",
+    symbols=["◦"],  # U+25E6 WHITE BULLET
+    suffix="",
+)
+registerStyle(
+    "square",
+    type="repeating",
+    # CSS Lists 3 suggests U+25FE BLACK MEDIUM SMALL SQUARE
+    # But I think this one looks better.
+    symbols=["▪"],  # U+25AA BLACK SMALL SQUARE
+    suffix="",
+)
+registerStyle(
+    "lower-latin",
+    type="override",
+    override="lower-alpha",
+)
+registerStyle(
+    "upper-latin",
+    type="override",
+    override="upper-alpha",
+)
+
+
+def format(value, counterStyle):
+    """
+    Return a representation of ``value`` formatted by ``counterStyle``
+    or one of its fallback.
+
+    The representation includes negative signs, but not the prefix and suffix.
+
+    """
+    if counterStyle == "none":
+        return ""
+    failedStyles = set()  # avoid fallback loops
+    while True:
+        if counterStyle == "decimal" or counterStyle in failedStyles:
+            return str(value)
+        style = STYLES[counterStyle]
+        low, high = style["range"]
+        if low <= value <= high:
+            representation = style["formatter"](value)
+            if representation is not None:
+                return representation
+        failedStyles.add(counterStyle)
+        counterStyle = style["fallback"]
+
+
+def formatListMarker(value, counterStyle):
+    """
+    Return a representation of ``value`` formatted for a list marker.
+
+    This is the same as :func:`format()`, but includes the counter’s
+    prefix and suffix.
+    """
+    style = STYLES[counterStyle]
+    return style["prefix"] + format(value, counterStyle) + style["suffix"]
