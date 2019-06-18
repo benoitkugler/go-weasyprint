@@ -28,6 +28,7 @@ type StyleDict struct {
 	Direction string
 
 	TextTransform, Hyphens string
+	Display                string
 }
 
 // Deep copy

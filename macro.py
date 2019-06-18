@@ -13,6 +13,9 @@ with open(path) as f:
                 newline += "_" + w
             else:
                 newline += w[0].upper() + w[1:]
+        if newline[0] == "#":
+            newline = "//" + newline[1:]
+        newline = newline.replace("'", '"')
         s += newline
 
 

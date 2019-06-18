@@ -1,684 +1,1204 @@
-package structure
-
-# coding: utf-8
+// coding: utf-8
 """
-weasyprint.formattingStructure.boxes
--------------------------------------
+    weasyprint.formattingStructure.build
+    -------------------------------------
 
-Classes for all types of boxes in the CSS formatting structure / box model.
+    Turn an element tree with associated CSS style (computed values)
+    into a "before layout" formatting structure / box tree.
 
-See http://www.w3.org/TR/CSS21/visuren.html
+    This includes creating anonymous boxes and processing whitespace
+    as necessary.
 
-Names are the same as in CSS 2.1 with the exception of ``TextBox``. In
-WeasyPrint, any text is in a ``TextBox``. What CSS calls anonymous
-inline boxes are text boxes but not all text boxes are anonymous
-inline boxes.
-
-See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-
-Abstract classes, should not be instantiated:
-
-* Box
-* BlockLevelBox
-* InlineLevelBox
-* BlockContainerBox
-* ReplacedBox
-* ParentBox
-* AtomicInlineLevelBox
-
-Concrete classes:
-
-* PageBox
-* BlockBox
-* InlineBox
-* InlineBlockBox
-* BlockReplacedBox
-* InlineReplacedBox
-* TextBox
-* LineBox
-* Various table-related Box subclasses
-
-All concrete box classes whose name contains "Inline" or "Block" have
-one of the following "outside" behavior:
-
-* Block-level (inherits from :class:`BlockLevelBox`)
-* Inline-level (inherits from :class:`InlineLevelBox`)
-
-and one of the following "inside" behavior:
-
-* Block container (inherits from :class:`BlockContainerBox`)
-* Inline content (InlineBox and :class:`TextBox`)
-* Replaced content (inherits from :class:`ReplacedBox`)
-
-... with various combinasions of both.
-
-See respective docstrings for details.
-
-:copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-:license: BSD, see LICENSE for details.
+    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
 
 """
 
-from _Future_ import division, unicodeLiterals
-
-import itertools
-
-from ..compat import unichr, xrange
-from ..css.properties import Dimension
-
-# The *Box classes have many attributes and methods, but that's the way it is
-# pylint: disable=R0904,R0902
-
-
-class Box(object):
-"""Abstract base class for all boxes."""
-# Definitions for the rules generating anonymous table boxes
-# http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-properTableChild = False
-internalTableOrCaption = False
-tabularContainer = False
-
-# Keep track of removed collapsing spaces for wrap opportunities.
-leadingCollapsibleSpace = False
-trailingCollapsibleSpace = False
-
-# Default, may be overriden on instances.
-isTableWrapper = False
-isForRootElement = False
-isColumn = False
-transformationMatrix = None
-bookmarkLabel = None
-stringSet = None
-
-# Default, overriden on some subclasses
-def allChildren(self):
-return ()
-
-def _Init_(self, elementTag, style):
-self.elementTag = elementTag
-self.style = style
-
-def _Repr_(self):
-return '<%s %s>' % (type(self)._Name_, self.elementTag)
-
-@classmethod
-def anonymousFrom(cls, parent, *args, **kwargs):
-"""Return an anonymous box that inherits from ``parent``."""
-return cls(
-parent.elementTag, parent.style.inheritFrom(), *args, **kwargs)
-
-def copy(self):
-"""Return shallow copy of the box."""
-cls = type(self)
-# Create a new instance without calling _Init_: initializing
-# styles may be kinda expensive, no need to do it again.
-newBox = cls._New_(cls)
-# Copy attributes
-newBox._Dict_.update(self._Dict_)
-newBox.style = self.style
-return newBox
-
-def translate(self, dx=0, dy=0, ignoreFloats=False):
-"""Change the box’s position.
-
-Also update the children’s positions accordingly.
-
-"""
-# Overridden in ParentBox to also translate children, if any.
-if dx == 0 and dy == 0:
-return
-self.positionX += dx
-self.positionY += dy
-for child in self.allChildren():
-if not (ignoreFloats and child.isFloated()):
-child.translate(dx, dy, ignoreFloats)
-
-# Heights and widths
-
-def paddingWidth(self):
-"""Width of the padding box."""
-return self.width + self.paddingLeft + self.paddingRight
-
-def paddingHeight(self):
-"""Height of the padding box."""
-return self.height + self.paddingTop + self.paddingBottom
-
-def borderWidth(self):
-"""Width of the border box."""
-return self.paddingWidth() + self.borderLeftWidth + \
-self.borderRightWidth
-
-def borderHeight(self):
-"""Height of the border box."""
-return self.paddingHeight() + self.borderTopWidth + \
-self.borderBottomWidth
-
-def marginWidth(self):
-"""Width of the margin box (aka. outer box)."""
-return self.borderWidth() + self.marginLeft + self.marginRight
-
-def marginHeight(self):
-"""Height of the margin box (aka. outer box)."""
-return self.borderHeight() + self.marginTop + self.marginBottom
-
-# Corners positions
-
-def contentBoxX(self):
-"""Absolute horizontal position of the content box."""
-return self.positionX + self.marginLeft + self.paddingLeft + \
-self.borderLeftWidth
-
-def contentBoxY(self):
-"""Absolute vertical position of the content box."""
-return self.positionY + self.marginTop + self.paddingTop + \
-self.borderTopWidth
-
-def paddingBoxX(self):
-"""Absolute horizontal position of the padding box."""
-return self.positionX + self.marginLeft + self.borderLeftWidth
-
-def paddingBoxY(self):
-"""Absolute vertical position of the padding box."""
-return self.positionY + self.marginTop + self.borderTopWidth
-
-def borderBoxX(self):
-"""Absolute horizontal position of the border box."""
-return self.positionX + self.marginLeft
-
-def borderBoxY(self):
-"""Absolute vertical position of the border box."""
-return self.positionY + self.marginTop
-
-def hitArea(self):
-"""Return the (x, y, w, h) rectangle where the box is clickable."""
-# "Border area. That's the area that hit-testing is done on."
-# http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
-# TODO: manage the border radii, use outerBorderRadii instead
-return (self.borderBoxX(), self.borderBoxY(),
-self.borderWidth(), self.borderHeight())
-
-def roundedBox(self, bt, br, bb, bl):
-"""Position, size and radii of a box inside the outer border box.
-
-bt, br, bb, and bl are distances from the outer border box,
-defining a rectangle to be rounded.
-
-"""
-tlrx, tlry = self.borderTopLeftRadius
-trrx, trry = self.borderTopRightRadius
-brrx, brry = self.borderBottomRightRadius
-blrx, blry = self.borderBottomLeftRadius
-
-tlrx = max(0, tlrx - bl)
-tlry = max(0, tlry - bt)
-trrx = max(0, trrx - br)
-trry = max(0, trry - bt)
-brrx = max(0, brrx - br)
-brry = max(0, brry - bb)
-blrx = max(0, blrx - bl)
-blry = max(0, blry - bb)
-
-x = self.borderBoxX() + bl
-y = self.borderBoxY() + bt
-width = self.borderWidth() - bl - br
-height = self.borderHeight() - bt - bb
-
-# Fix overlapping curves
-# See http://www.w3.org/TR/css3-background/#corner-overlap
-ratio = min([1] + [
-extent / sumRadii
-for extent, sumRadii in [
-(width, tlrx + trrx),
-(width, blrx + brrx),
-(height, tlry + blry),
-(height, trry + brry),
-]
-if sumRadii > 0
-])
-return (
-x, y, width, height,
-(tlrx * ratio, tlry * ratio),
-(trrx * ratio, trry * ratio),
-(brrx * ratio, brry * ratio),
-(blrx * ratio, blry * ratio))
-
-def roundedBoxRatio(self, ratio):
-return self.roundedBox(
-self.borderTopWidth * ratio,
-self.borderRightWidth * ratio,
-self.borderBottomWidth * ratio,
-self.borderLeftWidth * ratio)
-
-def roundedPaddingBox(self):
-"""Return the position, size and radii of the rounded padding box."""
-return self.roundedBox(
-self.borderTopWidth,
-self.borderRightWidth,
-self.borderBottomWidth,
-self.borderLeftWidth)
-
-def roundedBorderBox(self):
-"""Return the position, size and radii of the rounded border box."""
-return self.roundedBox(0, 0, 0, 0)
-
-def roundedContentBox(self):
-"""Return the position, size and radii of the rounded content box."""
-return self.roundedBox(
-self.borderTopWidth + self.paddingTop,
-self.borderRightWidth + self.paddingRight,
-self.borderBottomWidth + self.paddingBottom,
-self.borderLeftWidth + self.paddingLeft)
-
-# Positioning schemes
-
-def isFloated(self):
-"""Return whether this box is floated."""
-return self.style.float != 'none'
-
-def isAbsolutelyPositioned(self):
-"""Return whether this box is in the absolute positioning scheme."""
-return self.style.position in ('absolute', 'fixed')
-
-def isInNormalFlow(self):
-"""Return whether this box is in normal flow."""
-return not (self.isFloated() or self.isAbsolutelyPositioned())
-
-# Start and end page values for named pages
-
-def pageValues(self):
-"""Return start and end page values."""
-return (self.style['page'], self.style['page'])
-
-
-class ParentBox(Box):
-"""A box that has children."""
-def _Init_(self, elementTag, style, children):
-super(ParentBox, self)._Init_(elementTag, style)
-self.children = tuple(children)
-
-def allChildren(self):
-return self.children
-
-def enumerateSkip(self, skipNum=0):
-"""Yield ``(child, childIndex)`` tuples for each child.
-
-``skipNum`` children are skipped before iterating over them.
-
-"""
-for index in xrange(skipNum, len(self.children)):
-yield index, self.children[index]
-
-def ResetSpacing(self, side):
-"""Set to 0 the margin, padding and border of ``side``."""
-self.style['margin%s' % side] = Dimension(0, 'px')
-self.style['padding%s' % side] = Dimension(0, 'px')
-self.style['border%sWidth' % side] = 0
-setattr(self, 'margin%s' % side, 0)
-setattr(self, 'padding%s' % side, 0)
-setattr(self, 'border%sWidth' % side, 0)
-
-def RemoveDecoration(self, start, end):
-if start or end:
-self.style = self.style.copy()
-if start:
-self.ResetSpacing('top')
-if end:
-self.ResetSpacing('bottom')
-
-def copyWithChildren(self, newChildren, isStart=True, isEnd=True):
-"""Create a new equivalent box with given ``newChildren``."""
-newBox = self.copy()
-newBox.children = tuple(newChildren)
-if not isStart:
-newBox.outsideListMarker = None
-newBox.RemoveDecoration(not isStart, not isEnd)
-return newBox
-
-def descendants(self):
-"""A flat generator for a box, its children and descendants."""
-yield self
-for child in self.children:
-if hasattr(child, 'descendants'):
-for grandChild in child.descendants():
-yield grandChild
-else:
-yield child
-
-def getWrappedTable(self):
-"""Get the table wrapped by the box."""
-if self.isTableWrapper:
-for child in self.children:
-if isinstance(child, TableBox):
-return child
-else:  # pragma: no cover
-raise ValueError('Table wrapper without a table')
-
-def pageValues(self):
-startValue, endValue = super(ParentBox, self).pageValues()
-if self.children:
-startBox, endBox = self.children[0], self.children[-1]
-startValue = startBox.pageValues()[0] or startValue
-endValue = endBox.pageValues()[1] or endValue
-return startValue, endValue
-
-
-class BlockLevelBox(Box):
-"""A box that participates in an block formatting context.
-
-An element with a ``display`` value of ``block``, ``list-item`` or
-``table`` generates a block-level box.
-
-"""
-clearance = None
-
-
-class BlockContainerBox(ParentBox):
-"""A box that contains only block-level boxes or only line boxes.
-
-A box that either contains only block-level boxes or establishes an inline
-formatting context and thus contains only line boxes.
-
-A non-replaced element with a ``display`` value of ``block``,
-``list-item``, ``inline-block`` or 'table-cell' generates a block container
-box.
-
-"""
-
-
-class BlockBox(BlockContainerBox, BlockLevelBox):
-"""A block-level box that is also a block container.
-
-A non-replaced element with a ``display`` value of ``block``, ``list-item``
-generates a block box.
-
-"""
-# TODO: remove this when outside list marker are absolute children
-def allChildren(self):
-marker = getattr(self, 'outsideListMarker', None)
-return (itertools.chain(self.children, [marker])
-if marker else self.children)
-
-
-class LineBox(ParentBox):
-"""A box that represents a line in an inline formatting context.
-
-Can only contain inline-level boxes.
-
-In early stages of building the box tree a single line box contains many
-consecutive inline boxes. Later, during layout phase, each line boxes will
-be split into multiple line boxes, one for each actual line.
-
-"""
-def _Init_(self, elementTag, style, children):
-assert style.anonymous
-super(LineBox, self)._Init_(elementTag, style, children)
-
-
-class InlineLevelBox(Box):
-"""A box that participates in an inline formatting context.
-
-An inline-level box that is not an inline box is said to be "atomic". Such
-boxes are inline blocks, replaced elements and inline tables.
-
-An element with a ``display`` value of ``inline``, ``inline-table``, or
-``inline-block`` generates an inline-level box.
-
-"""
-def RemoveDecoration(self, start, end):
-if start or end:
-self.style = self.style.copy()
-ltr = self.style.direction == 'ltr'
-        if start:
-self.ResetSpacing('left' if ltr else 'right')
-if end:
-self.ResetSpacing('right' if ltr else 'left')
-
-
-class InlineBox(InlineLevelBox, ParentBox):
-"""An inline box with inline children.
-
-A box that participates in an inline formatting context and whose content
-also participates in that inline formatting context.
-
-A non-replaced element with a ``display`` value of ``inline`` generates an
-inline box.
-
-"""
-def hitArea(self):
-"""Return the (x, y, w, h) rectangle where the box is clickable."""
-# Use line-height (marginHeight) rather than borderHeight
-return (self.borderBoxX(), self.positionY,
-self.borderWidth(), self.marginHeight())
-
-
-class TextBox(InlineLevelBox):
-"""A box that contains only text and has no box children.
-
-Any text in the document ends up in a text box. What CSS calls "anonymous
-inline boxes" are also text boxes.
-
-"""
-justificationSpacing = 0
-
-# http://stackoverflow.com/questions/16317534/
-asciiToWide = dict((i, unichr(i + 0xfee0)) for i in range(0x21, 0x7f))
-asciiToWide.update({0x20: '\u3000', 0x2D: '\u2212'})
-
-def _Init_(self, elementTag, style, text):
-assert style.anonymous
-assert text
-super(TextBox, self)._Init_(elementTag, style)
-textTransform = style.textTransform
-if textTransform != 'none':
-text = {
-'uppercase': lambda t: t.upper(),
-'lowercase': lambda t: t.lower(),
-# Python’s unicode.captitalize is not the same.
-'capitalize': lambda t: t.title(),
-'full-width': lambda t: t.translate(self.asciiToWide),
-}[textTransform](text)
-if style.hyphens == 'none':
-text = text.replace('\u00AD', '')  # U+00AD SOFT HYPHEN (SHY)
-self.text = text
-
-def copyWithText(self, text):
-"""Return a new TextBox identical to this one except for the text."""
-assert text
-newBox = self.copy()
-newBox.text = text
-return newBox
-
-
-class AtomicInlineLevelBox(InlineLevelBox):
-"""An atomic box in an inline formatting context.
-
-This inline-level box cannot be split for line breaks.
-
-"""
-
-
-class InlineBlockBox(AtomicInlineLevelBox, BlockContainerBox):
-"""A box that is both inline-level and a block container.
-
-It behaves as inline on the outside and as a block on the inside.
-
-A non-replaced element with a 'display' value of 'inline-block' generates
-an inline-block box.
-
-"""
-
-
-class ReplacedBox(Box):
-"""A box whose content is replaced.
-
-For example, ``<img>`` are replaced: their content is rendered externally
-and is opaque from CSS’s point of view.
-
-"""
-def _Init_(self, elementTag, style, replacement):
-super(ReplacedBox, self)._Init_(elementTag, style)
-self.replacement = replacement
-
-
-class BlockReplacedBox(ReplacedBox, BlockLevelBox):
-"""A box that is both replaced and block-level.
-
-A replaced element with a ``display`` value of ``block``, ``liste-item`` or
-``table`` generates a block-level replaced box.
-
-"""
-
-
-class InlineReplacedBox(ReplacedBox, AtomicInlineLevelBox):
-"""A box that is both replaced and inline-level.
-
-A replaced element with a ``display`` value of ``inline``,
-``inline-table``, or ``inline-block`` generates an inline-level replaced
-box.
-
-"""
-
-
-class TableBox(BlockLevelBox, ParentBox):
-"""Box for elements with ``display: table``"""
-# Definitions for the rules generating anonymous table boxes
-# http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-tabularContainer = True
-
-def allChildren(self):
-return itertools.chain(self.children, self.columnGroups)
-
-def translate(self, dx=0, dy=0, ignoreFloats=False):
-if dx == 0 and dy == 0:
-return
-self.columnPositions = [
-position + dx for position in self.columnPositions]
-return super(TableBox, self).translate(dx, dy, ignoreFloats)
-
-def pageValues(self):
-return (self.style['page'], self.style['page'])
-
-
-class InlineTableBox(TableBox):
-"""Box for elements with ``display: inline-table``"""
-
-
-class TableRowGroupBox(ParentBox):
-"""Box for elements with ``display: table-row-group``"""
-properTableChild = True
-internalTableOrCaption = True
-tabularContainer = True
-properParents = (TableBox, InlineTableBox)
-
-# Default values. May be overriden on instances.
-isHeader = False
-isFooter = False
-
-
-class TableRowBox(ParentBox):
-"""Box for elements with ``display: table-row``"""
-properTableChild = True
-internalTableOrCaption = True
-tabularContainer = True
-properParents = (TableBox, InlineTableBox, TableRowGroupBox)
-
-
-class TableColumnGroupBox(ParentBox):
-"""Box for elements with ``display: table-column-group``"""
-properTableChild = True
-internalTableOrCaption = True
-properParents = (TableBox, InlineTableBox)
-
-# Default value. May be overriden on instances.
-span = 1
-
-# Columns groups never have margins or paddings
-marginTop = 0
-marginBottom = 0
-marginLeft = 0
-marginRight = 0
-
-paddingTop = 0
-paddingBottom = 0
-paddingLeft = 0
-paddingRight = 0
-
-def getCells(self):
-"""Return cells that originate in the group's columns."""
-return [
-cell for column in self.children for cell in column.getCells()]
-
-
-# Not really a parent box, but pretending to be removes some corner cases.
-class TableColumnBox(ParentBox):
-"""Box for elements with ``display: table-column``"""
-properTableChild = True
-internalTableOrCaption = True
-properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
-
-# Default value. May be overriden on instances.
-span = 1
-
-# Columns never have margins or paddings
-marginTop = 0
-marginBottom = 0
-marginLeft = 0
-marginRight = 0
-
-paddingTop = 0
-paddingBottom = 0
-paddingLeft = 0
-paddingRight = 0
-
-def getCells(self):
-"""Return cells that originate in the column.
-
-May be overriden on instances.
-
-"""
-return []
-
-
-class TableCellBox(BlockContainerBox):
-"""Box for elements with ``display: table-cell``"""
-internalTableOrCaption = True
-
-# Default values. May be overriden on instances.
-colspan = 1
-rowspan = 1
-
-
-class TableCaptionBox(BlockBox):
-"""Box for elements with ``display: table-caption``"""
-properTableChild = True
-internalTableOrCaption = True
-properParents = (TableBox, InlineTableBox)
-
-
-class PageBox(ParentBox):
-"""Box for a page.
-
-Initially the whole document will be in the box for the root element.
-During layout a new page box is created after every page break.
-
-"""
-def _Init_(self, pageType, style):
-self.pageType = pageType
-# Page boxes are not linked to any element.
-super(PageBox, self)._Init_(
-elementTag=None, style=style, children=[])
-
-def _Repr_(self):
-return '<%s %s>' % (type(self)._Name_, self.pageType)
-
-
-class MarginBox(BlockContainerBox):
-"""Box in page margins, as defined in CSS3 Paged Media"""
-def _Init_(self, atKeyword, style):
-self.atKeyword = atKeyword
-# Margin boxes are not linked to any element.
-super(MarginBox, self)._Init_(
-elementTag=None, style=style, children=[])
-
-def _Repr_(self):
-return '<%s %s>' % (type(self)._Name_, self.atKeyword)
+from _Future__ import division, unicodeLiterals
+
+import re
+import unicodedata
+
+import tinycss2.color3
+
+from . import boxes, counters
+from .. import html
+from ..compat import basestring, xrange
+from ..css import properties
+
+// Maps values of the ``display`` CSS property to box types.
+BOXTYPEFROMDISPLAY = {
+    "block": boxes.BlockBox,
+    "list-item": boxes.BlockBox,
+    "inline": boxes.InlineBox,
+    "inline-block": boxes.InlineBlockBox,
+    "table": boxes.TableBox,
+    "inline-table": boxes.InlineTableBox,
+    "table-row": boxes.TableRowBox,
+    "table-row-group": boxes.TableRowGroupBox,
+    "table-header-group": boxes.TableRowGroupBox,
+    "table-footer-group": boxes.TableRowGroupBox,
+    "table-column": boxes.TableColumnBox,
+    "table-column-group": boxes.TableColumnGroupBox,
+    "table-cell": boxes.TableCellBox,
+    "table-caption": boxes.TableCaptionBox,
+}
+
+
+def buildFormattingStructure(elementTree, styleFor, getImageFromUri,
+                               baseUrl):
+    """Build a formatting structure (box tree) from an element tree."""
+    boxList = elementToBox(
+        elementTree, styleFor, getImageFromUri, baseUrl)
+    if boxList:
+        box, = boxList
+    else:
+        # No root element
+        def rootStyleFor(element, pseudoType=None):
+            style = styleFor(element, pseudoType)
+            if style:
+                # TODO: we should check that the element has a parent instead.
+                if element.tag == "html":
+                    style.display = "block"
+                else:
+                    style.display = "none"
+            return style
+        box, = elementToBox(
+            elementTree, rootStyleFor, getImageFromUri, baseUrl)
+    box.isForRootElement = True
+    # If this is changed, maybe update weasy.layout.pages.makeMarginBoxes()
+    processWhitespace(box)
+    box = anonymousTableBoxes(box)
+    box = inlineInBlock(box)
+    box = blockInInline(box)
+    box = setViewportOverflow(box)
+    return box
+
+
+def makeBox(elementTag, style, content, getImageFromUri):
+    return BOXTYPEFROMDISPLAY[style.display](
+        elementTag, style, content)
+
+
+def elementToBox(element, styleFor, getImageFromUri, baseUrl,
+                   state=None):
+    """Convert an element and its children into a box with children.
+
+    Return a list of boxes. Most of the time the list will have one item but
+    may have zero or more than one.
+
+    Eg.::
+
+        <p>Some <em>emphasised</em> text.</p>
+
+    gives (not actual syntax)::
+
+        BlockBox[
+            TextBox["Some "],
+            InlineBox[
+                TextBox["emphasised"],
+            ],
+            TextBox[" text."],
+        ]
+
+    ``TextBox``es are anonymous inline boxes:
+    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
+
+    """
+    if not isinstance(element.tag, basestring):
+        # lxml.html already converts HTML entities to text.
+        # Here we ignore comments and XML processing instructions.
+        return []
+
+    style = styleFor(element)
+
+    # TODO: should be the used value. When does the used value for `display`
+    # differ from the computer value?
+    display = style.display
+    if display == "none":
+        return []
+
+    box = makeBox(element.tag, style, [], getImageFromUri)
+
+    if state is None:
+        # use a list to have a shared mutable object
+        state = (
+            # Shared mutable objects:
+            [0],  # quoteDepth: single integer
+            {},  # counterValues: name -> stacked/scoped values
+            [set()]  # counterScopes: element tree depths -> counter names
+        )
+    QuoteDepth, counterValues, counterScopes = state
+
+    updateCounters(state, style)
+
+    children = []
+    if display == "list-item":
+        children.extend(addBoxMarker(
+            box, counterValues, getImageFromUri))
+
+    # If this element’s direct children create new scopes, the counter
+    # names will be in this new list
+    counterScopes.append(set())
+
+    box.firstLetterStyle = styleFor(element, "first-letter")
+    box.firstLineStyle = styleFor(element, "first-line")
+
+    children.extend(beforeAfterToBox(
+        element, "before", state, styleFor, getImageFromUri))
+    text = element.text
+    if text:
+        children.append(boxes.TextBox.anonymousFrom(box, text))
+
+    for childElement in element:
+        children.extend(elementToBox(
+            childElement, styleFor, getImageFromUri, baseUrl, state))
+        text = childElement.tail
+        if text:
+            textBox = boxes.TextBox.anonymousFrom(box, text)
+            if children and isinstance(children[-1], boxes.TextBox):
+                children[-1].text += textBox.text
+            else:
+                children.append(textBox)
+    children.extend(beforeAfterToBox(
+        element, "after", state, styleFor, getImageFromUri))
+
+    # Scopes created by this element’s children stop here.
+    for name in counterScopes.pop():
+        counterValues[name].pop()
+        if not counterValues[name]:
+            counterValues.pop(name)
+
+    box.children = children
+    setContentLists(element, box, style, counterValues)
+
+    # Specific handling for the element. (eg. replaced element)
+    return html.handleElement(element, box, getImageFromUri, baseUrl)
+
+
+def beforeAfterToBox(element, pseudoType, state, styleFor,
+                        getImageFromUri):
+    """Yield the box for ::before or ::after pseudo-element if there is one."""
+    style = styleFor(element, pseudoType)
+    if pseudoType and style is None:
+        # Pseudo-elements with no style at all do not get a StyleDict
+        # Their initial content property computes to "none".
+        return
+
+    # TODO: should be the used value. When does the used value for `display`
+    # differ from the computer value?
+    display = style.display
+    content = style.content
+    if "none" in (display, content) or content == "normal":
+        return
+
+    box = makeBox(
+        "%s::%s" % (element.tag, pseudoType), style, [], getImageFromUri)
+
+    quoteDepth, counterValues, CounterScopes = state
+    updateCounters(state, style)
+    children = []
+    if display == "list-item":
+        children.extend(addBoxMarker(
+            box, counterValues, getImageFromUri))
+    children.extend(contentToBoxes(
+        style, box, quoteDepth, counterValues, getImageFromUri))
+
+    box.children = children
+    yield box
+
+
+def contentToBoxes(style, parentBox, quoteDepth, counterValues,
+                     getImageFromUri, context=None, page=None):
+    """Takes the value of a ``content`` property and yield boxes."""
+    texts = []
+    for type_, value in style.content:
+        if type_ == "STRING":
+            texts.append(value)
+        elif type_ == "URI":
+            image = getImageFromUri(value)
+            if image is not None:
+                text = "".join(texts)
+                if text:
+                    yield boxes.TextBox.anonymousFrom(parentBox, text)
+                texts = []
+                yield boxes.InlineReplacedBox.anonymousFrom(parentBox, image)
+        elif type_ == "counter":
+            counterName, counterStyle = value
+            counterValue = counterValues.get(counterName, [0])[-1]
+            texts.append(counters.format(counterValue, counterStyle))
+        elif type_ == "counters":
+            counterName, separator, counterStyle = value
+            texts.append(separator.join(
+                counters.format(counterValue, counterStyle)
+                for counterValue in counterValues.get(counterName, [0])
+            ))
+        elif type_ == "string" and context is not None and page is not None:
+            text = context.getStringSetFor(page, *value)
+            texts.append(text)
+        else:
+            assert type_ == "QUOTE"
+            isOpen, insert = value
+            if not isOpen:
+                quoteDepth[0] = max(0, quoteDepth[0] - 1)
+            if insert:
+                openQuotes, closeQuotes = style.quotes
+                quotes = openQuotes if isOpen else closeQuotes
+                texts.append(quotes[min(quoteDepth[0], len(quotes) - 1)])
+            if isOpen:
+                quoteDepth[0] += 1
+    text = "".join(texts)
+    if text:
+        yield boxes.TextBox.anonymousFrom(parentBox, text)
+
+
+def computeContentListString(element, box, counterValues, contentList):
+    """Compute the string corresponding to the content-list."""
+    string = ""
+    for type_, value in contentList:
+        if type_ == "STRING":
+            string += value
+        elif type_ == "content":
+            addedText = TEXTCONTENTEXTRACTORS[value](box)
+            # Simulate the step of white space processing
+            # (normally done during the layout)
+            addedText = addedText.strip()
+            string += addedText
+        elif type_ == "counter":
+            counterName, counterStyle = value
+            counterValue = counterValues.get(counterName, [0])[-1]
+            string += counters.format(counterValue, counterStyle)
+        elif type_ == "counters":
+            counterName, separator, counterStyle = value
+            string += separator.join(
+                counters.format(counterValue, counterStyle)
+                for counterValue
+                in counterValues.get(counterName, [0]))
+        elif type_ == "attr":
+            string += element.get(value, "")
+    return string
+
+
+def setContentLists(element, box, style, counterValues):
+    """Set the content-lists by strings.
+
+    These content-lists are used in GCPM properties like ``string-set`` and
+    ``bookmark-label``.
+
+    """
+    stringSet = []
+    if style["stringSet"] != "none":
+        for i, (stringName, stringValues) in enumerate(style["stringSet"]):
+            stringSet.append((stringName, computeContentListString(
+                element, box, counterValues, stringValues)))
+    box.stringSet = stringSet
+
+    if style["bookmarkLabel"] == "none":
+        box.bookmarkLabel = ""
+    else:
+        box.bookmarkLabel = computeContentListString(
+            element, box, counterValues, style["bookmarkLabel"])
+
+
+def updateCounters(state, style):
+    """Handle the ``counter-*`` properties."""
+    QuoteDepth, counterValues, counterScopes = state
+    siblingScopes = counterScopes[-1]
+
+    for name, value in style.counterReset:
+        if name in siblingScopes:
+            counterValues[name].pop()
+        else:
+            siblingScopes.add(name)
+        counterValues.setdefault(name, []).append(value)
+
+    # XXX Disabled for now, only exists in Lists3’s editor’s draft.
+//    for name, value in style.counterSet:
+//        values = counterValues.setdefault(name, [])
+//        if not values:
+//            assert name not in siblingScopes
+//            siblingScopes.add(name)
+//            values.append(0)
+//        values[-1] = value
+
+    counterIncrement = style.counterIncrement
+    if counterIncrement == "auto":
+        # "auto" is the initial value but is not valid in stylesheet:
+        # there was no counter-increment declaration for this element.
+        # (Or the winning value was "initial".)
+        # http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
+        if style.display == "list-item":
+            counterIncrement = [("list-item", 1)]
+        else:
+            counterIncrement = []
+    for name, value in counterIncrement:
+        values = counterValues.setdefault(name, [])
+        if not values:
+            assert name not in siblingScopes
+            siblingScopes.add(name)
+            values.append(0)
+        values[-1] += value
+
+
+def addBoxMarker(box, counterValues, getImageFromUri):
+    """Add a list marker to boxes for elements with ``display: list-item``,
+    and yield children to add a the start of the box.
+
+    See http://www.w3.org/TR/CSS21/generate.html#lists
+
+    """
+    style = box.style
+    imageType, image = style.listStyleImage
+    if imageType == "url":
+        # surface may be None here too, in case the image is not available.
+        image = getImageFromUri(image)
+
+    if image is None:
+        type_ = style.listStyleType
+        if type_ == "none":
+            return
+        counterValue = counterValues.get("list-item", [0])[-1]
+        markerText = counters.formatListMarker(counterValue, type)
+        markerBox = boxes.TextBox.anonymousFrom(box, markerText)
+    else:
+        markerBox = boxes.InlineReplacedBox.anonymousFrom(box, image)
+        markerBox.isListMarker = True
+    markerBox.elementTag += "::marker"
+
+    position = style.listStylePosition
+    if position == "inside":
+        yield markerBox
+    elif position == "outside":
+        box.outsideListMarker = markerBox
+
+
+def isWhitespace(box, HasNonWhitespace=re.compile("\S").search):
+    """Return True if ``box`` is a TextBox with only whitespace."""
+    return isinstance(box, boxes.TextBox) and not HasNonWhitespace(box.text)
+
+
+def wrapImproper(box, children, wrapperType, test=None):
+    """
+    Wrap consecutive children that do not pass ``test`` in a box of type
+    ``wrapperType``.
+
+    ``test`` defaults to children being of the same type as ``wrapperType``.
+
+    """
+    if test is None:
+        def test(child):
+            return isinstance(child, wrapperType)
+    improper = []
+    for child in children:
+        if test(child):
+            if improper:
+                wrapper = wrapperType.anonymousFrom(box, children=[])
+                # Apply the rules again on the new wrapper
+                yield tableBoxesChildren(wrapper, improper)
+                improper = []
+            yield child
+        else:
+            # Whitespace either fail the test or were removed earlier,
+            # so there is no need to take special care with the definition
+            # of "consecutive".
+            improper.append(child)
+    if improper:
+        wrapper = wrapperType.anonymousFrom(box, children=[])
+        # Apply the rules again on the new wrapper
+        yield tableBoxesChildren(wrapper, improper)
+
+
+def anonymousTableBoxes(box):
+    """Remove and add boxes according to the table model.
+
+    Take and return a ``Box`` object.
+
+    See http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+
+    """
+    if not isinstance(box, boxes.ParentBox):
+        return box
+
+    # Do recursion.
+    children = [anonymousTableBoxes(child) for child in box.children]
+    return tableBoxesChildren(box, children)
+
+
+def tableBoxesChildren(box, children):
+    """Internal implementation of anonymousTableBoxes()."""
+    if isinstance(box, boxes.TableColumnBox):  # rule 1.1
+        # Remove all children.
+        children = []
+    elif isinstance(box, boxes.TableColumnGroupBox):  # rule 1.2
+        # Remove children other than table-column.
+        children = [
+            child for child in children
+            if isinstance(child, boxes.TableColumnBox)
+        ]
+        # Rule XXX (not in the spec): column groups have at least
+        # one column child.
+        if not children:
+            children = [boxes.TableColumnBox.anonymousFrom(box, [])
+                        for I in xrange(box.span)]
+
+    # rule 1.3
+    if box.tabularContainer and len(children) >= 2:
+        # TODO: Maybe only remove text if internal is also
+        #       a proper table descendant of box.
+        # This is what the spec says, but maybe not what browsers do:
+        # http://lists.w3.org/Archives/Public/www-style/2011Oct/0567
+
+        # Last child
+        internal, text = children[-2:]
+        if (internal.internalTableOrCaption and isWhitespace(text)):
+            children.pop()
+
+        # First child
+        if len(children) >= 2:
+            text, internal = children[:2]
+            if (internal.internalTableOrCaption and isWhitespace(text)):
+                children.pop(0)
+
+        # Children other than first and last that would be removed by
+        # rule 1.3 are also removed by rule 1.4 below.
+
+    children = [
+        child
+        for prevChild, child, nextChild in zip(
+            [None] + children[:-1],
+            children,
+            children[1:] + [None]
+        )
+        if not (
+            # Ignore some whitespace: rule 1.4
+            prevChild and prevChild.internalTableOrCaption and
+            nextChild and nextChild.internalTableOrCaption and
+            isWhitespace(child)
+        )
+    ]
+
+    if isinstance(box, boxes.TableBox):
+        # Rule 2.1
+        children = wrapImproper(
+            box, children, boxes.TableRowBox,
+            lambda child: child.properTableChild)
+    elif isinstance(box, boxes.TableRowGroupBox):
+        # Rule 2.2
+        children = wrapImproper(box, children, boxes.TableRowBox)
+
+    if isinstance(box, boxes.TableRowBox):
+        # Rule 2.3
+        children = wrapImproper(box, children, boxes.TableCellBox)
+    else:
+        # Rule 3.1
+        children = wrapImproper(
+            box, children, boxes.TableRowBox,
+            lambda child: not isinstance(child, boxes.TableCellBox))
+
+    # Rule 3.2
+    if isinstance(box, boxes.InlineBox):
+        children = wrapImproper(
+            box, children, boxes.InlineTableBox,
+            lambda child: not child.properTableChild)
+    else:
+        parentType = type(box)
+        children = wrapImproper(
+            box, children, boxes.TableBox,
+            lambda child: (not child.properTableChild or
+                           parentType in child.properParents))
+
+    if isinstance(box, boxes.TableBox):
+        return wrapTable(box, children)
+    else:
+        box.children = list(children)
+        return box
+
+
+def wrapTable(box, children):
+    """Take a table box and return it in its table wrapper box.
+
+    Also re-order children and assign grid positions to each column and cell.
+
+    Because of colspan/rowspan works, gridY is implicitly the index of a row,
+    but gridX is an explicit attribute on cells, columns and column group.
+
+    http://www.w3.org/TR/CSS21/tables.html#model
+    http://www.w3.org/TR/CSS21/tables.html#table-layout
+
+    """
+    # Group table children by type
+    columns = []
+    rows = []
+    allCaptions = []
+    byType = {
+        boxes.TableColumnBox: columns,
+        boxes.TableColumnGroupBox: columns,
+        boxes.TableRowBox: rows,
+        boxes.TableRowGroupBox: rows,
+        boxes.TableCaptionBox: allCaptions,
+    }
+    for child in children:
+        byType[type(child)].append(child)
+
+    # Split top and bottom captions
+    captions = {"top": [], "bottom": []}
+    for caption in allCaptions:
+        captions[caption.style.captionSide].append(caption)
+
+    # Assign X positions on the grid to column boxes
+    columnGroups = list(wrapImproper(
+        box, columns, boxes.TableColumnGroupBox))
+    gridX = 0
+    for group in columnGroups:
+        group.gridX = gridX
+        if group.children:
+            for column in group.children:
+                # There"s no need to take care of group"s span, as "span=x"
+                # already generates x TableColumnBox children
+                column.gridX = gridX
+                gridX += 1
+            group.span = len(group.children)
+        else:
+            gridX += group.span
+    gridWidth = gridX
+
+    rowGroups = wrapImproper(box, rows, boxes.TableRowGroupBox)
+    # Extract the optional header and footer groups.
+    bodyRowGroups = []
+    header = None
+    footer = None
+    for group in rowGroups:
+        display = group.style.display
+        if display == "table-header-group" and header is None:
+            group.isHeader = True
+            header = group
+        elif display == "table-footer-group" and footer is None:
+            group.isFooter = True
+            footer = group
+        else:
+            bodyRowGroups.append(group)
+    rowGroups = (
+        ([header] if header is not None else []) +
+        bodyRowGroups +
+        ([footer] if footer is not None else []))
+
+    # Assign a (x,y) position in the grid to each cell.
+    # rowspan can not extend beyond a row group, so each row group
+    # is independent.
+    # http://www.w3.org/TR/CSS21/tables.html#table-layout
+    # Column 0 is on the left if direction is ltr, right if rtl.
+    # This algorithm does not change.
+    gridHeight = 0
+    for group in rowGroups:
+        # Indexes: row number in the group.
+        # Values: set of cells already occupied by row-spanning cells.
+        occupiedCellsByRow = [set() for row in group.children]
+        for row in group.children:
+            occupiedCellsInThisRow = occupiedCellsByRow.pop(0)
+            # The list is now about rows after this one.
+            gridX = 0
+            for cell in row.children:
+                # Make sure that the first grid cell is free.
+                while gridX in occupiedCellsInThisRow:
+                    gridX += 1
+                cell.gridX = gridX
+                newGridX = gridX + cell.colspan
+                # http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
+                if cell.rowspan != 1:
+                    maxRowspan = len(occupiedCellsByRow) + 1
+                    if cell.rowspan == 0:
+                        # All rows until the end of the group
+                        spannedRows = occupiedCellsByRow
+                        cell.rowspan = maxRowspan
+                    else:
+                        cell.rowspan = min(cell.rowspan, maxRowspan)
+                        spannedRows = occupiedCellsByRow[:cell.rowspan - 1]
+                    spannedColumns = range(gridX, newGridX)
+                    for occupiedCells in spannedRows:
+                        occupiedCells.update(spannedColumns)
+                gridX = newGridX
+                gridWidth = max(gridWidth, gridX)
+        gridHeight += len(group.children)
+
+    table = box.copyWithChildren(rowGroups)
+    table.columnGroups = tuple(columnGroups)
+    if table.style.borderCollapse == "collapse":
+        table.collapsedBorderGrid = collapseTableBorders(
+            table, gridWidth, gridHeight)
+
+    if isinstance(box, boxes.InlineTableBox):
+        wrapperType = boxes.InlineBlockBox
+    else:
+        wrapperType = boxes.BlockBox
+
+    wrapper = wrapperType.anonymousFrom(
+        box, captions["top"] + [table] + captions["bottom"])
+    wrapper.style = wrapper.style.copy()
+    wrapper.isTableWrapper = True
+    if not table.style.anonymous:
+        # Non-inherited properties of the table element apply to one
+        # of the wrapper and the table. The other get the initial value.
+        # TODO: put this in a method of the table object
+        for name in properties.TABLEWRAPPERBOXPROPERTIES:
+            wrapper.style[name] = table.style[name]
+            table.style[name] = properties.INITIALVALUES[name]
+    # else: non-inherited properties already have their initial values
+
+    return wrapper
+
+
+TRANSPARENT = tinycss2.color3.parseColor("transparent")
+
+
+def collapseTableBorders(table, gridWidth, gridHeight):
+    """Resolve border conflicts for a table in the collapsing border model.
+
+    Take a :class:`TableBox`; set appropriate border widths on the table,
+    column group, column, row group, row, and cell boxes; and return
+    a data structure for the resolved collapsed border grid.
+
+    """
+    if not (gridWidth and gridHeight):
+        # Don’t bother with empty tables
+        return [], []
+
+    styleScores = dict((v, i) for i, v in enumerate(reversed([
+        "hidden", "double", "solid", "dashed", "dotted", "ridge",
+        "outset", "groove", "inset", "none"])))
+    styleMap = {"inset": "ridge", "outset": "groove"}
+    transparent = TRANSPARENT
+    weakNullBorder = (
+        (0, 0, styleScores["none"]), ("none", 0, transparent))
+    verticalBorders = [[weakNullBorder for x in xrange(gridWidth + 1)]
+                        for y in xrange(gridHeight)]
+    horizontalBorders = [[weakNullBorder for x in xrange(gridWidth)]
+                          for y in xrange(gridHeight + 1)]
+
+    def setOneBorder(borderGrid, boxStyle, side, gridX, gridY):
+        style = boxStyle["border%sStyle" % side]
+        width = boxStyle["border%sWidth" % side]
+        color = boxStyle.getColor("border%sColor" % side)
+
+        # http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+        score = ((1 if style == "hidden" else 0), width, styleScores[style])
+
+        style = styleMap.get(style, style)
+        previousScore, _ = borderGrid[gridY][gridX]
+        # Strict < so that the earlier call wins in case of a tie.
+        if previousScore < score:
+            borderGrid[gridY][gridX] = (score, (style, width, color))
+
+    def setBorders(box, x, y, w, h):
+        style = box.style
+        for yy in xrange(y, y + h):
+            setOneBorder(verticalBorders, style, "left", x, yy)
+            setOneBorder(verticalBorders, style, "right", x + w, yy)
+        for xx in xrange(x, x + w):
+            setOneBorder(horizontalBorders, style, "top", xx, y)
+            setOneBorder(horizontalBorders, style, "bottom", xx, y + h)
+
+    # The order is important here:
+    # "A style set on a cell wins over one on a row, which wins over a
+    #  row group, column, column group and, lastly, table"
+    # See http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+    strongNullBorder = (
+        (1, 0, styleScores["hidden"]), ("hidden", 0, transparent))
+    gridY = 0
+    for rowGroup in table.children:
+        for row in rowGroup.children:
+            for cell in row.children:
+                # No border inside of a cell with rowspan or colspan
+                for xx in xrange(cell.gridX + 1, cell.gridX + cell.colspan):
+                    for yy in xrange(gridY, gridY + cell.rowspan):
+                        verticalBorders[yy][xx] = strongNullBorder
+                for xx in xrange(cell.gridX, cell.gridX + cell.colspan):
+                    for yy in xrange(gridY + 1, gridY + cell.rowspan):
+                        horizontalBorders[yy][xx] = strongNullBorder
+                # The cell’s own borders
+                setBorders(cell, x=cell.gridX, y=gridY,
+                            w=cell.colspan, h=cell.rowspan)
+            gridY += 1
+
+    gridY = 0
+    for rowGroup in table.children:
+        for row in rowGroup.children:
+            setBorders(row, x=0, y=gridY, w=gridWidth, h=1)
+            gridY += 1
+
+    gridY = 0
+    for rowGroup in table.children:
+        rowspan = len(rowGroup.children)
+        setBorders(rowGroup, x=0, y=gridY, w=gridWidth, h=rowspan)
+        gridY += rowspan
+
+    for columnGroup in table.columnGroups:
+        for column in columnGroup.children:
+            setBorders(column, x=column.gridX, y=0, w=1, h=gridHeight)
+
+    for columnGroup in table.columnGroups:
+        setBorders(columnGroup, x=columnGroup.gridX, y=0,
+                    w=columnGroup.span, h=gridHeight)
+
+    setBorders(table, x=0, y=0, w=gridWidth, h=gridHeight)
+
+    # Now that all conflicts are resolved, set transparent borders of
+    # the correct widths on each box. The actual border grid will be
+    # painted separately.
+    def setTransparentBorder(box, side, twiceWidth):
+        box.style["border%sStyle" % side] = "solid",
+        box.style["border%sWidth" % side] = twiceWidth / 2
+        box.style["border%sColor" % side] = transparent
+
+    def removeBorders(box):
+        setTransparentBorder(box, "top", 0)
+        setTransparentBorder(box, "right", 0)
+        setTransparentBorder(box, "bottom", 0)
+        setTransparentBorder(box, "left", 0)
+
+    def maxVerticalWidth(x, y, h):
+        return max(
+            width for gridRow in verticalBorders[y:y + h]
+            for _, (_, width, ) in [gridRow[x]])
+
+    def maxHorizontalWidth(x, y, w):
+        return max(
+            width for _, (_, width, ) in horizontalBorders[y][x:x + w])
+
+    gridY = 0
+    for rowGroup in table.children:
+        removeBorders(rowGroup)
+        for row in rowGroup.children:
+            removeBorders(row)
+            for cell in row.children:
+                setTransparentBorder(cell, "top", maxHorizontalWidth(
+                    x=cell.gridX, y=gridY, w=cell.colspan))
+                setTransparentBorder(cell, "bottom", maxHorizontalWidth(
+                    x=cell.gridX, y=gridY + cell.rowspan, w=cell.colspan))
+                setTransparentBorder(cell, "left", maxVerticalWidth(
+                    x=cell.gridX, y=gridY, h=cell.rowspan))
+                setTransparentBorder(cell, "right", maxVerticalWidth(
+                    x=cell.gridX + cell.colspan, y=gridY, h=cell.rowspan))
+            gridY += 1
+
+    for columnGroup in table.columnGroups:
+        removeBorders(columnGroup)
+        for column in columnGroup.children:
+            removeBorders(column)
+
+    setTransparentBorder(table, "top", maxHorizontalWidth(
+        x=0, y=0, w=gridWidth))
+    setTransparentBorder(table, "bottom", maxHorizontalWidth(
+        x=0, y=gridHeight, w=gridWidth))
+    # "UAs must compute an initial left and right border width for the table
+    #  by examining the first and last cells in the first row of the table."
+    # http://www.w3.org/TR/CSS21/tables.html#collapsing-borders
+    # ... so h=1, not gridHeight:
+    setTransparentBorder(table, "left", maxVerticalWidth(
+        x=0, y=0, h=1))
+    setTransparentBorder(table, "right", maxVerticalWidth(
+        x=gridWidth, y=0, h=1))
+
+    return verticalBorders, horizontalBorders
+
+
+def processWhitespace(box, followingCollapsibleSpace=False):
+    """First part of "The "white-space" processing model".
+
+    See http://www.w3.org/TR/CSS21/text.html#white-space-model
+    http://dev.w3.org/csswg/css3-text/#white-space-rules
+
+    """
+    if isinstance(box, boxes.TextBox):
+        text = box.text
+        if not text:
+            return followingCollapsibleSpace
+
+        # Normalize line feeds
+        text = re.sub("\r\n?", "\n", text)
+
+        newLineCollapse = box.style.whiteSpace in ("normal", "nowrap")
+        spaceCollapse = box.style.whiteSpace in (
+            "normal", "nowrap", "pre-line")
+
+        if spaceCollapse:
+            # \r characters were removed/converted earlier
+            text = re.sub("[\t ]*\n[\t ]*", "\n", text)
+
+        if newLineCollapse:
+            # TODO: this should be language-specific
+            # Could also replace with a zero width space character (U+200B),
+            # or no character
+            # CSS3: http://www.w3.org/TR/css3-text/#line-break-transform
+            text = text.replace("\n", " ")
+
+        if spaceCollapse:
+            text = text.replace("\t", " ")
+            text = re.sub(" +", " ", text)
+            previousText = text
+            if followingCollapsibleSpace and text.startswith(" "):
+                text = text[1:]
+                box.leadingCollapsibleSpace = True
+            followingCollapsibleSpace = previousText.endswith(" ")
+        else:
+            followingCollapsibleSpace = False
+
+        box.text = text
+        return followingCollapsibleSpace
+
+    if isinstance(box, boxes.ParentBox):
+        for child in box.children:
+            if isinstance(child, (boxes.TextBox, boxes.InlineBox)):
+                followingCollapsibleSpace = processWhitespace(
+                    child, followingCollapsibleSpace)
+            else:
+                processWhitespace(child)
+                if child.isInNormalFlow():
+                    followingCollapsibleSpace = False
+
+    return followingCollapsibleSpace
+
+
+def inlineInBlock(box):
+    """Build the structure of lines inside blocks and return a new box tree.
+
+    Consecutive inline-level boxes in a block container box are wrapped into a
+    line box, itself wrapped into an anonymous block box.
+
+    This line box will be broken into multiple lines later.
+
+    This is the first case in
+    http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+
+    Eg.::
+
+        BlockBox[
+            TextBox["Some "],
+            InlineBox[TextBox["text"]],
+            BlockBox[
+                TextBox["More text"],
+            ]
+        ]
+
+    is turned into::
+
+        BlockBox[
+            AnonymousBlockBox[
+                LineBox[
+                    TextBox["Some "],
+                    InlineBox[TextBox["text"]],
+                ]
+            ]
+            BlockBox[
+                LineBox[
+                    TextBox["More text"],
+                ]
+            ]
+        ]
+
+    """
+    if not isinstance(box, boxes.ParentBox):
+        return box
+
+    boxChildren = list(box.children)
+
+    if boxChildren and box.leadingCollapsibleSpace is False:
+        box.leadingCollapsibleSpace = (
+            boxChildren[0].leadingCollapsibleSpace)
+
+    children = []
+    trailingCollapsibleSpace = False
+    for child in boxChildren:
+        # Keep track of removed collapsing spaces for wrap opportunities, and
+        # remove empty text boxes.
+        # (They may have been emptied by processWhitespace().)
+
+        if trailingCollapsibleSpace:
+            child.leadingCollapsibleSpace = True
+
+        if isinstance(child, boxes.TextBox) and not child.text:
+            trailingCollapsibleSpace = child.leadingCollapsibleSpace
+        else:
+            trailingCollapsibleSpace = False
+            children.append(inlineInBlock(child))
+
+    if box.trailingCollapsibleSpace is False:
+        box.trailingCollapsibleSpace = trailingCollapsibleSpace
+
+    if not isinstance(box, boxes.BlockContainerBox):
+        box.children = children
+        return box
+
+    newLineChildren = []
+    newChildren = []
+    for childBox in children:
+        assert not isinstance(childBox, boxes.LineBox)
+        if newLineChildren and childBox.isAbsolutelyPositioned():
+            newLineChildren.append(childBox)
+        elif isinstance(childBox, boxes.InlineLevelBox) or (
+                newLineChildren and childBox.isFloated()):
+            # Do not append white space at the start of a line:
+            # It would be removed during layout.
+            if newLineChildren or not (
+                    isinstance(childBox, boxes.TextBox) and
+                    # Sequence of white-space was collapsed to a single
+                    # space by processWhitespace().
+                    childBox.text == " " and
+                    childBox.style.whiteSpace in (
+                        "normal", "nowrap", "pre-line")):
+                newLineChildren.append(childBox)
+        else:
+            if newLineChildren:
+                # Inlines are consecutive no more: add this line box
+                # and create a new one.
+                lineBox = boxes.LineBox.anonymousFrom(box, newLineChildren)
+                anonymous = boxes.BlockBox.anonymousFrom(box, [lineBox])
+                newChildren.append(anonymous)
+                newLineChildren = []
+            newChildren.append(childBox)
+    if newLineChildren:
+        # There were inlines at the end
+        lineBox = boxes.LineBox.anonymousFrom(box, newLineChildren)
+        if newChildren:
+            anonymous = boxes.BlockBox.anonymousFrom(box, [lineBox])
+            newChildren.append(anonymous)
+        else:
+            # Only inline-level children: one line box
+            newChildren.append(lineBox)
+
+    box.children = newChildren
+    return box
+
+
+def blockInInline(box):
+    """Build the structure of blocks inside lines.
+
+    Inline boxes containing block-level boxes will be broken in two
+    boxes on each side on consecutive block-level boxes, each side wrapped
+    in an anonymous block-level box.
+
+    This is the second case in
+    http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+
+    Eg. if this is given::
+
+        BlockBox[
+            LineBox[
+                InlineBox[
+                    TextBox["Hello."],
+                ],
+                InlineBox[
+                    TextBox["Some "],
+                    InlineBox[
+                        TextBox["text"]
+                        BlockBox[LineBox[TextBox["More text"]]],
+                        BlockBox[LineBox[TextBox["More text again"]]],
+                    ],
+                    BlockBox[LineBox[TextBox["And again."]]],
+                ]
+            ]
+        ]
+
+    this is returned::
+
+        BlockBox[
+            AnonymousBlockBox[
+                LineBox[
+                    InlineBox[
+                        TextBox["Hello."],
+                    ],
+                    InlineBox[
+                        TextBox["Some "],
+                        InlineBox[TextBox["text"]],
+                    ]
+                ]
+            ],
+            BlockBox[LineBox[TextBox["More text"]]],
+            BlockBox[LineBox[TextBox["More text again"]]],
+            AnonymousBlockBox[
+                LineBox[
+                    InlineBox[
+                    ]
+                ]
+            ],
+            BlockBox[LineBox[TextBox["And again."]]],
+            AnonymousBlockBox[
+                LineBox[
+                    InlineBox[
+                    ]
+                ]
+            ],
+        ]
+
+    """
+    if not isinstance(box, boxes.ParentBox):
+        return box
+
+    newChildren = []
+    changed = False
+
+    for child in box.children:
+        if isinstance(child, boxes.LineBox):
+            assert len(box.children) == 1, (
+                "Line boxes should have no "
+                "siblings at this stage, got %r." % box.children)
+            stack = None
+            while 1:
+                newLine, block, stack = InnerBlockInInline(
+                    child, skipStack=stack)
+                if block is None:
+                    break
+                anon = boxes.BlockBox.anonymousFrom(box, [newLine])
+                newChildren.append(anon)
+                newChildren.append(blockInInline(block))
+                # Loop with the same child and the new stack.
+            if newChildren:
+                # Some children were already added, this became a block
+                # context.
+                newChild = boxes.BlockBox.anonymousFrom(box, [newLine])
+            else:
+                # Keep the single line box as-is, without anonymous blocks.
+                newChild = newLine
+        else:
+            # Not in an inline formatting context.
+            newChild = blockInInline(child)
+
+        if newChild is not child:
+            changed = True
+        newChildren.append(newChild)
+
+    if changed:
+        box.children = newChildren
+    return box
+
+
+def InnerBlockInInline(box, skipStack=None):
+    """Find a block-level box in an inline formatting context.
+
+    If one is found, return ``(newBox, blockLevelBox, resumeAt)``.
+    ``newBox`` contains all of ``box`` content before the block-level box.
+    ``resumeAt`` can be passed as ``skipStack`` in a new call to
+    this function to resume the search just after the block-level box.
+
+    If no block-level box is found after the position marked by
+    ``skipStack``, return ``(newBox, None, None)``
+
+    """
+    newChildren = []
+    blockLevelBox = None
+    resumeAt = None
+    changed = False
+
+    isStart = skipStack is None
+    if isStart:
+        skip = 0
+    else:
+        skip, skipStack = skipStack
+
+    for index, child in box.enumerateSkip(skip):
+        if isinstance(child, boxes.BlockLevelBox) and \
+                child.isInNormalFlow():
+            assert skipStack is None  # Should not skip here
+            blockLevelBox = child
+            index += 1  # Resume *after* the block
+        else:
+            if isinstance(child, boxes.InlineBox):
+                recursion = InnerBlockInInline(child, skipStack)
+                skipStack = None
+                newChild, blockLevelBox, resumeAt = recursion
+            else:
+                assert skipStack is None  # Should not skip here
+                newChild = blockInInline(child)
+                # blockLevelBox is still None.
+            if newChild is not child:
+                changed = True
+            newChildren.append(newChild)
+        if blockLevelBox is not None:
+            resumeAt = (index, resumeAt)
+            box = box.copyWithChildren(
+                newChildren, isStart=isStart, isEnd=False)
+            break
+    else:
+        if changed or skip:
+            box = box.copyWithChildren(
+                newChildren, isStart=isStart, isEnd=True)
+
+    return box, blockLevelBox, resumeAt
+
+
+def setViewportOverflow(rootBox):
+    """
+    Set a ``viewportOverflow`` attribute on the box for the root element.
+
+    Like backgrounds, ``overflow`` on the root element must be propagated
+    to the viewport.
+
+    See http://www.w3.org/TR/CSS21/visufx.html#overflow
+    """
+    chosenBox = rootBox
+    if (rootBox.elementTag.lower() == "html" and
+            rootBox.style.overflow == "visible"):
+        for child in rootBox.children:
+            if child.elementTag.lower() == "body":
+                chosenBox = child
+                break
+
+    rootBox.viewportOverflow = chosenBox.style.overflow
+    chosenBox.style["overflow"] = "visible"
+    return rootBox
+
+
+def boxText(box):
+    if isinstance(box, boxes.TextBox):
+        return box.text
+    elif isinstance(box, boxes.ParentBox):
+        return "".join(
+            child.text for child in box.descendants()
+            if not child.elementTag.endswith("::before") and
+            not child.elementTag.endswith("::after") and
+            isinstance(child, boxes.TextBox))
+    else:
+        return ""
+
+
+def boxTextFirstLetter(box):
+    # TODO: use the same code as in inlines.firstLetterToBox
+    characterFound = False
+    firstLetter = ""
+    text = boxText(box)
+    while text:
+        nextLetter = text[0]
+        category = unicodedata.category(nextLetter)
+        if category not in ("Ps", "Pe", "Pi", "Pf", "Po"):
+            if characterFound:
+                break
+            characterFound = True
+        firstLetter += nextLetter
+        text = text[1:]
+    return firstLetter
+
+
+def boxTextBefore(box):
+    if isinstance(box, boxes.ParentBox):
+        return "".join(
+            boxText(child) for child in box.descendants()
+            if child.elementTag.endswith("::before") and
+            not isinstance(child, boxes.ParentBox))
+    else:
+        return ""
+
+
+def boxTextAfter(box):
+    if isinstance(box, boxes.ParentBox):
+        return "".join(
+            boxText(child) for child in box.descendants()
+            if child.elementTag.endswith("::after") and
+            not isinstance(child, boxes.ParentBox))
+    else:
+        return ""
+
+
+TEXTCONTENTEXTRACTORS = {
+    "text": boxText,
+    "before": boxTextBefore,
+    "after": boxTextAfter,
+    "first-letter": boxTextFirstLetter}
