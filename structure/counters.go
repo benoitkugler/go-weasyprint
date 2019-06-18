@@ -45,8 +45,6 @@ var (
 
 	// Initial values for counter style descriptors.
 	INITIALVALUES = counterStyleDescriptor{
-
-		prefix:   "",
 		suffix:   ".",
 		range_:   [2]int{int(math.Inf(-1)), int(math.Inf(1))},
 		fallback: "decimal",
@@ -59,14 +57,6 @@ var (
 		// format() special-cases decimal and does not use this.
 		"decimal": INITIALVALUES,
 	}
-
-	// Maps counter types to a function implementing it.
-	// The functions take three arguments: the values of the `symbols`
-	// (or `additive-symbols` for the additive type) and `negative` descriptors,
-	// and the integer weight being formatted.
-	// They return the representation as a string or None. None means that
-	// the weight can not represented and the fallback should be used.
-	FORMATTERS = map[string]counterImplementation{}
 
 	lowerRoman = []valueSymbol{
 		{1000, "m"}, {900, "cm"}, {500, "d"}, {400, "cd"},
@@ -118,6 +108,94 @@ var (
 	square = []string{"▪"} // CSS Lists 3 suggests U+25FE BLACK MEDIUM SMALL SQUARE, But I think this one looks better.
 )
 
+func init() {
+	STYLES["decimal-leading-zero"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return nonRepeating(decimalLeadingZero, value)
+		},
+	})
+	STYLES["lower-roman"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return additive(lowerRoman, value)
+		},
+		range_: [2]int{1, 4999},
+	})
+	STYLES["upper-roman"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return additive(upperRoman, value)
+		},
+		range_: [2]int{1, 4999},
+	})
+	STYLES["georgian"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return additive(georgian, value)
+		},
+		range_: [2]int{1, 19999},
+	})
+	STYLES["armenian"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return additive(armenian, value)
+		},
+		range_: [2]int{1, 9999},
+	})
+	STYLES["lower-alpha"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return alphabetic(lowerAlpha, value)
+		},
+	})
+	STYLES["upper-alpha"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return alphabetic(upperAlpha, value)
+		},
+	})
+	STYLES["lower-greek"] = fromInitialValues(counterStyleDescriptor{
+		suffix: INITIALVALUES.suffix,
+		formatter: func(value int) (s string, b bool) {
+			return alphabetic(lowerGreek, value)
+		},
+	})
+	STYLES["disc"] = fromInitialValues(counterStyleDescriptor{
+		suffix: "",
+		formatter: func(value int) (s string, b bool) {
+			return repeating(disc, value)
+		},
+	})
+	STYLES["circle"] = fromInitialValues(counterStyleDescriptor{
+		suffix: "",
+		formatter: func(value int) (s string, b bool) {
+			return repeating(circle, value)
+		},
+	})
+	STYLES["square"] = fromInitialValues(counterStyleDescriptor{
+		suffix: "",
+		formatter: func(value int) (s string, b bool) {
+			return repeating(square, value)
+		},
+	})
+
+	// TODO: when @counter-style rules are supported, change override
+	//// to bind when a value is generated, not when the @rule is parsed.
+	STYLES["lower-latin"] = STYLES["lower-alpha"]
+	STYLES["upper-latin"] = STYLES["upper-alpha"]
+}
+
+func fromInitialValues(c counterStyleDescriptor) counterStyleDescriptor {
+	if c.range_ == [2]int{} {
+		c.range_ = INITIALVALUES.range_
+	}
+	if c.fallback == "" {
+		c.fallback = INITIALVALUES.fallback
+	}
+	return c
+}
+
 func reverse(a []string) {
 	for left, right := 0, len(a)-1; left < right; left, right = left+1, right-1 {
 		a[left], a[right] = a[right], a[left]
@@ -128,63 +206,37 @@ func abs(v int) int {
 	return int(math.Abs(float64(v)))
 }
 
-//// Register a counter style.
-//func registerStyle(name, type_ string, descriptors counterStyleDescriptor) {
-//	if type_ == " {
-//		type_ = "symbolic"
-//}
-//var style counterStyleDescriptor
-//if type_ == "override" {
-//// TODO: when @counter-style rules are supported, change override
-//// to bind when a value is generated, not when the @rule is parsed.
-//style = STYLES[descriptors.pop("override')])
-//
-//}  else {
-//style = dict(INITIALVALUES, formatter=functools.partial(
-//FORMATTERS[type_],
-//descriptors.pop('symbols'),
-//descriptors.pop('negative', INITIALVALUES['negative'])))
-//}
-//	style.update(descriptors)
-//STYLES[name] = style
-//}
-
-//// Register a counter type/algorithm.
-//func registerFormatter(function):
-//FORMATTERS[function.Name.replace('', '-')] = function
-//return function
-
 // Implement the algorithm for `type: repeating`.
 func repeating(symbols []string, value int) (string, bool) {
 	return symbols[(value-1)%len(symbols)], true
 
 }
 
-// Implement the algorithm for `type: numeric`.
-func numeric(symbols []string, value int) (string, bool) {
-	if value == 0 {
-		return symbols[0], true
-
-	}
-	isNegative := value < 0
-	var reversedParts []string
-	value = abs(value)
-	prefix, suffix := negative[0], negative[1]
-	if isNegative {
-		reversedParts = []string{suffix}
-	}
-	length := len(symbols)
-	for value != 0 {
-		reversedParts = append(reversedParts, symbols[value%length])
-		value /= length
-	}
-	if isNegative {
-		reversedParts = append(reversedParts, prefix)
-
-	}
-	reverse(reversedParts)
-	return strings.Join(reversedParts, ""), true
-}
+//// Implement the algorithm for `type: numeric`.
+//func numeric(symbols []string, value int) (string, bool) {
+//	if value == 0 {
+//		return symbols[0], true
+//
+//	}
+//	isNegative := value < 0
+//	var reversedParts []string
+//	value = abs(value)
+//	prefix, suffix := negative[0], negative[1]
+//	if isNegative {
+//		reversedParts = []string{suffix}
+//	}
+//	length := len(symbols)
+//	for value != 0 {
+//		reversedParts = append(reversedParts, symbols[value%length])
+//		value /= length
+//	}
+//	if isNegative {
+//		reversedParts = append(reversedParts, prefix)
+//
+//	}
+//	reverse(reversedParts)
+//	return strings.Join(reversedParts, ""), true
+//}
 
 // Implement the algorithm for `type: alphabetic`.
 func alphabetic(symbols []string, value int) (string, bool) {
@@ -202,14 +254,14 @@ func alphabetic(symbols []string, value int) (string, bool) {
 	return strings.Join(reversedParts, ""), true
 }
 
-// Implement the algorithm for `type: symbolic`.
-func symbolic(symbols []string, value int) (string, bool) {
-	if value <= 0 {
-		return "", false
-	}
-	length := len(symbols)
-	return strings.Repeat(symbols[value%length], (value-1)/length), true
-}
+//// Implement the algorithm for `type: symbolic`.
+//func symbolic(symbols []string, value int) (string, bool) {
+//	if value <= 0 {
+//		return "", false
+//	}
+//	length := len(symbols)
+//	return strings.Repeat(symbols[value%length], (value-1)/length), true
+//}
 
 // Implement the algorithm for `type: non-repeating`.
 func nonRepeating(symbols nonRepeatingSymbols, value int) (string, bool) {
@@ -221,7 +273,7 @@ func nonRepeating(symbols nonRepeatingSymbols, value int) (string, bool) {
 }
 
 // Implement the algorithm for `type: additive`.
-func additive(symbols []valueSymbol, negative [2]string, value int) (string, bool) {
+func additive(symbols []valueSymbol, value int) (string, bool) {
 	if value == 0 {
 		for _, vs := range symbols {
 			if vs.weight == 0 {
@@ -285,7 +337,7 @@ func format(value int, counterStyle string) string {
 //
 //This is the same as :func:`format()`, but includes the counter’s
 //prefix and suffix.
-func formatListMarker(value int, counterStyle string) string {
+func FormatListMarker(value int, counterStyle string) string {
 	style := STYLES[counterStyle]
 	return style.prefix + format(value, counterStyle) + style.suffix
 }
