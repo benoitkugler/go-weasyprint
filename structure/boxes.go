@@ -82,6 +82,9 @@ type point struct {
 
 // AllBox unifies all box types
 type AllBox interface {
+	SetIsForRootElement(b bool)
+	Style() css.StyleDict
+
 	Translate(dx, dy float64, ignoreFloats bool)
 	paddingWidth() float64
 	paddingHeight() float64
@@ -108,15 +111,8 @@ type AllBox interface {
 	resetSpacing(side css.Side)
 }
 
-type ConcreteBox interface {
-	AllChildren() []AllBox
-	IsTableBox() bool
-}
-
 // Box is an abstract base class for all boxes.
 type Box struct {
-	ConcreteBox
-
 	//Definitions for the rules generating anonymous table boxes
 	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 	properTableChild       bool
@@ -149,6 +145,8 @@ type Box struct {
 	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float64
 
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
+
+	children []AllBox
 }
 
 func (self *Box) init(elementTag TBD, style css.StyleDict) {
@@ -158,6 +156,14 @@ func (self *Box) init(elementTag TBD, style css.StyleDict) {
 
 func (self Box) String() string {
 	return fmt.Sprintf("<Box %s>", self.elementTag)
+}
+
+func (self *Box) SetIsForRootElement(b bool) {
+	self.isForRootElement = b
+}
+
+func (self Box) Style() css.StyleDict {
+	return self.style
 }
 
 // Translate changes the box’s position.
@@ -337,12 +343,13 @@ func (self Box) roundedContentBox() roundedBox {
 
 // Return whether this box is floated.
 func (self Box) isFloated() bool {
-	return self.style.Float != "none"
+	return self.style["float"].(string) != "none"
 }
 
 // Return whether this box is in the absolute positioning scheme.
 func (self Box) isAbsolutelyPositioned() bool {
-	return self.style.Position == "absolute" || self.style.Position == "fixed"
+	pos := self.style["position"].(string)
+	return pos == "absolute" || pos == "fixed"
 }
 
 // Return whether this box is in normal flow.
@@ -354,14 +361,16 @@ func (self Box) isInNormalFlow() bool {
 
 // Return start and end page values.
 func (self Box) pageValues() (int, int) {
-	return self.style.Page, self.style.Page
+	p := self.style["page"].(int)
+	return p, p
 }
 
 // Set to 0 the margin, padding and border of ``side``.
 func (self *Box) resetSpacing(side css.Side) {
-	self.style.Margin[side] = css.Dimension{Unit: "px"}
-	self.style.Padding[side] = css.Dimension{Unit: "px"}
-	self.style.BorderWidth[side] = 0
+	self.style[fmt.Sprintf("margin_%s", side)] = css.Dimension{Unit: "px"}
+	self.style[fmt.Sprintf("padding_%s", side)] = css.Dimension{Unit: "px"}
+	self.style[fmt.Sprintf("border_%s_width", side)] = 0
+
 	switch side {
 	case css.Top:
 		self.marginTop = 0
@@ -382,27 +391,46 @@ func (self *Box) resetSpacing(side css.Side) {
 	}
 }
 
+func (self *Box) removeDecoration(start, end bool) {
+	if start || end {
+		self.style = self.style.Copy()
+	}
+	ltr := self.style["direction"].(string) == "ltr"
+	if start {
+		side := css.Right
+		if ltr {
+			side = css.Left
+		}
+		self.resetSpacing(side)
+	}
+	if end {
+		side := css.Left
+		if ltr {
+			side = css.Right
+		}
+		self.resetSpacing(side)
+	}
+}
+
+func (self Box) AllChildren() []AllBox {
+	return self.children
+}
+
 // ParentBox is a box that has children.
 type ParentBox struct {
 	Box
 
-	children          []AllBox
 	outsideListMarker *Box
 }
 
 func (p *ParentBox) init(elementTag TBD, style css.StyleDict, children []AllBox) {
 	p.Box.init(elementTag, style)
 	p.children = children
-	p.ConcreteBox = p
 }
 
-func (self ParentBox) AllChildren() []AllBox {
-	return self.children
-}
-
-func (self ParentBox) IsTableBox() bool {
-	return false
-}
+// func (self ParentBox) IsTableBox() bool {
+// 	return false
+// }
 
 func (self *ParentBox) removeDecoration(start, end bool) {
 	if start || end {
@@ -472,8 +500,6 @@ func (self ParentBox) pageValues() (int, int) {
 //An element with a ``display`` weight of ``block``, ``list-item`` or
 //``table`` generates a block-level box.
 type BlockLevelBox struct {
-	Box
-
 	clearance TBD
 }
 
@@ -500,7 +526,7 @@ type BlockBox struct {
 
 func NewBlockBox(elementTag TBD, style css.StyleDict, children []AllBox) *BlockBox {
 	var out BlockBox
-	out.BlockContainerBox.ParentBox.init(elementTag, style, children)
+	out.init(elementTag, style, children)
 	return &out
 }
 
@@ -511,9 +537,9 @@ func (self BlockBox) AllChildren() []AllBox {
 	return self.children
 }
 
-func (self BlockBox) pageValues() (int, int) {
-	return self.BlockContainerBox.pageValues()
-}
+// func (self BlockBox) pageValues() (int, int) {
+// 	return self.BlockContainerBox.pageValues()
+// }
 
 // LineBox is a box that represents a line in an inline formatting context.
 //
@@ -527,7 +553,7 @@ type LineBox struct {
 }
 
 func (l *LineBox) init(elementTag TBD, style css.StyleDict, children []AllBox) {
-	if !style.Anonymous {
+	if !style.Anonymous() {
 		log.Fatal("style must be anonymous")
 	}
 	l.ParentBox.init(elementTag, style, children)
@@ -541,28 +567,6 @@ func (l *LineBox) init(elementTag TBD, style css.StyleDict, children []AllBox) {
 //An element with a ``display`` weight of ``inline``, ``inline-table``, or
 //``inline-block`` generates an inline-level box.
 type InlineLevelBox struct {
-	Box
-}
-
-func (self *InlineLevelBox) removeDecoration(start, end bool) {
-	if start || end {
-		self.style = self.style.Copy()
-	}
-	ltr := self.style.Direction == "ltr"
-	if start {
-		side := css.Right
-		if ltr {
-			side = css.Left
-		}
-		self.resetSpacing(side)
-	}
-	if end {
-		side := css.Left
-		if ltr {
-			side = css.Right
-		}
-		self.resetSpacing(side)
-	}
 }
 
 // InlineBox is an inline box with inline children.
@@ -593,6 +597,7 @@ func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
 //Any text in the document ends up in a text box. What CSS calls "anonymous
 //inline boxes" are also text boxes.
 type TextBox struct {
+	Box
 	InlineLevelBox
 
 	justificationSpacing int
@@ -600,14 +605,14 @@ type TextBox struct {
 }
 
 func (self *TextBox) init(elementTag TBD, style css.StyleDict, text string) {
-	if !style.Anonymous {
+	if !style.Anonymous() {
 		log.Fatal("style is not anonymous")
 	}
 	if len(text) == 0 {
 		log.Fatal("empty text")
 	}
-	self.InlineLevelBox.init(elementTag, style)
-	textTransform := style.TextTransform
+	self.Box.init(elementTag, style)
+	textTransform := style["text-transform"].(string)
 	if textTransform != "none" {
 		switch textTransform {
 		case "uppercase":
@@ -625,7 +630,7 @@ func (self *TextBox) init(elementTag TBD, style css.StyleDict, text string) {
 			text = strings.Join(chars, "")
 		}
 
-		if style.Hyphens == "none" {
+		if style["hyphens"].(string) == "none" {
 			text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
 		}
 	}
@@ -729,7 +734,7 @@ func (self *TableBox) Translate(dx, dy float64, ignoreFloats bool) {
 }
 
 func (self TableBox) pageValues() (int, int) {
-	return self.style.Page, self.style.Page
+	return self.ParentBox.Box.pageValues()
 }
 
 // InlineTableBox is a box for elements with ``display: inline-table``
