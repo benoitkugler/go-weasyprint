@@ -74,8 +74,6 @@ func init() {
 	asciiToWide[0x2D] = "\u2212"
 }
 
-type TBD struct{}
-
 type point struct {
 	x, y float64
 }
