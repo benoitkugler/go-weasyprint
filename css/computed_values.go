@@ -1,8 +1,11 @@
 package css
 
 import (
+	"log"
 	"strconv"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
 )
 
@@ -22,63 +25,60 @@ var (
 	}
 
 	// These are unspecified, other than 'thin' <='medium' <= 'thick'.
-// Values are in pixels.
-BorderWidthKeywords = map[string]int{
-    "thin": 1,
-    "medium": 3,
-	"thick": 5,
-}
-
-	// Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
-// medium, and scaling factors given in CSS3 for others:
-// http://www.w3.org/TR/css3-fonts/#font-size-prop
-// TODO: this will need to be ordered to implement 'smaller' and 'larger'
-FontSizeKeywords = map[string]int{ 		// medium is 16px, others are a ratio of medium
-	"xx-small" : InitialValues.Ints["font_size"] * 3 / 5,
-	"x-small" : InitialValues.Ints["font_size"] * 3 / 4,
-	"small" : InitialValues.Ints["font_size"] * 8 / 9,
-	"medium" : InitialValues.Ints["font_size"] * 1 / 1,
-	"large" : InitialValues.Ints["font_size"] * 6 / 5,
-	"x-large" : InitialValues.Ints["font_size"] * 3 / 2,
-	"xx-large" : InitialValues.Ints["font_size"] * 2 / 1,
-} 
-
-
-// http://www.w3.org/TR/CSS21/fonts.html#propdef-font-weight
-FontWeightRelative = struct {
-	bolder, lighter map[string]int}{
-    bolder:{
-        "100": 400,
-        "200": 400,
-        "300": 400,
-        "400": 700,
-        "500": 700,
-        "600": 900,
-        "700": 900,
-        "800": 900,
-        "900": 900,
-    },
-    lighter:{
-        "100": 100,
-        "200": 100,
-        "300": 100,
-        "400": 100,
-        "500": 100,
-        "600": 400,
-        "700": 400,
-        "800": 700,
-        "900": 700,
-    },
+	// Values are in pixels.
+	BorderWidthKeywords = map[string]int{
+		"thin":   1,
+		"medium": 3,
+		"thick":  5,
 	}
 
+	// Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
+	// medium, and scaling factors given in CSS3 for others:
+	// http://www.w3.org/TR/css3-fonts/#font-size-prop
+	// TODO: this will need to be ordered to implement 'smaller' and 'larger'
+	FontSizeKeywords = map[string]int{ // medium is 16px, others are a ratio of medium
+		"xx-small": InitialValues.Ints["font_size"] * 3 / 5,
+		"x-small":  InitialValues.Ints["font_size"] * 3 / 4,
+		"small":    InitialValues.Ints["font_size"] * 8 / 9,
+		"medium":   InitialValues.Ints["font_size"] * 1 / 1,
+		"large":    InitialValues.Ints["font_size"] * 6 / 5,
+		"x-large":  InitialValues.Ints["font_size"] * 3 / 2,
+		"xx-large": InitialValues.Ints["font_size"] * 2 / 1,
+	}
 
+	// http://www.w3.org/TR/CSS21/fonts.html#propdef-font-weight
+	FontWeightRelative = struct {
+		bolder, lighter map[string]int
+	}{
+		bolder: map[string]int{
+			"100": 400,
+			"200": 400,
+			"300": 400,
+			"400": 700,
+			"500": 700,
+			"600": 900,
+			"700": 900,
+			"800": 900,
+			"900": 900,
+		},
+		lighter: map[string]int{
+			"100": 100,
+			"200": 100,
+			"300": 100,
+			"400": 100,
+			"500": 100,
+			"600": 400,
+			"700": 400,
+			"800": 700,
+			"900": 700,
+		},
+	}
 )
 
 func init() {
-	if INITIAL_VALUES["border_top_width"] != BorderWidthKeywords["medium"] {
+	if InitialValues.Ints["border_top_width"] != BorderWidthKeywords["medium"] {
 		log.Fatal("border-top-width and medium should be the same !")
 	}
-
 
 }
 
@@ -133,13 +133,13 @@ func compute(element html.Node, pseudoType string,
 }
 
 type computer struct {
-	isRootElement bool 
-	computed , rootStyle, parentStyle, specified StyleDict
+	isRootElement                               bool
+	computed, rootStyle, parentStyle, specified StyleDict
+	element                                     html.Node
 }
 
-
 type IntString struct {
-	Int int 
+	Int    int
 	String string
 }
 
@@ -152,24 +152,24 @@ type Value struct {
 // Dimension or "auto" or "cover" or "contain"
 type Size struct {
 	Width, Height Dimension
-	String string
+	String        string
 }
 
 type Content struct {
-	List [][2]string 
+	List   [][2]string
 	String string
 }
 
 type Link struct {
 	String string
-	Type string 
-	Attr string
+	Type   string
+	Attr   string
 }
 type GradientValue struct {
-	StopPositions []Value
+	StopPositions []Dimension
 	Center        Center
 	SizeType      string
-	Size          int
+	Size          []Dimension
 }
 
 type Gradient struct {
@@ -182,23 +182,24 @@ type Center struct {
 	PosX, PosY       Dimension
 }
 
+type Transform struct {
+	Function string
+	Args     []Dimension
+}
+
 // backgroundImage computes lenghts in gradient background-image.
 func backgroundImage(computer computer, name string, values []Gradient) []Gradient {
 	for _, gradient := range values {
 		value := gradient.Value
 		if gradient.Type == "linear-gradient" || gradient.Type == "radial-gradient" {
 			for index, pos := range value.StopPositions {
-				if pos.None {
-					value.StopPositions[index] = Value{None: true}
-				} else {
-					value.StopPositions[index] = length(computer, name, pos)
-				}
+				value.StopPositions[index] = length(computer, name, Value{Dimension: pos}, -1)
 			}
 		}
 		if gradient.Type == "radial-gradient" {
-			value.Center = backgroundPosition(computer, name, []int{value.Center})[0]
+			value.Center = backgroundPosition(computer, name, []Center{value.Center})[0]
 			if value.SizeType == "explicit" {
-				value.Size = lengthOrPercentageTuple(computer, name, value.Size)
+				value.Size = lengthOrPercentageTuple2(computer, name, value.Size)
 			}
 		}
 	}
@@ -228,6 +229,15 @@ func lengthOrPercentageTuple(computer computer, name string, values []Value) []D
 	return out
 }
 
+// Compute the lists of lengths that can be percentages.
+func lengthOrPercentageTuple2(computer computer, name string, values []Dimension) []Dimension {
+	out := make([]Dimension, len(values))
+	for index, v := range values {
+		out[index] = length(computer, name, Value{Dimension: v}, -1)
+	}
+	return out
+}
+
 // Compute the properties with a list of lengths.
 func lengthTuple(computer computer, name string, values []Value) []int {
 	out := make([]int, len(values))
@@ -250,7 +260,7 @@ func breakBeforeAfter(computer, name, value string) string {
 // Compute a length ``value``.
 // passing a negative fontSize means null
 func length(computer computer, name string, value Value, fontSize int) Dimension {
-	if value.Auto || value.Content {
+	if value.String == "auto" || value.String == "content" {
 		return value.Dimension
 	}
 	if value.Value == 0 {
@@ -267,54 +277,54 @@ func length(computer computer, name string, value Value, fontSize int) Dimension
 		result = float64(value.Value) * LengthsToPixels[unit]
 	case "em", "ex", "ch", "rem":
 		if fontSize < 0 {
-			fontSize = computer.computed["font_size"]
+			fontSize = computer.computed.Ints["font_size"]
 		}
 		switch unit {
 		// we dont support 'ex' and 'ch' units for now.
 		case "ex", "ch", "em":
-			result = float64(value.Value) * fontSize
+			result = float64(value.Value * fontSize)
 		case "rem":
-			result = float64(value.Value) * computer.rootStyle["font_size"]
+			result = float64(value.Value * computer.rootStyle.Ints["font_size"])
 		default:
 			// A percentage or "auto": no conversion needed.
 			return value.Dimension
 		}
 		return Dimension{Value: int(result), Unit: "px"}
 	}
+	return Dimension{}
 }
 
-
-func bleed(computer computer, name string, value Value) Dimension{
-    if value.Auto{
-        if strings.Contains(computer.computed.Strings["marks"], "crop") {
-			return Dimension(8, "px")  // 6pt
+func bleed(computer computer, name string, value Value) Dimension {
+	if value.String == "auto" {
+		if strings.Contains(computer.computed.Strings["marks"], "crop") {
+			return Dimension{Value: 8, Unit: "px"} // 6pt
 		}
 		return ZeroPixels
 	}
-   return length(computer, name, value)
+	return length(computer, name, value, -1)
 }
 
-func pixelLength(computer computer, name string, value Value) Value {
-    if value.String == "normal" {
-        return value
+func pixelLength(computer computer, name string, value Value) IntString {
+	if value.String == "normal" {
+		return IntString{String: value.String}
 	}
-    return length(computer, name, value, -1)
+	return IntString{Int: length(computer, name, value, -1).Value}
 }
 
 // Compute the ``background-size`` properties.
-func backgroundSize(computer computer, name string, values []Size) []Size{
-	out := make([]Value, len(values))
+func backgroundSize(computer computer, name string, values []Size) []Size {
+	out := make([]Size, len(values))
 	for index, v := range values {
 		if v.String == "contain" || v.String == "cover" {
-			out[index] = value 
+			out[index] = Size{String: v.String}
 		} else {
 			l := lengthOrPercentageTuple(computer, name, []Value{
-				Value{Dimension:v.Height}, 
+				Value{Dimension: v.Height},
 				Value{Dimension: v.Width},
 			})
 			out[index] = Size{
 				Height: l[0],
-				Width: l[1],
+				Width:  l[1],
 			}
 		}
 	}
@@ -323,32 +333,31 @@ func backgroundSize(computer computer, name string, values []Size) []Size{
 
 // Compute the ``border-*-width`` properties.
 // value.String may be the string representation of an int
-func borderWidth(computer computer, name string, value Value) in {
-    style := computer.computed.Strings[strings.ReplaceAll(name, "width", "style")]
-    if style == "none" || style== "hidden" {
-        return 0
+func borderWidth(computer computer, name string, value Value) int {
+	style := computer.computed.Strings[strings.ReplaceAll(name, "width", "style")]
+	if style == "none" || style == "hidden" {
+		return 0
 	}
 
-    if bw, in := BorderWidthKeywords[value.String]; in {
-        return bw
+	if bw, in := BorderWidthKeywords[value.String]; in {
+		return bw
 	}
 
-	
-    if i, err := strconv.Atoi(value.String); err == nil {
-        // The initial value can get here, but length() would fail as
-        // it does not have a "unit" attribute.
-        return i
-}
-    return length(computer, name, value).Value
+	if i, err := strconv.Atoi(value.String); err == nil {
+		// The initial value can get here, but length() would fail as
+		// it does not have a "unit" attribute.
+		return i
+	}
+	return length(computer, name, value, -1).Value
 }
 
 // Compute the ``column-width`` property.
 func columnWidth(computer computer, name string, value Value) int {
-    return length(computer, name, value).Value
+	return length(computer, name, value, -1).Value
 }
 
 // Compute the ``border-*-radius`` properties.
-func borderRadius(computer, name, values) []Dimension {
+func borderRadius(computer computer, name string, values []Value) []Dimension {
 	out := make([]Dimension, len(values))
 	for index, v := range values {
 		out[index] = length(computer, name, v, -1)
@@ -358,73 +367,71 @@ func borderRadius(computer, name, values) []Dimension {
 
 // Compute the ``column-gap`` property.
 func columnGap(computer computer, name string, value Value) int {
-    if value.String == "normal"{
-		value = Value{Dimension : Dimension(1, "em")}
+	if value.String == "normal" {
+		value = Value{Dimension: Dimension{Value: 1, Unit: "em"}}
 	}
-    return length(computer, name, value).Value
+	return length(computer, name, value, -1).Value
 }
-
 
 // Compute the ``content`` property.
 func content(computer computer, name string, values Content) Content {
-    if value.String ==  "normal" || value.String ==  "none" {
-        return values
+	if values.String == "normal" || values.String == "none" {
+		return values
 	}
 	lis := make([][2]string, len(values.List))
 	for index, v := range values.List {
-		type_, value = v[0], v[1]
+		type_, value := v[0], v[1]
 		if type_ == "attr" {
 			lis[index][0] = "STRING"
-			lis[index][1] = computer.element.get(value, "")
+			lis[index][1] = utils.GetAttribute(computer.element, value, "")
 		} else {
 			lis[index] = v
 		}
 	}
-    return Content{List:lis}
+	return Content{List: lis}
 }
 
 //Compute the ``display`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func display(computer computer, name string, value string) string {
-    float_ := computer.specified.Strings["float"]
-    position := computer.specified.Strings["position"]
-    if (position == "absolute" || position == "fixed") || float_ != "none" || computer.isRootElement{
+	float_ := computer.specified.Strings["float"]
+	position := computer.specified.Strings["position"]
+	if (position == "absolute" || position == "fixed") || float_ != "none" || computer.isRootElement {
 		switch value {
 		case "inline-table":
-			return"table"
+			return "table"
 		case "inline", "table-row-group", "table-column",
-                       "table-column-group", "table-header-group",
-                       "table-footer-group", "table-row", "table-cell",
-                       "table-caption", "inline-block":
+			"table-column-group", "table-header-group",
+			"table-footer-group", "table-row", "table-cell",
+			"table-caption", "inline-block":
 			return "block"
 		}
 	}
-    return value
+	return value
 }
 
 //Compute the ``float`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-func computeFloat(computer computer, name string, value string) {
+func computeFloat(computer computer, name string, value string) string {
 	position := computer.specified.Strings["position"]
-    if position == "absolute" || position == "fixed" {
+	if position == "absolute" || position == "fixed" {
 		return "none"
 	}
-    return value
+	return value
 }
-
 
 // Compute the ``font-size`` property.
 func fontSize(computer computer, name string, value Value) int {
-    if fs, in := FontSizeKeywords[value.String]; in {
-        return fs
+	if fs, in := FontSizeKeywords[value.String]; in {
+		return fs
 	}
-    // TODO: support "larger" and "smaller"
+	// TODO: support "larger" and "smaller"
 
-    parentFontSize := computer.parentStyle.Ints["font_size"]
-    if value.Unit == "%" {
+	parentFontSize := computer.parentStyle.Ints["font_size"]
+	if value.Unit == "%" {
 		return value.Value * parentFontSize / 100.
 	}
-    return length(computer, name, value,  parentFontSize).Value
+	return length(computer, name, value, parentFontSize).Value
 }
 
 // Compute the ``font-weight`` property.
@@ -434,10 +441,13 @@ func fontWeight(computer computer, name string, value string) int {
 	case "normal":
 		return 400
 	case "bold":
-        return 700
-   case "bolder", "lighter":
-        parentValue := computer.parentStyle.Strings["font_weight"]
-        return FONTWEIGHTRELATIVE[value][parentValue]
+		return 700
+	case "bolder":
+		parentValue := computer.parentStyle.Strings["font_weight"]
+		return FontWeightRelative.bolder[parentValue]
+	case "lighter":
+		parentValue := computer.parentStyle.Strings["font_weight"]
+		return FontWeightRelative.lighter[parentValue]
 	default:
 		i, err := strconv.Atoi(value)
 		if err != nil {
@@ -449,92 +459,102 @@ func fontWeight(computer computer, name string, value string) int {
 
 // Compute the ``line-height`` property.
 func lineHeight(computer computer, name string, value Value) Value {
-	var pixels int 
+	var pixels int
 	switch {
 	case value.String == "normal":
-        return value
-    case value.Unit == "":
-        return  Value{Dimension:{Value: value.Value, Unit: "NUMBER"}}
+		return value
+	case value.Unit == "":
+		return Value{Dimension: Dimension{Value: value.Value, Unit: "NUMBER"}}
 	case value.Unit == "%":
-        factor := value.Value / 100.
-        fontSizeValue := computer.computed.Ints["font_size"]
-        pixels = factor * fontSizeValue
-    default:
+		factor := value.Value / 100.
+		fontSizeValue := computer.computed.Ints["font_size"]
+		pixels = factor * fontSizeValue
+	default:
 		pixels = length(computer, name, value, -1).Value
 	}
-	return Value{Dimension:{Value: pixels, Unit: "PIXELS"}}
+	return Value{Dimension: Dimension{Value: pixels, Unit: "PIXELS"}}
 }
 
 // Compute the ``anchor`` property.
-func anchor(computer, name, values) {
-    if values != "none":
-        _, key = values
-        return computer.element.get(key) or None
+func anchor(computer computer, name string, values Link) string {
+	if values.String != "none" {
+		return utils.GetAttribute(computer.element, values.Attr, "")
+	}
+	return ""
 }
 
 // Compute the ``link`` property.
 func link(computer computer, name string, values Link) []string {
-    if values.String == "none" {
-        return nil
+	if values.String == "none" {
+		return nil
 	}
 	if values.Type == "attr" {
-		return getLinkAttribute(computer.element, values.Attr, computer.baseUrl)
+		return utils.GetLinkAttribute(computer.element, values.Attr, computer.baseUrl)
 	}
 	return []string{values.Type, values.Attr}
 }
 
 // Compute the ``lang`` property.
-func lang(computer computer, name string, values) {
-    if values == "none":
-        return None
-    else:
-        type_, key = values
-        if type_ == "attr()":
-            return computer.element.get(key) or None
-        elif type_ == "string":
-            return key
+func lang(computer computer, name string, values Link) string {
+	if values.String == "none" {
+		return ""
+	}
+	if values.Type == "attr()" {
+		return utils.GetAttribute(computer.element, values.Attr, "")
+	} else if values.Type == "string" {
+		return values.Attr
+	}
+	return ""
 }
 
 // Compute the ``tab-size`` property.
-func tabSize(computer computer, name string, value Value) {
-    if isinstance(value, int):
-        return value
-    else:
-        return length(computer computer, name string, value)
+func tabSize(computer computer, name string, value Value) Dimension {
+	if value.Unit == "" {
+		return value.Dimension
+	}
+	return length(computer, name, value, -1)
 }
 
 // Compute the ``transform`` property.
-func transform(computer computer, name string, value Value) {
-    result = []
-    for function, args in value:
-        if function == "translate":
-            args = lengthOrPercentageTuple(computer computer, name string, args)
-        result.append((function, args))
-    return tuple(result)
+func transform(computer computer, name string, value []Transform) []Transform {
+	result := make([]Transform, len(value))
+	for index, tr := range value {
+		if tr.Function == "translate" {
+			tr.Args = lengthOrPercentageTuple2(computer, name, tr.Args)
+		}
+		result[index] = tr
+	}
+	return result
 }
 
 // Compute the ``vertical-align`` property.
-func verticalAlign(computer computer, name string, value Value) {
-    // Use +/- half an em for super and sub, same as Pango.
-    // (See the SUPERSUBRISE constant in pango-markup.c)
-    if value in ("baseline", "middle", "text-top", "text-bottom",
-                 "top", "bottom"):
-        return value
-    elif value == "super":
-        return computer.computed["fontSize"] * 0.5
-    elif value == "sub":
-        return computer.computed["fontSize"] * -0.5
-    elif value.unit == "%":
-        height, _ = strutLayout(computer.computed)
-        return height * value.value / 100.
-    else:
-        return length(computer computer, name string, value, pixelsOnly=True)
+func verticalAlign(computer computer, name string, value Value) IntString {
+	// Use +/- half an em for super and sub, same as Pango.
+	// (See the SUPERSUBRISE constant in pango-markup.c)
+	var out IntString
+	switch value.String {
+	case "baseline", "middle", "text-top", "text-bottom", "top", "bottom":
+		out.String = value.String
+	case "super":
+		out.Int = computer.computed.Ints["font_size"] * 0.5
+	case "sub":
+		out.Int = computer.computed.Ints["font_size"] * -0.5
+	default:
+		out.Int = length(computer, name, value, -1).Value
+	}
+	if value.Unit == "%" {
+		//TODO: support
+		// height, _ = strutLayout(computer.computed)
+		// return height * value.value / 100.
+		log.Println("% not supported for vertical-align")
+	}
+	return out
 }
 
 // Compute the ``word-spacing`` property.
-func wordSpacing(computer computer, name string, value Value) {
-    if value == "normal":
-        return 0
-    else:
-		return length(computer computer, name string, value, pixelsOnly=True)
+func wordSpacing(computer computer, name string, value Value) int {
+	if value.String == "normal" {
+		return 0
+	}
+	return length(computer, name, value, -1).Value
 }

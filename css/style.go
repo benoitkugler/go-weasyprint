@@ -120,6 +120,7 @@ var (
 	}
 )
 
+// Dimension without unit is interpreted as int
 type Dimension struct {
 	Unit  string
 	Value int
