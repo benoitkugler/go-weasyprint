@@ -145,46 +145,51 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 
 	var children []AllBox
 	if display == "list-item" {
-		children = append(children, 
+		children = append(children,
 			addBoxMarker(box, counterValues, getImageFromUri)...)
 	}
 
-	# If this element’s direct children create new scopes, the counter
-	# names will be in this new list
+	// If this element’s direct children create new scopes, the counter
+	// names will be in this new list
 	counterScopes.append(set())
 
 	box.firstLetterStyle = styleFor(element, "first-letter")
 	box.firstLineStyle = styleFor(element, "first-line")
 
 	children.extend(beforeAfterToBox(
-	    element, "before", state, styleFor, getImageFromUri))
+		element, "before", state, styleFor, getImageFromUri))
 	text = element.text
-	if text:
-	    children.append(boxes.TextBox.anonymousFrom(box, text))
+	if text {
+		children.append(boxes.TextBox.anonymousFrom(box, text))
+	}
 
-	for childElement in element:
-	    children.extend(elementToBox(
-	        childElement, styleFor, getImageFromUri, baseUrl, state))
-	    text = childElement.tail
-	    if text:
-	        textBox = boxes.TextBox.anonymousFrom(box, text)
-	        if children and isinstance(children[-1], boxes.TextBox):
-	            children[-1].text += textBox.text
-	        else:
-	            children.append(textBox)
+	for _, childElement := range element {
+		children.extend(elementToBox(
+			childElement, styleFor, getImageFromUri, baseUrl, state))
+		text = childElement.tail
+		if text {
+			textBox = boxes.TextBox.anonymousFrom(box, text)
+			if children && isinstance(children[-1], boxes.TextBox) {
+				children[-1].text += textBox.text
+			} else {
+				children.append(textBox)
+			}
+		}
+	}
 	children.extend(beforeAfterToBox(
-	    element, "after", state, styleFor, getImageFromUri))
+		element, "after", state, styleFor, getImageFromUri))
 
-	# Scopes created by this element’s children stop here.
-	for name in counterScopes.pop():
-	    counterValues[name].pop()
-	    if not counterValues[name]:
-	        counterValues.pop(name)
-
+	// Scopes created by this element’s children stop here.
+	for _, name := range counterScopes.pop() {
+		counterValues[name].pop()
+		if !counterValues[name] {
+			counterValues.pop(name)
+		}
+	}
 	box.children = children
 	setContentLists(element, box, style, counterValues)
 
-	# Specific handling for the element. (eg. replaced element)
+	// Specific handling for the element. (eg. replaced element)
 	return html.handleElement(element, box, getImageFromUri, baseUrl)
 
 }
@@ -357,17 +362,17 @@ func updateCounters(state *state, style *css.StyleDict) {
 // and yield children to add a the start of the box.
 
 // See http://www.w3.org/TR/CSS21/generate.html#lists
-func addBoxMarker(box AllBox, counterValues, getImageFromUri) []AllBox {
-    style := box.Style()
-    imageType, image = style.listStyleImage
-    if imageType == "url" {
-        // surface may be None here too, in case the image is not available.
-        image = getImageFromUri(image)
+func addBoxMarker(box AllBox, counterValues css.CounterIncrements, getImageFromUri func()) []AllBox {
+	style := box.Style()
+	imageType, image := style.listStyleImage
+	if imageType == "url" {
+		// surface may be None here too, in case the image is not available.
+		image = getImageFromUri(image)
 	}
 
-    if image == nil {
-        type_ := style.listStyleType
-        if type_ == "none" {
+	if image == nil {
+		type_ := style.listStyleType
+		if type_ == "none" {
 			return nil
 		}
 		counterValues, has := counterValues["list-item"]
@@ -375,17 +380,19 @@ func addBoxMarker(box AllBox, counterValues, getImageFromUri) []AllBox {
 			counterValues = []int{0}
 		}
 		counterValue = counterValues[len(counterValues)-1]
-        markerText = formatListMarker(counterValue, type_)
-        markerBox = boxes.TextBox.anonymousFrom(box, markerText)
+		markerText = formatListMarker(counterValue, type_)
+		markerBox = boxes.TextBox.anonymousFrom(box, markerText)
 	} else {
-        markerBox = boxes.InlineReplacedBox.anonymousFrom(box, image)
-        markerBox.isListMarker = True
+		markerBox = boxes.InlineReplacedBox.anonymousFrom(box, image)
+		markerBox.isListMarker = True
 	}
-    markerBox.elementTag += "::marker"
+	markerBox.elementTag += "::marker"
 
-    position = style.listStylePosition
-    if position == "inside":
-        yield markerBox
-    elif position == "outside":
+	position = style.listStylePosition
+	if position == "inside" {
+		// yield markerBox
+		return markerBox
+	} else if position == "outside" {
 		box.outsideListMarker = markerBox
+	}
 }

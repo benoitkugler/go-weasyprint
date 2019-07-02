@@ -2,6 +2,7 @@ package css
 
 import (
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -83,13 +84,21 @@ func init() {
 	}
 
 	//Some computed values are required by others, so order matters.
-	first := []string{"font_stretch", "font_weight", "font_family", "font_variant",
+	ComputingOrder = []string{"font_stretch", "font_weight", "font_family", "font_variant",
 		"font_style", "font_size", "line_height", "marks"}
-	var keys []string
-	// for _, k := InitialValues.Keys() {
-	// 	if
-	// }
-
+	var crible map[string]bool
+	for _, k := range ComputingOrder {
+		crible[k] = true
+	}
+	keys := InitialValues.Keys()
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	for _, k := range keys {
+		if !crible[k] {
+			ComputingOrder = append(ComputingOrder, k)
+		}
+	}
 }
 
 // Return a dict of computed values.
@@ -125,18 +134,25 @@ func compute(element html.Node, pseudoType string,
 
 	// getter = COMPUTER_FUNCTIONS.get
 
-	// for name in COMPUTING_ORDER:
-	// if name in computed:
-	// 	// Already computed
-	// 	continue
+	var computedKeys map[string]bool
+	for _, k := range computed.Keys() {
+		computedKeys[k] = true
+	}
 
-	// value = specified[name]
-	// function = getter(name)
-	// if function is not None:
-	// 	value = function(computer computer, name string, value)
-	// // else: same as specified
+	specifiedItems := specified.Items()
+	for _, name := range ComputingOrder {
+		if computedKeys[name] {
+			// Already computed
+			continue
+		}
+		value := specifiedItems[name]
+		// function = getter(name)
+		// if function is not None:
+		// 	value = function(computer computer, name string, value)
+		// // else: same as specified
 
-	// computed[name] = value
+		// computed[name] = value
+	}
 
 	// computed['_weasy_specified_display'] = specified['display']
 	return computed
