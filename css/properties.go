@@ -3,6 +3,60 @@ package css
 type Set = map[string]bool
 
 var (
+	ConvertersValue = map[string]func(Value) CssProperty{
+		"top":                  valueToLength,
+		"right":                valueToLength,
+		"left":                 valueToLength,
+		"bottom":               valueToLength,
+		"margin_top":           valueToLength,
+		"margin_right":         valueToLength,
+		"margin_bottom":        valueToLength,
+		"margin_left":          valueToLength,
+		"height":               valueToLength,
+		"width":                valueToLength,
+		"min_width":            valueToLength,
+		"min_height":           valueToLength,
+		"max_width":            valueToLength,
+		"max_height":           valueToLength,
+		"padding_top":          valueToLength,
+		"padding_right":        valueToLength,
+		"padding_bottom":       valueToLength,
+		"padding_left":         valueToLength,
+		"text_indent":          valueToLength,
+		"hyphenate_limit_zone": valueToLength,
+
+		"bleed_left":   valueToBleed,
+		"bleed_right":  valueToBleed,
+		"bleed_top":    valueToBleed,
+		"bleed_bottom": valueToBleed,
+
+		"border_top_width":    valueToBorderWidth,
+		"border_right_width":  valueToBorderWidth,
+		"border_left_width":   valueToBorderWidth,
+		"border_bottom_width": valueToBorderWidth,
+		"column_rule_width":   valueToBorderWidth,
+		"outline_width":       valueToBorderWidth,
+
+		"column_width":   valueToColumnWidth,
+		"column_gap":     valueToColumnGap,
+		"font_size":      valueToFontSize,
+		"font_weight":    valueToFontWeight,
+		"line_height":    valueToLineHeight,
+		"tab_size":       valueToTabSize,
+		"vertical_align": valueToVerticalAlign,
+		"word_spacing":   valueToWordSpacing,
+	}
+	ConvertersString = map[string]func(string) CssProperty{
+		"break_after":  func(s string) CssProperty { return Break(s) },
+		"break_before": func(s string) CssProperty { return Break(s) },
+		"display":      func(s string) CssProperty { return Display(s) },
+		"float":        func(s string) CssProperty { return Float(s) },
+	}
+	ConvertersLink = map[string]func(Link) CssProperty{
+		"link":   func(l Link) CssProperty { return l },
+		"anchor": func(l Link) CssProperty { return Anchor(l) },
+		"lang":   func(l Link) CssProperty { return Lang(l) },
+	}
 	Inherited          Set
 	InitialNotComputed Set
 
@@ -173,3 +227,238 @@ var (
 		// "_weasy_specified_display": "inline",
 	}
 )
+
+// Dimension or string
+type Value struct {
+	Dimension
+	String string
+}
+
+// background-image
+type BackgroundImage []Gradient
+
+// background-position
+type BackgroundPosition []Center
+
+// background-size
+type BackgroundSize []Size
+
+// content
+type Content struct {
+	List   [][2]string
+	String string
+}
+
+func (c Content) IsNil() bool {
+	return c.String == "" && c.List == nil
+}
+
+// deep copy
+func (c Content) Copy() Content {
+	out := c
+	out.List = append([][2]string{}, c.List...)
+	return out
+}
+
+// transform
+type Transforms []Transform
+
+// transform-origin
+// border-spacing
+// size
+// clip
+// border-top-left-radius
+// border-top-right-radius
+// border-bottom-left-radius
+// border-bottom-right-radius
+type Lengths []Value
+
+// break_after
+// break_before
+type Break string
+
+// display
+type Display string
+
+// float
+type Float string
+
+// top
+// right
+// left
+// bottom
+// margin_top
+// margin_right
+// margin_bottom
+// margin_left
+// height
+// width
+// min_width
+// min_height
+// max_width
+// max_height
+// padding_top
+// padding_right
+// padding_bottom
+// padding_left
+// text_indent
+// hyphenate_limit_zone
+type Length Value
+
+// bleed_left
+// bleed_right
+// bleed_top
+// bleed_bottom
+type Bleed Value
+
+// border_top_width
+// border_right_width
+// border_left_width
+// border_bottom_width
+// column_rule_width
+// outline_width
+type BorderWidth Value
+
+// letter_spacing
+type PixelLength Value
+
+// column_width
+type ColumnWidth Value
+
+// column_gap
+type ColumnGap Value
+
+// font_size
+type FontSize Value
+
+// font_weight
+type FontWeight Value
+
+// line_height
+type LineHeight Value
+
+// tab_size
+type TabSize Value
+
+// vertical_align
+type VerticalAlign Value
+
+// word_spacing
+type WordSpacing Value
+
+// link
+type Link struct {
+	String string
+	Type   string
+	Attr   string
+}
+
+// anchor
+type Anchor Link
+
+// lang
+type Lang Link
+
+func valueToLength(v Value) CssProperty        { return Length(v) }
+func valueToBleed(v Value) CssProperty         { return Bleed(v) }
+func valueToPixelLength(v Value) CssProperty   { return PixelLength(v) }
+func valueToBorderWidth(v Value) CssProperty   { return BorderWidth(v) }
+func valueToColumnWidth(v Value) CssProperty   { return ColumnWidth(v) }
+func valueToColumnGap(v Value) CssProperty     { return ColumnGap(v) }
+func valueToFontSize(v Value) CssProperty      { return FontSize(v) }
+func valueToFontWeight(v Value) CssProperty    { return FontWeight(v) }
+func valueToLineHeight(v Value) CssProperty    { return LineHeight(v) }
+func valueToTabSize(v Value) CssProperty       { return TabSize(v) }
+func valueToVerticalAlign(v Value) CssProperty { return VerticalAlign(v) }
+func valueToWordSpacing(v Value) CssProperty   { return WordSpacing(v) }
+
+func (v Value) SetOn(name string, s *StyleDict) {
+	s.Values[name] = v
+}
+
+func (v Length) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v Bleed) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v PixelLength) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v BorderWidth) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v ColumnWidth) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v ColumnGap) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v FontSize) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v FontWeight) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v LineHeight) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v TabSize) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v VerticalAlign) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+func (v WordSpacing) SetOn(name string, s *StyleDict) {
+	Value(v).SetOn(name, s)
+}
+
+func (v Break) SetOn(name string, s *StyleDict) {
+	s.Strings[name] = string(v)
+}
+func (v Display) SetOn(name string, s *StyleDict) {
+	s.Strings[name] = string(v)
+}
+func (v Float) SetOn(name string, s *StyleDict) {
+	s.Strings[name] = string(v)
+}
+
+func (v Link) SetOn(name string, s *StyleDict) {
+	s.Links[name] = v
+}
+func (v Anchor) SetOn(name string, s *StyleDict) {
+	s.Links[name] = Link(v)
+}
+func (v Lang) SetOn(name string, s *StyleDict) {
+	s.Links[name] = Link(v)
+}
+
+func (v Lengths) SetOn(name string, s *StyleDict) {
+	s.Lengthss[name] = v
+}
+
+func (v CounterResets) SetOn(name string, s *StyleDict) {
+	s.CounterResets = v
+}
+func (v CounterIncrements) SetOn(name string, s *StyleDict) {
+	s.CounterIncrements = v
+}
+func (v Page) SetOn(name string, s *StyleDict) {
+	s.Page = v
+}
+
+func (v BackgroundImage) SetOn(name string, s *StyleDict) {
+	s.BackgroundImage = v
+}
+func (v BackgroundPosition) SetOn(name string, s *StyleDict) {
+	s.BackgroundPosition = v
+}
+func (v BackgroundSize) SetOn(name string, s *StyleDict) {
+	s.BackgroundSize = v
+}
+func (v Content) SetOn(name string, s *StyleDict) {
+	s.Content = v
+}
+func (v Transforms) SetOn(name string, s *StyleDict) {
+	s.Transforms = v
+}

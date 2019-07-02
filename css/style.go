@@ -120,6 +120,11 @@ var (
 	}
 )
 
+type CssProperty interface {
+	ComputeValue(computer *computer, name string) CssProperty
+	SetOn(name string, target *StyleDict)
+}
+
 // Dimension without unit is interpreted as int
 type Dimension struct {
 	Unit  string
@@ -147,7 +152,7 @@ type Page struct {
 
 func (x CounterIncrements) Copy() CounterIncrements {
 	out := x
-	copy(out.CI, x.CI)
+	out.CI = append([]CounterIncrement{}, x.CI...)
 	return out
 }
 
@@ -159,9 +164,7 @@ type CounterReset struct {
 type CounterResets []CounterReset
 
 func (x CounterResets) Copy() CounterResets {
-	var out CounterResets
-	copy(out, x)
-	return out
+	return append(CounterResets{}, x...)
 }
 
 // type StyleDict2 struct {
@@ -193,74 +196,118 @@ type cascadedValue struct {
 }
 
 type MiscProperties struct {
-	CounterReset     CounterResets
-	CounterIncrement CounterIncrements
-	Page             Page
+	CounterResets     CounterResets
+	CounterIncrements CounterIncrements
+	Page              Page
+
+	BackgroundImage    BackgroundImage
+	BackgroundPosition BackgroundPosition
+	BackgroundSize     BackgroundSize
+	Content            Content
+	Transforms         Transforms
+
+	weasySpecifiedDisplay Display
 }
 
 // Deep copy
 func (s MiscProperties) Copy() MiscProperties {
 	out := s
-	out.CounterIncrement = s.CounterIncrement.Copy()
-	out.CounterReset = s.CounterReset.Copy()
+	out.CounterIncrements = s.CounterIncrements.Copy()
+	out.CounterResets = s.CounterResets.Copy()
+
+	out.BackgroundImage = append(BackgroundImage{}, s.BackgroundImage...)
+	out.BackgroundPosition = append(BackgroundPosition{}, s.BackgroundPosition...)
+	out.BackgroundSize = append(BackgroundSize{}, s.BackgroundSize...)
+	out.Content = s.Content.Copy()
+	out.Transforms = append(Transforms{}, s.Transforms...)
+
 	return out
 }
 
 // Items returns a map with only non zero properties
-func (s MiscProperties) Items() map[string]interface{} {
-	out := make(map[string]interface{})
-	if s.CounterIncrement.Valid {
-		out["counter_increment"] = s.CounterIncrement
+func (s MiscProperties) Items() map[string]CssProperty {
+	out := make(map[string]CssProperty)
+	if s.CounterIncrements.Valid {
+		out["counter_increment"] = s.CounterIncrements
 	}
-	if s.CounterReset != nil {
-		out["counter_reset"] = s.CounterReset
+	if s.CounterResets != nil {
+		out["counter_reset"] = s.CounterResets
 	}
 	if s.Page.Valid {
 		out["page"] = s.Page
 	}
-	return out
-}
 
-// Set convert the value and set it.
-// Should be avoided when performance matters.
-func (s *MiscProperties) Set(key string, value interface{}) {
-	switch key {
-	case "counter_increment":
-		s.CounterIncrement = value.(CounterIncrements)
-	case "counter_reset":
-		s.CounterReset = value.(CounterResets)
-	case "page":
-		s.Page = value.(Page)
+	if s.BackgroundImage != nil {
+		out["background_image"] = s.BackgroundImage
 	}
+	if s.BackgroundPosition != nil {
+		out["background_position"] = s.BackgroundPosition
+	}
+	if s.BackgroundSize != nil {
+		out["background_size"] = s.BackgroundSize
+	}
+	if !s.Content.IsNil() {
+		out["content"] = s.Content
+	}
+	if s.Transforms != nil {
+		out["transform"] = s.Transforms
+	}
+
+	if s.weasySpecifiedDisplay != "" {
+		out["_weasy_specified_display"] = s.weasySpecifiedDisplay
+	}
+	return out
 }
 
 // SetFrom copy the given keys from src into s
 func (s *MiscProperties) SetFrom(src MiscProperties, keys Set) {
 	if keys["counter_reset"] {
-		s.CounterReset = src.CounterReset
+		s.CounterResets = src.CounterResets
 	}
 	if keys["counter_increment"] {
-		s.CounterIncrement = src.CounterIncrement
+		s.CounterIncrements = src.CounterIncrements
 	}
 	if keys["page"] {
 		s.Page = src.Page
+	}
+
+	if keys["background_image"] {
+		s.BackgroundImage = src.BackgroundImage
+	}
+	if keys["background_position"] {
+		s.BackgroundPosition = src.BackgroundPosition
+	}
+	if keys["background_size"] {
+		s.BackgroundSize = src.BackgroundSize
+	}
+	if keys["content"] {
+		s.Content = src.Content
+	}
+	if keys["transform"] {
+		s.Transforms = src.Transforms
+	}
+
+	if keys["_weasy_specified_display"] {
+		s.weasySpecifiedDisplay = src.weasySpecifiedDisplay
 	}
 }
 
 type StyleDict struct {
 	MiscProperties
 
-	Anonymous  bool
-	Strings    map[string]string
-	Dimensions map[string]Dimension
-	Ints       map[string]int
+	Anonymous bool
+	Strings   map[string]string
+	Values    map[string]Value
+	Links     map[string]Link
+	Lengthss  map[string]Lengths
 }
 
 func NewStyleDict() StyleDict {
 	var out StyleDict
 	out.Strings = make(map[string]string)
-	out.Dimensions = make(map[string]Dimension)
-	out.Ints = make(map[string]int)
+	out.Values = make(map[string]Value)
+	out.Links = make(map[string]Link)
+	out.Lengthss = make(map[string]Lengths)
 	return out
 }
 
@@ -275,30 +322,37 @@ func (s StyleDict) Copy() StyleDict {
 	out := s
 	out.MiscProperties = s.MiscProperties.Copy()
 	out.Strings = make(map[string]string, len(s.Strings))
-	out.Dimensions = make(map[string]Dimension, len(s.Dimensions))
-	out.Ints = make(map[string]int, len(s.Ints))
+	out.Values = make(map[string]Value, len(s.Values))
+	out.Links = make(map[string]Link, len(s.Links))
+	out.Lengthss = make(map[string]Lengths, len(s.Lengthss))
 	for k, v := range s.Strings {
 		out.Strings[k] = v
 	}
-	for k, v := range s.Dimensions {
-		out.Dimensions[k] = v
+	for k, v := range s.Values {
+		out.Values[k] = v
 	}
-	for k, v := range s.Ints {
-		out.Ints[k] = v
+	for k, v := range s.Links {
+		out.Links[k] = v
+	}
+	for k, v := range s.Lengthss {
+		out.Lengthss[k] = v
 	}
 	return out
 }
 
-func (s StyleDict) Items() map[string]interface{} {
-	out := make(map[string]interface{})
+func (s StyleDict) Items() map[string]CssProperty {
+	out := make(map[string]CssProperty)
 	for k, v := range s.Strings {
+		out[k] = ConvertersString[k](v)
+	}
+	for k, v := range s.Values {
+		out[k] = ConvertersValue[k](v)
+	}
+	for k, v := range s.Lengthss {
 		out[k] = v
 	}
-	for k, v := range s.Dimensions {
-		out[k] = v
-	}
-	for k, v := range s.Ints {
-		out[k] = v
+	for k, v := range s.Links {
+		out[k] = ConvertersLink[k](v)
 	}
 	for k, v := range s.MiscProperties.Items() {
 		out[k] = v
@@ -315,38 +369,9 @@ func (s StyleDict) Keys() []string {
 	return keys
 }
 
-// Set convert the value and set it.
-// Should be avoided when performance matters.
-func (s *StyleDict) Set(key string, value interface{}) {
-	switch typed := value.(type) {
-	case string:
-		s.Strings[key] = typed
-	case int:
-		s.Ints[key] = typed
-	case Dimension:
-		s.Dimensions[key] = typed
-	default:
-		s.MiscProperties.Set(key, value)
-	}
-}
-
 // SetFrom copy the given keys from src into s
 func (s *StyleDict) SetFrom(src StyleDict, keys Set) {
-	for key := range stringsKeys {
-		if keys[key] {
-			s.Strings[key] = src.Strings[key]
-		}
-	}
-	for key := range dimensionsKeys {
-		if keys[key] {
-			s.Dimensions[key] = src.Dimensions[key]
-		}
-	}
-	for key := range intsKeys {
-		if keys[key] {
-			s.Ints[key] = src.Ints[key]
-		}
-	}
+	//TODO: à compléter
 	s.MiscProperties.SetFrom(src.MiscProperties, keys)
 }
 
@@ -423,7 +448,7 @@ func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, 
 		specified.Page = val
 	}
 
-	return StyleDict(compute(
+	return compute(
 		element, pseudoType, specified, computed, parentStyle, rootStyle,
-		baseUrl))
+		baseUrl)
 }

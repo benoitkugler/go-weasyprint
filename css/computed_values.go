@@ -3,7 +3,6 @@ package css
 import (
 	"log"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -11,7 +10,7 @@ import (
 )
 
 var (
-	ZeroPixels = Dimension{Unit: "px", Value: 0}
+	ZeroPixels = Value{Dimension: Dimension{Unit: "px", Value: 0}}
 
 	// How many CSS pixels is one <unit>?
 	// http://www.w3.org/TR/CSS21/syndata.html#length-units
@@ -38,40 +37,40 @@ var (
 	// http://www.w3.org/TR/css3-fonts/#font-size-prop
 	// TODO: this will need to be ordered to implement 'smaller' and 'larger'
 	FontSizeKeywords = map[string]int{ // medium is 16px, others are a ratio of medium
-		"xx-small": InitialValues.Ints["font_size"] * 3 / 5,
-		"x-small":  InitialValues.Ints["font_size"] * 3 / 4,
-		"small":    InitialValues.Ints["font_size"] * 8 / 9,
-		"medium":   InitialValues.Ints["font_size"] * 1 / 1,
-		"large":    InitialValues.Ints["font_size"] * 6 / 5,
-		"x-large":  InitialValues.Ints["font_size"] * 3 / 2,
-		"xx-large": InitialValues.Ints["font_size"] * 2 / 1,
+		"xx-small": InitialValues.Values["font_size"].Value * 3 / 5,
+		"x-small":  InitialValues.Values["font_size"].Value * 3 / 4,
+		"small":    InitialValues.Values["font_size"].Value * 8 / 9,
+		"medium":   InitialValues.Values["font_size"].Value * 1 / 1,
+		"large":    InitialValues.Values["font_size"].Value * 6 / 5,
+		"x-large":  InitialValues.Values["font_size"].Value * 3 / 2,
+		"xx-large": InitialValues.Values["font_size"].Value * 2 / 1,
 	}
 
 	// http://www.w3.org/TR/CSS21/fonts.html#propdef-font-weight
 	FontWeightRelative = struct {
-		bolder, lighter map[string]int
+		bolder, lighter map[int]int
 	}{
-		bolder: map[string]int{
-			"100": 400,
-			"200": 400,
-			"300": 400,
-			"400": 700,
-			"500": 700,
-			"600": 900,
-			"700": 900,
-			"800": 900,
-			"900": 900,
+		bolder: map[int]int{
+			100: 400,
+			200: 400,
+			300: 400,
+			400: 700,
+			500: 700,
+			600: 900,
+			700: 900,
+			800: 900,
+			900: 900,
 		},
-		lighter: map[string]int{
-			"100": 100,
-			"200": 100,
-			"300": 100,
-			"400": 100,
-			"500": 100,
-			"600": 400,
-			"700": 400,
-			"800": 700,
-			"900": 700,
+		lighter: map[int]int{
+			100: 100,
+			200: 100,
+			300: 100,
+			400: 100,
+			500: 100,
+			600: 400,
+			700: 400,
+			800: 700,
+			900: 700,
 		},
 	}
 
@@ -79,11 +78,11 @@ var (
 )
 
 func init() {
-	if InitialValues.Ints["border_top_width"] != BorderWidthKeywords["medium"] {
+	if InitialValues.Values["border_top_width"].Value != BorderWidthKeywords["medium"] {
 		log.Fatal("border-top-width and medium should be the same !")
 	}
 
-	//Some computed values are required by others, so order matters.
+	//Some computed value are required by others, so order matters.
 	ComputingOrder = []string{"font_stretch", "font_weight", "font_family", "font_variant",
 		"font_style", "font_size", "line_height", "marks"}
 	var crible map[string]bool
@@ -101,23 +100,23 @@ func init() {
 	}
 }
 
-// Return a dict of computed values.
+// Return a dict of computed value.
 
 // :param element: The HTML element these style apply to
 // :param pseudo_type: The type of pseudo-element, eg 'before', None
-// :param specified: a dict of specified values. Should contain
-// 			  values for all properties.
-// :param computed: a dict of already known computed values.
+// :param specified: a dict of specified value. Should contain
+// 			  value for all properties.
+// :param computed: a dict of already known computed value.
 // 			 Only contains some properties (or none).
-// :param parentStyle: a dict of computed values of the parent
-// 				 element (should contain values for all properties),
-// 				 or ``None`` if ``element`` is the root element.
+// :param parentStyle: a dict of computed value of the parent
+// 				 element (should contain value for all properties),
+// 				 or `zero if ``element`` is the root element.
 // :param baseUrl: The base URL used to resolve relative URLs.
 func compute(element html.Node, pseudoType string,
 	specified, computed, parentStyle,
 	rootStyle StyleDict, baseUrl string) StyleDict {
 
-	var computer computer
+	computer := new(computer)
 
 	computer.isRootElement = parentStyle.IsZero()
 	if parentStyle.IsZero() {
@@ -125,14 +124,11 @@ func compute(element html.Node, pseudoType string,
 	}
 
 	computer.element = element
-	computer.pseudoType = pseudoType
 	computer.specified = specified
 	computer.computed = computed
 	computer.parentStyle = parentStyle
 	computer.rootStyle = rootStyle
 	computer.baseUrl = baseUrl
-
-	// getter = COMPUTER_FUNCTIONS.get
 
 	var computedKeys map[string]bool
 	for _, k := range computed.Keys() {
@@ -145,16 +141,13 @@ func compute(element html.Node, pseudoType string,
 			// Already computed
 			continue
 		}
+		computedKeys[name] = true
 		value := specifiedItems[name]
-		// function = getter(name)
-		// if function is not None:
-		// 	value = function(computer computer, name string, value)
-		// // else: same as specified
-
-		// computed[name] = value
+		value = value.ComputeValue(computer, name)
+		value.SetOn(name, &computed)
 	}
 
-	// computed['_weasy_specified_display'] = specified['display']
+	computed.weasySpecifiedDisplay = Display(specified.Strings["display"])
 	return computed
 }
 
@@ -162,18 +155,7 @@ type computer struct {
 	isRootElement                               bool
 	computed, rootStyle, parentStyle, specified StyleDict
 	element                                     html.Node
-	pseudoType, baseUrl                         string
-}
-
-type IntString struct {
-	Int    int
-	String string
-}
-
-// Dimension or string
-type Value struct {
-	Dimension
-	String string
+	baseUrl                                     string
 }
 
 // Dimension or "auto" or "cover" or "contain"
@@ -182,16 +164,6 @@ type Size struct {
 	String        string
 }
 
-type Content struct {
-	List   [][2]string
-	String string
-}
-
-type Link struct {
-	String string
-	Type   string
-	Attr   string
-}
 type GradientValue struct {
 	StopPositions []Dimension
 	Center        Center
@@ -215,12 +187,12 @@ type Transform struct {
 }
 
 // backgroundImage computes lenghts in gradient background-image.
-func backgroundImage(computer computer, name string, values []Gradient) []Gradient {
-	for _, gradient := range values {
+func (value BackgroundImage) ComputeValue(computer *computer, name string) CssProperty {
+	for _, gradient := range value {
 		value := gradient.Value
 		if gradient.Type == "linear-gradient" || gradient.Type == "radial-gradient" {
 			for index, pos := range value.StopPositions {
-				value.StopPositions[index] = length(computer, name, Value{Dimension: pos}, -1)
+				value.StopPositions[index] = length(computer, name, Value{Dimension: pos}).Dimension
 			}
 		}
 		if gradient.Type == "radial-gradient" {
@@ -230,65 +202,68 @@ func backgroundImage(computer computer, name string, values []Gradient) []Gradie
 			}
 		}
 	}
-	return values
+	return value
 }
 
 // Compute lengths in background-position.
-func backgroundPosition(computer computer, name string, values []Center) []Center {
-	out := make([]Center, len(values))
-	for index, v := range values {
+func (value BackgroundPosition) ComputeValue(computer *computer, name string) CssProperty {
+	return BackgroundPosition(backgroundPosition(computer, name, []Center(value)))
+}
+
+func backgroundPosition(computer *computer, name string, value []Center) []Center {
+	out := make([]Center, len(value))
+	for index, v := range value {
 		out[index] = Center{
 			OriginX: v.OriginX,
 			OriginY: v.OriginY,
-			PosX:    length(computer, name, Value{Dimension: v.PosX}, -1),
-			PosY:    length(computer, name, Value{Dimension: v.PosY}, -1),
+			PosX:    length(computer, name, Value{Dimension: v.PosX}).Dimension,
+			PosY:    length(computer, name, Value{Dimension: v.PosY}).Dimension,
 		}
 	}
 	return out
 }
 
 // Compute the lists of lengths that can be percentages.
-func lengthOrPercentageTuple(computer computer, name string, values []Value) []Dimension {
-	out := make([]Dimension, len(values))
-	for index, v := range values {
-		out[index] = length(computer, name, v, -1)
+func (value Lengths) ComputeValue(computer *computer, name string) CssProperty {
+	out := make(Lengths, len(value))
+	for index, v := range value {
+		out[index] = length(computer, name, v)
 	}
 	return out
 }
 
 // Compute the lists of lengths that can be percentages.
-func lengthOrPercentageTuple2(computer computer, name string, values []Dimension) []Dimension {
-	out := make([]Dimension, len(values))
-	for index, v := range values {
-		out[index] = length(computer, name, Value{Dimension: v}, -1)
-	}
-	return out
-}
-
-// Compute the properties with a list of lengths.
-func lengthTuple(computer computer, name string, values []Value) []int {
-	out := make([]int, len(values))
-	for index, v := range values {
-		out[index] = length(computer, name, v, -1).Value
+func lengthOrPercentageTuple2(computer *computer, name string, value []Dimension) []Dimension {
+	out := make([]Dimension, len(value))
+	for index, v := range value {
+		out[index] = length(computer, name, Value{Dimension: v}).Dimension
 	}
 	return out
 }
 
 // Compute the ``break-before`` and ``break-after`` properties.
-func breakBeforeAfter(computer, name, value string) string {
+func (value Break) ComputeValue(computer *computer, name string) CssProperty {
 	// "always" is defined as an alias to "page" in multi-column
 	// https://www.w3.org/TR/css3-multicol/#column-breaks
 	if value == "always" {
-		return "page"
+		return Break("page")
 	}
 	return value
 }
 
+func (value Length) ComputeValue(computer *computer, name string) CssProperty {
+	return Length(length(computer, name, Value(value)))
+}
+
+func length(computer *computer, name string, value Value) Value {
+	return length2(computer, name, value, -1)
+}
+
 // Compute a length ``value``.
 // passing a negative fontSize means null
-func length(computer computer, name string, value Value, fontSize int) Dimension {
+func length2(computer *computer, name string, value Value, fontSize int) Value {
 	if value.String == "auto" || value.String == "content" {
-		return value.Dimension
+		return value
 	}
 	if value.Value == 0 {
 		return ZeroPixels
@@ -298,56 +273,56 @@ func length(computer computer, name string, value Value, fontSize int) Dimension
 	var result float64
 	switch unit {
 	case "px":
-		return value.Dimension
+		return value
 	case "pt", "pc", "in", "cm", "mm", "q":
 		// Convert absolute lengths to pixels
 		result = float64(value.Value) * LengthsToPixels[unit]
 	case "em", "ex", "ch", "rem":
 		if fontSize < 0 {
-			fontSize = computer.computed.Ints["font_size"]
+			fontSize = computer.computed.Values["font_size"].Value
 		}
 		switch unit {
 		// we dont support 'ex' and 'ch' units for now.
 		case "ex", "ch", "em":
 			result = float64(value.Value * fontSize)
 		case "rem":
-			result = float64(value.Value * computer.rootStyle.Ints["font_size"])
+			result = float64(value.Value * computer.rootStyle.Values["font_size"].Value)
 		default:
 			// A percentage or "auto": no conversion needed.
-			return value.Dimension
+			return value
 		}
-		return Dimension{Value: int(result), Unit: "px"}
+		return Value{Dimension: Dimension{Value: int(result), Unit: "px"}}
 	}
-	return Dimension{}
+	return Value{}
 }
 
-func bleed(computer computer, name string, value Value) Dimension {
+func (value Bleed) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String == "auto" {
 		if strings.Contains(computer.computed.Strings["marks"], "crop") {
-			return Dimension{Value: 8, Unit: "px"} // 6pt
+			return Bleed{Dimension: Dimension{Value: 8, Unit: "px"}} // 6pt
 		}
-		return ZeroPixels
+		return Bleed(ZeroPixels)
 	}
-	return length(computer, name, value, -1)
+	return Bleed(length(computer, name, Value(value)))
 }
 
-func pixelLength(computer computer, name string, value Value) IntString {
+func (value PixelLength) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String == "normal" {
-		return IntString{String: value.String}
+		return PixelLength{String: value.String}
 	}
-	return IntString{Int: length(computer, name, value, -1).Value}
+	return PixelLength(length(computer, name, Value(value)))
 }
 
 // Compute the ``background-size`` properties.
-func backgroundSize(computer computer, name string, values []Size) []Size {
-	out := make([]Size, len(values))
-	for index, v := range values {
+func (value BackgroundSize) ComputeValue(computer *computer, name string) CssProperty {
+	out := make(BackgroundSize, len(value))
+	for index, v := range value {
 		if v.String == "contain" || v.String == "cover" {
 			out[index] = Size{String: v.String}
 		} else {
-			l := lengthOrPercentageTuple(computer, name, []Value{
-				Value{Dimension: v.Height},
-				Value{Dimension: v.Width},
+			l := lengthOrPercentageTuple2(computer, name, []Dimension{
+				v.Height,
+				v.Width,
 			})
 			out[index] = Size{
 				Height: l[0],
@@ -360,53 +335,38 @@ func backgroundSize(computer computer, name string, values []Size) []Size {
 
 // Compute the ``border-*-width`` properties.
 // value.String may be the string representation of an int
-func borderWidth(computer computer, name string, value Value) int {
+func (value BorderWidth) ComputeValue(computer *computer, name string) CssProperty {
 	style := computer.computed.Strings[strings.ReplaceAll(name, "width", "style")]
 	if style == "none" || style == "hidden" {
-		return 0
+		return BorderWidth{}
 	}
 
 	if bw, in := BorderWidthKeywords[value.String]; in {
-		return bw
+		return BorderWidth{Dimension: Dimension{Value: bw}}
 	}
-
-	if i, err := strconv.Atoi(value.String); err == nil {
-		// The initial value can get here, but length() would fail as
-		// it does not have a "unit" attribute.
-		return i
-	}
-	return length(computer, name, value, -1).Value
+	return BorderWidth(length(computer, name, Value(value)))
 }
 
 // Compute the ``column-width`` property.
-func columnWidth(computer computer, name string, value Value) int {
-	return length(computer, name, value, -1).Value
-}
-
-// Compute the ``border-*-radius`` properties.
-func borderRadius(computer computer, name string, values []Value) []Dimension {
-	out := make([]Dimension, len(values))
-	for index, v := range values {
-		out[index] = length(computer, name, v, -1)
-	}
-	return out
+func (value ColumnWidth) ComputeValue(computer *computer, name string) CssProperty {
+	return ColumnWidth(length(computer, name, Value(value)))
 }
 
 // Compute the ``column-gap`` property.
-func columnGap(computer computer, name string, value Value) int {
+func (value ColumnGap) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String == "normal" {
-		value = Value{Dimension: Dimension{Value: 1, Unit: "em"}}
+		value = ColumnGap{Dimension: Dimension{Value: 1, Unit: "em"}}
 	}
-	return length(computer, name, value, -1).Value
+	return ColumnGap(length(computer, name, Value(value)))
 }
 
 // Compute the ``content`` property.
-func content(computer computer, name string, values Content) Content {
-	if values.String == "normal" || values.String == "none" {
-		return values
+func (value Content) ComputeValue(computer *computer, name string) CssProperty {
+	if value.String == "normal" || value.String == "none" {
+		return value
 	}
-	lis := make([][2]string, len(values.List))
-	for index, v := range values.List {
+	lis := make([][2]string, len(value.List))
+	for index, v := range value.List {
 		type_, value := v[0], v[1]
 		if type_ == "attr" {
 			lis[index][0] = "STRING"
@@ -420,18 +380,18 @@ func content(computer computer, name string, values Content) Content {
 
 //Compute the ``display`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-func display(computer computer, name string, value string) string {
+func (value Display) ComputeValue(computer *computer, name string) CssProperty {
 	float_ := computer.specified.Strings["float"]
 	position := computer.specified.Strings["position"]
 	if (position == "absolute" || position == "fixed") || float_ != "none" || computer.isRootElement {
 		switch value {
 		case "inline-table":
-			return "table"
+			return Display("table")
 		case "inline", "table-row-group", "table-column",
 			"table-column-group", "table-header-group",
 			"table-footer-group", "table-row", "table-cell",
 			"table-caption", "inline-block":
-			return "block"
+			return Display("block")
 		}
 	}
 	return value
@@ -439,112 +399,113 @@ func display(computer computer, name string, value string) string {
 
 //Compute the ``float`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-func computeFloat(computer computer, name string, value string) string {
+func (value Float) ComputeValue(computer *computer, name string) CssProperty {
 	position := computer.specified.Strings["position"]
 	if position == "absolute" || position == "fixed" {
-		return "none"
+		return Float("none")
 	}
 	return value
 }
 
 // Compute the ``font-size`` property.
-func fontSize(computer computer, name string, value Value) int {
+func (value FontSize) ComputeValue(computer *computer, name string) CssProperty {
 	if fs, in := FontSizeKeywords[value.String]; in {
-		return fs
+		return FontSize{Dimension: Dimension{Value: fs}}
 	}
 	// TODO: support "larger" and "smaller"
 
-	parentFontSize := computer.parentStyle.Ints["font_size"]
+	parentFontSize := computer.parentStyle.Values["font_size"].Value
 	if value.Unit == "%" {
-		return value.Value * parentFontSize / 100.
+		return FontSize{Dimension: Dimension{Value: value.Value * parentFontSize / 100.}}
 	}
-	return length(computer, name, value, parentFontSize).Value
+	return FontSize(length2(computer, name, Value(value), parentFontSize))
 }
 
 // Compute the ``font-weight`` property.
-// value may be a string representation of an int
-func fontWeight(computer computer, name string, value string) int {
-	switch value {
+func (value FontWeight) ComputeValue(computer *computer, name string) CssProperty {
+	var out int
+	switch value.String {
 	case "normal":
-		return 400
+		out = 400
 	case "bold":
-		return 700
+		out = 700
 	case "bolder":
-		parentValue := computer.parentStyle.Strings["font_weight"]
-		return FontWeightRelative.bolder[parentValue]
+		parentValue := computer.parentStyle.Values["font_weight"].Value
+		out = FontWeightRelative.bolder[parentValue]
 	case "lighter":
-		parentValue := computer.parentStyle.Strings["font_weight"]
-		return FontWeightRelative.lighter[parentValue]
+		parentValue := computer.parentStyle.Values["font_weight"].Value
+		out = FontWeightRelative.lighter[parentValue]
 	default:
-		i, err := strconv.Atoi(value)
-		if err != nil {
-			log.Fatal("font_weight should be an int !")
-		}
-		return i
+		out = value.Value
 	}
+	return FontWeight{Dimension: Dimension{Value: out}}
 }
 
 // Compute the ``line-height`` property.
-func lineHeight(computer computer, name string, value Value) Value {
+func (value LineHeight) ComputeValue(computer *computer, name string) CssProperty {
 	var pixels int
 	switch {
 	case value.String == "normal":
 		return value
 	case value.Unit == "":
-		return Value{Dimension: Dimension{Value: value.Value, Unit: "NUMBER"}}
+		return LineHeight{Dimension: Dimension{Value: value.Value, Unit: "NUMBER"}}
 	case value.Unit == "%":
 		factor := value.Value / 100.
-		fontSizeValue := computer.computed.Ints["font_size"]
+		fontSizeValue := computer.computed.Values["font_size"].Value
 		pixels = factor * fontSizeValue
 	default:
-		pixels = length(computer, name, value, -1).Value
+		pixels = length(computer, name, Value(value)).Value
 	}
-	return Value{Dimension: Dimension{Value: pixels, Unit: "PIXELS"}}
+	return LineHeight{Dimension: Dimension{Value: pixels, Unit: "PIXELS"}}
 }
 
 // Compute the ``anchor`` property.
-func anchor(computer computer, name string, values Link) string {
-	if values.String != "none" {
-		return utils.GetAttribute(computer.element, values.Attr, "")
+func (value Anchor) ComputeValue(computer *computer, name string) CssProperty {
+	if value.String != "none" {
+		return Anchor{String: utils.GetAttribute(computer.element, value.Attr, "")}
 	}
-	return ""
+	return Anchor{}
 }
 
 // Compute the ``link`` property.
-func link(computer computer, name string, values Link) []string {
-	if values.String == "none" {
-		return nil
+func (value Link) ComputeValue(computer *computer, name string) CssProperty {
+	if value.String == "none" {
+		return Link{}
 	}
-	if values.Type == "attr" {
-		return utils.GetLinkAttribute(computer.element, values.Attr, computer.baseUrl)
+	if value.Type == "attr" {
+		type_attr := utils.GetLinkAttribute(computer.element, value.Attr, computer.baseUrl)
+		if len(type_attr) < 2 {
+			return Link{}
+		}
+		return Link{Type: type_attr[0], Attr: type_attr[1]}
 	}
-	return []string{values.Type, values.Attr}
+	return value
 }
 
 // Compute the ``lang`` property.
-func lang(computer computer, name string, values Link) string {
-	if values.String == "none" {
-		return ""
+func (value Lang) ComputeValue(computer *computer, name string) CssProperty {
+	if value.String == "none" {
+		return Lang{}
 	}
-	if values.Type == "attr()" {
-		return utils.GetAttribute(computer.element, values.Attr, "")
-	} else if values.Type == "string" {
-		return values.Attr
+	if value.Type == "attr()" {
+		return Lang{String: utils.GetAttribute(computer.element, value.Attr, "")}
+	} else if value.Type == "string" {
+		return Lang{String: value.Attr}
 	}
-	return ""
+	return Lang{}
 }
 
 // Compute the ``tab-size`` property.
-func tabSize(computer computer, name string, value Value) Dimension {
+func (value TabSize) ComputeValue(computer *computer, name string) CssProperty {
 	if value.Unit == "" {
-		return value.Dimension
+		return value
 	}
-	return length(computer, name, value, -1)
+	return TabSize(length(computer, name, Value(value)))
 }
 
 // Compute the ``transform`` property.
-func transform(computer computer, name string, value []Transform) []Transform {
-	result := make([]Transform, len(value))
+func (value Transforms) ComputeValue(computer *computer, name string) CssProperty {
+	result := make(Transforms, len(value))
 	for index, tr := range value {
 		if tr.Function == "translate" {
 			tr.Args = lengthOrPercentageTuple2(computer, name, tr.Args)
@@ -555,19 +516,19 @@ func transform(computer computer, name string, value []Transform) []Transform {
 }
 
 // Compute the ``vertical-align`` property.
-func verticalAlign(computer computer, name string, value Value) IntString {
+func (value VerticalAlign) ComputeValue(computer *computer, name string) CssProperty {
 	// Use +/- half an em for super and sub, same as Pango.
 	// (See the SUPERSUBRISE constant in pango-markup.c)
-	var out IntString
+	var out Value
 	switch value.String {
 	case "baseline", "middle", "text-top", "text-bottom", "top", "bottom":
 		out.String = value.String
 	case "super":
-		out.Int = int(float64(computer.computed.Ints["font_size"]) * 0.5)
+		out.Value = int(float64(computer.computed.Values["font_size"].Value) * 0.5)
 	case "sub":
-		out.Int = int(float64(computer.computed.Ints["font_size"]) * -0.5)
+		out.Value = int(float64(computer.computed.Values["font_size"].Value) * -0.5)
 	default:
-		out.Int = length(computer, name, value, -1).Value
+		out.Value = length(computer, name, Value(value)).Value
 	}
 	if value.Unit == "%" {
 		//TODO: support
@@ -575,13 +536,17 @@ func verticalAlign(computer computer, name string, value Value) IntString {
 		// return height * value.value / 100.
 		log.Println("% not supported for vertical-align")
 	}
-	return out
+	return VerticalAlign(out)
 }
 
 // Compute the ``word-spacing`` property.
-func wordSpacing(computer computer, name string, value Value) int {
+func (value WordSpacing) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String == "normal" {
-		return 0
+		return WordSpacing{}
 	}
-	return length(computer, name, value, -1).Value
+	return WordSpacing(length(computer, name, Value(value)))
 }
+
+func (value CounterResets) ComputeValue(computer *computer, name string) CssProperty     { return value }
+func (value CounterIncrements) ComputeValue(computer *computer, name string) CssProperty { return value }
+func (value Page) ComputeValue(computer *computer, name string) CssProperty              { return value }

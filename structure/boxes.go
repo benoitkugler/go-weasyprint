@@ -109,6 +109,8 @@ type AllBox interface {
 	resetSpacing(side css.Side)
 }
 
+type TBD struct{}
+
 // Box is an abstract base class for all boxes.
 type Box struct {
 	//Definitions for the rules generating anonymous table boxes
