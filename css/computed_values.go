@@ -73,12 +73,22 @@ var (
 			"900": 700,
 		},
 	}
+
+	ComputingOrder []string
 )
 
 func init() {
 	if InitialValues.Ints["border_top_width"] != BorderWidthKeywords["medium"] {
 		log.Fatal("border-top-width and medium should be the same !")
 	}
+
+	//Some computed values are required by others, so order matters.
+	first := []string{"font_stretch", "font_weight", "font_family", "font_variant",
+		"font_style", "font_size", "line_height", "marks"}
+	var keys []string
+	// for _, k := InitialValues.Keys() {
+	// 	if
+	// }
 
 }
 
@@ -90,28 +100,28 @@ func init() {
 // 			  values for all properties.
 // :param computed: a dict of already known computed values.
 // 			 Only contains some properties (or none).
-// :param parent_style: a dict of computed values of the parent
+// :param parentStyle: a dict of computed values of the parent
 // 				 element (should contain values for all properties),
 // 				 or ``None`` if ``element`` is the root element.
-// :param base_url: The base URL used to resolve relative URLs.
+// :param baseUrl: The base URL used to resolve relative URLs.
 func compute(element html.Node, pseudoType string,
-	specified, computed, parent_style,
-	root_style StyleDict, base_url string) StyleDict {
-	// func computer() {
-	// """Dummy object that holds attributes."""
-	// return 0
+	specified, computed, parentStyle,
+	rootStyle StyleDict, baseUrl string) StyleDict {
 
-	// computer.is_root_element = parent_style is None
-	// if parent_style is None:
-	// parent_style = INITIAL_VALUES
+	var computer computer
 
-	// computer.element = element
-	// computer.pseudo_type = pseudo_type
-	// computer.specified = specified
-	// computer.computed = computed
-	// computer.parent_style = parent_style
-	// computer.root_style = root_style
-	// computer.base_url = base_url
+	computer.isRootElement = parentStyle.IsZero()
+	if parentStyle.IsZero() {
+		parentStyle = InitialValues
+	}
+
+	computer.element = element
+	computer.pseudoType = pseudoType
+	computer.specified = specified
+	computer.computed = computed
+	computer.parentStyle = parentStyle
+	computer.rootStyle = rootStyle
+	computer.baseUrl = baseUrl
 
 	// getter = COMPUTER_FUNCTIONS.get
 
@@ -136,6 +146,7 @@ type computer struct {
 	isRootElement                               bool
 	computed, rootStyle, parentStyle, specified StyleDict
 	element                                     html.Node
+	pseudoType, baseUrl                         string
 }
 
 type IntString struct {
@@ -536,9 +547,9 @@ func verticalAlign(computer computer, name string, value Value) IntString {
 	case "baseline", "middle", "text-top", "text-bottom", "top", "bottom":
 		out.String = value.String
 	case "super":
-		out.Int = computer.computed.Ints["font_size"] * 0.5
+		out.Int = int(float64(computer.computed.Ints["font_size"]) * 0.5)
 	case "sub":
-		out.Int = computer.computed.Ints["font_size"] * -0.5
+		out.Int = int(float64(computer.computed.Ints["font_size"]) * -0.5)
 	default:
 		out.Int = length(computer, name, value, -1).Value
 	}

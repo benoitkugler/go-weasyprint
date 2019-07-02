@@ -134,14 +134,15 @@ type CounterIncrement struct {
 }
 
 type CounterIncrements struct {
-	Auto bool
-	CI   []CounterIncrement
+	Valid bool
+	Auto  bool
+	CI    []CounterIncrement
 }
 
 type Page struct {
-	Auto bool
-	Zero bool
-	Page int
+	Valid  bool
+	String string
+	Page   int
 }
 
 func (x CounterIncrements) Copy() CounterIncrements {
@@ -191,8 +192,6 @@ type cascadedValue struct {
 	precedence int
 }
 
-// type StyleDict map[string]interface{}
-
 type MiscProperties struct {
 	CounterReset     CounterResets
 	CounterIncrement CounterIncrements
@@ -207,11 +206,18 @@ func (s MiscProperties) Copy() MiscProperties {
 	return out
 }
 
+// Items returns a map with only non zero properties
 func (s MiscProperties) Items() map[string]interface{} {
 	out := make(map[string]interface{})
-	out["counter_increment"] = s.CounterIncrement
-	out["counter_reset"] = s.CounterReset
-	out["page"] = s.Page
+	if s.CounterIncrement.Valid {
+		out["counter_increment"] = s.CounterIncrement
+	}
+	if s.CounterReset != nil {
+		out["counter_reset"] = s.CounterReset
+	}
+	if s.Page.Valid {
+		out["page"] = s.Page
+	}
 	return out
 }
 
@@ -298,6 +304,15 @@ func (s StyleDict) Items() map[string]interface{} {
 		out[k] = v
 	}
 	return out
+}
+
+func (s StyleDict) Keys() []string {
+	items := s.Items()
+	keys := make([]string, 0, len(items))
+	for k := range items {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // Set convert the value and set it.
@@ -395,12 +410,12 @@ func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, 
 		}
 		specified.Set(name, value)
 	}
-	if specified.Page.Auto {
+	if specified.Page.String == "auto" {
 		// The page property does not inherit. However, if the page value on
 		// an element is auto, then its used value is the value specified on
 		// its nearest ancestor with a non-auto value. When specified on the
 		// root element, the used value for auto is the empty string.
-		val := Page{Zero: true}
+		val := Page{Valid: true, String: ""}
 		if !parentStyle.IsZero() {
 			val = parentStyle.Page
 		}
