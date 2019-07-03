@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ZeroPixels = Value{Dimension: Dimension{Unit: "px", Value: 0}}
+	ZeroPixels = Value{Dimension: Dimension{Unit: "px"}}
 
 	// How many CSS pixels is one <unit>?
 	// http://www.w3.org/TR/CSS21/syndata.html#length-units
@@ -103,7 +103,6 @@ func init() {
 // Return a dict of computed value.
 
 // :param element: The HTML element these style apply to
-// :param pseudo_type: The type of pseudo-element, eg 'before', None
 // :param specified: a dict of specified value. Should contain
 // 			  value for all properties.
 // :param computed: a dict of already known computed value.
@@ -112,8 +111,7 @@ func init() {
 // 				 element (should contain value for all properties),
 // 				 or `zero if ``element`` is the root element.
 // :param baseUrl: The base URL used to resolve relative URLs.
-func compute(element html.Node, pseudoType string,
-	specified, computed, parentStyle,
+func compute(element html.Node, specified, computed, parentStyle,
 	rootStyle StyleDict, baseUrl string) StyleDict {
 
 	computer := new(computer)
@@ -160,7 +158,7 @@ type computer struct {
 
 // Dimension or "auto" or "cover" or "contain"
 type Size struct {
-	Width, Height Dimension
+	Width, Height Value
 	String        string
 }
 
@@ -177,7 +175,7 @@ type Gradient struct {
 }
 
 type Center struct {
-	OriginX, OriginY int
+	OriginX, OriginY string
 	PosX, PosY       Dimension
 }
 
@@ -261,7 +259,7 @@ func length(computer *computer, name string, value Value) Value {
 
 // Compute a length ``value``.
 // passing a negative fontSize means null
-func length2(computer *computer, name string, value Value, fontSize int) Value {
+func length2(computer *computer, _ string, value Value, fontSize int) Value {
 	if value.String == "auto" || value.String == "content" {
 		return value
 	}
@@ -291,9 +289,8 @@ func length2(computer *computer, name string, value Value, fontSize int) Value {
 			// A percentage or "auto": no conversion needed.
 			return value
 		}
-		return Value{Dimension: Dimension{Value: int(result), Unit: "px"}}
 	}
-	return Value{}
+	return Value{Dimension: Dimension{Value: int(result), Unit: "px"}}
 }
 
 func (value Bleed) ComputeValue(computer *computer, name string) CssProperty {
@@ -321,12 +318,12 @@ func (value BackgroundSize) ComputeValue(computer *computer, name string) CssPro
 			out[index] = Size{String: v.String}
 		} else {
 			l := lengthOrPercentageTuple2(computer, name, []Dimension{
-				v.Height,
-				v.Width,
+				v.Height.Dimension,
+				v.Width.Dimension,
 			})
 			out[index] = Size{
-				Height: l[0],
-				Width:  l[1],
+				Height: Value{Dimension: l[0]},
+				Width:  Value{Dimension: l[1]},
 			}
 		}
 	}
@@ -550,3 +547,4 @@ func (value WordSpacing) ComputeValue(computer *computer, name string) CssProper
 func (value CounterResets) ComputeValue(computer *computer, name string) CssProperty     { return value }
 func (value CounterIncrements) ComputeValue(computer *computer, name string) CssProperty { return value }
 func (value Page) ComputeValue(computer *computer, name string) CssProperty              { return value }
+func (value Value) ComputeValue(computer *computer, name string) CssProperty             { return value }

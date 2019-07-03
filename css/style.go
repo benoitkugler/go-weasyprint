@@ -9,117 +9,6 @@ const (
 	Right  Side = "right"
 )
 
-var (
-	stringsKeys = Set{
-		"bottom":                   true,
-		"caption_side":             true,
-		"clear":                    true,
-		"content":                  true,
-		"counter_increment":        true,
-		"direction":                true,
-		"display":                  true,
-		"empty_cells":              true,
-		"float":                    true,
-		"height":                   true,
-		"left":                     true,
-		"line_height":              true,
-		"list_style_position":      true,
-		"list_style_type":          true,
-		"overflow":                 true,
-		"position":                 true,
-		"right":                    true,
-		"table_layout":             true,
-		"text_decoration":          true,
-		"top":                      true,
-		"unicode_bidi":             true,
-		"vertical_align":           true,
-		"visibility":               true,
-		"width":                    true,
-		"z_index":                  true,
-		"border_bottom_color":      true,
-		"border_bottom_style":      true,
-		"border_collapse":          true,
-		"border_left_color":        true,
-		"border_left_style":        true,
-		"border_right_color":       true,
-		"border_right_style":       true,
-		"border_top_color":         true,
-		"border_top_style":         true,
-		"column_width":             true,
-		"column_count":             true,
-		"column_rule_color":        true,
-		"column_rule_style":        true,
-		"column_rule_width":        true,
-		"column_fill":              true,
-		"column_span":              true,
-		"font_feature_settings":    true,
-		"font_kerning":             true,
-		"font_language_override":   true,
-		"font_stretch":             true,
-		"font_style":               true,
-		"font_variant":             true,
-		"font_variant_alternates":  true,
-		"font_variant_caps":        true,
-		"font_variant_east_asian":  true,
-		"font_variant_ligatures":   true,
-		"font_variant_numeric":     true,
-		"font_variant_position":    true,
-		"break_after":              true,
-		"break_before":             true,
-		"break_inside":             true,
-		"bookmark_level":           true,
-		"string_set":               true,
-		"image_rendering":          true,
-		"page":                     true,
-		"bleed_left":               true,
-		"bleed_right":              true,
-		"bleed_top":                true,
-		"bleed_bottom":             true,
-		"marks":                    true,
-		"hyphenate_character":      true,
-		"hyphens":                  true,
-		"letter_spacing":           true,
-		"text_align":               true,
-		"text_transform":           true,
-		"white_space":              true,
-		"box_sizing":               true,
-		"outline_color":            true,
-		"outline_style":            true,
-		"overflow_wrap":            true,
-		"_weasy_specified_display": true,
-	}
-	dimensionsKeys = Set{
-		"margin_top":           true,
-		"margin_right":         true,
-		"margin_bottom":        true,
-		"margin_left":          true,
-		"max_height":           true,
-		"max_width":            true,
-		"min_height":           true,
-		"min_width":            true,
-		"padding_top":          true,
-		"padding_right":        true,
-		"padding_bottom":       true,
-		"padding_left":         true,
-		"column_gap":           true,
-		"hyphenate_limit_zone": true,
-		"text_indent":          true,
-	}
-	intsKeys = Set{
-		"border_bottom_width": true,
-		"border_left_width":   true,
-		"border_right_width":  true,
-		"opacity":             true,
-		"font_size":           true,
-		"font_weight":         true,
-		"orphans":             true,
-		"widows":              true,
-		"image_resolution":    true,
-		"tab_size":            true,
-		"word_spacing":        true,
-	}
-)
-
 type CssProperty interface {
 	ComputeValue(computer *computer, name string) CssProperty
 	SetOn(name string, target *StyleDict)
@@ -139,9 +28,12 @@ type CounterIncrement struct {
 }
 
 type CounterIncrements struct {
-	Valid bool
-	Auto  bool
-	CI    []CounterIncrement
+	String string
+	CI     []CounterIncrement
+}
+
+func (c CounterIncrements) IsNil() bool {
+	return c.String == "" && c.CI == nil
 }
 
 type Page struct {
@@ -227,7 +119,7 @@ func (s MiscProperties) Copy() MiscProperties {
 // Items returns a map with only non zero properties
 func (s MiscProperties) Items() map[string]CssProperty {
 	out := make(map[string]CssProperty)
-	if s.CounterIncrements.Valid {
+	if !s.CounterIncrements.IsNil() {
 		out["counter_increment"] = s.CounterIncrements
 	}
 	if s.CounterResets != nil {
@@ -257,39 +149,6 @@ func (s MiscProperties) Items() map[string]CssProperty {
 		out["_weasy_specified_display"] = s.weasySpecifiedDisplay
 	}
 	return out
-}
-
-// SetFrom copy the given keys from src into s
-func (s *MiscProperties) SetFrom(src MiscProperties, keys Set) {
-	if keys["counter_reset"] {
-		s.CounterResets = src.CounterResets
-	}
-	if keys["counter_increment"] {
-		s.CounterIncrements = src.CounterIncrements
-	}
-	if keys["page"] {
-		s.Page = src.Page
-	}
-
-	if keys["background_image"] {
-		s.BackgroundImage = src.BackgroundImage
-	}
-	if keys["background_position"] {
-		s.BackgroundPosition = src.BackgroundPosition
-	}
-	if keys["background_size"] {
-		s.BackgroundSize = src.BackgroundSize
-	}
-	if keys["content"] {
-		s.Content = src.Content
-	}
-	if keys["transform"] {
-		s.Transforms = src.Transforms
-	}
-
-	if keys["_weasy_specified_display"] {
-		s.weasySpecifiedDisplay = src.weasySpecifiedDisplay
-	}
 }
 
 type StyleDict struct {
@@ -369,31 +228,28 @@ func (s StyleDict) Keys() []string {
 	return keys
 }
 
-// SetFrom copy the given keys from src into s
-func (s *StyleDict) SetFrom(src StyleDict, keys Set) {
-	//TODO: à compléter
-	s.MiscProperties.SetFrom(src.MiscProperties, keys)
-}
-
 // Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, parentStyle StyleDict, pseudoType string,
+func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, parentStyle StyleDict,
 	rootStyle StyleDict, baseUrl string) StyleDict {
 	if cascaded == nil && !parentStyle.IsZero() {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
 		computed := InitialValues.Copy()
-		computed.SetFrom(parentStyle, Inherited)
+		parentStyleItems := parentStyle.Items()
+		for key := range Inherited {
+			parentStyleItems[key].SetOn(key, &computed)
+		}
 
 		// page is not inherited but taken from the ancestor if "auto"
 		computed.Page = parentStyle.Page
 		// border-*-style is none, so border-width computes to zero.
 		// Other than that, properties that would need computing are
 		// border-*-color, but they do not apply.
-		computed.Ints["border_top_width"] = 0
-		computed.Ints["border_bottom_width"] = 0
-		computed.Ints["border_left_width"] = 0
-		computed.Ints["border_right_width"] = 0
-		computed.Ints["outlineWidth"] = 0
+		computed.Values["border_top_width"] = Value{}
+		computed.Values["border_bottom_width"] = Value{}
+		computed.Values["border_left_width"] = Value{}
+		computed.Values["border_right_width"] = Value{}
+		computed.Values["outline_width"] = Value{}
 		return computed
 	}
 
@@ -403,12 +259,12 @@ func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, 
 	for name, initial := range InitialValues.Items() {
 		var (
 			keyword string
-			value   interface{}
+			value   CssProperty
 		)
 		if _, in := cascaded[name]; in {
 			vp := cascaded[name]
 			keyword = vp.value
-			value = vp.value
+			value = Value{String: vp.value}
 		} else {
 			if Inherited[name] {
 				keyword = "inherit"
@@ -426,14 +282,14 @@ func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, 
 			value = initial
 			if !InitialNotComputed[name] {
 				// The value is the same as when computed
-				computed.Set(name, value)
+				initial.SetOn(name, &computed)
 			}
 		} else if keyword == "inherit" {
 			value = parentItems[name]
 			// Values in parentStyle are already computed.
-			computed.Set(name, value)
+			value.SetOn(name, &computed)
 		}
-		specified.Set(name, value)
+		value.SetOn(name, &specified)
 	}
 	if specified.Page.String == "auto" {
 		// The page property does not inherit. However, if the page value on
@@ -448,7 +304,5 @@ func computedFromCascaded(element html.Node, cascaded map[string]cascadedValue, 
 		specified.Page = val
 	}
 
-	return compute(
-		element, pseudoType, specified, computed, parentStyle, rootStyle,
-		baseUrl)
+	return compute(element, specified, computed, parentStyle, rootStyle, baseUrl)
 }
