@@ -16,9 +16,12 @@ with open(path) as f:
         if newline[0] == "#":
             newline = "//" + newline[1:]
         newline = newline.replace("'", '"')
+        newline = newline.replace("True", "true")
+        newline = newline.replace("False", "false")
+        newline = newline.replace("and", "&&")
+        newline = newline.replace("or", "||")
         s += newline
 
 
 with open(path, "w") as f:
     f.write(s)
-

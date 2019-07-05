@@ -159,6 +159,8 @@ type StyleDict struct {
 	Values    map[string]Value
 	Links     map[string]Link
 	Lengthss  map[string]Lengths
+
+	inheritedStyle *StyleDict
 }
 
 func NewStyleDict() StyleDict {
@@ -226,6 +228,18 @@ func (s StyleDict) Keys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// InheritFrom returns a new StyleDict with inherited properties from this one.
+// Non-inherited properties get their initial values.
+// This is the method used for an anonymous box.
+func (s *StyleDict) InheritFrom() StyleDict {
+	if s.inheritedStyle == nil {
+		is := computedFromCascaded(html.Node{}, nil, *s, StyleDict{}, "")
+		is.Anonymous = true
+		s.inheritedStyle = &is
+	}
+	return *s.inheritedStyle
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.

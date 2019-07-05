@@ -1,6 +1,9 @@
 package structure
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/benoitkugler/go-weasyprint/css"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/net/html"
@@ -17,7 +20,7 @@ import (
 
 var ()
 
-type state struct {
+type stateShared struct {
 	quoteDepth    int
 	counterValues map[string][]int
 	counterScopes [](map[string]bool)
@@ -25,7 +28,7 @@ type state struct {
 
 // Maps values of the ``display`` CSS property to box types.
 func makeBox(elementTag string, style css.StyleDict, content []AllBox) AllBox {
-	switch style.Display {
+	switch style.Strings["display"] {
 	case "block":
 		return NewBlockBox(elementTag, style, content)
 	case "list-item":
@@ -69,17 +72,17 @@ func buildFormattingStructure(elementTree html.Node, styleFor func(element html.
 			style := styleFor(element, pseudoType)
 			if style != nil {
 				// TODO: we should check that the element has a parent instead.
-				if element.Tag == "html" {
-					style.Display = "block"
+				if element.Data == "html" {
+					style.Strings["display"] = "block"
 				} else {
-					style.Display = "none"
+					style.Strings["display"] = "none"
 				}
 			}
 			return style
 		}
 		box = elementToBox(elementTree, rootStyleFor, getImageFromUri, baseUrl, nil)[0]
 	}
-	box.SetIsForRootElement(true)
+	box.BaseBox().isForRootElement = true
 	// If this is changed, maybe update layout.pages.makeMarginBoxes()
 	processWhitespace(box, false)
 	box = anonymousTableBoxes(box)
@@ -111,27 +114,27 @@ func buildFormattingStructure(elementTree html.Node, styleFor func(element html.
 //    ``TextBox``es are anonymous inline boxes:
 //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
 func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType string) *css.StyleDict,
-	getImageFromUri TBD, baseUrl string, state *state) []AllBox {
+	getImageFromUri TBD, baseUrl string, state *stateShared) []AllBox {
 
 	if element.Type != html.TextNode && element.Type != html.ElementNode && element.Type != html.DocumentNode {
 		// Here we ignore comments and XML processing instructions.
 		return nil
 	}
 
-	style := styleFor(element)
+	style := styleFor(element, "")
 
 	// TODO: should be the used value. When does the used value for `display`
 	// differ from the computer value?
-	display := style.Display
+	display := style.Strings["display"]
 	if display == "none" {
 		return nil
 	}
 
-	box = makeBox(element.Data, style, nil)
+	box := makeBox(element.Data, *style, nil)
 
 	if state == nil {
 		// use a list to have a shared mutable object
-		state = &state{
+		state = &stateShared{
 			// Shared mutable objects:
 			quoteDepth:    0,                                    // single integer
 			counterValues: map[string][]int{},                   // name -> stacked/scoped values
@@ -139,7 +142,7 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 		}
 	}
 
-	QuoteDepth, counterValues, counterScopes = state.quoteDepth, state.counterValues, state.counterScopes
+	QuoteDepth, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
 
 	updateCounters(state, style)
 
@@ -194,14 +197,92 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 
 }
 
-func processWhitespace(box AllBox, followingCollapsibleSpace bool) bool {}
+var (
+	reLineFeeds     = regexp.MustCompile(`\r\n?`)
+	reSpaceCollapse = regexp.MustCompile(`[\t ]*\n[\t ]*`)
+	reSpace         = regexp.MustCompile(` +`)
+)
+
+// First part of "The 'white-space' processing model".
+// See http://www.w3.org/TR/CSS21/text.html#white-space-model
+// http://dev.w3.org/csswg/css3-text/#white-space-rules
+func processWhitespace(_box AllBox, followingCollapsibleSpace bool) bool {
+	box, isTextBox := _box.(*TextBox)
+	if isTextBox {
+		text := box.text
+		if text == "" {
+			return followingCollapsibleSpace
+		}
+
+		// Normalize line feeds
+		text = reLineFeeds.ReplaceAllString(text, "\n")
+
+		styleWhiteSpace := box.style.Strings["white_space"]
+		newLineCollapse := styleWhiteSpace == "normal" || styleWhiteSpace == "nowrap"
+		spaceCollapse := styleWhiteSpace == "normal" || styleWhiteSpace == "nowrap" || styleWhiteSpace == "pre-line"
+
+		if spaceCollapse {
+			// \r characters were removed/converted earlier
+			text = reSpaceCollapse.ReplaceAllString(text, "\n")
+		}
+
+		if newLineCollapse {
+			// TODO: this should be language-specific
+			// Could also replace with a zero width space character (U+200B),
+			// or no character
+			// CSS3: http://www.w3.org/TR/css3-text/#line-break-transform
+			text = strings.ReplaceAll(text, "\n", " ")
+		}
+		if spaceCollapse {
+			text = strings.ReplaceAll(text, "\t", " ")
+			text = reSpace.ReplaceAllString(text, " ")
+			previousText := text
+			if followingCollapsibleSpace && strings.HasPrefix(text, " ") {
+				text = text[1:]
+				box.leadingCollapsibleSpace = true
+			}
+			followingCollapsibleSpace = strings.HasSuffix(previousText, " ")
+		} else {
+			followingCollapsibleSpace = false
+		}
+		box.text = text
+		return followingCollapsibleSpace
+	}
+	if _box.IsParentBox() {
+		for _, child := range _box.Children() {
+			switch child.(type) {
+			case *TextBox, *InlineBox:
+				followingCollapsibleSpace = processWhitespace(
+					child, followingCollapsibleSpace)
+			default:
+				processWhitespace(child, false)
+				if child.isInNormalFlow() {
+					followingCollapsibleSpace = false
+				}
+			}
+		}
+	}
+	return followingCollapsibleSpace
+}
 
 // Remove and add boxes according to the table model.
 //
 //Take and return a ``Box`` object.
 //
 //See http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-func anonymousTableBoxes(box AllBox) AllBox {}
+func anonymousTableBoxes(box AllBox) AllBox {
+	if !box.IsParentBox() {
+		return box
+	}
+
+	// Do recursion.
+	boxChildren := box.Children()
+	children := make([]AllBox, len(boxChildren))
+	for index, child := range boxChildren {
+		children[index] = anonymousTableBoxes(child)
+	}
+	return tableBoxesChildren(box, children)
+}
 
 // Build the structure of lines inside blocks and return a new box tree.
 //
@@ -239,6 +320,291 @@ func anonymousTableBoxes(box AllBox) AllBox {}
 //            ]
 //        ]
 func inlineInBlock(box AllBox) AllBox {}
+
+// Internal implementation of anonymousTableBoxes().
+func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
+	switch box.(type) {
+	case *TableColumnBox: // rule 1.1
+		// Remove all children.
+		children = nil
+	case *TableColumnGroupBox: // rule 1.2
+		// Remove children other than table-column.
+		newChildren := make([]AllBox, 0, len(children))
+		for _, child := range children {
+			if _, is := child.(*TableColumnBox); is {
+				newChildren = append(newChildren, child)
+			}
+		}
+		children = newChildren
+
+		// Rule XXX (not in the spec): column groups have at least
+		// one column child.
+		if len(children) == 0 {
+			for i := 0; i < box.span; i++ {
+				children = append(children, tableColumnBoxAnonymousFrom(box, nil))
+			}
+		}
+
+	}
+	// rule 1.3
+	if box.tabularContainer && len(children) >= 2 {
+		// TODO: Maybe only remove text if internal is also
+		//       a proper table descendant of box.
+		// This is what the spec says, but maybe not what browsers do:
+		// http://lists.w3.org/Archives/Public/www-style/2011Oct/0567
+
+		// Last child
+		internal, text = children[-2:]
+		if internal.internalTableOrCaption && isWhitespace(text) {
+			children.pop()
+		}
+		// First child
+		if len(children) >= 2 {
+			text, internal = children[:2]
+			if internal.internalTableOrCaption && isWhitespace(text) {
+				children.pop(0)
+			}
+		}
+		// Children other than first and last that would be removed by
+		// rule 1.3 are also removed by rule 1.4 below.
+	}
+
+	newChildren, maxIndex := make([]AllBox, 0, len(children)), len(children)-1
+	for index, child := range children {
+		// Ignore some whitespace: rule 1.4
+		if !(index != 0 && index != maxIndex) {
+			prevChild, nextChild := children[index-1], children[index+1]
+			if prevChild.internalTableOrCaption && nextChild.internalTableOrCaption && isWhitespace(child) {
+				newChildren = append(newChildren, child)
+			}
+		}
+	}
+	children = newChildren
+
+	if box.IsTableBox() {
+		// Rule 2.1
+		children = wrapImproper(
+			box, children, tableRowBoxIsInstanceOf, tableRowBoxAnonymousFrom,
+			func(child AllBox) bool { return child.BaseBox().properTableChild })
+	} else if _, is := box.(*TableRowGroupBox); is {
+		// Rule 2.2
+		children = wrapImproper(box, children, tableRowBoxIsInstanceOf, tableRowBoxAnonymousFrom, nil)
+	}
+
+	if _, is := box.(*TableRowBox); is {
+		// Rule 2.3
+		children = wrapImproper(box, children, tableCellBoxIsInstanceOf, tableCellBoxAnonymousFrom, nil)
+	} else {
+		// Rule 3.1
+		children = wrapImproper(
+			box, children, tableRowBoxIsInstanceOf, tableRowBoxAnonymousFrom, tableCellBoxIsInstanceOf)
+	}
+	// Rule 3.2
+	if isinstance(box, boxes.InlineBox) {
+		children = wrapImproper(
+			box, children, boxes.InlineTableBox,
+			func(child AllBox) bool { return !child.BaseBox().properTableChild })
+	} else {
+		// parentType = type(box)
+		children = wrapImproper(
+			box, children, tableBoxIsInstanceOf, tableBoxAnonymousFrom,
+			func(child AllBox) bool {
+				return (!child.BaseBox().properTableChild ||
+					child.IsProperChild(box))
+			})
+	}
+	if box.IsTableBox() {
+		return wrapTable(box, children)
+	} else {
+		box.BaseBox().children = children
+		return box
+	}
+}
+
+// Take a table box and return it in its table wrapper box.
+// Also re-order children and assign grid positions to each column and cell.
+// Because of colspan/rowspan works, gridY is implicitly the index of a row,
+// but gridX is an explicit attribute on cells, columns and column group.
+// http://www.w3.org/TR/CSS21/tables.html#model
+// http://www.w3.org/TR/CSS21/tables.html#table-layout
+func wrapTable(box AllBox, children []AllBox) AllBox {
+	// Group table children by type
+	var columns, rows, allCaptions []AllBox
+	// byType = {
+	//     boxes.TableColumnBox: columns,
+	//     boxes.TableColumnGroupBox: columns,
+	//     boxes.TableRowBox: rows,
+	//     boxes.TableRowGroupBox: rows,
+	//     boxes.TableCaptionBox: allCaptions,
+	// }
+	byType = func(child AllBox) {}
+
+	for _, child := range children {
+		byType(child) = append(byType(child), child)
+	}
+	// Split top and bottom captions
+	captions = map[string][]AllBox{
+		"top":    nil,
+		"bottom": nil,
+	}
+	for _, caption := range allCaptions {
+		captions[caption.style.captionSide].append(caption)
+	}
+	// Assign X positions on the grid to column boxes
+	columnGroups = list(wrapImproper(
+		box, columns, boxes.TableColumnGroupBox))
+	gridX = 0
+	for _, group := range columnGroups {
+		group.gridX = gridX
+		if group.children {
+			for _, column := range group.children {
+				// There"s no need to take care of group"s span, as "span=x"
+				// already generates x TableColumnBox children
+				column.gridX = gridX
+				gridX += 1
+			}
+			group.span = len(group.children)
+		} else {
+			gridX += group.span
+		}
+	}
+	gridWidth = gridX
+
+	rowGroups = wrapImproper(box, rows, boxes.TableRowGroupBox)
+	// Extract the optional header and footer groups.
+	var bodyRowGroups []AllBox
+	header = None
+	footer = None
+	for _, group := range rowGroups {
+		display = group.style.display
+		if display == "table-header-group" && header == nil {
+			group.isHeader = True
+			header = group
+		} else if display == "table-footer-group" && footer == nil {
+			group.isFooter = True
+			footer = group
+		} else {
+			bodyRowGroups.append(group)
+		}
+	}
+	var rowGroups []AllBox
+	if header != nil {
+		rowGroups = append(rowGroups, header)
+	}
+	rowGroups = append(rowGroups, bodyRowGroups)
+	if footer != nil {
+		rowGroups = append(rowGroups, footer)
+	}
+
+	// Assign a (x,y) position in the grid to each cell.
+	// rowspan can not extend beyond a row group, so each row group
+	// is independent.
+	// http://www.w3.org/TR/CSS21/tables.html#table-layout
+	// Column 0 is on the left if direction is ltr, right if rtl.
+	// This algorithm does not change.
+	gridHeight = 0
+	for _, group := range rowGroups {
+		// Indexes: row number in the group.
+		// Values: set of cells already occupied by row-spanning cells.
+
+		//FIXME: occupiedCellsByRow = [set() for row in group.children]
+		var occupiedCellsByRow []map[int]bool
+
+		for _, row := range group.children {
+			//FIXME: occupiedCellsInThisRow = occupiedCellsByRow.pop(0)
+			var occupiedCellsInThisRow map[int]bool
+
+			// The list is now about rows after this one.
+			gridX = 0
+			for _, cell := range row.children {
+				// Make sure that the first grid cell is free.
+				for occupiedCellsInThisRow[gridX] {
+					gridX += 1
+				}
+				cell.gridX = gridX
+				newGridX = gridX + cell.colspan
+				// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
+				if cell.rowspan != 1 {
+					maxRowspan = len(occupiedCellsByRow) + 1
+					if cell.rowspan == 0 {
+						// All rows until the end of the group
+						spannedRows = occupiedCellsByRow
+						cell.rowspan = maxRowspan
+					} else {
+						cell.rowspan = min(cell.rowspan, maxRowspan)
+						spannedRows = occupiedCellsByRow[:cell.rowspan-1]
+					}
+					//FIXME: spannedColumns = range(gridX, newGridX)
+					for _, occupiedCells := range spannedRows {
+						occupiedCells.update(spannedColumns)
+					}
+				}
+				gridX = newGridX
+				gridWidth = max(gridWidth, gridX)
+			}
+			gridHeight += len(group.children)
+		}
+	}
+	table = box.copyWithChildren(rowGroups)
+	table.columnGroups = tuple(columnGroups)
+	if table.style.borderCollapse == "collapse" {
+		table.collapsedBorderGrid = collapseTableBorders(
+			table, gridWidth, gridHeight)
+	}
+	if isinstance(box, boxes.InlineTableBox) {
+		wrapperType = boxes.InlineBlockBox
+	} else {
+		wrapperType = boxes.BlockBox
+	}
+	wrapper = wrapperType.anonymousFrom(
+		box, append(append(captions["top"], table), captions["bottom"]...))
+	wrapper.style = wrapper.style.copy()
+	wrapper.isTableWrapper = True
+	if !table.style.anonymous {
+		// Non-inherited properties of the table element apply to one
+		// of the wrapper and the table. The other get the initial value.
+		// TODO: put this in a method of the table object
+		for _, name := range properties.TABLEWRAPPERBOXPROPERTIES {
+			wrapper.style[name] = table.style[name]
+			table.style[name] = properties.INITIALVALUES[name]
+		}
+	}
+	// else: non-inherited properties already have their initial values
+
+	return wrapper
+}
+
+//   Wrap consecutive children that do not pass ``test`` in a box of type
+// ``wrapperType``.
+// ``test`` defaults to children being of the same type as ``wrapperType``.
+func wrapImproper(box AllBox, children []AllBox, isInstance func(AllBox) bool, anonymousFrom func(AllBox, []AllBox) AllBox, test func(AllBox) bool) []AllBox {
+	var out, improper []AllBox
+	if test == nil {
+		test = isInstance
+	}
+	for _, child := range children {
+		if test(child) {
+			if len(improper) > 0 {
+				wrapper := anonymousFrom(box, nil)
+				// Apply the rules again on the new wrapper
+				out = append(out, tableBoxesChildren(wrapper, improper))
+				improper = nil
+			}
+			out = append(out, child)
+		} else {
+			// Whitespace either fail the test or were removed earlier,
+			// so there is no need to take special care with the definition
+			// of "consecutive".
+			improper = append(improper, child)
+		}
+	}
+	if improper {
+		wrapper := anonymousFrom(box, nil)
+		// Apply the rules again on the new wrapper
+		out = append(out, tableBoxesChildren(wrapper, improper))
+	}
+	return out
+}
 
 // Build the structure of blocks inside lines.
 //

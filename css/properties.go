@@ -139,13 +139,24 @@ var (
 			"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
 		},
 		Strings: map[string]string{
-			"display": "inline",
-			"float":   "none",
+			"display":  "inline",
+			"float":    "none",
+			"position": "static",
 
 			// Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
 			"break_after":  "auto",
 			"break_before": "auto",
 			"break_inside": "auto",
+
+			"direction": "ltr",
+
+			// // Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
+			// "hyphenate_character": "‐",  // computed value chosen by the user agent
+			// "hyphenate_limit_chars": (5, 2, 2),
+			"hyphens": "manual",
+			// "text_align": "-weasy-start",
+			"text_transform": "none",
+			"white_space":    "normal",
 		},
 		Lengthss: map[string]Lengths{
 			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
@@ -178,8 +189,6 @@ var (
 		// "clip": TBD,  // computed value for "auto"
 
 		// "color": parse_color("black"),  // chosen by the user agent
-
-		// "direction": "ltr",
 
 		// "empty_cells": "show",
 		// "list_style_image": ("none", None),

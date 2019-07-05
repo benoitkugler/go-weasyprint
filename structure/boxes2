@@ -514,6 +514,7 @@ def tableBoxesChildren(box, children):
         return box
 
 
+
 def wrapTable(box, children):
     """Take a table box and return it in its table wrapper box.
 
