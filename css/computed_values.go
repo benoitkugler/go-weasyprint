@@ -85,7 +85,7 @@ func init() {
 	//Some computed value are required by others, so order matters.
 	ComputingOrder = []string{"font_stretch", "font_weight", "font_family", "font_variant",
 		"font_style", "font_size", "line_height", "marks"}
-	var crible map[string]bool
+	crible := map[string]bool{}
 	for _, k := range ComputingOrder {
 		crible[k] = true
 	}
@@ -548,3 +548,4 @@ func (value CounterResets) ComputeValue(computer *computer, name string) CssProp
 func (value CounterIncrements) ComputeValue(computer *computer, name string) CssProperty { return value }
 func (value Page) ComputeValue(computer *computer, name string) CssProperty              { return value }
 func (value Value) ComputeValue(computer *computer, name string) CssProperty             { return value }
+func (value String) ComputeValue(computer *computer, name string) CssProperty            { return value }

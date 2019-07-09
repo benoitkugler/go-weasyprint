@@ -26,6 +26,20 @@ type stateShared struct {
 	counterScopes [](map[string]bool)
 }
 
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
 // Maps values of the ``display`` CSS property to box types.
 func makeBox(elementTag string, style css.StyleDict, content []AllBox) AllBox {
 	switch style.Strings["display"] {
@@ -384,20 +398,20 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 	if box.IsTableBox() {
 		// Rule 2.1
 		children = wrapImproper(
-			box, children, tableRowBoxIsInstanceOf, tableRowBoxAnonymousFrom,
+			box, children, tableRowBoxIsInstance, tableRowBoxAnonymousFrom,
 			func(child AllBox) bool { return child.BaseBox().properTableChild })
 	} else if _, is := box.(*TableRowGroupBox); is {
 		// Rule 2.2
-		children = wrapImproper(box, children, tableRowBoxIsInstanceOf, tableRowBoxAnonymousFrom, nil)
+		children = wrapImproper(box, children, tableRowBoxIsInstance, tableRowBoxAnonymousFrom, nil)
 	}
 
 	if _, is := box.(*TableRowBox); is {
 		// Rule 2.3
-		children = wrapImproper(box, children, tableCellBoxIsInstanceOf, tableCellBoxAnonymousFrom, nil)
+		children = wrapImproper(box, children, tableCellBoxIsInstance, tableCellBoxAnonymousFrom, nil)
 	} else {
 		// Rule 3.1
 		children = wrapImproper(
-			box, children, tableRowBoxIsInstanceOf, tableRowBoxAnonymousFrom, tableCellBoxIsInstanceOf)
+			box, children, tableRowBoxIsInstance, tableRowBoxAnonymousFrom, tableCellBoxIsInstance)
 	}
 	// Rule 3.2
 	if isinstance(box, boxes.InlineBox) {
@@ -407,7 +421,7 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 	} else {
 		// parentType = type(box)
 		children = wrapImproper(
-			box, children, tableBoxIsInstanceOf, tableBoxAnonymousFrom,
+			box, children, tableBoxIsInstance, tableBoxAnonymousFrom,
 			func(child AllBox) bool {
 				return (!child.BaseBox().properTableChild ||
 					child.IsProperChild(box))
@@ -427,33 +441,40 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 // but gridX is an explicit attribute on cells, columns and column group.
 // http://www.w3.org/TR/CSS21/tables.html#model
 // http://www.w3.org/TR/CSS21/tables.html#table-layout
+//
+// wrapTable will panic if box's children are not table boxes
 func wrapTable(box AllBox, children []AllBox) AllBox {
 	// Group table children by type
 	var columns, rows, allCaptions []AllBox
-	// byType = {
-	//     boxes.TableColumnBox: columns,
-	//     boxes.TableColumnGroupBox: columns,
-	//     boxes.TableRowBox: rows,
-	//     boxes.TableRowGroupBox: rows,
-	//     boxes.TableCaptionBox: allCaptions,
-	// }
-	byType = func(child AllBox) {}
+	byType := func(child AllBox) *[]AllBox {
+		switch {
+		case TypeTableColumnBox.IsInstance(child), TypeTableColumnGroupBox.IsInstance(child):
+			return &columns
+		case TypeTableRowBox.IsInstance(child), TypeTableRowGroupBox.IsInstance(child):
+			return &rows
+		case TypeTableCaptionBox.IsInstance(child):
+			return &allCaptions
+		default:
+			return nil
+		}
+	}
 
 	for _, child := range children {
-		byType(child) = append(byType(child), child)
+		*byType(child) = append(*byType(child), child)
 	}
 	// Split top and bottom captions
-	captions = map[string][]AllBox{
-		"top":    nil,
-		"bottom": nil,
-	}
+	var captionTop, captionBottom []AllBox
 	for _, caption := range allCaptions {
-		captions[caption.style.captionSide].append(caption)
+		switch caption.BaseBox().style.Strings["caption_side"] {
+		case "top":
+			captionTop = append(captionTop, caption)
+		case "bottom":
+			captionBottom = append(captionBottom, caption)
+		}
 	}
 	// Assign X positions on the grid to column boxes
-	columnGroups = list(wrapImproper(
-		box, columns, boxes.TableColumnGroupBox))
-	gridX = 0
+	columnGroups := wrapImproper(box, columns, TypeTableColumnGroupBox, nil)
+	gridX := 0
 	for _, group := range columnGroups {
 		group.gridX = gridX
 		if group.children {
@@ -468,26 +489,30 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 			gridX += group.span
 		}
 	}
-	gridWidth = gridX
+	gridWidth := gridX
 
-	rowGroups = wrapImproper(box, rows, boxes.TableRowGroupBox)
+	rowGroups := wrapImproper(box, rows, TypeTableRowGroupBox)
 	// Extract the optional header and footer groups.
-	var bodyRowGroups []AllBox
-	header = None
-	footer = None
-	for _, group := range rowGroups {
-		display = group.style.display
+	var (
+		bodyRowGroups []AllBox
+		header        AllBox
+		footer        AllBox
+	)
+	for _, _group := range rowGroups {
+		group := _group.BaseBox()
+		display := group.style.Strings["display"]
 		if display == "table-header-group" && header == nil {
-			group.isHeader = True
+			group.isHeader = true
 			header = group
 		} else if display == "table-footer-group" && footer == nil {
-			group.isFooter = True
+			group.isFooter = true
 			footer = group
 		} else {
-			bodyRowGroups.append(group)
+			bodyRowGroups = append(bodyRowGroups, group)
 		}
 	}
-	var rowGroups []AllBox
+
+	rowGroups = nil
 	if header != nil {
 		rowGroups = append(rowGroups, header)
 	}
@@ -502,30 +527,31 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 	// http://www.w3.org/TR/CSS21/tables.html#table-layout
 	// Column 0 is on the left if direction is ltr, right if rtl.
 	// This algorithm does not change.
-	gridHeight = 0
+	gridHeight := 0
 	for _, group := range rowGroups {
 		// Indexes: row number in the group.
 		// Values: set of cells already occupied by row-spanning cells.
 
-		//FIXME: occupiedCellsByRow = [set() for row in group.children]
-		var occupiedCellsByRow []map[int]bool
-
-		for _, row := range group.children {
-			//FIXME: occupiedCellsInThisRow = occupiedCellsByRow.pop(0)
-			var occupiedCellsInThisRow map[int]bool
+		groupChildren := group.BaseBox().children
+		occupiedCellsByRow := make([]map[int]bool, len(groupChildren))
+		for _, row := range groupChildren {
+			occupiedCellsInThisRow := occupiedCellsByRow[0]
+			occupiedCellsByRow = occupiedCellsByRow[1:]
 
 			// The list is now about rows after this one.
 			gridX = 0
-			for _, cell := range row.children {
+			for _, _cell := range row.BaseBox().children {
+				cell := _cell.BaseBox()
 				// Make sure that the first grid cell is free.
 				for occupiedCellsInThisRow[gridX] {
 					gridX += 1
 				}
 				cell.gridX = gridX
-				newGridX = gridX + cell.colspan
+				newGridX := gridX + cell.colspan
 				// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
 				if cell.rowspan != 1 {
-					maxRowspan = len(occupiedCellsByRow) + 1
+					maxRowspan := len(occupiedCellsByRow) + 1
+					var spannedRow []map[int]bool
 					if cell.rowspan == 0 {
 						// All rows until the end of the group
 						spannedRows = occupiedCellsByRow
@@ -534,18 +560,19 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 						cell.rowspan = min(cell.rowspan, maxRowspan)
 						spannedRows = occupiedCellsByRow[:cell.rowspan-1]
 					}
-					//FIXME: spannedColumns = range(gridX, newGridX)
 					for _, occupiedCells := range spannedRows {
-						occupiedCells.update(spannedColumns)
+						for i := gridX; i < newGridX; i++ {
+							occupiedCells[i] = true
+						}
 					}
 				}
 				gridX = newGridX
 				gridWidth = max(gridWidth, gridX)
 			}
-			gridHeight += len(group.children)
+			gridHeight += len(groupChildren)
 		}
 	}
-	table = box.copyWithChildren(rowGroups)
+	table := box.copyWithChildren(rowGroups, true, true)
 	table.columnGroups = tuple(columnGroups)
 	if table.style.borderCollapse == "collapse" {
 		table.collapsedBorderGrid = collapseTableBorders(
@@ -577,15 +604,15 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 //   Wrap consecutive children that do not pass ``test`` in a box of type
 // ``wrapperType``.
 // ``test`` defaults to children being of the same type as ``wrapperType``.
-func wrapImproper(box AllBox, children []AllBox, isInstance func(AllBox) bool, anonymousFrom func(AllBox, []AllBox) AllBox, test func(AllBox) bool) []AllBox {
+func wrapImproper(box AllBox, children []AllBox, boxType BoxType, test func(AllBox) bool) []AllBox {
 	var out, improper []AllBox
 	if test == nil {
-		test = isInstance
+		test = boxType.IsInstance
 	}
 	for _, child := range children {
 		if test(child) {
 			if len(improper) > 0 {
-				wrapper := anonymousFrom(box, nil)
+				wrapper := boxType.AnonymousFrom(box, nil)
 				// Apply the rules again on the new wrapper
 				out = append(out, tableBoxesChildren(wrapper, improper))
 				improper = nil
@@ -598,8 +625,8 @@ func wrapImproper(box AllBox, children []AllBox, isInstance func(AllBox) bool, a
 			improper = append(improper, child)
 		}
 	}
-	if improper {
-		wrapper := anonymousFrom(box, nil)
+	if len(improper) > 0 {
+		wrapper := boxType.AnonymousFrom(box, nil)
 		// Apply the rules again on the new wrapper
 		out = append(out, tableBoxesChildren(wrapper, improper))
 	}

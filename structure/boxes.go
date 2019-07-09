@@ -63,6 +63,15 @@ import (
 	"github.com/benoitkugler/go-weasyprint/css"
 )
 
+var (
+	TypeTableRowBox         BoxType = typeTableRowBox{}
+	TypeTableColumnBox      BoxType = typeTableColumnBox{}
+	TypeTableColumnGroupBox BoxType = typeTableColumnGroupBox{}
+	TypeTableBox            BoxType = typeTableBox{}
+	TypeTableCellBox        BoxType = typeTableCellBox{}
+	TypeInlineTableBox      BoxType = typeInlineTableBox{}
+)
+
 // http://stackoverflow.com/questions/16317534/
 var asciiToWide = map[rune]string{}
 
@@ -85,6 +94,8 @@ type AllBox interface {
 	IsParentBox() bool
 	IsTableBox() bool
 	IsProperChild(parent AllBox) bool
+
+	copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox
 }
 
 type TBD struct{}
@@ -125,6 +136,14 @@ type Box struct {
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
 
 	children []AllBox
+
+	// Default values. May be overriden on instances.
+	isHeader bool
+	isFooter bool
+
+	gridX   int
+	colspan int
+	rowspan int
 }
 
 func (self *Box) init(elementTag string, style css.StyleDict) {
@@ -400,6 +419,10 @@ func (self *Box) removeDecoration(start, end bool) {
 
 func (self Box) AllChildren() []AllBox {
 	return self.children
+}
+
+func (self Box) copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox {
+	return ParentBox{}
 }
 
 // ParentBox is a box that has children.
@@ -689,10 +712,12 @@ type InlineReplacedBox struct {
 	AtomicInlineLevelBox
 }
 
+// TODO: dfinit un type TableFields et ajouter une méthode TabelFields()
+
 // TableBox is a box for elements with ``display: table``
 type TableBox struct {
-	BlockLevelBox
 	ParentBox
+	BlockLevelBox
 
 	tabularContainer bool // default is true
 	columnGroups     []AllBox
@@ -748,10 +773,6 @@ type TableRowGroupBox struct {
 	tabularContainer       bool // default weight true
 
 	//properParents = (TableBox, InlineTableBox)
-
-	// Default values. May be overriden on instances.
-	isHeader bool
-	isFooter bool
 }
 
 func NewTableRowGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowGroupBox {
@@ -984,48 +1005,80 @@ func (self MarginBox) String() string {
 // Return an anonymous box that inherits from ``parent``.
 // -----------------------------------------------------------------
 
-func tableRowBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+// Since we dont use reflection, we implements (python) Box types as interfaces
+type BoxType interface {
+	AnonymousFrom(parent AllBox, children []AllBox) AllBox
+
+	// Returns true if box is of type (or subtype) BoxType
+	IsInstance(box AllBox) bool
+}
+
+type typeTableRowBox struct{}
+type typeTableRowGroupBox struct{}
+type typeTableColumnBox struct{}
+type typeTableColumnGroupBox struct{}
+type typeTableBox struct{}
+type typeTableCellBox struct{}
+type typeInlineTableBox struct{}
+
+func (t typeTableRowBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewTableRowBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-func tableColumnBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+func (t typeTableRowGroupBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
+	return NewTableRowGroupBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
+}
+
+func (t typeTableColumnBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewTableColumnBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-func tableBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+func (t typeTableColumnGroupBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
+	return NewTableColumnGroupBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
+}
+
+func (t typeTableBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewTableBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-func tableCellBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+func (t typeTableCellBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewTableCellBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-func inlineTableBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+func (t typeInlineTableBox) AnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewInlineTableBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-// Since we dont use reflection, we implements (python) Box types as functions
-
-func tableRowBoxIsInstanceOf(child AllBox) bool {
+func (t typeTableRowBox) IsInstance(child AllBox) bool {
 	_, is := child.(*TableRowBox)
 	return is
 }
 
-func tableColumnBoxIsInstanceOf(child AllBox) bool {
+func (t typeTableRowGroupBox) IsInstance(child AllBox) bool {
+	_, is := child.(*TableRowGroupBox)
+	return is
+}
+
+func (t typeTableColumnBox) IsInstance(child AllBox) bool {
 	_, is := child.(*TableColumnBox)
 	return is
 }
 
-func tableBoxIsInstanceOf(child AllBox) bool {
+func (t typeTableColumnGroupBox) IsInstance(child AllBox) bool {
+	_, is := child.(*TableColumnGroupBox)
+	return is
+}
+
+func (t typeTableBox) IsInstance(child AllBox) bool {
 	return child.IsTableBox()
 }
 
-func tableCellBoxIsInstanceOf(child AllBox) bool {
+func (t typeTableCellBox) IsInstance(child AllBox) bool {
 	_, is := child.(*TableCellBox)
 	return is
 }
 
-func inlineTableBoxIsInstanceOf(child AllBox) bool {
+func (t typeInlineTableBox) IsInstance(child AllBox) bool {
 	_, is := child.(*InlineTableBox)
 	return is
 }

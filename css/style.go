@@ -204,16 +204,31 @@ func (s StyleDict) Copy() StyleDict {
 func (s StyleDict) Items() map[string]CssProperty {
 	out := make(map[string]CssProperty)
 	for k, v := range s.Strings {
-		out[k] = ConvertersString[k](v)
+		fn := ConvertersString[k]
+		if fn != nil {
+			out[k] = fn(v)
+		} else {
+			out[k] = String(v)
+		}
 	}
 	for k, v := range s.Values {
-		out[k] = ConvertersValue[k](v)
+		fn := ConvertersValue[k]
+		if fn != nil {
+			out[k] = fn(v)
+		} else {
+			out[k] = v
+		}
 	}
 	for k, v := range s.Lengthss {
 		out[k] = v
 	}
 	for k, v := range s.Links {
-		out[k] = ConvertersLink[k](v)
+		fn := ConvertersLink[k]
+		if fn != nil {
+			out[k] = fn(v)
+		} else {
+			out[k] = v
+		}
 	}
 	for k, v := range s.MiscProperties.Items() {
 		out[k] = v

@@ -157,6 +157,8 @@ var (
 			// "text_align": "-weasy-start",
 			"text_transform": "none",
 			"white_space":    "normal",
+
+			"caption_side": "top",
 		},
 		Lengthss: map[string]Lengths{
 			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
@@ -184,7 +186,6 @@ var (
 		// "column_fill": "balance",
 		// "column_span": "none",
 
-		// "caption_side": "top",
 		// "clear": "none",
 		// "clip": TBD,  // computed value for "auto"
 
@@ -327,6 +328,8 @@ type Display string
 // float
 type Float string
 
+type String string
+
 // top
 // right
 // left
@@ -464,6 +467,9 @@ func (v Display) SetOn(name string, s *StyleDict) {
 	s.Strings[name] = string(v)
 }
 func (v Float) SetOn(name string, s *StyleDict) {
+	s.Strings[name] = string(v)
+}
+func (v String) SetOn(name string, s *StyleDict) {
 	s.Strings[name] = string(v)
 }
 
