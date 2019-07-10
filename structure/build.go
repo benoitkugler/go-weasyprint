@@ -106,6 +106,15 @@ func buildFormattingStructure(elementTree html.Node, styleFor func(element html.
 	return box
 }
 
+func nodeChildren(element html.Node) (children []html.Node) {
+	child := element.FirstChild
+	for child != nil {
+		children = append(children, *child)
+		child = child.NextSibling
+	}
+	return
+}
+
 // Convert an element and its children into a box with children.
 //
 //    Return a list of boxes. Most of the time the list will have one item but
@@ -150,13 +159,15 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 		// use a list to have a shared mutable object
 		state = &stateShared{
 			// Shared mutable objects:
-			quoteDepth:    0,                                    // single integer
-			counterValues: map[string][]int{},                   // name -> stacked/scoped values
-			counterScopes: []map[string]bool{map[string]bool{}}, //  element tree depths -> counter names
+			quoteDepth:    0,                  // single integer
+			counterValues: map[string][]int{}, // name -> stacked/scoped values
+			counterScopes: []map[string]bool{ //  element tree depths -> counter names
+				map[string]bool{},
+			},
 		}
 	}
 
-	QuoteDepth, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
+	QuoteDepth, counterValues := state.quoteDepth, state.counterValues
 
 	updateCounters(state, style)
 
@@ -168,46 +179,39 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 
 	// If this element’s direct children create new scopes, the counter
 	// names will be in this new list
-	counterScopes.append(set())
+	state.counterScopes = append(state.counterScopes, map[string]bool{})
 
 	box.firstLetterStyle = styleFor(element, "first-letter")
 	box.firstLineStyle = styleFor(element, "first-line")
 
-	children.extend(beforeAfterToBox(
-		element, "before", state, styleFor, getImageFromUri))
-	text = element.text
-	if text {
-		children.append(boxes.TextBox.anonymousFrom(box, text))
+	children = append(children, beforeAfterToBox(element, "before", state, styleFor, getImageFromUri)...)
+	if element.Type == html.TextNode {
+		children = append(children, TextBoxAnonymousFrom(box, element.Data))
 	}
 
-	for _, childElement := range element {
-		children.extend(elementToBox(
-			childElement, styleFor, getImageFromUri, baseUrl, state))
-		text = childElement.tail
-		if text {
-			textBox = boxes.TextBox.anonymousFrom(box, text)
-			if children && isinstance(children[-1], boxes.TextBox) {
-				children[-1].text += textBox.text
-			} else {
-				children.append(textBox)
-			}
-		}
+	childElement := element.FirstChild
+	for childElement != nil {
+		children = append(children, elementToBox(*childElement, styleFor, getImageFromUri, baseUrl, state)...)
+		// html.Node as no notion of tail. Instead, text are converted in text nodes
+
+		childElement = childElement.NextSibling
 	}
-	children.extend(beforeAfterToBox(
-		element, "after", state, styleFor, getImageFromUri))
+	children = append(children, beforeAfterToBox(element, "after", state, styleFor, getImageFromUri)...)
 
 	// Scopes created by this element’s children stop here.
-	for _, name := range counterScopes.pop() {
-		counterValues[name].pop()
-		if !counterValues[name] {
-			counterValues.pop(name)
+	cs := state.counterScopes[len(state.counterScopes)-1]
+	state.counterScopes = state.counterScopes[:len(state.counterScopes)-2]
+	for name := range cs {
+		counterValues[name] = counterValues[name][:len(state.counterScopes)-2]
+		if len(counterValues[name]) == 0 {
+			delete(counterValues, name)
 		}
 	}
-	box.children = children
+	box.BaseBox().children = children
 	setContentLists(element, box, style, counterValues)
 
 	// Specific handling for the element. (eg. replaced element)
-	return html.handleElement(element, box, getImageFromUri, baseUrl)
+	return HandleElement(element, box, getImageFromUri, baseUrl)
 
 }
 
@@ -444,6 +448,11 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 //
 // wrapTable will panic if box's children are not table boxes
 func wrapTable(box AllBox, children []AllBox) AllBox {
+	tableFields := box.TableFields()
+	if tableFields == nil {
+		panic("wrapTable only takes table boxes")
+	}
+
 	// Group table children by type
 	var columns, rows, allCaptions []AllBox
 	byType := func(child AllBox) *[]AllBox {
@@ -702,7 +711,7 @@ func blockInInline(box AllBox) AllBox {}
 func setViewportOverflow(rootBox AllBox) AllBox {}
 
 // Handle the ``counter-*`` properties.
-func updateCounters(state *state, style *css.StyleDict) {
+func updateCounters(state *stateShared, style *css.StyleDict) {
 	_, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
 	siblingScopes := counterScopes[len(counterScopes)-1]
 

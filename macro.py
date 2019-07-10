@@ -1,4 +1,7 @@
+import re
 import sys
+
+refunc = re.compile("^(def )")
 
 path = sys.argv[1]
 with open(path) as f:
@@ -18,8 +21,10 @@ with open(path) as f:
         newline = newline.replace("'", '"')
         newline = newline.replace("True", "true")
         newline = newline.replace("False", "false")
-        newline = newline.replace("and", "&&")
-        newline = newline.replace("or", "||")
+        newline = newline.replace(" and ", " && ")
+        newline = newline.replace(" or ", " || ")
+        newline = newline.replace("# ", "// ")
+        newline = refunc.sub("func ", newline)
         s += newline
 
 

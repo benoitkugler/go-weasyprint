@@ -89,11 +89,12 @@ type point struct {
 
 // AllBox unifies all box types
 type AllBox interface {
-	BaseBox() *Box // common parts of all boxes
+	BaseBox() *Box             // common parts of all boxes
+	TableFields() *TableFields // fields for table boxes. Might be nil on onther boxes
 
 	IsParentBox() bool
-	IsTableBox() bool
 	IsProperChild(parent AllBox) bool
+	IsTableBox() bool
 
 	copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox
 }
@@ -102,12 +103,6 @@ type TBD struct{}
 
 // Box is an abstract base class for all boxes.
 type Box struct {
-	//Definitions for the rules generating anonymous table boxes
-	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-	properTableChild       bool
-	internalTableOrCaption bool
-	tabularContainer       bool
-
 	// Keep track of removed collapsing spaces for wrap opportunities.
 	leadingCollapsibleSpace  bool
 	trailingCollapsibleSpace bool
@@ -136,14 +131,6 @@ type Box struct {
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
 
 	children []AllBox
-
-	// Default values. May be overriden on instances.
-	isHeader bool
-	isFooter bool
-
-	gridX   int
-	colspan int
-	rowspan int
 }
 
 func (self *Box) init(elementTag string, style css.StyleDict) {
@@ -157,6 +144,10 @@ func (self Box) String() string {
 
 func (self *Box) BaseBox() *Box {
 	return self
+}
+
+func (self *Box) TableFields() *TableFields {
+	return nil
 }
 
 func (self Box) IsParentBox() bool {
@@ -617,12 +608,13 @@ type TextBox struct {
 	text                 string
 }
 
-func (self *TextBox) init(elementTag string, style css.StyleDict, text string) {
+func NewTextBox(elementTag string, style css.StyleDict, text string) *TextBox {
+	var self TextBox
 	if !style.Anonymous {
-		log.Fatal("style is not anonymous")
+		panic("style is not anonymous")
 	}
 	if len(text) == 0 {
-		log.Fatal("empty text")
+		panic("empty text")
 	}
 	self.Box.init(elementTag, style)
 	textTransform := style.Strings["text-transform"]
@@ -648,6 +640,7 @@ func (self *TextBox) init(elementTag string, style css.StyleDict, text string) {
 		}
 	}
 	self.text = text
+	return &self
 }
 
 // Return a new TextBox identical to this one except for the text.
@@ -658,6 +651,10 @@ func (self TextBox) copyWithText(text string) TextBox {
 	newBox := self
 	newBox.text = text
 	return newBox
+}
+
+func TextBoxAnonymousFrom(parent AllBox, text string) AllBox {
+	return NewTextBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), text)
 }
 
 // AtomicInlineLevelBox is an atomic box in an inline formatting context.
@@ -690,9 +687,11 @@ type ReplacedBox struct {
 	replacement TBD
 }
 
-func (self *ReplacedBox) init(elementTag string, style css.StyleDict, replacement TBD) {
+func NewReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *ReplacedBox {
+	var self ReplacedBox
 	self.Box.init(elementTag, style)
 	self.replacement = replacement
+	return &self
 }
 
 // BlockReplacedBox is a box that is both replaced and block-level.
@@ -712,22 +711,67 @@ type InlineReplacedBox struct {
 	AtomicInlineLevelBox
 }
 
-// TODO: dfinit un type TableFields et ajouter une méthode TabelFields()
+func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *InlineReplacedBox {
+	var self InlineReplacedBox
+	self.ReplacedBox = *NewReplacedBox(elementTag, style, replacement)
+	return &self
+}
+
+type TableFields struct {
+	// Default values. May be overriden on instances.
+	isHeader bool
+	isFooter bool
+
+	gridX int
+
+	columnGroups    []AllBox
+	columnPositions []float64
+
+	//Definitions for the rules generating anonymous table boxes
+	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+	tabularContainer       bool // default is true
+	properTableChild       bool // default is true
+	internalTableOrCaption bool // default is true
+
+	//Columns groups never have margins or paddings
+	marginTop, marginBottom, marginLeft, marginRight     float64
+	paddingTop, paddingBottom, paddingLeft, paddingRight float64
+
+	//Default weight. May be overriden on instances.
+	span int // default is 1
+
+	// Default values. May be overriden on instances.
+	colspan int // default is 1
+	rowspan int // default is 1
+}
+
+func newTableFields() TableFields {
+	return TableFields{
+		tabularContainer:       true,
+		properTableChild:       true,
+		internalTableOrCaption: true,
+		span:                   1,
+		colspan:                1,
+		rowspan:                1,
+	}
+}
 
 // TableBox is a box for elements with ``display: table``
 type TableBox struct {
 	ParentBox
 	BlockLevelBox
 
-	tabularContainer bool // default is true
-	columnGroups     []AllBox
-	columnPositions  []float64
+	tableFields TableFields
+}
+
+func (t *TableBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 func NewTableBox(elementTag string, style css.StyleDict, children []AllBox) *TableBox {
 	var out TableBox
 	out.init(elementTag, style, children)
-	out.tabularContainer = true
+	out.tableFields = newTableFields()
 	return &out
 }
 
@@ -735,21 +779,21 @@ func NewTableBox(elementTag string, style css.StyleDict, children []AllBox) *Tab
 // http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 
 func (self TableBox) AllChildren() []AllBox {
-	return append(self.children, self.columnGroups...)
+	return append(self.children, self.tableFields.columnGroups...)
 }
 
 func (self *TableBox) Translate(dx, dy float64, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
-	for index, position := range self.columnPositions {
-		self.columnPositions[index] = position + dx
+	for index, position := range self.tableFields.columnPositions {
+		self.tableFields.columnPositions[index] = position + dx
 	}
-	self.ParentBox.Box.Translate(dx, dy, ignoreFloats)
+	self.ParentBox.Translate(dx, dy, ignoreFloats)
 }
 
 func (self TableBox) pageValues() (int, int) {
-	return self.ParentBox.Box.pageValues()
+	return self.ParentBox.pageValues()
 }
 
 func (self TableBox) IsTableBox() bool {
@@ -768,20 +812,20 @@ func NewInlineTableBox(elementTag string, style css.StyleDict, children []AllBox
 // TableRowGroupBox is a box for elements with ``display: table-row-group``
 type TableRowGroupBox struct {
 	ParentBox
-	properTableChild       bool // default weight true
-	internalTableOrCaption bool // default weight true
-	tabularContainer       bool // default weight true
 
+	tableFields TableFields
 	//properParents = (TableBox, InlineTableBox)
 }
 
 func NewTableRowGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowGroupBox {
 	var out TableRowGroupBox
 	out.init(elementTag, style, children)
-	out.properTableChild = true
-	out.internalTableOrCaption = true
-	out.tabularContainer = true
+	out.tableFields = newTableFields()
 	return &out
+}
+
+func (t *TableRowGroupBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 func (self TableRowGroupBox) IsProperChild(parent AllBox) bool {
@@ -796,10 +840,20 @@ func (self TableRowGroupBox) IsProperChild(parent AllBox) bool {
 // TableRowBox is a box for elements with ``display: table-row``
 type TableRowBox struct {
 	ParentBox
-	properTableChild       bool // default weight true
-	internalTableOrCaption bool // default weight true
-	tabularContainer       bool // default weight true
+
+	tableFields TableFields
 	//properParents = (TableBox, InlineTableBox, TableRowGroupBox)
+}
+
+func NewTableRowBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowBox {
+	var out TableRowBox
+	out.init(elementTag, style, children)
+	out.tableFields = newTableFields()
+	return &out
+}
+
+func (t *TableRowBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 func (self TableRowBox) IsProperChild(parent AllBox) bool {
@@ -811,38 +865,24 @@ func (self TableRowBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-func NewTableRowBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowBox {
-	var out TableRowBox
-	out.init(elementTag, style, children)
-	out.properTableChild = true
-	out.internalTableOrCaption = true
-	out.tabularContainer = true
-	return &out
-}
-
 // TableColumnGroupBox is a box for elements with ``display: table-column-group``
 type TableColumnGroupBox struct {
 	ParentBox
 
-	properTableChild       bool // default weight true
-	internalTableOrCaption bool // default weight true
+	tableFields TableFields
+
 	//properParents = (TableBox, InlineTableBox)
-
-	//Columns groups never have margins or paddings
-	marginTop, marginBottom, marginLeft, marginRight     float64
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
-
-	//Default weight. May be overriden on instances.
-	span int // default weight 1
 }
 
 func NewTableColumnGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableColumnGroupBox {
 	var out TableColumnGroupBox
 	out.init(elementTag, style, children)
-	out.span = 1
-	out.properTableChild = true
-	out.internalTableOrCaption = true
+	out.tableFields = newTableFields()
 	return &out
+}
+
+func (t *TableColumnGroupBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 func (self TableColumnGroupBox) IsProperChild(parent AllBox) bool {
@@ -879,26 +919,21 @@ func (self TableColumnGroupBox) getCells() []AllBox {
 type TableColumnBox struct {
 	ParentBox
 
-	properTableChild       bool // default weight true
-	internalTableOrCaption bool // default weight true
+	tableFields TableFields
+
 	//properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
-
-	//Columns never have margins or paddings
-	marginTop, marginBottom, marginLeft, marginRight     float64
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
-
-	//Default weight. May be overriden on instances.
-	span int // default weight 1
 }
 
 func NewTableColumnBox(elementTag string, style css.StyleDict, children []AllBox) *TableColumnBox {
 	var out TableColumnBox
 	out.init(elementTag, style, children)
-	out.span = 1
-	out.properTableChild = true
-	out.internalTableOrCaption = true
+	out.tableFields = newTableFields()
 
 	return &out
+}
+
+func (t *TableColumnBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 // Return cells that originate in the column.
@@ -920,28 +955,25 @@ func (self TableColumnBox) IsProperChild(parent AllBox) bool {
 type TableCellBox struct {
 	BlockContainerBox
 
-	internalTableOrCaption bool // default weight true
-
-	// Default values. May be overriden on instances.
-	colspan int // default weight 1
-	rowspan int // default weight 1
+	tableFields TableFields
 }
 
 func NewTableCellBox(elementTag string, style css.StyleDict, children []AllBox) *TableCellBox {
 	var out TableCellBox
 	out.init(elementTag, style, children)
-	out.colspan = 1
-	out.rowspan = 1
-	out.internalTableOrCaption = true
+	out.tableFields = newTableFields()
 	return &out
+}
+
+func (t *TableCellBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 // TableCaptionBox is a box for elements with ``display: table-caption``
 type TableCaptionBox struct {
 	BlockBox
 
-	properTableChild       bool // default weight true
-	internalTableOrCaption bool // default weight true
+	tableFields TableFields
 	//properParents = (TableBox, InlineTableBox)
 }
 
@@ -949,10 +981,13 @@ func NewTableCaptionBox(elementTag string, style css.StyleDict, children []AllBo
 	var out TableCaptionBox
 	out.BlockBox = *NewBlockBox(elementTag, style, children)
 
-	out.properTableChild = true
-	out.internalTableOrCaption = true
+	out.tableFields = newTableFields()
 
 	return &out
+}
+
+func (t *TableCaptionBox) TableFields() *TableFields {
+	return &t.tableFields
 }
 
 func (self TableCaptionBox) IsProperChild(parent AllBox) bool {
