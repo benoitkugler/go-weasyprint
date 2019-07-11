@@ -26,7 +26,7 @@ func iriToUri(urlS string) string {
 }
 
 // warn if baseUrl is required but missing.
-func urlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) string {
+func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) string {
 	if path.IsAbs(urlS) {
 		return iriToUri(urlS)
 	} else if baseUrl != "" {
@@ -46,27 +46,18 @@ func urlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) s
 //   ``allowRelative`` is ``False``.
 // Otherwise return an URI, absolute if possible.
 func getUrlAttribute(element html.Node, attrName, baseUrl string, allowRelative bool) string {
-	value := strings.TrimSpace(GetAttribute(element, attrName, ""))
+	value := strings.TrimSpace(GetAttribute(element, attrName))
 	if value != "" {
-		return urlJoin(baseUrl, value, allowRelative,
+		return UrlJoin(baseUrl, value, allowRelative,
 			fmt.Sprintf("<%s %s='%s'>", element.Data, attrName, value))
 	}
 	return ""
 }
 
-func GetAttribute(element html.Node, attrName, defaut string) string {
-	for _, atr := range element.Attr {
-		if atr.Key == attrName {
-			return atr.Val
-		}
-	}
-	return defaut
-}
-
 // Return ('external', absolute_uri) or
 // ('internal', unquoted_fragment_id) or nil.
 func GetLinkAttribute(element html.Node, attrName string, baseUrl string) []string {
-	attrValue := strings.TrimSpace(GetAttribute(element, attrName, ""))
+	attrValue := strings.TrimSpace(GetAttribute(element, attrName))
 	if strings.HasPrefix(attrValue, "#") && len(attrValue) > 1 {
 		// Do not require a baseUrl when the value is just a fragment.
 		unescaped, err := url.PathUnescape(attrValue[1:])

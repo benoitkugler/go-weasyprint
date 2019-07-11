@@ -106,15 +106,6 @@ func buildFormattingStructure(elementTree html.Node, styleFor func(element html.
 	return box
 }
 
-func nodeChildren(element html.Node) (children []html.Node) {
-	child := element.FirstChild
-	for child != nil {
-		children = append(children, *child)
-		child = child.NextSibling
-	}
-	return
-}
-
 // Convert an element and its children into a box with children.
 //
 //    Return a list of boxes. Most of the time the list will have one item but
@@ -189,12 +180,9 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 		children = append(children, TextBoxAnonymousFrom(box, element.Data))
 	}
 
-	childElement := element.FirstChild
-	for childElement != nil {
-		children = append(children, elementToBox(*childElement, styleFor, getImageFromUri, baseUrl, state)...)
+	for _, childElement := range nodeChildren(element) {
+		children = append(children, elementToBox(childElement, styleFor, getImageFromUri, baseUrl, state)...)
 		// html.Node as no notion of tail. Instead, text are converted in text nodes
-
-		childElement = childElement.NextSibling
 	}
 	children = append(children, beforeAfterToBox(element, "after", state, styleFor, getImageFromUri)...)
 

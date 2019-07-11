@@ -367,7 +367,7 @@ func (value Content) ComputeValue(computer *computer, name string) CssProperty {
 		type_, value := v[0], v[1]
 		if type_ == "attr" {
 			lis[index][0] = "STRING"
-			lis[index][1] = utils.GetAttribute(computer.element, value, "")
+			lis[index][1] = utils.GetAttribute(computer.element, value)
 		} else {
 			lis[index] = v
 		}
@@ -459,7 +459,7 @@ func (value LineHeight) ComputeValue(computer *computer, name string) CssPropert
 // Compute the ``anchor`` property.
 func (value Anchor) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String != "none" {
-		return Anchor{String: utils.GetAttribute(computer.element, value.Attr, "")}
+		return Anchor{String: utils.GetAttribute(computer.element, value.Attr)}
 	}
 	return Anchor{}
 }
@@ -485,7 +485,7 @@ func (value Lang) ComputeValue(computer *computer, name string) CssProperty {
 		return Lang{}
 	}
 	if value.Type == "attr()" {
-		return Lang{String: utils.GetAttribute(computer.element, value.Attr, "")}
+		return Lang{String: utils.GetAttribute(computer.element, value.Attr)}
 	} else if value.Type == "string" {
 		return Lang{String: value.Attr}
 	}

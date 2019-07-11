@@ -1,14 +1,62 @@
 package structure
 
-import "golang.org/x/net/html"
+import (
+	"fmt"
+	"log"
+	"regexp"
+	"strconv"
+	"strings"
 
-type gifu = func(string) TBD
+	"github.com/benoitkugler/go-weasyprint/utils"
+
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
+)
+
+type gifu = func(string, string) TBD
 type HandlerFunction = func(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox
 
-var HtmlHandlers = map[string]HandlerFunction{
-	"img": handleImg,
-	"embded": handleEmbed,
-	"object": handleObject,
+var (
+	HtmlHandlers = map[string]HandlerFunction{
+		"img":    handleImg,
+		"embded": handleEmbed,
+		"object": handleObject,
+	}
+
+	// http://whatwg.org/C#space-character
+	HtmlWhitespace             = " \t\n\f\r"
+	HtmlSpaceSeparatedTokensRe = regexp.Must(fmt.Sprintf("[^%s]+", HtmlWhitespace))
+)
+
+// Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
+//     :param string: An Unicode string.
+//     :returns: A new Unicode string.
+//     This is used for `ASCII case-insensitive
+//     <http://whatwg.org/C#ascii-case-insensitive>`_ matching.
+//     This is different from the :meth:`~py:str.lower` method of Unicode strings
+//     which also affect non-ASCII characters,
+//     sometimes mapping them into the ASCII range:
+//     >>> keyword = u"Bac\N{KELVIN SIGN}ground"
+//     >>> assert keyword.lower() == u"background"
+//     >>> assert asciiLower(keyword) != keyword.lower()
+//     >>> assert asciiLower(keyword) == u"bac\N{KELVIN SIGN}ground"
+//
+func asciiLower(s string) string {
+	// is this implementation correct ?
+	return strings.ToLower(s)
+}
+
+// Return whether the given element has a ``rel`` attribute with the
+// given link type.
+//     :param linkType: Must be a lower-case string.
+//
+func elementHasLinkType(element html.Node, linkType string) bool {
+	for _, token := range HtmlSpaceSeparatedTokensRe.FindAllString(GetAttribute(element, "rel")) {
+		if asciiLower(token) == linkType {
+			return true
+		}
+	}
+	return false
 }
 
 // HandleElement handle HTML elements that need special care.
@@ -35,25 +83,16 @@ func makeReplacedBox(element html.Node, box AllBox, image TBD) AllBox {
 	}
 }
 
-func GetAttribute(element html.Node, name string) string {
-	for _, attr := range element.Attr {
-		if attr.Key == name {
-			return attr.Val
-		}
-	}
-	return ""
-}
-
 // Handle ``<img>`` elements, return either an image || the alt-text.
 // See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
 func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
 	src := utils.GetUrlAttribute(element, "src", baseUrl)
-	alt := GetAttribute(element, "alt")
+	alt := utils.GetAttribute(element, "alt")
 	if src != "" {
-		image := getImageFromUri(src)
+		image := getImageFromUri(src, "")
 		if (image != TBD{}) {
 			return []AllBox{makeReplacedBox(element, box, image)}
-		} 
+		}
 	}
 	// No src or invalid image, use the alt-text.
 	if alt != "" {
@@ -68,170 +107,231 @@ func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl stri
 	}
 }
 
-// @handler("embed")
-func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string):
-    """Handle ``<embed>`` elements, return either an image || nothing.
+// Handle ``<embed>`` elements, return either an image || nothing.
+// See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
+func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
+	src := utils.GetUrlAttribute(element, "src", baseUrl)
+	type_ := strings.TrimSpace(GetAttribute(element, "type"))
+	if src != "" {
+		image := getImageFromUri(src, type_)
+		if (image != TBD{}) {
+			return []AllBox{makeReplacedBox(element, box, image)}
+		}
+	}
+	// No fallback.
+	return nil
+}
 
-    See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
+// Handle ``<object>`` elements, return either an image || the fallback
+// content.
+// See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
+func handleObject(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
+	data = getUrlAttribute(element, "data", baseUrl)
+	type_ := strings.TrimSpace(GetAttribute(element, "type"))
+	if src != "" {
+		image := getImageFromUri(src, type_)
+		if (image != TBD{}) {
+			return []AllBox{makeReplacedBox(element, box, image)}
+		}
+	}
+	// The element’s children are the fallback.
+	return []AllBox{box}
+}
 
-    """
-    src = getUrlAttribute(element, "src", baseUrl)
-    type_ = element.get("type", "").strip()
-    if src:
-        image = getImageFromUri(src, type)
-        if image is not None:
-            return [makeReplacedBox(element html.Node, box AllBox, image)]
-    // No fallback.
-    return []
+// Read an integer attribute from the HTML element. if true, the return value should be set on the box
+// minimum = 1
+func integerAttribute(element html.Node, name string, minimum int) (bool, int) {
+	value := strings.TrimSpace(GetAttribute(element, name))
+	if value != "" {
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			return false, 0
+		}
+		if intValue >= minimum {
+			return true, intValue
+		}
+	}
+	return false, 0
+}
 
-func handleObject(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string):
-    """Handle ``<object>`` elements, return either an image || the fallback
-    content.
+// @handler("colgroup")
+// Handle the ``span`` attribute.
+func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+	if TypeTableColumnGroupBox.IsInstance(box) {
+		_, f := box.TableFields()
 
-    See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
+		hasCol := false
+		for _, child := range nodeChildren(element) {
+			if child.DataAtom == atom.Col {
+				hasCol = true
+				f.span = 0 // sum of the children’s spans
+			}
+		}
+		if !hasCol {
+			valid, span = integerAttribute(element, "span", 1)
+			if valid {
+				f.span = span
+			}
+			children := make([]AllBox, f.span)
+			for i := range children {
+				children[i] = TypeTableColumnBox.AnonymousFrom(box, nil)
+			}
+			box.children = children
+		}
+	}
+	return []AllBox{box}
+}
 
-    """
-    data = getUrlAttribute(element, "data", baseUrl)
-    type_ = element.get("type", "").strip()
-    if data:
-        image = getImageFromUri(data, type)
-        if image is not None:
-            return [makeReplacedBox(element html.Node, box AllBox, image)]
-    // The element’s children are the fallback.
-    return [box]
+// @handler("col")
+// Handle the ``span`` attribute.
+func handleCol(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+	if TypeTableColumnBox.IsInstance(box) {
+		_, f := box.TableFields()
 
-func integerAttribute(element html.Node, box AllBox, name, minimum=1):
-    """Read an integer attribute from the HTML element && set it on the box.
+		valid, span = integerAttribute(element, "span", 1)
+		if valid {
+			f.span = span
+		}
+		if f.span > 1 {
+			// Generate multiple boxes
+			// http://lists.w3.org/Archives/Public/www-style/2011Nov/0293.html
+			out := make([]AllBox, f.span)
+			for i := range out {
+				out[i] = box.Copy()
+			}
+			return out
+		}
+	}
+	return []AllBox{box}
+}
 
-    """
-    value = element.get(name, "").strip()
-    if value:
-        try:
-            value = int(value)
-        except ValueError:
-            pass
-        else:
-            if value >= minimum:
-                setattr(box, name, value)
+// @handler("th")
+// @handler("td")
+// Handle the ``colspan``, ``rowspan`` attributes.
+func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+	if TypeTableCellBox.IsInstance(box) {
+		// HTML 4.01 gives special meaning to colspan=0
+		// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
+		// but HTML 5 removed it
+		// http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-colspan
+		// rowspan=0 is still there though.
 
-@handler("colgroup")
-func handleColgroup(element html.Node, box AllBox, GetImageFromUri, BaseUrl):
-    """Handle the ``span`` attribute."""
-    if isinstance(box, boxes.TableColumnGroupBox):
-        if any(child.tag == "col" for child in element):
-            box.span = None  // sum of the children’s spans
-        else:
-            integerAttribute(element html.Node, box AllBox, "span")
-            box.children = (
-                boxes.TableColumnBox.anonymousFrom(box, [])
-                for I in xrange(box.span))
-    return [box]
+		_, f := box.TableFields()
+		valid, span := integerAttribute(element, "colspan", 1)
+		if valid {
+			f.colspan = span
+		}
+		valid, span = integerAttribute(element, "rowspan", 0)
+		if valid {
+			f.rowspan = span
+		}
 
-@handler("col")
-func handleCol(element html.Node, box AllBox, GetImageFromUri, BaseUrl):
-    """Handle the ``span`` attribute."""
-    if isinstance(box, boxes.TableColumnBox):
-        integerAttribute(element html.Node, box AllBox, "span")
-        if box.span > 1:
-            // Generate multiple boxes
-            // http://lists.w3.org/Archives/Public/www-style/2011Nov/0293.html
-            return [box.copy() for I in xrange(box.span)]
-    return [box]
+	}
+	return []AllBox{box}
+}
 
-@handler("th")
-@handler("td")
-func handleTd(element html.Node, box AllBox, GetImageFromUri, BaseUrl):
-    """Handle the ``colspan``, ``rowspan`` attributes."""
-    if isinstance(box, boxes.TableCellBox):
-        // HTML 4.01 gives special meaning to colspan=0
-        // http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
-        // but HTML 5 removed it
-        // http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-colspan
-        // rowspan=0 is still there though.
-        integerAttribute(element html.Node, box AllBox, "colspan")
-        integerAttribute(element html.Node, box AllBox, "rowspan", minimum=0)
-    return [box]
+// @handler("a")
+// Handle the ``rel`` attribute.
+func handleA(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+	box.BaseBox().isAttachment = elementHasLinkType(element, "attachment")
+	return []AllBox{box}
+}
 
-@handler("a")
-func handleA(element html.Node, box AllBox, GetImageFromUri, baseUrl):
-    """Handle the ``rel`` attribute."""
-    box.isAttachment = elementHasLinkType(element, "attachment")
-    return [box]
+// Return the base URL for the document.
+// See http://www.w3.org/TR/html5/urls.html#document-base-url
+//
+func findBaseUrl(htmlDocument html.Node, fallbackBaseUrl string) string {
+	bases := utils.Iter(htmlDocument, atom.Base)
+	if len(bases) > 0 {
+		href := strings.TrimSpace(utils.GetAttribute(bases[0], "href"))
+		if href != "" {
+			return utils.Urljoin(fallbackBaseUrl, href)
+		}
+	}
+	return fallbackBaseUrl
+}
 
-func findBaseUrl(htmlDocument, fallbackBaseUrl):
-    """Return the base URL for the document.
+type HtmlMetadata struct{}
+type Attachment struct {
+	Url, Title string
+}
 
-    See http://www.w3.org/TR/html5/urls.html#document-base-url
+//     Relevant specs:
+//     http://www.whatwg.org/html#the-title-element
+//     http://www.whatwg.org/html#standard-metadata-names
+//     http://wiki.whatwg.org/wiki/MetaExtensions
+//     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
+//
+func getHtmlMetadata(wrapperElement html.Node, baseUrl string) HtmlMetadata {
+	title := ""
+	description := ""
+	generator := ""
+	var keywords []string
+	keywordsSet := map[string]bool{}
+	var authors []string
+	created := ""
+	modified := ""
+	var attachments []Attachment
+	for _, element := range utils.Iter(wrapperElement, atom.Title, atom.Meta, atom.Link) {
+		switch element.DataAtom {
+		case atom.Title:
+			if title == "" {
+				title = utils.GetChildText(element)
+			}
+		case atom.Meta:
+			name := asciiLower(utils.GetAttribute(element, "name"))
+			content := utils.GetAttribute(element, "content")
+			switch name {
+			case "keywords":
+				for _, _keyword := range strings.Split(content, ",") {
+					keyword := stripWhitespace(_keyword)
+					keywordsSet[keyword] = true
+				}
+			case "author":
+				authors = append(authors, content)
+			case "description":
+				if description == "" {
+					description = content
+				}
+			case "generator":
+				if generator == "" {
+					generator = content
+				}
+			case "dcterms.created":
+				if created == "" {
+					created = parseW3cDate(name, content)
+				}
+			case "dcterms.modified":
+				if modified == "" {
+					modified = parseW3cDate(name, content)
+				}
+			}
+		case atom.Link:
+			if elementHasLinkType(element, "attachment") {
+				url := getUrlAttribute(element, "href", baseUrl)
+				title := element.get("title", None)
+				if url == "" {
+					log.Println("Missing href in <link rel='attachment'>")
+				} else {
+					attachments = append(attachments, Attachment{Url: url, Title: title})
+				}
+			}
+		}
+	}
+	//  return dict(title=title, description=description, generator=generator,
+	//             keywords=keywords, authors=authors,
+	//             created=created, modified=modified,
+	//             attachments=attachments)
+}
 
-    """
-    firstBaseElement = next(iter(htmlDocument.iter("base")), None)
-    if firstBaseElement is not None:
-        href = firstBaseElement.get("href", "").strip()
-        if href:
-            return urljoin(fallbackBaseUrl, href)
-    return fallbackBaseUrl
-
-func getHtmlMetadata(wrapperElement, baseUrl):
-    """
-    Relevant specs:
-
-    http://www.whatwg.org/html#the-title-element
-    http://www.whatwg.org/html#standard-metadata-names
-    http://wiki.whatwg.org/wiki/MetaExtensions
-    http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
-
-    """
-    title = None
-    description = None
-    generator = None
-    keywords = []
-    authors = []
-    created = None
-    modified = None
-    attachments = []
-    for element in wrapperElement.queryAll("title", "meta", "link"):
-        element = element.etreeElement
-        if element.tag == "title" && title is None:
-            title = getChildText(element)
-        elif element.tag == "meta":
-            name = asciiLower(element.get("name", ""))
-            content = element.get("content", "")
-            if name == "keywords":
-                for keyword in map(stripWhitespace, content.split(",")):
-                    if keyword not in keywords:
-                        keywords.append(keyword)
-            elif name == "author":
-                authors.append(content)
-            elif name == "description" && description is None:
-                description = content
-            elif name == "generator" && generator is None:
-                generator = content
-            elif name == "dcterms.created" && created is None:
-                created = parseW3cDate(name, content)
-            elif name == "dcterms.modified" && modified is None:
-                modified = parseW3cDate(name, content)
-        elif element.tag == "link" && elementHasLinkType(
-                element, "attachment"):
-            url = getUrlAttribute(element, "href", baseUrl)
-            title = element.get("title", None)
-            if url is None:
-                LOGGER.error("Missing href in <link rel="attachment">")
-            else:
-                attachments.append((url, title))
-    return dict(title=title, description=description, generator=generator,
-                keywords=keywords, authors=authors,
-                created=created, modified=modified,
-                attachments=attachments)
-
-func stripWhitespace(string):
-    """Use the HTML definition of "space character",
-    not all Unicode Whitespace.
-
-    http://www.whatwg.org/html#strip-leading-and-trailing-whitespace
-    http://www.whatwg.org/html#space-character
-
-    """
-    return string.strip(HTMLWHITESPACE)
+// Use the HTML definition of "space character",
+//     not all Unicode Whitespace.
+//     http://www.whatwg.org/html#strip-leading-and-trailing-whitespace
+//     http://www.whatwg.org/html#space-character
+//
+func stripWhitespace(s string) string {
+	return strings.Trim(s, HtmlWhitespace)
+}
 
 // YYYY (eg 1997)
 // YYYY-MM (eg 1997-07)
@@ -239,38 +339,38 @@ func stripWhitespace(string):
 // YYYY-MM-DDThh:mmTZD (eg 1997-07-16T19:20+01:00)
 // YYYY-MM-DDThh:mm:ssTZD (eg 1997-07-16T19:20:30+01:00)
 // YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
+var W3CDateRe = regexp.MustCompile(
+	`^` +
+		"[ \t\n\f\r]*" +
+		`(?P<year>\d\d\d\d)` +
+		`(?:` +
+		`-(?P<month>0\d|1[012])` +
+		`(?:` +
+		`-(?P<day>[012]\d|3[01])` +
+		`(?:` +
+		`T(?P<hour>[01]\d|2[0-3])` +
+		`:(?P<minute>[0-5]\d)` +
+		`(?:` +
+		`:(?P<second>[0-5]\d)` +
+		`(?:\.\d+)?` + // Second fraction, ignored
+		`)?` +
+		`(?:` +
+		`Z |` + //# UTC
+		`(?P<tzHour>[+-](?:[01]\d|2[0-3]))` +
+		`:(?P<tzMinute>[0-5]\d)` +
+		`)` +
+		`)?` +
+		`)?` +
+		`)?` +
+		"[ \t\n\f\r]*" +
+		`$`)
 
-W3CDATERE = re.compile("""
-    ^
-    [ \t\n\f\r]*
-    (?P<year>\d\d\d\d)
-    (?:
-        -(?P<month>0\d|1[012])
-        (?:
-            -(?P<day>[012]\d|3[01])
-            (?:
-                T(?P<hour>[01]\d|2[0-3])
-                :(?P<minute>[0-5]\d)
-                (?:
-                    :(?P<second>[0-5]\d)
-                    (?:\.\d+)?  // Second fraction, ignored
-                )?
-                (?:
-                    Z |  // UTC
-                    (?P<tzHour>[+-](?:[01]\d|2[0-3]))
-                    :(?P<tzMinute>[0-5]\d)
-                )
-            )?
-        )?
-    )?
-    [ \t\n\f\r]*
-    $
-""", re.VERBOSE)
-
-func parseW3cDate(metaName, string):
-    """http://www.w3.org/TR/NOTE-datetime"""
-    if W3CDATERE.match(string):
-        return string
-    else:
-        LOGGER.warning(
-            "Invalid date in <meta name="%s"> %r", metaName, string)
+// http://www.w3.org/TR/NOTE-datetime
+func parseW3cDate(metaName, s string) string {
+	if W3CDateRe.MatchString(s) {
+		return s
+	} else {
+		log.Printf("Invalid date in <meta name='%s'> %s \n", metaName, s)
+		return ""
+	}
+}

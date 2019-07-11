@@ -87,51 +87,7 @@ type point struct {
 	x, y float64
 }
 
-// AllBox unifies all box types
-type AllBox interface {
-	BaseBox() *Box             // common parts of all boxes
-	TableFields() *TableFields // fields for table boxes. Might be nil on onther boxes
-
-	IsParentBox() bool
-	IsProperChild(parent AllBox) bool
-	IsTableBox() bool
-
-	copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox
-}
-
 type TBD struct{}
-
-// Box is an abstract base class for all boxes.
-type Box struct {
-	// Keep track of removed collapsing spaces for wrap opportunities.
-	leadingCollapsibleSpace  bool
-	trailingCollapsibleSpace bool
-
-	// Default, may be overriden on instances.
-	isTableWrapper       bool
-	isForRootElement     bool
-	isColumn             bool
-	transformationMatrix TBD
-	bookmarkLabel        TBD
-	stringSet            TBD
-
-	elementTag string
-	style      css.StyleDict
-
-	positionX, positionY float64
-
-	width, height float64
-
-	marginTop, marginBottom, marginLeft, marginRight float64
-
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
-
-	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float64
-
-	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
-
-	children []AllBox
-}
 
 func (self *Box) init(elementTag string, style css.StyleDict) {
 	self.elementTag = elementTag
@@ -416,13 +372,6 @@ func (self Box) copyWithChildren(newChildren []AllBox, isStart, isEnd bool) Pare
 	return ParentBox{}
 }
 
-// ParentBox is a box that has children.
-type ParentBox struct {
-	Box
-
-	outsideListMarker *Box
-}
-
 func (p *ParentBox) init(elementTag string, style css.StyleDict, children []AllBox) {
 	p.Box.init(elementTag, style)
 	p.children = children
@@ -500,34 +449,6 @@ func (self ParentBox) pageValues() (int, int) {
 	return start, end
 }
 
-// BlockLevelBox is a box that participates in an block formatting context.
-//An element with a ``display`` weight of ``block``, ``list-item`` or
-//``table`` generates a block-level box.
-type BlockLevelBox struct {
-	clearance TBD
-}
-
-// BlockContainerBox is a box that contains only block-level boxes or only line boxes.
-//
-//A box that either contains only block-level boxes or establishes an inline
-//formatting context and thus contains only line boxes.
-//
-//A non-replaced element with a ``display`` weight of ``block``,
-//``list-item``, ``inline-block`` or 'table-cell' generates a block container
-//box.
-type BlockContainerBox struct {
-	ParentBox
-}
-
-// BlockBox is a block-level box that is also a block container.
-//
-//A non-replaced element with a ``display`` weight of ``block``, ``list-item``
-//generates a block box.
-type BlockBox struct {
-	BlockContainerBox
-	BlockLevelBox
-}
-
 func NewBlockBox(elementTag string, style css.StyleDict, children []AllBox) *BlockBox {
 	var out BlockBox
 	out.init(elementTag, style, children)
@@ -545,44 +466,11 @@ func (self BlockBox) AllChildren() []AllBox {
 // 	return self.BlockContainerBox.pageValues()
 // }
 
-// LineBox is a box that represents a line in an inline formatting context.
-//
-//Can only contain inline-level boxes.
-//
-//In early stages of building the box tree a single line box contains many
-//consecutive inline boxes. Later, during layout phase, each line boxes will
-//be split into multiple line boxes, one for each actual line.
-type LineBox struct {
-	ParentBox
-}
-
 func (l *LineBox) init(elementTag string, style css.StyleDict, children []AllBox) {
 	if !style.Anonymous {
 		log.Fatal("style must be anonymous")
 	}
 	l.ParentBox.init(elementTag, style, children)
-}
-
-// InlineLevelBox is a box that participates in an inline formatting context.
-//
-//An inline-level box that is not an inline box is said to be "atomic". Such
-//boxes are inline blocks, replaced elements and inline tables.
-//
-//An element with a ``display`` weight of ``inline``, ``inline-table``, or
-//``inline-block`` generates an inline-level box.
-type InlineLevelBox struct {
-}
-
-// InlineBox is an inline box with inline children.
-//
-//A box that participates in an inline formatting context and whose content
-//also participates in that inline formatting context.
-//
-//A non-replaced element with a ``display`` weight of ``inline`` generates an
-//inline box.
-type InlineBox struct {
-	InlineLevelBox
-	ParentBox
 }
 
 func NewInlineBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBox {
@@ -594,18 +482,6 @@ func NewInlineBox(elementTag string, style css.StyleDict, children []AllBox) *In
 // Return the (x, y, w, h) rectangle where the box is clickable.
 func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
 	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
-}
-
-// TextBox is a box that contains only text and has no box children.
-//
-//Any text in the document ends up in a text box. What CSS calls "anonymous
-//inline boxes" are also text boxes.
-type TextBox struct {
-	Box
-	InlineLevelBox
-
-	justificationSpacing int
-	text                 string
 }
 
 func NewTextBox(elementTag string, style css.StyleDict, text string) *TextBox {
@@ -657,34 +533,10 @@ func TextBoxAnonymousFrom(parent AllBox, text string) AllBox {
 	return NewTextBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), text)
 }
 
-// AtomicInlineLevelBox is an atomic box in an inline formatting context.
-// This inline-level box cannot be split for line breaks.
-type AtomicInlineLevelBox struct {
-	InlineLevelBox
-}
-
-// InlineBlockBox is a box that is both inline-level and a block container.
-// It behaves as inline on the outside and as a block on the inside.
-// A non-replaced element with a 'display' weight of 'inline-block' generates
-// an inline-block box.
-type InlineBlockBox struct {
-	AtomicInlineLevelBox
-	BlockContainerBox
-}
-
 func NewInlineBlockBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBlockBox {
 	var out InlineBlockBox
 	out.init(elementTag, style, children)
 	return &out
-}
-
-// ReplacedBox is a box whose content is replaced.
-// For example, ``<img>`` are replaced: their content is rendered externally
-// and is opaque from CSS’s point of view.
-type ReplacedBox struct {
-	Box
-
-	replacement TBD
 }
 
 func NewReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *ReplacedBox {
@@ -692,23 +544,6 @@ func NewReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *Re
 	self.Box.init(elementTag, style)
 	self.replacement = replacement
 	return &self
-}
-
-// BlockReplacedBox is a box that is both replaced and block-level.
-// A replaced element with a ``display`` weight of ``block``, ``liste-item`` or
-//``table`` generates a block-level replaced box.
-type BlockReplacedBox struct {
-	ReplacedBox
-	BlockLevelBox
-}
-
-// InlineReplacedBox is a box that is both replaced and inline-level.
-// A replaced element with a ``display`` weight of ``inline``,
-//``inline-table``, or ``inline-block`` generates an inline-level replaced
-//box.
-type InlineReplacedBox struct {
-	ReplacedBox
-	AtomicInlineLevelBox
 }
 
 func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *InlineReplacedBox {
@@ -756,14 +591,6 @@ func newTableFields() TableFields {
 	}
 }
 
-// TableBox is a box for elements with ``display: table``
-type TableBox struct {
-	ParentBox
-	BlockLevelBox
-
-	tableFields TableFields
-}
-
 func (t *TableBox) TableFields() *TableFields {
 	return &t.tableFields
 }
@@ -800,21 +627,8 @@ func (self TableBox) IsTableBox() bool {
 	return true
 }
 
-// InlineTableBox is a box for elements with ``display: inline-table``
-type InlineTableBox struct {
-	TableBox
-}
-
 func NewInlineTableBox(elementTag string, style css.StyleDict, children []AllBox) *InlineTableBox {
 	return &InlineTableBox{*NewTableBox(elementTag, style, children)}
-}
-
-// TableRowGroupBox is a box for elements with ``display: table-row-group``
-type TableRowGroupBox struct {
-	ParentBox
-
-	tableFields TableFields
-	//properParents = (TableBox, InlineTableBox)
 }
 
 func NewTableRowGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowGroupBox {
@@ -837,14 +651,6 @@ func (self TableRowGroupBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-// TableRowBox is a box for elements with ``display: table-row``
-type TableRowBox struct {
-	ParentBox
-
-	tableFields TableFields
-	//properParents = (TableBox, InlineTableBox, TableRowGroupBox)
-}
-
 func NewTableRowBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowBox {
 	var out TableRowBox
 	out.init(elementTag, style, children)
@@ -863,15 +669,6 @@ func (self TableRowBox) IsProperChild(parent AllBox) bool {
 	default:
 		return false
 	}
-}
-
-// TableColumnGroupBox is a box for elements with ``display: table-column-group``
-type TableColumnGroupBox struct {
-	ParentBox
-
-	tableFields TableFields
-
-	//properParents = (TableBox, InlineTableBox)
 }
 
 func NewTableColumnGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableColumnGroupBox {
@@ -914,16 +711,6 @@ func (self TableColumnGroupBox) getCells() []AllBox {
 	return out
 }
 
-// Not really a parent box, but pretending to be removes some corner cases.
-// TableColumnBox is a box for elements with ``display: table-column``
-type TableColumnBox struct {
-	ParentBox
-
-	tableFields TableFields
-
-	//properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
-}
-
 func NewTableColumnBox(elementTag string, style css.StyleDict, children []AllBox) *TableColumnBox {
 	var out TableColumnBox
 	out.init(elementTag, style, children)
@@ -951,13 +738,6 @@ func (self TableColumnBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-// TableCellBox is a box for elements with ``display: table-cell``
-type TableCellBox struct {
-	BlockContainerBox
-
-	tableFields TableFields
-}
-
 func NewTableCellBox(elementTag string, style css.StyleDict, children []AllBox) *TableCellBox {
 	var out TableCellBox
 	out.init(elementTag, style, children)
@@ -967,14 +747,6 @@ func NewTableCellBox(elementTag string, style css.StyleDict, children []AllBox) 
 
 func (t *TableCellBox) TableFields() *TableFields {
 	return &t.tableFields
-}
-
-// TableCaptionBox is a box for elements with ``display: table-caption``
-type TableCaptionBox struct {
-	BlockBox
-
-	tableFields TableFields
-	//properParents = (TableBox, InlineTableBox)
 }
 
 func NewTableCaptionBox(elementTag string, style css.StyleDict, children []AllBox) *TableCaptionBox {
@@ -999,15 +771,6 @@ func (self TableCaptionBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-// PageBox is a box for a page
-// Initially the whole document will be in the box for the root element.
-//	During layout a new page box is created after every page break.
-type PageBox struct {
-	ParentBox
-
-	pageType TBD
-}
-
 func (self *PageBox) init(pageType TBD, style css.StyleDict) {
 	self.pageType = pageType
 	// Page boxes are not linked to any element.
@@ -1016,13 +779,6 @@ func (self *PageBox) init(pageType TBD, style css.StyleDict) {
 
 func (self PageBox) String() string {
 	return fmt.Sprintf("<PageBox %s>", self.pageType)
-}
-
-// MarginBox is a box in page margins, as defined in CSS3 Paged Media
-type MarginBox struct {
-	BlockContainerBox
-
-	atKeyword TBD
 }
 
 func (self *MarginBox) init(atKeyword TBD, style css.StyleDict) {

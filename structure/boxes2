@@ -15,7 +15,7 @@
 
 """
 
-from _Future__ import division, unicodeLiterals
+from Future__ import division, unicodeLiterals
 
 import logging
 import os.path
@@ -33,18 +33,19 @@ from .urls import getUrlAttribute
 level = LOGGER.level
 LOGGER.setLevel(logging.ERROR)
 
-if hasattr(sys, "frozen"):
-    if hasattr(sys, "MEIPASS"):
-        # Frozen with PyInstaller
-        # See https://github.com/Kozea/WeasyPrint/pull/540
+if hasattr(sys, "frozen") {
+    if hasattr(sys, "MEIPASS") {
+        // Frozen with PyInstaller
+        // See https://github.com/Kozea/WeasyPrint/pull/540
         root = sys.MEIPASS
-    else:
-        # Frozen with something else (py2exe, etc.)
-        # See https://github.com/Kozea/WeasyPrint/pull/269
+    } else {
+        // Frozen with something else (py2exe, etc.)
+        // See https://github.com/Kozea/WeasyPrint/pull/269
         root = os.path.dirname(sys.executable)
-else:
-    root = os.path.dirname(_File_)
-HTML5UASTYLESHEET = CSS(filename=os.path.join(root, "css", "html5Ua.css"))
+    }
+} else {
+    root = os.path.dirname(File)
+} HTML5UASTYLESHEET = CSS(filename=os.path.join(root, "css", "html5Ua.css"))
 HTML5PHSTYLESHEET = CSS(filename=os.path.join(root, "css", "html5Ph.css"))
 
 LOGGER.setLevel(level)
@@ -55,237 +56,229 @@ HTMLWHITESPACE = " \t\n\f\r"
 HTMLSPACESEPARATEDTOKENSRE = re.compile("[^%s]+" % HTMLWHITESPACE)
 
 
-func asciiLower(string):
-    r"""Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
-
-    :param string: An Unicode string.
-    :returns: A new Unicode string.
-
-    This is used for `ASCII case-insensitive
-    <http://whatwg.org/C#ascii-case-insensitive>`_ matching.
-
-    This is different from the :meth:`~py:str.lower` method of Unicode strings
-    which also affect non-ASCII characters,
-    sometimes mapping them into the ASCII range:
-
-    >>> keyword = u"Bac\N{KELVIN SIGN}ground"
-    >>> assert keyword.lower() == u"background"
-    >>> assert asciiLower(keyword) != keyword.lower()
-    >>> assert asciiLower(keyword) == u"bac\N{KELVIN SIGN}ground"
-
-    """
-    # This turns out to be faster than unicode.translate()
+// "Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
+//     :param string: An Unicode string.
+//     :returns: A new Unicode string.
+//     This is used for `ASCII case-insensitive
+//     <http://whatwg.org/C#ascii-case-insensitive>`_ matching.
+//     This is different from the :meth:`~py:str.lower` method of Unicode strings
+//     which also affect non-ASCII characters,
+//     sometimes mapping them into the ASCII range:
+//     >>> keyword = u"Bac\N{KELVIN SIGN}ground"
+//     >>> assert keyword.lower() == u"background"
+//     >>> assert asciiLower(keyword) != keyword.lower()
+//     >>> assert asciiLower(keyword) == u"bac\N{KELVIN SIGN}ground"
+//     
+func asciiLower(string) {
+    // This turns out to be faster than unicode.translate()
     return string.encode("utf8").lower().decode("utf8")
+} 
 
-
-func elementHasLinkType(element, linkType):
-    """
-    Return whether the given element has a ``rel`` attribute with the
-    given link type.
-
-    :param linkType: Must be a lower-case string.
-
-    """
+// 
+//     Return whether the given element has a ``rel`` attribute with the
+//     given link type.
+//     :param linkType: Must be a lower-case string.
+//     
+func elementHasLinkType(element, linkType) {
     return any(asciiLower(token) == linkType for token in
                HTMLSPACESEPARATEDTOKENSRE.findall(element.get("rel", "")))
-
+} 
 
 // Maps HTML tag names to function taking an HTML element && returning a Box.
 HTMLHANDLERS = {}
 
 
-func handleElement(element, box, getImageFromUri, baseUrl):
-    """Handle HTML elements that need special care.
-
-    :returns: a (possibly empty) list of boxes.
-    """
-    if box.elementTag in HTMLHANDLERS:
+// Handle HTML elements that need special care.
+//     :returns: a (possibly empty) list of boxes.
+//     
+func handleElement(element, box, getImageFromUri, baseUrl) {
+    if box.elementTag in HTMLHANDLERS {
         return HTMLHANDLERS[element.tag](
             element, box, getImageFromUri, baseUrl)
-    else:
+    } else {
         return [box]
+    }
+} 
 
-
-func handler(tag):
-    """Return a decorator registering a function handling ``tag`` elements."""
-    def decorator(function):
+// Return a decorator registering a function handling ``tag`` elements.
+func handler(tag) {
+    def decorator(function) {
         """Decorator registering a function handling ``tag`` elements."""
         HTMLHANDLERS[tag] = function
         return function
-    return decorator
+    } return decorator
+} 
 
-
-func makeReplacedBox(element, box, image):
-    """Wrap an image in a replaced box.
-
-    That box is either block-level || inline-level, depending on what the
-    element should be.
-
-    """
-    if box.style.display in ("block", "list-item", "table"):
+// Wrap an image in a replaced box.
+//     That box is either block-level || inline-level, depending on what the
+//     element should be.
+//     
+func makeReplacedBox(element, box, image) {
+    if box.style.display in ("block", "list-item", "table") {
         type_ = boxes.BlockReplacedBox
-    else:
-        # TODO: support images with "display: table-cell"?
+    } else {
+        // TODO: support images with "display: table-cell"?
         type_ = boxes.InlineReplacedBox
-    return type(element.tag, box.style, image)
-
+    } return type(element.tag, box.style, image)
+} 
 
 @handler("img")
-func handleImg(element, box, getImageFromUri, baseUrl):
-    """Handle ``<img>`` elements, return either an image || the alt-text.
-
-    See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
-
-    """
+// Handle ``<img>`` elements, return either an image || the alt-text.
+//     See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
+//     
+func handleImg(element, box, getImageFromUri, baseUrl) {
     src = getUrlAttribute(element, "src", baseUrl)
     alt = element.get("alt")
-    if src:
+    if src {
         image = getImageFromUri(src)
-        if image is not None:
+        if image is not None {
             return [makeReplacedBox(element, box, image)]
-        else:
-            # Invalid image, use the alt-text.
-            if alt:
+        } else {
+            // Invalid image, use the alt-text.
+            if alt {
                 box.children = [boxes.TextBox.anonymousFrom(box, alt)]
                 return [box]
-            elif alt == "":
-                # The element represents nothing
+            } else if alt == "" {
+                // The element represents nothing
                 return []
-            else:
+            } else {
                 assert alt is None
-                # TODO: find some indicator that an image is missing.
-                # For now, just remove the image.
+                // TODO: find some indicator that an image is missing.
+                // For now, just remove the image.
                 return []
-    else:
-        if alt:
+            }
+        }
+    } else {
+        if alt {
             box.children = [boxes.TextBox.anonymousFrom(box, alt)]
             return [box]
-        else:
+        } else {
             return []
-
+        }
+    }
+} 
 
 @handler("embed")
-func handleEmbed(element, box, getImageFromUri, baseUrl):
-    """Handle ``<embed>`` elements, return either an image || nothing.
-
-    See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
-
-    """
+// Handle ``<embed>`` elements, return either an image || nothing.
+//     See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
+//     
+func handleEmbed(element, box, getImageFromUri, baseUrl) {
     src = getUrlAttribute(element, "src", baseUrl)
     type_ = element.get("type", "").strip()
-    if src:
+    if src {
         image = getImageFromUri(src, type)
-        if image is not None:
+        if image is not None {
             return [makeReplacedBox(element, box, image)]
-    # No fallback.
+        }
+    } // No fallback.
     return []
-
+} 
 
 @handler("object")
-func handleObject(element, box, getImageFromUri, baseUrl):
-    """Handle ``<object>`` elements, return either an image || the fallback
-    content.
-
-    See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
-
-    """
+// Handle ``<object>`` elements, return either an image || the fallback
+//     content.
+//     See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
+//     
+func handleObject(element, box, getImageFromUri, baseUrl) {
     data = getUrlAttribute(element, "data", baseUrl)
     type_ = element.get("type", "").strip()
-    if data:
+    if data {
         image = getImageFromUri(data, type)
-        if image is not None:
+        if image is not None {
             return [makeReplacedBox(element, box, image)]
-    # The element’s children are the fallback.
+        }
+    } // The element’s children are the fallback.
     return [box]
+} 
 
-
-func integerAttribute(element, box, name, minimum=1):
-    """Read an integer attribute from the HTML element && set it on the box.
-
-    """
+// Read an integer attribute from the HTML element && set it on the box.
+//     
+func integerAttribute(element, box, name, minimum=1) {
     value = element.get(name, "").strip()
-    if value:
-        try:
+    if value {
+        try {
             value = int(value)
-        except ValueError:
+        } except ValueError {
             pass
-        else:
-            if value >= minimum:
+        } else {
+            if value >= minimum {
                 setattr(box, name, value)
-
+            }
+        }
+    }
+} 
 
 @handler("colgroup")
-func handleColgroup(element, box, GetImageFromUri, BaseUrl):
-    """Handle the ``span`` attribute."""
-    if isinstance(box, boxes.TableColumnGroupBox):
-        if any(child.tag == "col" for child in element):
-            box.span = None  # sum of the children’s spans
-        else:
+// Handle the ``span`` attribute.
+func handleColgroup(element, box, GetImageFromUri, BaseUrl) {
+    if isinstance(box, boxes.TableColumnGroupBox) {
+        if any(child.tag == "col" for child in element) {
+            box.span = None  // sum of the children’s spans
+        } else {
             integerAttribute(element, box, "span")
             box.children = (
                 boxes.TableColumnBox.anonymousFrom(box, [])
                 for I in xrange(box.span))
-    return [box]
-
+        }
+    } return [box]
+} 
 
 @handler("col")
-func handleCol(element, box, GetImageFromUri, BaseUrl):
-    """Handle the ``span`` attribute."""
-    if isinstance(box, boxes.TableColumnBox):
+// Handle the ``span`` attribute.
+func handleCol(element, box, GetImageFromUri, BaseUrl) {
+    if isinstance(box, boxes.TableColumnBox) {
         integerAttribute(element, box, "span")
-        if box.span > 1:
-            # Generate multiple boxes
-            # http://lists.w3.org/Archives/Public/www-style/2011Nov/0293.html
+        if box.span > 1 {
+            // Generate multiple boxes
+            // http://lists.w3.org/Archives/Public/www-style/2011Nov/0293.html
             return [box.copy() for I in xrange(box.span)]
-    return [box]
-
+        }
+    } return [box]
+} 
 
 @handler("th")
 @handler("td")
-func handleTd(element, box, GetImageFromUri, BaseUrl):
-    """Handle the ``colspan``, ``rowspan`` attributes."""
-    if isinstance(box, boxes.TableCellBox):
-        # HTML 4.01 gives special meaning to colspan=0
-        # http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
-        # but HTML 5 removed it
-        # http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-colspan
-        # rowspan=0 is still there though.
+// Handle the ``colspan``, ``rowspan`` attributes.
+func handleTd(element, box, GetImageFromUri, BaseUrl) {
+    if isinstance(box, boxes.TableCellBox) {
+        // HTML 4.01 gives special meaning to colspan=0
+        // http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
+        // but HTML 5 removed it
+        // http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-colspan
+        // rowspan=0 is still there though.
         integerAttribute(element, box, "colspan")
         integerAttribute(element, box, "rowspan", minimum=0)
-    return [box]
-
+    } return [box]
+} 
 
 @handler("a")
-func handleA(element, box, GetImageFromUri, baseUrl):
-    """Handle the ``rel`` attribute."""
+// Handle the ``rel`` attribute.
+func handleA(element, box, GetImageFromUri, baseUrl) {
     box.isAttachment = elementHasLinkType(element, "attachment")
     return [box]
+} 
 
-
-func findBaseUrl(htmlDocument, fallbackBaseUrl):
-    """Return the base URL for the document.
-
-    See http://www.w3.org/TR/html5/urls.html#document-base-url
-
-    """
+// Return the base URL for the document.
+//     See http://www.w3.org/TR/html5/urls.html#document-base-url
+//     
+func findBaseUrl(htmlDocument, fallbackBaseUrl) {
     firstBaseElement = next(iter(htmlDocument.iter("base")), None)
-    if firstBaseElement is not None:
+    if firstBaseElement is not None {
         href = firstBaseElement.get("href", "").strip()
-        if href:
+        if href {
             return urljoin(fallbackBaseUrl, href)
-    return fallbackBaseUrl
+        }
+    } return fallbackBaseUrl
+} 
 
-
-func getHtmlMetadata(wrapperElement, baseUrl):
-    """
-    Relevant specs:
-
-    http://www.whatwg.org/html#the-title-element
-    http://www.whatwg.org/html#standard-metadata-names
-    http://wiki.whatwg.org/wiki/MetaExtensions
-    http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
-
-    """
+// 
+//     Relevant specs:
+//     http://www.whatwg.org/html#the-title-element
+//     http://www.whatwg.org/html#standard-metadata-names
+//     http://wiki.whatwg.org/wiki/MetaExtensions
+//     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
+//     
+func getHtmlMetadata(wrapperElement, baseUrl) {
     title = None
     description = None
     generator = None
@@ -294,51 +287,54 @@ func getHtmlMetadata(wrapperElement, baseUrl):
     created = None
     modified = None
     attachments = []
-    for element in wrapperElement.queryAll("title", "meta", "link"):
+    for element in wrapperElement.queryAll("title", "meta", "link") {
         element = element.etreeElement
-        if element.tag == "title" && title is None:
+        if element.tag == "title" && title is None {
             title = getChildText(element)
-        elif element.tag == "meta":
+        } else if element.tag == "meta" {
             name = asciiLower(element.get("name", ""))
             content = element.get("content", "")
-            if name == "keywords":
-                for keyword in map(stripWhitespace, content.split(",")):
-                    if keyword not in keywords:
+            if name == "keywords" {
+                for keyword in map(stripWhitespace, content.split(",")) {
+                    if keyword not in keywords {
                         keywords.append(keyword)
-            elif name == "author":
+                    }
+                }
+            } else if name == "author" {
                 authors.append(content)
-            elif name == "description" && description is None:
+            } else if name == "description" && description is None {
                 description = content
-            elif name == "generator" && generator is None:
+            } else if name == "generator" && generator is None {
                 generator = content
-            elif name == "dcterms.created" && created is None:
+            } else if name == "dcterms.created" && created is None {
                 created = parseW3cDate(name, content)
-            elif name == "dcterms.modified" && modified is None:
+            } else if name == "dcterms.modified" && modified is None {
                 modified = parseW3cDate(name, content)
-        elif element.tag == "link" && elementHasLinkType(
-                element, "attachment"):
+            }
+        } else if element.tag == "link" && elementHasLinkType(
+                element, "attachment") {
+                }
             url = getUrlAttribute(element, "href", baseUrl)
             title = element.get("title", None)
-            if url is None:
+            if url is None {
                 LOGGER.error("Missing href in <link rel="attachment">")
-            else:
+            } else {
                 attachments.append((url, title))
-    return dict(title=title, description=description, generator=generator,
+            }
+    } return dict(title=title, description=description, generator=generator,
                 keywords=keywords, authors=authors,
                 created=created, modified=modified,
                 attachments=attachments)
+} 
 
-
-func stripWhitespace(string):
-    """Use the HTML definition of "space character",
-    not all Unicode Whitespace.
-
-    http://www.whatwg.org/html#strip-leading-and-trailing-whitespace
-    http://www.whatwg.org/html#space-character
-
-    """
+// Use the HTML definition of "space character",
+//     not all Unicode Whitespace.
+//     http://www.whatwg.org/html#strip-leading-and-trailing-whitespace
+//     http://www.whatwg.org/html#space-character
+//     
+func stripWhitespace(string) {
     return string.strip(HTMLWHITESPACE)
-
+} 
 
 // YYYY (eg 1997)
 // YYYY-MM (eg 1997-07)
@@ -351,32 +347,32 @@ W3CDATERE = re.compile("""
     ^
     [ \t\n\f\r]*
     (?P<year>\d\d\d\d)
-    (?:
+    (? {
         -(?P<month>0\d|1[012])
-        (?:
+        (? {
             -(?P<day>[012]\d|3[01])
-            (?:
+            (? {
                 T(?P<hour>[01]\d|2[0-3])
                 :(?P<minute>[0-5]\d)
-                (?:
+                (? {
                     :(?P<second>[0-5]\d)
-                    (?:\.\d+)?  # Second fraction, ignored
-                )?
-                (?:
-                    Z |  # UTC
+                    (?:\.\d+)?  // Second fraction, ignored
+                } )?
+                (? {
+                    Z |  // UTC
                     (?P<tzHour>[+-](?:[01]\d|2[0-3]))
                     :(?P<tzMinute>[0-5]\d)
-                )
-            )?
-        )?
-    )?
+                } )
+            } )?
+        } )?
+    } )?
     [ \t\n\f\r]*
     $
 """, re.VERBOSE)
 
 
+// http://www.w3.org/TR/NOTE-datetime
 func parseW3cDate(metaName, string):
-    """http://www.w3.org/TR/NOTE-datetime"""
     if W3CDATERE.match(string):
         return string
     else:
