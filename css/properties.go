@@ -87,6 +87,8 @@ var (
 			// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
 			Transforms: Transforms{}, // computed value for "none"
 
+			ListStyleImage: ListStyleImage{Type: "none"},
+
 			// Internal, to implement the "static position" for absolute boxes.
 			weasySpecifiedDisplay: Display("inline"),
 		},
@@ -159,6 +161,8 @@ var (
 			"white_space":    "normal",
 
 			"caption_side": "top",
+
+			"list_style_type": "disc",
 		},
 		Lengthss: map[string]Lengths{
 			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
@@ -192,9 +196,9 @@ var (
 		// "color": parse_color("black"),  // chosen by the user agent
 
 		// "empty_cells": "show",
-		// "list_style_image": ("none", None),
+
 		// "list_style_position": "outside",
-		// "list_style_type": "disc",
+
 		// "overflow": "visible",
 		// "quotes": list("“”‘’"),  // chosen by the user agent
 		// "position": "static",

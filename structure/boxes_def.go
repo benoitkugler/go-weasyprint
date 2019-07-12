@@ -10,6 +10,8 @@ type AllBox interface {
 	IsParentBox() bool
 	IsProperChild(parent AllBox) bool
 	IsTableBox() bool
+	IsBlockContainerBox() bool
+	IsInlineLevelBox() bool
 
 	Copy() AllBox
 	copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox
@@ -31,6 +33,8 @@ type Box struct {
 
 	elementTag string
 	style      css.StyleDict
+
+	firstLetterStyle, firstLineStyle css.StyleDict
 
 	positionX, positionY float64
 

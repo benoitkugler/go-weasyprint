@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/css"
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/net/html"
 )
@@ -19,6 +20,8 @@ import (
 //    :license: BSD, see LICENSE for details.
 
 var ()
+
+type styleForType = func(element html.Node, pseudoType string) css.StyleDict
 
 type stateShared struct {
 	quoteDepth    int
@@ -76,15 +79,15 @@ func makeBox(elementTag string, style css.StyleDict, content []AllBox) AllBox {
 }
 
 // Build a formatting structure (box tree) from an element tree.
-func buildFormattingStructure(elementTree html.Node, styleFor func(element html.Node, pseudoType string) *css.StyleDict, getImageFromUri TBD, baseUrl string) AllBox {
+func buildFormattingStructure(elementTree html.Node, styleFor styleForType, getImageFromUri gifu, baseUrl string) AllBox {
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, nil)
 	var box AllBox
 	if len(boxList) > 0 {
 		box = boxList[0]
 	} else { //  No root element
-		rootStyleFor := func(element html.Node, pseudoType string) *css.StyleDict {
+		rootStyleFor := func(element html.Node, pseudoType string) css.StyleDict {
 			style := styleFor(element, pseudoType)
-			if style != nil {
+			if !style.IsZero() {
 				// TODO: we should check that the element has a parent instead.
 				if element.Data == "html" {
 					style.Strings["display"] = "block"
@@ -127,8 +130,8 @@ func buildFormattingStructure(elementTree html.Node, styleFor func(element html.
 //
 //    ``TextBox``es are anonymous inline boxes:
 //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType string) *css.StyleDict,
-	getImageFromUri TBD, baseUrl string, state *stateShared) []AllBox {
+func elementToBox(element html.Node, styleFor styleForType,
+	getImageFromUri gifu, baseUrl string, state *stateShared) []AllBox {
 
 	if element.Type != html.TextNode && element.Type != html.ElementNode && element.Type != html.DocumentNode {
 		// Here we ignore comments and XML processing instructions.
@@ -144,7 +147,7 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 		return nil
 	}
 
-	box := makeBox(element.Data, *style, nil)
+	box := makeBox(element.Data, style, nil)
 
 	if state == nil {
 		// use a list to have a shared mutable object
@@ -160,27 +163,26 @@ func elementToBox(element html.Node, styleFor func(element html.Node, pseudoType
 
 	QuoteDepth, counterValues := state.quoteDepth, state.counterValues
 
-	updateCounters(state, style)
+	updateCounters(state, &style)
 
 	var children []AllBox
 	if display == "list-item" {
-		children = append(children,
-			addBoxMarker(box, counterValues, getImageFromUri)...)
+		children = append(children, addBoxMarker(box, counterValues, getImageFromUri)...)
 	}
 
 	// If this element’s direct children create new scopes, the counter
 	// names will be in this new list
 	state.counterScopes = append(state.counterScopes, map[string]bool{})
 
-	box.firstLetterStyle = styleFor(element, "first-letter")
-	box.firstLineStyle = styleFor(element, "first-line")
+	box.BaseBox().firstLetterStyle = styleFor(element, "first-letter")
+	box.BaseBox().firstLineStyle = styleFor(element, "first-line")
 
 	children = append(children, beforeAfterToBox(element, "before", state, styleFor, getImageFromUri)...)
 	if element.Type == html.TextNode {
 		children = append(children, TextBoxAnonymousFrom(box, element.Data))
 	}
 
-	for _, childElement := range nodeChildren(element) {
+	for _, childElement := range utils.NodeChildren(element) {
 		children = append(children, elementToBox(childElement, styleFor, getImageFromUri, baseUrl, state)...)
 		// html.Node as no notion of tail. Instead, text are converted in text nodes
 	}
@@ -255,14 +257,14 @@ func processWhitespace(_box AllBox, followingCollapsibleSpace bool) bool {
 		return followingCollapsibleSpace
 	}
 	if _box.IsParentBox() {
-		for _, child := range _box.Children() {
+		for _, child := range _box.BaseBox().children {
 			switch child.(type) {
 			case *TextBox, *InlineBox:
 				followingCollapsibleSpace = processWhitespace(
 					child, followingCollapsibleSpace)
 			default:
 				processWhitespace(child, false)
-				if child.isInNormalFlow() {
+				if child.BaseBox().isInNormalFlow() {
 					followingCollapsibleSpace = false
 				}
 			}
@@ -282,7 +284,7 @@ func anonymousTableBoxes(box AllBox) AllBox {
 	}
 
 	// Do recursion.
-	boxChildren := box.Children()
+	boxChildren := box.BaseBox().children
 	children := make([]AllBox, len(boxChildren))
 	for index, child := range boxChildren {
 		children[index] = anonymousTableBoxes(child)
@@ -325,11 +327,93 @@ func anonymousTableBoxes(box AllBox) AllBox {
 //                ]
 //            ]
 //        ]
-func inlineInBlock(box AllBox) AllBox {}
+func inlineInBlock(box AllBox) AllBox {
+	if !box.IsParentBox() {
+		return box
+	}
+	baseBox := box.BaseBox()
+	boxChildren := baseBox.children
+
+	if len(boxChildren) > 0 && baseBox.leadingCollapsibleSpace == false {
+		baseBox.leadingCollapsibleSpace = boxChildren[0].BaseBox().leadingCollapsibleSpace
+	}
+
+	var children []AllBox
+	trailingCollapsibleSpace := false
+	for _, child := range boxChildren {
+		// Keep track of removed collapsing spaces for wrap opportunities, and
+		// remove empty text boxes.
+		// (They may have been emptied by processWhitespace().)
+
+		if trailingCollapsibleSpace {
+			child.BaseBox().leadingCollapsibleSpace = true
+		}
+
+		textBox, isTextBox := child.(*TextBox)
+		if isTextBox && textBox.text == "" {
+			trailingCollapsibleSpace = child.BaseBox().leadingCollapsibleSpace
+		} else {
+			trailingCollapsibleSpace = false
+			children = append(children, inlineInBlock(child))
+		}
+	}
+	if baseBox.trailingCollapsibleSpace == false {
+		baseBox.trailingCollapsibleSpace = trailingCollapsibleSpace
+	}
+
+	if !box.IsBlockContainerBox() {
+		baseBox.children = children
+		return box
+	}
+
+	var newLineChildren, newChildren []AllBox
+	for _, childBox := range children {
+		if _, isLineBox := childBox.(*LineBox); isLineBox {
+			panic("childBox can't be a LineBox")
+		}
+		if len(newLineChildren) > 0 && childBox.BaseBox().isAbsolutelyPositioned() {
+			newLineChildren = append(newLineChildren, childBox)
+		} else if childBox.IsInlineLevelBox() || (len(newLineChildren) > 0 && childBox.BaseBox().isFloated()) {
+			// Do not append white space at the start of a line :
+			// it would be removed during layout.
+			childTextBox, isTextBox := childBox.(*TextBox)
+			st := childBox.BaseBox().style.Strings["white_space"]
+
+			// Sequence of white-space was collapsed to a single space by processWhitespace().
+			if len(newLineChildren) > 0 || !(isTextBox && childTextBox.text == " " && (st == "normal" || st == "nowrap" || st == "pre-line")) {
+				newLineChildren = append(newLineChildren, childBox)
+			}
+		} else {
+			if len(newLineChildren) > 0 {
+				// Inlines are consecutive no more: add this line box
+				// and create a new one.
+				lineBox := LineBoxAnonymousFrom(box, newLineChildren)
+				anonymous := BlockBoxAnonymousFrom(box, []AllBox{lineBox})
+				newChildren = append(newChildren, anonymous)
+				newLineChildren = nil
+			}
+			newChildren = append(newChildren, childBox)
+		}
+	}
+	if len(newLineChildren) > 0 {
+		// There were inlines at the end
+		lineBox := LineBoxAnonymousFrom(box, newLineChildren)
+		if len(newChildren) > 0 {
+			anonymous := BlockBoxAnonymousFrom(box, []AllBox{lineBox})
+			newChildren = append(newChildren, anonymous)
+		} else {
+			// Only inline-level children: one line box
+			newChildren = append(newChildren, lineBox)
+		}
+	}
+
+	baseBox.children = newChildren
+	return box
+}
 
 // Internal implementation of anonymousTableBoxes().
 func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
-	switch box.(type) {
+	switch typeBox := box.(type) {
 	case *TableColumnBox: // rule 1.1
 		// Remove all children.
 		children = nil
@@ -346,14 +430,14 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 		// Rule XXX (not in the spec): column groups have at least
 		// one column child.
 		if len(children) == 0 {
-			for i := 0; i < box.span; i++ {
-				children = append(children, tableColumnBoxAnonymousFrom(box, nil))
+			for i := 0; i < typeBox.tableFields.span; i++ {
+				children = append(children, TypeTableColumnBox.AnonymousFrom(box, nil))
 			}
 		}
 
 	}
 	// rule 1.3
-	if box.tabularContainer && len(children) >= 2 {
+	if box.BaseBox().tabularContainer && len(children) >= 2 {
 		// TODO: Maybe only remove text if internal is also
 		//       a proper table descendant of box.
 		// This is what the spec says, but maybe not what browsers do:
@@ -752,16 +836,16 @@ func updateCounters(state *stateShared, style *css.StyleDict) {
 // and yield children to add a the start of the box.
 
 // See http://www.w3.org/TR/CSS21/generate.html#lists
-func addBoxMarker(box AllBox, counterValues css.CounterIncrements, getImageFromUri func()) []AllBox {
-	style := box.Style()
-	imageType, image := style.listStyleImage
-	if imageType == "url" {
+func addBoxMarker(box AllBox, counterValues map[string][]int, getImageFromUri gifu) []AllBox {
+	style := box.BaseBox().style
+	image := style.ListStyleImage.Image
+	if style.ListStyleImage.Type == "url" {
 		// surface may be None here too, in case the image is not available.
-		image = getImageFromUri(image)
+		image = getImageFromUri(image.Url(), "")
 	}
-
+	var markerBox AllBox
 	if image == nil {
-		type_ := style.listStyleType
+		type_ := style.Strings["list_style_type"]
 		if type_ == "none" {
 			return nil
 		}
@@ -769,20 +853,21 @@ func addBoxMarker(box AllBox, counterValues css.CounterIncrements, getImageFromU
 		if !has {
 			counterValues = []int{0}
 		}
-		counterValue = counterValues[len(counterValues)-1]
-		markerText = formatListMarker(counterValue, type_)
-		markerBox = boxes.TextBox.anonymousFrom(box, markerText)
+		counterValue := counterValues[len(counterValues)-1]
+		// TODO: rtl numbered list has the dot on the left
+		markerText := formatListMarker(counterValue, type_)
+		markerBox = TextBoxAnonymousFrom(box, markerText)
 	} else {
-		markerBox = boxes.InlineReplacedBox.anonymousFrom(box, image)
-		markerBox.isListMarker = True
+		markerBox = InlineReplacedBoxAnonymousFrom(box, image)
+		markerBox.BaseBox().isListMarker = true
 	}
-	markerBox.elementTag += "::marker"
+	markerBox.BaseBox().elementTag += "::marker"
 
-	position = style.listStylePosition
-	if position == "inside" {
-		// yield markerBox
+	switch style.Strings["list_style_position"] {
+	case "inside":
 		return markerBox
-	} else if position == "outside" {
+	case "outside":
 		box.outsideListMarker = markerBox
 	}
+	return nil
 }

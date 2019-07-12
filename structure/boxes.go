@@ -114,6 +114,14 @@ func (self Box) IsTableBox() bool {
 	return false
 }
 
+func (self Box) IsBlockContainerBox() bool {
+	return false
+}
+
+func (self Box) IsInlineLevelBox() bool {
+	return false
+}
+
 func (self Box) IsProperChild(parent AllBox) bool {
 	return false
 }
@@ -462,15 +470,33 @@ func (self BlockBox) AllChildren() []AllBox {
 	return self.children
 }
 
+func BlockBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+	return NewBlockBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
+}
+
+func (self BlockContainerBox) IsBlockContainerBox() bool {
+	return true
+}
+
 // func (self BlockBox) pageValues() (int, int) {
 // 	return self.BlockContainerBox.pageValues()
 // }
 
-func (l *LineBox) init(elementTag string, style css.StyleDict, children []AllBox) {
+func NewLineBox(elementTag string, style css.StyleDict, children []AllBox) *LineBox {
 	if !style.Anonymous {
 		log.Fatal("style must be anonymous")
 	}
+	var l LineBox
 	l.ParentBox.init(elementTag, style, children)
+	return &l
+}
+
+func (self InlineLevelBox) IsInlineLevelBox() bool {
+	return true
+}
+
+func LineBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+	return NewLineBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
 func NewInlineBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBox {
@@ -519,6 +545,10 @@ func NewTextBox(elementTag string, style css.StyleDict, text string) *TextBox {
 	return &self
 }
 
+func (self TextBox) IsInlineLevelBox() bool {
+	return true
+}
+
 // Return a new TextBox identical to this one except for the text.
 func (self TextBox) copyWithText(text string) TextBox {
 	if len(text) == 0 {
@@ -531,6 +561,11 @@ func (self TextBox) copyWithText(text string) TextBox {
 
 func TextBoxAnonymousFrom(parent AllBox, text string) AllBox {
 	return NewTextBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), text)
+}
+
+func TextBoxIsInstance(box AllBox) bool {
+	_, is := box.(*TextBox)
+	return is
 }
 
 func NewInlineBlockBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBlockBox {
@@ -550,6 +585,14 @@ func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement TB
 	var self InlineReplacedBox
 	self.ReplacedBox = *NewReplacedBox(elementTag, style, replacement)
 	return &self
+}
+
+func (self InlineReplacedBox) IsInlineLevelBox() bool {
+	return true
+}
+
+func InlineReplacedBoxAnonymousFrom(parent AllBox, replacement TBD) AllBox {
+	return NewInlineReplacedBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), replacement)
 }
 
 type TableFields struct {

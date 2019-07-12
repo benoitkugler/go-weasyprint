@@ -1,380 +1,1613 @@
-// coding: utf-8
 """
-    weasyprint.html
-    ---------------
+    weasyprint.formattingStructure.build
+    -------------------------------------
 
-    Specific handling for some HTML elements, especially replaced elements.
+    Turn an element tree with associated CSS style (computed values)
+    into a "before layout" formatting structure / box tree.
 
-    Replaced elements (eg. <img> elements) are rendered externally and
-    behave as an atomic opaque box in CSS. In general, they may || may not
-    have intrinsic dimensions. But the only replaced elements currently
-    supported in WeasyPrint are images with intrinsic dimensions.
+    This includes creating anonymous boxes && processing whitespace
+    as necessary.
 
-    :copyright: Copyright 2011-2014 Simon Sapin && contributors, see AUTHORS.
+    :copyright: Copyright 2011-2018 Simon Sapin && contributors, see AUTHORS.
     :license: BSD, see LICENSE for details.
 
 """
 
-from Future__ import division, unicodeLiterals
-
-import logging
-import os.path
+import copy
 import re
-import sys
+import unicodedata
 
-from . import CSS
-from .compat import urljoin, xrange
-from .css import getChildText
-from .formattingStructure import boxes
-from .logger import LOGGER
-from .urls import getUrlAttribute
+import tinycss2.color3
 
-// XXX temporarily disable logging for user-agent stylesheet
-level = LOGGER.level
-LOGGER.setLevel(logging.ERROR)
+from . import boxes, counters
+from .. import html
+from ..css import properties
+from ..logger import LOGGER
 
-if hasattr(sys, "frozen") {
-    if hasattr(sys, "MEIPASS") {
-        // Frozen with PyInstaller
-        // See https://github.com/Kozea/WeasyPrint/pull/540
-        root = sys.MEIPASS
+// Maps values of the ``display`` CSS property to box types.
+BOXTYPEFROMDISPLAY = {
+    "block": boxes.BlockBox,
+    "list-item": boxes.BlockBox,
+    "inline": boxes.InlineBox,
+    "inline-block": boxes.InlineBlockBox,
+    "table": boxes.TableBox,
+    "inline-table": boxes.InlineTableBox,
+    "table-row": boxes.TableRowBox,
+    "table-row-group": boxes.TableRowGroupBox,
+    "table-header-group": boxes.TableRowGroupBox,
+    "table-footer-group": boxes.TableRowGroupBox,
+    "table-column": boxes.TableColumnBox,
+    "table-column-group": boxes.TableColumnGroupBox,
+    "table-cell": boxes.TableCellBox,
+    "table-caption": boxes.TableCaptionBox,
+    "flex": boxes.FlexBox,
+    "inline-flex": boxes.InlineFlexBox,
+}
+
+
+func buildFormattingStructure(elementTree, styleFor, getImageFromUri,
+                               baseUrl, targetCollector) {
+                               }
+    """Build a formatting structure (box tree) from an element tree."""
+    boxList = elementToBox(
+        elementTree, styleFor, getImageFromUri, baseUrl,
+        targetCollector)
+    if boxList {
+        box, = boxList
     } else {
-        // Frozen with something else (py2exe, etc.)
-        // See https://github.com/Kozea/WeasyPrint/pull/269
-        root = os.path.dirname(sys.executable)
+        // No root element
+        def rootStyleFor(element, pseudoType=None) {
+            style = styleFor(element, pseudoType)
+            if style {
+                // TODO: we should check that the element has a parent instead.
+                if element.tag == "html" {
+                    style["display"] = "block"
+                } else {
+                    style["display"] = "none"
+                }
+            } return style
+        } box, = elementToBox(
+            elementTree, rootStyleFor, getImageFromUri, baseUrl,
+            targetCollector)
     }
-} else {
-    root = os.path.dirname(File)
-} HTML5UASTYLESHEET = CSS(filename=os.path.join(root, "css", "html5Ua.css"))
-HTML5PHSTYLESHEET = CSS(filename=os.path.join(root, "css", "html5Ph.css"))
 
-LOGGER.setLevel(level)
+    targetCollector.checkPendingTargets()
+
+    box.isForRootElement = true
+    // If this is changed, maybe update weasy.layout.pages.makeMarginBoxes()
+    processWhitespace(box)
+    box = anonymousTableBoxes(box)
+    box = flexBoxes(box)
+    box = inlineInBlock(box)
+    box = blockInInline(box)
+    box = setViewportOverflow(box)
+    return box
 
 
-// http://whatwg.org/C#space-character
-HTMLWHITESPACE = " \t\n\f\r"
-HTMLSPACESEPARATEDTOKENSRE = re.compile("[^%s]+" % HTMLWHITESPACE)
-
-
-// "Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
-//     :param string: An Unicode string.
-//     :returns: A new Unicode string.
-//     This is used for `ASCII case-insensitive
-//     <http://whatwg.org/C#ascii-case-insensitive>`_ matching.
-//     This is different from the :meth:`~py:str.lower` method of Unicode strings
-//     which also affect non-ASCII characters,
-//     sometimes mapping them into the ASCII range:
-//     >>> keyword = u"Bac\N{KELVIN SIGN}ground"
-//     >>> assert keyword.lower() == u"background"
-//     >>> assert asciiLower(keyword) != keyword.lower()
-//     >>> assert asciiLower(keyword) == u"bac\N{KELVIN SIGN}ground"
-//     
-func asciiLower(string) {
-    // This turns out to be faster than unicode.translate()
-    return string.encode("utf8").lower().decode("utf8")
+func makeBox(elementTag, style, content, getImageFromUri) {
+    return BOXTYPEFROMDISPLAY[style["display"]](
+        elementTag, style, content)
 } 
 
-// 
-//     Return whether the given element has a ``rel`` attribute with the
-//     given link type.
-//     :param linkType: Must be a lower-case string.
-//     
-func elementHasLinkType(element, linkType) {
-    return any(asciiLower(token) == linkType for token in
-               HTMLSPACESEPARATEDTOKENSRE.findall(element.get("rel", "")))
-} 
+func elementToBox(element, styleFor, getImageFromUri, baseUrl,
+                   targetCollector, state=None) {
+    """Convert an element && its children into a box with children.
 
-// Maps HTML tag names to function taking an HTML element && returning a Box.
-HTMLHANDLERS = {}
+    Return a list of boxes. Most of the time the list will have one item but
+    may have zero || more than one.
 
+    Eg.::
 
-// Handle HTML elements that need special care.
-//     :returns: a (possibly empty) list of boxes.
-//     
-func handleElement(element, box, getImageFromUri, baseUrl) {
-    if box.elementTag in HTMLHANDLERS {
-        return HTMLHANDLERS[element.tag](
-            element, box, getImageFromUri, baseUrl)
-    } else {
-        return [box]
+        <p>Some <em>emphasised</em> text.</p>
+
+    gives (not actual syntax)::
+
+        BlockBox[
+            TextBox["Some "],
+            InlineBox[
+                TextBox["emphasised"],
+            ],
+            TextBox[" text."],
+        ]
+
+    ``TextBox``es are anonymous inline boxes:
+    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
+
+                   }
+    """
+    if not isinstance(element.tag, str) {
+        // We ignore comments && XML processing instructions.
+        return []
     }
-} 
 
-// Return a decorator registering a function handling ``tag`` elements.
-func handler(tag) {
-    def decorator(function) {
-        """Decorator registering a function handling ``tag`` elements."""
-        HTMLHANDLERS[tag] = function
-        return function
-    } return decorator
-} 
+    style = styleFor(element)
 
-// Wrap an image in a replaced box.
-//     That box is either block-level || inline-level, depending on what the
-//     element should be.
-//     
-func makeReplacedBox(element, box, image) {
-    if box.style.display in ("block", "list-item", "table") {
-        type_ = boxes.BlockReplacedBox
-    } else {
-        // TODO: support images with "display: table-cell"?
-        type_ = boxes.InlineReplacedBox
-    } return type(element.tag, box.style, image)
-} 
+    // TODO: should be the used value. When does the used value for `display`
+    // differ from the computer value?
+    display = style["display"]
+    if display == "none" {
+        return []
+    }
 
-@handler("img")
-// Handle ``<img>`` elements, return either an image || the alt-text.
-//     See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
-//     
-func handleImg(element, box, getImageFromUri, baseUrl) {
-    src = getUrlAttribute(element, "src", baseUrl)
-    alt = element.get("alt")
-    if src {
-        image = getImageFromUri(src)
-        if image is not None {
-            return [makeReplacedBox(element, box, image)]
-        } else {
-            // Invalid image, use the alt-text.
-            if alt {
-                box.children = [boxes.TextBox.anonymousFrom(box, alt)]
-                return [box]
-            } else if alt == "" {
-                // The element represents nothing
-                return []
+    box = makeBox(element.tag, style, [], getImageFromUri)
+
+    if state is None {
+        // use a list to have a shared mutable object
+        state = (
+            // Shared mutable objects {
+            } [0],  // quoteDepth: single integer
+            {},  // counterValues: name -> stacked/scoped values
+            [set()]  // counterScopes: element tree depths -> counter names
+        )
+    } QuoteDepth, counterValues, counterScopes = state
+
+    updateCounters(state, style)
+
+    children = []
+    if display == "list-item" {
+        children.extend(addBoxMarker(
+            box, counterValues, getImageFromUri))
+    }
+
+    // If this element’s direct children create new scopes, the counter
+    // names will be in this new list
+    counterScopes.append(set())
+
+    box.firstLetterStyle = styleFor(element, "first-letter")
+    box.firstLineStyle = styleFor(element, "first-line")
+
+    children.extend(beforeAfterToBox(
+        element, "before", state, styleFor, getImageFromUri,
+        targetCollector))
+
+    // collect anchor"s counterValues, maybe it"s a target.
+    // to get the spec-conform counterValuse we must do it here,
+    // after the ::before is parsed && befor the ::after is
+    if style["anchor"] {
+        targetCollector.storeTarget(style["anchor"], counterValues, box)
+    }
+
+    text = element.text
+    if text {
+        children.append(boxes.TextBox.anonymousFrom(box, text))
+    }
+
+    for childElement in element {
+        children.extend(elementToBox(
+            childElement, styleFor, getImageFromUri, baseUrl,
+            targetCollector, state))
+        text = childElement.tail
+        if text {
+            textBox = boxes.TextBox.anonymousFrom(box, text)
+            if children && isinstance(children[-1], boxes.TextBox) {
+                children[-1].text += textBox.text
             } else {
-                assert alt is None
-                // TODO: find some indicator that an image is missing.
-                // For now, just remove the image.
-                return []
+                children.append(textBox)
             }
         }
+    } children.extend(beforeAfterToBox(
+        element, "after", state, styleFor, getImageFromUri,
+        targetCollector))
+
+    // Scopes created by this element’s children stop here.
+    for name in counterScopes.pop() {
+        counterValues[name].pop()
+        if not counterValues[name] {
+            counterValues.pop(name)
+        }
+    }
+
+    box.children = children
+    // calculate string-set && bookmark-label
+    setContentLists(element, box, style, counterValues, targetCollector)
+
+    // Specific handling for the element. (eg. replaced element)
+    return html.handleElement(element, box, getImageFromUri, baseUrl)
+
+
+func beforeAfterToBox(element, pseudoType, state, styleFor,
+                        getImageFromUri, targetCollector) {
+                        }
+    """Yield the box for ::before || ::after pseudo-element if there is one."""
+    style = styleFor(element, pseudoType)
+    if pseudoType && style is None {
+        // Pseudo-elements with no style at all do not get a style dict.
+        // Their initial content property computes to "none".
+        return
+    }
+
+    // TODO: should be the computed value. When does the used value for
+    // `display` differ from the computer value? It"s at least wrong for
+    // `content` where "normal" computes as "inhibit" for pseudo elements.
+    display = style["display"]
+    content = style["content"]
+    if "none" in (display, content) || content in ("normal", "inhibit") {
+        return
+    }
+
+    box = makeBox(
+        "%s::%s" % (element.tag, pseudoType), style, [], getImageFromUri)
+
+    quoteDepth, counterValues, CounterScopes = state
+    updateCounters(state, style)
+
+    children = []
+    if display == "list-item" {
+        children.extend(addBoxMarker(
+            box, counterValues, getImageFromUri))
+    } children.extend(contentToBoxes(
+        style, box, quoteDepth, counterValues, getImageFromUri,
+        targetCollector))
+
+    box.children = children
+    yield box
+
+
+// Collect missing counters.
+func CollectMissingCounter(counterName, counterValues, missingCounters) {
+    if counterName not in list(counterValues) + missingCounters {
+        missingCounters.append(counterName)
+    }
+} 
+
+func CollectMissingTargetCounter(counterName, lookupCounterValues,
+                                    anchorName, missingTargetCounters) {
+    """Collect missing target counters.
+
+    The corresponding TargetLookupItem caches the target"s page based
+    counter values during pagination.
+
+                                    }
+    """
+    if counterName not in lookupCounterValues {
+        missingCounters = missingTargetCounters.setdefault(anchorName, [])
+        if counterName not in missingCounters {
+            missingCounters.append(counterName)
+        }
+    }
+
+
+func computeContentList(contentList, parentBox, counterValues, cssToken,
+                         parseAgain, targetCollector,
+                         getImageFromUri=None, quoteDepth=None,
+                         quoteStyle=None, context=None, page=None,
+                         element=None) {
+    """Compute && return the boxes corresponding to the ``contentList``.
+
+    ``parseAgain`` is called to compute the ``contentList`` again when
+    ``targetCollector.lookupTarget()`` detected a pending target.
+
+    ``buildFormattingStructure`` calls
+    ``targetCollector.checkPendingTargets()`` after the first pass to do
+    required reparsing.
+
+                         }
+    """
+    // TODO: Some computation done here may be done in computedValues
+    // instead. We currently miss at least styleFor, counters && quotes
+    // context in computer. Some work will still need to be done here though,
+    // like box creation for URIs.
+    boxlist = []
+    texts = []
+
+    missingCounters = []
+    missingTargetCounters = {}
+    inPageContext = context is not None && page is not None
+
+    // Collect missing counters during buildFormattingStructure.
+    // Pointless to collect missing target counters in MarginBoxes.
+    needCollectMissing = targetCollector.collecting && not inPageContext
+
+    // TODO: remove attribute || set a default value in Box class
+    if not hasattr(parentBox, "cachedCounterValues") {
+        // Store the counterValues in the parentBox to make them accessible
+        // in @page context. Obsoletes the parseAgain function"s deepcopy.
+        // TODO: Is propbably superfluous inPageContext.
+        parentBox.cachedCounterValues = copy.deepcopy(counterValues)
+    }
+
+    for type_, value in contentList {
+        if type_ == "string" {
+            texts.append(value)
+        } else if type_ == "url" && getImageFromUri is not None {
+            origin, uri = value
+            if origin != "external" {
+                // Embedding internal references is impossible
+                continue
+            } image = getImageFromUri(uri)
+            if image is not None {
+                text = "".join(texts)
+                if text {
+                    boxlist.append(
+                        boxes.TextBox.anonymousFrom(parentBox, text))
+                } texts = []
+                boxlist.append(
+                    boxes.InlineReplacedBox.anonymousFrom(parentBox, image))
+            }
+        } else if type_ == "content()" {
+            addedText = TEXTCONTENTEXTRACTORS[value](parentBox)
+            // Simulate the step of white space processing
+            // (normally done during the layout)
+            addedText = addedText.strip()
+            texts.append(addedText)
+        } else if type_ == "counter()" {
+            counterName, counterStyle = value
+            if needCollectMissing {
+                CollectMissingCounter(
+                    counterName, counterValues, missingCounters)
+            } counterValue = counterValues.get(counterName, [0])[-1]
+            texts.append(counters.format(counterValue, counterStyle))
+        } else if type_ == "counters()" {
+            counterName, separator, counterStyle = value
+            if needCollectMissing {
+                CollectMissingCounter(
+                    counterName, counterValues, missingCounters)
+            } texts.append(separator.join(
+                counters.format(counterValue, counterStyle)
+                for counterValue in counterValues.get(counterName, [0])))
+        } else if type_ == "string()" {
+            if inPageContext {
+                texts.append(context.getStringSetFor(page, *value))
+            } else {
+                // string() is currently only valid in @page context
+                // See https://github.com/Kozea/WeasyPrint/issues/723
+                LOGGER.warn(
+                    ""string(%s)" is only allowed in page margins" %
+                    (" ".join(value)))
+            }
+        } else if type_ == "target-counter()" {
+            anchorToken, counterName, counterStyle = value
+            lookupTarget = targetCollector.lookupTarget(
+                anchorToken, parentBox, cssToken, parseAgain)
+            if lookupTarget.state == "up-to-date" {
+                targetValues = lookupTarget.targetBox.cachedCounterValues
+                if needCollectMissing {
+                    CollectMissingTargetCounter(
+                        counterName, targetValues,
+                        targetCollector.anchorNameFromToken(anchorToken),
+                        missingTargetCounters)
+                } // Mixin target"s cached page counters.
+                // cachedPageCounterValues are empty during layout.
+                localCounters = (
+                    lookupTarget.cachedPageCounterValues.copy())
+                localCounters.update(targetValues)
+                counterValue = localCounters.get(counterName, [0])[-1]
+                texts.append(counters.format(counterValue, counterStyle))
+            } else {
+                texts = []
+                break
+            }
+        } else if type_ == "target-counters()" {
+            anchorToken, counterName, separator, counterStyle = value
+            lookupTarget = targetCollector.lookupTarget(
+                anchorToken, parentBox, cssToken, parseAgain)
+            if lookupTarget.state == "up-to-date" {
+                if separator[0] != "string" {
+                    break
+                } separatorString = separator[1]
+                targetValues = lookupTarget.targetBox.cachedCounterValues
+                if needCollectMissing {
+                    CollectMissingTargetCounter(
+                        counterName, targetValues,
+                        targetCollector.anchorNameFromToken(anchorToken),
+                        missingTargetCounters)
+                } // Mixin target"s cached page counters.
+                // cachedPageCounterValues are empty during layout.
+                localCounters = (
+                    lookupTarget.cachedPageCounterValues.copy())
+                localCounters.update(targetValues)
+                texts.append(separatorString.join(
+                    counters.format(counterValue, counterStyle)
+                    for counterValue in localCounters.get(
+                        counterName, [0])))
+            } else {
+                texts = []
+                break
+            }
+        } else if type_ == "target-text()" {
+            anchorToken, textStyle = value
+            lookupTarget = targetCollector.lookupTarget(
+                anchorToken, parentBox, cssToken, parseAgain)
+            if lookupTarget.state == "up-to-date" {
+                targetBox = lookupTarget.targetBox
+                // TODO: "before"- && "after"- content referring missing
+                // counters are not properly set.
+                text = TEXTCONTENTEXTRACTORS[textStyle](targetBox)
+                // Simulate the step of white space processing
+                // (normally done during the layout)
+                texts.append(text.strip())
+            } else {
+                texts = []
+                break
+            }
+        } else if (type_ == "quote" and
+                quoteDepth is not None and
+                quoteStyle is not None) {
+                }
+            isOpen = "open" in value
+            insert = not value.startswith("no-")
+            if not isOpen {
+                quoteDepth[0] = max(0, quoteDepth[0] - 1)
+            } if insert {
+                openQuotes, closeQuotes = quoteStyle
+                quotes = openQuotes if isOpen else closeQuotes
+                texts.append(quotes[min(quoteDepth[0], len(quotes) - 1)])
+            } if isOpen {
+                quoteDepth[0] += 1
+            }
+    } text = "".join(texts)
+    if text {
+        boxlist.append(boxes.TextBox.anonymousFrom(parentBox, text))
+        // Only add CounterLookupItem if the contentList actually produced text
+        targetCollector.collectMissingCounters(
+            parentBox, cssToken, parseAgain, missingCounters,
+            missingTargetCounters)
+    }
+
+    return boxlist if (texts || boxlist) else None
+
+
+func contentToBoxes(style, parentBox, quoteDepth, counterValues,
+                     getImageFromUri, targetCollector, context=None,
+                     page=None) {
+                     }
+    """Take the value of a ``content`` property && return boxes."""
+    def parseAgain(mixinPagebasedCounters=None) {
+        """Closure to parse the ``parentBoxes`` children all again."""
+    }
+
+        // Neither alters the mixed-in nor the cached counter values, no
+        // need to deepcopy here
+        if mixinPagebasedCounters is None {
+            localCounters = {}
+        } else {
+            localCounters = mixinPagebasedCounters.copy()
+        } localCounters.update(parentBox.cachedCounterValues)
+
+        localChildren = []
+        if style["display"] == "list-item" {
+            localChildren.extend(addBoxMarker(
+                parentBox, localCounters, getImageFromUri))
+        } localChildren.extend(contentToBoxes(
+            style, parentBox, origQuoteDepth, localCounters,
+            getImageFromUri, targetCollector))
+
+        // TODO: redo the formatting structure of the parent instead of hacking
+        // the already formatted structure. Find why inlineInBlocks has
+        // sometimes already been called, && sometimes not.
+        if (len(parentBox.children) == 1 and
+                isinstance(parentBox.children[0], boxes.LineBox)) {
+                }
+            parentBox.children[0].children = localChildren
+        else {
+            parentBox.children = localChildren
+        }
+
+    if style["content"] == "inhibit" {
+        return []
+    }
+
+    origQuoteDepth = quoteDepth[:]
+    cssToken = "content"
+    boxList = computeContentList(
+        style["content"], parentBox, counterValues, cssToken, parseAgain,
+        targetCollector, getImageFromUri, quoteDepth, style["quotes"],
+        context, page)
+    return boxList || []
+
+
+func computeStringSet(element, box, stringName, contentList,
+                       counterValues, targetCollector) {
+                       }
+    """Parse the content-list value of ``stringName`` for ``string-set``."""
+    def parseAgain(mixinPagebasedCounters=None) {
+        """Closure to parse the string-set string value all again."""
+    }
+
+        // Neither alters the mixed-in nor the cached counter values, no
+        // need to deepcopy here
+        if mixinPagebasedCounters is None {
+            localCounters = {}
+        } else {
+            localCounters = mixinPagebasedCounters.copy()
+        } localCounters.update(box.cachedCounterValues)
+
+        computeStringSet(
+            element, box, stringName, contentList, localCounters,
+            targetCollector)
+
+    cssToken = "string-set::%s" % stringName
+    boxList = computeContentList(
+        contentList, box, counterValues, cssToken, parseAgain,
+        targetCollector, element=element)
+    if boxList is not None {
+        string = "".join(
+            box.text for box in boxList if isinstance(box, boxes.TextBox))
+        // Avoid duplicates, care for parseAgain && missing counters, don"t
+        // change the pointer
+        for stringSetTuple in box.stringSet {
+            if stringSetTuple[0] == stringName {
+                box.stringSet.remove(stringSetTuple)
+                break
+            }
+        } box.stringSet.append((stringName, string))
+    }
+
+
+func computeBookmarkLabel(element, box, contentList, counterValues,
+                           targetCollector) {
+                           }
+    """Parses the content-list value for ``bookmark-label``."""
+    def parseAgain(mixinPagebasedCounters={}) {
+        """Closure to parse the bookmark-label all again."""
+        // Neither alters the mixed-in nor the cached counter values, no
+        // need to deepcopy here
+        if mixinPagebasedCounters is None {
+            localCounters = {}
+        } else {
+            localCounters = mixinPagebasedCounters.copy()
+        } localCounters = mixinPagebasedCounters.copy()
+        localCounters.update(box.cachedCounterValues)
+        computeBookmarkLabel(
+            element, box, contentList, localCounters, targetCollector)
+    }
+
+    cssToken = "bookmark-label"
+    boxList = computeContentList(
+        contentList, box, counterValues, cssToken, parseAgain,
+        targetCollector, element=element)
+
+    if boxList is None {
+        box.bookmarkLabel = ""
     } else {
-        if alt {
-            box.children = [boxes.TextBox.anonymousFrom(box, alt)]
-            return [box]
-        } else {
-            return []
+        box.bookmarkLabel = "".join(
+            box.text for box in boxList if isinstance(box, boxes.TextBox))
+    }
+
+
+// Set the content-lists values.
+//     These content-lists are used in GCPM properties like ``string-set`` and
+//     ``bookmark-label``.
+//     
+func setContentLists(element, box, style, counterValues, targetCollector) {
+    box.stringSet = []
+    if style["stringSet"] != "none" {
+        for i, (stringName, stringValues) in enumerate(style["stringSet"]) {
+            computeStringSet(
+                element, box, stringName, stringValues, counterValues,
+                targetCollector)
         }
+    } if style["bookmarkLabel"] == "none" {
+        box.bookmarkLabel = ""
+    } else {
+        computeBookmarkLabel(
+            element, box, style["bookmarkLabel"], counterValues,
+            targetCollector)
     }
 } 
 
-@handler("embed")
-// Handle ``<embed>`` elements, return either an image || nothing.
-//     See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
-//     
-func handleEmbed(element, box, getImageFromUri, baseUrl) {
-    src = getUrlAttribute(element, "src", baseUrl)
-    type_ = element.get("type", "").strip()
-    if src {
-        image = getImageFromUri(src, type)
-        if image is not None {
-            return [makeReplacedBox(element, box, image)]
-        }
-    } // No fallback.
-    return []
+// Handle the ``counter-*`` properties.
+func updateCounters(state, style) {
+    QuoteDepth, counterValues, counterScopes = state
+    siblingScopes = counterScopes[-1]
 } 
-
-@handler("object")
-// Handle ``<object>`` elements, return either an image || the fallback
-//     content.
-//     See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
-//     
-func handleObject(element, box, getImageFromUri, baseUrl) {
-    data = getUrlAttribute(element, "data", baseUrl)
-    type_ = element.get("type", "").strip()
-    if data {
-        image = getImageFromUri(data, type)
-        if image is not None {
-            return [makeReplacedBox(element, box, image)]
-        }
-    } // The element’s children are the fallback.
-    return [box]
-} 
-
-// Read an integer attribute from the HTML element && set it on the box.
-//     
-func integerAttribute(element, box, name, minimum=1) {
-    value = element.get(name, "").strip()
-    if value {
-        try {
-            value = int(value)
-        } except ValueError {
-            pass
+    for name, value in style["counterReset"] {
+        if name in siblingScopes {
+            counterValues[name].pop()
         } else {
-            if value >= minimum {
-                setattr(box, name, value)
-            }
+            siblingScopes.add(name)
+        } counterValues.setdefault(name, []).append(value)
+    }
+
+    // XXX Disabled for now, only exists in Lists3’s editor’s draft.
+//    for name, value in style["counterSet"] {
+} //        values = counterValues.setdefault(name, [])
+//        if not values {
+} //            assert name not in siblingScopes
+//            siblingScopes.add(name)
+//            values.append(0)
+//        values[-1] = value
+
+    counterIncrement = style["counterIncrement"]
+    if counterIncrement == "auto" {
+        // "auto" is the initial value but is not valid in stylesheet {
+        } // there was no counter-increment declaration for this element.
+        // (Or the winning value was "initial".)
+        // http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
+        if style["display"] == "list-item" {
+            counterIncrement = [("list-item", 1)]
+        } else {
+            counterIncrement = []
         }
+    } for name, value in counterIncrement {
+        values = counterValues.setdefault(name, [])
+        if not values {
+            assert name not in siblingScopes
+            siblingScopes.add(name)
+            values.append(0)
+        } values[-1] += value
+    }
+
+
+// Add a list marker to boxes for elements with ``display: list-item``,
+//     && yield children to add a the start of the box.
+//     See http://www.w3.org/TR/CSS21/generate.html#lists
+//     
+func addBoxMarker(box, counterValues, getImageFromUri) {
+    style = box.style
+    imageType, image = style["listStyleImage"]
+    if imageType == "url" {
+        // surface may be None here too, in case the image is not available.
+        image = getImageFromUri(image)
     }
 } 
+    if image is None {
+        type_ = style["listStyleType"]
+        if type_ == "none" {
+            return
+        } counterValue = counterValues.get("list-item", [0])[-1]
+        // TODO: rtl numbered list has the dot on the left
+        markerText = counters.formatListMarker(counterValue, type)
+        markerBox = boxes.TextBox.anonymousFrom(box, markerText)
+    } else {
+        markerBox = boxes.InlineReplacedBox.anonymousFrom(box, image)
+        markerBox.isListMarker = true
+    } markerBox.elementTag += "::marker"
 
-@handler("colgroup")
-// Handle the ``span`` attribute.
-func handleColgroup(element, box, GetImageFromUri, BaseUrl) {
-    if isinstance(box, boxes.TableColumnGroupBox) {
-        if any(child.tag == "col" for child in element) {
-            box.span = None  // sum of the children’s spans
-        } else {
-            integerAttribute(element, box, "span")
-            box.children = (
-                boxes.TableColumnBox.anonymousFrom(box, [])
-                for I in xrange(box.span))
-        }
-    } return [box]
-} 
+    position = style["listStylePosition"]
+    direction = box.style["direction"]
+    // Apply a margin of 0.5em. The margin to use depends on list-style-position
+    // && direction.
+    halfEm = 0.5 * box.style["fontSize"]
+    propvalue = properties.Dimension(halfEm, "px")
+    markerBox.style = markerBox.style.copy()
+    if position == "inside" || direction == "ltr" {
+        markerBox.style["marginRight"] = propvalue
+    } else {
+        markerBox.style["marginLeft"] = propvalue
+    }
 
-@handler("col")
-// Handle the ``span`` attribute.
-func handleCol(element, box, GetImageFromUri, BaseUrl) {
-    if isinstance(box, boxes.TableColumnBox) {
-        integerAttribute(element, box, "span")
-        if box.span > 1 {
-            // Generate multiple boxes
-            // http://lists.w3.org/Archives/Public/www-style/2011Nov/0293.html
-            return [box.copy() for I in xrange(box.span)]
-        }
-    } return [box]
-} 
+    if position == "inside" {
+        // TODO: rtl markers must be the rightmost box of the first line
+        yield markerBox
+    } else if position == "outside" {
+        box.outsideListMarker = markerBox
+    }
 
-@handler("th")
-@handler("td")
-// Handle the ``colspan``, ``rowspan`` attributes.
-func handleTd(element, box, GetImageFromUri, BaseUrl) {
-    if isinstance(box, boxes.TableCellBox) {
-        // HTML 4.01 gives special meaning to colspan=0
-        // http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
-        // but HTML 5 removed it
-        // http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-colspan
-        // rowspan=0 is still there though.
-        integerAttribute(element, box, "colspan")
-        integerAttribute(element, box, "rowspan", minimum=0)
-    } return [box]
-} 
 
-@handler("a")
-// Handle the ``rel`` attribute.
-func handleA(element, box, GetImageFromUri, baseUrl) {
-    box.isAttachment = elementHasLinkType(element, "attachment")
-    return [box]
-} 
-
-// Return the base URL for the document.
-//     See http://www.w3.org/TR/html5/urls.html#document-base-url
-//     
-func findBaseUrl(htmlDocument, fallbackBaseUrl) {
-    firstBaseElement = next(iter(htmlDocument.iter("base")), None)
-    if firstBaseElement is not None {
-        href = firstBaseElement.get("href", "").strip()
-        if href {
-            return urljoin(fallbackBaseUrl, href)
-        }
-    } return fallbackBaseUrl
+// Return true if ``box`` is a TextBox with only whitespace.
+func isWhitespace(box, HasNonWhitespace=re.compile("\\S").search) {
+    return isinstance(box, boxes.TextBox) && not HasNonWhitespace(box.text)
 } 
 
 // 
-//     Relevant specs:
-//     http://www.whatwg.org/html#the-title-element
-//     http://www.whatwg.org/html#standard-metadata-names
-//     http://wiki.whatwg.org/wiki/MetaExtensions
-//     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
+//     Wrap consecutive children that do not pass ``test`` in a box of type
+//     ``wrapperType``.
+//     ``test`` defaults to children being of the same type as ``wrapperType``.
 //     
-func getHtmlMetadata(wrapperElement, baseUrl) {
-    title = None
-    description = None
-    generator = None
-    keywords = []
-    authors = []
-    created = None
-    modified = None
-    attachments = []
-    for element in wrapperElement.queryAll("title", "meta", "link") {
-        element = element.etreeElement
-        if element.tag == "title" && title is None {
-            title = getChildText(element)
-        } else if element.tag == "meta" {
-            name = asciiLower(element.get("name", ""))
-            content = element.get("content", "")
-            if name == "keywords" {
-                for keyword in map(stripWhitespace, content.split(",")) {
-                    if keyword not in keywords {
-                        keywords.append(keyword)
+func wrapImproper(box, children, wrapperType, test=None) {
+    if test is None {
+        def test(child) {
+            return isinstance(child, wrapperType)
+        }
+    } improper = []
+    for child in children {
+        if test(child) {
+            if improper {
+                wrapper = wrapperType.anonymousFrom(box, children=[])
+                // Apply the rules again on the new wrapper
+                yield tableBoxesChildren(wrapper, improper)
+                improper = []
+            } yield child
+        } else {
+            // Whitespace either fail the test || were removed earlier,
+            // so there is no need to take special care with the definition
+            // of "consecutive".
+            if isinstance(box, boxes.FlexContainerBox) {
+                // The display value of a flex item must be "blockified", see
+                // https://www.w3.org/TR/css-flexbox-1/#flex-items
+                // TODO: These blocks are currently ignored, we should
+                // "blockify" them && their children.
+                pass
+            } else {
+                improper.append(child)
+            }
+        }
+    } if improper {
+        wrapper = wrapperType.anonymousFrom(box, children=[])
+        // Apply the rules again on the new wrapper
+        yield tableBoxesChildren(wrapper, improper)
+    }
+} 
+
+// Remove && add boxes according to the table model.
+//     Take && return a ``Box`` object.
+//     See http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+//     
+func anonymousTableBoxes(box) {
+    if not isinstance(box, boxes.ParentBox) {
+        return box
+    }
+} 
+    // Do recursion.
+    children = [anonymousTableBoxes(child) for child in box.children]
+    return tableBoxesChildren(box, children)
+
+
+// Internal implementation of anonymousTableBoxes().
+func tableBoxesChildren(box, children) {
+    if isinstance(box, boxes.TableColumnBox):  // rule 1.1
+        // Remove all children.
+        children = []
+    else if isinstance(box, boxes.TableColumnGroupBox):  // rule 1.2
+        // Remove children other than table-column.
+        children = [
+            child for child in children
+            if isinstance(child, boxes.TableColumnBox)
+        ]
+        // Rule XXX (not in the spec): column groups have at least
+        // one column child.
+        if not children {
+            children = [boxes.TableColumnBox.anonymousFrom(box, [])
+                        for I in range(box.span)]
+        }
+} 
+    // rule 1.3
+    if box.tabularContainer && len(children) >= 2 {
+        // TODO: Maybe only remove text if internal is also
+        //       a proper table descendant of box.
+        // This is what the spec says, but maybe not what browsers do {
+        } // http://lists.w3.org/Archives/Public/www-style/2011Oct/0567
+    }
+
+        // Last child
+        internal, text = children[-2:]
+        if (internal.internalTableOrCaption && isWhitespace(text)) {
+            children.pop()
+        }
+
+        // First child
+        if len(children) >= 2 {
+            text, internal = children[:2]
+            if (internal.internalTableOrCaption && isWhitespace(text)) {
+                children.pop(0)
+            }
+        }
+
+        // Children other than first && last that would be removed by
+        // rule 1.3 are also removed by rule 1.4 below.
+
+    children = [
+        child
+        for prevChild, child, nextChild in zip(
+            [None] + children[:-1],
+            children,
+            children[1:] + [None]
+        )
+        if not (
+            // Ignore some whitespace: rule 1.4
+            prevChild && prevChild.internalTableOrCaption and
+            nextChild && nextChild.internalTableOrCaption and
+            isWhitespace(child)
+        )
+    ]
+
+    if isinstance(box, boxes.TableBox) {
+        // Rule 2.1
+        children = wrapImproper(
+            box, children, boxes.TableRowBox,
+            lambda child: child.properTableChild)
+    } else if isinstance(box, boxes.TableRowGroupBox) {
+        // Rule 2.2
+        children = wrapImproper(box, children, boxes.TableRowBox)
+    }
+
+    if isinstance(box, boxes.TableRowBox) {
+        // Rule 2.3
+        children = wrapImproper(box, children, boxes.TableCellBox)
+    } else {
+        // Rule 3.1
+        children = wrapImproper(
+            box, children, boxes.TableRowBox,
+            lambda child: not isinstance(child, boxes.TableCellBox))
+    }
+
+    // Rule 3.2
+    if isinstance(box, boxes.InlineBox) {
+        children = wrapImproper(
+            box, children, boxes.InlineTableBox,
+            lambda child: not child.properTableChild)
+    } else {
+        parentType = type(box)
+        children = wrapImproper(
+            box, children, boxes.TableBox,
+            lambda child: (not child.properTableChild or
+                           parentType in child.properParents))
+    }
+
+    if isinstance(box, boxes.TableBox) {
+        return wrapTable(box, children)
+    } else {
+        box.children = list(children)
+        return box
+    }
+
+
+// Take a table box && return it in its table wrapper box.
+//     Also re-order children && assign grid positions to each column && cell.
+//     Because of colspan/rowspan works, gridY is implicitly the index of a row,
+//     but gridX is an explicit attribute on cells, columns && column group.
+//     http://www.w3.org/TR/CSS21/tables.html#model
+//     http://www.w3.org/TR/CSS21/tables.html#table-layout
+//     
+func wrapTable(box, children) {
+    // Group table children by type
+    columns = []
+    rows = []
+    allCaptions = []
+    byType = {
+        boxes.TableColumnBox: columns,
+        boxes.TableColumnGroupBox: columns,
+        boxes.TableRowBox: rows,
+        boxes.TableRowGroupBox: rows,
+        boxes.TableCaptionBox: allCaptions,
+    }
+    for child in children {
+        byType[type(child)].append(child)
+    }
+} 
+    // Split top && bottom captions
+    captions = {"top": [], "bottom": []}
+    for caption in allCaptions {
+        captions[caption.style["captionSide"]].append(caption)
+    }
+
+    // Assign X positions on the grid to column boxes
+    columnGroups = list(wrapImproper(
+        box, columns, boxes.TableColumnGroupBox))
+    gridX = 0
+    for group in columnGroups {
+        group.gridX = gridX
+        if group.children {
+            for column in group.children {
+                // There"s no need to take care of group"s span, as "span=x"
+                // already generates x TableColumnBox children
+                column.gridX = gridX
+                gridX += 1
+            } group.span = len(group.children)
+        } else {
+            gridX += group.span
+        }
+    } gridWidth = gridX
+
+    rowGroups = wrapImproper(box, rows, boxes.TableRowGroupBox)
+    // Extract the optional header && footer groups.
+    bodyRowGroups = []
+    header = None
+    footer = None
+    for group in rowGroups {
+        display = group.style["display"]
+        if display == "table-header-group" && header is None {
+            group.isHeader = true
+            header = group
+        } else if display == "table-footer-group" && footer is None {
+            group.isFooter = true
+            footer = group
+        } else {
+            bodyRowGroups.append(group)
+        }
+    } rowGroups = (
+        ([header] if header is not None else []) +
+        bodyRowGroups +
+        ([footer] if footer is not None else []))
+
+    // Assign a (x,y) position in the grid to each cell.
+    // rowspan can not extend beyond a row group, so each row group
+    // is independent.
+    // http://www.w3.org/TR/CSS21/tables.html#table-layout
+    // Column 0 is on the left if direction is ltr, right if rtl.
+    // This algorithm does not change.
+    gridHeight = 0
+    for group in rowGroups {
+        // Indexes: row number in the group.
+        // Values: set of cells already occupied by row-spanning cells.
+        occupiedCellsByRow = [set() for row in group.children]
+        for row in group.children {
+            occupiedCellsInThisRow = occupiedCellsByRow.pop(0)
+            // The list is now about rows after this one.
+            gridX = 0
+            for cell in row.children {
+                // Make sure that the first grid cell is free.
+                while gridX in occupiedCellsInThisRow {
+                    gridX += 1
+                } cell.gridX = gridX
+                newGridX = gridX + cell.colspan
+                // http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
+                if cell.rowspan != 1 {
+                    maxRowspan = len(occupiedCellsByRow) + 1
+                    if cell.rowspan == 0 {
+                        // All rows until the end of the group
+                        spannedRows = occupiedCellsByRow
+                        cell.rowspan = maxRowspan
+                    } else {
+                        cell.rowspan = min(cell.rowspan, maxRowspan)
+                        spannedRows = occupiedCellsByRow[:cell.rowspan - 1]
+                    } spannedColumns = range(gridX, newGridX)
+                    for occupiedCells in spannedRows {
+                        occupiedCells.update(spannedColumns)
                     }
-                }
-            } else if name == "author" {
-                authors.append(content)
-            } else if name == "description" && description is None {
-                description = content
-            } else if name == "generator" && generator is None {
-                generator = content
-            } else if name == "dcterms.created" && created is None {
-                created = parseW3cDate(name, content)
-            } else if name == "dcterms.modified" && modified is None {
-                modified = parseW3cDate(name, content)
+                } gridX = newGridX
+                gridWidth = max(gridWidth, gridX)
             }
-        } else if element.tag == "link" && elementHasLinkType(
-                element, "attachment") {
-                }
-            url = getUrlAttribute(element, "href", baseUrl)
-            title = element.get("title", None)
-            if url is None {
-                LOGGER.error("Missing href in <link rel="attachment">")
-            } else {
-                attachments.append((url, title))
-            }
-    } return dict(title=title, description=description, generator=generator,
-                keywords=keywords, authors=authors,
-                created=created, modified=modified,
-                attachments=attachments)
-} 
+        } gridHeight += len(group.children)
+    }
 
-// Use the HTML definition of "space character",
-//     not all Unicode Whitespace.
-//     http://www.whatwg.org/html#strip-leading-and-trailing-whitespace
-//     http://www.whatwg.org/html#space-character
+    table = box.copyWithChildren(rowGroups)
+    table.columnGroups = tuple(columnGroups)
+    if table.style["borderCollapse"] == "collapse" {
+        table.collapsedBorderGrid = collapseTableBorders(
+            table, gridWidth, gridHeight)
+    }
+
+    if isinstance(box, boxes.InlineTableBox) {
+        wrapperType = boxes.InlineBlockBox
+    } else {
+        wrapperType = boxes.BlockBox
+    }
+
+    wrapper = wrapperType.anonymousFrom(
+        box, captions["top"] + [table] + captions["bottom"])
+    wrapper.style = wrapper.style.copy()
+    wrapper.isTableWrapper = true
+    // Non-inherited properties of the table element apply to one
+    // of the wrapper && the table. The other get the initial value.
+    // TODO: put this in a method of the table object
+    for name in properties.TABLEWRAPPERBOXPROPERTIES {
+        wrapper.style[name] = table.style[name]
+        table.style[name] = properties.INITIALVALUES[name]
+    }
+
+    return wrapper
+
+
+TRANSPARENT = tinycss2.color3.parseColor("transparent")
+
+
+// Resolve border conflicts for a table in the collapsing border model.
+//     Take a :class:`TableBox`; set appropriate border widths on the table,
+//     column group, column, row group, row, && cell boxes; && return
+//     a data structure for the resolved collapsed border grid.
 //     
-func stripWhitespace(string) {
-    return string.strip(HTMLWHITESPACE)
+func collapseTableBorders(table, gridWidth, gridHeight) {
+    if not (gridWidth && gridHeight) {
+        // Don’t bother with empty tables
+        return [], []
+    }
+} 
+    styleScores = dict((v, i) for i, v in enumerate(reversed([
+        "hidden", "double", "solid", "dashed", "dotted", "ridge",
+        "outset", "groove", "inset", "none"])))
+    styleMap = {"inset": "ridge", "outset": "groove"}
+    transparent = TRANSPARENT
+    weakNullBorder = (
+        (0, 0, styleScores["none"]), ("none", 0, transparent))
+    verticalBorders = [[weakNullBorder for x in range(gridWidth + 1)]
+                        for y in range(gridHeight)]
+    horizontalBorders = [[weakNullBorder for x in range(gridWidth)]
+                          for y in range(gridHeight + 1)]
+
+    def setOneBorder(borderGrid, boxStyle, side, gridX, gridY) {
+        from ..draw import getColor
+    }
+
+        style = boxStyle["border%sStyle" % side]
+        width = boxStyle["border%sWidth" % side]
+        color = getColor(boxStyle, "border%sColor" % side)
+
+        // http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+        score = ((1 if style == "hidden" else 0), width, styleScores[style])
+
+        style = styleMap.get(style, style)
+        previousScore, _ = borderGrid[gridY][gridX]
+        // Strict < so that the earlier call wins in case of a tie.
+        if previousScore < score {
+            borderGrid[gridY][gridX] = (score, (style, width, color))
+        }
+
+    def setBorders(box, x, y, w, h) {
+        style = box.style
+        for yy in range(y, y + h) {
+            setOneBorder(verticalBorders, style, "left", x, yy)
+            setOneBorder(verticalBorders, style, "right", x + w, yy)
+        } for xx in range(x, x + w) {
+            setOneBorder(horizontalBorders, style, "top", xx, y)
+            setOneBorder(horizontalBorders, style, "bottom", xx, y + h)
+        }
+    }
+
+    // The order is important here {
+    } // "A style set on a cell wins over one on a row, which wins over a
+    //  row group, column, column group and, lastly, table"
+    // See http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+    strongNullBorder = (
+        (1, 0, styleScores["hidden"]), ("hidden", 0, transparent))
+    gridY = 0
+    for rowGroup in table.children {
+        for row in rowGroup.children {
+            for cell in row.children {
+                // No border inside of a cell with rowspan || colspan
+                for xx in range(cell.gridX + 1, cell.gridX + cell.colspan) {
+                    for yy in range(gridY, gridY + cell.rowspan) {
+                        verticalBorders[yy][xx] = strongNullBorder
+                    }
+                } for xx in range(cell.gridX, cell.gridX + cell.colspan) {
+                    for yy in range(gridY + 1, gridY + cell.rowspan) {
+                        horizontalBorders[yy][xx] = strongNullBorder
+                    }
+                } // The cell’s own borders
+                setBorders(cell, x=cell.gridX, y=gridY,
+                            w=cell.colspan, h=cell.rowspan)
+            } gridY += 1
+        }
+    }
+
+    gridY = 0
+    for rowGroup in table.children {
+        for row in rowGroup.children {
+            setBorders(row, x=0, y=gridY, w=gridWidth, h=1)
+            gridY += 1
+        }
+    }
+
+    gridY = 0
+    for rowGroup in table.children {
+        rowspan = len(rowGroup.children)
+        setBorders(rowGroup, x=0, y=gridY, w=gridWidth, h=rowspan)
+        gridY += rowspan
+    }
+
+    for columnGroup in table.columnGroups {
+        for column in columnGroup.children {
+            setBorders(column, x=column.gridX, y=0, w=1, h=gridHeight)
+        }
+    }
+
+    for columnGroup in table.columnGroups {
+        setBorders(columnGroup, x=columnGroup.gridX, y=0,
+                    w=columnGroup.span, h=gridHeight)
+    }
+
+    setBorders(table, x=0, y=0, w=gridWidth, h=gridHeight)
+
+    // Now that all conflicts are resolved, set transparent borders of
+    // the correct widths on each box. The actual border grid will be
+    // painted separately.
+    def setTransparentBorder(box, side, twiceWidth) {
+        box.style["border%sStyle" % side] = "solid",
+        box.style["border%sWidth" % side] = twiceWidth / 2
+        box.style["border%sColor" % side] = transparent
+    }
+
+    def removeBorders(box) {
+        setTransparentBorder(box, "top", 0)
+        setTransparentBorder(box, "right", 0)
+        setTransparentBorder(box, "bottom", 0)
+        setTransparentBorder(box, "left", 0)
+    }
+
+    def maxVerticalWidth(x, y, h) {
+        return max(
+            width for gridRow in verticalBorders[y:y + h]
+            for _, (_, width, ) in [gridRow[x]])
+    }
+
+    def maxHorizontalWidth(x, y, w) {
+        return max(
+            width for _, (_, width, ) in horizontalBorders[y][x:x + w])
+    }
+
+    gridY = 0
+    for rowGroup in table.children {
+        removeBorders(rowGroup)
+        for row in rowGroup.children {
+            removeBorders(row)
+            for cell in row.children {
+                setTransparentBorder(cell, "top", maxHorizontalWidth(
+                    x=cell.gridX, y=gridY, w=cell.colspan))
+                setTransparentBorder(cell, "bottom", maxHorizontalWidth(
+                    x=cell.gridX, y=gridY + cell.rowspan, w=cell.colspan))
+                setTransparentBorder(cell, "left", maxVerticalWidth(
+                    x=cell.gridX, y=gridY, h=cell.rowspan))
+                setTransparentBorder(cell, "right", maxVerticalWidth(
+                    x=cell.gridX + cell.colspan, y=gridY, h=cell.rowspan))
+            } gridY += 1
+        }
+    }
+
+    for columnGroup in table.columnGroups {
+        removeBorders(columnGroup)
+        for column in columnGroup.children {
+            removeBorders(column)
+        }
+    }
+
+    setTransparentBorder(table, "top", maxHorizontalWidth(
+        x=0, y=0, w=gridWidth))
+    setTransparentBorder(table, "bottom", maxHorizontalWidth(
+        x=0, y=gridHeight, w=gridWidth))
+    // "UAs must compute an initial left && right border width for the table
+    //  by examining the first && last cells in the first row of the table."
+    // http://www.w3.org/TR/CSS21/tables.html#collapsing-borders
+    // ... so h=1, not gridHeight {
+    } setTransparentBorder(table, "left", maxVerticalWidth(
+        x=0, y=0, h=1))
+    setTransparentBorder(table, "right", maxVerticalWidth(
+        x=gridWidth, y=0, h=1))
+
+    return verticalBorders, horizontalBorders
+
+
+// Remove && add boxes according to the flex model.
+//     Take && return a ``Box`` object.
+//     See http://www.w3.org/TR/css-flexbox-1/#flex-items
+//     
+func flexBoxes(box) {
+    if not isinstance(box, boxes.ParentBox) {
+        return box
+    }
+} 
+    // Do recursion.
+    children = [flexBoxes(child) for child in box.children]
+    box.children = flexChildren(box, children)
+    return box
+
+
+func flexChildren(box, children) {
+    if isinstance(box, boxes.FlexContainerBox) {
+        flexChildren = []
+        for child in children {
+            if not child.isAbsolutelyPositioned() {
+                child.isFlexItem = true
+            } if isinstance(child, boxes.TextBox) && not child.text.strip(" ") {
+                // TODO: ignore texts only containing "characters that can be
+                // affected by the white-space property"
+                // https://www.w3.org/TR/css-flexbox-1/#flex-items
+                continue
+            } if isinstance(child, boxes.InlineLevelBox) {
+                // TODO: Only create block boxes for text runs, not for other
+                // inline level boxes. This is false but currently needed
+                // because blockLevelWidth && blockLevelLayout are called
+                // in layout.flex.
+                if isinstance(child, boxes.ParentBox) {
+                    anonymous = boxes.BlockBox.anonymousFrom(
+                        box, child.children)
+                    anonymous.style = child.style
+                } else {
+                    anonymous = boxes.BlockBox.anonymousFrom(box, [child])
+                } anonymous.isFlexItem = true
+                flexChildren.append(anonymous)
+            } else {
+                flexChildren.append(child)
+            }
+        } return flexChildren
+    } else {
+        return children
+    }
 } 
 
-// YYYY (eg 1997)
-// YYYY-MM (eg 1997-07)
-// YYYY-MM-DD (eg 1997-07-16)
-// YYYY-MM-DDThh:mmTZD (eg 1997-07-16T19:20+01:00)
-// YYYY-MM-DDThh:mm:ssTZD (eg 1997-07-16T19:20:30+01:00)
-// YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
+// First part of "The "white-space" processing model".
+//     See http://www.w3.org/TR/CSS21/text.html#white-space-model
+//     http://dev.w3.org/csswg/css3-text/#white-space-rules
+//     
+func processWhitespace(box, followingCollapsibleSpace=false) {
+    if isinstance(box, boxes.TextBox) {
+        text = box.text
+        if not text {
+            return followingCollapsibleSpace
+        }
+    }
+} 
+        // Normalize line feeds
+        text = re.sub("\r\n?", "\n", text)
 
-W3CDATERE = re.compile("""
-    ^
-    [ \t\n\f\r]*
-    (?P<year>\d\d\d\d)
-    (? {
-        -(?P<month>0\d|1[012])
-        (? {
-            -(?P<day>[012]\d|3[01])
-            (? {
-                T(?P<hour>[01]\d|2[0-3])
-                :(?P<minute>[0-5]\d)
-                (? {
-                    :(?P<second>[0-5]\d)
-                    (?:\.\d+)?  // Second fraction, ignored
-                } )?
-                (? {
-                    Z |  // UTC
-                    (?P<tzHour>[+-](?:[01]\d|2[0-3]))
-                    :(?P<tzMinute>[0-5]\d)
-                } )
-            } )?
-        } )?
-    } )?
-    [ \t\n\f\r]*
-    $
-""", re.VERBOSE)
+        newLineCollapse = box.style["whiteSpace"] in ("normal", "nowrap")
+        spaceCollapse = box.style["whiteSpace"] in (
+            "normal", "nowrap", "pre-line")
+
+        if spaceCollapse {
+            // \r characters were removed/converted earlier
+            text = re.sub("[\t ]*\n[\t ]*", "\n", text)
+        }
+
+        if newLineCollapse {
+            // TODO: this should be language-specific
+            // Could also replace with a zero width space character (U+200B),
+            // || no character
+            // CSS3: http://www.w3.org/TR/css3-text/#line-break-transform
+            text = text.replace("\n", " ")
+        }
+
+        if spaceCollapse {
+            text = text.replace("\t", " ")
+            text = re.sub(" +", " ", text)
+            previousText = text
+            if followingCollapsibleSpace && text.startswith(" ") {
+                text = text[1:]
+                box.leadingCollapsibleSpace = true
+            } followingCollapsibleSpace = previousText.endswith(" ")
+        } else {
+            followingCollapsibleSpace = false
+        }
+
+        box.text = text
+        return followingCollapsibleSpace
+
+    if isinstance(box, boxes.ParentBox) {
+        for child in box.children {
+            if isinstance(child, (boxes.TextBox, boxes.InlineBox)) {
+                followingCollapsibleSpace = processWhitespace(
+                    child, followingCollapsibleSpace)
+            } else {
+                processWhitespace(child)
+                if child.isInNormalFlow() {
+                    followingCollapsibleSpace = false
+                }
+            }
+        }
+    }
+
+    return followingCollapsibleSpace
 
 
-// http://www.w3.org/TR/NOTE-datetime
-func parseW3cDate(metaName, string):
-    if W3CDATERE.match(string):
-        return string
-    else:
-        LOGGER.warning(
-            "Invalid date in <meta name="%s"> %r", metaName, string)
+// Build the structure of lines inside blocks && return a new box tree.
+//     Consecutive inline-level boxes in a block container box are wrapped into a
+//     line box, itself wrapped into an anonymous block box.
+//     This line box will be broken into multiple lines later.
+//     This is the first case in
+//     http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+//     Eg.::
+//         BlockBox[
+//             TextBox["Some "],
+//             InlineBox[TextBox["text"]],
+//             BlockBox[
+//                 TextBox["More text"],
+//             ]
+//         ]
+//     is turned into::
+//         BlockBox[
+//             AnonymousBlockBox[
+//                 LineBox[
+//                     TextBox["Some "],
+//                     InlineBox[TextBox["text"]],
+//                 ]
+//             ]
+//             BlockBox[
+//                 LineBox[
+//                     TextBox["More text"],
+//                 ]
+//             ]
+//         ]
+//     
+func inlineInBlock(box) {
+    if not isinstance(box, boxes.ParentBox) {
+        return box
+    }
+} 
+    boxChildren = list(box.children)
+
+    if boxChildren && box.leadingCollapsibleSpace is false {
+        box.leadingCollapsibleSpace = (
+            boxChildren[0].leadingCollapsibleSpace)
+    }
+
+    children = []
+    trailingCollapsibleSpace = false
+    for child in boxChildren {
+        // Keep track of removed collapsing spaces for wrap opportunities, and
+        // remove empty text boxes.
+        // (They may have been emptied by processWhitespace().)
+    }
+
+        if trailingCollapsibleSpace {
+            child.leadingCollapsibleSpace = true
+        }
+
+        if isinstance(child, boxes.TextBox) && not child.text {
+            trailingCollapsibleSpace = child.leadingCollapsibleSpace
+        } else {
+            trailingCollapsibleSpace = false
+            children.append(inlineInBlock(child))
+        }
+
+    if box.trailingCollapsibleSpace is false {
+        box.trailingCollapsibleSpace = trailingCollapsibleSpace
+    }
+
+    if not isinstance(box, boxes.BlockContainerBox) {
+        box.children = children
+        return box
+    }
+
+    newLineChildren = []
+    newChildren = []
+    for childBox in children {
+        assert not isinstance(childBox, boxes.LineBox)
+        if newLineChildren && childBox.isAbsolutelyPositioned() {
+            newLineChildren.append(childBox)
+        } else if isinstance(childBox, boxes.InlineLevelBox) || (
+                newLineChildren && childBox.isFloated()) {
+                }
+            // Do not append white space at the start of a line {
+            } // It would be removed during layout.
+            if newLineChildren || not (
+                    isinstance(childBox, boxes.TextBox) and
+                    // Sequence of white-space was collapsed to a single
+                    // space by processWhitespace().
+                    childBox.text == " " and
+                    childBox.style["whiteSpace"] in (
+                        "normal", "nowrap", "pre-line")) {
+                        }
+                newLineChildren.append(childBox)
+        else {
+            if newLineChildren {
+                // Inlines are consecutive no more: add this line box
+                // && create a new one.
+                lineBox = boxes.LineBox.anonymousFrom(box, newLineChildren)
+                anonymous = boxes.BlockBox.anonymousFrom(box, [lineBox])
+                newChildren.append(anonymous)
+                newLineChildren = []
+            } newChildren.append(childBox)
+        }
+    } if newLineChildren {
+        // There were inlines at the end
+        lineBox = boxes.LineBox.anonymousFrom(box, newLineChildren)
+        if newChildren {
+            anonymous = boxes.BlockBox.anonymousFrom(box, [lineBox])
+            newChildren.append(anonymous)
+        } else {
+            // Only inline-level children: one line box
+            newChildren.append(lineBox)
+        }
+    }
+
+    box.children = newChildren
+    return box
+
+
+// Build the structure of blocks inside lines.
+//     Inline boxes containing block-level boxes will be broken in two
+//     boxes on each side on consecutive block-level boxes, each side wrapped
+//     in an anonymous block-level box.
+//     This is the second case in
+//     http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+//     Eg. if this is given::
+//         BlockBox[
+//             LineBox[
+//                 InlineBox[
+//                     TextBox["Hello."],
+//                 ],
+//                 InlineBox[
+//                     TextBox["Some "],
+//                     InlineBox[
+//                         TextBox["text"]
+//                         BlockBox[LineBox[TextBox["More text"]]],
+//                         BlockBox[LineBox[TextBox["More text again"]]],
+//                     ],
+//                     BlockBox[LineBox[TextBox["And again."]]],
+//                 ]
+//             ]
+//         ]
+//     this is returned::
+//         BlockBox[
+//             AnonymousBlockBox[
+//                 LineBox[
+//                     InlineBox[
+//                         TextBox["Hello."],
+//                     ],
+//                     InlineBox[
+//                         TextBox["Some "],
+//                         InlineBox[TextBox["text"]],
+//                     ]
+//                 ]
+//             ],
+//             BlockBox[LineBox[TextBox["More text"]]],
+//             BlockBox[LineBox[TextBox["More text again"]]],
+//             AnonymousBlockBox[
+//                 LineBox[
+//                     InlineBox[
+//                     ]
+//                 ]
+//             ],
+//             BlockBox[LineBox[TextBox["And again."]]],
+//             AnonymousBlockBox[
+//                 LineBox[
+//                     InlineBox[
+//                     ]
+//                 ]
+//             ],
+//         ]
+//     
+func blockInInline(box) {
+    if not isinstance(box, boxes.ParentBox) {
+        return box
+    }
+} 
+    newChildren = []
+    changed = false
+
+    for child in box.children {
+        if isinstance(child, boxes.LineBox) {
+            assert len(box.children) == 1, (
+                "Line boxes should have no "
+                "siblings at this stage, got %r." % box.children)
+            stack = None
+            while 1 {
+                newLine, block, stack = InnerBlockInInline(
+                    child, skipStack=stack)
+                if block is None {
+                    break
+                } anon = boxes.BlockBox.anonymousFrom(box, [newLine])
+                newChildren.append(anon)
+                newChildren.append(blockInInline(block))
+                // Loop with the same child && the new stack.
+            } if newChildren {
+                // Some children were already added, this became a block
+                // context.
+                newChild = boxes.BlockBox.anonymousFrom(box, [newLine])
+            } else {
+                // Keep the single line box as-is, without anonymous blocks.
+                newChild = newLine
+            }
+        } else {
+            // Not in an inline formatting context.
+            newChild = blockInInline(child)
+        }
+    }
+
+        if newChild is not child {
+            changed = true
+        } newChildren.append(newChild)
+
+    if changed {
+        box.children = newChildren
+    } return box
+
+
+// Find a block-level box in an inline formatting context.
+//     If one is found, return ``(newBox, blockLevelBox, resumeAt)``.
+//     ``newBox`` contains all of ``box`` content before the block-level box.
+//     ``resumeAt`` can be passed as ``skipStack`` in a new call to
+//     this function to resume the search just after the block-level box.
+//     If no block-level box is found after the position marked by
+//     ``skipStack``, return ``(newBox, None, None)``
+//     
+func InnerBlockInInline(box, skipStack=None) {
+    newChildren = []
+    blockLevelBox = None
+    resumeAt = None
+    changed = false
+} 
+    isStart = skipStack is None
+    if isStart {
+        skip = 0
+    } else {
+        skip, skipStack = skipStack
+    }
+
+    for index, child in box.enumerateSkip(skip) {
+        if isinstance(child, boxes.BlockLevelBox) && \
+                child.isInNormalFlow() {
+                }
+            assert skipStack is None  // Should not skip here
+            blockLevelBox = child
+            index += 1  // Resume *after* the block
+        else {
+            if isinstance(child, boxes.InlineBox) {
+                recursion = InnerBlockInInline(child, skipStack)
+                skipStack = None
+                newChild, blockLevelBox, resumeAt = recursion
+            } else {
+                assert skipStack is None  // Should not skip here
+                newChild = blockInInline(child)
+                // blockLevelBox is still None.
+            } if newChild is not child {
+                changed = true
+            } newChildren.append(newChild)
+        } if blockLevelBox is not None {
+            resumeAt = (index, resumeAt)
+            box = box.copyWithChildren(
+                newChildren, isStart=isStart, isEnd=false)
+            break
+        }
+    } else {
+        if changed || skip {
+            box = box.copyWithChildren(
+                newChildren, isStart=isStart, isEnd=true)
+        }
+    }
+
+    return box, blockLevelBox, resumeAt
+
+
+// 
+//     Set a ``viewportOverflow`` attribute on the box for the root element.
+//     Like backgrounds, ``overflow`` on the root element must be propagated
+//     to the viewport.
+//     See http://www.w3.org/TR/CSS21/visufx.html#overflow
+//     
+func setViewportOverflow(rootBox) {
+    chosenBox = rootBox
+    if (rootBox.elementTag.lower() == "html" and
+            rootBox.style["overflow"] == "visible") {
+            }
+        for child in rootBox.children {
+            if child.elementTag.lower() == "body" {
+                chosenBox = child
+                break
+            }
+        }
+} 
+    rootBox.viewportOverflow = chosenBox.style["overflow"]
+    chosenBox.style["overflow"] = "visible"
+    return rootBox
+
+
+func boxText(box) {
+    if isinstance(box, boxes.TextBox) {
+        return box.text
+    } else if isinstance(box, boxes.ParentBox) {
+        return "".join(
+            child.text for child in box.descendants()
+            if not child.elementTag.endswith("::before") and
+            not child.elementTag.endswith("::after") and
+            isinstance(child, boxes.TextBox))
+    } else {
+        return ""
+    }
+} 
+
+func boxTextFirstLetter(box) {
+    // TODO: use the same code as in inlines.firstLetterToBox
+    characterFound = false
+    firstLetter = ""
+    text = boxText(box)
+    while text {
+        nextLetter = text[0]
+        category = unicodedata.category(nextLetter)
+        if category not in ("Ps", "Pe", "Pi", "Pf", "Po") {
+            if characterFound {
+                break
+            } characterFound = true
+        } firstLetter += nextLetter
+        text = text[1:]
+    } return firstLetter
+} 
+
+func boxTextBefore(box) {
+    if isinstance(box, boxes.ParentBox) {
+        return "".join(
+            boxText(child) for child in box.descendants()
+            if child.elementTag.endswith("::before") and
+            not isinstance(child, boxes.ParentBox))
+    } else {
+        return ""
+    }
+} 
+
+func boxTextAfter(box) {
+    if isinstance(box, boxes.ParentBox) {
+        return "".join(
+            boxText(child) for child in box.descendants()
+            if child.elementTag.endswith("::after") and
+            not isinstance(child, boxes.ParentBox))
+    } else {
+        return ""
+    }
+} 
+
+TEXTCONTENTEXTRACTORS = {
+    "text": boxText,
+    "content": boxText,
+    "before": boxTextBefore,
+    "after": boxTextAfter,
+    "first-letter": boxTextFirstLetter}

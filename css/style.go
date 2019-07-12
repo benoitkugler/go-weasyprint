@@ -87,6 +87,13 @@ type cascadedValue struct {
 	precedence int
 }
 
+type ImageType interface{}
+
+type ListStyleImage struct {
+	Type  string
+	Image ImageType
+}
+
 type MiscProperties struct {
 	CounterResets     CounterResets
 	CounterIncrements CounterIncrements
@@ -98,6 +105,7 @@ type MiscProperties struct {
 	Content            Content
 	Transforms         Transforms
 
+	ListStyleImage        ListStyleImage
 	weasySpecifiedDisplay Display
 }
 

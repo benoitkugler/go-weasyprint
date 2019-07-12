@@ -7,25 +7,31 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
 
-type gifu = func(string, string) TBD
+type gifu = func(url string, mimeType string) css.ImageType
 type HandlerFunction = func(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox
 
 var (
 	HtmlHandlers = map[string]HandlerFunction{
-		"img":    handleImg,
-		"embded": handleEmbed,
-		"object": handleObject,
+		"img":      handleImg,
+		"embded":   handleEmbed,
+		"object":   handleObject,
+		"colgroup": handleColgroup,
+		"col":      handleCol,
+		"th":       handleTd,
+		"td":       handleTd,
+		"a":        handleA,
 	}
 
 	// http://whatwg.org/C#space-character
 	HtmlWhitespace             = " \t\n\f\r"
-	HtmlSpaceSeparatedTokensRe = regexp.Must(fmt.Sprintf("[^%s]+", HtmlWhitespace))
+	HtmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", HtmlWhitespace))
 )
 
 // Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
@@ -73,7 +79,7 @@ func HandleElement(element html.Node, box AllBox, getImageFromUri gifu, baseUrl 
 //
 // That box is either block-level || inline-level, depending on what the
 // element should be.
-func makeReplacedBox(element html.Node, box AllBox, image TBD) AllBox {
+func makeReplacedBox(element html.Node, box AllBox, image css.ImageType) AllBox {
 	switch box.BaseBox().style.Strings["display"] {
 	case "block", "list-item", "table":
 		return NewBlockReplacedBox(element.tag, box.style, image)
@@ -90,7 +96,7 @@ func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl stri
 	alt := utils.GetAttribute(element, "alt")
 	if src != "" {
 		image := getImageFromUri(src, "")
-		if (image != TBD{}) {
+		if (image != css.ImageType{}) {
 			return []AllBox{makeReplacedBox(element, box, image)}
 		}
 	}
@@ -114,7 +120,7 @@ func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl st
 	type_ := strings.TrimSpace(GetAttribute(element, "type"))
 	if src != "" {
 		image := getImageFromUri(src, type_)
-		if (image != TBD{}) {
+		if (image != css.ImageType{}) {
 			return []AllBox{makeReplacedBox(element, box, image)}
 		}
 	}
@@ -130,7 +136,7 @@ func handleObject(element html.Node, box AllBox, getImageFromUri gifu, baseUrl s
 	type_ := strings.TrimSpace(GetAttribute(element, "type"))
 	if src != "" {
 		image := getImageFromUri(src, type_)
-		if (image != TBD{}) {
+		if (image != css.ImageType{}) {
 			return []AllBox{makeReplacedBox(element, box, image)}
 		}
 	}
@@ -154,7 +160,6 @@ func integerAttribute(element html.Node, name string, minimum int) (bool, int) {
 	return false, 0
 }
 
-// @handler("colgroup")
 // Handle the ``span`` attribute.
 func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableColumnGroupBox.IsInstance(box) {
@@ -182,7 +187,6 @@ func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	return []AllBox{box}
 }
 
-// @handler("col")
 // Handle the ``span`` attribute.
 func handleCol(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableColumnBox.IsInstance(box) {
@@ -205,8 +209,6 @@ func handleCol(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	return []AllBox{box}
 }
 
-// @handler("th")
-// @handler("td")
 // Handle the ``colspan``, ``rowspan`` attributes.
 func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableCellBox.IsInstance(box) {
@@ -230,7 +232,6 @@ func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	return []AllBox{box}
 }
 
-// @handler("a")
 // Handle the ``rel`` attribute.
 func handleA(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	box.BaseBox().isAttachment = elementHasLinkType(element, "attachment")
@@ -251,12 +252,21 @@ func findBaseUrl(htmlDocument html.Node, fallbackBaseUrl string) string {
 	return fallbackBaseUrl
 }
 
-type HtmlMetadata struct{}
+type HtmlMetadata struct {
+	title       string
+	description string
+	generator   string
+	keywords    []string
+	authors     []string
+	created     string
+	modified    string
+	attachments []Attachment
+}
 type Attachment struct {
 	Url, Title string
 }
 
-//     Relevant specs:
+// Relevant specs:
 //     http://www.whatwg.org/html#the-title-element
 //     http://www.whatwg.org/html#standard-metadata-names
 //     http://wiki.whatwg.org/wiki/MetaExtensions
@@ -266,7 +276,6 @@ func getHtmlMetadata(wrapperElement html.Node, baseUrl string) HtmlMetadata {
 	title := ""
 	description := ""
 	generator := ""
-	var keywords []string
 	keywordsSet := map[string]bool{}
 	var authors []string
 	created := ""
@@ -318,10 +327,20 @@ func getHtmlMetadata(wrapperElement html.Node, baseUrl string) HtmlMetadata {
 			}
 		}
 	}
-	//  return dict(title=title, description=description, generator=generator,
-	//             keywords=keywords, authors=authors,
-	//             created=created, modified=modified,
-	//             attachments=attachments)
+	keywords := make([]string, 0, len(keywordsSet))
+	for kw := range keywordsSet {
+		keywords = append(keywords, kw)
+	}
+	return HtmlMetadata{
+		title:       title,
+		description: description,
+		generator:   generator,
+		keywords:    keywords,
+		authors:     authors,
+		created:     created,
+		modified:    modified,
+		attachments: attachments,
+	}
 }
 
 // Use the HTML definition of "space character",

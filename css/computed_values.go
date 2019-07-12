@@ -128,7 +128,7 @@ func compute(element html.Node, specified, computed, parentStyle,
 	computer.rootStyle = rootStyle
 	computer.baseUrl = baseUrl
 
-	var computedKeys map[string]bool
+	computedKeys := Set{}
 	for _, k := range computed.Keys() {
 		computedKeys[k] = true
 	}
