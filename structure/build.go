@@ -436,23 +436,26 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 		}
 
 	}
+	tf := box.TableFields()
 	// rule 1.3
-	if box.BaseBox().tabularContainer && len(children) >= 2 {
+	if tf != nil && tf.tabularContainer && len(children) >= 2 {
 		// TODO: Maybe only remove text if internal is also
 		//       a proper table descendant of box.
 		// This is what the spec says, but maybe not what browsers do:
 		// http://lists.w3.org/Archives/Public/www-style/2011Oct/0567
 
 		// Last child
-		internal, text = children[-2:]
-		if internal.internalTableOrCaption && isWhitespace(text) {
-			children.pop()
+		internal, text := children[len(children)-2], children[len(children)-1]
+		internalTableFields := internal.TableFields()
+		if internalTableFields != nil && internalTableFields.internalTableOrCaption && isWhitespace(text, nil) {
+			children = children[:len(children)-2]
 		}
 		// First child
 		if len(children) >= 2 {
-			text, internal = children[:2]
-			if internal.internalTableOrCaption && isWhitespace(text) {
-				children.pop(0)
+			text, internal = children[0], children[1]
+			internalTableFields := internal.TableFields()
+			if internalTableFields.internalTableOrCaption && isWhitespace(text, nil) {
+				children = children[1:]
 			}
 		}
 		// Children other than first and last that would be removed by
@@ -464,7 +467,8 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 		// Ignore some whitespace: rule 1.4
 		if !(index != 0 && index != maxIndex) {
 			prevChild, nextChild := children[index-1], children[index+1]
-			if prevChild.internalTableOrCaption && nextChild.internalTableOrCaption && isWhitespace(child) {
+			prevChildTable, nextChildTable := prevChild.TableFields(), nextChild.TableFields()
+			if prevChildTable != nil && prevChildTable.internalTableOrCaption && nextChildTable != nil && nextChildTable.internalTableOrCaption && isWhitespace(child, nil) {
 				newChildren = append(newChildren, child)
 			}
 		}
@@ -473,33 +477,36 @@ func tableBoxesChildren(box AllBox, children []AllBox) AllBox {
 
 	if box.IsTableBox() {
 		// Rule 2.1
-		children = wrapImproper(
-			box, children, tableRowBoxIsInstance, tableRowBoxAnonymousFrom,
-			func(child AllBox) bool { return child.BaseBox().properTableChild })
-	} else if _, is := box.(*TableRowGroupBox); is {
+		children = wrapImproper(box, children, TypeTableRowBox,
+			func(child AllBox) bool {
+				tf := child.TableFields()
+				return tf != nil && tf.properTableChild
+			})
+	} else if TypeTableRowGroupBox.IsInstance(box) {
 		// Rule 2.2
-		children = wrapImproper(box, children, tableRowBoxIsInstance, tableRowBoxAnonymousFrom, nil)
+		children = wrapImproper(box, children, TypeTableRowBox, nil)
 	}
 
-	if _, is := box.(*TableRowBox); is {
+	if TypeTableRowBox.IsInstance(box) {
 		// Rule 2.3
-		children = wrapImproper(box, children, tableCellBoxIsInstance, tableCellBoxAnonymousFrom, nil)
+		children = wrapImproper(box, children, TypeTableCellBox, nil)
 	} else {
 		// Rule 3.1
-		children = wrapImproper(
-			box, children, tableRowBoxIsInstance, tableRowBoxAnonymousFrom, tableCellBoxIsInstance)
+		children = wrapImproper(box, children, TypeTableCellBox, TypeTableCellBox.IsInstance)
 	}
 	// Rule 3.2
-	if isinstance(box, boxes.InlineBox) {
-		children = wrapImproper(
-			box, children, boxes.InlineTableBox,
-			func(child AllBox) bool { return !child.BaseBox().properTableChild })
+	if InlineBoxIsInstance(box) {
+		children = wrapImproper(box, children, TypeInlineTableBox,
+			func(child AllBox) bool {
+				tf := child.TableFields()
+				return tf == nil || !tf.properTableChild
+			})
 	} else {
 		// parentType = type(box)
-		children = wrapImproper(
-			box, children, tableBoxIsInstance, tableBoxAnonymousFrom,
+		children = wrapImproper(box, children, TypeTableBox,
 			func(child AllBox) bool {
-				return (!child.BaseBox().properTableChild ||
+				tf := child.TableFields()
+				return (tf == nil || !tf.properTableChild ||
 					child.IsProperChild(box))
 			})
 	}
@@ -533,7 +540,7 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 			return &columns
 		case TypeTableRowBox.IsInstance(child), TypeTableRowGroupBox.IsInstance(child):
 			return &rows
-		case TypeTableCaptionBox.IsInstance(child):
+		case TableCaptionBoxIsInstance(child):
 			return &allCaptions
 		default:
 			return nil
@@ -556,23 +563,25 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 	// Assign X positions on the grid to column boxes
 	columnGroups := wrapImproper(box, columns, TypeTableColumnGroupBox, nil)
 	gridX := 0
-	for _, group := range columnGroups {
+	for _, _group := range columnGroups {
+		group := _group.TableFields()
 		group.gridX = gridX
-		if group.children {
-			for _, column := range group.children {
+		groupChildren := _group.BaseBox().children
+		if len(groupChildren) > 0 {
+			for _, column := range groupChildren {
 				// There"s no need to take care of group"s span, as "span=x"
 				// already generates x TableColumnBox children
-				column.gridX = gridX
+				column.TableFields().gridX = gridX
 				gridX += 1
 			}
-			group.span = len(group.children)
+			group.span = len(groupChildren)
 		} else {
 			gridX += group.span
 		}
 	}
 	gridWidth := gridX
 
-	rowGroups := wrapImproper(box, rows, TypeTableRowGroupBox)
+	rowGroups := wrapImproper(box, rows, TypeTableRowGroupBox, nil)
 	// Extract the optional header and footer groups.
 	var (
 		bodyRowGroups []AllBox
@@ -580,16 +589,16 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 		footer        AllBox
 	)
 	for _, _group := range rowGroups {
-		group := _group.BaseBox()
-		display := group.style.Strings["display"]
+		group := _group.TableFields()
+		display := _group.BaseBox().style.Strings["display"]
 		if display == "table-header-group" && header == nil {
 			group.isHeader = true
-			header = group
+			header = _group
 		} else if display == "table-footer-group" && footer == nil {
 			group.isFooter = true
-			footer = group
+			footer = _group
 		} else {
-			bodyRowGroups = append(bodyRowGroups, group)
+			bodyRowGroups = append(bodyRowGroups, _group)
 		}
 	}
 
@@ -597,7 +606,7 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 	if header != nil {
 		rowGroups = append(rowGroups, header)
 	}
-	rowGroups = append(rowGroups, bodyRowGroups)
+	rowGroups = append(rowGroups, bodyRowGroups...)
 	if footer != nil {
 		rowGroups = append(rowGroups, footer)
 	}
@@ -622,7 +631,7 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 			// The list is now about rows after this one.
 			gridX = 0
 			for _, _cell := range row.BaseBox().children {
-				cell := _cell.BaseBox()
+				cell := _cell.TableFields()
 				// Make sure that the first grid cell is free.
 				for occupiedCellsInThisRow[gridX] {
 					gridX += 1
@@ -632,7 +641,7 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 				// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
 				if cell.rowspan != 1 {
 					maxRowspan := len(occupiedCellsByRow) + 1
-					var spannedRow []map[int]bool
+					var spannedRows []map[int]bool
 					if cell.rowspan == 0 {
 						// All rows until the end of the group
 						spannedRows = occupiedCellsByRow
@@ -653,33 +662,229 @@ func wrapTable(box AllBox, children []AllBox) AllBox {
 			gridHeight += len(groupChildren)
 		}
 	}
-	table := box.copyWithChildren(rowGroups, true, true)
-	table.columnGroups = tuple(columnGroups)
-	if table.style.borderCollapse == "collapse" {
-		table.collapsedBorderGrid = collapseTableBorders(
-			table, gridWidth, gridHeight)
+	table := CopyWithChildren(box, rowGroups, true, true)
+	tf, tableBox := table.TableFields(), table.BaseBox()
+	tf.columnGroups = columnGroups
+	if tableBox.style.Strings["border_collapse"] == "collapse" {
+		tf.collapsedBorderGrid = collapseTableBorders(table, gridWidth, gridHeight)
 	}
-	if isinstance(box, boxes.InlineTableBox) {
-		wrapperType = boxes.InlineBlockBox
+	var wrapperTypeAF func(AllBox, []AllBox) AllBox
+	if TypeInlineTableBox.IsInstance(box) {
+		wrapperTypeAF = InlineBlockBoxAnonymousFrom
 	} else {
-		wrapperType = boxes.BlockBox
+		wrapperTypeAF = BlockBoxAnonymousFrom
 	}
-	wrapper = wrapperType.anonymousFrom(
-		box, append(append(captions["top"], table), captions["bottom"]...))
-	wrapper.style = wrapper.style.copy()
-	wrapper.isTableWrapper = True
-	if !table.style.anonymous {
+	wrapper := wrapperTypeAF(box, append(append(captionTop, table), captionBottom...))
+	wrapperBox := wrapper.BaseBox()
+	wrapperBox.style = wrapperBox.style.Copy()
+	wrapperBox.isTableWrapper = true
+	if !tableBox.style.Anonymous {
 		// Non-inherited properties of the table element apply to one
 		// of the wrapper and the table. The other get the initial value.
 		// TODO: put this in a method of the table object
-		for _, name := range properties.TABLEWRAPPERBOXPROPERTIES {
-			wrapper.style[name] = table.style[name]
-			table.style[name] = properties.INITIALVALUES[name]
+		tableStyleItems := tableBox.style.Items()
+		for name := range css.TableWrapperBoxProperties {
+			tableStyleItems[name].SetOn(name, &wrapperBox.style)
+			css.InitialValuesItems[name].SetOn(name, &tableBox.style)
 		}
 	}
 	// else: non-inherited properties already have their initial values
 
 	return wrapper
+}
+
+var (
+	styleScores = map[string]int{}
+	styleMap = map[string]string{
+		"inset": "ridge", 
+		"outset": "groove",
+	}
+
+	Transparent = tinycss2.color3.parse_color("transparent")
+
+)
+func init() {
+	styles := []string{"hidden", "double", "solid", "dashed", "dotted", "ridge",
+	"outset", "groove", "inset", "none"}
+	N := len(styles) - 1
+	for i, v := range styles {
+		styleScores[v] = N - i
+	}
+}
+
+
+// Resolve border conflicts for a table in the collapsing border model.
+//     Take a :class:`TableBox`; set appropriate border widths on the table,
+//     column group, column, row group, row, && cell boxes; && return
+//     a data structure for the resolved collapsed border grid.
+//     
+func collapseTableBorders(table AllBox, gridWidth, gridHeight int) {
+    if gridWidth ==0 || gridHeight == 0) {
+        // Don’t bother with empty tables
+        return nil, nil
+    }
+
+    // styleScores = dict((v, i) for i, v in enumerate(reversed([
+    //     "hidden", "double", "solid", "dashed", "dotted", "ridge",
+    //     "outset", "groove", "inset", "none"])))
+    // styleMap = {"inset": "ridge", "outset": "groove"}
+    transparent := Transparent
+    weakNullBorder = (
+        (0, 0, styleScores["none"]), ("none", 0, transparent))
+    verticalBorders = [[weakNullBorder for x in range(gridWidth + 1)]
+                        for y in range(gridHeight)]
+    horizontalBorders = [[weakNullBorder for x in range(gridWidth)]
+                          for y in range(gridHeight + 1)]
+
+    def setOneBorder(borderGrid, boxStyle, side, gridX, gridY) {
+        from ..draw import getColor
+    }
+
+        style = boxStyle["border%sStyle" % side]
+        width = boxStyle["border%sWidth" % side]
+        color = getColor(boxStyle, "border%sColor" % side)
+
+        // http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+        score = ((1 if style == "hidden" else 0), width, styleScores[style])
+
+        style = styleMap.get(style, style)
+        previousScore, _ = borderGrid[gridY][gridX]
+        // Strict < so that the earlier call wins in case of a tie.
+        if previousScore < score {
+            borderGrid[gridY][gridX] = (score, (style, width, color))
+        }
+
+    def setBorders(box, x, y, w, h) {
+        style = box.style
+        for yy in range(y, y + h) {
+            setOneBorder(verticalBorders, style, "left", x, yy)
+            setOneBorder(verticalBorders, style, "right", x + w, yy)
+        } for xx in range(x, x + w) {
+            setOneBorder(horizontalBorders, style, "top", xx, y)
+            setOneBorder(horizontalBorders, style, "bottom", xx, y + h)
+        }
+    }
+
+    // The order is important here {
+    } // "A style set on a cell wins over one on a row, which wins over a
+    //  row group, column, column group and, lastly, table"
+    // See http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+    strongNullBorder = (
+        (1, 0, styleScores["hidden"]), ("hidden", 0, transparent))
+    gridY = 0
+    for rowGroup in table.children {
+        for row in rowGroup.children {
+            for cell in row.children {
+                // No border inside of a cell with rowspan || colspan
+                for xx in range(cell.gridX + 1, cell.gridX + cell.colspan) {
+                    for yy in range(gridY, gridY + cell.rowspan) {
+                        verticalBorders[yy][xx] = strongNullBorder
+                    }
+                } for xx in range(cell.gridX, cell.gridX + cell.colspan) {
+                    for yy in range(gridY + 1, gridY + cell.rowspan) {
+                        horizontalBorders[yy][xx] = strongNullBorder
+                    }
+                } // The cell’s own borders
+                setBorders(cell, x=cell.gridX, y=gridY,
+                            w=cell.colspan, h=cell.rowspan)
+            } gridY += 1
+        }
+    }
+
+    gridY = 0
+    for rowGroup in table.children {
+        for row in rowGroup.children {
+            setBorders(row, x=0, y=gridY, w=gridWidth, h=1)
+            gridY += 1
+        }
+    }
+
+    gridY = 0
+    for rowGroup in table.children {
+        rowspan = len(rowGroup.children)
+        setBorders(rowGroup, x=0, y=gridY, w=gridWidth, h=rowspan)
+        gridY += rowspan
+    }
+
+    for columnGroup in table.columnGroups {
+        for column in columnGroup.children {
+            setBorders(column, x=column.gridX, y=0, w=1, h=gridHeight)
+        }
+    }
+
+    for columnGroup in table.columnGroups {
+        setBorders(columnGroup, x=columnGroup.gridX, y=0,
+                    w=columnGroup.span, h=gridHeight)
+    }
+
+    setBorders(table, x=0, y=0, w=gridWidth, h=gridHeight)
+
+    // Now that all conflicts are resolved, set transparent borders of
+    // the correct widths on each box. The actual border grid will be
+    // painted separately.
+    def setTransparentBorder(box, side, twiceWidth) {
+        box.style["border%sStyle" % side] = "solid",
+        box.style["border%sWidth" % side] = twiceWidth / 2
+        box.style["border%sColor" % side] = transparent
+    }
+
+    def removeBorders(box) {
+        setTransparentBorder(box, "top", 0)
+        setTransparentBorder(box, "right", 0)
+        setTransparentBorder(box, "bottom", 0)
+        setTransparentBorder(box, "left", 0)
+    }
+
+    def maxVerticalWidth(x, y, h) {
+        return max(
+            width for gridRow in verticalBorders[y:y + h]
+            for _, (_, width, ) in [gridRow[x]])
+    }
+
+    def maxHorizontalWidth(x, y, w) {
+        return max(
+            width for _, (_, width, ) in horizontalBorders[y][x:x + w])
+    }
+
+    gridY = 0
+    for rowGroup in table.children {
+        removeBorders(rowGroup)
+        for row in rowGroup.children {
+            removeBorders(row)
+            for cell in row.children {
+                setTransparentBorder(cell, "top", maxHorizontalWidth(
+                    x=cell.gridX, y=gridY, w=cell.colspan))
+                setTransparentBorder(cell, "bottom", maxHorizontalWidth(
+                    x=cell.gridX, y=gridY + cell.rowspan, w=cell.colspan))
+                setTransparentBorder(cell, "left", maxVerticalWidth(
+                    x=cell.gridX, y=gridY, h=cell.rowspan))
+                setTransparentBorder(cell, "right", maxVerticalWidth(
+                    x=cell.gridX + cell.colspan, y=gridY, h=cell.rowspan))
+            } gridY += 1
+        }
+    }
+
+    for columnGroup in table.columnGroups {
+        removeBorders(columnGroup)
+        for column in columnGroup.children {
+            removeBorders(column)
+        }
+    }
+
+    setTransparentBorder(table, "top", maxHorizontalWidth(
+        x=0, y=0, w=gridWidth))
+    setTransparentBorder(table, "bottom", maxHorizontalWidth(
+        x=0, y=gridHeight, w=gridWidth))
+    // "UAs must compute an initial left && right border width for the table
+    //  by examining the first && last cells in the first row of the table."
+    // http://www.w3.org/TR/CSS21/tables.html#collapsing-borders
+    // ... so h=1, not gridHeight {
+    } setTransparentBorder(table, "left", maxVerticalWidth(
+        x=0, y=0, h=1))
+    setTransparentBorder(table, "right", maxVerticalWidth(
+        x=gridWidth, y=0, h=1))
+
+    return verticalBorders, horizontalBorders
 }
 
 //   Wrap consecutive children that do not pass ``test`` in a box of type
@@ -870,4 +1075,19 @@ func addBoxMarker(box AllBox, counterValues map[string][]int, getImageFromUri gi
 		box.outsideListMarker = markerBox
 	}
 	return nil
+}
+
+var reHasNonWhitespace = regexp.MustCompile("\\S")
+
+var hasNonWhitespaceDefault = func(text string) bool {
+	return reHasNonWhitespace.MatchString(text)
+}
+
+// Return true if ``box`` is a TextBox with only whitespace.
+func isWhitespace(box AllBox, hasNonWhitespace func(string) bool) bool {
+	if hasNonWhitespace == nil {
+		hasNonWhitespace = hasNonWhitespaceDefault
+	}
+	textBox, is := box.(*TextBox)
+	return is && !hasNonWhitespace(textBox.text)
 }

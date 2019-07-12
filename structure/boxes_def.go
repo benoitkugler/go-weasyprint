@@ -14,7 +14,7 @@ type AllBox interface {
 	IsInlineLevelBox() bool
 
 	Copy() AllBox
-	copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox
+	removeDecoration(start, end bool)
 }
 
 // Box is an abstract base class for all boxes.
@@ -48,14 +48,41 @@ type Box struct {
 
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
 
-	children []AllBox
+	children          []AllBox
+	outsideListMarker AllBox
+}
+
+type TableFields struct {
+	// Default values. May be overriden on instances.
+	isHeader bool
+	isFooter bool
+
+	gridX int
+
+	columnGroups    []AllBox
+	columnPositions []float64
+
+	//Definitions for the rules generating anonymous table boxes
+	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+	tabularContainer       bool // default is true
+	properTableChild       bool // default is true
+	internalTableOrCaption bool // default is true
+
+	//Columns groups never have margins or paddings
+	marginTop, marginBottom, marginLeft, marginRight     float64
+	paddingTop, paddingBottom, paddingLeft, paddingRight float64
+
+	//Default weight. May be overriden on instances.
+	span int // default is 1
+
+	// Default values. May be overriden on instances.
+	colspan int // default is 1
+	rowspan int // default is 1
 }
 
 // ParentBox is a box that has children.
 type ParentBox struct {
 	Box
-
-	outsideListMarker AllBox
 }
 
 // BlockLevelBox is a box that participates in an block formatting context.

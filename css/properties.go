@@ -163,6 +163,9 @@ var (
 			"caption_side": "top",
 
 			"list_style_type": "disc",
+
+			// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
+			"border_collapse": "separate",
 		},
 		Lengthss: map[string]Lengths{
 			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
@@ -218,7 +221,7 @@ var (
 		// "background_repeat": (("repeat", "repeat"),),
 		// "border_bottom_color": "currentColor",
 		// "border_bottom_style": "none",
-		// "border_collapse": "separate",
+
 		// "border_left_color": "currentColor",
 		// "border_left_style": "none",
 		// "border_right_color": "currentColor",
@@ -273,7 +276,41 @@ var (
 		// "outline_style": "none",
 		// "overflow_wrap": "normal",
 	}
+
+	InitialValuesItems map[string]CssProperty
+
+	// http://www.w3.org/TR/CSS21/tables.html#model
+	// See also http://lists.w3.org/Archives/Public/www-style/2012Jun/0066.html
+	// Only non-inherited properties need to be included here.
+	TableWrapperBoxProperties = Set{
+		"bottom":            true,
+		"break_after":       true,
+		"break_before":      true,
+		"break_inside":      true,
+		"clear":             true,
+		"counter_increment": true,
+		"counter_reset":     true,
+		"float":             true,
+		"left":              true,
+		"margin_top":        true,
+		"margin_bottom":     true,
+		"margin_left":       true,
+		"margin_right":      true,
+		"opacity":           true,
+		"overflow":          true,
+		"position":          true,
+		"right":             true,
+		"top":               true,
+		"transform":         true,
+		"transform_origin":  true,
+		"vertical_align":    true,
+		"z_index":           true,
+	}
 )
+
+func init() {
+	InitialValuesItems = InitialValues.Items()
+}
 
 func vs(s string) Value { return Value{String: s} }
 

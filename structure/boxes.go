@@ -65,6 +65,7 @@ import (
 
 var (
 	TypeTableRowBox         BoxType = typeTableRowBox{}
+	TypeTableRowGroupBox    BoxType = typeTableRowGroupBox{}
 	TypeTableColumnBox      BoxType = typeTableColumnBox{}
 	TypeTableColumnGroupBox BoxType = typeTableColumnGroupBox{}
 	TypeTableBox            BoxType = typeTableBox{}
@@ -406,11 +407,11 @@ func (self *ParentBox) removeDecoration(start, end bool) {
 }
 
 // Create a new equivalent box with given ``newChildren``.
-func (self ParentBox) copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox {
-	newBox := self
-	newBox.children = newChildren
+func CopyWithChildren(box AllBox, newChildren []AllBox, isStart, isEnd bool) AllBox {
+	newBox := box.Copy()
+	newBox.BaseBox().children = newChildren
 	if !isStart {
-		newBox.outsideListMarker = nil
+		newBox.BaseBox().outsideListMarker = nil
 	}
 	newBox.removeDecoration(!isStart, !isEnd)
 	return newBox
@@ -505,6 +506,11 @@ func NewInlineBox(elementTag string, style css.StyleDict, children []AllBox) *In
 	return &out
 }
 
+func InlineBoxIsInstance(box AllBox) bool {
+	_, is := box.(*InlineBox)
+	return is
+}
+
 // Return the (x, y, w, h) rectangle where the box is clickable.
 func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
 	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
@@ -574,6 +580,10 @@ func NewInlineBlockBox(elementTag string, style css.StyleDict, children []AllBox
 	return &out
 }
 
+func InlineBlockBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
+	return NewInlineBlockBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
+}
+
 func NewReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *ReplacedBox {
 	var self ReplacedBox
 	self.Box.init(elementTag, style)
@@ -593,34 +603,6 @@ func (self InlineReplacedBox) IsInlineLevelBox() bool {
 
 func InlineReplacedBoxAnonymousFrom(parent AllBox, replacement TBD) AllBox {
 	return NewInlineReplacedBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), replacement)
-}
-
-type TableFields struct {
-	// Default values. May be overriden on instances.
-	isHeader bool
-	isFooter bool
-
-	gridX int
-
-	columnGroups    []AllBox
-	columnPositions []float64
-
-	//Definitions for the rules generating anonymous table boxes
-	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-	tabularContainer       bool // default is true
-	properTableChild       bool // default is true
-	internalTableOrCaption bool // default is true
-
-	//Columns groups never have margins or paddings
-	marginTop, marginBottom, marginLeft, marginRight     float64
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
-
-	//Default weight. May be overriden on instances.
-	span int // default is 1
-
-	// Default values. May be overriden on instances.
-	colspan int // default is 1
-	rowspan int // default is 1
 }
 
 func newTableFields() TableFields {
@@ -812,6 +794,11 @@ func (self TableCaptionBox) IsProperChild(parent AllBox) bool {
 	default:
 		return false
 	}
+}
+
+func TableCaptionBoxIsInstance(box AllBox) bool {
+	_, is := box.(*TableCaptionBox)
+	return is
 }
 
 func (self *PageBox) init(pageType TBD, style css.StyleDict) {
