@@ -25,7 +25,7 @@ var ()
 type styleForType = func(element html.Node, pseudoType string) css.StyleDict
 
 type stateShared struct {
-	quoteDepth    int
+	quoteDepth    []int
 	counterValues map[string][]int
 	counterScopes [](map[string]bool)
 }
@@ -154,7 +154,7 @@ func elementToBox(element html.Node, styleFor styleForType,
 		// use a list to have a shared mutable object
 		state = &stateShared{
 			// Shared mutable objects:
-			quoteDepth:    0,                  // single integer
+			quoteDepth:    []int{0},           // single integer
 			counterValues: map[string][]int{}, // name -> stacked/scoped values
 			counterScopes: []map[string]bool{ //  element tree depths -> counter names
 				map[string]bool{},
@@ -162,9 +162,9 @@ func elementToBox(element html.Node, styleFor styleForType,
 		}
 	}
 
-	QuoteDepth, counterValues := state.quoteDepth, state.counterValues
+	counterValues := state.counterValues
 
-	updateCounters(state, &style)
+	updateCounters(state, style)
 
 	var children []AllBox
 	if display == "list-item" {
@@ -204,6 +204,112 @@ func elementToBox(element html.Node, styleFor styleForType,
 	// Specific handling for the element. (eg. replaced element)
 	return HandleElement(element, box, getImageFromUri, baseUrl)
 
+}
+
+// Yield the box for ::before || ::after pseudo-element if there is one.
+func beforeAfterToBox(element html.Node, pseudoType string, state *stateShared, styleFor styleForType,
+	getImageFromUri gifu) []AllBox {
+
+	style := styleFor(element, pseudoType)
+	if pseudoType != "" && style.IsZero() {
+		// Pseudo-elements with no style at all do not get a style dict.
+		// Their initial content property computes to "none".
+		return nil
+	}
+
+	// TODO: should be the computed value. When does the used value for
+	// `display` differ from the computer value? It's at least wrong for
+	// `content` where "normal" computes as "inhibit" for pseudo elements.
+	display := style.Strings["display"]
+	content := style.Content
+	if display == "none" || content.String == "none" || content.String == "normal" || content.String == "inhibit" {
+		return nil
+	}
+
+	box := makeBox(fmt.Sprintf("%s::%s", element.Data, pseudoType), style, nil)
+
+	updateCounters(state, style)
+
+	var children []AllBox
+	if display == "list-item" {
+		children = append(children, addBoxMarker(box, state.counterValues, getImageFromUri)...)
+	}
+	children = append(children, contentToBoxes(
+		style, box, state.quoteDepth, state.counterValues, getImageFromUri, nil, nil)...)
+
+	box.BaseBox().children = children
+	return []AllBox{box}
+}
+
+// Takes the value of a ``content`` property && yield boxes.
+func contentToBoxes(style css.StyleDict, parentBox AllBox, quoteDepth []int, counterValues map[string][]int,
+	getImageFromUri gifu, context *TBD, page *TBD) []AllBox {
+
+	var out []AllBox
+	var texts []string
+	for _, _tv := range style.Content.List {
+		switch _tv.Type {
+		case "STRING":
+			texts = append(texts, _tv.String)
+		case "URI":
+			image := getImageFromUri(_tv.String, "")
+			if image != nil {
+				text := strings.Join(texts, "")
+				if text != "" {
+					out = append(out, TextBoxAnonymousFrom(parentBox, text))
+				}
+				texts = nil
+				out = append(out, InlineReplacedBoxAnonymousFrom(parentBox, image))
+			}
+		case "counter":
+			counterName, counterStyle := _tv.String, _tv.CounterStyle
+			vs := counterValues[counterName]
+			if vs == nil {
+				vs = []int{0}
+			}
+			counterValue := vs[len(vs)-1]
+			texts = append(texts, format(counterValue, counterStyle))
+		case "counters":
+			counterName, separator, counterStyle := _tv.String, _tv.Separator, _tv.CounterStyle
+			vs := counterValues[counterName]
+			if vs == nil {
+				vs = []int{0}
+			}
+			cs := make([]string, len(vs))
+			for i, counterValue := range vs {
+				cs[i] = format(counterValue, counterStyle)
+			}
+			texts = append(texts, strings.Join(cs, separator))
+		case "string":
+			if context != nil && page != nil {
+				text = context.getStringSetFor(page, *value)
+				texts = append(texts, text)
+			}
+		default:
+			if _tv.Type != "QUOTE" {
+				log.Fatal("type now must be QUOTE")
+			}
+			isOpen, insert := _tv.IsOpen, _tv.Insert
+			if !isOpen {
+				quoteDepth[0] = max(0, quoteDepth[0]-1)
+			}
+			if insert {
+				quotes := style.Quotes.Close
+				if isOpen {
+					quotes = style.Quotes.Open
+				}
+				texts = append(texts, quotes[min(quoteDepth[0], len(quotes)-1)])
+			}
+			if isOpen {
+				quoteDepth[0] += 1
+			}
+		}
+	}
+	text := strings.Join(texts, "")
+	if text != "" {
+		out = append(out, TextBoxAnonymousFrom(parentBox, text))
+	}
+	return out
 }
 
 var (
@@ -731,10 +837,10 @@ type border struct {
 //     column group, column, row group, row, && cell boxes; && return
 //     a data structure for the resolved collapsed border grid.
 //
-func collapseTableBorders(table AllBox, gridWidth, gridHeight int) ([][]border, [][]border) {
+func collapseTableBorders(table AllBox, gridWidth, gridHeight int) BorderGrids {
 	if gridWidth == 0 || gridHeight == 0 {
 		// Don’t bother with empty tables
-		return nil, nil
+		return BorderGrids{}
 	}
 
 	transparent := Transparent
@@ -765,8 +871,8 @@ func collapseTableBorders(table AllBox, gridWidth, gridHeight int) ([][]border, 
 		color := boxStyle.GetColor(fmt.Sprintf("border_%s_color", side))
 
 		// http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
-		score := Score{0, width, styleScores[style]}
-		if style == hidden {
+		score := Score{0, width.Value, styleScores[style]}
+		if style == "hidden" {
 			score[0] = 1
 		}
 
@@ -778,12 +884,12 @@ func collapseTableBorders(table AllBox, gridWidth, gridHeight int) ([][]border, 
 		previousScore := borderGrid[gridY][gridX].score
 		// Strict < so that the earlier call wins in case of a tie.
 		if previousScore.lower(score) {
-			borderGrid[gridY][gridX] = border{score: score, style: style, width: width, color: color}
+			borderGrid[gridY][gridX] = border{score: score, style: style, width: width.Value, color: color}
 		}
 	}
 
 	setBorders := func(box AllBox, x, y, w, h int) {
-		style = box.BaseBox().style
+		style := box.BaseBox().style
 		for yy := y; yy < y+h; y++ {
 			setOneBorder(verticalBorders, style, css.Left, x, yy)
 			setOneBorder(verticalBorders, style, css.Right, x+w, yy)
@@ -896,11 +1002,11 @@ func collapseTableBorders(table AllBox, gridWidth, gridHeight int) ([][]border, 
 		for _, row := range rowGroup.BaseBox().children {
 			removeBorders(row)
 			for _, _cell := range row.BaseBox().children {
-				cell = _cell.TableFields()
-				setTransparentBorder(cell, css.Top, maxHorizontalWidth(cell.gridX, gridY, cell.colspan))
-				setTransparentBorder(cell, css.Bottom, maxHorizontalWidth(cell.gridX, gridY+cell.rowspan, cell.colspan))
-				setTransparentBorder(cell, css.Left, maxVerticalWidth(cell.gridX, gridY, cell.rowspan))
-				setTransparentBorder(cell, css.Right, maxVerticalWidth(cell.gridX+cell.colspan, gridY, cell.rowspan))
+				cell := _cell.TableFields()
+				setTransparentBorder(_cell, css.Top, maxHorizontalWidth(cell.gridX, gridY, cell.colspan))
+				setTransparentBorder(_cell, css.Bottom, maxHorizontalWidth(cell.gridX, gridY+cell.rowspan, cell.colspan))
+				setTransparentBorder(_cell, css.Left, maxVerticalWidth(cell.gridX, gridY, cell.rowspan))
+				setTransparentBorder(_cell, css.Right, maxVerticalWidth(cell.gridX+cell.colspan, gridY, cell.rowspan))
 			}
 			gridY += 1
 		}
@@ -922,7 +1028,7 @@ func collapseTableBorders(table AllBox, gridWidth, gridHeight int) ([][]border, 
 	setTransparentBorder(table, css.Left, maxVerticalWidth(0, 0, 1))
 	setTransparentBorder(table, css.Right, maxVerticalWidth(gridWidth, 0, 1))
 
-	return verticalBorders, horizontalBorders
+	return BorderGrids{Vertical: verticalBorders, Horizontal: horizontalBorders}
 }
 
 //   Wrap consecutive children that do not pass ``test`` in a box of type
@@ -1017,59 +1123,62 @@ func wrapImproper(box AllBox, children []AllBox, boxType BoxType, test func(AllB
 //        ]
 func blockInInline(box AllBox) AllBox {
 	if !box.IsParentBox() {
-        return box
-    }
+		return box
+	}
 
-    var newChildren []AllBox
-    changed := false
+	var newChildren []AllBox
+	changed := false
 
-    for _, child := range box.BaseBox().children {
+	for _, child := range box.BaseBox().children {
 		var newChild AllBox
-        if LineBoxIsInstance(child) {
-            if len(box.children) != 1 {
+		if LineBoxIsInstance(child) {
+			if len(box.children) != 1 {
 				log.Fatalf("Line boxes should have no siblings at this stage, got %r.", box.children)
 			}
-                
-            var (
-				stack []int
+
+			var (
+				stack   *SkipStack
 				newLine []AllBox
 			)
-            for {
-                newLine, block, stack = innerBlockInInline(child, stack)
-                if block == nil {
-                    break
-				} 
+			for {
+				newLine, block, stack = innerBlockInInline(child, stack)
+				if block == nil {
+					break
+				}
 				anon := BlockBoxAnonymousFrom(box, []AllBox{newLine})
-                newChildren = append(newChildren, anon)
-                newChildren = append(newChildren, blockInInline(block))
-                // Loop with the same child && the new stack.
-			} 
-			
-			if len(newChildren) > 0 {
-                // Some children were already added, this became a block
-                // context.
-                newChild = BlockBoxAnonymousFrom(box, []AllBox{newLine})
-            } else {
-                // Keep the single line box as-is, without anonymous blocks.
-                newChild = newLine
-            }
-        } else {
-            // Not in an inline formatting context.
-            newChild = blockInInline(child)
-        }
-    
-        if newChild != child {
-            changed = true
-		} 
-		newChildren = append(newChildren, newChild)
-		}
-    if changed {
-        box.BaseBox().children = newChildren
-	} 
-	return box
-	}
-	
+				newChildren = append(newChildren, anon)
+				newChildren = append(newChildren, blockInInline(block))
+				// Loop with the same child && the new stack.
+			}
 
+			if len(newChildren) > 0 {
+				// Some children were already added, this became a block
+				// context.
+				newChild = BlockBoxAnonymousFrom(box, []AllBox{newLine})
+			} else {
+				// Keep the single line box as-is, without anonymous blocks.
+				newChild = newLine
+			}
+		} else {
+			// Not in an inline formatting context.
+			newChild = blockInInline(child)
+		}
+
+		if newChild != child {
+			changed = true
+		}
+		newChildren = append(newChildren, newChild)
+	}
+	if changed {
+		box.BaseBox().children = newChildren
+	}
+	return box
+}
+
+type SkipStack struct {
+	skip  int
+	stack *SkipStack
+}
 
 // Find a block-level box in an inline formatting context.
 //     If one is found, return ``(newBox, blockLevelBox, resumeAt)``.
@@ -1078,55 +1187,62 @@ func blockInInline(box AllBox) AllBox {
 //     this function to resume the search just after the block-level box.
 //     If no block-level box is found after the position marked by
 //     ``skipStack``, return ``(newBox, None, None)``
-//     
-func innerBlockInInline(box AllBox, skipStack []int) {
-    var newChildren []AllBox
-    var blockLevelBox AllBox
-    resumeAt = None
-    changed := false
+//
+func innerBlockInInline(box AllBox, skipStack *SkipStack) (AllBox, AllBox, *SkipStack) {
+	var newChildren []AllBox
+	var blockLevelBox AllBox
+	var resumeAt *SkipStack
+	changed := false
 
-	isStart := skipStack == nil 
-	var skip int 
-    if isStart {
-        skip = 0
-    } else {
-		skip = skipStack[0]
-		skipStack = skipStack[1:]
-    }
+	isStart := skipStack == nil
+	var skip int
+	if isStart {
+		skip = 0
+	} else {
+		skip = skipStack.skip
+		skipStack = skipStack.stack
+	}
 
-    for index, child := range box.BaseBox().children[skip:] {
-        if isinstance(child, boxes.BlockLevelBox) && \
-                child.isInNormalFlow() {
-                }
-            assert skipStack is None  // Should not skip here
-            blockLevelBox = child
-            index += 1  // Resume *after* the block
-        else {
-            if isinstance(child, boxes.InlineBox) {
-                recursion = innerBlockInInline(child, skipStack)
-                skipStack = None
-                newChild, blockLevelBox, resumeAt = recursion
-            } else {
-                assert skipStack is None  // Should not skip here
-                newChild = blockInInline(child)
-                // blockLevelBox is still None.
-            } if newChild is not child {
-                changed = true
-            } newChildren.append(newChild)
-        } if blockLevelBox is not None {
-            resumeAt = (index, resumeAt)
-            box = box.copyWithChildren(
-                newChildren, isStart=isStart, isEnd=false)
-            break
-        }
-    } else {
-        if changed || skip {
-            box = box.copyWithChildren(
-                newChildren, isStart=isStart, isEnd=true)
-        }
-    }
+	hasBroken := false
+	for index, child := range box.BaseBox().children[skip:] {
+		if child.IsBlockLevelBox() && child.BaseBox().isInNormalFlow() {
+			if skipStack != nil {
+				log.Fatal("Should not skip here")
+			}
+			blockLevelBox = child
+			index += 1 // Resume *after* the block
+		} else {
+			if InlineBoxIsInstance(child) {
+				newChild, blockLevelBox, resumeAt = innerBlockInInline(child, skipStack)
+				skipStack = nil
+			} else {
+				if skipStack != nil {
+					log.Fatal("Should not skip here")
+				}
+				newChild = blockInInline(child)
+				// blockLevelBox is still None.
+			}
 
-    return box, blockLevelBox, resumeAt
+			if newChild != child {
+				changed = true
+			}
+			newChildren = append(newChildren, newChild)
+		}
+
+		if blockLevelBox != nil {
+			resumeAt = &SkipStack{skip: index, stack: resumeAt}
+			box = CopyWithChildren(box, newChildren, isStart, false)
+			hasBroken = true
+			break
+		}
+	}
+	if !hasBroken {
+		if changed || skip > 0 {
+			box = CopyWithChildren(box, newChildren, isStart, true)
+		}
+	}
+
+	return box, blockLevelBox, resumeAt
 }
 
 //  Set a ``viewportOverflow`` attribute on the box for the root element.
@@ -1135,10 +1251,25 @@ func innerBlockInInline(box AllBox, skipStack []int) {
 //    to the viewport.
 //
 //    See http://www.w3.org/TR/CSS21/visufx.html#overflow
-func setViewportOverflow(rootBox AllBox) AllBox {}
+func setViewportOverflow(rootBox AllBox) AllBox {
+	chosenBox := rootBox
+	if strings.ToLower(rootBox.BaseBox().elementTag) == "html" &&
+		rootBox.BaseBox().style.Strings["overflow"] == "visible" {
+
+		for _, child := range rootBox.BaseBox().children {
+			if strings.ToLower(child.BaseBox().elementTag) == "body" {
+				chosenBox = child
+				break
+			}
+		}
+	}
+	rootBox.BaseBox().viewportOverflow = chosenBox.BaseBox().style.Strings["overflow"]
+	chosenBox.BaseBox().style.Strings["overflow"] = "visible"
+	return rootBox
+}
 
 // Handle the ``counter-*`` properties.
-func updateCounters(state *stateShared, style *css.StyleDict) {
+func updateCounters(state *stateShared, style css.StyleDict) {
 	_, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
 	siblingScopes := counterScopes[len(counterScopes)-1]
 

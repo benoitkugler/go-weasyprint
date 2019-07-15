@@ -362,12 +362,12 @@ func (value Content) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String == "normal" || value.String == "none" {
 		return value
 	}
-	lis := make([][2]string, len(value.List))
+	lis := make([]ContentProperty, len(value.List))
 	for index, v := range value.List {
-		type_, value := v[0], v[1]
-		if type_ == "attr" {
-			lis[index][0] = "STRING"
-			lis[index][1] = utils.GetAttribute(computer.element, value)
+		// type_, value := v[0], v[1]
+		if v.Type == "attr" {
+			lis[index].Type = "STRING"
+			lis[index].String = utils.GetAttribute(computer.element, value.String)
 		} else {
 			lis[index] = v
 		}
@@ -550,3 +550,4 @@ func (value Page) ComputeValue(computer *computer, name string) CssProperty     
 func (value Value) ComputeValue(computer *computer, name string) CssProperty             { return value }
 func (value String) ComputeValue(computer *computer, name string) CssProperty            { return value }
 func (value Color) ComputeValue(computer *computer, name string) CssProperty             { return value }
+func (value Quotes) ComputeValue(computer *computer, name string) CssProperty            { return value }

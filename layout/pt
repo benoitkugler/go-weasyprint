@@ -1,0 +1,161 @@
+// coding: utf-8
+"""
+    weasyprint.layout
+    -----------------
+
+    Transform a "before layout" box tree into an "after layout" tree.
+    (Surprising, hu?)
+
+    Break boxes across lines && pages; determine the size && dimension
+    of each box fragement.
+
+    Boxes in the new tree have *used values* in their ``positionX``,
+    ``positionY``, ``width`` && ``height`` attributes, amongst others.
+
+    See http://www.w3.org/TR/CSS21/cascade.html#used-value
+
+    :copyright: Copyright 2011-2014 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+
+"""
+from _Future__ import division, unicodeLiterals
+from collections import defaultdict
+
+from .absolute import absoluteBoxLayout
+from .pages import makeAllPages, makeMarginBoxes
+from .backgrounds import layoutBackgrounds
+from ..compat import xrange
+from ..formattingStructure import boxes
+
+
+// Lay out && yield the fixed boxes of ``pages``.
+func layoutFixedBoxes(context, pages) {
+    for page in pages {
+        for box in page.fixedBoxes {
+            // Use an empty list as last argument because the fixed boxes in the
+            // fixed box has already been added to page.fixedBoxes, we don"t
+            // want to get them again
+            yield absoluteBoxLayout(context, box, page, [])
+        }
+    }
+} 
+
+func layoutDocument(enableHinting, styleFor, getImageFromUri, rootBox,
+                    fontConfig, html, cascadedStyles, computedStyles) {
+    """Lay out the whole document.
+
+    This includes line breaks, page breaks, absolute size && position for all
+    boxes.
+
+    :param context: a LayoutContext object.
+    :returns: a list of laid out Page objects.
+
+                    }
+    """
+    context = LayoutContext(
+        enableHinting, styleFor, getImageFromUri, fontConfig)
+    pages = list(makeAllPages(
+        context, rootBox, html, cascadedStyles, computedStyles))
+    pageCounter = [1]
+    counterValues = {"page": pageCounter, "pages": [len(pages)]}
+    for i, page in enumerate(pages) {
+        rootChildren = []
+        root, = page.children
+        rootChildren.extend(layoutFixedBoxes(context, pages[:i]))
+        rootChildren.extend(root.children)
+        rootChildren.extend(layoutFixedBoxes(context, pages[i + 1:]))
+        root.children = rootChildren
+        context.currentPage = pageCounter[0]
+        page.children = (root,) + tuple(
+            makeMarginBoxes(context, page, counterValues))
+        layoutBackgrounds(page, getImageFromUri)
+        yield page
+        pageCounter[0] += 1
+    }
+
+
+class LayoutContext(object) {
+    def _Init_(self, enableHinting, styleFor, getImageFromUri,
+                 fontConfig) {
+                 }
+        self.enableHinting = enableHinting
+        self.styleFor = styleFor
+        self.getImageFromUri = getImageFromUri
+        self.fontConfig = fontConfig
+        self.ExcludedShapesLists = []
+        self.excludedShapes = None  // Not initialized yet
+        self.stringSet = defaultdict(lambda: defaultdict(lambda: list()))
+        self.currentPage = None
+        self.strutLayouts = {}
+} 
+    def createBlockFormattingContext(self) {
+        self.excludedShapes = []
+        self.ExcludedShapesLists.append(self.excludedShapes)
+    }
+
+    def finishBlockFormattingContext(self, rootBox) {
+        // See http://www.w3.org/TR/CSS2/visudet.html#root-height
+        if rootBox.style.height == "auto" && self.excludedShapes {
+            boxBottom = rootBox.contentBoxY() + rootBox.height
+            maxShapeBottom = max([
+                shape.positionY + shape.marginHeight()
+                for shape in self.excludedShapes] + [boxBottom])
+            rootBox.height += maxShapeBottom - boxBottom
+        } self.ExcludedShapesLists.pop()
+        if self.ExcludedShapesLists {
+            self.excludedShapes = self.ExcludedShapesLists[-1]
+        } else {
+            self.excludedShapes = None
+        }
+    }
+
+    def getStringSetFor(self, page, name, keyword="first") {
+        """Resolve value of string function (as set by string set).
+
+        We"ll have something like this that represents all assignments on a
+        given page:
+
+        {1: [u"First Header"], 3: [u"Second Header"],
+         4: [u"Third Header", u"3.5th Header"]}
+
+        Value depends on current page.
+        http://dev.w3.org/csswg/css-gcpm/#funcdef-string
+
+        :param name: the name of the named string.
+        :param keyword: indicates which value of the named string to use.
+                        Default is the first assignment on the current page
+                        else the most recent assignment (entry value)
+        :returns: text
+
+        """
+        if self.currentPage in self.stringSet[name] {
+            // A value was assigned on this page
+            firstString = self.stringSet[name][self.currentPage][0]
+            lastString = self.stringSet[name][self.currentPage][-1]
+            if keyword == "first" {
+                return firstString
+            } else if keyword == "start" {
+                element = page
+                while element {
+                    if element.style["stringSet"] != "none" {
+                        for (stringName, ) in element.style["stringSet"] {
+                            if stringName == name {
+                                return firstString
+                            }
+                        }
+                    } if isinstance(element, boxes.ParentBox) {
+                        if element.children {
+                            element = element.children[0]
+                            continue
+                        }
+                    } break
+                }
+            } else if keyword == "last" {
+                return lastString
+            }
+        } // Search backwards through previous pages
+        for previousPage in xrange(self.currentPage - 1, 0, -1) {
+            if previousPage in self.stringSet[name] {
+                return self.stringSet[name][previousPage][-1]
+            }
+        } return ""

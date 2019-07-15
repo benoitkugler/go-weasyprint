@@ -14,7 +14,9 @@ type CssProperty interface {
 	SetOn(name string, target *StyleDict)
 }
 
-type Color struct{}
+type Color struct {
+	CurrentColor bool
+}
 
 // Dimension without unit is interpreted as int
 type Dimension struct {
@@ -73,6 +75,18 @@ type ListStyleImage struct {
 	Image ImageType
 }
 
+type Quotes struct {
+	Open, Close []string
+}
+
+func (q Quotes) IsNil() bool {
+	return q.Open == nil || q.Close == nil
+}
+
+func (q Quotes) Copy() Quotes {
+	return Quotes{Open: append([]string{}, q.Open...), Close: append([]string{}, q.Close...)}
+}
+
 type MiscProperties struct {
 	CounterResets     CounterResets
 	CounterIncrements CounterIncrements
@@ -83,6 +97,8 @@ type MiscProperties struct {
 	BackgroundSize     BackgroundSize
 	Content            Content
 	Transforms         Transforms
+
+	Quotes Quotes
 
 	ListStyleImage        ListStyleImage
 	weasySpecifiedDisplay Display
@@ -99,6 +115,7 @@ func (s MiscProperties) Copy() MiscProperties {
 	out.BackgroundSize = append(BackgroundSize{}, s.BackgroundSize...)
 	out.Content = s.Content.Copy()
 	out.Transforms = append(Transforms{}, s.Transforms...)
+	out.Quotes = s.Quotes.Copy()
 
 	return out
 }
@@ -130,6 +147,10 @@ func (s MiscProperties) Items() map[string]CssProperty {
 	}
 	if s.Transforms != nil {
 		out["transform"] = s.Transforms
+	}
+
+	if !s.Quotes.IsNil() {
+		out["quotes"] = s.Quotes
 	}
 
 	if s.weasySpecifiedDisplay != "" {
@@ -254,7 +275,11 @@ func (s *StyleDict) InheritFrom() StyleDict {
 }
 
 func (s StyleDict) GetColor(key string) Color {
-
+	value := s.Colors[key]
+	if value.CurrentColor {
+		value = s.Colors["color"]
+	}
+	return value
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.

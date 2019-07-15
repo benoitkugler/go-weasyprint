@@ -13,6 +13,7 @@ type AllBox interface {
 	IsTableBox() bool
 	IsBlockContainerBox() bool
 	IsInlineLevelBox() bool
+	IsBlockLevelBox() bool
 
 	Copy() AllBox
 	removeDecoration(start, end bool)
@@ -50,8 +51,14 @@ type Box struct {
 
 	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
 
+	viewportOverflow string
+
 	children          []AllBox
 	outsideListMarker AllBox
+}
+
+type BorderGrids struct {
+	Vertical, Horizontal [][]border
 }
 
 type TableFields struct {
@@ -80,6 +87,8 @@ type TableFields struct {
 	// Default values. May be overriden on instances.
 	colspan int // default is 1
 	rowspan int // default is 1
+
+	collapsedBorderGrid BorderGrids
 }
 
 // ParentBox is a box that has children.

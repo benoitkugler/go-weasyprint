@@ -87,6 +87,8 @@ var (
 			// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
 			Transforms: Transforms{}, // computed value for "none"
 
+			Quotes: Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
+
 			ListStyleImage: ListStyleImage{Type: "none"},
 
 			// Internal, to implement the "static position" for absolute boxes.
@@ -170,6 +172,8 @@ var (
 			"border_left_style":   "none",
 			"border_right_style":  "none",
 			"border_top_style":    "none",
+
+			"overflow": "visible",
 		},
 		Lengthss: map[string]Lengths{
 			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
@@ -206,8 +210,6 @@ var (
 
 		// "list_style_position": "outside",
 
-		// "overflow": "visible",
-		// "quotes": list("“”‘’"),  // chosen by the user agent
 		// "position": "static",
 		// "table_layout": "auto",
 		// "text_decoration": "none",
@@ -337,10 +339,19 @@ type BackgroundPosition []Center
 // background-size
 type BackgroundSize []Size
 
+type ContentProperty struct {
+	Type string
+	// Next are values fields
+	String         string
+	CounterStyle   string
+	Separator      string
+	IsOpen, Insert bool
+}
+
 // content
 type Content struct {
-	List   [][2]string
 	String string
+	List   []ContentProperty
 }
 
 func (c Content) IsNil() bool {
@@ -350,7 +361,7 @@ func (c Content) IsNil() bool {
 // deep copy
 func (c Content) Copy() Content {
 	out := c
-	out.List = append([][2]string{}, c.List...)
+	out.List = append([]ContentProperty{}, c.List...)
 	return out
 }
 
@@ -564,4 +575,7 @@ func (v Content) SetOn(name string, s *StyleDict) {
 }
 func (v Transforms) SetOn(name string, s *StyleDict) {
 	s.Transforms = v
+}
+func (v Quotes) SetOn(name string, s *StyleDict) {
+	s.Quotes = v
 }

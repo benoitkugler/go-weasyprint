@@ -123,6 +123,10 @@ func (self Box) IsInlineLevelBox() bool {
 	return false
 }
 
+func (self Box) IsBlockLevelBox() bool {
+	return false
+}
+
 func (self Box) IsProperChild(parent AllBox) bool {
 	return false
 }
@@ -377,10 +381,6 @@ func (self Box) AllChildren() []AllBox {
 	return self.children
 }
 
-func (self Box) copyWithChildren(newChildren []AllBox, isStart, isEnd bool) ParentBox {
-	return ParentBox{}
-}
-
 func (p *ParentBox) init(elementTag string, style css.StyleDict, children []AllBox) {
 	p.Box.init(elementTag, style)
 	p.children = children
@@ -456,6 +456,10 @@ func (self ParentBox) pageValues() (int, int) {
 		}
 	}
 	return start, end
+}
+
+func (self BlockLevelBox) IsBlockLevelBox() bool {
+	return true
 }
 
 func NewBlockBox(elementTag string, style css.StyleDict, children []AllBox) *BlockBox {

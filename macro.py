@@ -27,6 +27,7 @@ with open(path) as f:
         newline = newline.replace(" or ", " || ")
         newline = newline.replace("# ", "// ")
         newline = newline.replace(" elif ", " else if ")
+        newline = newline.replace(" in ", " := range ")
         newline = refunc.sub("func ", newline)
 
         indent = len(respace.match(newline).group(0))
