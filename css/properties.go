@@ -165,7 +165,11 @@ var (
 			"list_style_type": "disc",
 
 			// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
-			"border_collapse": "separate",
+			"border_collapse":     "separate",
+			"border_bottom_style": "none",
+			"border_left_style":   "none",
+			"border_right_style":  "none",
+			"border_top_style":    "none",
 		},
 		Lengthss: map[string]Lengths{
 			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
@@ -219,16 +223,16 @@ var (
 		// "background_color": parse_color("transparent"),
 		// "background_origin": ("padding-box",),
 		// "background_repeat": (("repeat", "repeat"),),
-		// "border_bottom_color": "currentColor",
 		// "border_bottom_style": "none",
-
-		// "border_left_color": "currentColor",
 		// "border_left_style": "none",
-		// "border_right_color": "currentColor",
 		// "border_right_style": "none",
-		// "border_spacing": (0, 0),
-		// "border_top_color": "currentColor",
 		// "border_top_style": "none",
+
+		// "border_bottom_color": "currentColor",
+		// "border_left_color": "currentColor",
+		// "border_right_color": "currentColor",
+		// "border_top_color": "currentColor",
+		// "border_spacing": (0, 0),
 
 		// // Color 3 (REC): https://www.w3.org/TR/css3-color/
 		// "opacity": 1,
@@ -318,6 +322,10 @@ func vs(s string) Value { return Value{String: s} }
 type Value struct {
 	Dimension
 	String string
+}
+
+func IntToValue(i int) Value {
+	return Value{Dimension: Dimension{Value: i}}
 }
 
 // background-image
@@ -526,6 +534,10 @@ func (v Lang) SetOn(name string, s *StyleDict) {
 
 func (v Lengths) SetOn(name string, s *StyleDict) {
 	s.Lengthss[name] = v
+}
+
+func (v Color) SetOn(name string, s *StyleDict) {
+	s.Colors[name] = v
 }
 
 func (v CounterResets) SetOn(name string, s *StyleDict) {

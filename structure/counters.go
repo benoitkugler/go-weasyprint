@@ -337,7 +337,7 @@ func format(value int, counterStyle string) string {
 //
 //This is the same as :func:`format()`, but includes the counter’s
 //prefix and suffix.
-func FormatListMarker(value int, counterStyle string) string {
+func formatListMarker(value int, counterStyle string) string {
 	style := STYLES[counterStyle]
 	return style.prefix + format(value, counterStyle) + style.suffix
 }

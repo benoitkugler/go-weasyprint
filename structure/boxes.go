@@ -500,6 +500,11 @@ func LineBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewLineBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
+func LineBoxIsInstance(box AllBox) bool {
+	_, is := box.(*LineBox)
+	return is
+}
+
 func NewInlineBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBox {
 	var out InlineBox
 	out.init(elementTag, style, children)

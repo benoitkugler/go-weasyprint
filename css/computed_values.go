@@ -549,3 +549,4 @@ func (value CounterIncrements) ComputeValue(computer *computer, name string) Css
 func (value Page) ComputeValue(computer *computer, name string) CssProperty              { return value }
 func (value Value) ComputeValue(computer *computer, name string) CssProperty             { return value }
 func (value String) ComputeValue(computer *computer, name string) CssProperty            { return value }
+func (value Color) ComputeValue(computer *computer, name string) CssProperty             { return value }

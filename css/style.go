@@ -14,6 +14,8 @@ type CssProperty interface {
 	SetOn(name string, target *StyleDict)
 }
 
+type Color struct{}
+
 // Dimension without unit is interpreted as int
 type Dimension struct {
 	Unit  string
@@ -58,29 +60,6 @@ type CounterResets []CounterReset
 func (x CounterResets) Copy() CounterResets {
 	return append(CounterResets{}, x...)
 }
-
-// type StyleDict2 struct {
-// 	Anonymous bool
-
-// 	Float    string
-// 	Position string
-// 	Page     int
-
-// 	Margin      map[Side]Dimension
-// 	Padding     map[Side]Dimension
-// 	BorderWidth map[Side]float64
-
-// 	Direction string
-
-// 	TextTransform, Hyphens string
-// 	Display                string
-
-// 	CounterReset []struct {
-// 		Name  string
-// 		Value int
-// 	}
-// 	CounterIncrement CounterIncrements
-// }
 
 type cascadedValue struct {
 	value      string
@@ -167,6 +146,7 @@ type StyleDict struct {
 	Values    map[string]Value
 	Links     map[string]Link
 	Lengthss  map[string]Lengths
+	Colors    map[string]Color
 
 	inheritedStyle *StyleDict
 }
@@ -177,6 +157,7 @@ func NewStyleDict() StyleDict {
 	out.Values = make(map[string]Value)
 	out.Links = make(map[string]Link)
 	out.Lengthss = make(map[string]Lengths)
+	out.Colors = make(map[string]Color)
 	return out
 }
 
@@ -194,6 +175,7 @@ func (s StyleDict) Copy() StyleDict {
 	out.Values = make(map[string]Value, len(s.Values))
 	out.Links = make(map[string]Link, len(s.Links))
 	out.Lengthss = make(map[string]Lengths, len(s.Lengthss))
+	out.Colors = make(map[string]Color, len(s.Colors))
 	for k, v := range s.Strings {
 		out.Strings[k] = v
 	}
@@ -205,6 +187,9 @@ func (s StyleDict) Copy() StyleDict {
 	}
 	for k, v := range s.Lengthss {
 		out.Lengthss[k] = v
+	}
+	for k, v := range s.Colors {
+		out.Colors[k] = v
 	}
 	return out
 }
@@ -228,6 +213,9 @@ func (s StyleDict) Items() map[string]CssProperty {
 		}
 	}
 	for k, v := range s.Lengthss {
+		out[k] = v
+	}
+	for k, v := range s.Colors {
 		out[k] = v
 	}
 	for k, v := range s.Links {
@@ -263,6 +251,10 @@ func (s *StyleDict) InheritFrom() StyleDict {
 		s.inheritedStyle = &is
 	}
 	return *s.inheritedStyle
+}
+
+func (s StyleDict) GetColor(key string) Color {
+
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.

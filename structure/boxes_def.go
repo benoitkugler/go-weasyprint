@@ -7,6 +7,7 @@ type AllBox interface {
 	BaseBox() *Box             // common parts of all boxes
 	TableFields() *TableFields // fields for table boxes. Might be nil on onther boxes
 
+	// Returns `true` is Box is a ParentBox (or one of its descendant)
 	IsParentBox() bool
 	IsProperChild(parent AllBox) bool
 	IsTableBox() bool
