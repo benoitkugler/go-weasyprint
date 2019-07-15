@@ -27,6 +27,7 @@ type Box struct {
 	isTableWrapper       bool
 	isForRootElement     bool
 	isColumn             bool
+	isAttachment         bool
 	transformationMatrix TBD
 	bookmarkLabel        TBD
 	stringSet            TBD
@@ -179,7 +180,7 @@ type InlineBlockBox struct {
 type ReplacedBox struct {
 	Box
 
-	replacement TBD
+	replacement css.ImageType
 }
 
 // BlockReplacedBox is a box that is both replaced and block-level.

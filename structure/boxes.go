@@ -584,14 +584,20 @@ func InlineBlockBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewInlineBlockBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-func NewReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *ReplacedBox {
+func NewReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *ReplacedBox {
 	var self ReplacedBox
 	self.Box.init(elementTag, style)
 	self.replacement = replacement
 	return &self
 }
 
-func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement TBD) *InlineReplacedBox {
+func NewBlockReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *BlockReplacedBox {
+	var self BlockReplacedBox
+	self.ReplacedBox = *NewReplacedBox(elementTag, style, replacement)
+	return &self
+}
+
+func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *InlineReplacedBox {
 	var self InlineReplacedBox
 	self.ReplacedBox = *NewReplacedBox(elementTag, style, replacement)
 	return &self
@@ -601,7 +607,7 @@ func (self InlineReplacedBox) IsInlineLevelBox() bool {
 	return true
 }
 
-func InlineReplacedBoxAnonymousFrom(parent AllBox, replacement TBD) AllBox {
+func InlineReplacedBoxAnonymousFrom(parent AllBox, replacement css.ImageType) AllBox {
 	return NewInlineReplacedBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), replacement)
 }
 

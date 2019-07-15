@@ -3,6 +3,7 @@ package structure
 import (
 	"fmt"
 	"log"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -57,7 +58,7 @@ func asciiLower(s string) string {
 //     :param linkType: Must be a lower-case string.
 //
 func elementHasLinkType(element html.Node, linkType string) bool {
-	for _, token := range HtmlSpaceSeparatedTokensRe.FindAllString(GetAttribute(element, "rel")) {
+	for _, token := range HtmlSpaceSeparatedTokensRe.FindAllString(utils.GetAttribute(element, "rel"), -1) {
 		if asciiLower(token) == linkType {
 			return true
 		}
@@ -69,7 +70,7 @@ func elementHasLinkType(element html.Node, linkType string) bool {
 func HandleElement(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
 	handler, in := HtmlHandlers[box.BaseBox().elementTag]
 	if in {
-		return handler(element, box, getImageFromUri, baseUr)
+		return handler(element, box, getImageFromUri, baseUrl)
 	} else {
 		return []AllBox{box}
 	}
@@ -82,21 +83,21 @@ func HandleElement(element html.Node, box AllBox, getImageFromUri gifu, baseUrl 
 func makeReplacedBox(element html.Node, box AllBox, image css.ImageType) AllBox {
 	switch box.BaseBox().style.Strings["display"] {
 	case "block", "list-item", "table":
-		return NewBlockReplacedBox(element.tag, box.style, image)
+		return NewBlockReplacedBox(element.Data, box.BaseBox().style, image)
 	default:
 		// TODO: support images with "display: table-cell"?
-		return NewInlineReplacedBox(element.tag, box.style, image)
+		return NewInlineReplacedBox(element.Data, box.BaseBox().style, image)
 	}
 }
 
 // Handle ``<img>`` elements, return either an image || the alt-text.
 // See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
 func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
-	src := utils.GetUrlAttribute(element, "src", baseUrl)
+	src := utils.GetUrlAttribute(element, "src", baseUrl, false)
 	alt := utils.GetAttribute(element, "alt")
 	if src != "" {
 		image := getImageFromUri(src, "")
-		if (image != css.ImageType{}) {
+		if image != nil {
 			return []AllBox{makeReplacedBox(element, box, image)}
 		}
 	}
@@ -116,11 +117,11 @@ func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl stri
 // Handle ``<embed>`` elements, return either an image || nothing.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
 func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
-	src := utils.GetUrlAttribute(element, "src", baseUrl)
-	type_ := strings.TrimSpace(GetAttribute(element, "type"))
+	src := utils.GetUrlAttribute(element, "src", baseUrl, false)
+	type_ := strings.TrimSpace(utils.GetAttribute(element, "type"))
 	if src != "" {
 		image := getImageFromUri(src, type_)
-		if (image != css.ImageType{}) {
+		if image != nil {
 			return []AllBox{makeReplacedBox(element, box, image)}
 		}
 	}
@@ -132,11 +133,11 @@ func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl st
 // content.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
 func handleObject(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
-	data = getUrlAttribute(element, "data", baseUrl)
-	type_ := strings.TrimSpace(GetAttribute(element, "type"))
-	if src != "" {
-		image := getImageFromUri(src, type_)
-		if (image != css.ImageType{}) {
+	data := utils.GetUrlAttribute(element, "data", baseUrl, false)
+	type_ := strings.TrimSpace(utils.GetAttribute(element, "type"))
+	if data != "" {
+		image := getImageFromUri(data, type_)
+		if image != nil {
 			return []AllBox{makeReplacedBox(element, box, image)}
 		}
 	}
@@ -147,7 +148,7 @@ func handleObject(element html.Node, box AllBox, getImageFromUri gifu, baseUrl s
 // Read an integer attribute from the HTML element. if true, the return value should be set on the box
 // minimum = 1
 func integerAttribute(element html.Node, name string, minimum int) (bool, int) {
-	value := strings.TrimSpace(GetAttribute(element, name))
+	value := strings.TrimSpace(utils.GetAttribute(element, name))
 	if value != "" {
 		intValue, err := strconv.Atoi(value)
 		if err != nil {
@@ -163,17 +164,17 @@ func integerAttribute(element html.Node, name string, minimum int) (bool, int) {
 // Handle the ``span`` attribute.
 func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableColumnGroupBox.IsInstance(box) {
-		_, f := box.TableFields()
+		f := box.TableFields()
 
 		hasCol := false
-		for _, child := range nodeChildren(element) {
+		for _, child := range utils.NodeChildren(element) {
 			if child.DataAtom == atom.Col {
 				hasCol = true
 				f.span = 0 // sum of the children’s spans
 			}
 		}
 		if !hasCol {
-			valid, span = integerAttribute(element, "span", 1)
+			valid, span := integerAttribute(element, "span", 1)
 			if valid {
 				f.span = span
 			}
@@ -181,7 +182,7 @@ func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 			for i := range children {
 				children[i] = TypeTableColumnBox.AnonymousFrom(box, nil)
 			}
-			box.children = children
+			box.BaseBox().children = children
 		}
 	}
 	return []AllBox{box}
@@ -190,9 +191,9 @@ func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 // Handle the ``span`` attribute.
 func handleCol(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableColumnBox.IsInstance(box) {
-		_, f := box.TableFields()
+		f := box.TableFields()
 
-		valid, span = integerAttribute(element, "span", 1)
+		valid, span := integerAttribute(element, "span", 1)
 		if valid {
 			f.span = span
 		}
@@ -218,7 +219,7 @@ func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 		// http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-colspan
 		// rowspan=0 is still there though.
 
-		_, f := box.TableFields()
+		f := box.TableFields()
 		valid, span := integerAttribute(element, "colspan", 1)
 		if valid {
 			f.colspan = span
@@ -246,7 +247,7 @@ func findBaseUrl(htmlDocument html.Node, fallbackBaseUrl string) string {
 	if len(bases) > 0 {
 		href := strings.TrimSpace(utils.GetAttribute(bases[0], "href"))
 		if href != "" {
-			return utils.Urljoin(fallbackBaseUrl, href)
+			return path.Join(fallbackBaseUrl, href)
 		}
 	}
 	return fallbackBaseUrl
@@ -317,8 +318,8 @@ func getHtmlMetadata(wrapperElement html.Node, baseUrl string) HtmlMetadata {
 			}
 		case atom.Link:
 			if elementHasLinkType(element, "attachment") {
-				url := getUrlAttribute(element, "href", baseUrl)
-				title := element.get("title", None)
+				url := utils.GetUrlAttribute(element, "href", baseUrl, false)
+				title := utils.GetAttribute(element, "title")
 				if url == "" {
 					log.Println("Missing href in <link rel='attachment'>")
 				} else {
