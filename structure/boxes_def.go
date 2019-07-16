@@ -17,6 +17,7 @@ type AllBox interface {
 
 	Copy() AllBox
 	removeDecoration(start, end bool)
+	descendants() []AllBox
 }
 
 // Box is an abstract base class for all boxes.
@@ -30,9 +31,11 @@ type Box struct {
 	isForRootElement     bool
 	isColumn             bool
 	isAttachment         bool
+	isListMarker         bool
 	transformationMatrix TBD
-	bookmarkLabel        TBD
-	stringSet            TBD
+
+	bookmarkLabel string
+	stringSet     []css.NameValue
 
 	elementTag string
 	style      css.StyleDict
@@ -289,6 +292,7 @@ type MarginBox struct {
 	atKeyword TBD
 }
 
+func (b Box) Copy() AllBox                 { return &b }
 func (b ParentBox) Copy() AllBox           { return &b }
 func (b BlockContainerBox) Copy() AllBox   { return &b }
 func (b BlockBox) Copy() AllBox            { return &b }

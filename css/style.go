@@ -26,14 +26,13 @@ type Dimension struct {
 
 type Side string
 
-type CounterIncrement struct {
-	Name  string
-	Value int
+type NameValue struct {
+	Name, Value string
 }
 
 type CounterIncrements struct {
 	String string
-	CI     []CounterIncrement
+	CI     []NameInt
 }
 
 func (c CounterIncrements) IsNil() bool {
@@ -48,16 +47,16 @@ type Page struct {
 
 func (x CounterIncrements) Copy() CounterIncrements {
 	out := x
-	out.CI = append([]CounterIncrement{}, x.CI...)
+	out.CI = append([]NameInt{}, x.CI...)
 	return out
 }
 
-type CounterReset struct {
+type NameInt struct {
 	Name  string
 	Value int
 }
 
-type CounterResets []CounterReset
+type CounterResets []NameInt
 
 func (x CounterResets) Copy() CounterResets {
 	return append(CounterResets{}, x...)
@@ -68,11 +67,9 @@ type cascadedValue struct {
 	precedence int
 }
 
-type ImageType interface{}
-
 type ListStyleImage struct {
-	Type  string
-	Image ImageType
+	Type string
+	Url  string
 }
 
 type Quotes struct {
@@ -88,9 +85,9 @@ func (q Quotes) Copy() Quotes {
 }
 
 type MiscProperties struct {
-	CounterResets     CounterResets
-	CounterIncrements CounterIncrements
-	Page              Page
+	CounterReset     CounterResets
+	CounterIncrement CounterIncrements
+	Page             Page
 
 	BackgroundImage    BackgroundImage
 	BackgroundPosition BackgroundPosition
@@ -100,6 +97,9 @@ type MiscProperties struct {
 
 	Quotes Quotes
 
+	StringSet     StringSet
+	BookmarkLabel StringContent
+
 	ListStyleImage        ListStyleImage
 	weasySpecifiedDisplay Display
 }
@@ -107,8 +107,8 @@ type MiscProperties struct {
 // Deep copy
 func (s MiscProperties) Copy() MiscProperties {
 	out := s
-	out.CounterIncrements = s.CounterIncrements.Copy()
-	out.CounterResets = s.CounterResets.Copy()
+	out.CounterIncrement = s.CounterIncrement.Copy()
+	out.CounterReset = s.CounterReset.Copy()
 
 	out.BackgroundImage = append(BackgroundImage{}, s.BackgroundImage...)
 	out.BackgroundPosition = append(BackgroundPosition{}, s.BackgroundPosition...)
@@ -116,18 +116,19 @@ func (s MiscProperties) Copy() MiscProperties {
 	out.Content = s.Content.Copy()
 	out.Transforms = append(Transforms{}, s.Transforms...)
 	out.Quotes = s.Quotes.Copy()
-
+	out.StringSet = s.StringSet.Copy()
+	out.BookmarkLabel = s.BookmarkLabel.Copy()
 	return out
 }
 
 // Items returns a map with only non zero properties
 func (s MiscProperties) Items() map[string]CssProperty {
 	out := make(map[string]CssProperty)
-	if !s.CounterIncrements.IsNil() {
-		out["counter_increment"] = s.CounterIncrements
+	if !s.CounterIncrement.IsNil() {
+		out["counter_increment"] = s.CounterIncrement
 	}
-	if s.CounterResets != nil {
-		out["counter_reset"] = s.CounterResets
+	if s.CounterReset != nil {
+		out["counter_reset"] = s.CounterReset
 	}
 	if s.Page.Valid {
 		out["page"] = s.Page
@@ -151,6 +152,15 @@ func (s MiscProperties) Items() map[string]CssProperty {
 
 	if !s.Quotes.IsNil() {
 		out["quotes"] = s.Quotes
+	}
+	if (s.ListStyleImage != ListStyleImage{}) {
+		out["list_style_image"] = s.ListStyleImage
+	}
+	if !s.StringSet.IsNil() {
+		out["string_set"] = s.StringSet
+	}
+	if !s.BookmarkLabel.IsNil() {
+		out["bookmark_label"] = s.BookmarkLabel
 	}
 
 	if s.weasySpecifiedDisplay != "" {

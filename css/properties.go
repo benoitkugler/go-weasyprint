@@ -70,8 +70,8 @@ var (
 			// Means "none", but allow `display: list-item` to increment the
 			// list-item counter. If we ever have a way for authors to query
 			// computed values (JavaScript?), this value should serialize to "none".
-			CounterIncrements: CounterIncrements{String: "auto"},
-			CounterResets:     CounterResets{}, // parsed value for "none"
+			CounterIncrement: CounterIncrements{String: "auto"},
+			CounterReset:     CounterResets{}, // parsed value for "none"
 
 			BackgroundPosition: BackgroundPosition{
 				Center{OriginX: "left", PosX: Dimension{Unit: "%"}},
@@ -320,6 +320,8 @@ func init() {
 
 func vs(s string) Value { return Value{String: s} }
 
+type ImageType interface{}
+
 // Dimension or string
 type Value struct {
 	Dimension
@@ -328,6 +330,39 @@ type Value struct {
 
 func IntToValue(i int) Value {
 	return Value{Dimension: Dimension{Value: i}}
+}
+
+type StringContent struct {
+	Name   string
+	Values []ContentProperty
+}
+
+func (s StringContent) IsNil() bool {
+	return s.Name == "" && s.Values == nil
+}
+
+func (s StringContent) Copy() StringContent {
+	out := s
+	out.Values = append([]ContentProperty{}, s.Values...)
+	return out
+}
+
+type StringSet struct {
+	String   string
+	Contents []StringContent
+}
+
+func (s StringSet) IsNil() bool {
+	return s.String == "" && s.Contents == nil
+}
+
+func (s StringSet) Copy() StringSet {
+	out := s
+	out.Contents = make([]StringContent, len(s.Contents))
+	for index, l := range s.Contents {
+		out.Contents[index] = l.Copy()
+	}
+	return out
 }
 
 // background-image
@@ -552,10 +587,10 @@ func (v Color) SetOn(name string, s *StyleDict) {
 }
 
 func (v CounterResets) SetOn(name string, s *StyleDict) {
-	s.CounterResets = v
+	s.CounterReset = v
 }
 func (v CounterIncrements) SetOn(name string, s *StyleDict) {
-	s.CounterIncrements = v
+	s.CounterIncrement = v
 }
 func (v Page) SetOn(name string, s *StyleDict) {
 	s.Page = v
@@ -578,4 +613,13 @@ func (v Transforms) SetOn(name string, s *StyleDict) {
 }
 func (v Quotes) SetOn(name string, s *StyleDict) {
 	s.Quotes = v
+}
+func (v ListStyleImage) SetOn(name string, s *StyleDict) {
+	s.ListStyleImage = v
+}
+func (v StringSet) SetOn(name string, s *StyleDict) {
+	s.StringSet = v
+}
+func (v StringContent) SetOn(name string, s *StyleDict) {
+	s.BookmarkLabel = v
 }

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
@@ -64,4 +65,11 @@ func TestRe(t *testing.T) {
 	fmt.Println(s.MatchString("1997-07-16T19:20+01:00"))
 	fmt.Println(s.MatchString("1997-07-16T19:20:30+01:00"))
 	fmt.Println(s.MatchString("1997-07-16T19:20:30.45+01:00"))
+}
+
+func TestRune(t *testing.T) {
+	s := []rune("lmdkmlskslkd")
+	u := s[0]
+	unicode.IsPunct(u)
+	fmt.Println(u, string(u))
 }

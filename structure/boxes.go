@@ -381,6 +381,11 @@ func (self Box) AllChildren() []AllBox {
 	return self.children
 }
 
+// A flat generator for a box, its children and descendants."""
+func (self Box) descendants() []AllBox {
+	return []AllBox{&self}
+}
+
 func (p *ParentBox) init(elementTag string, style css.StyleDict, children []AllBox) {
 	p.Box.init(elementTag, style)
 	p.children = children
@@ -406,6 +411,15 @@ func (self *ParentBox) removeDecoration(start, end bool) {
 	}
 }
 
+// A flat generator for a box, its children and descendants."""
+func (self ParentBox) descendants() []AllBox {
+	out := []AllBox{&self}
+	for _, child := range self.children {
+		out = append(out, child.descendants()...)
+	}
+	return out
+}
+
 // Create a new equivalent box with given ``newChildren``.
 func CopyWithChildren(box AllBox, newChildren []AllBox, isStart, isEnd bool) AllBox {
 	newBox := box.Copy()
@@ -416,17 +430,6 @@ func CopyWithChildren(box AllBox, newChildren []AllBox, isStart, isEnd bool) All
 	newBox.removeDecoration(!isStart, !isEnd)
 	return newBox
 }
-
-//// A flat generator for a box, its chien and descendants."""
-//func (self ParentBox) descendants(self) {
-//	yield self
-//	for child in self.children:
-//	if hasattr(child, 'descendants'}
-//	for grandChild in child.descendants(}
-//	yield grandChild
-//	else:
-//	yield child
-//}
 
 // Get the table wrapped by the box.
 // Warning, might be nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -20,7 +21,14 @@ import (
 //    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
 //    :license: BSD, see LICENSE for details.
 
-var ()
+var (
+	textContentExtractors = map[string]func(AllBox) string{
+		"text":         boxText,
+		"before":       boxTextBefore,
+		"after":        boxTextAfter,
+		"first-letter": boxTextFirstLetter,
+	}
+)
 
 type styleForType = func(element html.Node, pseudoType string) css.StyleDict
 
@@ -80,7 +88,7 @@ func makeBox(elementTag string, style css.StyleDict, content []AllBox) AllBox {
 }
 
 // Build a formatting structure (box tree) from an element tree.
-func buildFormattingStructure(elementTree html.Node, styleFor styleForType, getImageFromUri gifu, baseUrl string) AllBox {
+func BuildFormattingStructure(elementTree html.Node, styleFor styleForType, getImageFromUri gifu, baseUrl string) AllBox {
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, nil)
 	var box AllBox
 	if len(boxList) > 0 {
@@ -243,7 +251,7 @@ func beforeAfterToBox(element html.Node, pseudoType string, state *stateShared, 
 
 // Takes the value of a ``content`` property && yield boxes.
 func contentToBoxes(style css.StyleDict, parentBox AllBox, quoteDepth []int, counterValues map[string][]int,
-	getImageFromUri gifu, context *TBD, page *TBD) []AllBox {
+	getImageFromUri gifu, _ *TBD, _ *TBD) []AllBox {
 
 	var out []AllBox
 	var texts []string
@@ -263,16 +271,16 @@ func contentToBoxes(style css.StyleDict, parentBox AllBox, quoteDepth []int, cou
 			}
 		case "counter":
 			counterName, counterStyle := _tv.String, _tv.CounterStyle
-			vs := counterValues[counterName]
-			if vs == nil {
+			vs, has := counterValues[counterName]
+			if !has {
 				vs = []int{0}
 			}
 			counterValue := vs[len(vs)-1]
 			texts = append(texts, format(counterValue, counterStyle))
 		case "counters":
 			counterName, separator, counterStyle := _tv.String, _tv.Separator, _tv.CounterStyle
-			vs := counterValues[counterName]
-			if vs == nil {
+			vs, has := counterValues[counterName]
+			if !has {
 				vs = []int{0}
 			}
 			cs := make([]string, len(vs))
@@ -281,10 +289,10 @@ func contentToBoxes(style css.StyleDict, parentBox AllBox, quoteDepth []int, cou
 			}
 			texts = append(texts, strings.Join(cs, separator))
 		case "string":
-			if context != nil && page != nil {
-				text = context.getStringSetFor(page, *value)
-				texts = append(texts, text)
-			}
+			// if context != nil && page != nil {
+			// 	text = context.getStringSetFor(page, *value)
+			// 	texts = append(texts, text)
+			// }
 		default:
 			if _tv.Type != "QUOTE" {
 				log.Fatal("type now must be QUOTE")
@@ -1132,13 +1140,13 @@ func blockInInline(box AllBox) AllBox {
 	for _, child := range box.BaseBox().children {
 		var newChild AllBox
 		if LineBoxIsInstance(child) {
-			if len(box.children) != 1 {
-				log.Fatalf("Line boxes should have no siblings at this stage, got %r.", box.children)
+			if len(box.BaseBox().children) != 1 {
+				log.Fatalf("Line boxes should have no siblings at this stage, got %r.", box.BaseBox().children)
 			}
 
 			var (
-				stack   *SkipStack
-				newLine []AllBox
+				stack          *SkipStack
+				newLine, block AllBox
 			)
 			for {
 				newLine, block, stack = innerBlockInInline(child, stack)
@@ -1212,6 +1220,7 @@ func innerBlockInInline(box AllBox, skipStack *SkipStack) (AllBox, AllBox, *Skip
 			blockLevelBox = child
 			index += 1 // Resume *after* the block
 		} else {
+			var newChild AllBox
 			if InlineBoxIsInstance(child) {
 				newChild, blockLevelBox, resumeAt = innerBlockInInline(child, skipStack)
 				skipStack = nil
@@ -1268,6 +1277,66 @@ func setViewportOverflow(rootBox AllBox) AllBox {
 	return rootBox
 }
 
+// Compute the string corresponding to the content-list.
+func computeContentListString(element html.Node, box AllBox, counterValues map[string][]int, contentList []css.ContentProperty) string {
+	chunks := make([]string, len(contentList))
+	for i, content := range contentList {
+		switch content.Type {
+		case "STRING":
+			chunks[i] = content.String
+		case "content":
+			addedText := textContentExtractors[content.String](box)
+			// Simulate the step of white space processing
+			// (normally done during the layout)
+			addedText = strings.TrimSpace(addedText)
+			chunks[i] = addedText
+		case "counter":
+			cv, has := counterValues[content.String]
+			if !has {
+				cv = []int{0}
+			}
+			counterValue := cv[len(cv)-1]
+			chunks[i] = format(counterValue, content.CounterStyle)
+		case "counters":
+			counterName, separator, counterStyle := content.String, content.Separator, content.CounterStyle
+			vs, has := counterValues[counterName]
+			if !has {
+				vs = []int{0}
+			}
+			cs := make([]string, len(vs))
+			for i, counterValue := range vs {
+				cs[i] = format(counterValue, counterStyle)
+			}
+			chunks[i] = strings.Join(cs, separator)
+		case "attr":
+			chunks[i] = utils.GetAttribute(element, content.String)
+		}
+	}
+	return strings.Join(chunks, "")
+}
+
+// Set the content-lists by strings.
+// These content-lists are used in GCPM properties like ``string-set`` and
+// ``bookmark-label``.
+func setContentLists(element html.Node, box AllBox, style css.StyleDict, counterValues map[string][]int) {
+	var stringSet []css.NameValue
+	if style.StringSet.String != "none" {
+		for _, c := range style.StringSet.Contents {
+			stringSet = append(stringSet, css.NameValue{
+				Name: c.Name, Value: computeContentListString(element, box, counterValues, c.Values),
+			})
+		}
+	}
+	box.BaseBox().stringSet = stringSet
+
+	if style.BookmarkLabel.Name == "none" {
+		box.BaseBox().bookmarkLabel = ""
+	} else {
+		box.BaseBox().bookmarkLabel = computeContentListString(element, box, counterValues, style.BookmarkLabel.Values)
+	}
+
+}
+
 // Handle the ``counter-*`` properties.
 func updateCounters(state *stateShared, style css.StyleDict) {
 	_, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
@@ -1293,13 +1362,13 @@ func updateCounters(state *stateShared, style css.StyleDict) {
 	//        values[-1] = value
 
 	counterIncrement, cis := style.CounterIncrement, style.CounterIncrement.CI
-	if counterIncrement.Auto {
+	if counterIncrement.String == "auto" {
 		// "auto" is the initial value but is not valid in stylesheet:
 		// there was no counter-increment declaration for this element.
 		// (Or the winning value was "initial".)
 		// http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
-		if style.Display == "list-item" {
-			cis = []css.CounterIncrement{{"list-item", 1}}
+		if style.Strings["display"] == "list-item" {
+			cis = []css.NameInt{{Name: "list-item", Value: 1}}
 		} else {
 			cis = nil
 		}
@@ -1320,14 +1389,13 @@ func updateCounters(state *stateShared, style css.StyleDict) {
 
 // Add a list marker to boxes for elements with ``display: list-item``,
 // and yield children to add a the start of the box.
-
 // See http://www.w3.org/TR/CSS21/generate.html#lists
 func addBoxMarker(box AllBox, counterValues map[string][]int, getImageFromUri gifu) []AllBox {
 	style := box.BaseBox().style
-	image := style.ListStyleImage.Image
+	var image css.ImageType
 	if style.ListStyleImage.Type == "url" {
 		// surface may be None here too, in case the image is not available.
-		image = getImageFromUri(image.Url(), "")
+		image = getImageFromUri(style.ListStyleImage.Url, "")
 	}
 	var markerBox AllBox
 	if image == nil {
@@ -1351,9 +1419,9 @@ func addBoxMarker(box AllBox, counterValues map[string][]int, getImageFromUri gi
 
 	switch style.Strings["list_style_position"] {
 	case "inside":
-		return markerBox
+		return []AllBox{markerBox}
 	case "outside":
-		box.outsideListMarker = markerBox
+		box.BaseBox().outsideListMarker = markerBox
 	}
 	return nil
 }
@@ -1371,4 +1439,72 @@ func isWhitespace(box AllBox, hasNonWhitespace func(string) bool) bool {
 	}
 	textBox, is := box.(*TextBox)
 	return is && !hasNonWhitespace(textBox.text)
+}
+
+func boxText(box AllBox) string {
+	if tBox, is := box.(*TextBox); is {
+		return tBox.text
+	} else if box.IsParentBox() {
+		var chunks []string
+		for _, child := range box.descendants() {
+			et := child.BaseBox().elementTag
+			if !strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") {
+				if tBox, is := child.(*TextBox); is {
+					chunks = append(chunks, tBox.text)
+				}
+			}
+		}
+		return strings.Join(chunks, "")
+	} else {
+		return ""
+	}
+}
+
+func boxTextFirstLetter(box AllBox) string {
+	// TODO: use the same code as := range inlines.firstLetterToBox
+	characterFound := false
+	firstLetter := ""
+	text := []rune(boxText(box))
+	tables := []*unicode.RangeTable{unicode.Ps, unicode.Pe, unicode.Pi, unicode.Pf, unicode.Po}
+	for len(text) > 0 {
+		nextLetter := text[0]
+		isPunc := unicode.In(nextLetter, tables...)
+		if !isPunc {
+			if characterFound {
+				break
+			}
+			characterFound = true
+		}
+		firstLetter += string(nextLetter)
+		text = text[1:]
+	}
+	return firstLetter
+}
+
+func boxTextBefore(box AllBox) string {
+	if box.IsParentBox() {
+		var chunks []string
+		for _, child := range box.descendants() {
+			et := child.BaseBox().elementTag
+			if strings.HasSuffix(et, "::before") && !child.IsParentBox() {
+				chunks = append(chunks, boxText(child))
+			}
+		}
+		return strings.Join(chunks, "")
+	}
+	return ""
+}
+
+func boxTextAfter(box AllBox) string {
+	if box.IsParentBox() {
+		var chunks []string
+		for _, child := range box.descendants() {
+			et := child.BaseBox().elementTag
+			if strings.HasSuffix(et, "::after") && !child.IsParentBox() {
+				chunks = append(chunks, boxText(child))
+			}
+		}
+		return strings.Join(chunks, "")
+	}
+	return ""
 }

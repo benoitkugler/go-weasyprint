@@ -551,3 +551,6 @@ func (value Value) ComputeValue(computer *computer, name string) CssProperty    
 func (value String) ComputeValue(computer *computer, name string) CssProperty            { return value }
 func (value Color) ComputeValue(computer *computer, name string) CssProperty             { return value }
 func (value Quotes) ComputeValue(computer *computer, name string) CssProperty            { return value }
+func (value ListStyleImage) ComputeValue(computer *computer, name string) CssProperty    { return value }
+func (value StringSet) ComputeValue(computer *computer, name string) CssProperty         { return value }
+func (value StringContent) ComputeValue(computer *computer, name string) CssProperty     { return value }
