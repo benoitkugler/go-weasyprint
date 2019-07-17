@@ -16,7 +16,7 @@ import (
 )
 
 type gifu = func(url string, mimeType string) css.ImageType
-type HandlerFunction = func(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox
+type HandlerFunction = func(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox
 
 var (
 	HtmlHandlers = map[string]HandlerFunction{
@@ -67,7 +67,7 @@ func elementHasLinkType(element html.Node, linkType string) bool {
 }
 
 // HandleElement handle HTML elements that need special care.
-func HandleElement(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
+func HandleElement(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
 	handler, in := HtmlHandlers[box.BaseBox().elementTag]
 	if in {
 		return handler(element, box, getImageFromUri, baseUrl)
@@ -80,7 +80,7 @@ func HandleElement(element html.Node, box AllBox, getImageFromUri gifu, baseUrl 
 //
 // That box is either block-level || inline-level, depending on what the
 // element should be.
-func makeReplacedBox(element html.Node, box AllBox, image css.ImageType) AllBox {
+func makeReplacedBox(element *html.Node, box AllBox, image css.ImageType) AllBox {
 	switch box.BaseBox().style.Strings["display"] {
 	case "block", "list-item", "table":
 		return NewBlockReplacedBox(element.Data, box.BaseBox().style, image)
@@ -92,9 +92,9 @@ func makeReplacedBox(element html.Node, box AllBox, image css.ImageType) AllBox 
 
 // Handle ``<img>`` elements, return either an image || the alt-text.
 // See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
-func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
-	src := utils.GetUrlAttribute(element, "src", baseUrl, false)
-	alt := utils.GetAttribute(element, "alt")
+func handleImg(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
+	src := utils.GetUrlAttribute(*element, "src", baseUrl, false)
+	alt := utils.GetAttribute(*element, "alt")
 	if src != "" {
 		image := getImageFromUri(src, "")
 		if image != nil {
@@ -116,9 +116,9 @@ func handleImg(element html.Node, box AllBox, getImageFromUri gifu, baseUrl stri
 
 // Handle ``<embed>`` elements, return either an image || nothing.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
-func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
-	src := utils.GetUrlAttribute(element, "src", baseUrl, false)
-	type_ := strings.TrimSpace(utils.GetAttribute(element, "type"))
+func handleEmbed(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
+	src := utils.GetUrlAttribute(*element, "src", baseUrl, false)
+	type_ := strings.TrimSpace(utils.GetAttribute(*element, "type"))
 	if src != "" {
 		image := getImageFromUri(src, type_)
 		if image != nil {
@@ -132,9 +132,9 @@ func handleEmbed(element html.Node, box AllBox, getImageFromUri gifu, baseUrl st
 // Handle ``<object>`` elements, return either an image || the fallback
 // content.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
-func handleObject(element html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
-	data := utils.GetUrlAttribute(element, "data", baseUrl, false)
-	type_ := strings.TrimSpace(utils.GetAttribute(element, "type"))
+func handleObject(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox {
+	data := utils.GetUrlAttribute(*element, "data", baseUrl, false)
+	type_ := strings.TrimSpace(utils.GetAttribute(*element, "type"))
 	if data != "" {
 		image := getImageFromUri(data, type_)
 		if image != nil {
@@ -162,19 +162,19 @@ func integerAttribute(element html.Node, name string, minimum int) (bool, int) {
 }
 
 // Handle the ``span`` attribute.
-func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+func handleColgroup(element *html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableColumnGroupBox.IsInstance(box) {
 		f := box.TableFields()
 
 		hasCol := false
-		for _, child := range utils.NodeChildren(element) {
+		for _, child := range utils.NodeChildren(*element) {
 			if child.DataAtom == atom.Col {
 				hasCol = true
 				f.span = 0 // sum of the children’s spans
 			}
 		}
 		if !hasCol {
-			valid, span := integerAttribute(element, "span", 1)
+			valid, span := integerAttribute(*element, "span", 1)
 			if valid {
 				f.span = span
 			}
@@ -189,11 +189,11 @@ func handleColgroup(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 }
 
 // Handle the ``span`` attribute.
-func handleCol(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+func handleCol(element *html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableColumnBox.IsInstance(box) {
 		f := box.TableFields()
 
-		valid, span := integerAttribute(element, "span", 1)
+		valid, span := integerAttribute(*element, "span", 1)
 		if valid {
 			f.span = span
 		}
@@ -211,7 +211,7 @@ func handleCol(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 }
 
 // Handle the ``colspan``, ``rowspan`` attributes.
-func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
+func handleTd(element *html.Node, box AllBox, _ gifu, _ string) []AllBox {
 	if TypeTableCellBox.IsInstance(box) {
 		// HTML 4.01 gives special meaning to colspan=0
 		// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
@@ -220,11 +220,11 @@ func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 		// rowspan=0 is still there though.
 
 		f := box.TableFields()
-		valid, span := integerAttribute(element, "colspan", 1)
+		valid, span := integerAttribute(*element, "colspan", 1)
 		if valid {
 			f.colspan = span
 		}
-		valid, span = integerAttribute(element, "rowspan", 0)
+		valid, span = integerAttribute(*element, "rowspan", 0)
 		if valid {
 			f.rowspan = span
 		}
@@ -234,8 +234,8 @@ func handleTd(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
 }
 
 // Handle the ``rel`` attribute.
-func handleA(element html.Node, box AllBox, _ gifu, _ string) []AllBox {
-	box.BaseBox().isAttachment = elementHasLinkType(element, "attachment")
+func handleA(element *html.Node, box AllBox, _ gifu, _ string) []AllBox {
+	box.BaseBox().isAttachment = elementHasLinkType(*element, "attachment")
 	return []AllBox{box}
 }
 

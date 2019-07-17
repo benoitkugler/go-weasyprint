@@ -73,3 +73,14 @@ func TestRune(t *testing.T) {
 	unicode.IsPunct(u)
 	fmt.Println(u, string(u))
 }
+
+func TestMapPointer(t *testing.T) {
+	s := "<html><head><base></base></head></html>"
+	n, err := html.Parse(strings.NewReader(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := map[*html.Node]string{}
+	m[n] = "mlkkmke"
+	fmt.Println(m)
+}

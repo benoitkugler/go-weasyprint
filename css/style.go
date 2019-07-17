@@ -21,7 +21,7 @@ type Color struct {
 // Dimension without unit is interpreted as int
 type Dimension struct {
 	Unit  string
-	Value int
+	Value float64
 }
 
 type Side string

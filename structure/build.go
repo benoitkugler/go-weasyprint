@@ -30,7 +30,7 @@ var (
 	}
 )
 
-type styleForType = func(element html.Node, pseudoType string) css.StyleDict
+type styleForType = func(element *html.Node, pseudoType string) css.StyleDict
 
 type stateShared struct {
 	quoteDepth    []int
@@ -88,13 +88,13 @@ func makeBox(elementTag string, style css.StyleDict, content []AllBox) AllBox {
 }
 
 // Build a formatting structure (box tree) from an element tree.
-func BuildFormattingStructure(elementTree html.Node, styleFor styleForType, getImageFromUri gifu, baseUrl string) AllBox {
+func BuildFormattingStructure(elementTree *html.Node, styleFor styleForType, getImageFromUri gifu, baseUrl string) AllBox {
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, nil)
 	var box AllBox
 	if len(boxList) > 0 {
 		box = boxList[0]
 	} else { //  No root element
-		rootStyleFor := func(element html.Node, pseudoType string) css.StyleDict {
+		rootStyleFor := func(element *html.Node, pseudoType string) css.StyleDict {
 			style := styleFor(element, pseudoType)
 			if !style.IsZero() {
 				// TODO: we should check that the element has a parent instead.
@@ -139,7 +139,7 @@ func BuildFormattingStructure(elementTree html.Node, styleFor styleForType, getI
 //
 //    ``TextBox``es are anonymous inline boxes:
 //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-func elementToBox(element html.Node, styleFor styleForType,
+func elementToBox(element *html.Node, styleFor styleForType,
 	getImageFromUri gifu, baseUrl string, state *stateShared) []AllBox {
 
 	if element.Type != html.TextNode && element.Type != html.ElementNode && element.Type != html.DocumentNode {
@@ -191,7 +191,7 @@ func elementToBox(element html.Node, styleFor styleForType,
 		children = append(children, TextBoxAnonymousFrom(box, element.Data))
 	}
 
-	for _, childElement := range utils.NodeChildren(element) {
+	for _, childElement := range utils.NodeChildren(*element) {
 		children = append(children, elementToBox(childElement, styleFor, getImageFromUri, baseUrl, state)...)
 		// html.Node as no notion of tail. Instead, text are converted in text nodes
 	}
@@ -215,7 +215,7 @@ func elementToBox(element html.Node, styleFor styleForType,
 }
 
 // Yield the box for ::before || ::after pseudo-element if there is one.
-func beforeAfterToBox(element html.Node, pseudoType string, state *stateShared, styleFor styleForType,
+func beforeAfterToBox(element *html.Node, pseudoType string, state *stateShared, styleFor styleForType,
 	getImageFromUri gifu) []AllBox {
 
 	style := styleFor(element, pseudoType)
@@ -1278,7 +1278,7 @@ func setViewportOverflow(rootBox AllBox) AllBox {
 }
 
 // Compute the string corresponding to the content-list.
-func computeContentListString(element html.Node, box AllBox, counterValues map[string][]int, contentList []css.ContentProperty) string {
+func computeContentListString(element *html.Node, box AllBox, counterValues map[string][]int, contentList []css.ContentProperty) string {
 	chunks := make([]string, len(contentList))
 	for i, content := range contentList {
 		switch content.Type {
@@ -1309,7 +1309,7 @@ func computeContentListString(element html.Node, box AllBox, counterValues map[s
 			}
 			chunks[i] = strings.Join(cs, separator)
 		case "attr":
-			chunks[i] = utils.GetAttribute(element, content.String)
+			chunks[i] = utils.GetAttribute(*element, content.String)
 		}
 	}
 	return strings.Join(chunks, "")
@@ -1318,7 +1318,7 @@ func computeContentListString(element html.Node, box AllBox, counterValues map[s
 // Set the content-lists by strings.
 // These content-lists are used in GCPM properties like ``string-set`` and
 // ``bookmark-label``.
-func setContentLists(element html.Node, box AllBox, style css.StyleDict, counterValues map[string][]int) {
+func setContentLists(element *html.Node, box AllBox, style css.StyleDict, counterValues map[string][]int) {
 	var stringSet []css.NameValue
 	if style.StringSet.String != "none" {
 		for _, c := range style.StringSet.Contents {

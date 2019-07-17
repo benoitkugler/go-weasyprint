@@ -11,7 +11,7 @@ import (
 )
 
 // Turn an IRI that can contain any Unicode character into an ASCII-only  URI that conforms to RFC 3986.
-func iriToUri(urlS string) string {
+func IriToUri(urlS string) string {
 	if strings.HasPrefix(urlS, "data:") {
 		// Data URIs can be huge, but don’t need this anyway.
 		return urlS
@@ -28,11 +28,11 @@ func iriToUri(urlS string) string {
 // warn if baseUrl is required but missing.
 func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) string {
 	if path.IsAbs(urlS) {
-		return iriToUri(urlS)
+		return IriToUri(urlS)
 	} else if baseUrl != "" {
-		return iriToUri(path.Join(baseUrl, urlS))
+		return IriToUri(path.Join(baseUrl, urlS))
 	} else if allowRelative {
-		return iriToUri(urlS)
+		return IriToUri(urlS)
 	} else {
 		log.Println("Relative URI reference without a base URI: ", context)
 		return ""

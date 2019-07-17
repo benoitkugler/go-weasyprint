@@ -103,8 +103,8 @@ var (
 			"margin_right":        ZeroPixels,
 			"margin_bottom":       ZeroPixels,
 			"margin_left":         ZeroPixels,
-			"max_height":          Value{Dimension: Dimension{Value: int(math.Inf(+1)), Unit: "px"}}, // parsed value for "none}"
-			"max_width":           Value{Dimension: Dimension{Value: int(math.Inf(+1)), Unit: "px"}},
+			"max_height":          Value{Dimension: Dimension{Value: math.Inf(+1), Unit: "px"}}, // parsed value for "none}"
+			"max_width":           Value{Dimension: Dimension{Value: math.Inf(+1), Unit: "px"}},
 			"min_height":          ZeroPixels,
 			"min_width":           ZeroPixels,
 			"padding_top":         ZeroPixels,
@@ -329,7 +329,7 @@ type Value struct {
 }
 
 func IntToValue(i int) Value {
-	return Value{Dimension: Dimension{Value: i}}
+	return Value{Dimension: Dimension{Value: float64(i)}}
 }
 
 type StringContent struct {

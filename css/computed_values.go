@@ -26,7 +26,7 @@ var (
 
 	// These are unspecified, other than 'thin' <='medium' <= 'thick'.
 	// Values are in pixels.
-	BorderWidthKeywords = map[string]int{
+	BorderWidthKeywords = map[string]float64{
 		"thin":   1,
 		"medium": 3,
 		"thick":  5,
@@ -36,7 +36,7 @@ var (
 	// medium, and scaling factors given in CSS3 for others:
 	// http://www.w3.org/TR/css3-fonts/#font-size-prop
 	// TODO: this will need to be ordered to implement 'smaller' and 'larger'
-	FontSizeKeywords = map[string]int{ // medium is 16px, others are a ratio of medium
+	FontSizeKeywords = map[string]float64{ // medium is 16px, others are a ratio of medium
 		"xx-small": InitialValues.Values["font_size"].Value * 3 / 5,
 		"x-small":  InitialValues.Values["font_size"].Value * 3 / 4,
 		"small":    InitialValues.Values["font_size"].Value * 8 / 9,
@@ -48,9 +48,9 @@ var (
 
 	// http://www.w3.org/TR/CSS21/fonts.html#propdef-font-weight
 	FontWeightRelative = struct {
-		bolder, lighter map[int]int
+		bolder, lighter map[float64]float64
 	}{
-		bolder: map[int]int{
+		bolder: map[float64]float64{
 			100: 400,
 			200: 400,
 			300: 400,
@@ -61,7 +61,7 @@ var (
 			800: 900,
 			900: 900,
 		},
-		lighter: map[int]int{
+		lighter: map[float64]float64{
 			100: 100,
 			200: 100,
 			300: 100,
@@ -259,7 +259,7 @@ func length(computer *computer, name string, value Value) Value {
 
 // Compute a length ``value``.
 // passing a negative fontSize means null
-func length2(computer *computer, _ string, value Value, fontSize int) Value {
+func length2(computer *computer, _ string, value Value, fontSize float64) Value {
 	if value.String == "auto" || value.String == "content" {
 		return value
 	}
@@ -290,7 +290,7 @@ func length2(computer *computer, _ string, value Value, fontSize int) Value {
 			return value
 		}
 	}
-	return Value{Dimension: Dimension{Value: int(result), Unit: "px"}}
+	return Value{Dimension: Dimension{Value: result, Unit: "px"}}
 }
 
 func (value Bleed) ComputeValue(computer *computer, name string) CssProperty {
@@ -420,7 +420,7 @@ func (value FontSize) ComputeValue(computer *computer, name string) CssProperty 
 
 // Compute the ``font-weight`` property.
 func (value FontWeight) ComputeValue(computer *computer, name string) CssProperty {
-	var out int
+	var out float64
 	switch value.String {
 	case "normal":
 		out = 400
@@ -440,7 +440,7 @@ func (value FontWeight) ComputeValue(computer *computer, name string) CssPropert
 
 // Compute the ``line-height`` property.
 func (value LineHeight) ComputeValue(computer *computer, name string) CssProperty {
-	var pixels int
+	var pixels float64
 	switch {
 	case value.String == "normal":
 		return value
@@ -521,9 +521,9 @@ func (value VerticalAlign) ComputeValue(computer *computer, name string) CssProp
 	case "baseline", "middle", "text-top", "text-bottom", "top", "bottom":
 		out.String = value.String
 	case "super":
-		out.Value = int(float64(computer.computed.Values["font_size"].Value) * 0.5)
+		out.Value = float64(computer.computed.Values["font_size"].Value) * 0.5
 	case "sub":
-		out.Value = int(float64(computer.computed.Values["font_size"].Value) * -0.5)
+		out.Value = float64(computer.computed.Values["font_size"].Value) * -0.5
 	default:
 		out.Value = length(computer, name, Value(value)).Value
 	}

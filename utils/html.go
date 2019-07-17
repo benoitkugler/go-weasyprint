@@ -10,10 +10,10 @@ import (
 // ------------------------------------ html walk utilities ------------------------------------
 
 // NodeChildren returns the direct children of `element`
-func NodeChildren(element html.Node) (children []html.Node) {
+func NodeChildren(element html.Node) (children []*html.Node) {
 	child := element.FirstChild
 	for child != nil {
-		children = append(children, *child)
+		children = append(children, child)
 		child = child.NextSibling
 	}
 	return
