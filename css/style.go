@@ -1,6 +1,8 @@
 package css
 
-import "golang.org/x/net/html"
+import (
+	"golang.org/x/net/html"
+)
 
 const (
 	Top    Side = "top"
@@ -14,8 +16,14 @@ type CssProperty interface {
 	SetOn(name string, target *StyleDict)
 }
 
+// values in [-1, 1]
+type RGBA struct {
+	R, G, B, A float64
+}
+
 type Color struct {
-	CurrentColor bool
+	String string
+	RGBA   RGBA
 }
 
 // Dimension without unit is interpreted as int
