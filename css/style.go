@@ -26,10 +26,18 @@ type Color struct {
 	RGBA   RGBA
 }
 
+func (c Color) IsNone() {
+	return c == Color{}
+}
+
 // Dimension without unit is interpreted as int
 type Dimension struct {
 	Unit  string
 	Value float64
+}
+
+func (d Dimension) IsNone() bool {
+	return d == Dimension{}
 }
 
 type Side string
