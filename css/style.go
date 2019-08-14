@@ -26,7 +26,7 @@ type Color struct {
 	RGBA   RGBA
 }
 
-func (c Color) IsNone() {
+func (c Color) IsNone() bool {
 	return c == Color{}
 }
 
@@ -302,7 +302,7 @@ func (s *StyleDict) InheritFrom() StyleDict {
 
 func (s StyleDict) GetColor(key string) Color {
 	value := s.Colors[key]
-	if value.CurrentColor {
+	if value.String == "currentColor" {
 		value = s.Colors["color"]
 	}
 	return value

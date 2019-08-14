@@ -413,6 +413,15 @@ type Transforms []Transform
 // border-bottom-right-radius
 type Lengths []Value
 
+// marks
+type Marks struct {
+	Crop, Cross bool
+}
+
+func (m Marks) IsNone() bool {
+	return m == Marks{}
+}
+
 // break_after
 // break_before
 type Break string
