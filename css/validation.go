@@ -1319,6 +1319,7 @@ func fontFeatureSettings(tokens []Token) NameInt {
 		if feature != "" && value != 0 {
 			return NameInt{Name: feature, Value: value}
 		}
+		return NameInt{}
 	}
 
 	return fontFeatureSettingsList(tokens)
