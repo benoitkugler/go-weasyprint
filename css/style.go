@@ -16,20 +16,6 @@ type CssProperty interface {
 	SetOn(name string, target *StyleDict)
 }
 
-// values in [-1, 1]
-type RGBA struct {
-	R, G, B, A float64
-}
-
-type Color struct {
-	String string
-	RGBA   RGBA
-}
-
-func (c Color) IsNone() bool {
-	return c == Color{}
-}
-
 // Dimension without unit is interpreted as int
 type Dimension struct {
 	Unit  string

@@ -365,8 +365,8 @@ func (value Content) ComputeValue(computer *computer, name string) CssProperty {
 	lis := make([]ContentProperty, len(value.List))
 	for index, v := range value.List {
 		// type_, value := v[0], v[1]
-		if v.Type == "attr" {
-			lis[index].Type = "STRING"
+		if v.Type == ContentAttr {
+			lis[index].Type = ContentSTRING
 			lis[index].String = utils.GetAttribute(computer.element, value.String)
 		} else {
 			lis[index] = v

@@ -1,56 +1,43 @@
-from _Future__ import division
+package css
 
-import collections
-import re
+const (
+    ColorInvalid ColorType = iota 
+    ColorCurrentColor
+    ColorRGBA
+)
 
-from .parser import parseOneComponentValue
+// values in [-1, 1]
+type RGBA struct {
+	R, G, B, A float32
+}
 
+type ColorType uint8
 
-class RGBA(collections.namedtuple("RGBA", ["red", "green", "blue", "alpha"])) {
-    """An RGBA color.
+type Color struct {
+	Type ColorType
+	RGBA   RGBA
+}
 
-    A tuple of four floats := range the 0..1 range: ``(red, green, blue, alpha)``.
+func (c Color) IsNone() bool {
+	return c.Type == ColorInvalid
+}
 
-    .. attribute:: red
-
-        Convenience access to the red channel. Same as ``rgba[0]``.
-
-    .. attribute:: green
-
-        Convenience access to the green channel. Same as ``rgba[1]``.
-
-    .. attribute:: blue
-
-        Convenience access to the blue channel. Same as ``rgba[2]``.
-
-    .. attribute:: alpha
-
-        Convenience access to the alpha channel. Same as ``rgba[3]``.
-
-    """
-} 
-
-// Parse a color value as defined := range `CSS Color Level 3
-//     <http://www.w3.org/TR/css3-color/>`.
-//     :param input:
-//         A :term:`string`, || a single :term:`component value`.
-//     :returns:
-//         * :obj:`None` if the input is not a valid color value.
-//           (No exception is raised.)
-//         * The string ``"currentColor"`` for the *currentColor* keyword
-//         * Or a :class:`RGBA` object for every other values
-//           (including keywords, HSL && HSLA.)
-//           The alpha channel is clipped to [0, 1]
-//           but red, green, || blue can be out of range
-//           (eg. ``rgb(-10%, 120%, 0%)`` is represented as
-//           ``(-0.1, 1.2, 0, 1)``.)
-//     
-func parseColor(input) {
-    if isinstance(input, str) {
-        token = parseOneComponentValue(input, skipComments=true)
-    } else {
-        token = input
-    } if token.type == "ident" {
+// Parse a color value as defined in `CSS Color Level 3  <http://www.w3.org/TR/css3-color/>`.
+// Returns :
+//  - zero Color if the input is not a valid color value. (No exception is raised.)
+//  - CurrentColor for the *currentColor* keyword
+//  - RGBA color for every other values (including keywords, HSL && HSLA.)
+//    The alpha channel is clipped to [0, 1] but red, green, || blue can be out of range
+//    (eg. ``rgb(-10%, 120%, 0%)`` is represented as ``(-0.1, 1.2, 0, 1)``. 
+func parseColor(input Token) Color {
+    // if isinstance(input, str) {
+    //     token = parseOneComponentValue(input, skipComments=true)
+    // } else {
+    //     token = input
+    // } 
+    
+    
+    if token.Type == "ident" {
         return COLORKEYWORDS.get(token.lowerValue)
     } else if token.type == "hash" {
         for multiplier, regexp := range HASHREGEXPS {

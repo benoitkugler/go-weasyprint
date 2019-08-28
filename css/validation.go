@@ -108,19 +108,6 @@ type quote struct {
 	open, insert bool
 }
 
-type MaybeInt struct {
-	Valid bool
-	Int   int
-}
-
-type Token struct {
-	Dimension
-	String                      string
-	Type, LowerValue, LowerName string
-	IntValue                    MaybeInt
-	Arguments                   []Token
-}
-
 // If ``token`` is a keyword, return its name.
 //     Otherwise return ``None``.
 func getKeyword(token Token) string {

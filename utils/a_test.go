@@ -2,7 +2,9 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"unicode"
 )
 
 func TestQuote(t *testing.T) {
@@ -28,4 +30,26 @@ func TestUnicode(t *testing.T) {
 		fmt.Println(0x20 <= letter && letter <= 0x7f)
 	}
 	// fmt.Println([]rune("€"))
+}
+
+func TestLower(t *testing.T) {
+	keyword := "Bac\u212Aground"
+	rs := []rune(keyword)
+	out := make([]rune, len(rs))
+	for index, c := range rs {
+		fmt.Println(index, c)
+		if c <= unicode.MaxASCII {
+			c = unicode.ToLower(c)
+		}
+		out[index] = c
+	}
+
+	fmt.Println(keyword == "BacKground")
+
+	fmt.Println(strings.ToLower(keyword) == "background")
+	// fmt.Println(asciiLower(keyword) != strings.ToLower(keyword))
+	// fmt.Println(asciiLower(keyword) == "bac\u212Aground")
+	fmt.Println(unicode.MaxASCII)
+
+	fmt.Println(out, string(out))
 }
