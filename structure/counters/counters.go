@@ -1,4 +1,4 @@
-package structure
+package counters
 
 import (
 	"math"

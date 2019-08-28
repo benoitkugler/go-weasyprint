@@ -1,9 +1,13 @@
 package css
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"path"
+	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/structure/counters"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -13,12 +17,11 @@ import (
 // :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
 
-// get the sets of keys
 var (
 	LENGTHUNITS = Set{"ex": true, "em": true, "ch": true, "rem": true}
 
 	// keyword -> (open, insert)
-	CONTENTQUOTEKEYWORDS = map[string]quote{
+	ContentQuoteKeywords = map[string]quote{
 		"open-quote":     {open: true, insert: true},
 		"close-quote":    {open: false, insert: true},
 		"no-open-quote":  {open: true, insert: false},
@@ -60,10 +63,43 @@ var (
 		"dpi":  1 / LengthsToPixels["in"],
 		"dpcm": 1 / LengthsToPixels["cm"],
 	}
+
+	couplesLigatures = [][]string{
+		{"common-ligatures", "no-common-ligatures"},
+		{"historical-ligatures", "no-historical-ligatures"},
+		{"discretionary-ligatures", "no-discretionary-ligatures"},
+		{"contextual", "no-contextual"},
+	}
+	couplesNumeric = [][]string{
+		{"lining-nums", "oldstyle-nums"},
+		{"proportional-nums", "tabular-nums"},
+		{"diagonal-fractions", "stacked-fractions"},
+		{"ordinal"},
+		{"slashed-zero"},
+	}
+	allLigaturesValues = Set{}
+	allNumericValues   = Set{}
 )
 
-func parseColor(color Token) Color {
+func init() {
+	for k := range LengthsToPixels {
+		LENGTHUNITS[k] = true
+	}
 
+	for _, couple := range couplesLigatures {
+		for _, cc := range couple {
+			allLigaturesValues[cc] = true
+		}
+	}
+	for _, couple := range couplesNumeric {
+		for _, cc := range couple {
+			allNumericValues[cc] = true
+		}
+	}
+}
+
+func parseColor(color Token) Color {
+	// return Color{}
 }
 
 type validator func(string)
@@ -72,17 +108,17 @@ type quote struct {
 	open, insert bool
 }
 
-type Token struct {
-	Dimension
-	String           string
-	Type, LowerValue string
-	Arguments        []Token
+type MaybeInt struct {
+	Valid bool
+	Int   int
 }
 
-func init() {
-	for k := range LengthsToPixels {
-		LENGTHUNITS[k] = true
-	}
+type Token struct {
+	Dimension
+	String                      string
+	Type, LowerValue, LowerName string
+	IntValue                    MaybeInt
+	Arguments                   []Token
 }
 
 // If ``token`` is a keyword, return its name.
@@ -144,13 +180,13 @@ func getResolution(token Token) (float64, bool) {
 	return 0, false
 }
 
-func safeUrljoin(baseUrl, url string) string {
+func safeUrljoin(baseUrl, url string) (string, error) {
 	if path.IsAbs(url) {
-		return utils.IriToUri(url)
+		return utils.IriToUri(url), nil
 	} else if baseUrl != "" {
-		return utils.IriToUri(path.Join(baseUrl, url))
+		return utils.IriToUri(path.Join(baseUrl, url)), nil
 	} else {
-		panic("Relative URI reference without a base URI: " + url)
+		return "", errors.New("Relative URI reference without a base URI: " + url)
 	}
 }
 
@@ -258,7 +294,7 @@ func color(token Token) Color {
 
 // }
 
-var directionKeywords = map[[3]string]direction{
+var directionKeywords = map[[3]string]directionType{
 	// ("angle", radians)  0 upwards, then clockwise
 	{"to", "top", ""}:    {angle: 0},
 	{"to", "right", ""}:  {angle: math.Pi / 2},
@@ -275,17 +311,17 @@ var directionKeywords = map[[3]string]direction{
 	{"to", "right", "bottom"}: {corner: "bottomRight"},
 }
 
-type direction struct {
+type directionType struct {
 	corner string
 	angle  float64
 }
 
-func parseLinearGradientParameters(arguments [][]Token) (direction, [][]Token) {
+func parseLinearGradientParameters(arguments [][]Token) (directionType, [][]Token) {
 	firstArg := arguments[0]
 	if len(firstArg) == 1 {
 		angle, isNotNone := getAngle(firstArg[0])
 		if isNotNone {
-			return direction{angle: angle}, arguments[1:]
+			return directionType{angle: angle}, arguments[1:]
 		}
 	} else {
 		var mapped [3]string
@@ -299,7 +335,7 @@ func parseLinearGradientParameters(arguments [][]Token) (direction, [][]Token) {
 			return result, arguments[1:]
 		}
 	}
-	return direction{angle: math.Pi}, arguments // Default direction is "to bottom"
+	return directionType{angle: math.Pi}, arguments // Default direction is "to bottom"
 }
 
 func reverse(a []Token) []Token {
@@ -439,14 +475,15 @@ func parseColorStop(tokens []Token) (Color, Dimension, bool) {
 //@validator("list-style-image", wantsBaseUrl=true)
 //@singleToken
 // ``*-image`` properties validation.
-func imageUrl(token Token, baseUrl string) (string, string) {
+func imageUrl(token Token, baseUrl string) (string, string, error) {
 	if getKeyword(token) == "none" {
-		return "none", ""
+		return "none", "", nil
 	}
 	if token.Type == "url" {
-		return "url", safeUrljoin(baseUrl, token.String)
+		s, err := safeUrljoin(baseUrl, token.String)
+		return "url", s, err
 	}
-	return "", ""
+	return "", "", nil
 }
 
 var centerKeywordFakeToken = Token{
@@ -786,202 +823,264 @@ func outlineStyle(keyword string) bool {
 // //@validator("column-rule-width")
 // //@validator("outline-width")
 // //@singleToken
-// // Border, column rule && outline widths properties validation.
-// func borderWidth(token) {
-//     length = getLength(token, negative=false)
-//     if length {
-//         return length
-//     } keyword = getKeyword(token)
-//     if keyword := range ("thin", "medium", "thick") {
-//         return keyword
-//     }
-// }
+// Border, column rule && outline widths properties validation.
+func borderWidth(token Token) Value {
+	length := getLength(token, false, false)
+	if !length.IsNone() {
+		return Value{Dimension: length}
+	}
+	keyword := getKeyword(token)
+	if keyword == "thin" || keyword == "medium" || keyword == "thick" {
+		return Value{String: keyword}
+	}
+	return Value{}
+}
 
 // //@validator()
 // //@singleToken
-// // ``column-width`` property validation.
-// func columnWidth(token) {
-//     length = getLength(token, negative=false)
-//     if length {
-//         return length
-//     } keyword = getKeyword(token)
-//     if keyword == "auto" {
-//         return keyword
-//     }
-// }
+// ``column-width`` property validation.
+func columnWidth(token Token) Value {
+	length := getLength(token, false, false)
+	if !length.IsNone() {
+		return Value{Dimension: length}
+	}
+	keyword := getKeyword(token)
+	if keyword == "auto" {
+		return Value{String: keyword}
+	}
+	return Value{}
+}
 
 // //@validator()
 // //@singleKeyword
-// // ``column-span`` property validation.
-// func columnSpan(keyword) {
-//     // TODO: uncomment this when it is supported
-//     // return keyword := range ("all", "none")
-// }
+// ``column-span`` property validation.
+func columnSpan(keyword string) bool {
+	// TODO: uncomment this when it is supported
+	// return keyword := range ("all", "none")
+	return false
+}
 
 // //@validator()
 // //@singleKeyword
-// // Validation for the ``box-sizing`` property from css3-ui
-// func boxSizing(keyword) {
-//     return keyword := range ("padding-box", "border-box", "content-box")
-// }
+// Validation for the ``box-sizing`` property from css3-ui
+func boxSizing(keyword string) bool {
+	return keyword == "padding-box" || keyword == "border-box" || keyword == "content-box"
+}
 
 // //@validator()
 // //@singleKeyword
-// // ``caption-side`` properties validation.
-// func captionSide(keyword) {
-//     return keyword := range ("top", "bottom")
-// }
+// ``caption-side`` properties validation.
+func captionSide(keyword string) bool {
+	return keyword == "top" || keyword == "bottom"
+}
 
 // //@validator()
 // //@singleKeyword
-// // ``clear`` property validation.
-// func clear(keyword) {
-//     return keyword := range ("left", "right", "both", "none")
-// }
+// ``clear`` property validation.
+func clear(keyword string) bool {
+	return keyword == "left" || keyword == "right" || keyword == "both" || keyword == "none"
+}
 
 // //@validator()
 // //@singleToken
-// // Validation for the ``clip`` property.
-// func clip(token) {
-//     function = parseFunction(token)
-//     if function {
-//         name, args = function
-//         if name == "rect" && len(args) == 4 {
-//             values = []
-//             for arg := range args {
-//                 if getKeyword(arg) == "auto" {
-//                     values.append("auto")
-//                 } else {
-//                     length = getLength(arg)
-//                     if length {
-//                         values.append(length)
-//                     }
-//                 }
-//             } if len(values) == 4 {
-//                 return tuple(values)
-//             }
-//         }
-//     } if getKeyword(token) == "auto" {
-//         return ()
-//     }
-// }
+// Validation for the ``clip`` property.
+func clip(token Token) []Value {
+	name, args := parseFunction(token)
+	if name != "" {
+		if name == "rect" && len(args) == 4 {
+			var values []Value
+			for _, arg := range args {
+				if getKeyword(arg) == "auto" {
+					values = append(values, Value{String: "auto"})
+				} else {
+					length := getLength(arg, true, false)
+					if !length.IsNone() {
+						values = append(values, Value{Dimension: length})
+					}
+				}
+			}
+			if len(values) == 4 {
+				return values
+			}
+		}
+	}
+	if getKeyword(token) == "auto" {
+		return []Value{}
+	}
+	return nil
+}
 
 // //@validator(wantsBaseUrl=true)
-// // ``content`` property validation.
-// func content(tokens, baseUrl) {
-//     keyword = getSingleKeyword(tokens)
-//     if keyword := range ("normal", "none") {
-//         return keyword
-//     } parsedTokens = [validateContentToken(baseUrl, v) for v := range tokens]
-//     if None not := range parsedTokens {
-//         return parsedTokens
-//     }
-// }
+// ``content`` property validation.
+func content(tokens []Token, baseUrl string) (Content, error) {
+	keyword := getSingleKeyword(tokens)
+	if keyword == "normal" || keyword == "none" {
+		return Content{String: keyword}, nil
+	}
+	out := make([]ContentProperty, len(tokens))
+	for index, v := range tokens {
+		contentProperty, err := validateContentToken(baseUrl, v)
+		if err != nil {
+			return Content{}, err
+		}
+		if contentProperty.IsNil() {
+			return Content{}, nil
+		}
+		out[index] = contentProperty
+	}
+	return Content{List: out}, nil
+}
 
-// // Validation for a single token for the ``content`` property.
-// // }
-// //     Return (type, content) || false for invalid tokens.
-// //
-// func validateContentToken(baseUrl, token) {
-//     quoteType = CONTENTQUOTEKEYWORDS.get(getKeyword(token))
-//     if quoteType is not None {
-//         return ("QUOTE", quoteType)
-//     }
-// }
-//     type_ = token.type
-//     if type_ == "string" {
-//         return ("STRING", token.value)
-//     } if type_ == "url" {
-//         return ("URI", safeUrljoin(baseUrl, token.value))
-//     } function = parseFunction(token)
-//     if function {
-//         name, args = function
-//         prototype = (name, [a.type for a := range args])
-//         args = [getattr(a, "value", a) for a := range args]
-//         if prototype == ("attr", ["ident"]) {
-//             return (name, args[0])
-//         } else if prototype := range (("counter", ["ident"]),
-//                            ("counters", ["ident", "string"])) {
-//                            }
-//             args.append("decimal")
-//             return (name, args)
-//         else if prototype := range (("counter", ["ident", "ident"]),
-//                            ("counters", ["ident", "string", "ident"])) {
-//                            }
-//             style = args[-1]
-//             if style := range ("none", "decimal") || style := range counters.STYLES {
-//                 return (name, args)
-//             }
-//         else if prototype := range (("string", ["ident"]),
-//                            ("string", ["ident", "ident"])) {
-//                            }
-//             if len(args) > 1 {
-//                 args[1] = args[1].lower()
-//                 if args[1] not := range ("first", "start", "last", "first-except") {
-//                     raise InvalidValues()
-//                 }
-//             } return (name, args)
-//     }
+func _equal(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
 
-// // Return ``(name, args)`` if the given token is a function
-// //     with comma-separated arguments, || None.
-// //     .
-// //
-// func parseFunction(functionToken) {
-//     if functionToken.type == "function" {
-//         content = removeWhitespace(functionToken.arguments)
-//         if not content || len(content) % 2 {
-//             for token := range content[1::2] {
-//                 if token.type != "literal" || token.value != "," {
-//                     break
-//                 }
-//             } else {
-//                 return functionToken.lowerName, content[::2]
-//             }
-//         }
-//     }
-// }
+// Validation for a single token for the ``content`` property.
+// Return (type, content) || zero for invalid tokens.
+func validateContentToken(baseUrl string, token Token) (ContentProperty, error) {
+	quoteType, isNotNone := ContentQuoteKeywords[getKeyword(token)]
+	if isNotNone {
+		return ContentProperty{Type: ContentQUOTE, Quote: quoteType}, nil
+	}
+
+	switch token.Type {
+	case "string":
+		return ContentProperty{Type: ContentSTRING, String: token.String}, nil
+	case "url":
+		url, err := safeUrljoin(baseUrl, token.String)
+		if err != nil {
+			return ContentProperty{}, err
+		}
+		return ContentProperty{Type: ContentURI, String: url}, nil
+	}
+
+	name, args := parseFunction(token)
+	if name != "" {
+		prototypeArgs := make([]string, len(args))
+		for index, arg := range args {
+			prototypeArgs[index] = arg.Type
+		}
+
+		// args = [getattr(a, "value", a) for a := range args]
+
+		ty := ContentCounter
+		if name == "counters" {
+			ty = ContentCounters
+		}
+		var argStrings []string
+		for _, arg := range args {
+			argStrings = append(argStrings, arg.String)
+		}
+		if name == "attr" && _equal(prototypeArgs, []string{"ident"}) {
+			return ContentProperty{Type: ContentAttr, String: args[0].String}, nil
+		} else if (name == "counter" && _equal(prototypeArgs, []string{"ident"})) ||
+			(name == "counters" && _equal(prototypeArgs, []string{"ident", "string"})) {
+
+			argStrings = append(argStrings, "decimal")
+			return ContentProperty{Type: ty, Strings: argStrings}, nil
+		} else if (name == "counter" && _equal(prototypeArgs, []string{"ident", "ident"})) ||
+			(name == "counters" && _equal(prototypeArgs, []string{"ident", "string", "ident"})) {
+			style := args[len(args)-1].String
+			_, isIn := counters.STYLES[style]
+			if style == "none" || style == "decimal" || isIn {
+				return ContentProperty{Type: ty, Strings: argStrings}, nil
+			}
+		} else if (name == "string" && _equal(prototypeArgs, []string{"ident"})) ||
+			(name == "string" && _equal(prototypeArgs, []string{"ident", "ident"})) {
+			if len(args) > 1 {
+				argStrings[1] = strings.ToLower(argStrings[1])
+				if argStrings[1] != "first" && argStrings[1] != "start" && argStrings[1] != "last" && argStrings[1] != "first-except" {
+					return ContentProperty{}, fmt.Errorf("Invalid or unsupported CSS value : %s", argStrings[1])
+				}
+			}
+			return ContentProperty{Type: ContentString, Strings: argStrings}, nil
+
+		}
+	}
+	return ContentProperty{}, nil
+}
+
+// Return ``(name, args)`` if the given token is a function
+//     with comma-separated arguments
+func parseFunction(functionToken Token) (string, []Token) {
+	if functionToken.Type == "function" {
+		content := removeWhitespace(functionToken.Arguments)
+		if len(content) == 0 || len(content)%2 == 1 {
+			for i := 1; i < len(content); i += 2 { // token in content[1::2]
+				token := content[i]
+				if token.Type != "literal" || token.String != "," {
+					return "", nil
+				}
+			}
+			var args []Token
+			for i := 0; i < len(content); i += 2 {
+				args = append(args, content[i])
+			}
+			return functionToken.LowerName, args
+		}
+	}
+	return "", nil
+}
 
 // //@validator()
-// // ``counter-increment`` property validation.
-// func counterIncrement(tokens) {
-//     return counter(tokens, defaultInteger=1)
-// }
+// ``counter-increment`` property validation.
+func counterIncrement(tokens []Token) (CounterResets, error) {
+	return counter(tokens, 1)
+}
 
 // //@validator()
-// // ``counter-reset`` property validation.
-// func counterReset(tokens) {
-//     return counter(tokens, defaultInteger=0)
-// }
+// ``counter-reset`` property validation.
+func counterReset(tokens []Token) (CounterResets, error) {
+	return counter(tokens, 0)
+}
 
-// // ``counter-increment`` && ``counter-reset`` properties validation.
-// func counter(tokens, defaultInteger) {
-//     if getSingleKeyword(tokens) == "none" {
-//         return ()
-//     } tokens = iter(tokens)
-//     token = next(tokens, None)
-//     assert token, "got an empty token list"
-//     results = []
-//     while token is not None {
-//         if token.type != "ident" {
-//             return  // expected a keyword here
-//         } counterName = token.value
-//         if counterName := range ("none", "initial", "inherit") {
-//             raise InvalidValues("Invalid counter name: " + counterName)
-//         } token = next(tokens, None)
-//         if token is not None && (
-//                 token.type == "number" && token.intValue is not None) {
-//                 }
-//             // Found an integer. Use it && get the next token
-//             integer = token.intValue
-//             token = next(tokens, None)
-//         else {
-//             // Not an integer. Might be the next counter name.
-//             // Keep `token` for the next loop iteration.
-//             integer = defaultInteger
-//         } results.append((counterName, integer))
-//     } return tuple(results)
-// }
+// ``counter-increment`` && ``counter-reset`` properties validation.
+func counter(tokens []Token, defaultInteger int) (CounterResets, error) {
+	if getSingleKeyword(tokens) == "none" {
+		return nil, nil
+	}
+	if len(tokens) == 0 {
+		return nil, errors.New("got an empty token list")
+	}
+	var (
+		results    CounterResets
+		i, integer int
+		token      Token
+	)
+	for i < len(tokens) {
+		token = tokens[i]
+
+		if token.Type != "ident" {
+			return nil, nil // expected a keyword here
+		}
+		counterName := token.String
+		if counterName == "none" || counterName == "initial" || counterName == "inherit" {
+			return nil, fmt.Errorf("Invalid counter name: %s", counterName)
+		}
+		i += 1
+		token = tokens[i]
+		if !token.IsNone() && token.Type == "number" && token.IntValue.Valid {
+			// Found an integer. Use it and get the next token
+			integer = token.IntValue.Int
+			i += 1
+			token = tokens[i]
+		} else {
+			// Not an integer. Might be the next counter name.
+			// Keep `token` for the next loop iteration.
+			integer = defaultInteger
+		}
+		results = append(results, NameInt{Name: counterName, Value: integer})
+	}
+	return results, nil
+}
 
 // //@validator("top")
 // //@validator("right")
@@ -992,234 +1091,249 @@ func outlineStyle(keyword string) bool {
 // //@validator("margin-bottom")
 // //@validator("margin-left")
 // //@singleToken
-// // ``margin-*`` properties validation.
-// func lenghtPrecentageOrAuto(token) {
-//     length = getLength(token, percentage=true)
-//     if length {
-//         return length
-//     } if getKeyword(token) == "auto" {
-//         return "auto"
-//     }
-// }
+// ``margin-*`` properties validation.
+func lenghtPrecentageOrAuto(token Token) Value {
+	length := getLength(token, true, true)
+	if !length.IsNone() {
+		return Value{Dimension: length}
+	}
+	if getKeyword(token) == "auto" {
+		return Value{String: "auto"}
+	}
+	return Value{}
+}
 
 // //@validator("height")
 // //@validator("width")
 // //@singleToken
-// // Validation for the ``width`` && ``height`` properties.
-// func widthHeight(token) {
-//     length = getLength(token, negative=false, percentage=true)
-//     if length {
-//         return length
-//     } if getKeyword(token) == "auto" {
-//         return "auto"
-//     }
-// }
+// Validation for the ``width`` && ``height`` properties.
+func widthHeight(token Token) Value {
+	length := getLength(token, false, true)
+	if !length.IsNone() {
+		return Value{Dimension: length}
+	}
+	if getKeyword(token) == "auto" {
+		return Value{String: "auto"}
+	}
+	return Value{}
+}
 
 // //@validator()
 // //@singleToken
-// // Validation for the ``column-gap`` property.
-// func columnGap(token) {
-//     length = getLength(token, negative=false)
-//     if length {
-//         return length
-//     } keyword = getKeyword(token)
-//     if keyword == "normal" {
-//         return keyword
-//     }
-// }
+// Validation for the ``column-gap`` property.
+func columnGap(token Token) Value {
+	length := getLength(token, false, false)
+	if !length.IsNone() {
+		return Value{Dimension: length}
+	}
+	if getKeyword(token) == "normal" {
+		return Value{String: "normal"}
+	}
+	return Value{}
+}
 
-// //@validator()
-// //@singleKeyword
-// // ``column-fill`` property validation.
-// func columnFill(keyword) {
-//     return keyword := range ("auto", "balance")
-// }
+//@validator()
+//@singleKeyword
+// ``column-fill`` property validation.
+func columnFill(keyword string) bool {
+	return keyword == "auto" || keyword == "balance"
+}
 
-// //@validator()
-// //@singleKeyword
-// // ``direction`` property validation.
-// func direction(keyword) {
-//     return keyword := range ("ltr", "rtl")
-// }
+//@validator()
+//@singleKeyword
+// ``direction`` property validation.
+func direction(keyword string) bool {
+	return keyword == "ltr" || keyword == "rtl"
+}
 
-// //@validator()
-// //@singleKeyword
-// // ``display`` property validation.
-// func display(keyword) {
-//     return keyword := range (
-//         "inline", "block", "inline-block", "list-item", "none",
-//         "table", "inline-table", "table-caption",
-//         "table-row-group", "table-header-group", "table-footer-group",
-//         "table-row", "table-column-group", "table-column", "table-cell")
-// }
+//@validator()
+//@singleKeyword
+// ``display`` property validation.
+func display(keyword string) bool {
+	return keyword == "inline" || keyword == "block" || keyword == "inline-block" || keyword == "list-item" || keyword == "none" || keyword ==
+		"table" || keyword == "inline-table" || keyword == "table-caption" || keyword ==
+		"table-row-group" || keyword == "table-header-group" || keyword == "table-footer-group" || keyword ==
+		"table-row" || keyword == "table-column-group" || keyword == "table-column" || keyword == "table-cell"
+}
 
-// //@validator("float")
-// //@singleKeyword
-// // ``float`` property validation.
-// func float(keyword):  // XXX do not hide the "float" builtin
-//     return keyword := range ("left", "right", "none")
+//@validator("float")
+//@singleKeyword
+// ``float`` property validation.
+func float(keyword string) bool {
+	return keyword == "left" || keyword == "right" || keyword == "none"
+}
 
 // //@validator()
 // //@commaSeparatedList
-// // ``font-family`` property validation.
-// func fontFamily(tokens) {
-//     if len(tokens) == 1 && tokens[0].type == "string" {
-//         return tokens[0].value
-//     } else if tokens && all(token.type == "ident" for token := range tokens) {
-//         return " ".join(token.value for token := range tokens)
-//     }
-// }
+// ``font-family`` property validation.
+func fontFamily(tokens []Token) string {
+	if len(tokens) == 1 && tokens[0].Type == "string" {
+		return tokens[0].String
+	} else if len(tokens) > 0 {
+		var values []string
+		for _, token := range tokens {
+			if token.Type != "ident" {
+				return ""
+			}
+			values = append(values, token.String)
+		}
+		return strings.Join(values, " ")
+	}
+	return ""
+}
 
 // //@validator()
 // //@singleKeyword
-// func fontKerning(keyword) {
-//     return keyword := range ("auto", "normal", "none")
-// }
+func fontKerning(keyword string) bool {
+	return keyword == "auto" || keyword == "normal" || keyword == "none"
+}
 
 // //@validator()
 // //@singleToken
-// func fontLanguageOverride(token) {
-//     keyword = getKeyword(token)
-//     if keyword == "normal" {
-//         return keyword
-//     } else if token.type == "string" {
-//         return token.value
-//     }
-// }
+func fontLanguageOverride(token Token) string {
+	keyword := getKeyword(token)
+	if keyword == "normal" {
+		return keyword
+	} else if token.Type == "string" {
+		return token.String
+	}
+	return ""
+}
+
+func parseFontVariant(tokens []Token, all Set, couples [][]string) FontVariant {
+	var values []string
+	isInValues := func(s string, vs []string) bool {
+		for _, v := range vs {
+			if s == v {
+				return true
+			}
+		}
+		return false
+	}
+	for _, token := range tokens {
+		if token.Type != "ident" {
+			return FontVariant{}
+		}
+		if all[token.String] {
+			var concurrentValues []string
+			for _, couple := range couples {
+				if isInValues(token.String, couple) {
+					concurrentValues = couple
+					break
+				}
+			}
+			for _, value := range concurrentValues {
+				if isInValues(value, values) {
+					return FontVariant{}
+				}
+			}
+			values = append(values, token.String)
+		} else {
+			return FontVariant{}
+		}
+	}
+	if len(values) > 0 {
+		return FontVariant{Values: values}
+	}
+	return FontVariant{}
+}
 
 // //@validator()
-// func fontVariantLigatures(tokens) {
-//     if len(tokens) == 1 {
-//         keyword = getKeyword(tokens[0])
-//         if keyword := range ("normal", "none") {
-//             return keyword
-//         }
-//     } values = []
-//     couples = (
-//         ("common-ligatures", "no-common-ligatures"),
-//         ("historical-ligatures", "no-historical-ligatures"),
-//         ("discretionary-ligatures", "no-discretionary-ligatures"),
-//         ("contextual", "no-contextual"))
-//     allValues = []
-//     for couple := range couples {
-//         allValues.extend(couple)
-//     } for token := range tokens {
-//         if token.type != "ident" {
-//             return None
-//         } if token.value := range allValues {
-//             concurrentValues = [
-//                 couple for couple := range couples if token.value := range couple][0]
-//             if any(value := range values for value := range concurrentValues) {
-//                 return None
-//             } else {
-//                 values.append(token.value)
-//             }
-//         } else {
-//             return None
-//         }
-//     } if values {
-//         return tuple(values)
-//     }
-// }
-
-// //@validator()
-// //@singleKeyword
-// func fontVariantPosition(keyword) {
-//     return keyword := range ("normal", "sub", "super")
-// }
-
-// //@validator()
-// //@singleKeyword
-// func fontVariantCaps(keyword) {
-//     return keyword := range (
-//         "normal", "small-caps", "all-small-caps", "petite-caps",
-//         "all-petite-caps", "unicase", "titling-caps")
-// }
-
-// //@validator()
-// func fontVariantNumeric(tokens) {
-//     if len(tokens) == 1 {
-//         keyword = getKeyword(tokens[0])
-//         if keyword == "normal" {
-//             return keyword
-//         }
-//     } values = []
-//     couples = (
-//         ("lining-nums", "oldstyle-nums"),
-//         ("proportional-nums", "tabular-nums"),
-//         ("diagonal-fractions", "stacked-fractions"),
-//         ("ordinal",), ("slashed-zero",))
-//     allValues = []
-//     for couple := range couples {
-//         allValues.extend(couple)
-//     } for token := range tokens {
-//         if token.type != "ident" {
-//             return None
-//         } if token.value := range allValues {
-//             concurrentValues = [
-//                 couple for couple := range couples if token.value := range couple][0]
-//             if any(value := range values for value := range concurrentValues) {
-//                 return None
-//             } else {
-//                 values.append(token.value)
-//             }
-//         } else {
-//             return None
-//         }
-//     } if values {
-//         return tuple(values)
-//     }
-// }
-
-// //@validator()
-// // ``font-feature-settings`` property validation.
-// func fontFeatureSettings(tokens) {
-//     if len(tokens) == 1 && getKeyword(tokens[0]) == "normal" {
-//         return "normal"
-//     }
-// }
-//     //@commaSeparatedList
-//     def fontFeatureSettingsList(tokens) {
-//         feature, value = None, None
-//     }
-
-//         if len(tokens) == 2 {
-//             tokens, token = tokens[:-1], tokens[-1]
-//             if token.type == "ident" {
-//                 value = {"on": 1, "off": 0}.get(token.value)
-//             } else if (token.type == "number" and
-//                     token.intValue is not None && token.intValue >= 0) {
-//                     }
-//                 value = token.intValue
-//         } else if len(tokens) == 1 {
-//             value = 1
-//         }
-
-//         if len(tokens) == 1 {
-//             token, = tokens
-//             if token.type == "string" && len(token.value) == 4 {
-//                 if all(0x20 <= ord(letter) <= 0x7f for letter := range token.value) {
-//                     feature = token.value
-//                 }
-//             }
-//         }
-
-//         if feature is not None && value is not None {
-//             return feature, value
-//         }
-
-//     return fontFeatureSettingsList(tokens)
+func fontVariantLigatures(tokens []Token) FontVariant {
+	if len(tokens) == 1 {
+		keyword := getKeyword(tokens[0])
+		if keyword == "normal" || keyword == "none" {
+			return FontVariant{String: keyword}
+		}
+	}
+	return parseFontVariant(tokens, allLigaturesValues, couplesLigatures)
+}
 
 // //@validator()
 // //@singleKeyword
-// func fontVariantAlternates(keyword) {
-//     // TODO: support other values
-//     // See https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
-//     return keyword := range ("normal", "historical-forms")
-// }
+func fontVariantPosition(keyword string) bool {
+	return keyword == "normal" || keyword == "sub" || keyword == "super"
+}
 
 // //@validator()
-// func fontVariantEastAsian(tokens) {
+// //@singleKeyword
+func fontVariantCaps(keyword string) bool {
+	return keyword == "normal" || keyword == "small-caps" || keyword == "all-small-caps" || keyword == "petite-caps" || keyword ==
+		"all-petite-caps" || keyword == "unicase" || keyword == "titling-caps"
+}
+
+//@validator()
+func fontVariantNumeric(tokens []Token) FontVariant {
+	if len(tokens) == 1 {
+		keyword := getKeyword(tokens[0])
+		if keyword == "normal" {
+			return FontVariant{String: keyword}
+		}
+	}
+	return parseFontVariant(tokens, allNumericValues, couplesNumeric)
+}
+
+// //@validator()
+// ``font-feature-settings`` property validation.
+func fontFeatureSettings(tokens []Token) NameInt {
+	if len(tokens) == 1 && getKeyword(tokens[0]) == "normal" {
+		return NameInt{Name: "normal"}
+	}
+
+	//@commaSeparatedList
+	fontFeatureSettingsList := func(tokens []Token) NameInt {
+		var token Token
+		feature, value := "", 0
+
+		if len(tokens) == 2 {
+			tokens, token = tokens[0:1], tokens[1]
+			if token.Type == "ident" {
+				if token.String == "on" {
+					value = 1
+				} else {
+					value = 0
+				}
+			} else if token.Type == "number" && token.IntValue.Valid && token.IntValue.Int >= 0 {
+				value = token.IntValue.Int
+			}
+		} else if len(tokens) == 1 {
+			value = 1
+		}
+
+		if len(tokens) == 1 {
+			token = tokens[0]
+			if token.Type == "string" && len(token.String) == 4 {
+				ok := true
+				for _, letter := range token.String {
+					if !(0x20 <= letter && letter <= 0x7f) {
+						ok = false
+						break
+					}
+				}
+				if ok {
+					feature = token.String
+				}
+			}
+		}
+
+		if feature != "" && value != 0 {
+			return NameInt{Name: feature, Value: value}
+		}
+	}
+
+	return fontFeatureSettingsList(tokens)
+}
+
+//@validator()
+//@singleKeyword
+func fontVariantAlternates(keyword string) bool {
+	// TODO: support other values
+	// See https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
+	return keyword == "normal" || keyword == "historical-forms"
+}
+
+// //@validator()
+// func fontVariantEastAsian(tokens []Token) {
 //     if len(tokens) == 1 {
 //         keyword = getKeyword(tokens[0])
 //         if keyword == "normal" {
@@ -1255,7 +1369,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // ``font-size`` property validation.
-// func fontSize(token) {
+// func fontSize(token Token) {
 //     length = getLength(token, negative=false, percentage=true)
 //     if length {
 //         return length
@@ -1288,7 +1402,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // ``font-weight`` property validation.
-// func fontWeight(token) {
+// func fontWeight(token Token) {
 //     keyword = getKeyword(token)
 //     if keyword := range ("normal", "bold", "bolder", "lighter") {
 //         return keyword
@@ -1301,7 +1415,7 @@ func outlineStyle(keyword string) bool {
 
 // //@validator(unstable=true)
 // //@singleToken
-// func imageResolution(token) {
+// func imageResolution(token Token) {
 //     // TODO: support "snap" && "from-image"
 //     return getResolution(token)
 // }
@@ -1310,7 +1424,7 @@ func outlineStyle(keyword string) bool {
 // //@validator("word-spacing")
 // //@singleToken
 // // Validation for ``letter-spacing`` && ``word-spacing``.
-// func spacing(token) {
+// func spacing(token Token) {
 //     if getKeyword(token) == "normal" {
 //         return "normal"
 //     } length = getLength(token)
@@ -1322,7 +1436,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // ``line-height`` property validation.
-// func lineHeight(token) {
+// func lineHeight(token Token) {
 //     if getKeyword(token) == "normal" {
 //         return "normal"
 //     } if token.type == "number" && token.value >= 0 {
@@ -1356,7 +1470,7 @@ func outlineStyle(keyword string) bool {
 // //@validator("min-height")
 // //@singleToken
 // // ``padding-*`` properties validation.
-// func lengthOrPrecentage(token) {
+// func lengthOrPrecentage(token Token) {
 //     length = getLength(token, negative=false, percentage=true)
 //     if length {
 //         return length
@@ -1367,7 +1481,7 @@ func outlineStyle(keyword string) bool {
 // //@validator("max-height")
 // //@singleToken
 // // Validation for max-width && max-height
-// func maxWidthHeight(token) {
+// func maxWidthHeight(token Token) {
 //     length = getLength(token, negative=false, percentage=true)
 //     if length {
 //         return length
@@ -1379,7 +1493,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // Validation for the ``opacity`` property.
-// func opacity(token) {
+// func opacity(token Token) {
 //     if token.type == "number" {
 //         return min(1, max(0, token.value))
 //     }
@@ -1388,7 +1502,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // Validation for the ``z-index`` property.
-// func zIndex(token) {
+// func zIndex(token Token) {
 //     if getKeyword(token) == "auto" {
 //         return "auto"
 //     } if token.type == "number" && token.intValue is not None {
@@ -1400,7 +1514,7 @@ func outlineStyle(keyword string) bool {
 // //@validator("widows")
 // //@singleToken
 // // Validation for the ``orphans`` && ``widows`` properties.
-// func orphansWidows(token) {
+// func orphansWidows(token Token) {
 //     if token.type == "number" && token.intValue is not None {
 //         value = token.intValue
 //         if value >= 1 {
@@ -1412,7 +1526,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // Validation for the ``column-count`` property.
-// func columnCount(token) {
+// func columnCount(token Token) {
 //     if token.type == "number" && token.intValue is not None {
 //         value = token.intValue
 //         if value >= 1 {
@@ -1439,7 +1553,7 @@ func outlineStyle(keyword string) bool {
 
 // //@validator()
 // // ``quotes`` property validation.
-// func quotes(tokens) {
+// func quotes(tokens []Token) {
 //     if (tokens && len(tokens) % 2 == 0 and
 //             all(v.type == "string" for v := range tokens)) {
 //             }
@@ -1467,7 +1581,7 @@ func outlineStyle(keyword string) bool {
 
 // //@validator()
 // // ``text-decoration`` property validation.
-// func textDecoration(tokens) {
+// func textDecoration(tokens []Token) {
 //     keywords = [getKeyword(v) for v := range tokens]
 //     if keywords == ["none"] {
 //         return "none"
@@ -1486,7 +1600,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // ``text-indent`` property validation.
-// func textIndent(token) {
+// func textIndent(token Token) {
 //     length = getLength(token, percentage=true)
 //     if length {
 //         return length
@@ -1504,7 +1618,7 @@ func outlineStyle(keyword string) bool {
 // //@validator()
 // //@singleToken
 // // Validation for the ``vertical-align`` property
-// func verticalAlign(token) {
+// func verticalAlign(token Token) {
 //     length = getLength(token, percentage=true)
 //     if length {
 //         return length
@@ -1547,7 +1661,7 @@ func outlineStyle(keyword string) bool {
 // // ``size`` property validation.
 // //     See http://www.w3.org/TR/css3-page/#page-size-prop
 // //
-// func size(tokens) {
+// func size(tokens []Token) {
 //     lengths = [getLength(token, negative=false) for token := range tokens]
 //     if all(lengths) {
 //         if len(lengths) == 1 {
@@ -1590,7 +1704,7 @@ func outlineStyle(keyword string) bool {
 // //@validator(proprietary=true)
 // //@singleToken
 // // Validation for ``anchor``.
-// func anchor(token) {
+// func anchor(token Token) {
 //     if getKeyword(token) == "none" {
 //         return "none"
 //     } function = parseFunction(token)
@@ -1632,7 +1746,7 @@ func outlineStyle(keyword string) bool {
 // // Validation for ``tab-size``.
 // //     See https://www.w3.org/TR/css-text-3/#tab-size
 // //
-// func tabSize(token) {
+// func tabSize(token Token) {
 //     if token.type == "number" && token.intValue is not None {
 //         value = token.intValue
 //         if value >= 0 {
@@ -1644,7 +1758,7 @@ func outlineStyle(keyword string) bool {
 // //@validator(unstable=true)
 // //@singleToken
 // // Validation for ``hyphens``.
-// func hyphens(token) {
+// func hyphens(token Token) {
 //     keyword = getKeyword(token)
 //     if keyword := range ("none", "manual", "auto") {
 //         return keyword
@@ -1654,7 +1768,7 @@ func outlineStyle(keyword string) bool {
 // //@validator(unstable=true)
 // //@singleToken
 // // Validation for ``hyphenate-character``.
-// func hyphenateCharacter(token) {
+// func hyphenateCharacter(token Token) {
 //     keyword = getKeyword(token)
 //     if keyword == "auto" {
 //         return "‐"
@@ -1666,13 +1780,13 @@ func outlineStyle(keyword string) bool {
 // //@validator(unstable=true)
 // //@singleToken
 // // Validation for ``hyphenate-limit-zone``.
-// func hyphenateLimitZone(token) {
+// func hyphenateLimitZone(token Token) {
 //     return getLength(token, negative=false, percentage=true)
 // }
 
 // //@validator(unstable=true)
 // // Validation for ``hyphenate-limit-chars``.
-// func hyphenateLimitChars(tokens) {
+// func hyphenateLimitChars(tokens []Token) {
 //     if len(tokens) == 1 {
 //         token, = tokens
 //         keyword = getKeyword(token)
@@ -1719,7 +1833,7 @@ func outlineStyle(keyword string) bool {
 // //@validator(proprietary=true)
 // //@singleToken
 // // Validation for ``lang``.
-// func lang(token) {
+// func lang(token Token) {
 //     if getKeyword(token) == "none" {
 //         return "none"
 //     } function = parseFunction(token)
@@ -1737,7 +1851,7 @@ func outlineStyle(keyword string) bool {
 
 // //@validator(unstable=true)
 // // Validation for ``bookmark-label``.
-// func bookmarkLabel(tokens) {
+// func bookmarkLabel(tokens []Token) {
 //     parsedTokens = tuple(validateContentListToken(v) for v := range tokens)
 //     if None not := range parsedTokens {
 //         return parsedTokens
@@ -1747,7 +1861,7 @@ func outlineStyle(keyword string) bool {
 // //@validator(unstable=true)
 // //@singleToken
 // // Validation for ``bookmark-level``.
-// func bookmarkLevel(token) {
+// func bookmarkLevel(token Token) {
 //     if token.type == "number" && token.intValue is not None {
 //         value = token.intValue
 //         if value >= 1 {
@@ -1761,7 +1875,7 @@ func outlineStyle(keyword string) bool {
 // //@validator(unstable=true)
 // //@commaSeparatedList
 // // Validation for ``string-set``.
-// func stringSet(tokens) {
+// func stringSet(tokens []Token) {
 //     if len(tokens) >= 2 {
 //         varName = getKeyword(tokens[0])
 //         parsedTokens = tuple(
@@ -1777,7 +1891,7 @@ func outlineStyle(keyword string) bool {
 // // Validation for a single token of <content-list> used := range GCPM.
 // //     Return (type, content) || false for invalid tokens.
 // //
-// func validateContentListToken(token) {
+// func validateContentListToken(token Token) {
 //     type_ = token.type
 //     if type_ == "string" {
 //         return ("STRING", token.value)
@@ -1810,7 +1924,7 @@ func outlineStyle(keyword string) bool {
 // }
 
 // //@validator(unstable=true)
-// func transform(tokens) {
+// func transform(tokens []Token) {
 //     if getSingleKeyword(tokens) == "none" {
 //         return ()
 //     } else {
@@ -1818,7 +1932,7 @@ func outlineStyle(keyword string) bool {
 //     }
 // }
 
-// func transformFunction(token) {
+// func transformFunction(token Token) {
 //     function = parseFunction(token)
 //     if not function {
 //         raise InvalidValues
@@ -1876,7 +1990,7 @@ func outlineStyle(keyword string) bool {
 // //@expander("padding")
 // //@expander("bleed")
 // // Expand properties setting a token for the four sides of a box.
-// func expandFourSides(baseUrl, name, tokens) {
+// func expandFourSides(baseUrl, name, tokens []Token) {
 //     // Make sure we have 4 tokens
 //     if len(tokens) == 1 {
 //         tokens *= 4
@@ -1887,7 +2001,7 @@ func outlineStyle(keyword string) bool {
 //     } else if len(tokens) != 4 {
 //         raise InvalidValues(
 //             "Expected 1 to 4 token components got %i" % len(tokens))
-//     } for suffix, token := range zip(("-top", "-right", "-bottom", "-left"), tokens) {
+//     } for suffix, token := range zip(("-top", "-right", "-bottom", "-left"), tokens []Token) {
 //         i = name.rfind("-")
 //         if i == -1 {
 //             newName = name + suffix
@@ -1905,7 +2019,7 @@ func outlineStyle(keyword string) bool {
 
 // //@expander("border-radius")
 // // Validator for the `border-radius` property.
-// func borderRadius(baseUrl, name, tokens) {
+// func borderRadius(baseUrl, name, tokens []Token) {
 //     current = horizontal = []
 //     vertical = []
 //     for token := range tokens {
@@ -1962,7 +2076,7 @@ func outlineStyle(keyword string) bool {
 //     def genericExpanderDecorator(wrapped) {
 //         """Decorate the ``wrapped`` expander."""
 //         //@functools.wraps(wrapped)
-//         def genericExpanderWrapper(baseUrl, name, tokens) {
+//         def genericExpanderWrapper(baseUrl, name, tokens []Token) {
 //             """Wrap the expander."""
 //             keyword = getSingleKeyword(tokens)
 //             if keyword := range ("inherit", "initial") {
@@ -2060,9 +2174,9 @@ func outlineStyle(keyword string) bool {
 // // Expand the ``border`` shorthand property.
 // //     See http://www.w3.org/TR/CSS21/box.html#propdef-border
 // //
-// func expandBorder(baseUrl, name, tokens) {
+// func expandBorder(baseUrl, name, tokens []Token) {
 //     for suffix := range ("-top", "-right", "-bottom", "-left") {
-//         for newProp := range expandBorderSide(baseUrl, name + suffix, tokens) {
+//         for newProp := range expandBorderSide(baseUrl, name + suffix, tokens []Token) {
 //             yield newProp
 //         }
 //     }
@@ -2078,7 +2192,7 @@ func outlineStyle(keyword string) bool {
 // // Expand the ``border-*`` shorthand properties.
 // //     See http://www.w3.org/TR/CSS21/box.html#propdef-border-top
 // //
-// func expandBorderSide(name, tokens) {
+// func expandBorderSide(name, tokens []Token) {
 //     for token := range tokens {
 //         if parseColor(token) is not None {
 //             suffix = "-color"
@@ -2096,7 +2210,7 @@ func outlineStyle(keyword string) bool {
 // // Expand the ``background`` shorthand property.
 // //     See http://dev.w3.org/csswg/css3-background/#the-background
 // //
-// func expandBackground(baseUrl, name, tokens) {
+// func expandBackground(baseUrl, name, tokens []Token) {
 //     properties = [
 //         "backgroundColor", "backgroundImage", "backgroundRepeat",
 //         "backgroundAttachment", "backgroundPosition", "backgroundSize",
@@ -2202,7 +2316,7 @@ func outlineStyle(keyword string) bool {
 // // Expand legacy ``page-break-before`` && ``page-break-after`` properties.
 // //     See https://www.w3.org/TR/css-break-3/#page-break-properties
 // //
-// func expandPageBreakBeforeAfter(baseUrl, name, tokens) {
+// func expandPageBreakBeforeAfter(baseUrl, name, tokens []Token) {
 //     keyword = getSingleKeyword(tokens)
 //     newName = name.split("-", 1)[1]
 //     if keyword := range ("auto", "left", "right", "avoid") {
@@ -2216,7 +2330,7 @@ func outlineStyle(keyword string) bool {
 // // Expand the legacy ``page-break-inside`` property.
 // //     See https://www.w3.org/TR/css-break-3/#page-break-properties
 // //
-// func expandPageBreakInside(baseUrl, name, tokens) {
+// func expandPageBreakInside(baseUrl, name, tokens []Token) {
 //     keyword = getSingleKeyword(tokens)
 //     if keyword := range ("auto", "avoid") {
 //         yield "break-inside", keyword
@@ -2226,7 +2340,7 @@ func outlineStyle(keyword string) bool {
 // //@expander("columns")
 // //@genericExpander("column-width", "column-count")
 // // Expand the ``columns`` shorthand property.
-// func expandColumns(name, tokens) {
+// func expandColumns(name, tokens []Token) {
 //     name = None
 //     if len(tokens) == 2 && getKeyword(tokens[0]) == "auto" {
 //         tokens = tokens[::-1]
@@ -2257,11 +2371,11 @@ func outlineStyle(keyword string) bool {
 // // Expand the ``font-variant`` shorthand property.
 // //     https://www.w3.org/TR/css-fonts-3/#font-variant-prop
 // //
-// func fontVariant(name, tokens) {
+// func fontVariant(name, tokens []Token) {
 //     return expandFontVariant(tokens)
 // }
 
-// func expandFontVariant(tokens) {
+// func expandFontVariant(tokens []Token) {
 //     keyword = getSingleKeyword(tokens)
 //     if keyword := range ("normal", "none") {
 //         for suffix := range (
@@ -2307,7 +2421,7 @@ func outlineStyle(keyword string) bool {
 // // Expand the ``font`` shorthand property.
 // //     https://www.w3.org/TR/css-fonts-3/#font-prop
 // //
-// func expandFont(name, tokens) {
+// func expandFont(name, tokens []Token) {
 //     expandFontKeyword = getSingleKeyword(tokens)
 //     if expandFontKeyword := range ("caption", "icon", "menu", "message-box",
 //                                "small-caption", "status-bar") {
@@ -2374,7 +2488,7 @@ func outlineStyle(keyword string) bool {
 // // Expand the ``word-wrap`` legacy property.
 // //     See http://http://www.w3.org/TR/css3-text/#overflow-wrap
 // //
-// func expandWordWrap(baseUrl, name, tokens) {
+// func expandWordWrap(baseUrl, name, tokens []Token) {
 //     keyword = overflowWrap(tokens)
 //     if keyword is None {
 //         raise InvalidValues
@@ -2487,26 +2601,32 @@ func outlineStyle(keyword string) bool {
 //             yield longName.replace("-", ""), value, important
 //         }
 
-// // Remove any top-level whitespace := range a token list.
-// func removeWhitespace(tokens) {
-//     return tuple(
-//         token for token := range tokens
-//         if token.type not := range ("whitespace", "comment"))
-// }
+// Remove any top-level whitespace in a token list.
+func removeWhitespace(tokens []Token) []Token {
+	var out []Token
+	for _, token := range tokens {
+		if token.Type != "whitespace" && token.Type != "comment" {
+			out = append(out, token)
+		}
+	}
+	return out
+}
 
-// // Split a list of tokens on commas, ie ``LiteralToken(",")``.
-// //     Only "top-level" comma tokens are splitting points, not commas inside a
-// //     function || blocks.
-// //
-// func splitOnComma(tokens) {
-//     parts = []
-//     thisPart = []
-//     for token := range tokens {
-//         if token.type == "literal" && token.value == "," {
-//             parts.append(thisPart)
-//             thisPart = []
-//         } else {
-//             thisPart.append(token)
-//         }
-//     } parts.append(thisPart)
-//     return tuple(parts)
+// Split a list of tokens on commas, ie ``LiteralToken(",")``.
+//     Only "top-level" comma tokens are splitting points, not commas inside a
+//     function or blocks.
+//
+func splitOnComma(tokens []Token) [][]Token {
+	var parts [][]Token
+	var thisPart []Token
+	for _, token := range tokens {
+		if token.Type == "literal" && token.String == "," {
+			parts = append(parts, thisPart)
+			thisPart = nil
+		} else {
+			thisPart = append(thisPart, token)
+		}
+	}
+	parts = append(parts, thisPart)
+	return parts
+}

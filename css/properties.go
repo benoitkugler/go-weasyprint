@@ -374,18 +374,34 @@ type BackgroundPosition []Center
 // background-size
 type BackgroundSize []Size
 
+type ContentType int
+
+const (
+	ContentQUOTE ContentType = iota + 1 // so that zero field corresponds to null content
+	ContentSTRING
+	ContentURI
+	ContentAttr
+	ContentCounter
+	ContentCounters
+	ContentString
+)
+
 type ContentProperty struct {
-	Type string
+	Type ContentType
+
 	// Next are values fields
-	String         string
-	CounterStyle   string
-	Separator      string
-	IsOpen, Insert bool
+	String  string   // for type STRING, URI, attr
+	Quote   quote    // for type QUOTE
+	Strings []string // for type string, counter, counters
+}
+
+func (cp ContentProperty) IsNil() bool {
+	return cp.Type == 0
 }
 
 // content
 type Content struct {
-	String string
+	String string // 'none' ou 'normal'
 	List   []ContentProperty
 }
 

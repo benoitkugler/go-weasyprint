@@ -61,6 +61,15 @@ type Page struct {
 	Page   int
 }
 
+type FontVariant struct {
+	String string
+	Values []string
+}
+
+func (f FontVariant) IsNone() bool {
+	return f.String == "" && f.Values == nil
+}
+
 func (x CounterIncrements) Copy() CounterIncrements {
 	out := x
 	out.CI = append([]NameInt{}, x.CI...)
