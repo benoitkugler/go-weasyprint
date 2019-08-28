@@ -2,6 +2,7 @@ package utils
 
 import (
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -63,4 +64,27 @@ func GetChildText(element html.Node) string {
 		}
 	}
 	return strings.Join(content, "")
+}
+
+// Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
+//     This is used for `ASCII case-insensitive
+//     <http://whatwg.org/C#ascii-case-insensitive>`_ matching.
+//     This is different from the strings.ToLower function
+//     which also affect non-ASCII characters,
+//     sometimes mapping them into the ASCII range:
+//     		keyword = u"Bac\u212Aground"
+//     		assert strings.ToLower(keyword) == u"background"
+//     		assert asciiLower(keyword) != strings.ToLower(keyword)
+//     		assert asciiLower(keyword) == u"bac\u212Aground"
+//
+func AsciiLower(s string) string {
+	rs := []rune(s)
+	out := make([]rune, len(rs))
+	for index, c := range rs {
+		if c < unicode.MaxASCII {
+			c = unicode.ToLower(c)
+		}
+		out[index] = c
+	}
+	return string(out)
 }

@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -35,29 +34,6 @@ var (
 	HtmlWhitespace             = " \t\n\f\r"
 	HtmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", HtmlWhitespace))
 )
-
-// Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.
-//     This is used for `ASCII case-insensitive
-//     <http://whatwg.org/C#ascii-case-insensitive>`_ matching.
-//     This is different from the strings.ToLower function
-//     which also affect non-ASCII characters,
-//     sometimes mapping them into the ASCII range:
-//     		keyword = u"Bac\u212Aground"
-//     		assert strings.ToLower(keyword) == u"background"
-//     		assert asciiLower(keyword) != strings.ToLower(keyword)
-//     		assert asciiLower(keyword) == u"bac\u212Aground"
-//
-func asciiLower(s string) string {
-	rs := []rune(s)
-	out := make([]rune, len(rs))
-	for index, c := range rs {
-		if c < unicode.MaxASCII {
-			c = unicode.ToLower(c)
-		}
-		out[index] = c
-	}
-	return string(out)
-}
 
 // Return whether the given element has a ``rel`` attribute with the
 // given link type.
