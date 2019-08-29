@@ -74,8 +74,8 @@ var (
 			CounterReset:     CounterResets{}, // parsed value for "none"
 
 			BackgroundPosition: BackgroundPosition{
-				Center{OriginX: "left", PosX: Dimension{Unit: "%"}},
-				Center{OriginX: "top", PosX: Dimension{Unit: "%"}},
+				Center{OriginX: "left", PosX: Dimension{Unit: Percentage}},
+				Center{OriginX: "top", PosX: Dimension{Unit: Percentage}},
 			},
 
 			BackgroundImage: BackgroundImage{Gradient{Type: "none"}},
@@ -103,8 +103,8 @@ var (
 			"margin_right":        ZeroPixels,
 			"margin_bottom":       ZeroPixels,
 			"margin_left":         ZeroPixels,
-			"max_height":          Value{Dimension: Dimension{Value: math.Inf(+1), Unit: "px"}}, // parsed value for "none}"
-			"max_width":           Value{Dimension: Dimension{Value: math.Inf(+1), Unit: "px"}},
+			"max_height":          Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}}, // parsed value for "none}"
+			"max_width":           Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}},
 			"min_height":          ZeroPixels,
 			"min_width":           ZeroPixels,
 			"padding_top":         ZeroPixels,
@@ -185,7 +185,7 @@ var (
 			"size": nil, // set to A4 in computed_values
 
 			// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
-			"transform_origin": Lengths{Value{Dimension: Dimension{Value: 50, Unit: "%"}}, Value{Dimension: Dimension{Value: 50, Unit: "%"}}},
+			"transform_origin": Lengths{Value{Dimension: Dimension{Value: 50, Unit: Percentage}}, Value{Dimension: Dimension{Value: 50, Unit: Percentage}}},
 		},
 		Links: map[string]Link{
 
@@ -415,6 +415,7 @@ func (c Content) Copy() Content {
 	out.List = append([]ContentProperty{}, c.List...)
 	return out
 }
+
 
 // transform
 type Transforms []Transform

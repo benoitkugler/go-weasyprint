@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ZeroPixels = Value{Dimension: Dimension{Unit: "px"}}
+	ZeroPixels = Value{Dimension: Dimension{Unit: Pixels}}
 
 	// How many CSS pixels is one <unit>?
 	// http://www.w3.org/TR/CSS21/syndata.html#length-units
@@ -290,13 +290,13 @@ func length2(computer *computer, _ string, value Value, fontSize float32) Value 
 			return value
 		}
 	}
-	return Value{Dimension: Dimension{Value: result, Unit: "px"}}
+	return Value{Dimension: Dimension{Value: result, Unit: Pixels}}
 }
 
 func (value Bleed) ComputeValue(computer *computer, name string) CssProperty {
 	if value.String == "auto" {
 		if strings.Contains(computer.computed.Strings["marks"], "crop") {
-			return Bleed{Dimension: Dimension{Value: 8, Unit: "px"}} // 6pt
+			return Bleed{Dimension: Dimension{Value: 8, Unit: Pixels}} // 6pt
 		}
 		return Bleed(ZeroPixels)
 	}

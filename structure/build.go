@@ -1368,7 +1368,7 @@ func updateCounters(state *stateShared, style css.StyleDict) {
 		// (Or the winning value was "initial".)
 		// http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
 		if style.Strings["display"] == "list-item" {
-			cis = []css.NameInt{{Name: "list-item", Value: 1}}
+			cis = []css.IntString{{Name: "list-item", Value: 1}}
 		} else {
 			cis = nil
 		}

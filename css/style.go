@@ -11,14 +11,32 @@ const (
 	Right  Side = "right"
 )
 
+const (
+	NoUnit Unit = iota
+	Percentage
+	Ex
+	Em
+	Ch
+	Rem
+	Px
+	Pt
+	Pc
+	In
+	Cm
+	Mm
+	Q
+)
+
 type CssProperty interface {
 	ComputeValue(computer *computer, name string) CssProperty
 	SetOn(name string, target *StyleDict)
 }
 
+type Unit uint8
+
 // Dimension without unit is interpreted as float
 type Dimension struct {
-	Unit  string
+	Unit  Unit
 	Value float32
 }
 
@@ -34,7 +52,7 @@ type NameValue struct {
 
 type CounterIncrements struct {
 	String string
-	CI     []NameInt
+	CI     []IntString
 }
 
 func (c CounterIncrements) IsNil() bool {
@@ -58,16 +76,16 @@ func (f FontVariant) IsNone() bool {
 
 func (x CounterIncrements) Copy() CounterIncrements {
 	out := x
-	out.CI = append([]NameInt{}, x.CI...)
+	out.CI = append([]IntString{}, x.CI...)
 	return out
 }
 
-type NameInt struct {
+type IntString struct {
 	Name  string
 	Value int
 }
 
-type CounterResets []NameInt
+type CounterResets []IntString
 
 func (x CounterResets) Copy() CounterResets {
 	return append(CounterResets{}, x...)
