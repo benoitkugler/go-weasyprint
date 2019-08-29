@@ -16,10 +16,10 @@ type CssProperty interface {
 	SetOn(name string, target *StyleDict)
 }
 
-// Dimension without unit is interpreted as int
+// Dimension without unit is interpreted as float
 type Dimension struct {
 	Unit  string
-	Value float64
+	Value float32
 }
 
 func (d Dimension) IsNone() bool {
