@@ -98,10 +98,6 @@ func init() {
 	}
 }
 
-func parseColor(color Token) Color {
-	// return Color{}
-}
-
 type validator func(string)
 
 type quote struct {

@@ -145,16 +145,10 @@ func (t SquareBracketsBlock) Type() tokenType { return TypeSquareBracketsBlock }
 func (t CurlyBracketsBlock) Type() tokenType  { return TypeCurlyBracketsBlock }
 func (t FunctionBlock) Type() tokenType       { return TypeFunctionBlock }
 
-// type MaybeInt struct {
-// 	Valid bool
-// 	Int   int
-// }
+// ---------------------------------- Methods ----------------------------------
 
-// type Token struct {
-// 	Type tokenType
-// 	Dimension
-// 	String                string
-// 	LowerValue, LowerName string
-// 	IntValue              MaybeInt
-// 	Arguments             []Token
-// }
+// IntValue returns the rounded value
+// Should be used only if  `IsInteger` is true
+func (t NumberToken) IntValue() int {
+	return int(t.Value)
+}
