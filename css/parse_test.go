@@ -21,24 +21,21 @@ func TestInterface(t *testing.T) {
 	i = AtRule{}
 	i = Declaration{}
 
-	var t ComponentValue
-	t = ParseErrorType{}
-	t = ParseError{}
-	t = stringToken{}
-	t = Comment{}
-	t = WhitespaceToken{}
-	t = LiteralToken{}
-	t = IdentToken{}
-	t = AtKeywordToken{}
-	t = HashToken{}
-	t = StringToken{}
-	t = URLToken{}
-	t = UnicodeRangeToken{}
-	t = NumberToken{}
-	t = PercentageToken{}
-	t = DimensionToken{}
-	t = ParenthesesBlock{}
-	t = SquareBracketsBlock{}
-	t = CurlyBracketsBlock{}
-	t = FunctionBlock{}
+	i = ParseError{}
+	i = Comment{}
+	i = WhitespaceToken{}
+	i = LiteralToken{}
+	i = IdentToken{}
+	i = AtKeywordToken{}
+	i = HashToken{}
+	i = StringToken{}
+	i = URLToken{}
+	i = UnicodeRangeToken{}
+	i = NumberToken{}
+	i = PercentageToken{}
+	i = DimensionToken{}
+	i = ParenthesesBlock{}
+	i = SquareBracketsBlock{}
+	i = CurlyBracketsBlock{}
+	i = FunctionBlock{}
 }

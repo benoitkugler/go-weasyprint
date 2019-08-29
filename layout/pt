@@ -1,375 +1,928 @@
-from _Future__ import division
+"""
 
-import collections
-import re
+Data structures for the CSS abstract syntax tree.
 
-from .parser import parseOneComponentValue
+"""
+
+from _Future__ import unicodeLiterals
+
+from webencodings import asciiLower
+
+from .serializer import (SerializeTo, serializeIdentifier, serializeName,
+                         serializeStringValue)
 
 
-class RGBA(collections.namedtuple("RGBA", ["red", "green", "blue", "alpha"])) {
-    """An RGBA color.
+class Node(object) {
+    """Every node type inherits from this class,
+    which is never instantiated directly.
 
-    A tuple of four floats := range the 0..1 range: ``(red, green, blue, alpha)``.
+    .. attribute:: type
 
-    .. attribute:: red
+        Each child class has a :attr:`type` class attribute
+        with an unique string value.
+        This allows checking for the node type with code like:
 
-        Convenience access to the red channel. Same as ``rgba[0]``.
+        .. code-block:: python
 
-    .. attribute:: green
+            if node.type == "whitespace":
 
-        Convenience access to the green channel. Same as ``rgba[1]``.
+        instead of the more verbose:
 
-    .. attribute:: blue
+        .. code-block:: python
 
-        Convenience access to the blue channel. Same as ``rgba[2]``.
+            from tinycss2.ast import WhitespaceToken
+            if isinstance(node, WhitespaceToken):
 
-    .. attribute:: alpha
+    Every node also has these attributes && methods,
+    which are not repeated for brevity:
 
-        Convenience access to the alpha channel. Same as ``rgba[3]``.
+    .. attribute:: sourceLine
+
+        The line number of the start of the node := range the CSS source.
+        Starts at 1.
+
+    .. attribute:: sourceColumn
+
+        The column number within :attr:`sourceLine` of the start of the node
+        := range the CSS source.
+        Starts at 1.
+
+    .. automethod:: serialize
 
     """
+    _Slots__ = ["sourceLine", "sourceColumn"]
 } 
+    def _Init_(self, sourceLine, sourceColumn) {
+        self.sourceLine = sourceLine
+        self.sourceColumn = sourceColumn
+    }
 
-// Parse a color value as defined := range `CSS Color Level 3
-//     <http://www.w3.org/TR/css3-color/>`.
-//     :param input:
-//         A :term:`string`, || a single :term:`component value`.
-//     :returns:
-//         * :obj:`None` if the input is not a valid color value.
-//           (No exception is raised.)
-//         * The string ``"currentColor"`` for the *currentColor* keyword
-//         * Or a :class:`RGBA` object for every other values
-//           (including keywords, HSL && HSLA.)
-//           The alpha channel is clipped to [0, 1]
-//           but red, green, || blue can be out of range
-//           (eg. ``rgb(-10%, 120%, 0%)`` is represented as
-//           ``(-0.1, 1.2, 0, 1)``.)
-//     
-func parseColor(input) {
-    if isinstance(input, str) {
-        token = parseOneComponentValue(input, skipComments=true)
-    } else {
-        token = input
-    } if token.type == "ident" {
-        return COLORKEYWORDS.get(token.lowerValue)
-    } else if token.type == "hash" {
-        for multiplier, regexp := range HASHREGEXPS {
-            match = regexp(token.value)
-            if match {
-                r, g, b = [int(group * multiplier, 16) / 255
-                           for group := range match.groups()]
-                return RGBA(r, g, b, 1.)
-            }
+    if str is bytes:  // pragma: no cover
+        def _Repr_(self) {
+            return self.reprFormat.format(self=self).encode("utf8")
         }
-    } else if token.type == "function" {
-        args = ParseCommaSeparated(token.arguments)
-        if args {
-            name = token.lowerName
-            if name == "rgb" {
-                return ParseRgb(args, alpha=1.)
-            } else if name == "rgba" {
-                alpha = ParseAlpha(args[3:])
-                if alpha is not None {
-                    return ParseRgb(args[:3], alpha)
-                }
-            } else if name == "hsl" {
-                return ParseHsl(args, alpha=1.)
-            } else if name == "hsla" {
-                alpha = ParseAlpha(args[3:])
-                if alpha is not None {
-                    return ParseHsl(args[:3], alpha)
-                }
-            }
+    else:  // pragma: no cover
+        def _Repr_(self) {
+            return self.reprFormat.format(self=self)
+        }
+
+    def serialize(self) {
+        """Serialize this node to CSS syntax && return an Unicode string."""
+        chunks = []
+        self.SerializeTo(chunks.append)
+        return "".join(chunks)
+    }
+
+    def SerializeTo(self, write) {
+        """Serialize this node to CSS syntax, writing chunks as Unicode string
+        by calling the provided :obj:`write` callback.
+
+        """
+        raise NotImplementedError  // pragma: no cover
+    }
+
+
+class ParseError(Node) {
+    """A syntax error of some sort. May occur anywhere := range the tree.
+
+    Syntax errors are not fatal := range the parser
+    to allow for different error handling behaviors.
+    For example, an error := range a Selector list makes the whole rule invalid,
+    but an error := range a Media Query list only replaces one comma-separated query
+    with ``not all``.
+
+    .. autoattribute:: type
+
+    .. attribute:: kind
+
+        Machine-readable string indicating the type of error.
+        Example: ``"bad-url"``.
+
+    .. attribute:: message
+
+        Human-readable explanation of the error, as a string.
+        Could be translated, expanded to include details, etc.
+
+    """
+    _Slots__ = ["kind", "message"]
+    type = "error"
+    reprFormat = "<{self._Class_._Name_} {self.kind}>"
+} 
+    def _Init_(self, line, column, kind, message) {
+        Node._Init_(self, line, column)
+        self.kind = kind
+        self.message = message
+    }
+
+    def SerializeTo(self, write) {
+        if self.kind == "bad-string" {
+            write(""[bad string]\n")
+        } else if self.kind == "bad-url" {
+            write("url([bad url])")
+        } else if self.kind := range ")]}" {
+            write(self.kind)
+        } else:  // pragma: no cover
+            raise TypeError("Can not serialize %r" % self)
+    }
+
+
+class Comment(Node) {
+    """A CSS comment.
+
+    .. code-block:: text
+
+        "/*" <value> "*/"
+
+    Comments can be ignored by passing ``skipComments=true``
+    to functions such as :func:`~tinycss2.parseComponentValueList`.
+
+    .. autoattribute:: type
+    .. attribute:: value
+
+        The content of the comment, between ``/*`` && ``*/``, as a string.
+
+    """
+    _Slots__ = ["value"]
+    type = "comment"
+    reprFormat = "<{self._Class_._Name_} {self.value}>"
+} 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+    }
+
+    def SerializeTo(self, write) {
+        write("/*")
+        write(self.value)
+        write("*/")
+    }
+
+
+class WhitespaceToken(Node) {
+    """A :diagram:`whitespace-token`.
+
+    .. autoattribute:: type
+    .. attribute:: value
+
+        The whitespace sequence, as a string, as := range the original CSS source.
+
+
+    """
+    _Slots__ = ["value"]
+    type = "whitespace"
+    reprFormat = "<{self._Class_._Name_}>"
+} 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+    }
+
+    def SerializeTo(self, write) {
+        write(self.value)
+    }
+
+
+class LiteralToken(Node) {
+    r"""Token that represents one || more characters as := range the CSS source.
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        A string of one to four characters.
+
+    Instances compare equal to their :attr:`value`,
+    so that these are equivalent:
+
+    .. code-block:: python
+
+        if node == ";":
+        if node.type == "literal" && node.value == ";":
+
+    This regroups what `the specification`_ defines as separate token types:
+
+    .. The specification: http://dev.w3.org/csswg/css-syntax-3/
+
+    * *<colon-token>* ``:``
+    * *<semicolon-token>* ``;``
+    * *<comma-token>* ``,``
+    * *<cdc-token>* ``-->``
+    * *<cdo-token>* ``<!--``
+    * *<include-match-token>* ``~=``
+    * *<dash-match-token>* ``|=``
+    * *<prefix-match-token>* ``^=``
+    * *<suffix-match-token>* ``$=``
+    * *<substring-match-token>* ``*=``
+    * *<column-token>* ``||``
+    * *<delim-token>* (a single ASCII character not part of any another token)
+
+    """
+    _Slots__ = ["value"]
+    type = "literal"
+    reprFormat = "<{self._Class_._Name_} {self.value}>"
+} 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+    }
+
+    def _Eq_(self, other) {
+        return self.value == other || self is other
+    }
+
+    def _Ne_(self, other) {
+        return not self == other
+    }
+
+    def SerializeTo(self, write) {
+        write(self.value)
+    }
+
+
+class IdentToken(Node) {
+    """An :diagram:`ident-token`.
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The unescaped value, as an Unicode string.
+
+    .. attribute:: lowerValue
+
+        Same as :attr:`value` but normalized to *ASCII lower case*,
+        see :func:`~webencodings.asciiLower`.
+        This is the value to use when comparing to a CSS keyword.
+
+    """
+    _Slots__ = ["value", "lowerValue"]
+    type = "ident"
+    reprFormat = "<{self._Class_._Name_} {self.value}>"
+} 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+        try {
+            self.lowerValue = asciiLower(value)
+        } except UnicodeEncodeError {
+            self.lowerValue = value
         }
     }
-} 
 
-// 
-//     If args is a list of a single INTEGER || NUMBER token,
-//     retur its value clipped to the 0..1 range
-//     Otherwise, return None.
-//     
-func ParseAlpha(args) {
-    if len(args) == 1 && args[0].type == "number" {
-        return min(1, max(0, args[0].value))
-    }
-} 
-
-// 
-//     If args is a list of 3 INTEGER tokens || 3 PERCENTAGE tokens,
-//     return RGB values as a tuple of 3 floats := range 0..1.
-//     Otherwise, return None.
-//     
-func ParseRgb(args, alpha) {
-    types = [arg.type for arg := range args]
-    if (types == ["number", "number", "number"] and
-            all(a.isInteger for a := range args)) {
-            }
-        r, g, b = [arg.intValue / 255 for arg := range args[:3]]
-        return RGBA(r, g, b, alpha)
-    else if types == ["percentage", "percentage", "percentage"] {
-        r, g, b = [arg.value / 100 for arg := range args[:3]]
-        return RGBA(r, g, b, alpha)
-    }
-} 
-
-// 
-//     If args is a list of 1 INTEGER token && 2 PERCENTAGE tokens,
-//     return RGB values as a tuple of 3 floats := range 0..1.
-//     Otherwise, return None.
-//     
-func ParseHsl(args, alpha) {
-    types = [arg.type for arg := range args]
-    if types == ["number", "percentage", "percentage"] && args[0].isInteger {
-        r, g, b = HslToRgb(args[0].intValue, args[1].value, args[2].value)
-        return RGBA(r, g, b, alpha)
-    }
-} 
-
-// 
-//     :param hue: degrees
-//     :param saturation: percentage
-//     :param lightness: percentage
-//     :returns: (r, g, b) as floats := range the 0..1 range
-//     
-func HslToRgb(hue, saturation, lightness) {
-    hue = (hue / 360) % 1
-    saturation = min(1, max(0, saturation / 100))
-    lightness = min(1, max(0, lightness / 100))
-} 
-    // Translated from ABC: http://www.w3.org/TR/css3-color/#hsl-color
-
-    def hueToRgb(m1, m2, h) {
-        if h < 0 {
-            h += 1
-        } if h > 1 {
-            h -= 1
-        } if h * 6 < 1 {
-            return m1 + (m2 - m1) * h * 6
-        } if h * 2 < 1 {
-            return m2
-        } if h * 3 < 2 {
-            return m1 + (m2 - m1) * (2 / 3 - h) * 6
-        } return m1
+    def SerializeTo(self, write) {
+        write(serializeIdentifier(self.value))
     }
 
-    if lightness <= 0.5 {
-        m2 = lightness * (saturation + 1)
-    } else {
-        m2 = lightness + saturation - lightness * saturation
-    } m1 = lightness * 2 - m2
-    return (
-        hueToRgb(m1, m2, hue + 1 / 3),
-        hueToRgb(m1, m2, hue),
-        hueToRgb(m1, m2, hue - 1 / 3),
-    )
 
+class AtKeywordToken(Node) {
+    """An :diagram:`at-keyword-token`.
 
-// Parse a list of tokens (typically the content of a function token)
-//     as arguments made of a single token each, separated by mandatory commas,
-//     with optional white space around each argument.
-//     return the argument list without commas || white space;
-//     || None if the function token content do not match the description above.
-//     
-func ParseCommaSeparated(tokens) {
-    tokens = [token for token := range tokens
-              if token.type not := range ("whitespace", "comment")]
-    if not tokens {
-        return []
-    } if len(tokens) % 2 == 1 && all(token == "," for token := range tokens[1::2]) {
-        return tokens[::2]
-    }
+    .. code-block:: text
+
+        "@" <value>
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The unescaped value, as an Unicode string, without the preceding ``@``.
+
+    .. attribute:: lowerValue
+
+        Same as :attr:`value` but normalized to *ASCII lower case*,
+        see :func:`~webencodings.asciiLower`.
+        This is the value to use when comparing to a CSS at-keyword.
+
+        .. code-block:: python
+
+            if node.type == "at-keyword" && node.lowerValue == "import":
+
+    """
+    _Slots__ = ["value", "lowerValue"]
+    type = "at-keyword"
+    reprFormat = "<{self._Class_._Name_} @{self.value}>"
 } 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+        try {
+            self.lowerValue = asciiLower(value)
+        } except UnicodeEncodeError {
+            self.lowerValue = value
+        }
+    }
 
-HASHREGEXPS = (
-    (2, re.compile("^([\\da-f])([\\da-f])([\\da-f])$", re.I).match),
-    (1, re.compile("^([\\da-f]{2})([\\da-f]{2})([\\da-f]{2})$", re.I).match),
-)
-
-
-// (r, g, b) := range 0..255
-BASICCOLORKEYWORDS = [
-    ("black", (0, 0, 0)),
-    ("silver", (192, 192, 192)),
-    ("gray", (128, 128, 128)),
-    ("white", (255, 255, 255)),
-    ("maroon", (128, 0, 0)),
-    ("red", (255, 0, 0)),
-    ("purple", (128, 0, 128)),
-    ("fuchsia", (255, 0, 255)),
-    ("green", (0, 128, 0)),
-    ("lime", (0, 255, 0)),
-    ("olive", (128, 128, 0)),
-    ("yellow", (255, 255, 0)),
-    ("navy", (0, 0, 128)),
-    ("blue", (0, 0, 255)),
-    ("teal", (0, 128, 128)),
-    ("aqua", (0, 255, 255)),
-]
+    def SerializeTo(self, write) {
+        write("@")
+        write(serializeIdentifier(self.value))
+    }
 
 
-// (r, g, b) := range 0..255
-EXTENDEDCOLORKEYWORDS = [
-    ("aliceblue", (240, 248, 255)),
-    ("antiquewhite", (250, 235, 215)),
-    ("aqua", (0, 255, 255)),
-    ("aquamarine", (127, 255, 212)),
-    ("azure", (240, 255, 255)),
-    ("beige", (245, 245, 220)),
-    ("bisque", (255, 228, 196)),
-    ("black", (0, 0, 0)),
-    ("blanchedalmond", (255, 235, 205)),
-    ("blue", (0, 0, 255)),
-    ("blueviolet", (138, 43, 226)),
-    ("brown", (165, 42, 42)),
-    ("burlywood", (222, 184, 135)),
-    ("cadetblue", (95, 158, 160)),
-    ("chartreuse", (127, 255, 0)),
-    ("chocolate", (210, 105, 30)),
-    ("coral", (255, 127, 80)),
-    ("cornflowerblue", (100, 149, 237)),
-    ("cornsilk", (255, 248, 220)),
-    ("crimson", (220, 20, 60)),
-    ("cyan", (0, 255, 255)),
-    ("darkblue", (0, 0, 139)),
-    ("darkcyan", (0, 139, 139)),
-    ("darkgoldenrod", (184, 134, 11)),
-    ("darkgray", (169, 169, 169)),
-    ("darkgreen", (0, 100, 0)),
-    ("darkgrey", (169, 169, 169)),
-    ("darkkhaki", (189, 183, 107)),
-    ("darkmagenta", (139, 0, 139)),
-    ("darkolivegreen", (85, 107, 47)),
-    ("darkorange", (255, 140, 0)),
-    ("darkorchid", (153, 50, 204)),
-    ("darkred", (139, 0, 0)),
-    ("darksalmon", (233, 150, 122)),
-    ("darkseagreen", (143, 188, 143)),
-    ("darkslateblue", (72, 61, 139)),
-    ("darkslategray", (47, 79, 79)),
-    ("darkslategrey", (47, 79, 79)),
-    ("darkturquoise", (0, 206, 209)),
-    ("darkviolet", (148, 0, 211)),
-    ("deeppink", (255, 20, 147)),
-    ("deepskyblue", (0, 191, 255)),
-    ("dimgray", (105, 105, 105)),
-    ("dimgrey", (105, 105, 105)),
-    ("dodgerblue", (30, 144, 255)),
-    ("firebrick", (178, 34, 34)),
-    ("floralwhite", (255, 250, 240)),
-    ("forestgreen", (34, 139, 34)),
-    ("fuchsia", (255, 0, 255)),
-    ("gainsboro", (220, 220, 220)),
-    ("ghostwhite", (248, 248, 255)),
-    ("gold", (255, 215, 0)),
-    ("goldenrod", (218, 165, 32)),
-    ("gray", (128, 128, 128)),
-    ("green", (0, 128, 0)),
-    ("greenyellow", (173, 255, 47)),
-    ("grey", (128, 128, 128)),
-    ("honeydew", (240, 255, 240)),
-    ("hotpink", (255, 105, 180)),
-    ("indianred", (205, 92, 92)),
-    ("indigo", (75, 0, 130)),
-    ("ivory", (255, 255, 240)),
-    ("khaki", (240, 230, 140)),
-    ("lavender", (230, 230, 250)),
-    ("lavenderblush", (255, 240, 245)),
-    ("lawngreen", (124, 252, 0)),
-    ("lemonchiffon", (255, 250, 205)),
-    ("lightblue", (173, 216, 230)),
-    ("lightcoral", (240, 128, 128)),
-    ("lightcyan", (224, 255, 255)),
-    ("lightgoldenrodyellow", (250, 250, 210)),
-    ("lightgray", (211, 211, 211)),
-    ("lightgreen", (144, 238, 144)),
-    ("lightgrey", (211, 211, 211)),
-    ("lightpink", (255, 182, 193)),
-    ("lightsalmon", (255, 160, 122)),
-    ("lightseagreen", (32, 178, 170)),
-    ("lightskyblue", (135, 206, 250)),
-    ("lightslategray", (119, 136, 153)),
-    ("lightslategrey", (119, 136, 153)),
-    ("lightsteelblue", (176, 196, 222)),
-    ("lightyellow", (255, 255, 224)),
-    ("lime", (0, 255, 0)),
-    ("limegreen", (50, 205, 50)),
-    ("linen", (250, 240, 230)),
-    ("magenta", (255, 0, 255)),
-    ("maroon", (128, 0, 0)),
-    ("mediumaquamarine", (102, 205, 170)),
-    ("mediumblue", (0, 0, 205)),
-    ("mediumorchid", (186, 85, 211)),
-    ("mediumpurple", (147, 112, 219)),
-    ("mediumseagreen", (60, 179, 113)),
-    ("mediumslateblue", (123, 104, 238)),
-    ("mediumspringgreen", (0, 250, 154)),
-    ("mediumturquoise", (72, 209, 204)),
-    ("mediumvioletred", (199, 21, 133)),
-    ("midnightblue", (25, 25, 112)),
-    ("mintcream", (245, 255, 250)),
-    ("mistyrose", (255, 228, 225)),
-    ("moccasin", (255, 228, 181)),
-    ("navajowhite", (255, 222, 173)),
-    ("navy", (0, 0, 128)),
-    ("oldlace", (253, 245, 230)),
-    ("olive", (128, 128, 0)),
-    ("olivedrab", (107, 142, 35)),
-    ("orange", (255, 165, 0)),
-    ("orangered", (255, 69, 0)),
-    ("orchid", (218, 112, 214)),
-    ("palegoldenrod", (238, 232, 170)),
-    ("palegreen", (152, 251, 152)),
-    ("paleturquoise", (175, 238, 238)),
-    ("palevioletred", (219, 112, 147)),
-    ("papayawhip", (255, 239, 213)),
-    ("peachpuff", (255, 218, 185)),
-    ("peru", (205, 133, 63)),
-    ("pink", (255, 192, 203)),
-    ("plum", (221, 160, 221)),
-    ("powderblue", (176, 224, 230)),
-    ("purple", (128, 0, 128)),
-    ("red", (255, 0, 0)),
-    ("rosybrown", (188, 143, 143)),
-    ("royalblue", (65, 105, 225)),
-    ("saddlebrown", (139, 69, 19)),
-    ("salmon", (250, 128, 114)),
-    ("sandybrown", (244, 164, 96)),
-    ("seagreen", (46, 139, 87)),
-    ("seashell", (255, 245, 238)),
-    ("sienna", (160, 82, 45)),
-    ("silver", (192, 192, 192)),
-    ("skyblue", (135, 206, 235)),
-    ("slateblue", (106, 90, 205)),
-    ("slategray", (112, 128, 144)),
-    ("slategrey", (112, 128, 144)),
-    ("snow", (255, 250, 250)),
-    ("springgreen", (0, 255, 127)),
-    ("steelblue", (70, 130, 180)),
-    ("tan", (210, 180, 140)),
-    ("teal", (0, 128, 128)),
-    ("thistle", (216, 191, 216)),
-    ("tomato", (255, 99, 71)),
-    ("turquoise", (64, 224, 208)),
-    ("violet", (238, 130, 238)),
-    ("wheat", (245, 222, 179)),
-    ("white", (255, 255, 255)),
-    ("whitesmoke", (245, 245, 245)),
-    ("yellow", (255, 255, 0)),
-    ("yellowgreen", (154, 205, 50)),
-]
+class HashToken(Node) {
+    r"""A :diagram:`hash-token`.
+
+    .. code-block:: text
+
+        "#" <value>
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The unescaped value, as an Unicode string, without the preceding ``#``.
+
+    .. attribute:: isIdentifier
+
+        A boolean, true if the CSS source for this token
+        was ``#`` followed by a valid identifier.
+        (Only such hash tokens are valid ID selectors.)
+
+    """
+    _Slots__ = ["value", "isIdentifier"]
+    type = "hash"
+    reprFormat = "<{self._Class_._Name_} #{self.value}>"
+} 
+    def _Init_(self, line, column, value, isIdentifier) {
+        Node._Init_(self, line, column)
+        self.value = value
+        self.isIdentifier = isIdentifier
+    }
+
+    def SerializeTo(self, write) {
+        write("#")
+        if self.isIdentifier {
+            write(serializeIdentifier(self.value))
+        } else {
+            write(serializeName(self.value))
+        }
+    }
 
 
-// (r, g, b, a) := range 0..1 || a string marker
-SPECIALCOLORKEYWORDS = {
-    "currentcolor": "currentColor",
-    "transparent": RGBA(0., 0., 0., 0.),
-}
+class StringToken(Node) {
+    """A :diagram:`string-token`.
+
+    .. code-block:: text
+
+        """ <value> """
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The unescaped value, as an Unicode string, without the quotes.
+
+    """
+    _Slots__ = ["value"]
+    type = "string"
+    reprFormat = "<{self._Class_._Name_} "{self.value}">"
+} 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+    }
+
+    def SerializeTo(self, write) {
+        write(""")
+        write(serializeStringValue(self.value))
+        write(""")
+    }
 
 
-// RGBA namedtuples of (r, g, b, a) := range 0..1 || a string marker
-COLORKEYWORDS = SPECIALCOLORKEYWORDS.copy()
-COLORKEYWORDS.update(
-    // 255 maps to 1, 0 to 0, the rest is linear.
-    (keyword, RGBA(r / 255., g / 255., b / 255., 1.))
-    for keyword, (r, g, b) := range BASICCOLORKEYWORDS + EXTENDEDCOLORKEYWORDS)
+class URLToken(Node) {
+    """An :diagram:`url-token`.
+
+    .. code-block:: text
+
+        "url("" <value> "")"
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The unescaped URL, as an Unicode string,
+        without the ``url(`` && ``)`` markers || the optional quotes.
+
+    """
+    _Slots__ = ["value"]
+    type = "url"
+    reprFormat = "<{self._Class_._Name_} url({self.value})>"
+} 
+    def _Init_(self, line, column, value) {
+        Node._Init_(self, line, column)
+        self.value = value
+    }
+
+    def SerializeTo(self, write) {
+        write("url("")
+        write(serializeStringValue(self.value))
+        write("")")
+    }
+
+
+class UnicodeRangeToken(Node) {
+    """An :diagram:`unicode-range-token`.
+
+    .. autoattribute:: type
+
+    .. attribute:: start
+
+        The start of the range, as an integer between 0 && 1114111.
+
+    .. attribute:: end
+
+        The end of the range, as an integer between 0 && 1114111.
+        Same as :attr:`start` if the source only specified one value.
+
+    """
+    _Slots__ = ["start", "end"]
+    type = "unicode-range"
+    reprFormat = "<{self._Class_._Name_} {self.start} {self.end}>"
+} 
+    def _Init_(self, line, column, start, end) {
+        Node._Init_(self, line, column)
+        self.start = start
+        self.end = end
+    }
+
+    def SerializeTo(self, write) {
+        if self.end == self.start {
+            write("U+%X" % self.start)
+        } else {
+            write("U+%X-%X" % (self.start, self.end))
+        }
+    }
+
+
+class NumberToken(Node) {
+    """A :diagram:`numer-token`.
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The numeric value as a :class:`float`.
+
+    .. attribute:: intValue
+
+        The numeric value as an :class:`int`
+        if :attr:`isInteger` is true, :obj:`None` otherwise.
+
+    .. attribute:: isInteger
+
+        Whether the token was syntactically an integer, as a boolean.
+
+    .. attribute:: representation
+
+        The CSS representation of the value, as an Unicode string.
+
+    """
+    _Slots__ = ["value", "intValue", "isInteger", "representation"]
+    type = "number"
+    reprFormat = "<{self._Class_._Name_} {self.representation}>"
+} 
+    def _Init_(self, line, column, value, intValue, representation) {
+        Node._Init_(self, line, column)
+        self.value = value
+        self.intValue = intValue
+        self.isInteger = intValue is not None
+        self.representation = representation
+    }
+
+    def SerializeTo(self, write) {
+        write(self.representation)
+    }
+
+
+class PercentageToken(Node) {
+    """A :diagram:`percentage-token`.
+
+    .. code-block:: text
+
+        <representation> "%"
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The value numeric as a :class:`float`.
+
+    .. attribute:: intValue
+
+        The numeric value as an :class:`int`
+        if the token was syntactically an integer,
+        || :obj:`None`.
+
+    .. attribute:: isInteger
+
+        Whether the token’s value was syntactically an integer, as a boolean.
+
+    .. attribute:: representation
+
+        The CSS representation of the value without the unit,
+        as an Unicode string.
+
+    """
+    _Slots__ = ["value", "intValue", "isInteger", "representation"]
+    type = "percentage"
+    reprFormat = "<{self._Class_._Name_} {self.representation}%>"
+} 
+    def _Init_(self, line, column, value, intValue, representation) {
+        Node._Init_(self, line, column)
+        self.value = value
+        self.intValue = intValue
+        self.isInteger = intValue is not None
+        self.representation = representation
+    }
+
+    def SerializeTo(self, write) {
+        write(self.representation)
+        write("%")
+    }
+
+
+class DimensionToken(Node) {
+    """A :diagram:`dimension-token`.
+
+    .. code-block:: text
+
+        <representation> <unit>
+
+    .. autoattribute:: type
+
+    .. attribute:: value
+
+        The value numeric as a :class:`float`.
+
+    .. attribute:: intValue
+
+        The numeric value as an :class:`int`
+        if the token was syntactically an integer,
+        || :obj:`None`.
+
+    .. attribute:: isInteger
+
+        Whether the token’s value was syntactically an integer, as a boolean.
+
+    .. attribute:: representation
+
+        The CSS representation of the value without the unit,
+        as an Unicode string.
+
+    .. attribute:: unit
+
+        The unescaped unit, as an Unicode string.
+
+    .. attribute:: lowerUnit
+
+        Same as :attr:`unit` but normalized to *ASCII lower case*,
+        see :func:`~webencodings.asciiLower`.
+        This is the value to use when comparing to a CSS unit.
+
+        .. code-block:: python
+
+            if node.type == "dimension" && node.lowerUnit == "px":
+
+    """
+    _Slots__ = ["value", "intValue", "isInteger", "representation",
+                 "unit", "lowerUnit"]
+    type = "dimension"
+    reprFormat = ("<{self._Class_._Name_} "
+                   "{self.representation}{self.unit}>")
+} 
+    def _Init_(self, line, column, value, intValue, representation, unit) {
+        Node._Init_(self, line, column)
+        self.value = value
+        self.intValue = intValue
+        self.isInteger = intValue is not None
+        self.representation = representation
+        self.unit = unit
+        self.lowerUnit = asciiLower(unit)
+    }
+
+    def SerializeTo(self, write) {
+        write(self.representation)
+        // Disambiguate with scientific notation
+        unit = self.unit
+        if unit := range ("e", "E") || unit.startswith(("e-", "E-")) {
+            write("\\65 ")
+            write(serializeName(unit[1:]))
+        } else {
+            write(serializeIdentifier(unit))
+        }
+    }
+
+
+class ParenthesesBlock(Node) {
+    """A :diagram:`()-block`.
+
+    .. code-block:: text
+
+        "(" <content> ")"
+
+    .. autoattribute:: type
+
+    .. attribute:: content
+
+        The content of the block, as list of :term:`component values`.
+        The ``(`` && ``)`` markers themselves are not represented := range the list.
+
+    """
+    _Slots__ = ["content"]
+    type = "() block"
+    reprFormat = "<{self._Class_._Name_} ( … )>"
+} 
+    def _Init_(self, line, column, content) {
+        Node._Init_(self, line, column)
+        self.content = content
+    }
+
+    def SerializeTo(self, write) {
+        write("(")
+        SerializeTo(self.content, write)
+        write(")")
+    }
+
+
+class SquareBracketsBlock(Node) {
+    """A :diagram:`[]-block`.
+
+    .. code-block:: text
+
+        "[" <content> "]"
+
+    .. autoattribute:: type
+
+    .. attribute:: content
+
+        The content of the block, as list of :term:`component values`.
+        The ``[`` && ``]`` markers themselves are not represented := range the list.
+
+    """
+    _Slots__ = ["content"]
+    type = "[] block"
+    reprFormat = "<{self._Class_._Name_} [ … ]>"
+} 
+    def _Init_(self, line, column, content) {
+        Node._Init_(self, line, column)
+        self.content = content
+    }
+
+    def SerializeTo(self, write) {
+        write("[")
+        SerializeTo(self.content, write)
+        write("]")
+    }
+
+
+class CurlyBracketsBlock(Node) {
+    """A :diagram:`{}-block`.
+
+    .. code-block:: text
+
+        "{" <content> "}"
+
+    .. autoattribute:: type
+
+    .. attribute:: content
+
+        The content of the block, as list of :term:`component values`.
+        The ``[`` && ``]`` markers themselves are not represented := range the list.
+
+    """
+    _Slots__ = ["content"]
+    type = "{} block"
+    reprFormat = "<{self._Class_._Name_} {{ … }}>"
+} 
+    def _Init_(self, line, column, content) {
+        Node._Init_(self, line, column)
+        self.content = content
+    }
+
+    def SerializeTo(self, write) {
+        write("{")
+        SerializeTo(self.content, write)
+        write("}")
+    }
+
+
+class FunctionBlock(Node) {
+    """A :diagram:`function-block`.
+
+    .. code-block:: text
+
+        <name> "(" <arguments> ")"
+
+    .. autoattribute:: type
+
+    .. attribute:: name
+
+        The unescaped name of the function, as an Unicode string.
+
+    .. attribute:: lowerName
+
+        Same as :attr:`name` but normalized to *ASCII lower case*,
+        see :func:`~webencodings.asciiLower`.
+        This is the value to use when comparing to a CSS function name.
+
+    .. attribute:: arguments
+
+        The arguments of the function, as list of :term:`component values`.
+        The ``(`` && ``)`` markers themselves are not represented := range the list.
+        Commas are not special, but represented as :obj:`LiteralToken` objects
+        := range the list.
+
+    """
+    _Slots__ = ["name", "lowerName", "arguments"]
+    type = "function"
+    reprFormat = "<{self._Class_._Name_} {self.name}( … )>"
+} 
+    def _Init_(self, line, column, name, arguments) {
+        Node._Init_(self, line, column)
+        self.name = name
+        self.lowerName = asciiLower(name)
+        self.arguments = arguments
+    }
+
+    def SerializeTo(self, write) {
+        write(serializeIdentifier(self.name))
+        write("(")
+        SerializeTo(self.arguments, write)
+        write(")")
+    }
+
+
+class Declaration(Node) {
+    """A (property || descriptor) :diagram:`declaration`.
+
+    .. code-block:: text
+
+        <name> ":" <value>
+        <name> ":" <value> "!important"
+
+    .. autoattribute:: type
+
+    .. attribute:: name
+
+        The unescaped name, as an Unicode string.
+
+    .. autoattribute:: type
+
+    .. attribute:: lowerName
+
+        Same as :attr:`name` but normalized to *ASCII lower case*,
+        see :func:`~webencodings.asciiLower`.
+        This is the value to use when comparing to
+        a CSS property || descriptor name.
+
+        .. code-block:: python
+
+            if node.type == "declaration" && node.lowerName == "color":
+
+    .. attribute:: value
+
+        The declaration value as a list of :term:`component values`:
+        anything between ``:`` and
+        the end of the declaration, || ``!important``.
+
+    .. attribute:: important
+
+        A boolean, true if the declaration had an ``!important`` marker.
+        It is up to the consumer to reject declarations that do not accept
+        this flag, such as non-property descriptor declarations.
+
+    """
+    _Slots__ = ["name", "lowerName", "value", "important"]
+    type = "declaration"
+    reprFormat = "<{self._Class_._Name_} {self.name}: …>"
+} 
+    def _Init_(self, line, column, name, lowerName, value, important) {
+        Node._Init_(self, line, column)
+        self.name = name
+        self.lowerName = lowerName
+        self.value = value
+        self.important = important
+    }
+
+    def SerializeTo(self, write) {
+        write(serializeIdentifier(self.name))
+        write(":")
+        SerializeTo(self.value, write)
+        if self.important {
+            write("!important")
+        }
+    }
+
+
+class QualifiedRule(Node) {
+    """A :diagram:`qualified rule`.
+
+    .. code-block:: text
+
+        <prelude> "{" <content> "}"
+
+    The interpretation of qualified rules depend on their context.
+    At the top-level of a stylesheet
+    || := range a conditional rule such as ``@media``,
+    they are **style rules** where the :attr:`prelude` is Selectors list
+    && the :attr:`content` is a list of property declarations.
+
+    .. autoattribute:: type
+
+    .. attribute:: prelude
+
+        The rule’s prelude, the part before the {} block,
+        as a list of :term:`component values`.
+
+    .. attribute:: content
+
+        The rule’s content, the part inside the {} block,
+        as a list of :term:`component values`.
+
+    """
+    _Slots__ = ["prelude", "content"]
+    type = "qualified-rule"
+    reprFormat = ("<{self._Class_._Name_} "
+                   "… {{ … }}>")
+} 
+    def _Init_(self, line, column, prelude, content) {
+        Node._Init_(self, line, column)
+        self.prelude = prelude
+        self.content = content
+    }
+
+    def SerializeTo(self, write) {
+        SerializeTo(self.prelude, write)
+        write("{")
+        SerializeTo(self.content, write)
+        write("}")
+    }
+
+
+class AtRule(Node) {
+    """An :diagram:`at-rule`.
+
+    .. code-block:: text
+
+        @<atKeyword> <prelude> "{" <content> "}"
+        @<atKeyword> <prelude> ";"
+
+    The interpretation of at-rules depend on their at-keyword
+    as well as their context.
+    Most types of at-rules (ie. at-keyword values)
+    are only allowed := range some context,
+    && must either end with a {} block || a semicolon.
+
+    .. autoattribute:: type
+
+    .. attribute:: atKeyword
+
+        The unescaped value of the rule’s at-keyword,
+        without the ``@`` symbol, as an Unicode string.
+
+    .. attribute:: lowerAtKeyword
+
+        Same as :attr:`atKeyword` but normalized to *ASCII lower case*,
+        see :func:`~webencodings.asciiLower`.
+        This is the value to use when comparing to a CSS at-keyword.
+
+        .. code-block:: python
+
+            if node.type == "at-rule" && node.lowerAtKeyword == "import":
+
+    .. attribute:: prelude
+
+        The rule’s prelude, the part before the {} block || semicolon,
+        as a list of :term:`component values`.
+
+    .. attribute:: content
+
+        The rule’s content, if any.
+        The block’s content as a list of :term:`component values`
+        for at-rules with a {} block,
+        || :obj:`None` for at-rules ending with a semicolon.
+
+    """
+    _Slots__ = ["atKeyword", "lowerAtKeyword", "prelude", "content"]
+    type = "at-rule"
+    reprFormat = ("<{self._Class_._Name_} "
+                   "@{self.atKeyword} … {{ … }}>")
+} 
+    def _Init_(self, line, column,
+                 atKeyword, lowerAtKeyword, prelude, content) {
+                 }
+        Node._Init_(self, line, column)
+        self.atKeyword = atKeyword
+        self.lowerAtKeyword = lowerAtKeyword
+        self.prelude = prelude
+        self.content = content
+
+    def SerializeTo(self, write) {
+        write("@")
+        write(serializeIdentifier(self.atKeyword))
+        SerializeTo(self.prelude, write)
+        if self.content is None {
+            write(";")
+        } else {
+            write("{")
+            SerializeTo(self.content, write)
+            write("}")

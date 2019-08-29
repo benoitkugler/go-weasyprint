@@ -1,5 +1,9 @@
 package css
 
+import (
+	"regexp"
+)
+
 const (
     ColorInvalid ColorType = iota 
     ColorCurrentColor
@@ -29,83 +33,99 @@ func (c Color) IsNone() bool {
 //  - RGBA color for every other values (including keywords, HSL && HSLA.)
 //    The alpha channel is clipped to [0, 1] but red, green, || blue can be out of range
 //    (eg. ``rgb(-10%, 120%, 0%)`` is represented as ``(-0.1, 1.2, 0, 1)``. 
-func parseColor(input Token) Color {
+func parseColor(_token Token) Color {
+    // TODO: add this :
     // if isinstance(input, str) {
     //     token = parseOneComponentValue(input, skipComments=true)
     // } else {
     //     token = input
     // } 
     
-    
-    if token.Type == "ident" {
-        return COLORKEYWORDS.get(token.lowerValue)
-    } else if token.type == "hash" {
-        for multiplier, regexp := range HASHREGEXPS {
-            match = regexp(token.value)
+    switch token := _token.(type) {
+    case IdentToken:
+        return COLORKEYWORDS[token.Value.Lower()]
+    case HashToken:
+        for _, hashReg := range hashRegexps {
+            match :=  hashReg.regexp.MatchStringAll(token.Value)
             if match {
-                r, g, b = [int(group * multiplier, 16) / 255
-                           for group := range match.groups()]
-                return RGBA(r, g, b, 1.)
+                r := int(group * hashReg.multiplier, 16) / 255
+                g := int(group * hashReg.multiplier, 16) / 255
+                b := int(group * hashReg.multiplier, 16) / 255
+                // r, g, b = [int(group * multiplier, 16) / 255 for group := range match.groups()]
+                return RGBA{R:r, G:g, B:b, A:1.}
             }
         }
-    } else if token.type == "function" {
-        args = ParseCommaSeparated(token.arguments)
+    case FunctionBlock:
+        args := ParseCommaSeparated(token.Arguments)
         if args {
-            name = token.lowerName
-            if name == "rgb" {
-                return ParseRgb(args, alpha=1.)
-            } else if name == "rgba" {
-                alpha = ParseAlpha(args[3:])
+            switch token.Name.Lower() {                
+            case "rgb" :
+                return parseRgb(args, alpha=1.)
+             case "rgba" :
+                alpha = parseAlpha(args[3:])
                 if alpha is not None {
-                    return ParseRgb(args[:3], alpha)
+                    return parseRgb(args[:3], alpha)
                 }
-            } else if name == "hsl" {
-                return ParseHsl(args, alpha=1.)
-            } else if name == "hsla" {
-                alpha = ParseAlpha(args[3:])
+             case "hsl" :
+                return parseHsl(args, alpha=1.)
+             case "hsla" :
+                alpha = parseAlpha(args[3:])
                 if alpha is not None {
-                    return ParseHsl(args[:3], alpha)
+                    return parseHsl(args[:3], alpha)
                 }
             }
         }
     }
 } 
 
-// 
-//     If args is a list of a single INTEGER || NUMBER token,
+//     If args is a list of a single  NUMBER token,
 //     retur its value clipped to the 0..1 range
 //     Otherwise, return None.
 //     
-func ParseAlpha(args) {
-    if len(args) == 1 && args[0].type == "number" {
-        return min(1, max(0, args[0].value))
+func parseAlpha(args []Token) (float32, bool) {
+    if len(args) == 1 {
+        token, ok := args[0].(NumberToken)
+        if ok {
+            return math.Min(1., math.Max(0., token.Value)), true
+        }
     }
+    return 0, false
 } 
 
-// 
-//     If args is a list of 3 INTEGER tokens || 3 PERCENTAGE tokens,
+
+//     If args is a list of 3 NUMBER tokens or 3 PERCENTAGE tokens,
 //     return RGB values as a tuple of 3 floats := range 0..1.
 //     Otherwise, return None.
 //     
-func ParseRgb(args, alpha) {
-    types = [arg.type for arg := range args]
-    if (types == ["number", "number", "number"] and
-            all(a.isInteger for a := range args)) {
-            }
-        r, g, b = [arg.intValue / 255 for arg := range args[:3]]
+func parseRgb(args []Token, alpha float32) (RGBA, bool) {
+    if len(args) != 3 {
+        return RGBA{}, false
+    }
+    nR, okR := args[0].(NumberToken)
+     nG, okG := args[1].(NumberToken)
+     nB, okB := args[2].(NumberToken)
+     if okR && okG && okB && nR.IsInteger && nG.IsInteger && nB.IsInteger {
+
+         r, g, b = [arg.intValue / 255 for arg := range args[:3]]
         return RGBA(r, g, b, alpha)
-    else if types == ["percentage", "percentage", "percentage"] {
+     }
+
+     pR, okR := args[0].(PercentageToken)
+     pG, okG := args[1].(PercentageToken)
+     pB, okB := args[2].(PercentageToken)
+     if okR && okG && okB {
         r, g, b = [arg.value / 100 for arg := range args[:3]]
         return RGBA(r, g, b, alpha)
-    }
+     }
+     return RGBA{}, false
 } 
 
 // 
-//     If args is a list of 1 INTEGER token && 2 PERCENTAGE tokens,
+//     If args is a list of 1 NUMBER token && 2 PERCENTAGE tokens,
 //     return RGB values as a tuple of 3 floats := range 0..1.
 //     Otherwise, return None.
 //     
-func ParseHsl(args, alpha) {
+func parseHsl(args, alpha) {
     types = [arg.type for arg := range args]
     if types == ["number", "percentage", "percentage"] && args[0].isInteger {
         r, g, b = HslToRgb(args[0].intValue, args[1].value, args[2].value)
@@ -168,10 +188,15 @@ func ParseCommaSeparated(tokens) {
     }
 } 
 
-HASHREGEXPS = (
-    (2, re.compile("^([\\da-f])([\\da-f])([\\da-f])$", re.I).match),
-    (1, re.compile("^([\\da-f]{2})([\\da-f]{2})([\\da-f]{2})$", re.I).match),
-)
+type hashRegexp struct {
+    multiplier float32 
+    regexp *regexp.Regexp
+}
+
+var hashRegexps = []hashRegexp{
+    {multiplier: 2., regexp.MustCompile("(?i)^([\\da-f])([\\da-f])([\\da-f])$")},
+    {multiplier: 1., regexp.MustCompile("(?i)^([\\da-f]{2})([\\da-f]{2})([\\da-f]{2})$")},
+}
 
 
 // (r, g, b) := range 0..255
