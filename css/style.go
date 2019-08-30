@@ -44,6 +44,10 @@ func (d Dimension) IsNone() bool {
 	return d == Dimension{}
 }
 
+func toDim(v float32) Dimension {
+	return Dimension{Value: v}
+}
+
 type Side string
 
 type NameValue struct {

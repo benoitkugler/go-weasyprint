@@ -1,6 +1,9 @@
 package css
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 type Set = map[string]bool
 
@@ -63,7 +66,7 @@ var (
 	Inherited          Set
 	InitialNotComputed Set
 
-	InitialValues = StyleDict{
+	InitialValues = map[string]CssProperty{
 		MiscProperties: MiscProperties{
 			Content: Content{String: "normal"},
 
@@ -194,6 +197,10 @@ var (
 			"link":   Link{}, // computed value of "none"
 			"lang":   Link{}, // computed value of "none"
 		},
+		"size": PageSize{
+			{Value: initialPageSize[0].Value * LengthsToPixels[initialPageSize[0].Unit]},
+			{Value: initialPageSize[1].Value * LengthsToPixels[initialPageSize[1].Unit]},
+		},
 
 		// "column_rule_color": "currentColor",
 		// "column_rule_style": "none",
@@ -283,7 +290,7 @@ var (
 		// "overflow_wrap": "normal",
 	}
 
-	InitialValuesItems map[string]CssProperty
+	knownProperties = Set{}
 
 	// http://www.w3.org/TR/CSS21/tables.html#model
 	// See also http://lists.w3.org/Archives/Public/www-style/2012Jun/0066.html
@@ -315,7 +322,9 @@ var (
 )
 
 func init() {
-	InitialValuesItems = InitialValues.Items()
+	for name := range InitialValues {
+		knownProperties[strings.ReplaceAll(name, "_", "-")] = true
+	}
 }
 
 func vs(s string) Value { return Value{String: s} }
@@ -384,6 +393,7 @@ const (
 	ContentCounter
 	ContentCounters
 	ContentString
+	ContentContent
 )
 
 type ContentProperty struct {
@@ -416,6 +426,13 @@ func (c Content) Copy() Content {
 	return out
 }
 
+type TextDecoration struct {
+	None        bool
+	Decorations Set
+}
+
+// width, height
+type PageSize [2]Dimension
 
 // transform
 type Transforms []Transform
@@ -516,9 +533,8 @@ type WordSpacing Value
 
 // link
 type Link struct {
-	String string
-	Type   string
-	Attr   string
+	Type string
+	Attr string
 }
 
 // anchor

@@ -10,18 +10,18 @@ import (
 )
 
 var (
-	ZeroPixels = Value{Dimension: Dimension{Unit: Pixels}}
+	ZeroPixels = Dimension{Unit: Px}
 
 	// How many CSS pixels is one <unit>?
 	// http://www.w3.org/TR/CSS21/syndata.html#length-units
-	LengthsToPixels = map[string]float32{
-		"px": 1,
-		"pt": 1. / 0.75,
-		"pc": 16.,             // LengthsToPixels["pt"] * 12
-		"in": 96.,             // LengthsToPixels["pt"] * 72
-		"cm": 96. / 2.54,      // LengthsToPixels["in"] / 2.54
-		"mm": 96. / 25.4,      // LengthsToPixels["in"] / 25.4
-		"q":  96. / 25.4 / 4., // LengthsToPixels["mm"] / 4
+	LengthsToPixels = map[Unit]float32{
+		Px: 1,
+		Pt: 1. / 0.75,
+		Pc: 16.,             // LengthsToPixels["pt"] * 12
+		In: 96.,             // LengthsToPixels["pt"] * 72
+		Cm: 96. / 2.54,      // LengthsToPixels["in"] / 2.54
+		Mm: 96. / 25.4,      // LengthsToPixels["in"] / 25.4
+		Q:  96. / 25.4 / 4., // LengthsToPixels["mm"] / 4
 	}
 
 	// These are unspecified, other than 'thin' <='medium' <= 'thick'.
@@ -74,12 +74,34 @@ var (
 		},
 	}
 
+	// http://www.w3.org/TR/css3-page/#size
+	// name=(width in pixels, height in pixels)
+	pageSizes = map[string]PageSize{
+		"a5":     {Dimension{Value: 148, Unit: Mm}, Dimension{Value: 210, Unit: Mm}},
+		"a4":     {Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}},
+		"a3":     {Dimension{Value: 297, Unit: Mm}, Dimension{Value: 420, Unit: Mm}},
+		"b5":     {Dimension{Value: 176, Unit: Mm}, Dimension{Value: 250, Unit: Mm}},
+		"b4":     {Dimension{Value: 250, Unit: Mm}, Dimension{Value: 353, Unit: Mm}},
+		"letter": {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 11, Unit: In}},
+		"legal":  {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 14, Unit: In}},
+		"ledger": {Dimension{Value: 11, Unit: In}, Dimension{Value: 17, Unit: In}},
+	}
+
+	initialPageSize = pageSizes["a4"]
+
 	ComputingOrder []string
 )
 
 func init() {
 	if InitialValues.Values["border_top_width"].Value != BorderWidthKeywords["medium"] {
 		log.Fatal("border-top-width and medium should be the same !")
+	}
+
+	// In "portrait" orientation.
+	for _, size := range pageSizes {
+		if size[0].Value > size[1].Value {
+			log.Fatal("page size should be in portrait orientation")
+		}
 	}
 
 	//Some computed value are required by others, so order matters.
@@ -98,6 +120,7 @@ func init() {
 			ComputingOrder = append(ComputingOrder, k)
 		}
 	}
+
 }
 
 // Return a dict of computed value.

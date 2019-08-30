@@ -340,7 +340,7 @@ func parseRgb(args []Token, alpha float32) (RGBA, bool) {
 	pG, okG := args[1].(PercentageToken)
 	pB, okB := args[2].(PercentageToken)
 	if okR && okG && okB {
-		return RGBA{R: nR.Value / 100, G: nG.Value / 100, B: nB.Value / 100, A: alpha}, true
+		return RGBA{R: pR.Value / 100, G: pG.Value / 100, B: pB.Value / 100, A: alpha}, true
 
 	}
 	return RGBA{}, false
