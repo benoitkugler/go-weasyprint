@@ -76,7 +76,7 @@ var (
 
 	// http://www.w3.org/TR/css3-page/#size
 	// name=(width in pixels, height in pixels)
-	pageSizes = map[string]PageSize{
+	pageSizes = map[string]WidthHeight{
 		"a5":     {Dimension{Value: 148, Unit: Mm}, Dimension{Value: 210, Unit: Mm}},
 		"a4":     {Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}},
 		"a3":     {Dimension{Value: 297, Unit: Mm}, Dimension{Value: 420, Unit: Mm}},
@@ -87,7 +87,7 @@ var (
 		"ledger": {Dimension{Value: 11, Unit: In}, Dimension{Value: 17, Unit: In}},
 	}
 
-	initialPageSize = pageSizes["a4"]
+	initialWidthHeight = pageSizes["a4"]
 
 	ComputingOrder []string
 )
@@ -192,11 +192,6 @@ type Center struct {
 
 func (c Center) IsNone() bool {
 	return c == Center{}
-}
-
-type Transform struct {
-	Function string
-	Args     []Dimension
 }
 
 // backgroundImage computes lenghts in gradient background-image.
@@ -333,12 +328,12 @@ func (value BackgroundSize) ComputeValue(computer *computer, name string) CssPro
 			out[index] = Size{String: v.String}
 		} else {
 			l := lengthOrPercentageTuple2(computer, name, []Dimension{
-				v.Height.Dimension,
 				v.Width.Dimension,
+				v.Height.Dimension,
 			})
 			out[index] = Size{
-				Height: Value{Dimension: l[0]},
-				Width:  Value{Dimension: l[1]},
+				Width:  Value{Dimension: l[0]},
+				Height: Value{Dimension: l[1]},
 			}
 		}
 	}
@@ -574,3 +569,5 @@ func (value StringContent) ComputeValue(computer *computer, name string) CssProp
 func (value FontVariant) ComputeValue(computer *computer, name string) CssProperty       { return value }
 func (value TransformOrigin) ComputeValue(computer *computer, name string) CssProperty   { return value }
 func (value BackgroundRepeat) ComputeValue(computer *computer, name string) CssProperty  { return value }
+func (value WidthHeight) ComputeValue(computer *computer, name string) CssProperty       { return value }
+func (value Marks) ComputeValue(computer *computer, name string) CssProperty             { return value }

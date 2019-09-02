@@ -156,7 +156,7 @@ package css
 // }
 
 // // width, height
-// type PageSize [2]Dimension
+// type WidthHeight [2]Dimension
 
 // // transform
 // type Transforms []Transform

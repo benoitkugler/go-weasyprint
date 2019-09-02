@@ -11,8 +11,10 @@ var (
 	Inherited          = Set{}
 	InitialNotComputed = Set{}
 
+	zeroPixelsValue = Value{Dimension: ZeroPixels}
+
 	InitialValues = map[string]CssProperty{
-		"bottom":       sToV("auto"),
+		"bottom":       Length(sToV("auto")),
 		"caption_side": String("top"),
 		// "clear": "none",
 		// "clip": TBD,  // computed value for "auto"
@@ -29,28 +31,28 @@ var (
 		"display":           Display("inline"),
 		// "empty_cells": "show",
 		"float":            Floating("none"),
-		"height":           sToV("auto"),
-		"left":             sToV("auto"),
-		"line_height":      sToV("normal"),
+		"height":           Length(sToV("auto")),
+		"left":             Length(sToV("auto")),
+		"right":            Length(sToV("auto")),
+		"line_height":      LineHeight(sToV("normal")),
 		"list_style_image": ListStyleImage{Type: "none"},
 		// "list_style_position": "outside",
 		"list_style_type": String("disc"),
-		"margin_top":      ZeroPixels,
-		"margin_right":    ZeroPixels,
-		"margin_bottom":   ZeroPixels,
-		"margin_left":     ZeroPixels,
-		"max_height":      Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}}, // parsed value for "none}"
-		"max_width":       Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}},
-		"min_height":      ZeroPixels,
-		"min_width":       ZeroPixels,
+		"margin_top":      Length(zeroPixelsValue),
+		"margin_right":    Length(zeroPixelsValue),
+		"margin_bottom":   Length(zeroPixelsValue),
+		"margin_left":     Length(zeroPixelsValue),
+		"max_height":      Length(Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}), // parsed value for "none})"
+		"max_width":       Length(Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}),
+		"min_height":      Length(zeroPixelsValue),
+		"min_width":       Length(zeroPixelsValue),
 		"overflow":        String("visible"),
-		"padding_top":     ZeroPixels,
-		"padding_right":   ZeroPixels,
-		"padding_bottom":  ZeroPixels,
-		"padding_left":    ZeroPixels,
+		"padding_top":     Length(zeroPixelsValue),
+		"padding_right":   Length(zeroPixelsValue),
+		"padding_bottom":  Length(zeroPixelsValue),
+		"padding_left":    Length(zeroPixelsValue),
 		"quotes":          Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
-		// "position": "static",
-		"right": sToV("auto"),
+		"position":        String("static"),
 		// "table_layout": "auto",
 		// "text_decoration": "none",
 		// "top": "auto",
@@ -58,6 +60,7 @@ var (
 		// "vertical_align": "baseline",
 		// "visibility": "visible",
 		// "z_index": "auto",
+		"width": Length(sToV("auto")),
 
 		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 		// "background_attachment": ("scroll",),
@@ -68,6 +71,8 @@ var (
 			Center{OriginX: "left", Pos: Point{X: Dimension{Unit: Percentage}}},
 			Center{OriginX: "top", Pos: Point{X: Dimension{Unit: Percentage}}},
 		},
+		"background_image": BackgroundImage{NoneImage{}},
+
 		// "background_repeat": (("repeat", "repeat"),),
 		"background_size": BackgroundSize{Size{Width: sToV("auto"), Height: sToV("auto")}},
 		// "border_bottom_color": "currentColor",
@@ -83,22 +88,27 @@ var (
 		"border_left_style":   String("none"),
 		"border_right_style":  String("none"),
 		"border_top_style":    String("none"),
+		// "border_spacing": (0, 0),
+		"border_bottom_width": BorderWidth(Value{Dimension: Dimension{Value: 3}}),
+		"border_left_width":   BorderWidth(Value{Dimension: Dimension{Value: 3}}),
+		"border_top_width":    BorderWidth(Value{Dimension: Dimension{Value: 3}}), // computed value for "medium}"
+		"border_right_width":  BorderWidth(Value{Dimension: Dimension{Value: 3}}),
 
-		"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
-		"border_bottom_right_radius": Lengths{ZeroPixels, ZeroPixels},
-		"border_top_left_radius":     Lengths{ZeroPixels, ZeroPixels},
-		"border_top_right_radius":    Lengths{ZeroPixels, ZeroPixels},
+		"border_bottom_left_radius":  Lengths{zeroPixelsValue, zeroPixelsValue},
+		"border_bottom_right_radius": Lengths{zeroPixelsValue, zeroPixelsValue},
+		"border_top_left_radius":     Lengths{zeroPixelsValue, zeroPixelsValue},
+		"border_top_right_radius":    Lengths{zeroPixelsValue, zeroPixelsValue},
 
 		// // Color 3 (REC): https://www.w3.org/TR/css3-color/
 		// "opacity": 1,
 
 		// Multi-column Layout (CR): https://www.w3.org/TR/css3-multicol/
-		"column_width": sToV("auto"),
+		"column_width": ColumnWidth(sToV("auto")),
 		"column_count": sToV("auto"),
-		"column_gap":   Value{Dimension: Dimension{Value: 1, Unit: "em"}},
+		"column_gap":   ColumnGap(Value{Dimension: Dimension{Value: 1, Unit: Em}}),
 		// "column_rule_color": "currentColor",
 		// "column_rule_style": "none",
-		// "column_rule_width": "medium",
+		"column_rule_width": BorderWidth(sToV("medium")),
 		// "column_fill": "balance",
 		// "column_span": "none",
 
@@ -116,6 +126,8 @@ var (
 		// "font_variant_ligatures": "normal",
 		// "font_variant_numeric": "normal",
 		// "font_variant_position": "normal",
+		"font_size":   FontSize(Value{Dimension: Dimension{Value: 16}}), // actually medium, but we define medium from thi}s
+		"font_weight": FontWeight(Value{Dimension: Dimension{Value: 400}}),
 
 		// // Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
 		"break_after":  Break("auto"),
@@ -134,82 +146,48 @@ var (
 		// "image_rendering": "auto",
 
 		// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
-		"size": PageSize{
-			{Value: initialPageSize[0].Value * LengthsToPixels[initialPageSize[0].Unit]},
-			{Value: initialPageSize[1].Value * LengthsToPixels[initialPageSize[1].Unit]},
+		"size": WidthHeight{
+			{Value: initialWidthHeight[0].Value * LengthsToPixels[initialWidthHeight[0].Unit]},
+			{Value: initialWidthHeight[1].Value * LengthsToPixels[initialWidthHeight[1].Unit]},
 		},
 		"page":         Page{String: "auto", Valid: true},
-		"bleed_left":   sToV("auto"),
-		"bleed_right":  sToV("auto"),
-		"bleed_top":    sToV("auto"),
-		"bleed_bottom": sToV("auto"),
+		"bleed_left":   Bleed(sToV("auto")),
+		"bleed_right":  Bleed(sToV("auto")),
+		"bleed_top":    Bleed(sToV("auto")),
+		"bleed_bottom": Bleed(sToV("auto")),
 		// "marks": "none",
 
-		BackgroundImage: BackgroundImage{Gradient{Type: "none"}},
-
-		// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
-		Transforms: Transforms{}, // computed value for "none"
-
-		// Internal, to implement the "static position" for absolute boxes.
-		weasySpecifiedDisplay: Display("inline"),
-
-		"width":               sToV("auto"),
-		"border_bottom_width": Value{Dimension: Dimension{Value: 3}},
-		"border_left_width":   Value{Dimension: Dimension{Value: 3}},
-		"border_top_width":    Value{Dimension: Dimension{Value: 3}}, // computed value for "medium}"
-		"border_right_width":  Value{Dimension: Dimension{Value: 3}},
-
-		"font_size":   Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from thi}s
-		"font_weight": Value{Dimension: Dimension{Value: 400}},
-
 		// Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
-		"hyphenate_limit_zone": ZeroPixels,
-		"tab_size":             Value{Dimension: Dimension{Value: 8}},
-		"text_indent":          ZeroPixels,
-		"letter_spacing":       sToV("normal"),
-		"word_spacing":         Value{Dimension: Dimension{Value: 0}}, // computed value for "normal"
-
-		// User Interface 3 (CR): https://www.w3.org/TR/css-ui-3/
-		"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
-
-		"position": "static",
-
-		// // Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
 		// "hyphenate_character": "‐",  // computed value chosen by the user agent
 		// "hyphenate_limit_chars": (5, 2, 2),
-		"hyphens": "manual",
+		"hyphens":              String("manual"),
+		"letter_spacing":       PixelLength(sToV("normal")),
+		"hyphenate_limit_zone": Length(zeroPixelsValue),
+		"tab_size":             TabSize(Value{Dimension: Dimension{Value: 8}}),
 		// "text_align": "-weasy-start",
-		"text_transform": "none",
-		"white_space":    "normal",
-
-		// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
-		"size": nil, // set to A4 in computed_values
+		"text_indent":    Length(zeroPixelsValue),
+		"text_transform": String("none"),
+		"white_space":    String("normal"),
+		"word_spacing":   WordSpacing{}, // computed value for "normal"
 
 		// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
 		"transform_origin": Lengths{Value{Dimension: Dimension{Value: 50, Unit: Percentage}}, Value{Dimension: Dimension{Value: 50, Unit: Percentage}}},
+		"transform":        Transforms{}, // computed value for "none"
+
+		// User Interface 3 (CR): https://www.w3.org/TR/css-ui-3/
+		// "box_sizing": "content-box",
+		// "outline_color": "currentColor",  // invert is not supported
+		// "outline_style": "none",
+		// "overflow_wrap": "normal",
+		"outline_width": BorderWidth(Value{Dimension: Dimension{Value: 3}}), // computed value for "medium"
 
 		// Proprietary
 		"anchor": Link{}, // computed value of "none"
 		"link":   Link{}, // computed value of "none"
 		"lang":   Link{}, // computed value of "none"
 
-		// // Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
-
-		// "border_spacing": (0, 0),
-
-		// // Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
-		// "hyphenate_character": "‐",  // computed value chosen by the user agent
-		// "hyphenate_limit_chars": (5, 2, 2),
-		// "hyphens": "manual",
-		// "text_align": "-weasy-start",
-		// "text_transform": "none",
-		// "white_space": "normal",
-
-		// // User Interface 3 (CR): https://www.w3.org/TR/css-ui-3/
-		// "box_sizing": "content-box",
-		// "outline_color": "currentColor",  // invert is not supported
-		// "outline_style": "none",
-		// "overflow_wrap": "normal",
+		// Internal, to implement the "static position" for absolute boxes.
+		"_weasy_specified_display": Display("inline"),
 	}
 
 	knownProperties = Set{}
@@ -255,19 +233,6 @@ type StringSet struct {
 	Contents []StringContent
 }
 
-func (s StringSet) IsNone() bool {
-	return s.String == "" && s.Contents == nil
-}
-
-func (s StringSet) Copy() StringSet {
-	out := s
-	out.Contents = make([]StringContent, len(s.Contents))
-	for index, l := range s.Contents {
-		out.Contents[index] = l.Copy()
-	}
-	return out
-}
-
 // background-image
 type BackgroundImage []Image
 
@@ -280,30 +245,21 @@ type BackgroundSize []Size
 // background-repeat
 type BackgroundRepeat [][2]string
 
+// background-clip
+// background-origin
+// font-familly
+type Strings []string
+
 // content
 type Content struct {
 	String string // 'none' ou 'normal'
 	List   []ContentProperty
 }
 
-func (c Content) IsNone() bool {
-	return c.String == "" && c.List == nil
-}
-
-// deep copy
-func (c Content) Copy() Content {
-	out := c
-	out.List = append([]ContentProperty{}, c.List...)
-	return out
-}
-
 type TextDecoration struct {
 	None        bool
 	Decorations Set
 }
-
-// width, height
-type PageSize [2]Dimension
 
 // transform
 type Transforms []Transform
@@ -318,13 +274,36 @@ type Transforms []Transform
 // border-bottom-right-radius
 type Lengths []Value
 
+type CounterIncrements struct {
+	String string
+	CI     []IntString
+}
+
+type CounterResets []IntString
+
+type Quotes struct {
+	Open, Close []string
+}
+
+// -------------- value type ---------------------
+
+type Page struct {
+	Valid  bool
+	String string
+	Page   int
+}
+
+type ListStyleImage struct {
+	Type string
+	Url  string
+}
+
+// width, height
+type WidthHeight [2]Dimension
+
 // marks
 type Marks struct {
 	Crop, Cross bool
-}
-
-func (m Marks) IsNone() bool {
-	return m == Marks{}
 }
 
 // break_after

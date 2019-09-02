@@ -48,24 +48,79 @@ var (
 	// For properties that take a single value, that value is returned by itself
 	// instead of a list.
 	validators = map[string]validator{
-		"background-attachment": backgroundAttachment,
-		"background-color":      otherColors,
-		"border-top-color":      otherColors,
-		"border-right-color":    otherColors,
-		"border-bottom-color":   otherColors,
-		"border-left-color":     otherColors,
-		"column-rule-color":     otherColors,
-		"outline-color":         outlineColor,
-		"border-collapse":       borderCollapse,
-		"empty-cells":           emptyCells,
-		"color":                 color,
-		"transform-origin":      transformOrigin,
-		"background-position":   valideBackgroundPosition,
-		"background-repeat":     backgroundRepeat,
+		"background-attachment":      backgroundAttachment,
+		"background-color":           otherColors,
+		"border-top-color":           otherColors,
+		"border-right-color":         otherColors,
+		"border-bottom-color":        otherColors,
+		"border-left-color":          otherColors,
+		"column-rule-color":          otherColors,
+		"outline-color":              outlineColor,
+		"border-collapse":            borderCollapse,
+		"empty-cells":                emptyCells,
+		"color":                      color,
+		"transform-origin":           transformOrigin,
+		"background-position":        valideBackgroundPosition,
+		"background-repeat":          backgroundRepeat,
+		"background-size":            backgroundSize,
+		"background-clip":            box,
+		"background-origin":          box,
+		"border-spacing":             borderSpacing,
+		"border-top-right-radius":    borderCornerRadius,
+		"border-bottom-right-radius": borderCornerRadius,
+		"border-bottom-left-radius":  borderCornerRadius,
+		"border-top-left-radius":     borderCornerRadius,
+		"border-top-style":           borderStyle,
+		"border-right-style":         borderStyle,
+		"border-left-style":          borderStyle,
+		"border-bottom-style":        borderStyle,
+		"column-rule-style":          borderStyle,
+		"break-before":               breakBeforeAfter,
+		"break-after":                breakBeforeAfter,
+		"page":                       page,
+		"bleed-left":                 bleed,
+		"bleed-right":                bleed,
+		"bleed-top":                  bleed,
+		"bleed-bottom":               bleed,
+		"marks":                      marks,
+		"outline-style":              outlineStyle,
+		"border-top-width":           borderWidth,
+		"border-right-width":         borderWidth,
+		"border-left-width":          borderWidth,
+		"border-bottom-width":        borderWidth,
+		"colunm-rule-width":          borderWidth,
+		"outline-width":              borderWidth,
+		"column-width":               columnWidth,
+		"column-span":                columnSpan,
+		"box-sizing":                 boxSizing,
+		"caption-side":               captionSide,
+		"clear":                      clear,
+		"clip":                       clip,
+		"top":                        lengthPercOrAuto,
+		"right":                      lengthPercOrAuto,
+		"left":                       lengthPercOrAuto,
+		"bottom":                     lengthPercOrAuto,
+		"margin-top":                 lengthPercOrAuto,
+		"margin-right":               lengthPercOrAuto,
+		"margin-bottom":              lengthPercOrAuto,
+		"margin-left":                lengthPercOrAuto,
+		"height":                     widthHeight,
+		"width":                      widthHeight,
+		"column-gap":                 columnGap,
+		"column-fill":                columnFill,
+		"direction":                  direction,
+		"display":                    display,
+		"float":                      float,
+		"font-familly":               fontFamilly,
+		"font-kerning":               fontKerning,
+		"font-language-override":     fontLanguageOverride,
 	}
 	validatorsError = map[string]validatorError{
-		"background-image": backgroundImage,
-		"list-style-image": imageUrl,
+		"background-image":  backgroundImage,
+		"list-style-image":  imageUrl,
+		"content":           content,
+		"counter-increment": counterIncrement,
+		"counter-reset":     counterReset,
 	}
 
 	proprietary = Set{}
@@ -150,7 +205,7 @@ func getKeyword(token Token) string {
 
 // If `tokens` is a 1-element list of keywords, return its name.
 // Otherwise return empty string.
-func getSingleKeyword(tokens []Token) string {
+func getSingleKeyword(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
 		return getKeyword(tokens[0])
 	}
@@ -309,6 +364,7 @@ type RadialGradient struct {
 // Might be an existing image or a gradient
 type Image interface {
 	isImage()
+	Copy() Image
 }
 
 func (l LinearGradient) isImage() {}
@@ -573,12 +629,6 @@ func parseColorStop(tokens []Token) (ColorStop, error) {
 	return ColorStop{}, nil
 }
 
-type NoneImage struct{}
-type UrlImage string
-
-func (_ NoneImage) isImage() {}
-func (_ UrlImage) isImage()  {}
-
 func _imageUrl(token Token, baseUrl string) (Image, error) {
 	if getKeyword(token) == "none" {
 		return NoneImage{}, nil
@@ -768,36 +818,54 @@ func backgroundRepeat(tokens []Token, _ string) CssProperty {
 //@validator()
 //@commaSeparatedList
 // Validation for ``background-size``.
-func backgroundSize(tokens []Token) []Value {
+func _backgroundSize(tokens []Token) Size {
 	switch len(tokens) {
 	case 1:
 		token := tokens[0]
 		keyword := getKeyword(token)
 		switch keyword {
 		case "contain", "cover":
-			return []Value{Value{String: keyword}}
+			return Size{String: keyword}
 		case "auto":
-			return []Value{Value{String: "auto"}, Value{String: "auto"}}
+			return Size{Width: sToV("auto"), Height: sToV("auto")}
 		}
 		length := getLength(token, false, true)
 		if !length.IsNone() {
-			return []Value{Value{Dimension: length}, Value{String: "auto"}}
+			return Size{Width: Value{Dimension: length}, Height: sToV("auto")}
 		}
 	case 2:
-		var values []Value
-		for _, token := range tokens {
-			length := getLength(token, false, true)
-			if !length.IsNone() {
-				values = append(values, Value{Dimension: length})
-			} else if getKeyword(token) == "auto" {
-				values = append(values, Value{String: "auto"})
-			}
+		var out Size
+		lengthW := getLength(tokens[0], false, true)
+		lengthH := getLength(tokens[1], false, true)
+		if !lengthW.IsNone() {
+			out.Width = Value{Dimension: lengthW}
+		} else if getKeyword(tokens[0]) == "auto" {
+			out.Width = sToV("auto")
+		} else {
+			return Size{}
 		}
-		if len(values) == 2 {
-			return values
+		if !lengthH.IsNone() {
+			out.Height = Value{Dimension: lengthH}
+		} else if getKeyword(tokens[1]) == "auto" {
+			out.Height = sToV("auto")
+		} else {
+			return Size{}
 		}
+		return out
 	}
-	return nil
+	return Size{}
+}
+
+func backgroundSize(tokens []Token, _ string) CssProperty {
+	var out BackgroundSize
+	for _, part := range splitOnComma(tokens) {
+		result := _backgroundSize(removeWhitespace(part))
+		if (result == Size{}) {
+			return nil
+		}
+		out = append(out, result)
+	}
+	return out
 }
 
 //@validator("background-clip")
@@ -806,17 +874,29 @@ func backgroundSize(tokens []Token) []Value {
 //@singleKeyword
 // Validation for the ``<box>`` type used in ``background-clip``
 //     and ``background-origin``.
-func box(tokens []Token) string {
+func _box(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "border-box", "padding-box", "content-box":
-		return String(keyword)
+		return keyword
 	default:
-		return nil
+		return ""
 	}
 }
 
-func borderDims(tokens []Token, negative bool) [2]Dimension {
+func box(tokens []Token, _ string) CssProperty {
+	var out Strings
+	for _, part := range splitOnComma(tokens) {
+		result := _box(removeWhitespace(part))
+		if result == "" {
+			return nil
+		}
+		out = append(out, result)
+	}
+	return out
+}
+
+func borderDims(tokens []Token, negative bool) CssProperty {
 	lengths := make([]Dimension, len(tokens))
 	allLengths := true
 	for index, token := range tokens {
@@ -825,17 +905,17 @@ func borderDims(tokens []Token, negative bool) [2]Dimension {
 	}
 	if allLengths {
 		if len(lengths) == 1 {
-			return [2]Dimension{lengths[0], lengths[0]}
+			return WidthHeight{lengths[0], lengths[0]}
 		} else if len(lengths) == 2 {
-			return [2]Dimension{lengths[0], lengths[1]}
+			return WidthHeight{lengths[0], lengths[1]}
 		}
 	}
-	return [2]Dimension{}
+	return nil
 }
 
 //@validator()
 // Validator for the `border-spacing` property.
-func borderSpacing(tokens []Token) [2]Dimension {
+func borderSpacing(tokens []Token, _ string) CssProperty {
 	return borderDims(tokens, true)
 }
 
@@ -844,7 +924,7 @@ func borderSpacing(tokens []Token) [2]Dimension {
 //@validator("border-bottom-left-radius")
 //@validator("border-top-left-radius")
 // Validator for the `border-*-radius` properties.
-func borderCornerRadius(tokens []Token) [2]Dimension {
+func borderCornerRadius(tokens []Token, _ string) CssProperty {
 	return borderDims(tokens, false)
 }
 
@@ -855,7 +935,7 @@ func borderCornerRadius(tokens []Token) [2]Dimension {
 //@validator("column-rule-style")
 //@singleKeyword
 // ``border-*-style`` properties validation.
-func borderStyle(tokens []Token) string {
+func borderStyle(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "none", "hidden", "dotted", "dashed", "double",
@@ -870,14 +950,14 @@ func borderStyle(tokens []Token) string {
 //@validator("break-after")
 //@singleKeyword
 // ``break-before`` && ``break-after`` properties validation.
-func breakBeforeAfter(tokens []Token) string {
+func breakBeforeAfter(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	// "always" is defined as an alias to "page" := range multi-column
 	// https://www.w3.org/TR/css3-multicol/#column-breaks
 	switch keyword {
 	case "auto", "avoid", "avoid-page", "page", "left", "right",
 		"recto", "verso", "avoid-column", "column", "always":
-		return String(keyword)
+		return Break(keyword)
 	default:
 		return nil
 	}
@@ -886,7 +966,7 @@ func breakBeforeAfter(tokens []Token) string {
 //@validator()
 //@singleKeyword
 // ``break-inside`` property validation.
-func breakInside(tokens []Token) CssProperty {
+func breakInside(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "auto", "avoid", "avoid-page", "avoid-column":
@@ -899,14 +979,18 @@ func breakInside(tokens []Token) CssProperty {
 //@validator(unstable=true)
 //@singleToken
 // ``page`` property validation.
-func page(token Token) string {
+func page(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if ident, ok := token.(IdentToken); ok {
 		if ident.Value.Lower() == "auto" {
-			return "auto"
+			return Page{String: "auto"}
 		}
-		return string(ident.Value)
+		return Page{String: string(ident.Value)}
 	}
-	return ""
+	return nil
 }
 
 //@validator("bleed-left")
@@ -915,7 +999,11 @@ func page(token Token) string {
 //@validator("bleed-bottom")
 //@singleToken
 // ``bleed`` property validation.
-func bleed(token Token) Bleed {
+func bleed(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "auto" {
 		return Bleed{String: "auto"}
@@ -926,7 +1014,7 @@ func bleed(token Token) Bleed {
 
 //@validator()
 // ``marks`` property validation.
-func marks(tokens []Token) Marks {
+func marks(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 2 {
 		keywords := [2]string{getKeyword(tokens[0]), getKeyword(tokens[1])}
 		if keywords == [2]string{"crop", "cross"} || keywords == [2]string{"cross", "crop"} {
@@ -943,13 +1031,13 @@ func marks(tokens []Token) Marks {
 			return Marks{}
 		}
 	}
-	return Marks{}
+	return nil
 }
 
 //@validator("outline-style")
 //@singleKeyword
 // ``outline-style`` properties validation.
-func outlineStyle(tokens []Token) CssProperty {
+func outlineStyle(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "none", "dotted", "dashed", "double", "inset",
@@ -968,37 +1056,45 @@ func outlineStyle(tokens []Token) CssProperty {
 // //@validator("outline-width")
 // //@singleToken
 // Border, column rule && outline widths properties validation.
-func borderWidth(token Token) Value {
+func borderWidth(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, false, false)
 	if !length.IsNone() {
-		return Value{Dimension: length}
+		return BorderWidth{Dimension: length}
 	}
 	keyword := getKeyword(token)
 	if keyword == "thin" || keyword == "medium" || keyword == "thick" {
-		return Value{String: keyword}
+		return BorderWidth{String: keyword}
 	}
-	return Value{}
+	return nil
 }
 
 // //@validator()
 // //@singleToken
 // ``column-width`` property validation.
-func columnWidth(token Token) Value {
+func columnWidth(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, false, false)
 	if !length.IsNone() {
-		return Value{Dimension: length}
+		return ColumnWidth{Dimension: length}
 	}
 	keyword := getKeyword(token)
 	if keyword == "auto" {
-		return Value{String: keyword}
+		return ColumnWidth{String: keyword}
 	}
-	return Value{}
+	return nil
 }
 
 // //@validator()
 // //@singleKeyword
 // ``column-span`` property validation.
-func columnSpan(tokens []Token) CssProperty {
+func columnSpan(tokens []Token, _ string) CssProperty {
 	// keyword := getSingleKeyword(tokens)
 	// TODO: uncomment this when it is supported
 	// return keyword := range ("all", "none")
@@ -1008,7 +1104,7 @@ func columnSpan(tokens []Token) CssProperty {
 // //@validator()
 // //@singleKeyword
 // Validation for the ``box-sizing`` property from css3-ui
-func boxSizing(tokens []Token) string {
+func boxSizing(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "padding-box", "border-box", "content-box":
@@ -1021,7 +1117,7 @@ func boxSizing(tokens []Token) string {
 // //@validator()
 // //@singleKeyword
 // ``caption-side`` properties validation.
-func captionSide(tokens []Token) string {
+func captionSide(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "top", "bottom":
@@ -1034,7 +1130,7 @@ func captionSide(tokens []Token) string {
 // //@validator()
 // //@singleKeyword
 // ``clear`` property validation.
-func clear(tokens []Token) string {
+func clear(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "left", "right", "both", "none":
@@ -1047,11 +1143,15 @@ func clear(tokens []Token) string {
 // //@validator()
 // //@singleToken
 // Validation for the ``clip`` property.
-func clip(token Token) []Value {
+func clip(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	name, args := parseFunction(token)
 	if name != "" {
 		if name == "rect" && len(args) == 4 {
-			var values []Value
+			var values Lengths
 			for _, arg := range args {
 				if getKeyword(arg) == "auto" {
 					values = append(values, Value{String: "auto"})
@@ -1068,14 +1168,14 @@ func clip(token Token) []Value {
 		}
 	}
 	if getKeyword(token) == "auto" {
-		return []Value{}
+		return Lengths{}
 	}
 	return nil
 }
 
 // //@validator(wantsBaseUrl=true)
 // ``content`` property validation.
-func content(tokens []Token, baseUrl string) (Content, error) {
+func content(tokens []Token, baseUrl string) (CssProperty, error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "normal" || keyword == "none" {
 		return Content{String: keyword}, nil
@@ -1086,8 +1186,8 @@ func content(tokens []Token, baseUrl string) (Content, error) {
 		if err != nil {
 			return Content{}, err
 		}
-		if contentProperty.IsNil() {
-			return Content{}, nil
+		if contentProperty.IsNone() {
+			return nil, nil
 		}
 		out[index] = contentProperty
 	}
@@ -1231,13 +1331,17 @@ func parseFunction(functionToken Token) (string, []Token) {
 
 // //@validator()
 // ``counter-increment`` property validation.
-func counterIncrement(tokens []Token) (CounterResets, error) {
-	return counter(tokens, 1)
+func counterIncrement(tokens []Token, _ string) (CssProperty, error) {
+	ci, err := counter(tokens, 1)
+	if err != nil || ci == nil {
+		return nil, err
+	}
+	return CounterIncrements{CI: ci}, nil
 }
 
 // //@validator()
 // ``counter-reset`` property validation.
-func counterReset(tokens []Token) (CounterResets, error) {
+func counterReset(tokens []Token, _ string) (CssProperty, error) {
 	return counter(tokens, 0)
 }
 
@@ -1294,50 +1398,62 @@ func counter(tokens []Token, defaultInteger int) (CounterResets, error) {
 // //@validator("margin-left")
 // //@singleToken
 // ``margin-*`` properties validation.
-func lenghtPrecentageOrAuto(token Token) Value {
+func lengthPercOrAuto(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, true, true)
 	if !length.IsNone() {
-		return Value{Dimension: length}
+		return Length{Dimension: length}
 	}
 	if getKeyword(token) == "auto" {
-		return Value{String: "auto"}
+		return Length{String: "auto"}
 	}
-	return Value{}
+	return nil
 }
 
 // //@validator("height")
 // //@validator("width")
 // //@singleToken
 // Validation for the ``width`` && ``height`` properties.
-func widthHeight(token Token) Value {
+func widthHeight(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, false, true)
 	if !length.IsNone() {
-		return Value{Dimension: length}
+		return Length{Dimension: length}
 	}
 	if getKeyword(token) == "auto" {
-		return Value{String: "auto"}
+		return Length{String: "auto"}
 	}
-	return Value{}
+	return nil
 }
 
 // //@validator()
 // //@singleToken
 // Validation for the ``column-gap`` property.
-func columnGap(token Token) Value {
+func columnGap(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, false, false)
 	if !length.IsNone() {
-		return Value{Dimension: length}
+		return ColumnGap{Dimension: length}
 	}
 	if getKeyword(token) == "normal" {
-		return Value{String: "normal"}
+		return ColumnGap{String: "normal"}
 	}
-	return Value{}
+	return nil
 }
 
 //@validator()
 //@singleKeyword
 // ``column-fill`` property validation.
-func columnFill(tokens []Token) string {
+func columnFill(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "auto", "balance":
@@ -1350,7 +1466,7 @@ func columnFill(tokens []Token) string {
 //@validator()
 //@singleKeyword
 // ``direction`` property validation.
-func direction(tokens []Token) string {
+func direction(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "ltr", "rtl":
@@ -1363,7 +1479,7 @@ func direction(tokens []Token) string {
 //@validator()
 //@singleKeyword
 // ``display`` property validation.
-func display(tokens []Token) CssProperty {
+func display(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "inline", "block", "inline-block", "list-item", "none",
@@ -1379,7 +1495,7 @@ func display(tokens []Token) CssProperty {
 //@validator("float")
 //@singleKeyword
 // ``float`` property validation.
-func float(tokens []Token) CssProperty {
+func float(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "left", "right", "none":
@@ -1389,10 +1505,7 @@ func float(tokens []Token) CssProperty {
 	}
 }
 
-// //@validator()
-// //@commaSeparatedList
-// ``font-family`` property validation.
-func fontFamily(tokens []Token) string {
+func _fontFamily(tokens []Token) string {
 	if len(tokens) == 1 {
 		if tt, ok := tokens[0].(StringToken); ok {
 			return tt.Value
@@ -1403,7 +1516,7 @@ func fontFamily(tokens []Token) string {
 			if tt, ok := token.(IdentToken); ok {
 				values = append(values, string(tt.Value))
 			} else {
-				return nil
+				return ""
 			}
 		}
 		return strings.Join(values, " ")
@@ -1412,8 +1525,23 @@ func fontFamily(tokens []Token) string {
 }
 
 // //@validator()
+// //@commaSeparatedList
+// ``font-family`` property validation.
+func fontFamilly(tokens []Token, _ string) CssProperty {
+	var out Strings
+	for _, part := range splitOnComma(tokens) {
+		result := _fontFamily(removeWhitespace(part))
+		if result == "" {
+			return nil
+		}
+		out = append(out, result)
+	}
+	return out
+}
+
+// //@validator()
 // //@singleKeyword
-func fontKerning(tokens []Token) string {
+func fontKerning(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "auto", "normal", "none":
@@ -1425,15 +1553,19 @@ func fontKerning(tokens []Token) string {
 
 // //@validator()
 // //@singleToken
-func fontLanguageOverride(token Token) string {
+func fontLanguageOverride(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "normal" {
 		return String(keyword)
 	}
 	if tt, ok := token.(StringToken); ok {
-		return tt.Value
+		return String(tt.Value)
 	}
-	return ""
+	return nil
 }
 
 func parseFontVariant(tokens []Token, all Set, couples [][]string) FontVariant {
@@ -1477,7 +1609,7 @@ func parseFontVariant(tokens []Token, all Set, couples [][]string) FontVariant {
 }
 
 // //@validator()
-func fontVariantLigatures(tokens []Token) CssProperty {
+func fontVariantLigatures(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
 		keyword := getKeyword(tokens[0])
 		if keyword == "normal" || keyword == "none" {
@@ -1489,7 +1621,7 @@ func fontVariantLigatures(tokens []Token) CssProperty {
 
 // //@validator()
 // //@singleKeyword
-func fontVariantPosition(tokens []Token) CssProperty {
+func fontVariantPosition(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "sub", "super":
@@ -1501,7 +1633,7 @@ func fontVariantPosition(tokens []Token) CssProperty {
 
 // //@validator()
 // //@singleKeyword
-func fontVariantCaps(tokens []Token) CssProperty {
+func fontVariantCaps(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "small-caps", "all-small-caps", "petite-caps",
@@ -1513,7 +1645,7 @@ func fontVariantCaps(tokens []Token) CssProperty {
 }
 
 //@validator()
-func fontVariantNumeric(tokens []Token) CssProperty {
+func fontVariantNumeric(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
 		keyword := getKeyword(tokens[0])
 		if keyword == "normal" {
@@ -1580,7 +1712,7 @@ func fontFeatureSettings(tokens []Token) IntString {
 }
 
 func decoratorSingleKeyword(f func(kw string) bool) func([]Token) string {
-	out := func(tokens []Token) string {
+	out := func(tokens []Token, _ string) CssProperty {
 		keyword := getSingleKeyword(tokens)
 		isValid := f(keyword)
 		if isValid {
@@ -1593,7 +1725,7 @@ func decoratorSingleKeyword(f func(kw string) bool) func([]Token) string {
 
 //@validator()
 //@singleKeyword
-func fontVariantAlternates(tokens []Token) CssProperty {
+func fontVariantAlternates(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	// TODO: support other values
 	// See https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
@@ -1606,7 +1738,7 @@ func fontVariantAlternates(tokens []Token) CssProperty {
 }
 
 // //@validator()
-func fontVariantEastAsian(tokens []Token) CssProperty {
+func fontVariantEastAsian(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
 		keyword := getKeyword(tokens[0])
 		if keyword == "normal" {
@@ -1638,7 +1770,7 @@ func fontSize(token Token) (Value, error) {
 //@validator()
 //@singleKeyword
 // ``font-style`` property validation.
-func fontStyle(tokens []Token) CssProperty {
+func fontStyle(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "italic", "oblique":
@@ -1651,7 +1783,7 @@ func fontStyle(tokens []Token) CssProperty {
 //@validator()
 //@singleKeyword
 // Validation for the ``font-stretch`` property.
-func fontStretch(tokens []Token) CssProperty {
+func fontStretch(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
@@ -1729,7 +1861,7 @@ func lineHeight(token Token) Value {
 //@validator()
 //@singleKeyword
 // ``list-style-position`` property validation.
-func listStylePosition(tokens []Token) CssProperty {
+func listStylePosition(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "inside", "outside":
@@ -1742,7 +1874,7 @@ func listStylePosition(tokens []Token) CssProperty {
 //@validator()
 //@singleKeyword
 // ``list-style-type`` property validation.
-func listStyleType(tokens []Token) CssProperty {
+func listStyleType(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	_, inStyles := counters.STYLES[keyword]
 	if keyword == "none" || keyword == "decimal" || inStyles {
@@ -1837,7 +1969,7 @@ func columnCount(token Token) IntString {
 //@validator()
 //@singleKeyword
 // Validation for the ``overflow`` property.
-func overflow(tokens []Token) CssProperty {
+func overflow(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "auto", "visible", "hidden", "scroll":
@@ -1850,7 +1982,7 @@ func overflow(tokens []Token) CssProperty {
 //@validator()
 //@singleKeyword
 // ``position`` property validation.
-func position(tokens []Token) CssProperty {
+func position(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "static", "relative", "absolute", "fixed":
@@ -1884,7 +2016,7 @@ func quotes(tokens []Token) Quotes {
 //@validator()
 //@singleKeyword
 // Validation for the ``table-layout`` property
-func tableLayout(tokens []Token) CssProperty {
+func tableLayout(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "fixed", "auto":
@@ -1897,7 +2029,7 @@ func tableLayout(tokens []Token) CssProperty {
 //@validator()
 //@singleKeyword
 // ``text-align`` property validation.
-func textAlign(tokens []Token) CssProperty {
+func textAlign(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "left", "right", "center", "justify":
@@ -1942,7 +2074,7 @@ func textIndent(token Token) Dimension {
 //@validator()
 //@singleKeyword
 // ``text-align`` property validation.
-func textTransform(tokens []Token) CssProperty {
+func textTransform(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "none", "uppercase", "lowercase", "capitalize", "full-width":
@@ -1970,7 +2102,7 @@ func verticalAlign(token Token) Value {
 //@validator()
 //@singleKeyword
 // ``white-space`` property validation.
-func visibility(tokens []Token) CssProperty {
+func visibility(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "visible", "hidden", "collapse":
@@ -1983,7 +2115,7 @@ func visibility(tokens []Token) CssProperty {
 //@validator()
 //@singleKeyword
 // ``white-space`` property validation.
-func whiteSpace(tokens []Token) CssProperty {
+func whiteSpace(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "pre", "nowrap", "pre-wrap", "pre-line":
@@ -1996,7 +2128,7 @@ func whiteSpace(tokens []Token) CssProperty {
 //@validator()
 //@singleKeyword
 // ``overflow-wrap`` property validation.
-func overflowWrap(tokens []Token) CssProperty {
+func overflowWrap(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "break-word":
@@ -2009,7 +2141,7 @@ func overflowWrap(tokens []Token) CssProperty {
 //@validator(unstable=true)
 //@singleKeyword
 // Validation for ``image-rendering``.
-func imageRendering(tokens []Token) CssProperty {
+func imageRendering(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "auto", "crisp-edges", "pixelated":
@@ -2022,7 +2154,7 @@ func imageRendering(tokens []Token) CssProperty {
 //@validator(unstable=true)
 // ``size`` property validation.
 // See http://www.w3.org/TR/css3-page/#page-size-prop
-func size(tokens []Token) PageSize {
+func size(tokens []Token) WidthHeight {
 	var (
 		lengths        []Dimension
 		keywords       []string
@@ -2037,9 +2169,9 @@ func size(tokens []Token) PageSize {
 
 	if lengthsNotNone {
 		if len(lengths) == 1 {
-			return PageSize{lengths[0], lengths[0]}
+			return WidthHeight{lengths[0], lengths[0]}
 		} else if len(lengths) == 2 {
-			return PageSize{lengths[0], lengths[1]}
+			return WidthHeight{lengths[0], lengths[1]}
 		}
 	}
 
@@ -2048,9 +2180,9 @@ func size(tokens []Token) PageSize {
 		if psize, in := pageSizes[keyword]; in {
 			return psize
 		} else if keyword == "auto" || keyword == "portrait" {
-			return initialPageSize
+			return initialWidthHeight
 		} else if keyword == "landscape" {
-			return PageSize{initialPageSize[1], initialPageSize[0]}
+			return WidthHeight{initialWidthHeight[1], initialWidthHeight[0]}
 		}
 	}
 
@@ -2065,11 +2197,11 @@ func size(tokens []Token) PageSize {
 			if orientation == "portrait" {
 				return widthHeight
 			} else {
-				return PageSize{widthHeight[1], widthHeight[0]}
+				return WidthHeight{widthHeight[1], widthHeight[0]}
 			}
 		}
 	}
-	return PageSize{}
+	return WidthHeight{}
 }
 
 //@validator(proprietary=true)
@@ -2872,7 +3004,7 @@ func expandFontVariant(tokens []Token) (out []fontVariantToken, err error) {
 	return out, nil
 }
 
-var fontVariantMapper = map[string]func(tokens []Token) CssProperty{
+var fontVariantMapper = map[string]func(tokens []Token, _ string) CssProperty{
 	"alternates": fontVariantAlternates,
 	"caps":       fontVariantCaps,
 	"east-asian": fontVariantEastAsian,

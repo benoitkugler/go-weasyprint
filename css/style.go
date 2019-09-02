@@ -27,11 +27,6 @@ const (
 	Q
 )
 
-type CssProperty interface {
-	ComputeValue(computer *computer, name string) CssProperty
-	// SetOn(name string, target *StyleDict)
-}
-
 type Unit uint8
 
 // Dimension without unit is interpreted as float
@@ -64,21 +59,6 @@ type NameValue struct {
 	Name, Value string
 }
 
-type CounterIncrements struct {
-	String string
-	CI     []IntString
-}
-
-func (c CounterIncrements) IsNil() bool {
-	return c.String == "" && c.CI == nil
-}
-
-type Page struct {
-	Valid  bool
-	String string
-	Page   int
-}
-
 type FontVariant struct {
 	String string
 	Values []string
@@ -88,21 +68,9 @@ func (f FontVariant) IsNone() bool {
 	return f.String == "" && f.Values == nil
 }
 
-func (x CounterIncrements) Copy() CounterIncrements {
-	out := x
-	out.CI = append([]IntString{}, x.CI...)
-	return out
-}
-
 type IntString struct {
 	Name  string
 	Value int
-}
-
-type CounterResets []IntString
-
-func (x CounterResets) Copy() CounterResets {
-	return append(CounterResets{}, x...)
 }
 
 type cascadedValue struct {
@@ -110,110 +78,7 @@ type cascadedValue struct {
 	precedence int
 }
 
-type ListStyleImage struct {
-	Type string
-	Url  string
-}
-
-type Quotes struct {
-	Open, Close []string
-}
-
-func (q Quotes) IsNil() bool {
-	return q.Open == nil || q.Close == nil
-}
-
-func (q Quotes) Copy() Quotes {
-	return Quotes{Open: append([]string{}, q.Open...), Close: append([]string{}, q.Close...)}
-}
-
-type MiscProperties struct {
-	CounterReset     CounterResets
-	CounterIncrement CounterIncrements
-	Page             Page
-
-	BackgroundImage    BackgroundImage
-	BackgroundPosition BackgroundPosition
-	BackgroundSize     BackgroundSize
-	Content            Content
-	Transforms         Transforms
-
-	Quotes Quotes
-
-	StringSet     StringSet
-	BookmarkLabel StringContent
-
-	ListStyleImage        ListStyleImage
-	weasySpecifiedDisplay Display
-}
-
-// Deep copy
-func (s MiscProperties) Copy() MiscProperties {
-	out := s
-	out.CounterIncrement = s.CounterIncrement.Copy()
-	out.CounterReset = s.CounterReset.Copy()
-
-	out.BackgroundImage = append(BackgroundImage{}, s.BackgroundImage...)
-	out.BackgroundPosition = append(BackgroundPosition{}, s.BackgroundPosition...)
-	out.BackgroundSize = append(BackgroundSize{}, s.BackgroundSize...)
-	out.Content = s.Content.Copy()
-	out.Transforms = append(Transforms{}, s.Transforms...)
-	out.Quotes = s.Quotes.Copy()
-	out.StringSet = s.StringSet.Copy()
-	out.BookmarkLabel = s.BookmarkLabel.Copy()
-	return out
-}
-
-// Items returns a map with only non zero properties
-func (s MiscProperties) Items() map[string]CssProperty {
-	out := make(map[string]CssProperty)
-	if !s.CounterIncrement.IsNil() {
-		out["counter_increment"] = s.CounterIncrement
-	}
-	if s.CounterReset != nil {
-		out["counter_reset"] = s.CounterReset
-	}
-	if s.Page.Valid {
-		out["page"] = s.Page
-	}
-
-	if s.BackgroundImage != nil {
-		out["background_image"] = s.BackgroundImage
-	}
-	if s.BackgroundPosition != nil {
-		out["background_position"] = s.BackgroundPosition
-	}
-	if s.BackgroundSize != nil {
-		out["background_size"] = s.BackgroundSize
-	}
-	if !s.Content.IsNil() {
-		out["content"] = s.Content
-	}
-	if s.Transforms != nil {
-		out["transform"] = s.Transforms
-	}
-
-	if !s.Quotes.IsNil() {
-		out["quotes"] = s.Quotes
-	}
-	if (s.ListStyleImage != ListStyleImage{}) {
-		out["list_style_image"] = s.ListStyleImage
-	}
-	if !s.StringSet.IsNil() {
-		out["string_set"] = s.StringSet
-	}
-	if !s.BookmarkLabel.IsNil() {
-		out["bookmark_label"] = s.BookmarkLabel
-	}
-
-	if s.weasySpecifiedDisplay != "" {
-		out["_weasy_specified_display"] = s.weasySpecifiedDisplay
-	}
-	return out
-}
-
 type StyleDict struct {
-	MiscProperties
 
 	Anonymous bool
 	Strings   map[string]string

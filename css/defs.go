@@ -17,6 +17,11 @@ func iToV(i int) Value {
 	return Value{Dimension: Dimension{Value: float32(i)}}
 }
 
+type CssProperty interface {
+	ComputeValue(computer *computer, name string) CssProperty
+	Copy() CssProperty
+}
+
 type ImageType interface{}
 
 // Dimension or string
@@ -54,3 +59,113 @@ func (s StringContent) Copy() StringContent {
 	out.Values = append([]ContentProperty{}, s.Values...)
 	return out
 }
+
+type Transform struct {
+	Function string
+	Args     []Dimension
+}
+
+func (t Transform) Copy() Transform {
+	out := t
+	out.Args = append([]Dimension{}, t.Args...)
+	return out
+}
+
+type NoneImage struct{}
+type UrlImage string
+
+func (_ NoneImage) isImage() {}
+func (_ UrlImage) isImage()  {}
+
+func (_ NoneImage) Copy() Image {
+	return NoneImage{}
+}
+func (s UrlImage) Copy() Image {
+	return s
+}
+
+// ----------- Copy implementations --------------------
+
+// deep copy
+func (c Content) Copy() CssProperty {
+	out := c
+	out.List = append([]ContentProperty{}, c.List...)
+	return out
+}
+
+func (s StringSet) Copy() CssProperty {
+	out := s
+	out.Contents = make([]StringContent, len(s.Contents))
+	for index, l := range s.Contents {
+		out.Contents[index] = l.Copy()
+	}
+	return out
+}
+
+func (x CounterIncrements) Copy() CssProperty {
+	out := x
+	out.CI = append([]IntString{}, x.CI...)
+	return out
+}
+
+func (x CounterResets) Copy() CssProperty {
+	return append(CounterResets{}, x...)
+}
+
+func (q Quotes) Copy() CssProperty {
+	return Quotes{Open: append([]string{}, q.Open...), Close: append([]string{}, q.Close...)}
+}
+
+func (b BackgroundImage) Copy() CssProperty {
+	out := make(BackgroundImage, len(b))
+	for index, v := range b {
+		out[index] = v.Copy()
+	}
+	return out
+}
+func (b BackgroundPosition) Copy() CssProperty {
+	return append(BackgroundPosition{}, b...)
+}
+func (b BackgroundSize) Copy() CssProperty {
+	return append(BackgroundSize{}, b...)
+}
+func (b BackgroundRepeat) Copy() CssProperty {
+	return append(BackgroundRepeat{}, b...)
+}
+func (b Lengths) Copy() CssProperty {
+	return append(Lengths{}, b...)
+}
+func (b Transforms) Copy() CssProperty {
+	out := make(Transforms, len(b))
+	for index, v := range b {
+		out[index] = v.Copy()
+	}
+	return out
+}
+
+// value types
+
+func (v Value) Copy() CssProperty          { return v }
+func (v Marks) Copy() CssProperty          { return v }
+func (v ListStyleImage) Copy() CssProperty { return v }
+func (v Break) Copy() CssProperty          { return v }
+func (v Display) Copy() CssProperty        { return v }
+func (v Floating) Copy() CssProperty       { return v }
+func (v String) Copy() CssProperty         { return v }
+func (v Length) Copy() CssProperty         { return v }
+func (v Bleed) Copy() CssProperty          { return v }
+func (v BorderWidth) Copy() CssProperty    { return v }
+func (v PixelLength) Copy() CssProperty    { return v }
+func (v ColumnWidth) Copy() CssProperty    { return v }
+func (v ColumnGap) Copy() CssProperty      { return v }
+func (v FontSize) Copy() CssProperty       { return v }
+func (v FontWeight) Copy() CssProperty     { return v }
+func (v LineHeight) Copy() CssProperty     { return v }
+func (v TabSize) Copy() CssProperty        { return v }
+func (v VerticalAlign) Copy() CssProperty  { return v }
+func (v WordSpacing) Copy() CssProperty    { return v }
+func (v Link) Copy() CssProperty           { return v }
+func (v Anchor) Copy() CssProperty         { return v }
+func (v Lang) Copy() CssProperty           { return v }
+func (v WidthHeight) Copy() CssProperty       { return v }
+func (v Page) Copy() CssProperty           { return v }
