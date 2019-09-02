@@ -29,7 +29,7 @@ const (
 
 type CssProperty interface {
 	ComputeValue(computer *computer, name string) CssProperty
-	SetOn(name string, target *StyleDict)
+	// SetOn(name string, target *StyleDict)
 }
 
 type Unit uint8
@@ -47,6 +47,16 @@ func (d Dimension) IsNone() bool {
 func toDim(v float32) Dimension {
 	return Dimension{Value: v}
 }
+
+type Point struct {
+	X, Y Dimension
+}
+
+func (t Point) IsNone() bool {
+	return t == Point{}
+}
+
+type TransformOrigin Point
 
 type Side string
 

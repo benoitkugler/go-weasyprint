@@ -8,216 +8,49 @@ import (
 type Set = map[string]bool
 
 var (
-	ConvertersValue = map[string]func(Value) CssProperty{
-		"top":                  valueToLength,
-		"right":                valueToLength,
-		"left":                 valueToLength,
-		"bottom":               valueToLength,
-		"margin_top":           valueToLength,
-		"margin_right":         valueToLength,
-		"margin_bottom":        valueToLength,
-		"margin_left":          valueToLength,
-		"height":               valueToLength,
-		"width":                valueToLength,
-		"min_width":            valueToLength,
-		"min_height":           valueToLength,
-		"max_width":            valueToLength,
-		"max_height":           valueToLength,
-		"padding_top":          valueToLength,
-		"padding_right":        valueToLength,
-		"padding_bottom":       valueToLength,
-		"padding_left":         valueToLength,
-		"text_indent":          valueToLength,
-		"hyphenate_limit_zone": valueToLength,
-
-		"bleed_left":   valueToBleed,
-		"bleed_right":  valueToBleed,
-		"bleed_top":    valueToBleed,
-		"bleed_bottom": valueToBleed,
-
-		"border_top_width":    valueToBorderWidth,
-		"border_right_width":  valueToBorderWidth,
-		"border_left_width":   valueToBorderWidth,
-		"border_bottom_width": valueToBorderWidth,
-		"column_rule_width":   valueToBorderWidth,
-		"outline_width":       valueToBorderWidth,
-
-		"column_width":   valueToColumnWidth,
-		"column_gap":     valueToColumnGap,
-		"font_size":      valueToFontSize,
-		"font_weight":    valueToFontWeight,
-		"line_height":    valueToLineHeight,
-		"tab_size":       valueToTabSize,
-		"vertical_align": valueToVerticalAlign,
-		"word_spacing":   valueToWordSpacing,
-		"letter_spacing": valueToPixelLength,
-	}
-	ConvertersString = map[string]func(string) CssProperty{
-		"break_after":  func(s string) CssProperty { return Break(s) },
-		"break_before": func(s string) CssProperty { return Break(s) },
-		"display":      func(s string) CssProperty { return Display(s) },
-		"float":        func(s string) CssProperty { return Float(s) },
-	}
-	ConvertersLink = map[string]func(Link) CssProperty{
-		"link":   func(l Link) CssProperty { return l },
-		"anchor": func(l Link) CssProperty { return Anchor(l) },
-		"lang":   func(l Link) CssProperty { return Lang(l) },
-	}
-	Inherited          Set
-	InitialNotComputed Set
+	Inherited          = Set{}
+	InitialNotComputed = Set{}
 
 	InitialValues = map[string]CssProperty{
-		MiscProperties: MiscProperties{
-			Content: Content{String: "normal"},
-
-			// Means "none", but allow `display: list-item` to increment the
-			// list-item counter. If we ever have a way for authors to query
-			// computed values (JavaScript?), this value should serialize to "none".
-			CounterIncrement: CounterIncrements{String: "auto"},
-			CounterReset:     CounterResets{}, // parsed value for "none"
-
-			BackgroundPosition: BackgroundPosition{
-				Center{OriginX: "left", PosX: Dimension{Unit: Percentage}},
-				Center{OriginX: "top", PosX: Dimension{Unit: Percentage}},
-			},
-
-			BackgroundImage: BackgroundImage{Gradient{Type: "none"}},
-			BackgroundSize:  BackgroundSize{Size{Width: vs("auto"), Height: vs("auto")}},
-
-			// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
-			Page: Page{String: "auto", Valid: true},
-
-			// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
-			Transforms: Transforms{}, // computed value for "none"
-
-			Quotes: Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
-
-			ListStyleImage: ListStyleImage{Type: "none"},
-
-			// Internal, to implement the "static position" for absolute boxes.
-			weasySpecifiedDisplay: Display("inline"),
-		},
-		Values: map[string]Value{
-			"bottom":              vs("auto"),
-			"height":              vs("auto"),
-			"left":                vs("auto"),
-			"line_height":         vs("normal"),
-			"margin_top":          ZeroPixels,
-			"margin_right":        ZeroPixels,
-			"margin_bottom":       ZeroPixels,
-			"margin_left":         ZeroPixels,
-			"max_height":          Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}}, // parsed value for "none}"
-			"max_width":           Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}},
-			"min_height":          ZeroPixels,
-			"min_width":           ZeroPixels,
-			"padding_top":         ZeroPixels,
-			"padding_right":       ZeroPixels,
-			"padding_bottom":      ZeroPixels,
-			"padding_left":        ZeroPixels,
-			"right":               vs("auto"),
-			"width":               vs("auto"),
-			"border_bottom_width": Value{Dimension: Dimension{Value: 3}},
-			"border_left_width":   Value{Dimension: Dimension{Value: 3}},
-			"border_top_width":    Value{Dimension: Dimension{Value: 3}}, // computed value for "medium}"
-			"border_right_width":  Value{Dimension: Dimension{Value: 3}},
-
-			// Multi-column Layout (CR): https://www.w3.org/TR/css3-multicol/
-			"column_width": vs("auto"),
-			"column_count": vs("auto"),
-			"column_gap":   Value{Dimension: Dimension{Value: 1, Unit: "em"}},
-
-			"font_size":   Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from thi}s
-			"font_weight": Value{Dimension: Dimension{Value: 400}},
-
-			// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
-			"bleed_left":   vs("auto"),
-			"bleed_right":  vs("auto"),
-			"bleed_top":    vs("auto"),
-			"bleed_bottom": vs("auto"),
-
-			// Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
-			"hyphenate_limit_zone": ZeroPixels,
-			"tab_size":             Value{Dimension: Dimension{Value: 8}},
-			"text_indent":          ZeroPixels,
-			"letter_spacing":       vs("normal"),
-			"word_spacing":         Value{Dimension: Dimension{Value: 0}}, // computed value for "normal"
-
-			// User Interface 3 (CR): https://www.w3.org/TR/css-ui-3/
-			"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
-		},
-		Strings: map[string]string{
-			"display":  "inline",
-			"float":    "none",
-			"position": "static",
-
-			// Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
-			"break_after":  "auto",
-			"break_before": "auto",
-			"break_inside": "auto",
-
-			"direction": "ltr",
-
-			// // Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
-			// "hyphenate_character": "‐",  // computed value chosen by the user agent
-			// "hyphenate_limit_chars": (5, 2, 2),
-			"hyphens": "manual",
-			// "text_align": "-weasy-start",
-			"text_transform": "none",
-			"white_space":    "normal",
-
-			"caption_side": "top",
-
-			"list_style_type": "disc",
-
-			// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
-			"border_collapse":     "separate",
-			"border_bottom_style": "none",
-			"border_left_style":   "none",
-			"border_right_style":  "none",
-			"border_top_style":    "none",
-
-			"overflow": "visible",
-		},
-		Lengthss: map[string]Lengths{
-			"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
-			"border_bottom_right_radius": Lengths{ZeroPixels, ZeroPixels},
-			"border_top_left_radius":     Lengths{ZeroPixels, ZeroPixels},
-			"border_top_right_radius":    Lengths{ZeroPixels, ZeroPixels},
-
-			// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
-			"size": nil, // set to A4 in computed_values
-
-			// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
-			"transform_origin": Lengths{Value{Dimension: Dimension{Value: 50, Unit: Percentage}}, Value{Dimension: Dimension{Value: 50, Unit: Percentage}}},
-		},
-		Links: map[string]Link{
-
-			// Proprietary
-			"anchor": Link{}, // computed value of "none"
-			"link":   Link{}, // computed value of "none"
-			"lang":   Link{}, // computed value of "none"
-		},
-		"size": PageSize{
-			{Value: initialPageSize[0].Value * LengthsToPixels[initialPageSize[0].Unit]},
-			{Value: initialPageSize[1].Value * LengthsToPixels[initialPageSize[1].Unit]},
-		},
-
-		// "column_rule_color": "currentColor",
-		// "column_rule_style": "none",
-		// "column_rule_width": "medium",
-		// "column_fill": "balance",
-		// "column_span": "none",
-
+		"bottom":       sToV("auto"),
+		"caption_side": String("top"),
 		// "clear": "none",
 		// "clip": TBD,  // computed value for "auto"
-
 		// "color": parse_color("black"),  // chosen by the user agent
 
+		"content": Content{String: "normal"},
+
+		// Means "none", but allow `display: list-item` to increment the
+		// list-item counter. If we ever have a way for authors to query
+		// computed values (JavaScript?), this value should serialize to "none".
+		"counter_increment": CounterIncrements{String: "auto"},
+		"counter_reset":     CounterResets{}, // parsed value for "none"
+		"direction":         String("ltr"),
+		"display":           Display("inline"),
 		// "empty_cells": "show",
-
+		"float":            Floating("none"),
+		"height":           sToV("auto"),
+		"left":             sToV("auto"),
+		"line_height":      sToV("normal"),
+		"list_style_image": ListStyleImage{Type: "none"},
 		// "list_style_position": "outside",
-
+		"list_style_type": String("disc"),
+		"margin_top":      ZeroPixels,
+		"margin_right":    ZeroPixels,
+		"margin_bottom":   ZeroPixels,
+		"margin_left":     ZeroPixels,
+		"max_height":      Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}}, // parsed value for "none}"
+		"max_width":       Value{Dimension: Dimension{Value: math.Inf(+1), Unit: Pixels}},
+		"min_height":      ZeroPixels,
+		"min_width":       ZeroPixels,
+		"overflow":        String("visible"),
+		"padding_top":     ZeroPixels,
+		"padding_right":   ZeroPixels,
+		"padding_bottom":  ZeroPixels,
+		"padding_left":    ZeroPixels,
+		"quotes":          Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
 		// "position": "static",
+		"right": sToV("auto"),
 		// "table_layout": "auto",
 		// "text_decoration": "none",
 		// "top": "auto",
@@ -226,25 +59,48 @@ var (
 		// "visibility": "visible",
 		// "z_index": "auto",
 
-		// // Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
+		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 		// "background_attachment": ("scroll",),
 		// "background_clip": ("border-box",),
 		// "background_color": parse_color("transparent"),
 		// "background_origin": ("padding-box",),
+		"background_position": BackgroundPosition{
+			Center{OriginX: "left", Pos: Point{X: Dimension{Unit: Percentage}}},
+			Center{OriginX: "top", Pos: Point{X: Dimension{Unit: Percentage}}},
+		},
 		// "background_repeat": (("repeat", "repeat"),),
-		// "border_bottom_style": "none",
-		// "border_left_style": "none",
-		// "border_right_style": "none",
-		// "border_top_style": "none",
-
+		"background_size": BackgroundSize{Size{Width: sToV("auto"), Height: sToV("auto")}},
 		// "border_bottom_color": "currentColor",
 		// "border_left_color": "currentColor",
 		// "border_right_color": "currentColor",
 		// "border_top_color": "currentColor",
-		// "border_spacing": (0, 0),
+		// "border_bottom_style": "none",
+		// "border_left_style": "none",
+		// "border_right_style": "none",
+		// "border_top_style": "none",
+		"border_collapse":     String("separate"),
+		"border_bottom_style": String("none"),
+		"border_left_style":   String("none"),
+		"border_right_style":  String("none"),
+		"border_top_style":    String("none"),
+
+		"border_bottom_left_radius":  Lengths{ZeroPixels, ZeroPixels},
+		"border_bottom_right_radius": Lengths{ZeroPixels, ZeroPixels},
+		"border_top_left_radius":     Lengths{ZeroPixels, ZeroPixels},
+		"border_top_right_radius":    Lengths{ZeroPixels, ZeroPixels},
 
 		// // Color 3 (REC): https://www.w3.org/TR/css3-color/
 		// "opacity": 1,
+
+		// Multi-column Layout (CR): https://www.w3.org/TR/css3-multicol/
+		"column_width": sToV("auto"),
+		"column_count": sToV("auto"),
+		"column_gap":   Value{Dimension: Dimension{Value: 1, Unit: "em"}},
+		// "column_rule_color": "currentColor",
+		// "column_rule_style": "none",
+		// "column_rule_width": "medium",
+		// "column_fill": "balance",
+		// "column_span": "none",
 
 		// // Fonts 3 (CR): https://www.w3.org/TR/css-fonts-3/
 		// "font_family": ("serif",),  // depends on user agent
@@ -262,6 +118,9 @@ var (
 		// "font_variant_position": "normal",
 
 		// // Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
+		"break_after":  Break("auto"),
+		"break_before": Break("auto"),
+		"break_inside": String("auto"),
 		// "orphans": 2,
 		// "widows": 2,
 
@@ -273,7 +132,70 @@ var (
 		// // Images 3/4 (CR/WD): https://www.w3.org/TR/css4-images/
 		// "image_resolution": 1,  // dppx
 		// "image_rendering": "auto",
+
+		// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
+		"size": PageSize{
+			{Value: initialPageSize[0].Value * LengthsToPixels[initialPageSize[0].Unit]},
+			{Value: initialPageSize[1].Value * LengthsToPixels[initialPageSize[1].Unit]},
+		},
+		"page":         Page{String: "auto", Valid: true},
+		"bleed_left":   sToV("auto"),
+		"bleed_right":  sToV("auto"),
+		"bleed_top":    sToV("auto"),
+		"bleed_bottom": sToV("auto"),
 		// "marks": "none",
+
+		BackgroundImage: BackgroundImage{Gradient{Type: "none"}},
+
+		// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
+		Transforms: Transforms{}, // computed value for "none"
+
+		// Internal, to implement the "static position" for absolute boxes.
+		weasySpecifiedDisplay: Display("inline"),
+
+		"width":               sToV("auto"),
+		"border_bottom_width": Value{Dimension: Dimension{Value: 3}},
+		"border_left_width":   Value{Dimension: Dimension{Value: 3}},
+		"border_top_width":    Value{Dimension: Dimension{Value: 3}}, // computed value for "medium}"
+		"border_right_width":  Value{Dimension: Dimension{Value: 3}},
+
+		"font_size":   Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from thi}s
+		"font_weight": Value{Dimension: Dimension{Value: 400}},
+
+		// Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
+		"hyphenate_limit_zone": ZeroPixels,
+		"tab_size":             Value{Dimension: Dimension{Value: 8}},
+		"text_indent":          ZeroPixels,
+		"letter_spacing":       sToV("normal"),
+		"word_spacing":         Value{Dimension: Dimension{Value: 0}}, // computed value for "normal"
+
+		// User Interface 3 (CR): https://www.w3.org/TR/css-ui-3/
+		"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
+
+		"position": "static",
+
+		// // Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
+		// "hyphenate_character": "‐",  // computed value chosen by the user agent
+		// "hyphenate_limit_chars": (5, 2, 2),
+		"hyphens": "manual",
+		// "text_align": "-weasy-start",
+		"text_transform": "none",
+		"white_space":    "normal",
+
+		// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
+		"size": nil, // set to A4 in computed_values
+
+		// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
+		"transform_origin": Lengths{Value{Dimension: Dimension{Value: 50, Unit: Percentage}}, Value{Dimension: Dimension{Value: 50, Unit: Percentage}}},
+
+		// Proprietary
+		"anchor": Link{}, // computed value of "none"
+		"link":   Link{}, // computed value of "none"
+		"lang":   Link{}, // computed value of "none"
+
+		// // Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
+
+		// "border_spacing": (0, 0),
 
 		// // Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
 		// "hyphenate_character": "‐",  // computed value chosen by the user agent
@@ -327,41 +249,13 @@ func init() {
 	}
 }
 
-func vs(s string) Value { return Value{String: s} }
-
-type ImageType interface{}
-
-// Dimension or string
-type Value struct {
-	Dimension
-	String string
-}
-
-func IntToValue(i int) Value {
-	return Value{Dimension: Dimension{Value: float64(i)}}
-}
-
-type StringContent struct {
-	Name   string
-	Values []ContentProperty
-}
-
-func (s StringContent) IsNil() bool {
-	return s.Name == "" && s.Values == nil
-}
-
-func (s StringContent) Copy() StringContent {
-	out := s
-	out.Values = append([]ContentProperty{}, s.Values...)
-	return out
-}
-
+// string-set
 type StringSet struct {
 	String   string
 	Contents []StringContent
 }
 
-func (s StringSet) IsNil() bool {
+func (s StringSet) IsNone() bool {
 	return s.String == "" && s.Contents == nil
 }
 
@@ -375,7 +269,7 @@ func (s StringSet) Copy() StringSet {
 }
 
 // background-image
-type BackgroundImage []Gradient
+type BackgroundImage []Image
 
 // background-position
 type BackgroundPosition []Center
@@ -383,31 +277,8 @@ type BackgroundPosition []Center
 // background-size
 type BackgroundSize []Size
 
-type ContentType int
-
-const (
-	ContentQUOTE ContentType = iota + 1 // so that zero field corresponds to null content
-	ContentSTRING
-	ContentURI
-	ContentAttr
-	ContentCounter
-	ContentCounters
-	ContentString
-	ContentContent
-)
-
-type ContentProperty struct {
-	Type ContentType
-
-	// Next are values fields
-	String  string   // for type STRING, URI, attr
-	Quote   quote    // for type QUOTE
-	Strings []string // for type string, counter, counters
-}
-
-func (cp ContentProperty) IsNil() bool {
-	return cp.Type == 0
-}
+// background-repeat
+type BackgroundRepeat [][2]string
 
 // content
 type Content struct {
@@ -415,7 +286,7 @@ type Content struct {
 	List   []ContentProperty
 }
 
-func (c Content) IsNil() bool {
+func (c Content) IsNone() bool {
 	return c.String == "" && c.List == nil
 }
 
@@ -464,8 +335,9 @@ type Break string
 type Display string
 
 // float
-type Float string
+type Floating string
 
+// Standard string property
 type String string
 
 // top
@@ -542,126 +414,3 @@ type Anchor Link
 
 // lang
 type Lang Link
-
-func valueToLength(v Value) CssProperty        { return Length(v) }
-func valueToBleed(v Value) CssProperty         { return Bleed(v) }
-func valueToPixelLength(v Value) CssProperty   { return PixelLength(v) }
-func valueToBorderWidth(v Value) CssProperty   { return BorderWidth(v) }
-func valueToColumnWidth(v Value) CssProperty   { return ColumnWidth(v) }
-func valueToColumnGap(v Value) CssProperty     { return ColumnGap(v) }
-func valueToFontSize(v Value) CssProperty      { return FontSize(v) }
-func valueToFontWeight(v Value) CssProperty    { return FontWeight(v) }
-func valueToLineHeight(v Value) CssProperty    { return LineHeight(v) }
-func valueToTabSize(v Value) CssProperty       { return TabSize(v) }
-func valueToVerticalAlign(v Value) CssProperty { return VerticalAlign(v) }
-func valueToWordSpacing(v Value) CssProperty   { return WordSpacing(v) }
-
-func (v Value) SetOn(name string, s *StyleDict) {
-	s.Values[name] = v
-}
-
-func (v Length) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v Bleed) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v PixelLength) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v BorderWidth) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v ColumnWidth) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v ColumnGap) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v FontSize) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v FontWeight) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v LineHeight) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v TabSize) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v VerticalAlign) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-func (v WordSpacing) SetOn(name string, s *StyleDict) {
-	Value(v).SetOn(name, s)
-}
-
-func (v Break) SetOn(name string, s *StyleDict) {
-	s.Strings[name] = string(v)
-}
-func (v Display) SetOn(name string, s *StyleDict) {
-	s.Strings[name] = string(v)
-}
-func (v Float) SetOn(name string, s *StyleDict) {
-	s.Strings[name] = string(v)
-}
-func (v String) SetOn(name string, s *StyleDict) {
-	s.Strings[name] = string(v)
-}
-
-func (v Link) SetOn(name string, s *StyleDict) {
-	s.Links[name] = v
-}
-func (v Anchor) SetOn(name string, s *StyleDict) {
-	s.Links[name] = Link(v)
-}
-func (v Lang) SetOn(name string, s *StyleDict) {
-	s.Links[name] = Link(v)
-}
-
-func (v Lengths) SetOn(name string, s *StyleDict) {
-	s.Lengthss[name] = v
-}
-
-func (v Color) SetOn(name string, s *StyleDict) {
-	s.Colors[name] = v
-}
-
-func (v CounterResets) SetOn(name string, s *StyleDict) {
-	s.CounterReset = v
-}
-func (v CounterIncrements) SetOn(name string, s *StyleDict) {
-	s.CounterIncrement = v
-}
-func (v Page) SetOn(name string, s *StyleDict) {
-	s.Page = v
-}
-
-func (v BackgroundImage) SetOn(name string, s *StyleDict) {
-	s.BackgroundImage = v
-}
-func (v BackgroundPosition) SetOn(name string, s *StyleDict) {
-	s.BackgroundPosition = v
-}
-func (v BackgroundSize) SetOn(name string, s *StyleDict) {
-	s.BackgroundSize = v
-}
-func (v Content) SetOn(name string, s *StyleDict) {
-	s.Content = v
-}
-func (v Transforms) SetOn(name string, s *StyleDict) {
-	s.Transforms = v
-}
-func (v Quotes) SetOn(name string, s *StyleDict) {
-	s.Quotes = v
-}
-func (v ListStyleImage) SetOn(name string, s *StyleDict) {
-	s.ListStyleImage = v
-}
-func (v StringSet) SetOn(name string, s *StyleDict) {
-	s.StringSet = v
-}
-func (v StringContent) SetOn(name string, s *StyleDict) {
-	s.BookmarkLabel = v
-}

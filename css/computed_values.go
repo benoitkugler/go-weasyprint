@@ -185,21 +185,13 @@ type Size struct {
 	String        string
 }
 
-type GradientValue struct {
-	StopPositions []Dimension
-	Center        Center
-	SizeType      string
-	Size          []Dimension
-}
-
-type Gradient struct {
-	Type  string
-	Value GradientValue
-}
-
 type Center struct {
 	OriginX, OriginY string
-	PosX, PosY       Dimension
+	Pos              Point
+}
+
+func (c Center) IsNone() bool {
+	return c == Center{}
 }
 
 type Transform struct {
@@ -419,10 +411,10 @@ func (value Display) ComputeValue(computer *computer, name string) CssProperty {
 
 //Compute the ``float`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-func (value Float) ComputeValue(computer *computer, name string) CssProperty {
+func (value Floating) ComputeValue(computer *computer, name string) CssProperty {
 	position := computer.specified.Strings["position"]
 	if position == "absolute" || position == "fixed" {
-		return Float("none")
+		return Floating("none")
 	}
 	return value
 }
@@ -567,6 +559,8 @@ func (value WordSpacing) ComputeValue(computer *computer, name string) CssProper
 	return WordSpacing(length(computer, name, Value(value)))
 }
 
+// -------------------- no-ops --------------------------------------------------
+
 func (value CounterResets) ComputeValue(computer *computer, name string) CssProperty     { return value }
 func (value CounterIncrements) ComputeValue(computer *computer, name string) CssProperty { return value }
 func (value Page) ComputeValue(computer *computer, name string) CssProperty              { return value }
@@ -577,3 +571,6 @@ func (value Quotes) ComputeValue(computer *computer, name string) CssProperty   
 func (value ListStyleImage) ComputeValue(computer *computer, name string) CssProperty    { return value }
 func (value StringSet) ComputeValue(computer *computer, name string) CssProperty         { return value }
 func (value StringContent) ComputeValue(computer *computer, name string) CssProperty     { return value }
+func (value FontVariant) ComputeValue(computer *computer, name string) CssProperty       { return value }
+func (value TransformOrigin) ComputeValue(computer *computer, name string) CssProperty   { return value }
+func (value BackgroundRepeat) ComputeValue(computer *computer, name string) CssProperty  { return value }
