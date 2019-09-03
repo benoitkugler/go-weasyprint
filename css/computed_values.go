@@ -48,9 +48,9 @@ var (
 
 	// http://www.w3.org/TR/CSS21/fonts.html#propdef-font-weight
 	FontWeightRelative = struct {
-		bolder, lighter map[float32]float32
+		bolder, lighter map[int]int
 	}{
-		bolder: map[float32]float32{
+		bolder: map[int]int{
 			100: 400,
 			200: 400,
 			300: 400,
@@ -61,7 +61,7 @@ var (
 			800: 900,
 			900: 900,
 		},
-		lighter: map[float32]float32{
+		lighter: map[int]int{
 			100: 100,
 			200: 100,
 			300: 100,
@@ -430,8 +430,8 @@ func (value FontSize) ComputeValue(computer *computer, name string) CssProperty 
 
 // Compute the ``font-weight`` property.
 func (value FontWeight) ComputeValue(computer *computer, name string) CssProperty {
-	var out float32
-	switch value.String {
+	var out int
+	switch value.Name {
 	case "normal":
 		out = 400
 	case "bold":
@@ -445,7 +445,7 @@ func (value FontWeight) ComputeValue(computer *computer, name string) CssPropert
 	default:
 		out = value.Value
 	}
-	return FontWeight{Dimension: Dimension{Value: out}}
+	return FontWeight{Value: out}
 }
 
 // Compute the ``line-height`` property.

@@ -11,11 +11,9 @@ const (
 	ContentContent
 )
 
-func sToV(s string) Value { return Value{String: s} }
-
-func iToV(i int) Value {
-	return Value{Dimension: Dimension{Value: float32(i)}}
-}
+func sToV(s string) Value  { return Value{String: s} }
+func fToV(f float32) Value { return Value{Dimension: Dimension{Value: f}} }
+func iToV(i int) Value     { return fToV(float32(i)) }
 
 type CssProperty interface {
 	ComputeValue(computer *computer, name string) CssProperty
@@ -167,5 +165,5 @@ func (v WordSpacing) Copy() CssProperty    { return v }
 func (v Link) Copy() CssProperty           { return v }
 func (v Anchor) Copy() CssProperty         { return v }
 func (v Lang) Copy() CssProperty           { return v }
-func (v WidthHeight) Copy() CssProperty       { return v }
+func (v WidthHeight) Copy() CssProperty    { return v }
 func (v Page) Copy() CssProperty           { return v }

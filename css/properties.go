@@ -250,6 +250,12 @@ type BackgroundRepeat [][2]string
 // font-familly
 type Strings []string
 
+//font-feature-settings
+type FontFeatureSettings struct {
+	Normal    bool
+	TagValues []IntString
+}
+
 // content
 type Content struct {
 	String string // 'none' ou 'normal'
@@ -368,7 +374,7 @@ type ColumnGap Value
 type FontSize Value
 
 // font_weight
-type FontWeight Value
+type FontWeight IntString
 
 // line_height
 type LineHeight Value

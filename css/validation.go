@@ -114,6 +114,22 @@ var (
 		"font-familly":               fontFamilly,
 		"font-kerning":               fontKerning,
 		"font-language-override":     fontLanguageOverride,
+		"font-variant-ligatures":     fontVariantLigatures,
+		"font-variant-position":      fontVariantPosition,
+		"font-variant-caps":          fontVariantCaps,
+		"font-variant-numeric":       fontVariantNumeric,
+		"font-feature-settings":      fontFeatureSettings,
+		"font-variant-alternates":    fontVariantAlternates,
+		"font-variant-east-asian":    fontVariantEastAsian,
+		"font-style":                 fontStyle,
+		"font-stretch":               fontStretch,
+		"font-weight":                fontWeight,
+		"image-resolution":           imageResolution,
+		"letter-spacing":             letterSpacing,
+		"word-spacing":               wordSpacing,
+		"line-height":                lineHeight,
+		"list-style-position":        listStylePosition,
+		"list-style-type":            listStyleType,
 	}
 	validatorsError = map[string]validatorError{
 		"background-image":  backgroundImage,
@@ -121,6 +137,7 @@ var (
 		"content":           content,
 		"counter-increment": counterIncrement,
 		"counter-reset":     counterReset,
+		"font-size":         fontSize,
 	}
 
 	proprietary = Set{}
@@ -1657,12 +1674,11 @@ func fontVariantNumeric(tokens []Token, _ string) CssProperty {
 
 // //@validator()
 // ``font-feature-settings`` property validation.
-func fontFeatureSettings(tokens []Token) IntString {
+func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 && getKeyword(tokens[0]) == "normal" {
-		return IntString{Name: "normal"}
+		return FontFeatureSettings{Normal: true}
 	}
 
-	//@commaSeparatedList
 	fontFeatureSettingsList := func(tokens []Token) IntString {
 		var token Token
 		feature, value := "", 0
@@ -1708,17 +1724,13 @@ func fontFeatureSettings(tokens []Token) IntString {
 		return IntString{}
 	}
 
-	return fontFeatureSettingsList(tokens)
-}
-
-func decoratorSingleKeyword(f func(kw string) bool) func([]Token) string {
-	out := func(tokens []Token, _ string) CssProperty {
-		keyword := getSingleKeyword(tokens)
-		isValid := f(keyword)
-		if isValid {
-			return String(keyword)
+	var out FontFeatureSettings
+	for _, part := range splitOnComma(tokens) {
+		result := fontFeatureSettingsList(removeWhitespace(part))
+		if (result == IntString{}) {
+			return nil
 		}
-		return nil
+		out.TagValues = append(out.TagValues, result)
 	}
 	return out
 }
@@ -1751,20 +1763,24 @@ func fontVariantEastAsian(tokens []Token, _ string) CssProperty {
 //@validator()
 //@singleToken
 // ``font-size`` property validation.
-func fontSize(token Token) (Value, error) {
+func fontSize(tokens []Token, _ string) (CssProperty, error) {
+	if len(tokens) != 1 {
+		return nil, nil
+	}
+	token := tokens[0]
 	length := getLength(token, false, true)
 	if !length.IsNone() {
-		return Value{Dimension: length}, nil
+		return FontSize{Dimension: length}, nil
 	}
 	fontSizeKeyword := getKeyword(token)
 	if fontSizeKeyword == "smaller" || fontSizeKeyword == "larger" {
-		return Value{}, fmt.Errorf("value %s not supported yet", fontSizeKeyword)
+		return nil, fmt.Errorf("value %s not supported yet", fontSizeKeyword)
 	}
 	if _, isIn := FontSizeKeywords[fontSizeKeyword]; isIn {
 		// || keyword := range ("smaller", "larger")
-		return Value{String: fontSizeKeyword}, nil
+		return FontSize{String: fontSizeKeyword}, nil
 	}
-	return Value{}, nil
+	return nil, nil
 }
 
 //@validator()
@@ -1797,32 +1813,48 @@ func fontStretch(tokens []Token, _ string) CssProperty {
 //@validator()
 //@singleToken
 // ``font-weight`` property validation.
-func fontWeight(token Token) IntString {
+func fontWeight(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "normal" || keyword == "bold" || keyword == "bolder" || keyword == "lighter" {
-		return IntString{Name: keyword}
+		return FontWeight{Name: keyword}
 	}
 	if number, ok := token.(NumberToken); ok {
 		intValue := number.IntValue()
 		if number.IsInteger && (intValue == 100 || intValue == 200 || intValue == 300 || intValue == 400 || intValue == 500 || intValue == 600 || intValue == 700 || intValue == 800 || intValue == 900) {
-			return IntString{Value: intValue}
+			return FontWeight{Value: intValue}
 		}
 	}
-	return IntString{}
+	return nil
 }
 
 //@validator(unstable=true)
 //@singleToken
-func imageResolution(token Token) (float32, bool) {
+func imageResolution(tokens []Token, _ string) CssProperty {
 	// TODO: support "snap" && "from-image"
-	return getResolution(token)
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
+	value, ok := getResolution(token)
+	if !ok {
+		return nil
+	}
+	return fToV(value)
 }
 
 //@validator("letter-spacing")
 //@validator("word-spacing")
 //@singleToken
 // Validation for ``letter-spacing`` && ``word-spacing``.
-func spacing(token Token) Value {
+func _spacing(tokens []Token) Value {
+	if len(tokens) != 1 {
+		return Value{}
+	}
+	token := tokens[0]
 	if getKeyword(token) == "normal" {
 		return Value{String: "normal"}
 	}
@@ -1833,29 +1865,48 @@ func spacing(token Token) Value {
 	return Value{}
 }
 
+func letterSpacing(tokens []Token, _ string) CssProperty {
+	v := _spacing(tokens)
+	if v.IsNone() {
+		return nil
+	}
+	return PixelLength(v)
+}
+func wordSpacing(tokens []Token, _ string) CssProperty {
+	v := _spacing(tokens)
+	if v.IsNone() {
+		return nil
+	}
+	return WordSpacing(v)
+}
+
 //@validator()
 //@singleToken
 // ``line-height`` property validation.
-func lineHeight(token Token) Value {
+func lineHeight(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if getKeyword(token) == "normal" {
-		return Value{String: "normal"}
+		return LineHeight{String: "normal"}
 	}
 
 	switch tt := token.(type) {
 	case NumberToken:
 		if tt.Value >= 0 {
-			return Value{Dimension: Dimension{Value: tt.Value, Unit: NoUnit}}
+			return LineHeight{Dimension: Dimension{Value: tt.Value, Unit: NoUnit}}
 		}
 	case PercentageToken:
 		if tt.Value >= 0 {
-			return Value{Dimension: Dimension{Value: tt.Value, Unit: Percentage}}
+			return LineHeight{Dimension: Dimension{Value: tt.Value, Unit: Percentage}}
 		}
 	case DimensionToken:
 		if tt.Value >= 0 {
-			return Value{Dimension: getLength(token, true, false)}
+			return LineHeight{Dimension: getLength(token, true, false)}
 		}
 	}
-	return Value{}
+	return nil
 }
 
 //@validator()
