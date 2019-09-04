@@ -575,3 +575,6 @@ func (value Float) ComputeValue(computer *computer, name string) CssProperty    
 func (value IntString) ComputeValue(computer *computer, name string) CssProperty         { return value }
 func (value Int) ComputeValue(computer *computer, name string) CssProperty               { return value }
 func (value Dimension) ComputeValue(computer *computer, name string) CssProperty         { return value }
+func (value HyphenateLimitChars) ComputeValue(computer *computer, name string) CssProperty {
+	return value
+}

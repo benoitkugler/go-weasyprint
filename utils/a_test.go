@@ -53,3 +53,15 @@ func TestLower(t *testing.T) {
 
 	fmt.Println(out, string(out))
 }
+
+func TestPointer(t *testing.T) {
+	var i, j []int
+
+	p := &i
+
+	*p = append(*p, 4, 4, 5, 7, 8, 9, 6, 3, 8, 5, 9, 9, 3)
+	p = &j
+
+	*p = append(*p, 4, 4, 5, 7, 8, 9, 6, 3, 8, 5, 9, 9, 3)
+	fmt.Println(i, j)
+}

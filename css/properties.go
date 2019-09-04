@@ -291,11 +291,15 @@ type Quotes struct {
 	Open, Close []string
 }
 
+type BookmarkLabel []ContentProperty
+
 // -------------- value type ---------------------
 
 type Float float32
 
 type Int int
+
+type HyphenateLimitChars [3]int
 
 type Page struct {
 	Valid  bool

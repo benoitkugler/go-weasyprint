@@ -43,6 +43,10 @@ func (cp ContentProperty) IsNone() bool {
 	return cp.Type == 0
 }
 
+func (c Content) IsNone() bool {
+	return c.String == "" && c.List == nil
+}
+
 type StringContent struct {
 	Name   string
 	Values []ContentProperty
@@ -143,31 +147,32 @@ func (b Transforms) Copy() CssProperty {
 
 // value types
 
-func (v Value) Copy() CssProperty          { return v }
-func (v Marks) Copy() CssProperty          { return v }
-func (v ListStyleImage) Copy() CssProperty { return v }
-func (v Break) Copy() CssProperty          { return v }
-func (v Display) Copy() CssProperty        { return v }
-func (v Floating) Copy() CssProperty       { return v }
-func (v String) Copy() CssProperty         { return v }
-func (v Length) Copy() CssProperty         { return v }
-func (v Bleed) Copy() CssProperty          { return v }
-func (v BorderWidth) Copy() CssProperty    { return v }
-func (v PixelLength) Copy() CssProperty    { return v }
-func (v ColumnWidth) Copy() CssProperty    { return v }
-func (v ColumnGap) Copy() CssProperty      { return v }
-func (v FontSize) Copy() CssProperty       { return v }
-func (v FontWeight) Copy() CssProperty     { return v }
-func (v LineHeight) Copy() CssProperty     { return v }
-func (v TabSize) Copy() CssProperty        { return v }
-func (v VerticalAlign) Copy() CssProperty  { return v }
-func (v WordSpacing) Copy() CssProperty    { return v }
-func (v Link) Copy() CssProperty           { return v }
-func (v Anchor) Copy() CssProperty         { return v }
-func (v Lang) Copy() CssProperty           { return v }
-func (v WidthHeight) Copy() CssProperty    { return v }
-func (v Page) Copy() CssProperty           { return v }
-func (v Float) Copy() CssProperty          { return v }
-func (v Int) Copy() CssProperty            { return v }
-func (v IntString) Copy() CssProperty      { return v }
-func (v Dimension) Copy() CssProperty      { return v }
+func (v Value) Copy() CssProperty               { return v }
+func (v Marks) Copy() CssProperty               { return v }
+func (v ListStyleImage) Copy() CssProperty      { return v }
+func (v Break) Copy() CssProperty               { return v }
+func (v Display) Copy() CssProperty             { return v }
+func (v Floating) Copy() CssProperty            { return v }
+func (v String) Copy() CssProperty              { return v }
+func (v Length) Copy() CssProperty              { return v }
+func (v Bleed) Copy() CssProperty               { return v }
+func (v BorderWidth) Copy() CssProperty         { return v }
+func (v PixelLength) Copy() CssProperty         { return v }
+func (v ColumnWidth) Copy() CssProperty         { return v }
+func (v ColumnGap) Copy() CssProperty           { return v }
+func (v FontSize) Copy() CssProperty            { return v }
+func (v FontWeight) Copy() CssProperty          { return v }
+func (v LineHeight) Copy() CssProperty          { return v }
+func (v TabSize) Copy() CssProperty             { return v }
+func (v VerticalAlign) Copy() CssProperty       { return v }
+func (v WordSpacing) Copy() CssProperty         { return v }
+func (v Link) Copy() CssProperty                { return v }
+func (v Anchor) Copy() CssProperty              { return v }
+func (v Lang) Copy() CssProperty                { return v }
+func (v WidthHeight) Copy() CssProperty         { return v }
+func (v Page) Copy() CssProperty                { return v }
+func (v Float) Copy() CssProperty               { return v }
+func (v Int) Copy() CssProperty                 { return v }
+func (v IntString) Copy() CssProperty           { return v }
+func (v Dimension) Copy() CssProperty           { return v }
+func (v HyphenateLimitChars) Copy() CssProperty { return v }

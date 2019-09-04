@@ -155,6 +155,17 @@ var (
 		"white-space":                whiteSpace,
 		"overflow-wrap":              overflowWrap,
 		"image-rendering":            imageRendering,
+		"size":                       size,
+		"anchor":                     anchor,
+		"tab-size":                   tabSize,
+		"hyphens":                    hyphens,
+		"hyphenate-character":        hyphenateCharacter,
+		"hyphenate-limit-zone":       hyphenateLimitZone,
+		"hyphenate-limit-chars":      hyphenateLimitChars,
+		"lang":                       lang,
+		"bookmark-label":             bookmarkLabel,
+		"bookmark-level":             bookmarkLevel,
+		"string-set":                 stringSet,
 	}
 	validatorsError = map[string]validatorError{
 		"background-image":  backgroundImage,
@@ -163,11 +174,38 @@ var (
 		"counter-increment": counterIncrement,
 		"counter-reset":     counterReset,
 		"font-size":         fontSize,
+		"link":              link,
+		"transform":         transform,
+	}
+	// regroup the two cases (with error or without error)
+	allValidators Set
+
+	proprietary = Set{
+		"anchor": true,
+		"link":   true,
+		"lang":   true,
+	}
+	unstable = Set{
+		"transform-origin":      true,
+		"size":                  true,
+		"hyphens":               true,
+		"hyphenate-character":   true,
+		"hyphenate-limit-zone":  true,
+		"hyphenate-limit-chars": true,
+		"bookmark-label":        true,
+		"bookmark-level":        true,
+		"string-set":            true,
+		"transform":             true,
 	}
 
-	proprietary = Set{}
-	unstable    = Set{
-		"transform-origin": true,
+	expanders = map[string]expander{
+		"border-color":  expandFourSides,
+		"border-style":  expandFourSides,
+		"border-width":  expandFourSides,
+		"margin":        expandFourSides,
+		"padding":       expandFourSides,
+		"bleed":         expandFourSides,
+		"border-radius": borderRadius,
 	}
 
 	// http://dev.w3.org/csswg/css3-values/#angles
@@ -227,10 +265,17 @@ func init() {
 			allEastAsianValues[cc] = true
 		}
 	}
+	for name := range validators {
+		allValidators[name] = true
+	}
+	for name := range validatorsError {
+		allValidators[name] = true
+	}
 }
 
 type validator func(tokens []Token, baseUrl string) CssProperty
 type validatorError func(tokens []Token, baseUrl string) (CssProperty, error)
+type expander func(baseUrl, name string, tokens []Token) ([]namedProperty, error)
 
 type quote struct {
 	open, insert bool
@@ -247,7 +292,7 @@ func getKeyword(token Token) string {
 
 // If `tokens` is a 1-element list of keywords, return its name.
 // Otherwise return empty string.
-func getSingleKeyword(tokens []Token, _ string) CssProperty {
+func getSingleKeyword(tokens []Token) string {
 	if len(tokens) == 1 {
 		return getKeyword(tokens[0])
 	}
@@ -2267,7 +2312,7 @@ func imageRendering(tokens []Token, _ string) CssProperty {
 //@validator(unstable=true)
 // ``size`` property validation.
 // See http://www.w3.org/TR/css3-page/#page-size-prop
-func size(tokens []Token) WidthHeight {
+func size(tokens []Token, _ string) CssProperty {
 	var (
 		lengths        []Dimension
 		keywords       []string
@@ -2314,13 +2359,17 @@ func size(tokens []Token) WidthHeight {
 			}
 		}
 	}
-	return WidthHeight{}
+	return nil
 }
 
 //@validator(proprietary=true)
 //@singleToken
 // Validation for ``anchor``.
-func anchor(token Token) Anchor {
+func anchor(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if getKeyword(token) == "none" {
 		return Anchor{Type: "none"}
 	}
@@ -2332,26 +2381,30 @@ func anchor(token Token) Anchor {
 			}
 		}
 	}
-	return Anchor{}
+	return nil
 }
 
 //@validator(proprietary=true, wantsBaseUrl=true)
 //@singleToken
 // Validation for ``link``.
-func link(token Token, baseUrl string) (Link, error) {
+func link(tokens []Token, baseUrl string) (CssProperty, error) {
+	if len(tokens) != 1 {
+		return nil, nil
+	}
+	token := tokens[0]
 	if getKeyword(token) == "none" {
 		return Link{Type: "none"}, nil
 	} else if urlToken, isUrl := token.(URLToken); isUrl {
 		if strings.HasPrefix(urlToken.Value, "#") {
 			unescaped, err := url.PathUnescape(urlToken.Value[1:])
 			if err != nil {
-				return Link{}, fmt.Errorf("Invalid internal url : %s", err)
+				return nil, fmt.Errorf("Invalid internal url : %s", err)
 			}
 			return Link{Type: "internal", Attr: unescaped}, nil
 		} else {
 			safeurl, err := safeUrljoin(baseUrl, urlToken.Value)
 			if err != nil {
-				return Link{}, fmt.Errorf("Invalid external url : %s", err)
+				return nil, fmt.Errorf("Invalid external url : %s", err)
 			}
 			return Link{Type: "external", Attr: safeurl}, nil
 		}
@@ -2364,26 +2417,34 @@ func link(token Token, baseUrl string) (Link, error) {
 			}
 		}
 	}
-	return Link{}, nil
+	return nil, nil
 }
 
 //@validator()
 //@singleToken
 // Validation for ``tab-size``.
 // See https://www.w3.org/TR/css-text-3/#tab-size
-func tabSize(token Token) Dimension {
+func tabSize(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if number, ok := token.(NumberToken); ok {
 		if number.IsInteger && number.Value >= 0 {
-			return Dimension{Value: number.Value}
+			return TabSize{Value: number.Value}
 		}
 	}
-	return getLength(token, false, false)
+	return TabSize(getLength(token, false, false))
 }
 
 //@validator(unstable=true)
 //@singleToken
 // Validation for ``hyphens``.
-func hyphens(token Token) CssProperty {
+func hyphens(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	keyword := getKeyword(token)
 	switch keyword {
 	case "none", "manual", "auto":
@@ -2396,34 +2457,46 @@ func hyphens(token Token) CssProperty {
 //@validator(unstable=true)
 //@singleToken
 // Validation for ``hyphenate-character``.
-func hyphenateCharacter(token Token) string {
+func hyphenateCharacter(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "auto" {
-		return "‐"
+		return String("‐")
 	} else if str, ok := token.(StringToken); ok {
-		return str.Value
+		return String(str.Value)
 	}
-	return ""
+	return nil
 }
 
 //@validator(unstable=true)
 //@singleToken
 // Validation for ``hyphenate-limit-zone``.
-func hyphenateLimitZone(token Token) Dimension {
-	return getLength(token, false, true)
+func hyphenateLimitZone(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
+	d := getLength(token, false, true)
+	if d.IsNone() {
+		return nil
+	}
+	return d
 }
 
 //@validator(unstable=true)
 // Validation for ``hyphenate-limit-chars``.
-func hyphenateLimitChars(tokens []Token) [3]int {
+func hyphenateLimitChars(tokens []Token, _ string) CssProperty {
 	switch len(tokens) {
 	case 1:
 		token := tokens[0]
 		keyword := getKeyword(token)
 		if keyword == "auto" {
-			return [3]int{5, 2, 2}
+			return HyphenateLimitChars{5, 2, 2}
 		} else if number, ok := token.(NumberToken); ok && number.IsInteger {
-			return [3]int{number.IntValue(), 2, 2}
+			return HyphenateLimitChars{number.IntValue(), 2, 2}
 
 		}
 	case 2:
@@ -2432,15 +2505,15 @@ func hyphenateLimitChars(tokens []Token) [3]int {
 		leftKeyword := getKeyword(left)
 		if totalNumber, ok := total.(NumberToken); ok && totalNumber.IsInteger {
 			if leftNumber, ok := left.(NumberToken); ok && leftNumber.IsInteger {
-				return [3]int{totalNumber.IntValue(), leftNumber.IntValue(), leftNumber.IntValue()}
+				return HyphenateLimitChars{totalNumber.IntValue(), leftNumber.IntValue(), leftNumber.IntValue()}
 			} else if leftKeyword == "auto" {
-				return [3]int{totalNumber.IntValue(), 2, 2}
+				return HyphenateLimitChars{totalNumber.IntValue(), 2, 2}
 			}
 		} else if totalKeyword == "auto" {
 			if leftNumber, ok := left.(NumberToken); ok && leftNumber.IsInteger {
-				return [3]int{5, leftNumber.IntValue(), leftNumber.IntValue()}
+				return HyphenateLimitChars{5, leftNumber.IntValue(), leftNumber.IntValue()}
 			} else if leftKeyword == "auto" {
-				return [3]int{5, 2, 2}
+				return HyphenateLimitChars{5, 2, 2}
 			}
 		}
 	case 3:
@@ -2463,16 +2536,20 @@ func hyphenateLimitChars(tokens []Token) [3]int {
 			if okR {
 				rightInt = rightNumber.IntValue()
 			}
-			return [3]int{totalInt, leftInt, rightInt}
+			return HyphenateLimitChars{totalInt, leftInt, rightInt}
 		}
 	}
-	return [3]int{}
+	return nil
 }
 
 //@validator(proprietary=true)
 //@singleToken
 // Validation for ``lang``.
-func lang(token Token) Lang {
+func lang(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if getKeyword(token) == "none" {
 		return Lang{Type: "none"}
 	}
@@ -2487,18 +2564,17 @@ func lang(token Token) Lang {
 	} else if str, ok := token.(StringToken); ok {
 		return Lang{Type: "string", Attr: str.Value}
 	}
-	return Lang{}
+	return nil
 }
 
 //@validator(unstable=true)
 // Validation for ``bookmark-label``.
-func bookmarkLabel(tokens []Token) []ContentProperty {
-	parsedTokens := make([]ContentProperty, len(tokens))
+func bookmarkLabel(tokens []Token, _ string) CssProperty {
+	parsedTokens := make(BookmarkLabel, len(tokens))
 	for index, v := range tokens {
 		parsedTokens[index] = validateContentListToken(v)
-		if parsedTokens[index].IsNil() {
-			parsedTokens = nil
-			break
+		if parsedTokens[index].IsNone() {
+			return nil
 		}
 	}
 	return parsedTokens
@@ -2507,19 +2583,23 @@ func bookmarkLabel(tokens []Token) []ContentProperty {
 //@validator(unstable=true)
 //@singleToken
 // Validation for ``bookmark-level``.
-func bookmarkLevel(token Token) IntString {
+func bookmarkLevel(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if number, ok := token.(NumberToken); ok && number.IsInteger && number.IntValue() >= 1 {
 		return IntString{Value: number.IntValue()}
 	} else if getKeyword(token) == "none" {
 		return IntString{Name: "none"}
 	}
-	return IntString{}
+	return nil
 }
 
 //@validator(unstable=true)
 //@commaSeparatedList
 // Validation for ``string-set``.
-func stringSet(tokens []Token) Content {
+func _stringSet(tokens []Token) StringContent {
 	if len(tokens) >= 2 {
 		varName := getKeyword(tokens[0])
 		parsedTokens := make([]ContentProperty, len(tokens[1:]))
@@ -2549,8 +2629,20 @@ func stringSet(tokens []Token) Content {
 	return Content{}
 }
 
+func stringSet(tokens []Token, _ string) CssProperty {
+	var out StringSet
+	for _, part := range splitOnComma(tokens) {
+		result := _stringSet(removeWhitespace(part))
+		if result.IsNone() {
+			return nil
+		}
+		out.Contents = append(out.Contents, result)
+	}
+	return out
+}
+
 // Validation for a single token of <content-list> used in GCPM.
-//     Return (type, content) || false for invalid tokens.
+//     Return (type, content) or false for invalid tokens.
 //
 func validateContentListToken(token Token) ContentProperty {
 	if tt, ok := token.(StringToken); ok {
@@ -2577,7 +2669,7 @@ func validateContentListToken(token Token) ContentProperty {
 }
 
 //@validator(unstable=true)
-func transform(tokens []Token) ([]Transform, error) {
+func transform(tokens []Token, _ string) (CssProperty, error) {
 	if getSingleKeyword(tokens) == "none" {
 		return nil, nil
 	}
@@ -2658,19 +2750,13 @@ func transformFunction(token Token) (Transform, error) {
 }
 
 // Expanders
+type namedProperty struct {
+	name     string
+	property CssProperty
+}
 
 // Let"s be consistent, always use ``name`` as an argument even
 // when it is useless.
-
-// // Decorator adding a function to the ``EXPANDERS``.
-// func expander(propertyName) {
-//     def expanderDecorator(function) {
-//         """Add ``function`` to the ``EXPANDERS``."""
-//         assert propertyName not := range EXPANDERS, propertyName
-//         EXPANDERS[propertyName] = function
-//         return function
-//     } return expanderDecorator
-// }
 
 //@expander("border-color")
 //@expander("border-style")
@@ -2679,7 +2765,7 @@ func transformFunction(token Token) (Transform, error) {
 //@expander("padding")
 //@expander("bleed")
 // Expand properties setting a token for the four sides of a box.
-func expandFourSides(baseUrl, name string, tokens []Token) (out [4][2]string, err error) {
+func expandFourSides(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
 	// Make sure we have 4 tokens
 	if len(tokens) == 1 {
 		tokens = []Token{tokens[0], tokens[0], tokens[0], tokens[0]}
@@ -2700,122 +2786,65 @@ func expandFourSides(baseUrl, name string, tokens []Token) (out [4][2]string, er
 			// eg. border-color becomes border-*-color, not border-color-*
 			newName = name[:i] + suffix + name[i:]
 		}
-
-		out[index][0], out[index][1], err = validateNonShorthand(baseUrl, newName, []Token{token}, true)
+		prop, err := validateNonShorthand(baseUrl, newName, []Token{token}, true)
 		if err != nil {
 			return out, err
 		}
+		out = append(out, prop)
 	}
 	return out, nil
 }
 
-// //@expander("border-radius")
-// // Validator for the `border-radius` property.
-// func borderRadius(baseUrl, name, tokens []Token) {
-//     current = horizontal = []
-//     vertical = []
-//     for token := range tokens {
-//         if token.type == "literal" && token.value == "/" {
-//             if current is horizontal {
-//                 if token == tokens[-1] {
-//                     raise InvalidValues("Expected value after "/" separator")
-//                 } else {
-//                     current = vertical
-//                 }
-//             } else {
-//                 raise InvalidValues("Expected only one "/" separator")
-//             }
-//         } else {
-//             current.append(token)
-//         }
-//     }
-// }
-//     if not vertical {
-//         vertical = horizontal[:]
-//     }
+//@expander("border-radius")
+// Validator for the `border-radius` property.
+func borderRadius(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+	var horizontal, vertical []Token
+	current := &horizontal
 
-//     for values := range horizontal, vertical {
-//         // Make sure we have 4 tokens
-//         if len(values) == 1 {
-//             values *= 4
-//         } else if len(values) == 2 {
-//             values *= 2  // (br, bl) defaults to (tl, tr)
-//         } else if len(values) == 3 {
-//             values.append(values[1])  // bl defaults to tr
-//         } else if len(values) != 4 {
-//             raise InvalidValues(
-//                 "Expected 1 to 4 token components got %i" % len(values))
-//         }
-//     } corners = ("top-left", "top-right", "bottom-right", "bottom-left")
-//     for corner, tokens := range zip(corners, zip(horizontal, vertical)) {
-//         newName = "border-%s-radius" % corner
-//         // validateNonShorthand returns [(name, value)], we want
-//         // to yield (name, value)
-//         result, = validateNonShorthand(
-//             baseUrl, newName, tokens, required=true)
-//         yield result
-//     }
+	for index, token := range tokens {
+		if lit, ok := token.(LiteralToken); ok && lit.Value == "/" {
+			if current == &horizontal {
+				if index == len(tokens)-1 {
+					return nil, errors.New("Expected value after '/' separator")
+				} else {
+					current = &vertical
+				}
+			} else {
+				return nil, errors.New("Expected only one '/' separator")
+			}
+		} else {
+			*current = append(*current, token)
+		}
+	}
 
-// // Decorator helping expanders to handle ``inherit`` && ``initial``.
-// //     Wrap an expander so that it does not have to handle the "inherit" and
-// //     "initial" cases, && can just yield name suffixes. Missing suffixes
-// //     get the initial value.
-// //
-// func genericExpander(*expandedNames, **kwargs) {
-//     wantsBaseUrl = kwargs.pop("wantsBaseUrl", false)
-//     assert not kwargs
-// }
-//     def genericExpanderDecorator(wrapped) {
-//         """Decorate the ``wrapped`` expander."""
-//         //@functools.wraps(wrapped)
-//         def genericExpanderWrapper(baseUrl, name, tokens []Token) {
-//             """Wrap the expander."""
-//             keyword = getSingleKeyword(tokens)
-//             if keyword := range ("inherit", "initial") {
-//                 results = dict.fromkeys(expandedNames, keyword)
-//                 skipValidation = true
-//             } else {
-//                 skipValidation = false
-//                 results = {}
-//                 if wantsBaseUrl {
-//                     result = wrapped(name, tokens, baseUrl)
-//                 } else {
-//                     result = wrapped(name, tokens)
-//                 } for newName, newToken := range result {
-//                     assert newName := range expandedNames, newName
-//                     if newName := range results {
-//                         raise InvalidValues(
-//                             "got multiple %s values := range a %s shorthand"
-//                             % (newName.strip("-"), name))
-//                     } results[newName] = newToken
-//                 }
-//             }
-//         }
-//     }
+	if len(vertical) == 0 {
+		vertical = append([]Token{}, horizontal...)
+	}
 
-//             for newName := range expandedNames {
-//                 if newName.startswith("-") {
-//                     // newName is a suffix
-//                     actualNewName = name + newName
-//                 } else {
-//                     actualNewName = newName
-//                 }
-//             }
-
-//                 if newName := range results {
-//                     value = results[newName]
-//                     if not skipValidation {
-//                         // validateNonShorthand returns ((name, value),)
-//                         (actualNewName, value), = validateNonShorthand(
-//                             baseUrl, actualNewName, value, required=true)
-//                     }
-//                 } else {
-//                     value = "initial"
-//                 }
-
-//                 yield actualNewName, value
-//         return genericExpanderWrapper
-//     return genericExpanderDecorator
+	for _, values := range [2]*[]Token{&horizontal, &vertical} {
+		// Make sure we have 4 tokens
+		if len(*values) == 1 {
+			*values = []Token{*values[0], *values[0], *values[0], *values[0]}
+		} else if len(values) == 2 {
+			*values = []Token{*values[0], *values[1], *values[0], *values[1]} // (br, bl) defaults to (tl, tr)
+		} else if len(values) == 3 {
+			*values = append(*values, *values[1]) // bl defaults to tr
+		} else if len(values) != 4 {
+			return nil, fmt.Errorf("Expected 1 to 4 token components got %d", len(values))
+		}
+	}
+	corners := [4]string{"top-left", "top-right", "bottom-right", "bottom-left"}
+	for index, corner := range corners {
+		newName := fmt.Sprintf("border-%s-radius", corner)
+		ts := []Token{horizontal[index], vertical[index]}
+		result, err := validateNonShorthand(baseUrl, newName, ts, true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
+	}
+	return out, nil
+}
 
 // //@expander("list-style")
 // //@genericExpander("-type", "-position", "-image", wantsBaseUrl=true)
@@ -3209,32 +3238,42 @@ var fontVariantMapper = map[string]func(tokens []Token, _ string) CssProperty{
 
 // Default validator for non-shorthand properties.
 // required = false
-func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (string, string, error) {
+func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (out namedProperty, err error) {
 	if !required && !knownProperties[name] {
 		hyphensName := strings.ReplaceAll(name, "", "-")
 		if knownProperties[hyphensName] {
-			return nil, "", fmt.Errorf("did you mean %s?", hyphensName)
+			return out, fmt.Errorf("did you mean %s?", hyphensName)
 		} else {
-			return nil, "", errors.New("unknown property")
+			return out, errors.New("unknown property")
 		}
 	}
 
-	if _, isIn := validators[name]; !required && !isIn {
-		fmt.Errorf("property %s not supported yet", name)
+	if _, isIn := allValidators[name]; !required && !isIn {
+		return out, fmt.Errorf("property %s not supported yet", name)
 	}
-	var value string
+	var value CssProperty
 	keyword := getSingleKeyword(tokens)
 	if keyword == "initial" || keyword == "inherit" {
-		value = keyword
+		value = String(keyword)
 	} else {
 		function := validators[name]
-		value = function(tokens, baseUrl)
-
-		if value == "" {
-			return nil, "", errors.New("invalid property (empty function return)")
+		if function != nil {
+			value = function(tokens, baseUrl)
+		} else {
+			functionE := validatorsError[name]
+			if functionE != nil {
+				var err error
+				value, err = functionE(tokens, baseUrl)
+				if err != nil {
+					return out, err
+				}
+			}
+		}
+		if value == nil {
+			return out, errors.New("invalid property (nil function return)")
 		}
 	}
-	return name, value, nil
+	return namedProperty{name: name, property: value}, nil
 }
 
 // //
