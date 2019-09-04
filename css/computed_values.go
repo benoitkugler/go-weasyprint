@@ -571,3 +571,7 @@ func (value TransformOrigin) ComputeValue(computer *computer, name string) CssPr
 func (value BackgroundRepeat) ComputeValue(computer *computer, name string) CssProperty  { return value }
 func (value WidthHeight) ComputeValue(computer *computer, name string) CssProperty       { return value }
 func (value Marks) ComputeValue(computer *computer, name string) CssProperty             { return value }
+func (value Float) ComputeValue(computer *computer, name string) CssProperty             { return value }
+func (value IntString) ComputeValue(computer *computer, name string) CssProperty         { return value }
+func (value Int) ComputeValue(computer *computer, name string) CssProperty               { return value }
+func (value Dimension) ComputeValue(computer *computer, name string) CssProperty         { return value }

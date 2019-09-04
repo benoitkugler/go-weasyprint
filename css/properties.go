@@ -127,7 +127,7 @@ var (
 		// "font_variant_numeric": "normal",
 		// "font_variant_position": "normal",
 		"font_size":   FontSize(Value{Dimension: Dimension{Value: 16}}), // actually medium, but we define medium from thi}s
-		"font_weight": FontWeight(Value{Dimension: Dimension{Value: 400}}),
+		"font_weight": FontWeight(IntString{Value: 400}),
 
 		// // Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
 		"break_after":  Break("auto"),
@@ -292,6 +292,10 @@ type Quotes struct {
 }
 
 // -------------- value type ---------------------
+
+type Float float32
+
+type Int int
 
 type Page struct {
 	Valid  bool

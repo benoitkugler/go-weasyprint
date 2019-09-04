@@ -167,3 +167,7 @@ func (v Anchor) Copy() CssProperty         { return v }
 func (v Lang) Copy() CssProperty           { return v }
 func (v WidthHeight) Copy() CssProperty    { return v }
 func (v Page) Copy() CssProperty           { return v }
+func (v Float) Copy() CssProperty          { return v }
+func (v Int) Copy() CssProperty            { return v }
+func (v IntString) Copy() CssProperty      { return v }
+func (v Dimension) Copy() CssProperty      { return v }

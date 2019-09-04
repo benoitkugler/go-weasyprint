@@ -130,6 +130,31 @@ var (
 		"line-height":                lineHeight,
 		"list-style-position":        listStylePosition,
 		"list-style-type":            listStyleType,
+		"padding-top":                lengthOrPercentage,
+		"padding-right":              lengthOrPercentage,
+		"padding-bottom":             lengthOrPercentage,
+		"padding-left":               lengthOrPercentage,
+		"min-width":                  lengthOrPercentage,
+		"min-height":                 lengthOrPercentage,
+		"max-width":                  maxWidthHeight,
+		"max-height":                 maxWidthHeight,
+		"opacity":                    opacity,
+		"z-index":                    zIndex,
+		"orphansWidows":              orphansWidows,
+		"column-count":               columnCount,
+		"overflow":                   overflow,
+		"position":                   position,
+		"quotes":                     quotes,
+		"table-layout":               tableLayout,
+		"text-align":                 textAlign,
+		"text-decoration":            textDecoration,
+		"text-indent":                textIndent,
+		"text-transform":             textTransform,
+		"vertical-align":             verticalAlign,
+		"visibility":                 visibility,
+		"white-space":                whiteSpace,
+		"overflow-wrap":              overflowWrap,
+		"image-rendering":            imageRendering,
 	}
 	validatorsError = map[string]validatorError{
 		"background-image":  backgroundImage,
@@ -1943,39 +1968,59 @@ func listStyleType(tokens []Token, _ string) CssProperty {
 //@validator("min-height")
 //@singleToken
 // ``padding-*`` properties validation.
-func lengthOrPrecentage(token Token) Dimension {
-	return getLength(token, false, true)
+func lengthOrPercentage(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
+	l := getLength(token, false, true)
+	if l.IsNone() {
+		return nil
+	}
+	return Length(l)
 }
 
 //@validator("max-width")
 //@validator("max-height")
 //@singleToken
 // Validation for max-width && max-height
-func maxWidthHeight(token Token) Dimension {
+func maxWidthHeight(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, false, true)
 	if !length.IsNone() {
-		return length
+		return Length(length)
 	}
 	if getKeyword(token) == "none" {
-		return Dimension{Value: float32(math.Inf(1.)), Unit: Px}
+		return Length{Value: float32(math.Inf(1.)), Unit: Px}
 	}
-	return Dimension{}
+	return nil
 }
 
 //@validator()
 //@singleToken
 // Validation for the ``opacity`` property.
-func opacity(token Token) (float32, bool) {
-	if number, ok := token.(NumberToken); ok {
-		return min(1, max(0, number.Value)), true
+func opacity(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
 	}
-	return 0, false
+	token := tokens[0]
+	if number, ok := token.(NumberToken); ok {
+		return Float(min(1, max(0, number.Value)))
+	}
+	return nil
 }
 
 //@validator()
 //@singleToken
 // Validation for the ``z-index`` property.
-func zIndex(token Token) IntString {
+func zIndex(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if getKeyword(token) == "auto" {
 		return IntString{Name: "auto"}
 	}
@@ -1984,27 +2029,35 @@ func zIndex(token Token) IntString {
 			return IntString{Value: number.IntValue()}
 		}
 	}
-	return IntString{}
+	return nil
 }
 
 //@validator("orphans")
 //@validator("widows")
 //@singleToken
 // Validation for the ``orphans`` && ``widows`` properties.
-func orphansWidows(token Token) (int, bool) {
+func orphansWidows(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if number, ok := token.(NumberToken); ok {
 		value := number.IntValue()
 		if number.IsInteger && value >= 1 {
-			return value, true
+			return Int(value)
 		}
 	}
-	return 0, false
+	return nil
 }
 
 //@validator()
 //@singleToken
 // Validation for the ``column-count`` property.
-func columnCount(token Token) IntString {
+func columnCount(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	if number, ok := token.(NumberToken); ok {
 		value := number.IntValue()
 		if number.IsInteger && value >= 1 {
@@ -2014,7 +2067,7 @@ func columnCount(token Token) IntString {
 	if getKeyword(token) == "auto" {
 		return IntString{Name: "auto"}
 	}
-	return IntString{}
+	return nil
 }
 
 //@validator()
@@ -2045,7 +2098,7 @@ func position(tokens []Token, _ string) CssProperty {
 
 //@validator()
 // ``quotes`` property validation.
-func quotes(tokens []Token) Quotes {
+func quotes(tokens []Token, _ string) CssProperty {
 	var opens, closes []string
 	if len(tokens) > 0 && len(tokens)%2 == 0 {
 		// Separate open && close quotes.
@@ -2057,11 +2110,12 @@ func quotes(tokens []Token) Quotes {
 				opens = append(opens, open.Value)
 				closes = append(closes, close_.Value)
 			} else {
-				return Quotes{}
+				return nil
 			}
 		}
+		return Quotes{Open: opens, Close: closes}
 	}
-	return Quotes{Open: opens, Close: closes}
+	return nil
 }
 
 //@validator()
@@ -2092,7 +2146,7 @@ func textAlign(tokens []Token, _ string) CssProperty {
 
 //@validator()
 // ``text-decoration`` property validation.
-func textDecoration(tokens []Token) TextDecoration {
+func textDecoration(tokens []Token, _ string) CssProperty {
 	uniqKeywords := Set{}
 	valid := true
 	for _, token := range tokens {
@@ -2112,13 +2166,17 @@ func textDecoration(tokens []Token) TextDecoration {
 		delete(uniqKeywords, "blink")
 		return TextDecoration{Decorations: uniqKeywords}
 	}
-	return TextDecoration{}
+	return nil
 }
 
 //@validator()
 //@singleToken
 // ``text-indent`` property validation.
-func textIndent(token Token) Dimension {
+func textIndent(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	return getLength(token, true, true)
 }
 
@@ -2138,21 +2196,25 @@ func textTransform(tokens []Token, _ string) CssProperty {
 //@validator()
 //@singleToken
 // Validation for the ``vertical-align`` property
-func verticalAlign(token Token) Value {
+func verticalAlign(tokens []Token, _ string) CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
 	length := getLength(token, true, true)
 	if !length.IsNone() {
-		return Value{Dimension: length}
+		return VerticalAlign{Dimension: length}
 	}
 	keyword := getKeyword(token)
 	if keyword == "baseline" || keyword == "middle" || keyword == "sub" || keyword == "super" || keyword == "text-top" || keyword == "text-bottom" || keyword == "top" || keyword == "bottom" {
-		return Value{String: keyword}
+		return VerticalAlign{String: keyword}
 	}
-	return Value{}
+	return nil
 }
 
 //@validator()
 //@singleKeyword
-// ``white-space`` property validation.
+// ``visibility`` property validation.
 func visibility(tokens []Token, _ string) CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
