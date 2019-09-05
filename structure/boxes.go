@@ -844,7 +844,7 @@ func (self MarginBox) String() string {
 // Return an anonymous box that inherits from ``parent``.
 // -----------------------------------------------------------------
 
-// Since we dont use reflection, we implements (python) Box types as interfaces
+// BoxType enables passing type as value
 type BoxType interface {
 	AnonymousFrom(parent AllBox, children []AllBox) AllBox
 
