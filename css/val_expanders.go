@@ -82,7 +82,7 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 
 				for _, nameToken := range result {
 					newName, newToken := nameToken.name, nameToken.tokens
-					if !_expandedNames[newName] {
+					if !_expandedNames.Has(newName) {
 						return nil, fmt.Errorf("unknown expanded property %s", newName)
 					}
 					if _, isIn := toBeValidated[newName]; isIn {
@@ -329,7 +329,7 @@ type backgroundProps struct {
 
 func (b backgroundProps) add(name string) error {
 	name = "background_" + name
-	if b._keys[name] {
+	if b._keys.Has(name) {
 		return InvalidValue
 	}
 	return nil
@@ -489,30 +489,30 @@ func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty
 		}
 
 		var color CssProperty = InitialValues.GetBackgroundColor()
-		if results._keys["background_color"] {
+		if results._keys.Has("background_color") {
 			color = results.color
 			delete(results._keys, "background_color")
 		}
 
-		if !results._keys["background_image"] {
+		if !results._keys.Has("background_image") {
 			results.image = InitialValues.GetBackgroundImage()[0]
 		}
-		if !results._keys["background_repeat"] {
+		if !results._keys.Has("background_repeat") {
 			results.repeat = InitialValues.GetBackgroundRepeat()[0]
 		}
-		if !results._keys["background_attachment"] {
+		if !results._keys.Has("background_attachment") {
 			results.attachment = InitialValues.GetBackgroundAttachment()[0]
 		}
-		if !results._keys["background_position"] {
+		if !results._keys.Has("background_position") {
 			results.position = InitialValues.GetBackgroundPosition()[0]
 		}
-		if !results._keys["background_size"] {
+		if !results._keys.Has("background_size") {
 			results.size = InitialValues.GetBackgroundSize()[0]
 		}
-		if !results._keys["background_clip"] {
+		if !results._keys.Has("background_clip") {
 			results.clip = InitialValues.GetBackgroundClip()[0]
 		}
-		if !results._keys["background_origin"] {
+		if !results._keys.Has("background_origin") {
 			results.origin = InitialValues.GetBackgroundOrigin()[0]
 		}
 		return color, results, nil
@@ -815,9 +815,9 @@ func expandWordWrap(baseUrl, name string, tokens []Token) ([]namedProperty, erro
 // Default validator for non-shorthand properties.
 // required = false
 func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (out namedProperty, err error) {
-	if !required && !knownProperties[name] {
+	if !required && !knownProperties.Has(name) {
 		hyphensName := strings.ReplaceAll(name, "", "-")
-		if knownProperties[hyphensName] {
+		if knownProperties.Has(hyphensName) {
 			return out, fmt.Errorf("did you mean %s?", hyphensName)
 		} else {
 			return out, errors.New("unknown property")

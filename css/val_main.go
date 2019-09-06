@@ -370,7 +370,7 @@ func backgroundAttachment(tokens []Token, _ string) CssProperty {
 	var out Strings
 	for _, part := range splitOnComma(tokens) {
 		part = removeWhitespace(part)
-		result := _backgroundAttachment(part, baseUrl)
+		result := _backgroundAttachment(part)
 		if result == "" {
 			return nil
 		}
@@ -1664,7 +1664,7 @@ func parseFontVariant(tokens []Token, all Set, couples [][]string) FontVariant {
 			return FontVariant{}
 		}
 		identValue := string(ident.Value)
-		if all[identValue] {
+		if all.Has(identValue) {
 			var concurrentValues []string
 			for _, couple := range couples {
 				if isInValues(identValue, couple) {
@@ -1739,7 +1739,7 @@ func fontVariantNumeric(tokens []Token, _ string) CssProperty {
 // ``font-feature-settings`` property validation.
 func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 && getKeyword(tokens[0]) == "normal" {
-		return FontFeatureSettings{Normal: true}
+		return SIntStrings{String: "normal"}
 	}
 
 	fontFeatureSettingsList := func(tokens []Token) IntString {
@@ -1782,18 +1782,18 @@ func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 		}
 
 		if feature != "" && value != 0 {
-			return IntString{Name: feature, Value: value}
+			return IntString{String: feature, Int: value}
 		}
 		return IntString{}
 	}
 
-	var out FontFeatureSettings
+	var out SIntStrings
 	for _, part := range splitOnComma(tokens) {
 		result := fontFeatureSettingsList(removeWhitespace(part))
 		if (result == IntString{}) {
 			return nil
 		}
-		out.TagValues = append(out.TagValues, result)
+		out.Values = append(out.Values, result)
 	}
 	return out
 }
@@ -2060,7 +2060,7 @@ func zIndex(tokens []Token, _ string) CssProperty {
 	}
 	token := tokens[0]
 	if getKeyword(token) == "auto" {
-		return IntString{Name: "auto"}
+		return IntString{String: "auto"}
 	}
 	if number, ok := token.(NumberToken); ok {
 		if number.IsInteger {
@@ -2099,11 +2099,11 @@ func columnCount(tokens []Token, _ string) CssProperty {
 	if number, ok := token.(NumberToken); ok {
 		value := number.IntValue()
 		if number.IsInteger && value >= 1 {
-			return IntString{Value: value}
+			return IntString{Int: value}
 		}
 	}
 	if getKeyword(token) == "auto" {
-		return IntString{Name: "auto"}
+		return IntString{String: "auto"}
 	}
 	return nil
 }
@@ -2189,20 +2189,20 @@ func textDecoration(tokens []Token, _ string) CssProperty {
 	valid := true
 	for _, token := range tokens {
 		keyword := getKeyword(token)
-		uniqKeywords[keyword] = true
+		uniqKeywords.Add(keyword)
 		if !(keyword == "underline" || keyword == "overline" || keyword == "line-through" || keyword == "blink") {
 			valid = false
 		}
 	}
-	if len(tokens) == 1 && uniqKeywords["none"] {
-		return TextDecoration{None: true}
+	if _, in := uniqKeywords["none"]; len(tokens) == 1 && in {
+		return NDecorations{None: true}
 	}
 	if valid && len(uniqKeywords) == len(tokens) {
 		// No duplicate
 		// blink is accepted but ignored
 		// "Conforming user agents may simply not blink the text."
 		delete(uniqKeywords, "blink")
-		return TextDecoration{Decorations: uniqKeywords}
+		return NDecorations{Decorations: uniqKeywords}
 	}
 	return nil
 }
@@ -2215,7 +2215,11 @@ func textIndent(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	return getLength(token, true, true)
+	l := getLength(token, true, true)
+	if l.IsNone() {
+		return nil
+	}
+	return Value{Dimension: l}
 }
 
 //@validator()
@@ -2666,7 +2670,7 @@ func transform(tokens []Token, _ string) (CssProperty, error) {
 	if getSingleKeyword(tokens) == "none" {
 		return nil, nil
 	}
-	out := make([]SDimensions, len(tokens))
+	out := make(Transforms, len(tokens))
 	var err error
 	for index, v := range tokens {
 		out[index], err = transformFunction(v)
@@ -2675,7 +2679,6 @@ func transform(tokens []Token, _ string) (CssProperty, error) {
 		}
 	}
 	return out, nil
-
 }
 
 func transformFunction(token Token) (SDimensions, error) {
@@ -2746,7 +2749,7 @@ func transformFunction(token Token) (SDimensions, error) {
 // Log a warning for every ignored declaration.
 // Return a iterable of ``(name, value, important)`` tuples.
 //
-func preprocessDeclarations(baseUrl string, declarations []Token) []ValidatedProperty {
+func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedProperty {
 	var out []ValidatedProperty
 	for _, _declaration := range declarations {
 		if errToken, ok := _declaration.(ParseError); ok {
@@ -2764,16 +2767,16 @@ func preprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 			log.Println("Ignored `%s:%s` , %s.", declaration.Name, serialize(declaration.Value), reason)
 		}
 
-		if notPrintMedia[name] {
+		if _, in := notPrintMedia[name]; in {
 			validationError("the property does not apply for the print media")
 			continue
 		}
 
 		if strings.HasPrefix(name, prefix) {
 			unprefixedName := strings.TrimPrefix(name, prefix)
-			if proprietary[unprefixedName] {
+			if _, in := proprietary[unprefixedName]; in {
 				name = unprefixedName
-			} else if unstable[unprefixedName] {
+			} else if _, in := unstable[unprefixedName]; in {
 				log.Println("Deprecated `%s:%s`, prefixes on unstable attributes are deprecated, use `%s` instead.",
 					declaration.Name, serialize(declaration.Value), unprefixedName)
 				name = unprefixedName

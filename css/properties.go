@@ -5,8 +5,6 @@ import (
 	"strings"
 )
 
-type Set = map[string]bool
-
 var (
 	Inherited          = Set{}
 	InitialNotComputed = Set{}
@@ -171,7 +169,7 @@ var (
 		"word_spacing":   WordSpacing{}, // computed value for "normal"
 
 		// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
-		"transform_origin": Lengths{Value{Dimension: Dimension{Value: 50, Unit: Percentage}}, Value{Dimension: Dimension{Value: 50, Unit: Percentage}}},
+		"transform_origin": Point{{Value: 50, Unit: Percentage}, {Value: 50, Unit: Percentage}},
 		"transform":        Transforms{}, // computed value for "none"
 
 		// User Interface 3 (CR): https://www.w3.org/TR/css-ui-3/
@@ -258,7 +256,7 @@ func init() {
 // prop:string-set
 type StringSet struct {
 	String   string
-	Contents []SStrings
+	Contents []SContent
 }
 
 // prop:background-image
@@ -285,6 +283,7 @@ type SContent struct {
 	Contents []ContentProperty
 }
 
+// prop:text-decoration
 type NDecorations struct {
 	None        bool
 	Decorations Set
@@ -293,7 +292,6 @@ type NDecorations struct {
 // prop:transform
 type Transforms []SDimensions
 
-// prop:transform-origin
 // prop:border-spacing
 // prop:size
 // prop:clip
@@ -360,6 +358,7 @@ type NamedString struct {
 	String string
 }
 
+// prop:transform-origin
 type Point [2]Dimension
 
 // prop:marks

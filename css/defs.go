@@ -27,6 +27,17 @@ const (
 	Q
 )
 
+type Set map[string]struct{}
+
+func (s Set) Add(key string) {
+	s[key] = struct{}{}
+}
+
+func (s Set) Has(key string) bool {
+	_, in := s[key]
+	return in
+}
+
 type CssProperty interface {
 	Copy() CssProperty
 }
@@ -168,6 +179,14 @@ func (x SIntStrings) Copy() CssProperty {
 	out.Values = append([]IntString{}, x.Values...)
 	return out
 }
+func (x NDecorations) Copy() CssProperty {
+	out := x
+	out.Decorations = Set{}
+	for dec := range x.Decorations {
+		out.Decorations[dec] = true
+	}
+	return out
+}
 func (q Quotes) Copy() CssProperty {
 	return Quotes{Open: append([]string{}, q.Open...), Close: append([]string{}, q.Close...)}
 }
@@ -213,3 +232,4 @@ func (p IntString) Copy() CssProperty   { return p }
 func (p String) Copy() CssProperty      { return p }
 func (p Value) Copy() CssProperty       { return p }
 func (p Color) Copy() CssProperty       { return p }
+func (p Point) Copy() CssProperty       { return p }
