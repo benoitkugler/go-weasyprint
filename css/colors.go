@@ -223,11 +223,6 @@ type RGBA struct {
 
 type ColorType uint8
 
-type Color struct {
-	Type ColorType
-	RGBA RGBA
-}
-
 func (c Color) IsNone() bool {
 	return c.Type == ColorInvalid
 }
@@ -245,6 +240,12 @@ func mustParseHexa(s string) float32 {
 	return float32(out)
 }
 
+func parseColorString(color string) Color {
+	// TODO:
+	//     token = parseOneComponentValue(input, skipComments=true)
+	return parseColor(token)
+}
+
 // Parse a color value as defined in `CSS Color Level 3  <http://www.w3.org/TR/css3-color/>`.
 // Returns :
 //  - zero Color if the input is not a valid color value. (No exception is raised.)
@@ -253,13 +254,6 @@ func mustParseHexa(s string) float32 {
 //    The alpha channel is clipped to [0, 1] but red, green, || blue can be out of range
 //    (eg. ``rgb(-10%, 120%, 0%)`` is represented as ``(-0.1, 1.2, 0, 1)``.
 func parseColor(_token Token) Color {
-	// TODO: add this :
-	// if isinstance(input, str) {
-	//     token = parseOneComponentValue(input, skipComments=true)
-	// } else {
-	//     token = input
-	// }
-
 	switch token := _token.(type) {
 	case IdentToken:
 		return colorKeywords[token.Value.Lower()]

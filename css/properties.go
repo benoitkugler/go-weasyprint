@@ -13,12 +13,12 @@ var (
 
 	zeroPixelsValue = Value{Dimension: ZeroPixels}
 
-	InitialValues = map[string]CssProperty{
+	InitialValues = Properties{
 		"bottom":       Length(sToV("auto")),
 		"caption_side": String("top"),
 		// "clear": "none",
 		// "clip": TBD,  // computed value for "auto"
-		// "color": parse_color("black"),  // chosen by the user agent
+		"color": parseColorString("black"), // chosen by the user agent
 
 		"content": Content{String: "normal"},
 
@@ -227,65 +227,70 @@ func init() {
 	}
 }
 
-// string-set
+// prop:string-set
 type StringSet struct {
 	String   string
-	Contents []StringContent
+	Contents []SStrings
 }
 
-// background-image
-type BackgroundImage []Image
+// prop:background-image
+type Images []Image
 
-// background-position
-type BackgroundPosition []Center
+// prop:background-position
+type Centers []Center
 
-// background-size
-type BackgroundSize []Size
+// prop:background-size
+type Sizes []Size
 
-// background-repeat
-type BackgroundRepeat [][2]string
+// prop:background-repeat
+type Repeats [][2]string
 
-// background-clip
-// background-origin
-// font-familly
+// prop:background-clip
+// prop:background-origin
+// prop:font-familly
 type Strings []string
 
-//font-feature-settings
-type FontFeatureSettings struct {
-	Normal    bool
-	TagValues []IntString
+// prop:content
+type SContent struct {
+	String   string // prop:'none' ou 'normal'
+	Contents []ContentProperty
 }
 
-// content
-type Content struct {
-	String string // 'none' ou 'normal'
-	List   []ContentProperty
-}
-
-type TextDecoration struct {
+type NDecorations struct {
 	None        bool
 	Decorations Set
 }
 
-// transform
-type Transforms []Transform
+// prop:transform
+type Transforms []SDimensions
 
-// transform-origin
-// border-spacing
-// size
-// clip
-// border-top-left-radius
-// border-top-right-radius
-// border-bottom-left-radius
-// border-bottom-right-radius
-type Lengths []Value
+// prop:transform-origin
+// prop:border-spacing
+// prop:size
+// prop:clip
+// prop:border-top-left-radius
+// prop:border-top-right-radius
+// prop:border-bottom-left-radius
+// prop:border-bottom-right-radius
+type Values []Value
 
-type CounterIncrements struct {
+// prop:font-feature-settings
+type SIntStrings struct {
 	String string
-	CI     []IntString
+	Values []IntString
 }
 
-type CounterResets []IntString
+type SStrings struct {
+	String  string
+	Strings []string
+}
+
+type SDimensions struct {
+	String     string
+	Dimensions []Dimension
+}
+
+type IntStrings []IntString
 
 type Quotes struct {
 	Open, Close []string
@@ -299,111 +304,87 @@ type Float float32
 
 type Int int
 
-type HyphenateLimitChars [3]int
+type Ints3 [3]int
 
+// prop:page
 type Page struct {
 	Valid  bool
 	String string
 	Page   int
 }
 
-type ListStyleImage struct {
-	Type string
-	Url  string
+// prop:color
+type Color struct {
+	Type ColorType
+	RGBA RGBA
 }
 
-// width, height
-type WidthHeight [2]Dimension
+// prop:link
+// prop:anchor
+// prop:lang
+type NamedString struct {
+	Name   string
+	String string
+}
 
-// marks
+type Point [2]Dimension
+
+// prop:marks
 type Marks struct {
 	Crop, Cross bool
 }
 
-// break_after
-// break_before
-type Break string
-
-// display
-type Display string
-
-// float
-type Floating string
-
-// Standard string property
-type String string
-
-// top
-// right
-// left
-// bottom
-// margin_top
-// margin_right
-// margin_bottom
-// margin_left
-// height
-// width
-// min_width
-// min_height
-// max_width
-// max_height
-// padding_top
-// padding_right
-// padding_bottom
-// padding_left
-// text_indent
-// hyphenate_limit_zone
-type Length Value
-
-// bleed_left
-// bleed_right
-// bleed_top
-// bleed_bottom
-type Bleed Value
-
-// border_top_width
-// border_right_width
-// border_left_width
-// border_bottom_width
-// column_rule_width
-// outline_width
-type BorderWidth Value
-
-// letter_spacing
-type PixelLength Value
-
-// column_width
-type ColumnWidth Value
-
-// column_gap
-type ColumnGap Value
-
-// font_size
-type FontSize Value
-
-// font_weight
-type FontWeight IntString
-
-// line_height
-type LineHeight Value
-
-// tab_size
-type TabSize Value
-
-// vertical_align
-type VerticalAlign Value
-
-// word_spacing
-type WordSpacing Value
-
-// link
-type Link struct {
-	Type string
-	Attr string
+// prop:font-weight
+type IntString struct {
+	Int    int
+	String string
 }
 
-// anchor
-type Anchor Link
+// prop:break-after
+// prop:break-before
+// prop:display
+// prop:float
+type String string
 
-// lang
-type Lang Link
+// prop:top
+// prop:right
+// prop:left
+// prop:bottom
+// prop:margin-top
+// prop:margin-right
+// prop:margin-bottom
+// prop:margin-left
+// prop:height
+// prop:width
+// prop:min-width
+// prop:min-height
+// prop:max-width
+// prop:max-height
+// prop:padding-top
+// prop:padding-right
+// prop:padding-bottom
+// prop:padding-left
+// prop:text-indent
+// prop:hyphenate-limit-zone
+// prop:bleed-left
+// prop:bleed-right
+// prop:bleed-top
+// prop:bleed-bottom
+// prop:border-top-width
+// prop:border-right-width
+// prop:border-left-width
+// prop:border-bottom-width
+// prop:column-rule-width
+// prop:outline-width
+// prop:letter-spacing
+// prop:column-width
+// prop:column-gap
+// prop:font-size
+// prop:line-height
+// prop:tab-size
+// prop:vertical-align
+// prop:word-spacing
+type Value struct {
+	Dimension
+	String string
+}
