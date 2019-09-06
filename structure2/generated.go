@@ -22,6 +22,7 @@ func NewParentBox(elementTag string, style css.StyleDict, children []Box) *Paren
 func ParentBoxAnonymousFrom(parent Box, children []Box) *ParentBox {
 	return NewParentBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b ParentBox) Copy() Box { return &b }
 
 func NewBlockLevelBox(elementTag string, style css.StyleDict, children []Box) *BlockLevelBox {
 	out := BlockLevelBox{}
@@ -31,6 +32,7 @@ func NewBlockLevelBox(elementTag string, style css.StyleDict, children []Box) *B
 func BlockLevelBoxAnonymousFrom(parent Box, children []Box) *BlockLevelBox {
 	return NewBlockLevelBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b BlockLevelBox) Copy() Box { return &b }
 
 func NewBlockContainerBox(elementTag string, style css.StyleDict, children []Box) *BlockContainerBox {
 	out := BlockContainerBox{}
@@ -41,6 +43,7 @@ func NewBlockContainerBox(elementTag string, style css.StyleDict, children []Box
 func BlockContainerBoxAnonymousFrom(parent Box, children []Box) *BlockContainerBox {
 	return NewBlockContainerBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b BlockContainerBox) Copy() Box { return &b }
 
 func NewBlockBox(elementTag string, style css.StyleDict, children []Box) *BlockBox {
 	out := BlockBox{}
@@ -51,16 +54,12 @@ func NewBlockBox(elementTag string, style css.StyleDict, children []Box) *BlockB
 func BlockBoxAnonymousFrom(parent Box, children []Box) *BlockBox {
 	return NewBlockBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b BlockBox) Copy() Box { return &b }
 
-func NewLineBox(elementTag string, style css.StyleDict, children []Box) *LineBox {
-	out := LineBox{}
-	parent := NewParentBox(elementTag, style, children)
-	out.ParentBox = *parent
-	return &out
-}
 func LineBoxAnonymousFrom(parent Box, children []Box) *LineBox {
 	return NewLineBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b LineBox) Copy() Box { return &b }
 
 func NewInlineLevelBox(elementTag string, style css.StyleDict, children []Box) *InlineLevelBox {
 	out := InlineLevelBox{}
@@ -70,6 +69,7 @@ func NewInlineLevelBox(elementTag string, style css.StyleDict, children []Box) *
 func InlineLevelBoxAnonymousFrom(parent Box, children []Box) *InlineLevelBox {
 	return NewInlineLevelBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b InlineLevelBox) Copy() Box { return &b }
 
 func NewInlineBox(elementTag string, style css.StyleDict, children []Box) *InlineBox {
 	out := InlineBox{}
@@ -80,10 +80,12 @@ func NewInlineBox(elementTag string, style css.StyleDict, children []Box) *Inlin
 func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
 	return NewInlineBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b InlineBox) Copy() Box { return &b }
 
 func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
 	return NewTextBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), text)
 }
+func (b TextBox) Copy() Box { return &b }
 
 func NewAtomicInlineLevelBox(elementTag string, style css.StyleDict, children []Box) *AtomicInlineLevelBox {
 	out := AtomicInlineLevelBox{}
@@ -94,6 +96,7 @@ func NewAtomicInlineLevelBox(elementTag string, style css.StyleDict, children []
 func AtomicInlineLevelBoxAnonymousFrom(parent Box, children []Box) *AtomicInlineLevelBox {
 	return NewAtomicInlineLevelBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b AtomicInlineLevelBox) Copy() Box { return &b }
 
 func NewInlineBlockBox(elementTag string, style css.StyleDict, children []Box) *InlineBlockBox {
 	out := InlineBlockBox{}
@@ -104,6 +107,7 @@ func NewInlineBlockBox(elementTag string, style css.StyleDict, children []Box) *
 func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
 	return NewInlineBlockBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b InlineBlockBox) Copy() Box { return &b }
 
 func NewReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *ReplacedBox {
 	out := ReplacedBox{
@@ -116,6 +120,7 @@ func NewReplacedBox(elementTag string, style css.StyleDict, replacement css.Imag
 func ReplacedBoxAnonymousFrom(parent Box, nil css.ImageType) *ReplacedBox {
 	return NewReplacedBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), nil)
 }
+func (b ReplacedBox) Copy() Box { return &b }
 
 func NewBlockReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *BlockReplacedBox {
 	out := BlockReplacedBox{}
@@ -126,6 +131,7 @@ func NewBlockReplacedBox(elementTag string, style css.StyleDict, replacement css
 func BlockReplacedBoxAnonymousFrom(parent Box, replacement css.ImageType) *BlockReplacedBox {
 	return NewBlockReplacedBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), replacement)
 }
+func (b BlockReplacedBox) Copy() Box { return &b }
 
 func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *InlineReplacedBox {
 	out := InlineReplacedBox{}
@@ -136,6 +142,7 @@ func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement cs
 func InlineReplacedBoxAnonymousFrom(parent Box, replacement css.ImageType) *InlineReplacedBox {
 	return NewInlineReplacedBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), replacement)
 }
+func (b InlineReplacedBox) Copy() Box { return &b }
 
 func NewTableBox(elementTag string, style css.StyleDict, children []Box) *TableBox {
 	out := TableBox{
@@ -148,6 +155,7 @@ func NewTableBox(elementTag string, style css.StyleDict, children []Box) *TableB
 func TableBoxAnonymousFrom(parent Box, children []Box) *TableBox {
 	return NewTableBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableBox) Copy() Box { return &b }
 
 func NewInlineTableBox(elementTag string, style css.StyleDict, children []Box) *InlineTableBox {
 	out := InlineTableBox{}
@@ -158,6 +166,7 @@ func NewInlineTableBox(elementTag string, style css.StyleDict, children []Box) *
 func InlineTableBoxAnonymousFrom(parent Box, children []Box) *InlineTableBox {
 	return NewInlineTableBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b InlineTableBox) Copy() Box { return &b }
 
 func NewTableRowGroupBox(elementTag string, style css.StyleDict, children []Box) *TableRowGroupBox {
 	out := TableRowGroupBox{
@@ -172,6 +181,7 @@ func NewTableRowGroupBox(elementTag string, style css.StyleDict, children []Box)
 func TableRowGroupBoxAnonymousFrom(parent Box, children []Box) *TableRowGroupBox {
 	return NewTableRowGroupBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableRowGroupBox) Copy() Box { return &b }
 
 func NewTableRowBox(elementTag string, style css.StyleDict, children []Box) *TableRowBox {
 	out := TableRowBox{
@@ -186,6 +196,7 @@ func NewTableRowBox(elementTag string, style css.StyleDict, children []Box) *Tab
 func TableRowBoxAnonymousFrom(parent Box, children []Box) *TableRowBox {
 	return NewTableRowBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableRowBox) Copy() Box { return &b }
 
 func NewTableColumnGroupBox(elementTag string, style css.StyleDict, children []Box) *TableColumnGroupBox {
 	out := TableColumnGroupBox{
@@ -200,6 +211,7 @@ func NewTableColumnGroupBox(elementTag string, style css.StyleDict, children []B
 func TableColumnGroupBoxAnonymousFrom(parent Box, children []Box) *TableColumnGroupBox {
 	return NewTableColumnGroupBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableColumnGroupBox) Copy() Box { return &b }
 
 func NewTableColumnBox(elementTag string, style css.StyleDict, children []Box) *TableColumnBox {
 	out := TableColumnBox{
@@ -214,6 +226,7 @@ func NewTableColumnBox(elementTag string, style css.StyleDict, children []Box) *
 func TableColumnBoxAnonymousFrom(parent Box, children []Box) *TableColumnBox {
 	return NewTableColumnBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableColumnBox) Copy() Box { return &b }
 
 func NewTableCellBox(elementTag string, style css.StyleDict, children []Box) *TableCellBox {
 	out := TableCellBox{
@@ -228,6 +241,7 @@ func NewTableCellBox(elementTag string, style css.StyleDict, children []Box) *Ta
 func TableCellBoxAnonymousFrom(parent Box, children []Box) *TableCellBox {
 	return NewTableCellBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableCellBox) Copy() Box { return &b }
 
 func NewTableCaptionBox(elementTag string, style css.StyleDict, children []Box) *TableCaptionBox {
 	out := TableCaptionBox{
@@ -241,8 +255,14 @@ func NewTableCaptionBox(elementTag string, style css.StyleDict, children []Box) 
 func TableCaptionBoxAnonymousFrom(parent Box, children []Box) *TableCaptionBox {
 	return NewTableCaptionBox(parent.Box().elementTag, parent.Box().style.InheritFrom(), children)
 }
+func (b TableCaptionBox) Copy() Box { return &b }
+
+func (b PageBox) Copy() Box { return &b }
+
+func (b MarginBox) Copy() Box { return &b }
 
 var (
+	TypeTextBox             BoxType = typeTextBox{}
 	TypeTableBox            BoxType = typeTableBox{}
 	TypeInlineTableBox      BoxType = typeInlineTableBox{}
 	TypeTableRowGroupBox    BoxType = typeTableRowGroupBox{}
@@ -252,44 +272,81 @@ var (
 	TypeTableCellBox        BoxType = typeTableCellBox{}
 )
 
-type typeTableBox struct{}
+func (t typeTextBox) IsInstance(box Box) bool {
+	_, is := box.(*TextBox)
+	return is
+}
+
+type typeTextBox struct{}
 
 func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
 	return TableBoxAnonymousFrom(parent, children)
 }
 
-type typeInlineTableBox struct{}
+type typeTableBox struct{}
 
 func (t typeInlineTableBox) AnonymousFrom(parent Box, children []Box) Box {
 	return InlineTableBoxAnonymousFrom(parent, children)
 }
 
-type typeTableRowGroupBox struct{}
+func (t typeInlineTableBox) IsInstance(box Box) bool {
+	_, is := box.(*InlineTableBox)
+	return is
+}
+
+type typeInlineTableBox struct{}
 
 func (t typeTableRowGroupBox) AnonymousFrom(parent Box, children []Box) Box {
 	return TableRowGroupBoxAnonymousFrom(parent, children)
 }
 
-type typeTableRowBox struct{}
+func (t typeTableRowGroupBox) IsInstance(box Box) bool {
+	_, is := box.(*TableRowGroupBox)
+	return is
+}
+
+type typeTableRowGroupBox struct{}
 
 func (t typeTableRowBox) AnonymousFrom(parent Box, children []Box) Box {
 	return TableRowBoxAnonymousFrom(parent, children)
 }
 
-type typeTableColumnGroupBox struct{}
+func (t typeTableRowBox) IsInstance(box Box) bool {
+	_, is := box.(*TableRowBox)
+	return is
+}
+
+type typeTableRowBox struct{}
 
 func (t typeTableColumnGroupBox) AnonymousFrom(parent Box, children []Box) Box {
 	return TableColumnGroupBoxAnonymousFrom(parent, children)
 }
 
-type typeTableColumnBox struct{}
+func (t typeTableColumnGroupBox) IsInstance(box Box) bool {
+	_, is := box.(*TableColumnGroupBox)
+	return is
+}
+
+type typeTableColumnGroupBox struct{}
 
 func (t typeTableColumnBox) AnonymousFrom(parent Box, children []Box) Box {
 	return TableColumnBoxAnonymousFrom(parent, children)
 }
 
-type typeTableCellBox struct{}
+func (t typeTableColumnBox) IsInstance(box Box) bool {
+	_, is := box.(*TableColumnBox)
+	return is
+}
+
+type typeTableColumnBox struct{}
 
 func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
 	return TableCellBoxAnonymousFrom(parent, children)
 }
+
+func (t typeTableCellBox) IsInstance(box Box) bool {
+	_, is := box.(*TableCellBox)
+	return is
+}
+
+type typeTableCellBox struct{}

@@ -17,21 +17,33 @@ TEMPLATE = """func New{name}({args}) *{name} {{
     return &out
 }}
 """
+TEMPLATE_COPY = """
+    func (b  {name}) Copy() Box {{ return &b }}
+    """
 
 TEMPLATE_PARENT = """parent := New{parent}({args_no_type})
     out.{parent} = *parent"""
 
 TEMPLATE_ANONYMOUS = """func {name}AnonymousFrom(parent Box, {arg}) *{name} {{
 	return New{name}(parent.Box().elementTag, parent.Box().style.InheritFrom(), {arg_no_type})
-}}
-"""
+}}"""
 
-TEMPLATE_TYPE = """type type{name} struct{{}}
-
+TEMPLATE_TYPE = """
 func (t type{name}) AnonymousFrom(parent Box, children []Box) Box {{
 	return {name}AnonymousFrom(parent, children)
 }}
 """
+TEMPLATE_IS_INSTANCE = """func (t type{name}) IsInstance(box Box) bool {{
+	_, is := box.(*{name})
+	return is
+}}
+"""
+
+ANONYMOUS_FROM = ("TableRowBox", "TableRowGroupBox", "TableColumnBox", "TableColumnGroupBox",
+                  "TableBox", "TableCellBox", "InlineTableBox")
+IS_INSTANCE = ("TableRowBox", "TableRowGroupBox", "TableColumnBox", "TableColumnGroupBox",
+               "TableCellBox", "InlineTableBox", "TextBox")
+TYPES = set(ANONYMOUS_FROM + IS_INSTANCE)
 
 
 def parse_constructor(s: str):
@@ -97,17 +109,25 @@ with open(SOURCE) as f:
             code = TEMPLATE.format(name=name, args=args,
                                    args_no_type=args_no_type, parent=parent, init=init)
 
-            if name not in ("TextBox", "PageBox", "MarginBox"):
+            if name not in ("TextBox", "PageBox", "MarginBox", "LineBox"):
                 full_code += code
 
-            if name in ("TableRowBox", "TableRowGroupBox", "TableColumnBox", "TableColumnGroupBox",
-                        "TableBox", "TableCellBox", "InlineTableBox",):
+            if name in ANONYMOUS_FROM:
                 types_ += TEMPLATE_TYPE.format(name=name) + "\n"
+
+            if name in IS_INSTANCE:
+                types_ += TEMPLATE_IS_INSTANCE.format(name=name)
+
+            if name in TYPES:
                 var += f"Type{name} BoxType = type{name}{{}} \n"
+                types_ += f"type type{name} struct{{}}"
+
             code = TEMPLATE_ANONYMOUS.format(
                 name=name, arg=" ".join(parsed_args[-1]), arg_no_type=parsed_args[-1][0])
             if name not in ("PageBox", "MarginBox"):
-                full_code += code + "\n"
+                full_code += code
+
+            full_code += TEMPLATE_COPY.format(name=name)+"\n"
 
             args = None
             is_in = False

@@ -1,120 +1,110 @@
-package structure2
+package structure
 
 import "github.com/benoitkugler/go-weasyprint/css"
 
-//    Classes for all types of boxes in the CSS formatting structure / box model.
-//
-//    See http://www.w3.org/TR/CSS21/visuren.html
-//
-//    Names are the same as in CSS 2.1 with the exception of ``TextBox``. In
-//    WeasyPrint, any text is in a ``TextBox``. What CSS calls anonymous
-//    inline boxes are text boxes but not all text boxes are anonymous
-//    inline boxes.
-//
-//    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-//
-//    Abstract classes, should not be instantiated:
-//
-//    * Box
-//    * BlockLevelBox
-//    * InlineLevelBox
-//    * BlockContainerBox
-//    * ReplacedBox
-//    * ParentBox
-//    * AtomicInlineLevelBox
-//
-//    Concrete classes:
-//
-//    * PageBox
-//    * BlockBox
-//    * InlineBox
-//    * InlineBlockBox
-//    * BlockReplacedBox
-//    * InlineReplacedBox
-//    * TextBox
-//    * LineBox
-//    * Various table-related Box subclasses
-//
-//    All concrete box classes whose name contains "Inline" or "Block" have
-//    one of the following "outside" behavior:
-//
-//    * Block-level (inherits from :class:`BlockLevelBox`)
-//    * Inline-level (inherits from :class:`InlineLevelBox`)
-//
-//    and one of the following "inside" behavior:
-//
-//    * Block container (inherits from :class:`BlockContainerBox`)
-//    * Inline content (InlineBox and :class:`TextBox`)
-//    * Replaced content (inherits from :class:`ReplacedBox`)
-//
-//    ... with various combinations of both.
-//
-//    See respective docstrings for details.
-//
-//    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-//    :license: BSD, see LICENSE for details.
+// AllBox unifies all box types
+type AllBox interface {
+	BaseBox() *Box             // common parts of all boxes
+	TableFields() *TableFields // fields for table boxes. Might be nil on onther boxes
 
-// Box is the common interface grouping all possible boxes
-// For commodity, we abreviate BoxInstance to Box.
-type Box interface {
-	Box() *BoxFields
-	Copy() Box
+	// Returns `true` is Box is a ParentBox (or one of its descendant)
+	IsParentBox() bool
+	IsProperChild(parent AllBox) bool
+	IsTableBox() bool
+	IsBlockContainerBox() bool
+	IsInlineLevelBox() bool
+	IsBlockLevelBox() bool
+
+	Copy() AllBox
 	removeDecoration(start, end bool)
-	descendants() []Box
+	descendants() []AllBox
 }
 
-// ParentBoxInstance represents ParentBox and its descendant
-type ParentBoxInstance interface {
-	Box
-	isParentBoxInstance()
+// Box is an abstract base class for all boxes.
+type Box struct {
+	// Keep track of removed collapsing spaces for wrap opportunities.
+	leadingCollapsibleSpace  bool
+	trailingCollapsibleSpace bool
+
+	// Default, may be overriden on instances.
+	isTableWrapper       bool
+	isForRootElement     bool
+	isColumn             bool
+	isAttachment         bool
+	isListMarker         bool
+	transformationMatrix TBD
+
+	bookmarkLabel string
+	stringSet     []css.NameValue
+
+	elementTag string
+	style      css.StyleDict
+
+	firstLetterStyle, firstLineStyle css.StyleDict
+
+	positionX, positionY float64
+
+	width, height float64
+
+	marginTop, marginBottom, marginLeft, marginRight float64
+
+	paddingTop, paddingBottom, paddingLeft, paddingRight float64
+
+	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float64
+
+	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
+
+	viewportOverflow string
+
+	children          []AllBox
+	outsideListMarker AllBox
 }
 
-// BlockLevelBoxInstance represents BlockLevelBox and its descendant
-type BlockLevelBoxInstance interface {
-	Box
-	isBlockLevelBoxInstance()
+type BorderGrids struct {
+	Vertical, Horizontal [][]border
 }
 
-// BlockContainerBoxInstance represents BlockContainerBox and its descendant
-type BlockContainerBoxInstance interface {
-	ParentBoxInstance
-	isBlockContainerBoxInstance()
-}
+type TableFields struct {
+	// Default values. May be overriden on instances.
+	isHeader bool
+	isFooter bool
 
-// InlineLevelBoxInstance represents InlineLevelBox and its descendant
-type InlineLevelBoxInstance interface {
-	Box
-	isInlineLevelBoxInstance()
-}
+	gridX int
 
-// TableBoxInstance represents TableBox and its descendant
-type TableBoxInstance interface {
-	BlockLevelBoxInstance
-	isParentBoxInstance()
-	isTableBoxInstance()
-}
+	columnGroups    []AllBox
+	columnPositions []float64
 
-// ---------- Concrete types -------------------------------------
+	//Definitions for the rules generating anonymous table boxes
+	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+	tabularContainer       bool // default is true
+	properTableChild       bool // default is true
+	internalTableOrCaption bool // default is true
+
+	//Columns groups never have margins or paddings
+	marginTop, marginBottom, marginLeft, marginRight     float64
+	paddingTop, paddingBottom, paddingLeft, paddingRight float64
+
+	//Default weight. May be overriden on instances.
+	span int // default is 1
+
+	// Default values. May be overriden on instances.
+	colspan int // default is 1
+	rowspan int // default is 1
+
+	collapsedBorderGrid BorderGrids
+}
 
 // ParentBox is a box that has children.
 type ParentBox struct {
-	BoxFields
-}
-
-func (ParentBox) isParentBoxInstance() {}
-
-func (b *ParentBox) Box() *BoxFields {
-	return &b.BoxFields
+	Box
 }
 
 // BlockLevelBox is a box that participates in an block formatting context.
 //An element with a ``display`` weight of ``block``, ``list-item`` or
 //``table`` generates a block-level box.
 type BlockLevelBox struct {
-	clearance interface{}
+	clearance TBD
 }
-
-func (BlockLevelBox) isBlockLevelBoxInstance() {}
 
 // BlockContainerBox is a box that contains only block-level boxes or only line boxes.
 //
@@ -127,8 +117,6 @@ func (BlockLevelBox) isBlockLevelBoxInstance() {}
 type BlockContainerBox struct {
 	ParentBox
 }
-
-func (BlockContainerBox) isBlockContainerBoxInstance() {}
 
 // BlockBox is a block-level box that is also a block container.
 //
@@ -160,8 +148,6 @@ type LineBox struct {
 type InlineLevelBox struct {
 }
 
-func (InlineLevelBox) isInlineLevelBoxInstance() {}
-
 // InlineBox is an inline box with inline children.
 //
 //A box that participates in an inline formatting context and whose content
@@ -179,17 +165,11 @@ type InlineBox struct {
 //Any text in the document ends up in a text box. What CSS calls "anonymous
 //inline boxes" are also text boxes.
 type TextBox struct {
-	BoxFields
+	Box
 	InlineLevelBox
 
 	justificationSpacing int
 	text                 string
-
-	// constructor:elementTag string, style css.StyleDict, text string
-}
-
-func (b *TextBox) Box() *BoxFields {
-	return &b.BoxFields
 }
 
 // AtomicInlineLevelBox is an atomic box in an inline formatting context.
@@ -211,15 +191,9 @@ type InlineBlockBox struct {
 // For example, ``<img>`` are replaced: their content is rendered externally
 // and is opaque from CSS’s point of view.
 type ReplacedBox struct {
-	BoxFields
+	Box
 
 	replacement css.ImageType
-
-	// constructor:elementTag string, style css.StyleDict, replacement css.ImageType
-}
-
-func (b *ReplacedBox) Box() *BoxFields {
-	return &b.BoxFields
 }
 
 // BlockReplacedBox is a box that is both replaced and block-level.
@@ -228,8 +202,6 @@ func (b *ReplacedBox) Box() *BoxFields {
 type BlockReplacedBox struct {
 	ReplacedBox
 	BlockLevelBox
-
-	// constructor:elementTag string, style css.StyleDict, replacement css.ImageType
 }
 
 // InlineReplacedBox is a box that is both replaced and inline-level.
@@ -239,8 +211,6 @@ type BlockReplacedBox struct {
 type InlineReplacedBox struct {
 	ReplacedBox
 	AtomicInlineLevelBox
-
-	// constructor:elementTag string, style css.StyleDict, replacement css.ImageType
 }
 
 // TableBox is a box for elements with ``display: table``
@@ -248,14 +218,8 @@ type TableBox struct {
 	ParentBox
 	BlockLevelBox
 
-	//Definitions for the rules generating anonymous table boxes
-	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-	tabularContainer bool // init:true
-
-	columnGroups []Box
+	tableFields TableFields
 }
-
-func (TableBox) isTableBoxInstance() {}
 
 // InlineTableBox is a box for elements with ``display: inline-table``
 type InlineTableBox struct {
@@ -266,23 +230,15 @@ type InlineTableBox struct {
 type TableRowGroupBox struct {
 	ParentBox
 
-	properTableChild       bool // init:true
-	internalTableOrCaption bool // init:true
-	tabularContainer       bool // init:true
+	tableFields TableFields
 	//properParents = (TableBox, InlineTableBox)
-
-	// Default values. May be overriden on instances.
-	isHeader bool
-	isFooter bool
 }
 
 // TableRowBox is a box for elements with ``display: table-row``
 type TableRowBox struct {
 	ParentBox
 
-	properTableChild       bool // init:true
-	internalTableOrCaption bool // init:true
-	tabularContainer       bool // init:true
+	tableFields TableFields
 	//properParents = (TableBox, InlineTableBox, TableRowGroupBox)
 }
 
@@ -290,16 +246,9 @@ type TableRowBox struct {
 type TableColumnGroupBox struct {
 	ParentBox
 
-	properTableChild       bool // init:true
-	internalTableOrCaption bool // init:true
+	tableFields TableFields
+
 	//properParents = (TableBox, InlineTableBox)
-
-	//Default weight. May be overriden on instances.
-	span int // init:1
-
-	//Columns groups never have margins or paddings
-	marginTop, marginBottom, marginLeft, marginRight     float64
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
 }
 
 // Not really a parent box, but pretending to be removes some corner cases.
@@ -307,34 +256,23 @@ type TableColumnGroupBox struct {
 type TableColumnBox struct {
 	ParentBox
 
-	properTableChild       bool // init:true
-	internalTableOrCaption bool // init:true
+	tableFields TableFields
+
 	//properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
-
-	//Default weight. May be overriden on instances.
-	span int // init:1
-
-	//Columns groups never have margins or paddings
-	marginTop, marginBottom, marginLeft, marginRight     float64
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
 }
 
 // TableCellBox is a box for elements with ``display: table-cell``
 type TableCellBox struct {
 	BlockContainerBox
 
-	internalTableOrCaption bool // init:true
-	// Default values. May be overriden on instances.
-	colspan int // init:1
-	rowspan int // init:1
+	tableFields TableFields
 }
 
 // TableCaptionBox is a box for elements with ``display: table-caption``
 type TableCaptionBox struct {
 	BlockBox
 
-	properTableChild       bool // init:true
-	internalTableOrCaption bool // init:true
+	tableFields TableFields
 	//properParents = (TableBox, InlineTableBox)
 }
 
@@ -344,12 +282,34 @@ type TableCaptionBox struct {
 type PageBox struct {
 	ParentBox
 
-	pageType interface{}
+	pageType TBD
 }
 
 // MarginBox is a box in page margins, as defined in CSS3 Paged Media
 type MarginBox struct {
 	BlockContainerBox
 
-	atKeyword interface{}
+	atKeyword TBD
 }
+
+func (b Box) Copy() AllBox                 { return &b }
+func (b ParentBox) Copy() AllBox           { return &b }
+func (b BlockContainerBox) Copy() AllBox   { return &b }
+func (b BlockBox) Copy() AllBox            { return &b }
+func (b LineBox) Copy() AllBox             { return &b }
+func (b InlineBox) Copy() AllBox           { return &b }
+func (b TextBox) Copy() AllBox             { return &b }
+func (b InlineBlockBox) Copy() AllBox      { return &b }
+func (b ReplacedBox) Copy() AllBox         { return &b }
+func (b BlockReplacedBox) Copy() AllBox    { return &b }
+func (b InlineReplacedBox) Copy() AllBox   { return &b }
+func (b TableBox) Copy() AllBox            { return &b }
+func (b InlineTableBox) Copy() AllBox      { return &b }
+func (b TableRowGroupBox) Copy() AllBox    { return &b }
+func (b TableRowBox) Copy() AllBox         { return &b }
+func (b TableColumnGroupBox) Copy() AllBox { return &b }
+func (b TableColumnBox) Copy() AllBox      { return &b }
+func (b TableCellBox) Copy() AllBox        { return &b }
+func (b TableCaptionBox) Copy() AllBox     { return &b }
+func (b PageBox) Copy() AllBox             { return &b }
+func (b MarginBox) Copy() AllBox           { return &b }
