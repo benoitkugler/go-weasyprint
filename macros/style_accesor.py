@@ -24,6 +24,10 @@ def camel_case(s: str):
     return out
 
 
+def underscores(s: str):
+    return s.replace("-", "_")
+
+
 with open(SOURCE) as f:
     properties = []
     code = """package css 
@@ -39,7 +43,7 @@ with open(SOURCE) as f:
         if match:
             type_ = match.group(1)
             for prop in properties:
-                code += TEMPLATE.format(prop=prop,
+                code += TEMPLATE.format(prop=underscores(prop),
                                         prop_cap=camel_case(prop), type_=type_)
             properties = []
 

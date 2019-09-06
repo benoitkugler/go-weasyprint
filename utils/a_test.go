@@ -19,6 +19,12 @@ func TestSlice(t *testing.T) {
 		out = append(out, s[i])
 	}
 	fmt.Println(out)
+
+	a := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	fmt.Println(a[len(a)-2:])
+	a = a[:len(a)-2]
+	fmt.Println(a)
+
 }
 
 func TestUnicode(t *testing.T) {

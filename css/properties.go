@@ -14,13 +14,13 @@ var (
 	zeroPixelsValue = Value{Dimension: ZeroPixels}
 
 	InitialValues = Properties{
-		"bottom":       Length(sToV("auto")),
+		"bottom":       sToV("auto"),
 		"caption_side": String("top"),
 		// "clear": "none",
 		// "clip": TBD,  // computed value for "auto"
 		"color": parseColorString("black"), // chosen by the user agent
 
-		"content": Content{String: "normal"},
+		"content": SContent{String: "normal"},
 
 		// Means "none", but allow `display: list-item` to increment the
 		// list-item counter. If we ever have a way for authors to query
@@ -31,26 +31,26 @@ var (
 		"display":           Display("inline"),
 		// "empty_cells": "show",
 		"float":            Floating("none"),
-		"height":           Length(sToV("auto")),
-		"left":             Length(sToV("auto")),
-		"right":            Length(sToV("auto")),
+		"height":           sToV("auto"),
+		"left":             sToV("auto"),
+		"right":            sToV("auto"),
 		"line_height":      LineHeight(sToV("normal")),
 		"list_style_image": ListStyleImage{Type: "none"},
 		// "list_style_position": "outside",
 		"list_style_type": String("disc"),
-		"margin_top":      Length(zeroPixelsValue),
-		"margin_right":    Length(zeroPixelsValue),
-		"margin_bottom":   Length(zeroPixelsValue),
-		"margin_left":     Length(zeroPixelsValue),
-		"max_height":      Length(Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}), // parsed value for "none})"
-		"max_width":       Length(Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}),
-		"min_height":      Length(zeroPixelsValue),
-		"min_width":       Length(zeroPixelsValue),
+		"margin_top":      zeroPixelsValue,
+		"margin_right":    zeroPixelsValue,
+		"margin_bottom":   zeroPixelsValue,
+		"margin_left":     zeroPixelsValue,
+		"max_height":      Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}, // parsed value for "none}"
+		"max_width":       Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}},
+		"min_height":      zeroPixelsValue,
+		"min_width":       zeroPixelsValue,
 		"overflow":        String("visible"),
-		"padding_top":     Length(zeroPixelsValue),
-		"padding_right":   Length(zeroPixelsValue),
-		"padding_bottom":  Length(zeroPixelsValue),
-		"padding_left":    Length(zeroPixelsValue),
+		"padding_top":     zeroPixelsValue,
+		"padding_right":   zeroPixelsValue,
+		"padding_bottom":  zeroPixelsValue,
+		"padding_left":    zeroPixelsValue,
 		"quotes":          Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
 		"position":        String("static"),
 		// "table_layout": "auto",
@@ -60,12 +60,12 @@ var (
 		// "vertical_align": "baseline",
 		// "visibility": "visible",
 		// "z_index": "auto",
-		"width": Length(sToV("auto")),
+		"width": sToV("auto"),
 
 		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 		// "background_attachment": ("scroll",),
 		// "background_clip": ("border-box",),
-		// "background_color": parse_color("transparent"),
+		"background_color": parseColorString("transparent"),
 		// "background_origin": ("padding-box",),
 		"background_position": BackgroundPosition{
 			Center{OriginX: "left", Pos: Point{X: Dimension{Unit: Percentage}}},
@@ -161,11 +161,11 @@ var (
 		// "hyphenate_character": "‐",  // computed value chosen by the user agent
 		// "hyphenate_limit_chars": (5, 2, 2),
 		"hyphens":              String("manual"),
-		"letter_spacing":       PixelLength(sToV("normal")),
-		"hyphenate_limit_zone": Length(zeroPixelsValue),
+		"letter_spacing":       PixelsToV("normal"),
+		"hyphenate_limit_zone": zeroPixelsValue,
 		"tab_size":             TabSize(Value{Dimension: Dimension{Value: 8}}),
 		// "text_align": "-weasy-start",
-		"text_indent":    Length(zeroPixelsValue),
+		"text_indent":    zeroPixelsValue,
 		"text_transform": String("none"),
 		"white_space":    String("normal"),
 		"word_spacing":   WordSpacing{}, // computed value for "normal"
@@ -191,6 +191,34 @@ var (
 	}
 
 	knownProperties = Set{}
+
+	// Not applicable to the print media
+	notPrintMedia = Set{
+		// Aural media:
+		"azimuth",
+		"cue",
+		"cue-after",
+		"cue-before",
+		"cursor",
+		"elevation",
+		"pause",
+		"pause-after",
+		"pause-before",
+		"pitch-range",
+		"pitch",
+		"play-during",
+		"richness",
+		"speak-header",
+		"speak-numeral",
+		"speak-punctuation",
+		"speak",
+		"speech-rate",
+		"stress",
+		"voice-family",
+		"volume",
+
+		// outlines are not just for interactive but any visual media in css3-ui
+	}
 
 	// http://www.w3.org/TR/CSS21/tables.html#model
 	// See also http://lists.w3.org/Archives/Public/www-style/2012Jun/0066.html
@@ -247,6 +275,7 @@ type Repeats [][2]string
 
 // prop:background-clip
 // prop:background-origin
+// prop:background-attachment
 // prop:font-familly
 type Strings []string
 
@@ -275,6 +304,7 @@ type Transforms []SDimensions
 type Values []Value
 
 // prop:font-feature-settings
+// prop:counter-increment
 type SIntStrings struct {
 	String string
 	Values []IntString
@@ -290,12 +320,14 @@ type SDimensions struct {
 	Dimensions []Dimension
 }
 
+// prop:counter-reset
 type IntStrings []IntString
 
 type Quotes struct {
 	Open, Close []string
 }
 
+// prop:bookmark-label
 type BookmarkLabel []ContentProperty
 
 // -------------- value type ---------------------
@@ -314,6 +346,7 @@ type Page struct {
 }
 
 // prop:color
+// prop:background-color
 type Color struct {
 	Type ColorType
 	RGBA RGBA

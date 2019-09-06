@@ -46,28 +46,28 @@ func (s LowerableString) Lower() string {
 }
 
 // guards type
-type token struct{}
+type _token struct{}
 
-func (n token) isToken() {}
+func (n _token) isToken() {}
 
 // shared tokens
 type stringToken struct {
-	token
+	_token
 	Value string
 }
 type bracketsBlock struct {
-	token
+	_token
 	Content []Token
 }
 type numericToken struct {
-	token
+	_token
 	Value          float32
 	IsInteger      bool
 	Representation string
 }
 
 type QualifiedRule struct {
-	token
+	_token
 	Prelude, Content []Token
 }
 type AtRule struct {
@@ -75,13 +75,13 @@ type AtRule struct {
 	AtKeyword LowerableString
 }
 type Declaration struct {
-	token
+	_token
 	Name      LowerableString
 	Value     []Token
 	Important bool
 }
 type ParseError struct {
-	token
+	_token
 	Kind    string
 	Message string
 }
@@ -89,22 +89,22 @@ type Comment stringToken
 type WhitespaceToken stringToken
 type LiteralToken stringToken
 type IdentToken struct {
-	token
+	_token
 	Value LowerableString
 }
 type AtKeywordToken struct {
-	token
+	_token
 	Value LowerableString
 }
 type HashToken struct {
-	token
+	_token
 	Value        string
 	IsIdentifier bool
 }
 type StringToken stringToken
 type URLToken stringToken
 type UnicodeRangeToken struct {
-	token
+	_token
 	Start, End uint32
 }
 type NumberToken numericToken
@@ -117,7 +117,7 @@ type ParenthesesBlock bracketsBlock
 type SquareBracketsBlock bracketsBlock
 type CurlyBracketsBlock bracketsBlock
 type FunctionBlock struct {
-	token
+	_token
 	Name      LowerableString
 	Arguments []Token
 }

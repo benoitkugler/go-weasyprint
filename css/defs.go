@@ -45,9 +45,14 @@ func (d Dimension) IsNone() bool {
 	return d == Dimension{}
 }
 
-func sToV(s string) Value  { return Value{String: s} }
-func fToV(f float32) Value { return Value{Dimension: Dimension{Value: f}} }
-func iToV(i int) Value     { return fToV(float32(i)) }
+func fToD(f float32) Dimension { return Dimension{Value: f} }
+func sToV(s string) Value      { return Value{String: s} }
+func fToV(f float32) Value     { return Value{Dimension: fToD(f)} }
+func iToV(i int) Value         { return fToV(float32(i)) }
+
+func (p Point) IsNone() bool {
+	return p == Point{}
+}
 
 type ContentType int
 
@@ -88,17 +93,51 @@ func (t SDimensions) Copy() SDimensions {
 	return out
 }
 
+// Might be an existing image or a gradient
+type Image interface {
+	isImage()
+	Copy() CssProperty
+}
+
 type NoneImage struct{}
 type UrlImage string
 
-func (_ NoneImage) isImage() {}
-func (_ UrlImage) isImage()  {}
+func (NoneImage) isImage()      {}
+func (UrlImage) isImage()       {}
+func (LinearGradient) isImage() {}
+func (RadialGradient) isImage() {}
 
-func (_ NoneImage) Copy() Image {
+func (_ NoneImage) Copy() CssProperty {
 	return NoneImage{}
 }
-func (s UrlImage) Copy() Image {
+func (s UrlImage) Copy() CssProperty {
 	return s
+}
+
+type LinearGradient struct {
+	ColorStops []ColorStop
+	Direction  directionType
+	Repeating  bool
+}
+
+type RadialGradient struct {
+	ColorStops []ColorStop
+	Shape      string
+	Size       gradientSize
+	Center     Center
+	Repeating  bool
+}
+
+func (l LinearGradient) Copy() CssProperty {
+	out := l
+	out.ColorStops = append([]ColorStop{}, l.ColorStops...)
+	return out
+}
+
+func (r RadialGradient) Copy() CssProperty {
+	out := r
+	out.ColorStops = append([]ColorStop{}, r.ColorStops...)
+	return out
 }
 
 func (ss SStrings) Copy() SStrings {
@@ -114,6 +153,14 @@ func (s StringSet) Copy() CssProperty {
 		out.Contents[index] = l.Copy()
 	}
 	return out
+}
+
+func (l BookmarkLabel) Copy() CssProperty {
+	return append(BookmarkLabel{}, l...)
+}
+
+func (l IntStrings) Copy() CssProperty {
+	return append(IntStrings{}, l...)
 }
 
 func (x SIntStrings) Copy() CssProperty {

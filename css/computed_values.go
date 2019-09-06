@@ -185,6 +185,10 @@ type Size struct {
 	String        string
 }
 
+func (s Size) IsNone() bool {
+	return s == Size{}
+}
+
 type Center struct {
 	OriginX, OriginY string
 	Pos              Point

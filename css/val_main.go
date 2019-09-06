@@ -3,6 +3,7 @@ package css
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/url"
 	"path"
@@ -18,7 +19,11 @@ import (
 // :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
 
+const prefix = "-weasy-"
+
 var (
+	InvalidValue = errors.New("Invalid or unsupported values for a known CSS property.")
+
 	LENGTHUNITS = map[string]Unit{"ex": Ex, "em": Em, "ch": Ch, "rem": Rem, "px": Px, "pt": Pt, "pc": Pc, "in": In, "cm": Cm, "mm": Mm, "q": Q}
 
 	// keyword -> (open, insert)
@@ -111,7 +116,7 @@ var (
 		"direction":                  direction,
 		"display":                    display,
 		"float":                      float,
-		"font-familly":               fontFamilly,
+		"font-family":                fontFamily,
 		"font-kerning":               fontKerning,
 		"font-language-override":     fontLanguageOverride,
 		"font-variant-ligatures":     fontVariantLigatures,
@@ -198,16 +203,6 @@ var (
 		"transform":             true,
 	}
 
-	expanders = map[string]expander{
-		"border-color":  expandFourSides,
-		"border-style":  expandFourSides,
-		"border-width":  expandFourSides,
-		"margin":        expandFourSides,
-		"padding":       expandFourSides,
-		"bleed":         expandFourSides,
-		"border-radius": borderRadius,
-	}
-
 	// http://dev.w3.org/csswg/css3-values/#angles
 	// 1<unit> is this many radians.
 	ANGLETORADIANS = map[string]float32{
@@ -279,6 +274,12 @@ type expander func(baseUrl, name string, tokens []Token) ([]namedProperty, error
 
 type quote struct {
 	open, insert bool
+}
+
+type ValidatedProperty struct {
+	Name      string
+	Value     CssProperty
+	Important bool
 }
 
 // If `token` is a keyword, return its name.
@@ -355,14 +356,27 @@ func safeUrljoin(baseUrl, url string) (string, error) {
 //@commaSeparatedList
 //@singleKeyword
 // ``background-attachment`` property validation.
-func backgroundAttachment(tokens []Token, _ string) CssProperty {
+func _backgroundAttachment(tokens []Token) string {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "scroll", "fixed", "local":
-		return String(keyword)
+		return keyword
 	default:
-		return nil
+		return ""
 	}
+}
+
+func backgroundAttachment(tokens []Token, _ string) CssProperty {
+	var out Strings
+	for _, part := range splitOnComma(tokens) {
+		part = removeWhitespace(part)
+		result := _backgroundAttachment(part, baseUrl)
+		if result == "" {
+			return nil
+		}
+		out = append(out, result)
+	}
+	return out
 }
 
 //@validator("background-color")
@@ -434,36 +448,18 @@ func color(tokens []Token, _ string) CssProperty {
 	return nil
 }
 
-type LinearGradient struct {
-	ColorStops []ColorStop
-	Direction  directionType
-	Repeating  bool
-}
-
-type RadialGradient struct {
-	ColorStops []ColorStop
-	Shape      string
-	Size       Size
-	Center     Center
-	Repeating  bool
-}
-
-// Might be an existing image or a gradient
-type Image interface {
-	isImage()
-	Copy() Image
-}
-
-func (l LinearGradient) isImage() {}
-func (l RadialGradient) isImage() {}
-
 // @validator("background-image", wantsBaseUrl=true)
 // @commaSeparatedList
 // @singleToken
-func _backgroundImage(_token Token, baseUrl string) (Image, error) {
+func _backgroundImage(tokens []Token, baseUrl string) (Image, error) {
+	if len(tokens) != 1 {
+		return nil, nil
+	}
+	_token := tokens[0]
+
 	token, ok := _token.(FunctionBlock)
 	if !ok {
-		return imageUrl([]Token{token}, baseUrl)
+		return _imageUrl(token, baseUrl)
 	}
 	arguments := splitOnComma(removeWhitespace(token.Arguments))
 	name := token.Name.Lower()
@@ -487,10 +483,10 @@ func _backgroundImage(_token Token, baseUrl string) (Image, error) {
 		}
 	case "radial-gradient", "repeating-radial-gradient":
 		result := parseRadialGradientParameters(arguments)
-		if (result == radialGradientParameters{}) {
+		if result.IsNone() {
 			result.shape = "ellipse"
-			result.size = "keyword", "farthest-corner"
-			result.position = "left", fiftyPercent, "top", fiftyPercent
+			result.size = gradientSize{keyword: "farthest-corner"}
+			result.position = Center{OriginX: "left", OriginY: "top", Pos: {fiftyPercent, fiftyPercent}}
 			result.colorStops = arguments
 		}
 		if len(result.colorStops) > 0 {
@@ -514,21 +510,18 @@ func _backgroundImage(_token Token, baseUrl string) (Image, error) {
 }
 
 func backgroundImage(tokens []Token, baseUrl string) (CssProperty, error) {
-	var out BackgroundImage
+	var out Images
 	for _, part := range splitOnComma(tokens) {
 		part = removeWhitespace(part)
-		if len(part) > 0 {
-			result, err := _backgroundImage(part[0], baseUrl)
-			if err != nil {
-				return nil, err
-			}
-			if result == nil {
-				return nil, nil
-			}
-			out = append(out, result)
-		} else {
+		result, err := _backgroundImage(part, baseUrl)
+		if err != nil {
+			return nil, err
+		}
+		if result == nil {
 			return nil, nil
 		}
+		out = append(out, result)
+
 	}
 	return out, nil
 }
@@ -609,7 +602,7 @@ func (g gradientPosition) IsNone() bool {
 type radialGradientParameters struct {
 	shape      string
 	size       gradientSize
-	position   gradientPosition
+	position   Center
 	colorStops [][]Token
 }
 
@@ -619,7 +612,7 @@ func (r radialGradientParameters) IsNone() bool {
 
 func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters {
 	var shape, sizeShape string
-	var position gradientPosition
+	var position Center
 	var size gradientSize
 	stack := reverse(arguments[0])
 	for len(stack) > 0 {
@@ -627,7 +620,7 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 		keyword := getKeyword(token)
 		switch keyword {
 		case "at":
-			position = valideBackgroundPosition(reverse(stack))
+			position = _backgroundPosition(reverse(stack))
 			if position.IsNone() {
 				return radialGradientParameters{}
 			}
@@ -682,11 +675,10 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 		out.size = gradientSize{keyword: "farthest-corner"}
 	}
 	if position.IsNone() {
-		out.position = gradientPosition{
-			keyword1: "left",
-			length1:  fiftyPercent,
-			keyword2: "top",
-			length2:  fiftyPercent,
+		out.position = Center{
+			OriginX: "left",
+			OriginY: "top",
+			Pos:     Point{fiftyPercent, fiftyPercent},
 		}
 	}
 	return out
@@ -711,7 +703,7 @@ func parseColorStop(tokens []Token) (ColorStop, error) {
 			return ColorStop{Color: color, Position: position}, nil
 		}
 	default:
-		return ColorStop{}, errors.New("Invalid or unsupported values for a known CSS property.")
+		return ColorStop{}, InvalidValue
 	}
 	return ColorStop{}, nil
 }
@@ -751,7 +743,7 @@ func transformOrigin(tokens []Token, _ string) CssProperty {
 // ``background-position`` property validation.
 //     See http://dev.w3.org/csswg/css3-background/#the-background-position
 //
-func _valideBackgroundPosition(tokens []Token) Center {
+func _backgroundPosition(tokens []Token) Center {
 	center := simple2dPosition(tokens)
 	if !center.IsNone() {
 		return Center{
@@ -770,13 +762,13 @@ func _valideBackgroundPosition(tokens []Token) Center {
 			if (keyword1 == "left" || keyword1 == "right") && (keyword2 == "top" || keyword2 == "bottom") {
 				return Center{OriginX: keyword1,
 					OriginY: keyword2,
-					Pos:     Point{X: length1, Y: length2},
+					Pos:     Point{length1, length2},
 				}
 			}
 			if (keyword2 == "left" || keyword2 == "right") && (keyword1 == "top" || keyword1 == "bottom") {
 				return Center{OriginX: keyword2,
 					OriginY: keyword1,
-					Pos:     Point{X: length2, Y: length1},
+					Pos:     Point{length2, length1},
 				}
 			}
 		}
@@ -799,17 +791,17 @@ func _valideBackgroundPosition(tokens []Token) Center {
 			case "center":
 				switch keyword {
 				case "top", "bottom":
-					return Center{OriginX: "left", OriginY: keyword, Pos: Point{X: fiftyPercent, Y: length}}
+					return Center{OriginX: "left", OriginY: keyword, Pos: Point{fiftyPercent, length}}
 				case "left", "right":
-					return Center{OriginX: keyword, OriginY: "top", Pos: Point{X: length, Y: fiftyPercent}}
+					return Center{OriginX: keyword, OriginY: "top", Pos: Point{length, fiftyPercent}}
 				}
 			case "top", "bottom":
 				if keyword == "left" || keyword == "right" {
-					return Center{OriginX: keyword, OriginY: otherKeyword, Pos: Point{X: length, Y: ZEROPERCENT}}
+					return Center{OriginX: keyword, OriginY: otherKeyword, Pos: Point{length, ZEROPERCENT}}
 				}
 			case "left", "right":
 				if keyword == "top" || keyword == "bottom" {
-					return Center{OriginX: otherKeyword, OriginY: keyword, Pos: Point{X: ZEROPERCENT, Y: length}}
+					return Center{OriginX: otherKeyword, OriginY: keyword, Pos: Point{ZEROPERCENT, length}}
 				}
 			}
 		}
@@ -820,7 +812,7 @@ func _valideBackgroundPosition(tokens []Token) Center {
 func valideBackgroundPosition(tokens []Token, _ string) CssProperty {
 	var out BackgroundPosition
 	for _, part := range splitOnComma(tokens) {
-		result := _valideBackgroundPosition(removeWhitespace(part))
+		result := _backgroundPosition(removeWhitespace(part))
 		if result.IsNone() {
 			return nil
 		}
@@ -841,20 +833,20 @@ func simple2dPosition(tokens []Token) Point {
 	length1 := getLength(token1, true, true)
 	length2 := getLength(token2, true, true)
 	if !length1.IsNone() && !length2.IsNone() {
-		return Point{X: length1, Y: length2}
+		return Point{length1, length2}
 	}
 	keyword1, keyword2 := getKeyword(token1), getKeyword(token2)
 	if !length1.IsNone() && (keyword2 == "top" || keyword2 == "center" || keyword2 == "bottom") {
-		return Point{X: length1, Y: backgroundPositionsPercentages[keyword2]}
+		return Point{length1, backgroundPositionsPercentages[keyword2]}
 	} else if !length2.IsNone() && (keyword1 == "left" || keyword1 == "center" || keyword1 == "right") {
-		return Point{X: backgroundPositionsPercentages[keyword1], Y: length2}
+		return Point{backgroundPositionsPercentages[keyword1], length2}
 	} else if (keyword1 == "left" || keyword1 == "center" || keyword1 == "right") &&
 		(keyword2 == "top" || keyword2 == "center" || keyword2 == "bottom") {
-		return Point{X: backgroundPositionsPercentages[keyword1], Y: backgroundPositionsPercentages[keyword2]}
+		return Point{backgroundPositionsPercentages[keyword1], backgroundPositionsPercentages[keyword2]}
 	} else if (keyword1 == "top" || keyword1 == "center" || keyword1 == "bottom") &&
 		(keyword2 == "left" || keyword2 == "center" || keyword2 == "right") {
 		// Swap tokens. They need to be in (horizontal, vertical) order.
-		return Point{X: backgroundPositionsPercentages[keyword2], Y: backgroundPositionsPercentages[keyword1]}
+		return Point{backgroundPositionsPercentages[keyword2], backgroundPositionsPercentages[keyword1]}
 	}
 	return Point{}
 }
@@ -891,7 +883,7 @@ func _backgroundRepeat(tokens []Token) [2]string {
 }
 
 func backgroundRepeat(tokens []Token, _ string) CssProperty {
-	var out BackgroundRepeat
+	var out Repeats
 	for _, part := range splitOnComma(tokens) {
 		result := _backgroundRepeat(removeWhitespace(part))
 		if result == [2]string{} {
@@ -961,7 +953,7 @@ func backgroundSize(tokens []Token, _ string) CssProperty {
 //@singleKeyword
 // Validation for the ``<box>`` type used in ``background-clip``
 //     and ``background-origin``.
-func _box(tokens []Token, _ string) CssProperty {
+func _box(tokens []Token) string {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "border-box", "padding-box", "content-box":
@@ -1321,28 +1313,28 @@ func _parseContentArgs(name string, args []Token) ContentProperty {
 	case "attr":
 		ok, ident := _isIdent(args)
 		if ok {
-			return ContentProperty{Type: ContentAttr, String: string(ident.Value)}
+			return ContentProperty{Type: ContentAttr, SStrings: SStrings{String: string(ident.Value)}}
 		}
 	case "counter":
 		if ok, ident := _isIdent(args); ok {
-			return ContentProperty{Type: ContentCounter, Strings: []string{string(ident.Value), "decimal"}}
+			return ContentProperty{Type: ContentCounter, SStrings: SStrings{Strings: []string{string(ident.Value), "decimal"}}}
 		}
 		if ok, ident, ident2 := _isIdent2(args); ok {
 			style := string(ident2.Value)
 			_, isIn := counters.STYLES[style]
 			if style == "none" || style == "decimal" || isIn {
-				return ContentProperty{Type: ContentCounter, Strings: []string{string(ident.Value), style}}
+				return ContentProperty{Type: ContentCounter, SStrings: SStrings{Strings: []string{string(ident.Value), style}}}
 			}
 		}
 	case "counters":
 		if ok, ident, stri := _isIdentString(args); ok {
-			return ContentProperty{Type: ContentCounter, Strings: []string{string(ident.Value), stri.Value, "decimal"}}
+			return ContentProperty{Type: ContentCounter, SStrings: SStrings{Strings: []string{string(ident.Value), stri.Value, "decimal"}}}
 		}
 		if ok, ident, stri, ident2 := _isIdentStringIdent(args); ok {
 			style := string(ident2.Value)
 			_, isIn := counters.STYLES[style]
 			if style == "none" || style == "decimal" || isIn {
-				return ContentProperty{Type: ContentCounter, Strings: []string{string(ident.Value), stri.Value, style}}
+				return ContentProperty{Type: ContentCounter, SStrings: SStrings{Strings: []string{string(ident.Value), stri.Value, style}}}
 			}
 		}
 	}
@@ -1359,13 +1351,13 @@ func validateContentToken(baseUrl string, token Token) (ContentProperty, error) 
 
 	switch tt := token.(type) {
 	case StringToken:
-		return ContentProperty{Type: ContentSTRING, String: tt.Value}, nil
+		return ContentProperty{Type: ContentSTRING, SStrings: SStrings{String: tt.Value}}, nil
 	case URLToken:
 		url, err := safeUrljoin(baseUrl, tt.Value)
 		if err != nil {
 			return ContentProperty{}, err
 		}
-		return ContentProperty{Type: ContentURI, String: url}, nil
+		return ContentProperty{Type: ContentURI, SStrings: SStrings{String: url}}, nil
 	}
 
 	name, args := parseFunction(token)
@@ -1384,7 +1376,7 @@ func validateContentToken(baseUrl string, token Token) (ContentProperty, error) 
 				stringArgs = []string{string(ident.Value), args2}
 			}
 			if stringArgs != nil { // thus one of the checks passed
-				return ContentProperty{Type: ContentString, Strings: stringArgs}, nil
+				return ContentProperty{Type: ContentString, SStrings: {Strings: stringArgs}}, nil
 			}
 		default:
 			return _parseContentArgs(name, args), nil
@@ -1403,7 +1395,7 @@ func parseFunction(functionToken Token) (string, []Token) {
 				token := content[i]
 				lit, isLit := token.(LiteralToken)
 				if !isLit || lit.Value != "," {
-					return nil, nil
+					return "", nil
 				}
 			}
 			var args []Token
@@ -1423,17 +1415,18 @@ func counterIncrement(tokens []Token, _ string) (CssProperty, error) {
 	if err != nil || ci == nil {
 		return nil, err
 	}
-	return CounterIncrements{CI: ci}, nil
+	return SIntStrings{Values: ci}, nil
 }
 
 // //@validator()
 // ``counter-reset`` property validation.
 func counterReset(tokens []Token, _ string) (CssProperty, error) {
-	return counter(tokens, 0)
+	iss, err := counter(tokens, 0)
+	return IntStrings(iss), err
 }
 
 // ``counter-increment`` && ``counter-reset`` properties validation.
-func counter(tokens []Token, defaultInteger int) (CounterResets, error) {
+func counter(tokens []Token, defaultInteger int) ([]IntString, error) {
 	if getSingleKeyword(tokens) == "none" {
 		return nil, nil
 	}
@@ -1441,7 +1434,7 @@ func counter(tokens []Token, defaultInteger int) (CounterResets, error) {
 		return nil, errors.New("got an empty token list")
 	}
 	var (
-		results    CounterResets
+		results    []IntString
 		i, integer int
 		token      Token
 	)
@@ -1470,7 +1463,7 @@ func counter(tokens []Token, defaultInteger int) (CounterResets, error) {
 				integer = defaultInteger
 			}
 		}
-		results = append(results, IntString{Name: string(counterName), Value: integer})
+		results = append(results, IntString{String: string(counterName), Int: integer})
 	}
 	return results, nil
 }
@@ -1614,7 +1607,7 @@ func _fontFamily(tokens []Token) string {
 // //@validator()
 // //@commaSeparatedList
 // ``font-family`` property validation.
-func fontFamilly(tokens []Token, _ string) CssProperty {
+func fontFamily(tokens []Token, _ string) CssProperty {
 	var out Strings
 	for _, part := range splitOnComma(tokens) {
 		result := _fontFamily(removeWhitespace(part))
@@ -2483,7 +2476,7 @@ func hyphenateLimitZone(tokens []Token, _ string) CssProperty {
 	if d.IsNone() {
 		return nil
 	}
-	return d
+	return Value{Dimension: d}
 }
 
 //@validator(unstable=true)
@@ -2589,9 +2582,9 @@ func bookmarkLevel(tokens []Token, _ string) CssProperty {
 	}
 	token := tokens[0]
 	if number, ok := token.(NumberToken); ok && number.IsInteger && number.IntValue() >= 1 {
-		return IntString{Value: number.IntValue()}
+		return IntString{Int: number.IntValue()}
 	} else if getKeyword(token) == "none" {
-		return IntString{Name: "none"}
+		return IntString{String: "none"}
 	}
 	return nil
 }
@@ -2599,34 +2592,34 @@ func bookmarkLevel(tokens []Token, _ string) CssProperty {
 //@validator(unstable=true)
 //@commaSeparatedList
 // Validation for ``string-set``.
-func _stringSet(tokens []Token) StringContent {
+func _stringSet(tokens []Token) SContent {
 	if len(tokens) >= 2 {
 		varName := getKeyword(tokens[0])
 		parsedTokens := make([]ContentProperty, len(tokens[1:]))
 		isNotNone := true
 		for index, v := range tokens {
 			parsedTokens[index] = validateContentListToken(v)
-			if parsedTokens[index].IsNil() {
+			if parsedTokens[index].IsNone() {
 				isNotNone = false
 				break
 			}
 		}
 		if isNotNone {
-			return Content{String: varName, List: parsedTokens}
+			return SContent{String: varName, Contents: parsedTokens}
 		}
 	} else if len(tokens) > 0 {
 		switch tt := tokens[0].(type) {
 		case StringToken:
 			if tt.Value == "none" {
-				return Content{String: "none"}
+				return SContent{String: "none"}
 			}
 		case IdentToken:
 			if tt.Value == "none" {
-				return Content{String: "none"}
+				return SContent{String: "none"}
 			}
 		}
 	}
-	return Content{}
+	return SContent{}
 }
 
 func stringSet(tokens []Token, _ string) CssProperty {
@@ -2646,7 +2639,7 @@ func stringSet(tokens []Token, _ string) CssProperty {
 //
 func validateContentListToken(token Token) ContentProperty {
 	if tt, ok := token.(StringToken); ok {
-		return ContentProperty{Type: ContentSTRING, String: tt.Value}
+		return ContentProperty{Type: ContentSTRING, SStrings: SStrings{String: tt.Value}}
 	}
 
 	name, args := parseFunction(token)
@@ -2655,10 +2648,10 @@ func validateContentListToken(token Token) ContentProperty {
 		case "content":
 			// if prototype := range (("content", ()), ("content", ("ident",))) {
 			if len(args) == 0 {
-				return ContentProperty{Type: ContentContent, String: "text"}
+				return ContentProperty{Type: ContentContent, SStrings: SStrings{String: "text"}}
 			} else if len(args) == 1 {
 				if ident, ok := args[0].(IdentToken); ok && (ident.Value == "text" || ident.Value == "after" || ident.Value == "before" || ident.Value == "first-letter") {
-					return ContentProperty{Type: ContentContent, String: string(ident.Value)}
+					return ContentProperty{Type: ContentContent, SStrings: SStrings{String: string(ident.Value)}}
 				}
 			}
 		default:
@@ -2673,7 +2666,7 @@ func transform(tokens []Token, _ string) (CssProperty, error) {
 	if getSingleKeyword(tokens) == "none" {
 		return nil, nil
 	}
-	out := make([]Transform, len(tokens))
+	out := make([]SDimensions, len(tokens))
 	var err error
 	for index, v := range tokens {
 		out[index], err = transformFunction(v)
@@ -2685,10 +2678,10 @@ func transform(tokens []Token, _ string) (CssProperty, error) {
 
 }
 
-func transformFunction(token Token) (Transform, error) {
+func transformFunction(token Token) (SDimensions, error) {
 	name, args := parseFunction(token)
 	if name == "" {
-		return Transform{}, errors.New("Invalid or unsupported values for a known CSS property.")
+		return SDimensions{}, InvalidValue
 	}
 
 	lengths, values := make([]Dimension, len(args)), make([]Dimension, len(args))
@@ -2697,7 +2690,7 @@ func transformFunction(token Token) (Transform, error) {
 		lengths[index] = getLength(token, true, true)
 		isAllLengths = isAllLengths && !lengths[index].IsNone()
 		if aNumber, ok := a.(NumberToken); ok {
-			values[index] = toDim(aNumber.Value)
+			values[index] = fToD(aNumber.Value)
 		} else {
 			isAllNumber = false
 		}
@@ -2710,647 +2703,111 @@ func transformFunction(token Token) (Transform, error) {
 		switch name {
 		case "rotate", "skewx", "skewy":
 			if notNone && angle != 0 {
-				return Transform{Function: name, Args: []Dimension{toDim(angle)}}, nil
+				return SDimensions{String: name, Dimensions: []Dimension{fToD(angle)}}, nil
 			}
 		case "translatex", "translate":
 			if !length.IsNone() {
-				return Transform{Function: "translate", Args: []Dimension{length, ZeroPixels}}, nil
+				return SDimensions{String: "translate", Dimensions: []Dimension{length, ZeroPixels}}, nil
 			}
 		case "translatey":
 			if !length.IsNone() {
-				return Transform{Function: "translate", Args: []Dimension{ZeroPixels, length}}, nil
+				return SDimensions{String: "translate", Dimensions: []Dimension{ZeroPixels, length}}, nil
 			}
 		case "scalex":
 			if number, ok := args[0].(NumberToken); ok {
-				return Transform{Function: "scale", Args: []Dimension{toDim(number.Value), toDim(1.)}}, nil
+				return SDimensions{String: "scale", Dimensions: []Dimension{fToD(number.Value), fToD(1.)}}, nil
 			}
 		case "scaley":
 			if number, ok := args[0].(NumberToken); ok {
-				return Transform{Function: "scale", Args: []Dimension{toDim(1.), toDim(number.Value)}}, nil
+				return SDimensions{String: "scale", Dimensions: []Dimension{fToD(1.), fToD(number.Value)}}, nil
 			}
 		case "scale":
 			if number, ok := args[0].(NumberToken); ok {
-				return Transform{Function: "scale", Args: []Dimension{toDim(number.Value), toDim(number.Value)}}, nil
+				return SDimensions{String: "scale", Dimensions: []Dimension{fToD(number.Value), fToD(number.Value)}}, nil
 			}
 		}
 	case 2:
 		if name == "scale" && isAllNumber {
-			return Transform{Function: name, Args: values}, nil
+			return SDimensions{String: name, Dimensions: values}, nil
 		}
 
 		if name == "translate" && isAllLengths {
-			return Transform{Function: name, Args: lengths}, nil
+			return SDimensions{String: name, Dimensions: lengths}, nil
 		}
 	case 6:
 		if name == "matrix" && isAllNumber {
-			return Transform{Function: name, Args: values}, nil
+			return SDimensions{String: name, Dimensions: values}, nil
 		}
 	}
-	return Transform{}, errors.New("Invalid or unsupported values for a known CSS property.")
+	return SDimensions{}, InvalidValue
 }
 
-// Expanders
-type namedProperty struct {
-	name     string
-	property CssProperty
-}
-
-// Let"s be consistent, always use ``name`` as an argument even
-// when it is useless.
-
-//@expander("border-color")
-//@expander("border-style")
-//@expander("border-width")
-//@expander("margin")
-//@expander("padding")
-//@expander("bleed")
-// Expand properties setting a token for the four sides of a box.
-func expandFourSides(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
-	// Make sure we have 4 tokens
-	if len(tokens) == 1 {
-		tokens = []Token{tokens[0], tokens[0], tokens[0], tokens[0]}
-	} else if len(tokens) == 2 {
-		tokens = []Token{tokens[0], tokens[1], tokens[0], tokens[1]} // (bottom, left) defaults to (top, right)
-	} else if len(tokens) == 3 {
-		tokens = append(tokens, tokens[1]) // left defaults to right
-	} else if len(tokens) != 4 {
-		return out, fmt.Errorf("Expected 1 to 4 token components got %d", len(tokens))
-	}
-	var newName string
-	for index, suffix := range [4]string{"-top", "-right", "-bottom", "-left"} {
-		token := tokens[index]
-		i := strings.LastIndex(name, "-")
-		if i == -1 {
-			newName = name + suffix
-		} else {
-			// eg. border-color becomes border-*-color, not border-color-*
-			newName = name[:i] + suffix + name[i:]
+// Expand shorthand properties and filter unsupported properties and values.
+// Log a warning for every ignored declaration.
+// Return a iterable of ``(name, value, important)`` tuples.
+//
+func preprocessDeclarations(baseUrl string, declarations []Token) []ValidatedProperty {
+	var out []ValidatedProperty
+	for _, _declaration := range declarations {
+		if errToken, ok := _declaration.(ParseError); ok {
+			log.Println("Error: %s", errToken.Message)
 		}
-		prop, err := validateNonShorthand(baseUrl, newName, []Token{token}, true)
-		if err != nil {
-			return out, err
+
+		declaration, ok := _declaration.(Declaration)
+		if !ok {
+			continue
 		}
-		out = append(out, prop)
-	}
-	return out, nil
-}
 
-//@expander("border-radius")
-// Validator for the `border-radius` property.
-func borderRadius(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
-	var horizontal, vertical []Token
-	current := &horizontal
+		name := declaration.Name.Lower()
 
-	for index, token := range tokens {
-		if lit, ok := token.(LiteralToken); ok && lit.Value == "/" {
-			if current == &horizontal {
-				if index == len(tokens)-1 {
-					return nil, errors.New("Expected value after '/' separator")
-				} else {
-					current = &vertical
-				}
+		validationError := func(reason string) {
+			log.Println("Ignored `%s:%s` , %s.", declaration.Name, serialize(declaration.Value), reason)
+		}
+
+		if notPrintMedia[name] {
+			validationError("the property does not apply for the print media")
+			continue
+		}
+
+		if strings.HasPrefix(name, prefix) {
+			unprefixedName := strings.TrimPrefix(name, prefix)
+			if proprietary[unprefixedName] {
+				name = unprefixedName
+			} else if unstable[unprefixedName] {
+				log.Println("Deprecated `%s:%s`, prefixes on unstable attributes are deprecated, use `%s` instead.",
+					declaration.Name, serialize(declaration.Value), unprefixedName)
+				name = unprefixedName
 			} else {
-				return nil, errors.New("Expected only one '/' separator")
+				log.Println("Ignored `%s:%s`,prefix on this attribute is not supported, use `%s` instead.",
+					declaration.Name, serialize(declaration.Value), unprefixedName)
+				continue
 			}
-		} else {
-			*current = append(*current, token)
 		}
-	}
 
-	if len(vertical) == 0 {
-		vertical = append([]Token{}, horizontal...)
-	}
-
-	for _, values := range [2]*[]Token{&horizontal, &vertical} {
-		// Make sure we have 4 tokens
-		if len(*values) == 1 {
-			*values = []Token{*values[0], *values[0], *values[0], *values[0]}
-		} else if len(values) == 2 {
-			*values = []Token{*values[0], *values[1], *values[0], *values[1]} // (br, bl) defaults to (tl, tr)
-		} else if len(values) == 3 {
-			*values = append(*values, *values[1]) // bl defaults to tr
-		} else if len(values) != 4 {
-			return nil, fmt.Errorf("Expected 1 to 4 token components got %d", len(values))
+		expander_, in := expanders[name]
+		if !in {
+			expander_ = defaultValidateShorthand
 		}
-	}
-	corners := [4]string{"top-left", "top-right", "bottom-right", "bottom-left"}
-	for index, corner := range corners {
-		newName := fmt.Sprintf("border-%s-radius", corner)
-		ts := []Token{horizontal[index], vertical[index]}
-		result, err := validateNonShorthand(baseUrl, newName, ts, true)
+
+		tokens := removeWhitespace(declaration.Value)
+		result, err := expander_(baseUrl, name, tokens)
 		if err != nil {
-			return nil, err
+			validationError(err.Error())
+			continue
 		}
-		out = append(out, result)
-	}
-	return out, nil
-}
 
-// //@expander("list-style")
-// //@genericExpander("-type", "-position", "-image", wantsBaseUrl=true)
-// // Expand the ``list-style`` shorthand property.
-// //     See http://www.w3.org/TR/CSS21/generate.html#propdef-list-style
-// //
-// func expandListStyle(name, tokens, baseUrl) {
-//     typeSpecified = imageSpecified = false
-//     noneCount = 0
-//     for token := range tokens {
-//         if getKeyword(token) == "none" {
-//             // Can be either -style || -image, see at the end which is not
-//             // otherwise specified.
-//             noneCount += 1
-//             noneToken = token
-//             continue
-//         }
-//     }
-// }
-//         if listStyleType([token]) is not None {
-//             suffix = "-type"
-//             typeSpecified = true
-//         } else if listStylePosition([token]) is not None {
-//             suffix = "-position"
-//         } else if imageUrl([token], baseUrl) is not None {
-//             suffix = "-image"
-//             imageSpecified = true
-//         } else {
-//             raise InvalidValues
-//         } yield suffix, [token]
+		important := declaration.Important
 
-//     if not typeSpecified && noneCount {
-//         yield "-type", [noneToken]
-//         noneCount -= 1
-//     }
-
-//     if not imageSpecified && noneCount {
-//         yield "-image", [noneToken]
-//         noneCount -= 1
-//     }
-
-//     if noneCount {
-//         // Too many none tokens.
-//         raise InvalidValues
-//     }
-
-// //@expander("border")
-// // Expand the ``border`` shorthand property.
-// //     See http://www.w3.org/TR/CSS21/box.html#propdef-border
-// //
-// func expandBorder(baseUrl, name, tokens []Token) {
-//     for suffix := range ("-top", "-right", "-bottom", "-left") {
-//         for newProp := range expandBorderSide(baseUrl, name + suffix, tokens []Token) {
-//             yield newProp
-//         }
-//     }
-// }
-
-// //@expander("border-top")
-// //@expander("border-right")
-// //@expander("border-bottom")
-// //@expander("border-left")
-// //@expander("column-rule")
-// //@expander("outline")
-// //@genericExpander("-width", "-color", "-style")
-// // Expand the ``border-*`` shorthand properties.
-// //     See http://www.w3.org/TR/CSS21/box.html#propdef-border-top
-// //
-// func expandBorderSide(name, tokens []Token) {
-//     for token := range tokens {
-//         if parseColor(token) is not None {
-//             suffix = "-color"
-//         } else if borderWidth([token]) is not None {
-//             suffix = "-width"
-//         } else if borderStyle([token]) is not None {
-//             suffix = "-style"
-//         } else {
-//             raise InvalidValues
-//         } yield suffix, [token]
-//     }
-// }
-
-// //@expander("background")
-// // Expand the ``background`` shorthand property.
-// //     See http://dev.w3.org/csswg/css3-background/#the-background
-// //
-// func expandBackground(baseUrl, name, tokens []Token) {
-//     properties = [
-//         "backgroundColor", "backgroundImage", "backgroundRepeat",
-//         "backgroundAttachment", "backgroundPosition", "backgroundSize",
-//         "backgroundClip", "backgroundOrigin"]
-//     keyword = getSingleKeyword(tokens)
-//     if keyword := range ("initial", "inherit") {
-//         for name := range properties {
-//             yield name, keyword
-//         } return
-//     }
-// }
-//     def parseLayer(tokens, finalLayer=false) {
-//         results = {}
-//     }
-
-//         def add(name, value) {
-//             if value is None {
-//                 return false
-//             } name = "background" + name
-//             if name := range results {
-//                 raise InvalidValues
-//             } results[name] = value
-//             return true
-//         }
-
-//         // Make `tokens` a stack
-//         tokens = tokens[::-1]
-//         while tokens {
-//             if add("repeat",
-//                    backgroundRepeat.singleValue(tokens[-2:][::-1])) {
-//                    }
-//                 del tokens[-2:]
-//                 continue
-//             token = tokens[-1:]
-//             if finalLayer && add("color", otherColors(token)) {
-//                 tokens.pop()
-//                 continue
-//             } if add("image", backgroundImage.singleValue(token, baseUrl)) {
-//                 tokens.pop()
-//                 continue
-//             } if add("repeat", backgroundRepeat.singleValue(token)) {
-//                 tokens.pop()
-//                 continue
-//             } if add("attachment", backgroundAttachment.singleValue(token)) {
-//                 tokens.pop()
-//                 continue
-//             } for n := range (4, 3, 2, 1)[-len(tokens):] {
-//                 nTokens = tokens[-n:][::-1]
-//                 position = backgroundPosition.singleValue(nTokens)
-//                 if position is not None {
-//                     assert add("position", position)
-//                     del tokens[-n:]
-//                     if (tokens && tokens[-1].type == "literal" and
-//                             tokens[-1].value == "/") {
-//                             }
-//                         for n := range (3, 2)[-len(tokens):] {
-//                             // n includes the "/" delimiter.
-//                             nTokens = tokens[-n:-1][::-1]
-//                             size = backgroundSize.singleValue(nTokens)
-//                             if size is not None {
-//                                 assert add("size", size)
-//                                 del tokens[-n:]
-//                             }
-//                         }
-//                     break
-//                 }
-//             } if position is not None {
-//                 continue
-//             } if add("origin", box.singleValue(token)) {
-//                 tokens.pop()
-//                 nextToken = tokens[-1:]
-//                 if add("clip", box.singleValue(nextToken)) {
-//                     tokens.pop()
-//                 } else {
-//                     // The same keyword sets both {
-//                     } assert add("clip", box.singleValue(token))
-//                 } continue
-//             } raise InvalidValues
-//         }
-
-//         color = results.pop(
-//             "backgroundColor", INITIALVALUES["backgroundColor"])
-//         for name := range properties {
-//             if name not := range results {
-//                 results[name] = INITIALVALUES[name][0]
-//             }
-//         } return color, results
-
-//     layers = reversed(splitOnComma(tokens))
-//     color, lastLayer = parseLayer(next(layers), finalLayer=true)
-//     results = dict((k, [v]) for k, v := range lastLayer.items())
-//     for tokens := range layers {
-//         _, layer = parseLayer(tokens)
-//         for name, value := range layer.items() {
-//             results[name].append(value)
-//         }
-//     } for name, values := range results.items() {
-//         yield name, values[::-1]  // "Un-reverse"
-//     } yield "background-color", color
-
-// //@expander("page-break-after")
-// //@expander("page-break-before")
-// // Expand legacy ``page-break-before`` && ``page-break-after`` properties.
-// //     See https://www.w3.org/TR/css-break-3/#page-break-properties
-// //
-// func expandPageBreakBeforeAfter(baseUrl, name, tokens []Token) {
-//     keyword = getSingleKeyword(tokens)
-//     newName = name.split("-", 1)[1]
-//     if keyword := range ("auto", "left", "right", "avoid") {
-//         yield newName, keyword
-//     } else if keyword == "always" {
-//         yield newName, "page"
-//     }
-// }
-
-// //@expander("page-break-inside")
-// // Expand the legacy ``page-break-inside`` property.
-// //     See https://www.w3.org/TR/css-break-3/#page-break-properties
-// //
-// func expandPageBreakInside(baseUrl, name, tokens []Token) {
-//     keyword = getSingleKeyword(tokens)
-//     if keyword := range ("auto", "avoid") {
-//         yield "break-inside", keyword
-//     }
-// }
-
-// //@expander("columns")
-// //@genericExpander("column-width", "column-count")
-// // Expand the ``columns`` shorthand property.
-// func expandColumns(name, tokens []Token) {
-//     name = None
-//     if len(tokens) == 2 && getKeyword(tokens[0]) == "auto" {
-//         tokens = tokens[::-1]
-//     } for token := range tokens {
-//         if columnWidth([token]) is not None && name != "column-width" {
-//             name = "column-width"
-//         } else if columnCount([token]) is not None {
-//             name = "column-count"
-//         } else {
-//             raise InvalidValues
-//         } yield name, [token]
-//     }
-// }
-
-var (
-	noneFakeToken   = IdentToken{Value: "none"}
-	normalFakeToken = IdentToken{Value: "normal"}
-)
-
-// //@expander("font-variant")
-// //@genericExpander("-alternates", "-caps", "-east-asian", "-ligatures",
-//                   "-numeric", "-position")
-// // Expand the ``font-variant`` shorthand property.
-// //     https://www.w3.org/TR/css-fonts-3/#font-variant-prop
-// //
-// func fontVariant(name, tokens []Token) {
-//     return expandFontVariant(tokens)
-// }
-
-type fontVariantToken struct {
-	feature string
-	tokens  []Token
-}
-
-func expandFontVariant(tokens []Token) (out []fontVariantToken, err error) {
-	keyword := getSingleKeyword(tokens)
-	if keyword == "normal" || keyword == "none" {
-		out = make([]fontVariantToken, 6)
-		for index, suffix := range [5]string{"-alternates", "-caps", "-east-asian", "-numeric",
-			"-position"} {
-			out[index] = fontVariantToken{feature: suffix, tokens: []Token{normalFakeToken}}
-		}
-		token := noneFakeToken
-		if keyword == "normal" {
-			token = normalFakeToken
-		}
-		out[6] = fontVariantToken{feature: "-ligatures", tokens: []Token{token}}
-	} else {
-		features := map[string][]Token{
-			"alternates": nil,
-			"caps":       nil,
-			"east-asian": nil,
-			"ligatures":  nil,
-			"numeric":    nil,
-			"position":   nil,
-		}
-		for _, token := range tokens {
-			keyword := getKeyword(token)
-			if keyword == "normal" {
-				// We don"t allow "normal", only the specific values
-				return nil, errors.New("normal not allowed")
-			}
-			found := false
-			for feature := range features {
-				if fontVariantMapper[feature]([]Token{token}) != nil {
-					features[feature] = append(features[feature], token)
-					found = true
-					break
-				}
-			}
-			if !found {
-				return nil, errors.New("font variant not supported")
-			}
-		}
-		var out []fontVariantToken
-		for feature, tokens := range features {
-			if len(tokens) > 0 {
-				out = append(out, fontVariantToken{feature: fmt.Sprintf("-%s", feature), tokens: tokens})
-			}
+		for _, np := range result {
+			out = append(out, ValidatedProperty{
+				Name:      strings.ReplaceAll(np.name, "-", ""),
+				Value:     np.property,
+				Important: important,
+			})
 		}
 	}
-	return out, nil
+	return out
 }
-
-var fontVariantMapper = map[string]func(tokens []Token, _ string) CssProperty{
-	"alternates": fontVariantAlternates,
-	"caps":       fontVariantCaps,
-	"east-asian": fontVariantEastAsian,
-	"ligatures":  fontVariantLigatures,
-	"numeric":    fontVariantNumeric,
-	"position":   fontVariantPosition,
-}
-
-// //@expander("font")
-// //@genericExpander("-style", "-variant-caps", "-weight", "-stretch", "-size",
-//                   "line-height", "-family")  // line-height is not a suffix
-// // Expand the ``font`` shorthand property.
-// //     https://www.w3.org/TR/css-fonts-3/#font-prop
-// //
-// func expandFont(name, tokens []Token) {
-//     expandFontKeyword = getSingleKeyword(tokens)
-//     if expandFontKeyword := range ("caption", "icon", "menu", "message-box",
-//                                "small-caption", "status-bar") {
-//                                }
-//         raise InvalidValues("System fonts are not supported")
-// }
-//     // Make `tokens` a stack
-//     tokens = list(reversed(tokens))
-//     // Values for font-style font-variant && font-weight can come := range any
-//     // order && are all optional.
-//     while tokens {
-//         token = tokens.pop()
-//         if getKeyword(token) == "normal" {
-//             // Just ignore "normal" keywords. Unspecified properties will get
-//             // their initial token, which is "normal" for all three here.
-//             // TODO: fail if there is too many "normal" values?
-//             continue
-//         }
-//     }
-
-//         if fontStyle([token]) is not None {
-//             suffix = "-style"
-//         } else if getKeyword(token) := range ("normal", "small-caps") {
-//             suffix = "-variant-caps"
-//         } else if fontWeight([token]) is not None {
-//             suffix = "-weight"
-//         } else if fontStretch([token]) is not None {
-//             suffix = "-stretch"
-//         } else {
-//             // We’re done with these three, continue with font-size
-//             break
-//         } yield suffix, [token]
-
-//     // Then font-size is mandatory
-//     // Latest `token` from the loop.
-//     if fontSize([token]) is None {
-//         raise InvalidValues
-//     } yield "-size", [token]
-
-//     // Then line-height is optional, but font-family is not so the list
-//     // must not be empty yet
-//     if not tokens {
-//         raise InvalidValues
-//     }
-
-//     token = tokens.pop()
-//     if token.type == "literal" && token.value == "/" {
-//         token = tokens.pop()
-//         if lineHeight([token]) is None {
-//             raise InvalidValues
-//         } yield "line-height", [token]
-//     } else {
-//         // We pop()ed a font-family, add it back
-//         tokens.append(token)
-//     }
-
-//     // Reverse the stack to get normal list
-//     tokens.reverse()
-//     if fontFamily(tokens) is None {
-//         raise InvalidValues
-//     } yield "-family", tokens
-
-// //@expander("word-wrap")
-// // Expand the ``word-wrap`` legacy property.
-// //     See http://http://www.w3.org/TR/css3-text/#overflow-wrap
-// //
-// func expandWordWrap(baseUrl, name, tokens []Token) {
-//     keyword = overflowWrap(tokens)
-//     if keyword is None {
-//         raise InvalidValues
-//     }
-// }
-//     yield "overflow-wrap", keyword
-
-// Default validator for non-shorthand properties.
-// required = false
-func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (out namedProperty, err error) {
-	if !required && !knownProperties[name] {
-		hyphensName := strings.ReplaceAll(name, "", "-")
-		if knownProperties[hyphensName] {
-			return out, fmt.Errorf("did you mean %s?", hyphensName)
-		} else {
-			return out, errors.New("unknown property")
-		}
-	}
-
-	if _, isIn := allValidators[name]; !required && !isIn {
-		return out, fmt.Errorf("property %s not supported yet", name)
-	}
-	var value CssProperty
-	keyword := getSingleKeyword(tokens)
-	if keyword == "initial" || keyword == "inherit" {
-		value = String(keyword)
-	} else {
-		function := validators[name]
-		if function != nil {
-			value = function(tokens, baseUrl)
-		} else {
-			functionE := validatorsError[name]
-			if functionE != nil {
-				var err error
-				value, err = functionE(tokens, baseUrl)
-				if err != nil {
-					return out, err
-				}
-			}
-		}
-		if value == nil {
-			return out, errors.New("invalid property (nil function return)")
-		}
-	}
-	return namedProperty{name: name, property: value}, nil
-}
-
-// //
-// //     Expand shorthand properties && filter unsupported properties && values.
-// //     Log a warning for every ignored declaration.
-// //     Return a iterable of ``(name, value, important)`` tuples.
-// //
-// func preprocessDeclarations(baseUrl, declarations) {
-//     for declaration := range declarations {
-//         if declaration.type == "error" {
-//             LOGGER.warning(
-//                 "Error: %s at %i:%i.",
-//                 declaration.message,
-//                 declaration.sourceLine, declaration.sourceColumn)
-//         }
-//     }
-// }
-//         if declaration.type != "declaration" {
-//             continue
-//         }
-
-//         name = declaration.lowerName
-
-//         def validationError(level, reason) {
-//             getattr(LOGGER, level)(
-//                 "Ignored `%s:%s` at %i:%i, %s.",
-//                 declaration.name, tinycss2.serialize(declaration.value),
-//                 declaration.sourceLine, declaration.sourceColumn, reason)
-//         }
-
-//         if name := range NOTPRINTMEDIA {
-//             validationError(
-//                 "warning", "the property does not apply for the print media")
-//             continue
-//         }
-
-//         if name.startswith(PREFIX) {
-//             unprefixedName = name[len(PREFIX):]
-//             if unprefixedName := range PROPRIETARY {
-//                 name = unprefixedName
-//             } else if unprefixedName := range UNSTABLE {
-//                 LOGGER.warning(
-//                     "Deprecated `%s:%s` at %i:%i, "
-//                     "prefixes on unstable attributes are deprecated, "
-//                     "use `%s` instead.",
-//                     declaration.name, tinycss2.serialize(declaration.value),
-//                     declaration.sourceLine, declaration.sourceColumn,
-//                     unprefixedName)
-//                 name = unprefixedName
-//             } else {
-//                 LOGGER.warning(
-//                     "Ignored `%s:%s` at %i:%i, "
-//                     "prefix on this attribute is not supported, "
-//                     "use `%s` instead.",
-//                     declaration.name, tinycss2.serialize(declaration.value),
-//                     declaration.sourceLine, declaration.sourceColumn,
-//                     unprefixedName)
-//                 continue
-//             }
-//         }
-
-//         expander_ = EXPANDERS.get(name, validateNonShorthand)
-//         tokens = removeWhitespace(declaration.value)
-//         try {
-//             // Use list() to consume generators now && catch any error.
-//             result = list(expander(baseUrl, name, tokens))
-//         } except InvalidValues as exc {
-//             validationError(
-//                 "warning",
-//                 exc.args[0] if exc.args && exc.args[0] else "invalid value")
-//             continue
-//         }
-
-//         important = declaration.important
-//         for longName, value := range result {
-//             yield longName.replace("-", ""), value, important
-//         }
 
 // Remove any top-level whitespace in a token list.
 func removeWhitespace(tokens []Token) []Token {
