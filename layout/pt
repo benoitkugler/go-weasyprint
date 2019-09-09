@@ -1,928 +1,181 @@
+// coding: utf-8
+"""
+    weasyprint.css.descriptors
+    --------------------------
+
+    Validate descriptors, currently used for @font-face rules.
+    See https://www.w3.org/TR/css-fonts-3/#font-resources.
+
+    :copyright: Copyright 2011-2016 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+
 """
 
-Data structures for the CSS abstract syntax tree.
+from _Future__ import division, unicodeLiterals
 
-"""
+import tinycss2
 
-from _Future__ import unicodeLiterals
+from ..compat import unquote
+from ..logger import LOGGER
+from .validation import (
+    InvalidValues, commaSeparatedList, expandFontVariant,
+    fontFeatureSettings, getKeyword, removeWhitespace, safeUrljoin,
+    singleKeyword, singleToken, validateNonShorthand)
 
-from webencodings import asciiLower
-
-from .serializer import (SerializeTo, serializeIdentifier, serializeName,
-                         serializeStringValue)
+DESCRIPTORS = {}
 
 
-class Node(object) {
-    """Every node type inherits from this class,
-    which is never instantiated directly.
-
-    .. attribute:: type
-
-        Each child class has a :attr:`type` class attribute
-        with an unique string value.
-        This allows checking for the node type with code like:
-
-        .. code-block:: python
-
-            if node.type == "whitespace":
-
-        instead of the more verbose:
-
-        .. code-block:: python
-
-            from tinycss2.ast import WhitespaceToken
-            if isinstance(node, WhitespaceToken):
-
-    Every node also has these attributes && methods,
-    which are not repeated for brevity:
-
-    .. attribute:: sourceLine
-
-        The line number of the start of the node := range the CSS source.
-        Starts at 1.
-
-    .. attribute:: sourceColumn
-
-        The column number within :attr:`sourceLine` of the start of the node
-        := range the CSS source.
-        Starts at 1.
-
-    .. automethod:: serialize
-
-    """
-    _Slots__ = ["sourceLine", "sourceColumn"]
-} 
-    def _Init_(self, sourceLine, sourceColumn) {
-        self.sourceLine = sourceLine
-        self.sourceColumn = sourceColumn
+// Decorator adding a function to the ``DESCRIPTORS``.
+//     The name of the descriptor covered by the decorated function is set to
+//     ``descriptorName`` if given, || is inferred from the function name
+//     (replacing underscores by hyphens).
+//     :param wantsBaseUrl:
+//         The function takes the stylesheet’s base URL as an additional
+//         parameter.
+//     
+func descriptor(descriptorName=None, wantsBaseUrl=false) {
+    def decorator(function) {
+        """Add ``function`` to the ``DESCRIPTORS``."""
+        if descriptorName is None {
+            name = function._Name_.replace("", "-")
+        } else {
+            name = descriptorName
+        } assert name not := range DESCRIPTORS, name
     }
+} 
+        function.wantsBaseUrl = wantsBaseUrl
+        DESCRIPTORS[name] = function
+        return function
+    return decorator
 
-    if str is bytes:  // pragma: no cover
-        def _Repr_(self) {
-            return self.reprFormat.format(self=self).encode("utf8")
+
+@descriptor()
+// ``font-family`` descriptor validation.
+func fontFamily(tokens, allowSpaces=false) {
+    allowedTypes = ["ident"]
+    if allowSpaces {
+        allowedTypes.append("whitespace")
+    } if len(tokens) == 1 && tokens[0].type == "string" {
+        return tokens[0].value
+    } if tokens && all(token.type := range allowedTypes for token := range tokens) {
+        return " ".join(
+            token.value for token := range tokens if token.type == "ident")
+    }
+} 
+
+@descriptor(wantsBaseUrl=true)
+@commaSeparatedList
+// ``src`` descriptor validation.
+func src(tokens, baseUrl) {
+    if len(tokens) <= 2 {
+        tokens, token = tokens[:-1], tokens[-1]
+        if token.type == "function" && token.lowerName == "format" {
+            tokens, token = tokens[:-1], tokens[-1]
+        } if token.type == "function" && token.lowerName == "local" {
+            return "local", fontFamily(token.arguments, allowSpaces=true)
+        } if token.type == "url" {
+            if token.value.startswith("#") {
+                return "internal", unquote(token.value[1:])
+            } else {
+                return "external", safeUrljoin(baseUrl, token.value)
+            }
         }
-    else:  // pragma: no cover
-        def _Repr_(self) {
-            return self.reprFormat.format(self=self)
+    }
+} 
+
+@descriptor()
+@singleKeyword
+// ``font-style`` descriptor validation.
+func fontStyle(keyword) {
+    return keyword := range ("normal", "italic", "oblique")
+} 
+
+@descriptor()
+@singleToken
+// ``font-weight`` descriptor validation.
+func fontWeight(token) {
+    keyword = getKeyword(token)
+    if keyword := range ("normal", "bold") {
+        return keyword
+    } if token.type == "number" && token.intValue is not None {
+        if token.intValue := range [100, 200, 300, 400, 500, 600, 700, 800, 900] {
+            return token.intValue
         }
-
-    def serialize(self) {
-        """Serialize this node to CSS syntax && return an Unicode string."""
-        chunks = []
-        self.SerializeTo(chunks.append)
-        return "".join(chunks)
     }
-
-    def SerializeTo(self, write) {
-        """Serialize this node to CSS syntax, writing chunks as Unicode string
-        by calling the provided :obj:`write` callback.
-
-        """
-        raise NotImplementedError  // pragma: no cover
-    }
-
-
-class ParseError(Node) {
-    """A syntax error of some sort. May occur anywhere := range the tree.
-
-    Syntax errors are not fatal := range the parser
-    to allow for different error handling behaviors.
-    For example, an error := range a Selector list makes the whole rule invalid,
-    but an error := range a Media Query list only replaces one comma-separated query
-    with ``not all``.
-
-    .. autoattribute:: type
-
-    .. attribute:: kind
-
-        Machine-readable string indicating the type of error.
-        Example: ``"bad-url"``.
-
-    .. attribute:: message
-
-        Human-readable explanation of the error, as a string.
-        Could be translated, expanded to include details, etc.
-
-    """
-    _Slots__ = ["kind", "message"]
-    type = "error"
-    reprFormat = "<{self._Class_._Name_} {self.kind}>"
 } 
-    def _Init_(self, line, column, kind, message) {
-        Node._Init_(self, line, column)
-        self.kind = kind
-        self.message = message
-    }
 
-    def SerializeTo(self, write) {
-        if self.kind == "bad-string" {
-            write(""[bad string]\n")
-        } else if self.kind == "bad-url" {
-            write("url([bad url])")
-        } else if self.kind := range ")]}" {
-            write(self.kind)
-        } else:  // pragma: no cover
-            raise TypeError("Can not serialize %r" % self)
-    }
-
-
-class Comment(Node) {
-    """A CSS comment.
-
-    .. code-block:: text
-
-        "/*" <value> "*/"
-
-    Comments can be ignored by passing ``skipComments=true``
-    to functions such as :func:`~tinycss2.parseComponentValueList`.
-
-    .. autoattribute:: type
-    .. attribute:: value
-
-        The content of the comment, between ``/*`` && ``*/``, as a string.
-
-    """
-    _Slots__ = ["value"]
-    type = "comment"
-    reprFormat = "<{self._Class_._Name_} {self.value}>"
+@descriptor()
+@singleKeyword
+// Validation for the ``font-stretch`` descriptor.
+func fontStretch(keyword) {
+    return keyword := range (
+        "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
+        "normal",
+        "semi-expanded", "expanded", "extra-expanded", "ultra-expanded")
 } 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
-    }
 
-    def SerializeTo(self, write) {
-        write("/*")
-        write(self.value)
-        write("*/")
-    }
-
-
-class WhitespaceToken(Node) {
-    """A :diagram:`whitespace-token`.
-
-    .. autoattribute:: type
-    .. attribute:: value
-
-        The whitespace sequence, as a string, as := range the original CSS source.
-
-
-    """
-    _Slots__ = ["value"]
-    type = "whitespace"
-    reprFormat = "<{self._Class_._Name_}>"
+@descriptor("font-feature-settings")
+// ``font-feature-settings`` descriptor validation.
+func fontFeatureSettingsDescriptor(tokens) {
+    return fontFeatureSettings(tokens)
 } 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
-    }
 
-    def SerializeTo(self, write) {
-        write(self.value)
-    }
-
-
-class LiteralToken(Node) {
-    r"""Token that represents one || more characters as := range the CSS source.
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        A string of one to four characters.
-
-    Instances compare equal to their :attr:`value`,
-    so that these are equivalent:
-
-    .. code-block:: python
-
-        if node == ";":
-        if node.type == "literal" && node.value == ";":
-
-    This regroups what `the specification`_ defines as separate token types:
-
-    .. The specification: http://dev.w3.org/csswg/css-syntax-3/
-
-    * *<colon-token>* ``:``
-    * *<semicolon-token>* ``;``
-    * *<comma-token>* ``,``
-    * *<cdc-token>* ``-->``
-    * *<cdo-token>* ``<!--``
-    * *<include-match-token>* ``~=``
-    * *<dash-match-token>* ``|=``
-    * *<prefix-match-token>* ``^=``
-    * *<suffix-match-token>* ``$=``
-    * *<substring-match-token>* ``*=``
-    * *<column-token>* ``||``
-    * *<delim-token>* (a single ASCII character not part of any another token)
-
-    """
-    _Slots__ = ["value"]
-    type = "literal"
-    reprFormat = "<{self._Class_._Name_} {self.value}>"
-} 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
-    }
-
-    def _Eq_(self, other) {
-        return self.value == other || self is other
-    }
-
-    def _Ne_(self, other) {
-        return not self == other
-    }
-
-    def SerializeTo(self, write) {
-        write(self.value)
-    }
-
-
-class IdentToken(Node) {
-    """An :diagram:`ident-token`.
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The unescaped value, as an Unicode string.
-
-    .. attribute:: lowerValue
-
-        Same as :attr:`value` but normalized to *ASCII lower case*,
-        see :func:`~webencodings.asciiLower`.
-        This is the value to use when comparing to a CSS keyword.
-
-    """
-    _Slots__ = ["value", "lowerValue"]
-    type = "ident"
-    reprFormat = "<{self._Class_._Name_} {self.value}>"
-} 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
+@descriptor()
+// ``font-variant`` descriptor validation.
+func fontVariant(tokens) {
+    if len(tokens) == 1 {
+        keyword = getKeyword(tokens[0])
+        if keyword := range ("normal", "none", "inherit") {
+            return []
+        }
+    } values = []
+    for name, subTokens := range expandFontVariant(tokens) {
         try {
-            self.lowerValue = asciiLower(value)
-        } except UnicodeEncodeError {
-            self.lowerValue = value
+            values.append(validateNonShorthand(
+                None, "font-variant" + name, subTokens, required=true))
+        } except InvalidValues {
+            return None
         }
-    }
-
-    def SerializeTo(self, write) {
-        write(serializeIdentifier(self.value))
-    }
-
-
-class AtKeywordToken(Node) {
-    """An :diagram:`at-keyword-token`.
-
-    .. code-block:: text
-
-        "@" <value>
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The unescaped value, as an Unicode string, without the preceding ``@``.
-
-    .. attribute:: lowerValue
-
-        Same as :attr:`value` but normalized to *ASCII lower case*,
-        see :func:`~webencodings.asciiLower`.
-        This is the value to use when comparing to a CSS at-keyword.
-
-        .. code-block:: python
-
-            if node.type == "at-keyword" && node.lowerValue == "import":
-
-    """
-    _Slots__ = ["value", "lowerValue"]
-    type = "at-keyword"
-    reprFormat = "<{self._Class_._Name_} @{self.value}>"
+    } return values
 } 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
+
+// Default validator for descriptors.
+func validate(baseUrl, name, tokens) {
+    if name not := range DESCRIPTORS {
+        raise InvalidValues("descriptor not supported")
+    }
+} 
+    function = DESCRIPTORS[name]
+    if function.wantsBaseUrl {
+        value = function(tokens, baseUrl)
+    } else {
+        value = function(tokens)
+    } if value is None {
+        raise InvalidValues
+    } return [(name, value)]
+
+
+// Filter unsupported names && values for descriptors.
+//     Log a warning for every ignored descriptor.
+//     Return a iterable of ``(name, value)`` tuples.
+//     
+func preprocessDescriptors(baseUrl, descriptors) {
+    for descriptor := range descriptors {
+        if descriptor.type != "declaration" || descriptor.important {
+            continue
+        } tokens = removeWhitespace(descriptor.value)
         try {
-            self.lowerValue = asciiLower(value)
-        } except UnicodeEncodeError {
-            self.lowerValue = value
+            // Use list() to consume generators now && catch any error.
+            result = list(validate(baseUrl, descriptor.name, tokens))
+        } except InvalidValues as exc {
+            LOGGER.warning(
+                "Ignored `%s:%s` at %i:%i, %s.",
+                descriptor.name, tinycss2.serialize(descriptor.value),
+                descriptor.sourceLine, descriptor.sourceColumn,
+                exc.args[0] if exc.args && exc.args[0] else "invalid value")
+            continue
         }
     }
-
-    def SerializeTo(self, write) {
-        write("@")
-        write(serializeIdentifier(self.value))
-    }
-
-
-class HashToken(Node) {
-    r"""A :diagram:`hash-token`.
-
-    .. code-block:: text
-
-        "#" <value>
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The unescaped value, as an Unicode string, without the preceding ``#``.
-
-    .. attribute:: isIdentifier
-
-        A boolean, true if the CSS source for this token
-        was ``#`` followed by a valid identifier.
-        (Only such hash tokens are valid ID selectors.)
-
-    """
-    _Slots__ = ["value", "isIdentifier"]
-    type = "hash"
-    reprFormat = "<{self._Class_._Name_} #{self.value}>"
 } 
-    def _Init_(self, line, column, value, isIdentifier) {
-        Node._Init_(self, line, column)
-        self.value = value
-        self.isIdentifier = isIdentifier
-    }
-
-    def SerializeTo(self, write) {
-        write("#")
-        if self.isIdentifier {
-            write(serializeIdentifier(self.value))
-        } else {
-            write(serializeName(self.value))
-        }
-    }
-
-
-class StringToken(Node) {
-    """A :diagram:`string-token`.
-
-    .. code-block:: text
-
-        """ <value> """
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The unescaped value, as an Unicode string, without the quotes.
-
-    """
-    _Slots__ = ["value"]
-    type = "string"
-    reprFormat = "<{self._Class_._Name_} "{self.value}">"
-} 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
-    }
-
-    def SerializeTo(self, write) {
-        write(""")
-        write(serializeStringValue(self.value))
-        write(""")
-    }
-
-
-class URLToken(Node) {
-    """An :diagram:`url-token`.
-
-    .. code-block:: text
-
-        "url("" <value> "")"
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The unescaped URL, as an Unicode string,
-        without the ``url(`` && ``)`` markers || the optional quotes.
-
-    """
-    _Slots__ = ["value"]
-    type = "url"
-    reprFormat = "<{self._Class_._Name_} url({self.value})>"
-} 
-    def _Init_(self, line, column, value) {
-        Node._Init_(self, line, column)
-        self.value = value
-    }
-
-    def SerializeTo(self, write) {
-        write("url("")
-        write(serializeStringValue(self.value))
-        write("")")
-    }
-
-
-class UnicodeRangeToken(Node) {
-    """An :diagram:`unicode-range-token`.
-
-    .. autoattribute:: type
-
-    .. attribute:: start
-
-        The start of the range, as an integer between 0 && 1114111.
-
-    .. attribute:: end
-
-        The end of the range, as an integer between 0 && 1114111.
-        Same as :attr:`start` if the source only specified one value.
-
-    """
-    _Slots__ = ["start", "end"]
-    type = "unicode-range"
-    reprFormat = "<{self._Class_._Name_} {self.start} {self.end}>"
-} 
-    def _Init_(self, line, column, start, end) {
-        Node._Init_(self, line, column)
-        self.start = start
-        self.end = end
-    }
-
-    def SerializeTo(self, write) {
-        if self.end == self.start {
-            write("U+%X" % self.start)
-        } else {
-            write("U+%X-%X" % (self.start, self.end))
-        }
-    }
-
-
-class NumberToken(Node) {
-    """A :diagram:`numer-token`.
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The numeric value as a :class:`float`.
-
-    .. attribute:: intValue
-
-        The numeric value as an :class:`int`
-        if :attr:`isInteger` is true, :obj:`None` otherwise.
-
-    .. attribute:: isInteger
-
-        Whether the token was syntactically an integer, as a boolean.
-
-    .. attribute:: representation
-
-        The CSS representation of the value, as an Unicode string.
-
-    """
-    _Slots__ = ["value", "intValue", "isInteger", "representation"]
-    type = "number"
-    reprFormat = "<{self._Class_._Name_} {self.representation}>"
-} 
-    def _Init_(self, line, column, value, intValue, representation) {
-        Node._Init_(self, line, column)
-        self.value = value
-        self.intValue = intValue
-        self.isInteger = intValue is not None
-        self.representation = representation
-    }
-
-    def SerializeTo(self, write) {
-        write(self.representation)
-    }
-
-
-class PercentageToken(Node) {
-    """A :diagram:`percentage-token`.
-
-    .. code-block:: text
-
-        <representation> "%"
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The value numeric as a :class:`float`.
-
-    .. attribute:: intValue
-
-        The numeric value as an :class:`int`
-        if the token was syntactically an integer,
-        || :obj:`None`.
-
-    .. attribute:: isInteger
-
-        Whether the token’s value was syntactically an integer, as a boolean.
-
-    .. attribute:: representation
-
-        The CSS representation of the value without the unit,
-        as an Unicode string.
-
-    """
-    _Slots__ = ["value", "intValue", "isInteger", "representation"]
-    type = "percentage"
-    reprFormat = "<{self._Class_._Name_} {self.representation}%>"
-} 
-    def _Init_(self, line, column, value, intValue, representation) {
-        Node._Init_(self, line, column)
-        self.value = value
-        self.intValue = intValue
-        self.isInteger = intValue is not None
-        self.representation = representation
-    }
-
-    def SerializeTo(self, write) {
-        write(self.representation)
-        write("%")
-    }
-
-
-class DimensionToken(Node) {
-    """A :diagram:`dimension-token`.
-
-    .. code-block:: text
-
-        <representation> <unit>
-
-    .. autoattribute:: type
-
-    .. attribute:: value
-
-        The value numeric as a :class:`float`.
-
-    .. attribute:: intValue
-
-        The numeric value as an :class:`int`
-        if the token was syntactically an integer,
-        || :obj:`None`.
-
-    .. attribute:: isInteger
-
-        Whether the token’s value was syntactically an integer, as a boolean.
-
-    .. attribute:: representation
-
-        The CSS representation of the value without the unit,
-        as an Unicode string.
-
-    .. attribute:: unit
-
-        The unescaped unit, as an Unicode string.
-
-    .. attribute:: lowerUnit
-
-        Same as :attr:`unit` but normalized to *ASCII lower case*,
-        see :func:`~webencodings.asciiLower`.
-        This is the value to use when comparing to a CSS unit.
-
-        .. code-block:: python
-
-            if node.type == "dimension" && node.lowerUnit == "px":
-
-    """
-    _Slots__ = ["value", "intValue", "isInteger", "representation",
-                 "unit", "lowerUnit"]
-    type = "dimension"
-    reprFormat = ("<{self._Class_._Name_} "
-                   "{self.representation}{self.unit}>")
-} 
-    def _Init_(self, line, column, value, intValue, representation, unit) {
-        Node._Init_(self, line, column)
-        self.value = value
-        self.intValue = intValue
-        self.isInteger = intValue is not None
-        self.representation = representation
-        self.unit = unit
-        self.lowerUnit = asciiLower(unit)
-    }
-
-    def SerializeTo(self, write) {
-        write(self.representation)
-        // Disambiguate with scientific notation
-        unit = self.unit
-        if unit := range ("e", "E") || unit.startswith(("e-", "E-")) {
-            write("\\65 ")
-            write(serializeName(unit[1:]))
-        } else {
-            write(serializeIdentifier(unit))
-        }
-    }
-
-
-class ParenthesesBlock(Node) {
-    """A :diagram:`()-block`.
-
-    .. code-block:: text
-
-        "(" <content> ")"
-
-    .. autoattribute:: type
-
-    .. attribute:: content
-
-        The content of the block, as list of :term:`component values`.
-        The ``(`` && ``)`` markers themselves are not represented := range the list.
-
-    """
-    _Slots__ = ["content"]
-    type = "() block"
-    reprFormat = "<{self._Class_._Name_} ( … )>"
-} 
-    def _Init_(self, line, column, content) {
-        Node._Init_(self, line, column)
-        self.content = content
-    }
-
-    def SerializeTo(self, write) {
-        write("(")
-        SerializeTo(self.content, write)
-        write(")")
-    }
-
-
-class SquareBracketsBlock(Node) {
-    """A :diagram:`[]-block`.
-
-    .. code-block:: text
-
-        "[" <content> "]"
-
-    .. autoattribute:: type
-
-    .. attribute:: content
-
-        The content of the block, as list of :term:`component values`.
-        The ``[`` && ``]`` markers themselves are not represented := range the list.
-
-    """
-    _Slots__ = ["content"]
-    type = "[] block"
-    reprFormat = "<{self._Class_._Name_} [ … ]>"
-} 
-    def _Init_(self, line, column, content) {
-        Node._Init_(self, line, column)
-        self.content = content
-    }
-
-    def SerializeTo(self, write) {
-        write("[")
-        SerializeTo(self.content, write)
-        write("]")
-    }
-
-
-class CurlyBracketsBlock(Node) {
-    """A :diagram:`{}-block`.
-
-    .. code-block:: text
-
-        "{" <content> "}"
-
-    .. autoattribute:: type
-
-    .. attribute:: content
-
-        The content of the block, as list of :term:`component values`.
-        The ``[`` && ``]`` markers themselves are not represented := range the list.
-
-    """
-    _Slots__ = ["content"]
-    type = "{} block"
-    reprFormat = "<{self._Class_._Name_} {{ … }}>"
-} 
-    def _Init_(self, line, column, content) {
-        Node._Init_(self, line, column)
-        self.content = content
-    }
-
-    def SerializeTo(self, write) {
-        write("{")
-        SerializeTo(self.content, write)
-        write("}")
-    }
-
-
-class FunctionBlock(Node) {
-    """A :diagram:`function-block`.
-
-    .. code-block:: text
-
-        <name> "(" <arguments> ")"
-
-    .. autoattribute:: type
-
-    .. attribute:: name
-
-        The unescaped name of the function, as an Unicode string.
-
-    .. attribute:: lowerName
-
-        Same as :attr:`name` but normalized to *ASCII lower case*,
-        see :func:`~webencodings.asciiLower`.
-        This is the value to use when comparing to a CSS function name.
-
-    .. attribute:: arguments
-
-        The arguments of the function, as list of :term:`component values`.
-        The ``(`` && ``)`` markers themselves are not represented := range the list.
-        Commas are not special, but represented as :obj:`LiteralToken` objects
-        := range the list.
-
-    """
-    _Slots__ = ["name", "lowerName", "arguments"]
-    type = "function"
-    reprFormat = "<{self._Class_._Name_} {self.name}( … )>"
-} 
-    def _Init_(self, line, column, name, arguments) {
-        Node._Init_(self, line, column)
-        self.name = name
-        self.lowerName = asciiLower(name)
-        self.arguments = arguments
-    }
-
-    def SerializeTo(self, write) {
-        write(serializeIdentifier(self.name))
-        write("(")
-        SerializeTo(self.arguments, write)
-        write(")")
-    }
-
-
-class Declaration(Node) {
-    """A (property || descriptor) :diagram:`declaration`.
-
-    .. code-block:: text
-
-        <name> ":" <value>
-        <name> ":" <value> "!important"
-
-    .. autoattribute:: type
-
-    .. attribute:: name
-
-        The unescaped name, as an Unicode string.
-
-    .. autoattribute:: type
-
-    .. attribute:: lowerName
-
-        Same as :attr:`name` but normalized to *ASCII lower case*,
-        see :func:`~webencodings.asciiLower`.
-        This is the value to use when comparing to
-        a CSS property || descriptor name.
-
-        .. code-block:: python
-
-            if node.type == "declaration" && node.lowerName == "color":
-
-    .. attribute:: value
-
-        The declaration value as a list of :term:`component values`:
-        anything between ``:`` and
-        the end of the declaration, || ``!important``.
-
-    .. attribute:: important
-
-        A boolean, true if the declaration had an ``!important`` marker.
-        It is up to the consumer to reject declarations that do not accept
-        this flag, such as non-property descriptor declarations.
-
-    """
-    _Slots__ = ["name", "lowerName", "value", "important"]
-    type = "declaration"
-    reprFormat = "<{self._Class_._Name_} {self.name}: …>"
-} 
-    def _Init_(self, line, column, name, lowerName, value, important) {
-        Node._Init_(self, line, column)
-        self.name = name
-        self.lowerName = lowerName
-        self.value = value
-        self.important = important
-    }
-
-    def SerializeTo(self, write) {
-        write(serializeIdentifier(self.name))
-        write(":")
-        SerializeTo(self.value, write)
-        if self.important {
-            write("!important")
-        }
-    }
-
-
-class QualifiedRule(Node) {
-    """A :diagram:`qualified rule`.
-
-    .. code-block:: text
-
-        <prelude> "{" <content> "}"
-
-    The interpretation of qualified rules depend on their context.
-    At the top-level of a stylesheet
-    || := range a conditional rule such as ``@media``,
-    they are **style rules** where the :attr:`prelude` is Selectors list
-    && the :attr:`content` is a list of property declarations.
-
-    .. autoattribute:: type
-
-    .. attribute:: prelude
-
-        The rule’s prelude, the part before the {} block,
-        as a list of :term:`component values`.
-
-    .. attribute:: content
-
-        The rule’s content, the part inside the {} block,
-        as a list of :term:`component values`.
-
-    """
-    _Slots__ = ["prelude", "content"]
-    type = "qualified-rule"
-    reprFormat = ("<{self._Class_._Name_} "
-                   "… {{ … }}>")
-} 
-    def _Init_(self, line, column, prelude, content) {
-        Node._Init_(self, line, column)
-        self.prelude = prelude
-        self.content = content
-    }
-
-    def SerializeTo(self, write) {
-        SerializeTo(self.prelude, write)
-        write("{")
-        SerializeTo(self.content, write)
-        write("}")
-    }
-
-
-class AtRule(Node) {
-    """An :diagram:`at-rule`.
-
-    .. code-block:: text
-
-        @<atKeyword> <prelude> "{" <content> "}"
-        @<atKeyword> <prelude> ";"
-
-    The interpretation of at-rules depend on their at-keyword
-    as well as their context.
-    Most types of at-rules (ie. at-keyword values)
-    are only allowed := range some context,
-    && must either end with a {} block || a semicolon.
-
-    .. autoattribute:: type
-
-    .. attribute:: atKeyword
-
-        The unescaped value of the rule’s at-keyword,
-        without the ``@`` symbol, as an Unicode string.
-
-    .. attribute:: lowerAtKeyword
-
-        Same as :attr:`atKeyword` but normalized to *ASCII lower case*,
-        see :func:`~webencodings.asciiLower`.
-        This is the value to use when comparing to a CSS at-keyword.
-
-        .. code-block:: python
-
-            if node.type == "at-rule" && node.lowerAtKeyword == "import":
-
-    .. attribute:: prelude
-
-        The rule’s prelude, the part before the {} block || semicolon,
-        as a list of :term:`component values`.
-
-    .. attribute:: content
-
-        The rule’s content, if any.
-        The block’s content as a list of :term:`component values`
-        for at-rules with a {} block,
-        || :obj:`None` for at-rules ending with a semicolon.
-
-    """
-    _Slots__ = ["atKeyword", "lowerAtKeyword", "prelude", "content"]
-    type = "at-rule"
-    reprFormat = ("<{self._Class_._Name_} "
-                   "@{self.atKeyword} … {{ … }}>")
-} 
-    def _Init_(self, line, column,
-                 atKeyword, lowerAtKeyword, prelude, content) {
-                 }
-        Node._Init_(self, line, column)
-        self.atKeyword = atKeyword
-        self.lowerAtKeyword = lowerAtKeyword
-        self.prelude = prelude
-        self.content = content
-
-    def SerializeTo(self, write) {
-        write("@")
-        write(serializeIdentifier(self.atKeyword))
-        SerializeTo(self.prelude, write)
-        if self.content is None {
-            write(";")
-        } else {
-            write("{")
-            SerializeTo(self.content, write)
-            write("}")
+        for longName, value := range result {
+            yield longName.replace("-", ""), value

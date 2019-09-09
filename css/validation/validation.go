@@ -66,7 +66,7 @@ var (
 		"empty-cells":                emptyCells,
 		"color":                      color,
 		"transform-origin":           transformOrigin,
-		"background-position":        valideBackgroundPosition,
+		"background-position":        backgroundPosition,
 		"background-repeat":          backgroundRepeat,
 		"background-size":            backgroundSize,
 		"background-clip":            box,
@@ -777,7 +777,7 @@ func _backgroundPosition(tokens []Token) Center {
 	return Center{}
 }
 
-func valideBackgroundPosition(tokens []Token, _ string) CssProperty {
+func backgroundPosition(tokens []Token, _ string) CssProperty {
 	var out Centers
 	for _, part := range splitOnComma(tokens) {
 		result := _backgroundPosition(removeWhitespace(part))

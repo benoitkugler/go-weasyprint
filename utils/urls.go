@@ -54,16 +54,22 @@ func GetUrlAttribute(element html.Node, attrName, baseUrl string, allowRelative 
 	return ""
 }
 
+func Unquote(s string) string {
+	unescaped, err := url.PathUnescape(s)
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+	return unescaped
+}
+
 // Return ('external', absolute_uri) or
 // ('internal', unquoted_fragment_id) or nil.
 func GetLinkAttribute(element html.Node, attrName string, baseUrl string) []string {
 	attrValue := strings.TrimSpace(GetAttribute(element, attrName))
 	if strings.HasPrefix(attrValue, "#") && len(attrValue) > 1 {
 		// Do not require a baseUrl when the value is just a fragment.
-		unescaped, err := url.PathUnescape(attrValue[1:])
-		if err != nil {
-			return nil
-		}
+		unescaped := Unquote(attrValue[1:])
 		return []string{"internal", unescaped}
 	}
 	uri := GetUrlAttribute(element, attrName, baseUrl, true)
@@ -81,11 +87,7 @@ func GetLinkAttribute(element html.Node, attrName string, baseUrl string) []stri
 			}
 			if parsed.Scheme == baseParsed.Scheme && parsed.Host == baseParsed.Host && parsed.Path == baseParsed.Path && parsed.RawQuery == baseParsed.RawQuery {
 				// Compare with fragments removed
-				unescaped, err := url.PathUnescape(parsed.Fragment)
-				if err != nil {
-					log.Println(err)
-					return nil
-				}
+				unescaped := Unquote(parsed.Fragment)
 				return []string{"internal", unescaped}
 			}
 		}
