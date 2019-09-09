@@ -1,6 +1,8 @@
 package style
 
 import (
+	"log"
+
 	"github.com/benoitkugler/go-weasyprint/css"
 	"golang.org/x/net/html"
 )
@@ -124,4 +126,96 @@ func computedFromCascaded(element html.Node, cascaded map[string]css.IntString, 
 	}
 
 	return compute(element, specified, computed, parentStyle, rootStyle, baseUrl)
+}
+
+type page struct {
+	side         string
+	blank, first bool
+	name         string
+}
+
+func matchingPageTypes(pageType page, names []string) (out []page) {
+	sides := []string{"left", "right", ""}
+	if pageType.side != "" {
+		sides = []string{pageType.side}
+	}
+
+	blanks := []bool{true}
+	if pageType.blank == false {
+		blanks = []bool{true, false}
+	}
+	firsts := []bool{true}
+	if pageType.first == false {
+		firsts = []bool{true, false}
+	}
+	names = append(names, "")
+	if pageType.name != "" {
+		names = []string{pageType.name}
+	}
+	for _, side := range sides {
+		for _, blank := range blanks {
+			for _, first := range firsts {
+				for _, name := range names {
+					out = append(out, page{side: side, blank: blank, first: first, name: name})
+				}
+			}
+		}
+	}
+	return
+}
+
+// Return the boolean evaluation of `queryList` for the given
+// `deviceMediaType`.
+func evaluateMediaQuery(queryList []string, deviceMediaType string) bool {
+	// TODO: actual support for media queries, not just media types
+	for _, query := range queryList {
+		if "all" == query || deviceMediaType == query {
+			return true
+		}
+	}
+	return false
+}
+
+// Return the precedence for a declaration.
+// Precedence values have no meaning unless compared to each other.
+// Acceptable values for ``origin`` are the strings ``"author"``, ``"user"``
+// and ``"user agent"``.
+//
+func declarationPrecedence(origin string, importance bool) uint8 {
+	// See http://www.w3.org/TR/CSS21/cascade.html#cascading-order
+	if origin == "user agent" {
+		return 1
+	} else if origin == "user" && !importance {
+		return 2
+	} else if origin == "author" && !importance {
+		return 3
+	} else if origin == "author" { // && importance
+		return 4
+	} else {
+		if origin != "user" {
+			log.Fatalf("origin should be 'user' got %s", origin)
+		}
+		return 5
+	}
+}
+
+type weigthedValue struct {
+	value CssProperty
+	weight uint8
+}
+
+type cascadedStyle = map[string]weigthedValue
+
+
+
+// Set the value for a property on a given element.
+// The value is only set if there is no value of greater weight defined yet.
+func addDeclaration(cascadedStyles, propName string, propValues, weight, element,
+	pseudoType=None) {
+
+
+style = cascadedStyles.setdefault((element, pseudoType), {})
+Values, previousWeight = style.get(propName, (None, None))
+if previousWeight is None || previousWeight <= weight {
+style[propName] = propValues, weight
 }

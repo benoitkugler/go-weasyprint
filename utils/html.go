@@ -1,11 +1,19 @@
 package utils
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
+)
+
+const htmlWhitespace = " \t\n\f\r"
+
+var (
+	htmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", htmlWhitespace))
 )
 
 // ------------------------------------ html walk utilities ------------------------------------
@@ -87,4 +95,18 @@ func AsciiLower(s string) string {
 		out[index] = c
 	}
 	return string(out)
+}
+
+// Return whether the given element has a ``rel`` attribute with the
+// given link type.
+// `linkType` must be a lower-case string.
+func ElementHasLinkType(element html.Node, linkType string) bool {
+	attr := GetAttribute(element, "rel")
+	matchs := htmlSpaceSeparatedTokensRe.FindAllString(attr, -1)
+	for _, token := range matchs {
+		if AsciiLower(token) == linkType {
+			return true
+		}
+	}
+	return false
 }
