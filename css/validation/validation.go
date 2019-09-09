@@ -366,8 +366,8 @@ func _backgroundAttachment(tokens []Token) string {
 
 func backgroundAttachment(tokens []Token, _ string) CssProperty {
 	var out Strings
-	for _, part := range splitOnComma(tokens) {
-		part = removeWhitespace(part)
+	for _, part := range SplitOnComma(tokens) {
+		part = RemoveWhitespace(part)
 		result := _backgroundAttachment(part)
 		if result == "" {
 			return nil
@@ -459,7 +459,7 @@ func _backgroundImage(tokens []Token, baseUrl string) (Image, error) {
 	if !ok {
 		return _imageUrl(token, baseUrl)
 	}
-	arguments := splitOnComma(removeWhitespace(token.Arguments))
+	arguments := SplitOnComma(RemoveWhitespace(token.Arguments))
 	name := token.Name.Lower()
 	var err error
 	switch name {
@@ -509,8 +509,8 @@ func _backgroundImage(tokens []Token, baseUrl string) (Image, error) {
 
 func backgroundImage(tokens []Token, baseUrl string) (CssProperty, error) {
 	var out Images
-	for _, part := range splitOnComma(tokens) {
-		part = removeWhitespace(part)
+	for _, part := range SplitOnComma(tokens) {
+		part = RemoveWhitespace(part)
 		result, err := _backgroundImage(part, baseUrl)
 		if err != nil {
 			return nil, err
@@ -779,8 +779,8 @@ func _backgroundPosition(tokens []Token) Center {
 
 func backgroundPosition(tokens []Token, _ string) CssProperty {
 	var out Centers
-	for _, part := range splitOnComma(tokens) {
-		result := _backgroundPosition(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := _backgroundPosition(RemoveWhitespace(part))
 		if result.IsNone() {
 			return nil
 		}
@@ -852,8 +852,8 @@ func _backgroundRepeat(tokens []Token) [2]string {
 
 func backgroundRepeat(tokens []Token, _ string) CssProperty {
 	var out Repeats
-	for _, part := range splitOnComma(tokens) {
-		result := _backgroundRepeat(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := _backgroundRepeat(RemoveWhitespace(part))
 		if result == [2]string{} {
 			return nil
 		}
@@ -905,8 +905,8 @@ func _backgroundSize(tokens []Token) Size {
 
 func backgroundSize(tokens []Token, _ string) CssProperty {
 	var out Sizes
-	for _, part := range splitOnComma(tokens) {
-		result := _backgroundSize(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := _backgroundSize(RemoveWhitespace(part))
 		if (result == Size{}) {
 			return nil
 		}
@@ -933,8 +933,8 @@ func _box(tokens []Token) string {
 
 func box(tokens []Token, _ string) CssProperty {
 	var out Strings
-	for _, part := range splitOnComma(tokens) {
-		result := _box(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := _box(RemoveWhitespace(part))
 		if result == "" {
 			return nil
 		}
@@ -1357,7 +1357,7 @@ func validateContentToken(baseUrl string, token Token) (ContentProperty, error) 
 //     with comma-separated arguments
 func parseFunction(functionToken Token) (string, []Token) {
 	if fun, ok := functionToken.(FunctionBlock); ok {
-		content := removeWhitespace(fun.Arguments)
+		content := RemoveWhitespace(fun.Arguments)
 		if len(content) == 0 || len(content)%2 == 1 {
 			for i := 1; i < len(content); i += 2 { // token in content[1::2]
 				token := content[i]
@@ -1577,8 +1577,8 @@ func _fontFamily(tokens []Token) string {
 // ``font-family`` property validation.
 func fontFamily(tokens []Token, _ string) CssProperty {
 	var out Strings
-	for _, part := range splitOnComma(tokens) {
-		result := _fontFamily(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := _fontFamily(RemoveWhitespace(part))
 		if result == "" {
 			return nil
 		}
@@ -1756,8 +1756,8 @@ func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 	}
 
 	var out SIntStrings
-	for _, part := range splitOnComma(tokens) {
-		result := fontFeatureSettingsList(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := fontFeatureSettingsList(RemoveWhitespace(part))
 		if (result == IntString{}) {
 			return nil
 		}
@@ -2581,8 +2581,8 @@ func _stringSet(tokens []Token) SContent {
 
 func stringSet(tokens []Token, _ string) CssProperty {
 	var out StringSet
-	for _, part := range splitOnComma(tokens) {
-		result := _stringSet(removeWhitespace(part))
+	for _, part := range SplitOnComma(tokens) {
+		result := _stringSet(RemoveWhitespace(part))
 		if result.IsNone() {
 			return nil
 		}
@@ -2745,7 +2745,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 			expander_ = defaultValidateShorthand
 		}
 
-		tokens := removeWhitespace(declaration.Value)
+		tokens := RemoveWhitespace(declaration.Value)
 		result, err := expander_(baseUrl, name, tokens)
 		if err != nil {
 			validationError(err.Error())
@@ -2756,7 +2756,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 
 		for _, np := range result {
 			out = append(out, ValidatedProperty{
-				Name:      strings.ReplaceAll(np.name, "-", ""),
+				Name:      strings.ReplaceAll(np.name, "-", "_"),
 				Value:     np.property,
 				Important: important,
 			})
@@ -2766,7 +2766,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 }
 
 // Remove any top-level whitespace in a token list.
-func removeWhitespace(tokens []Token) []Token {
+func RemoveWhitespace(tokens []Token) []Token {
 	var out []Token
 	for _, token := range tokens {
 		if token.Type() != TypeWhitespaceToken && token.Type() != TypeComment {
@@ -2780,7 +2780,7 @@ func removeWhitespace(tokens []Token) []Token {
 //     Only "top-level" comma tokens are splitting points, not commas inside a
 //     function or blocks.
 //
-func splitOnComma(tokens []Token) [][]Token {
+func SplitOnComma(tokens []Token) [][]Token {
 	var parts [][]Token
 	var thisPart []Token
 	for _, token := range tokens {

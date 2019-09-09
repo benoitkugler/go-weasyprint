@@ -101,8 +101,8 @@ func _src(tokens []Token, baseUrl string) (NamedString, error) {
 
 func src(tokens []Token, baseUrl string) (Descriptor, error) {
 	var out []NamedString
-	for _, part := range splitOnComma(tokens) {
-		result, err := _src(removeWhitespace(part), baseUrl)
+	for _, part := range SplitOnComma(tokens) {
+		result, err := _src(RemoveWhitespace(part), baseUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -223,7 +223,7 @@ func PreprocessDescriptors(baseUrl string, descriptors []Token) []NamedDescripto
 		if !ok || decl.Important {
 			continue
 		}
-		tokens := removeWhitespace(decl.Value)
+		tokens := RemoveWhitespace(decl.Value)
 		name := string(decl.Name)
 		result, err := validate(baseUrl, name, tokens)
 
@@ -233,7 +233,7 @@ func PreprocessDescriptors(baseUrl string, descriptors []Token) []NamedDescripto
 		}
 
 		out = append(out, NamedDescriptor{
-			Name:       strings.ReplaceAll(name, "-", ""),
+			Name:       strings.ReplaceAll(name, "-", "_"),
 			Descriptor: result,
 		})
 

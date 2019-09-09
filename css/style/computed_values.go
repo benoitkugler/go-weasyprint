@@ -166,7 +166,7 @@ type computerFunc = func(*computer, string, CssProperty) CssProperty
 // 				 element (should contain value for all properties),
 // 				 or `zero if ``element`` is the root element.
 // :param baseUrl: The base URL used to resolve relative URLs.
-func compute(element html.Node, specified, computed, parentStyle,
+func compute(element *html.Node, specified, computed, parentStyle,
 	rootStyle StyleDict, baseUrl string) StyleDict {
 
 	computer := new(computer)
@@ -206,7 +206,7 @@ func compute(element html.Node, specified, computed, parentStyle,
 type computer struct {
 	isRootElement                               bool
 	computed, rootStyle, parentStyle, specified StyleDict
-	element                                     html.Node
+	element                                     *html.Node
 	baseUrl                                     string
 }
 
@@ -416,7 +416,7 @@ func content(computer *computer, _ string, _value CssProperty) CssProperty {
 		// type_, value := v[0], v[1]
 		if v.Type == ContentAttr {
 			lis[index].Type = ContentSTRING
-			lis[index].String = utils.GetAttribute(computer.element, value.String)
+			lis[index].String = utils.GetAttribute(*computer.element, value.String)
 		} else {
 			lis[index] = v
 		}
@@ -514,7 +514,7 @@ func lineHeight(computer *computer, name string, _value CssProperty) CssProperty
 func anchor(computer *computer, _ string, _value CssProperty) CssProperty {
 	value := _value.(NamedString)
 	if value.String != "none" {
-		s := utils.GetAttribute(computer.element, value.String)
+		s := utils.GetAttribute(*computer.element, value.String)
 		if s == "" {
 			return nil
 		}
@@ -530,7 +530,7 @@ func link(computer *computer, _ string, _value CssProperty) CssProperty {
 		return nil
 	}
 	if value.Name == "attr" {
-		type_attr := utils.GetLinkAttribute(computer.element, value.String, computer.baseUrl)
+		type_attr := utils.GetLinkAttribute(*computer.element, value.String, computer.baseUrl)
 		if len(type_attr) < 2 {
 			return nil
 		}
@@ -546,7 +546,7 @@ func lang(computer *computer, _ string, _value CssProperty) CssProperty {
 		return nil
 	}
 	if value.Name == "attr" {
-		s := utils.GetAttribute(computer.element, value.String)
+		s := utils.GetAttribute(*computer.element, value.String)
 		if s == "" {
 			return nil
 		}

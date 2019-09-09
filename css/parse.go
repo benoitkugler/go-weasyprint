@@ -152,3 +152,37 @@ func (t FunctionBlock) Type() tokenType       { return TypeFunctionBlock }
 func (t NumberToken) IntValue() int {
 	return int(t.Value)
 }
+
+// Parse a :diagram:`declaration list` (which may also contain at-rules).
+// This is used e.g. for the `QualifiedRule.content`
+// of a style rule or ``@page`` rule, or for the ``style`` attribute of an HTML element.
+// In contexts that don’t expect any at-rule, all :class:`AtRule` objects should simply be rejected as invalid.
+// If `skipComments`, ignore CSS comments at the top-level of the list. If the input is a string, ignore all comments.
+// If `skipWhitespace`, ignore whitespace at the top-level of the list. Whitespace is still preserved in
+// the `Declaration.value` of declarations and the `AtRule.prelude` and `AtRule.content` of at-rules.
+// skipComments = false, skipWhitespace = false
+func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []Token {
+	tokens := ToTokenIterator(input, skipComments)
+	var result []Token
+	for _, _token := range tokens {
+		switch token := _token.(type) {
+		case WhitespaceToken:
+			if !skipWhitespace {
+				result = append(result, token)
+			}
+		case Comment:
+			if !skipComments {
+				result = append(result, token)
+			}
+		case AtKeywordToken:
+			result = append(result, consumeAtRule(token, tokens))
+		case LiteralToken:
+			if token.Value != ";" {
+				result = append(result, consumeDeclarationInList(token, tokens))
+			}
+		default:
+			result = append(result, consumeDeclarationInList(token, tokens))
+		}
+	}
+	return result
+}

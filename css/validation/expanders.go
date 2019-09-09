@@ -520,7 +520,7 @@ func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty
 		return color, results, nil
 	}
 
-	_layers := splitOnComma(tokens)
+	_layers := SplitOnComma(tokens)
 	n := len(_layers)
 	layers := make([][]Token, n)
 	for i := range _layers {
@@ -818,7 +818,7 @@ func expandWordWrap(baseUrl, name string, tokens []Token) ([]namedProperty, erro
 // required = false
 func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (out namedProperty, err error) {
 	if !required && !KnownProperties.Has(name) {
-		hyphensName := strings.ReplaceAll(name, "", "-")
+		hyphensName := strings.ReplaceAll(name, "_", "-")
 		if KnownProperties.Has(hyphensName) {
 			return out, fmt.Errorf("did you mean %s?", hyphensName)
 		} else {
