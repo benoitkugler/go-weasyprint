@@ -83,6 +83,7 @@ var (
 		"column-rule-style":          borderStyle,
 		"break-before":               breakBeforeAfter,
 		"break-after":                breakBeforeAfter,
+		"break-inside":               breakInside,
 		"page":                       page,
 		"bleed-left":                 bleed,
 		"bleed-right":                bleed,
@@ -569,17 +570,6 @@ func reverse(a []Token) []Token {
 		out[n-1-i] = a[i]
 	}
 	return out
-}
-
-type gradientPosition struct {
-	keyword1 string
-	length1  Dimension
-	keyword2 string
-	length2  Dimension
-}
-
-func (g gradientPosition) IsNone() bool {
-	return g == gradientPosition{}
 }
 
 type radialGradientParameters struct {
@@ -2716,7 +2706,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 	var out []ValidatedProperty
 	for _, _declaration := range declarations {
 		if errToken, ok := _declaration.(ParseError); ok {
-			log.Println("Error: %s", errToken.Message)
+			log.Printf("Error: %s \n", errToken.Message)
 		}
 
 		declaration, ok := _declaration.(Declaration)
@@ -2727,7 +2717,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 		name := declaration.Name.Lower()
 
 		validationError := func(reason string) {
-			log.Println("Ignored `%s:%s` , %s.", declaration.Name, Serialize(declaration.Value), reason)
+			log.Printf("Ignored `%s:%s` , %s. \n", declaration.Name, Serialize(declaration.Value), reason)
 		}
 
 		if _, in := NotPrintMedia[name]; in {
@@ -2740,11 +2730,11 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 			if _, in := proprietary[unprefixedName]; in {
 				name = unprefixedName
 			} else if _, in := unstable[unprefixedName]; in {
-				log.Println("Deprecated `%s:%s`, prefixes on unstable attributes are deprecated, use `%s` instead.",
+				log.Printf("Deprecated `%s:%s`, prefixes on unstable attributes are deprecated, use `%s` instead. \n",
 					declaration.Name, Serialize(declaration.Value), unprefixedName)
 				name = unprefixedName
 			} else {
-				log.Println("Ignored `%s:%s`,prefix on this attribute is not supported, use `%s` instead.",
+				log.Printf("Ignored `%s:%s`,prefix on this attribute is not supported, use `%s` instead. \n",
 					declaration.Name, Serialize(declaration.Value), unprefixedName)
 				continue
 			}

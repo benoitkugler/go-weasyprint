@@ -38,4 +38,5 @@ func TestInterface(t *testing.T) {
 	i = SquareBracketsBlock{}
 	i = CurlyBracketsBlock{}
 	i = FunctionBlock{}
+	fmt.Println(i)
 }

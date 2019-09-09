@@ -86,7 +86,7 @@ func serializeIdentifier(_value string) string {
 	case '\f':
 		suffix = `\C `
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		suffix = fmt.Sprint("\\%X", c)
+		suffix = fmt.Sprintf("\\%X", c)
 	default:
 		if c > 0x7F {
 			suffix = string(c)
@@ -288,7 +288,7 @@ func (t DimensionToken) serializeTo(write func(s string)) {
 		write("\\65 ")
 		write(serializeName([]rune(unit)[1:]))
 	} else {
-		write(serializeIdentifier(string(unit)))
+		write(serializeIdentifier(unit))
 	}
 }
 

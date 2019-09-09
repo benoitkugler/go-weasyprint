@@ -83,7 +83,6 @@ func (d Dimension) ToValue() Value {
 func FToD(f float32) Dimension { return Dimension{Value: f} }
 func SToV(s string) Value      { return Value{String: s} }
 func FToV(f float32) Value     { return FToD(f).ToValue() }
-func iToV(i int) Value         { return FToV(float32(i)) }
 
 func (p Point) IsNone() bool {
 	return p == Point{}
