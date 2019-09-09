@@ -1,9 +1,11 @@
-package css
+package validation
 
 import (
 	"errors"
 	"fmt"
 	"strings"
+
+	. "github.com/benoitkugler/go-weasyprint/css"
 )
 
 var expanders = map[string]expander{
@@ -57,7 +59,7 @@ type beforeGeneric = func(baseUrl, name string, tokens []Token) ([]namedTokens, 
 func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 	_expandedNames := Set{}
 	for _, name := range expandedNames {
-		_expandedNames[name] = true
+		_expandedNames[name] = Has
 	}
 	// Decorate the ``wrapped`` expander.
 	genericExpanderDecorator := func(wrapped beforeGeneric) expander {
@@ -301,7 +303,7 @@ func _expandBorderSide(_, name string, tokens []Token) ([]namedTokens, error) {
 	out := make([]namedTokens, len(tokens))
 	for index, token := range tokens {
 		var suffix string
-		if !parseColor(token).IsNone() {
+		if !ParseColor(token).IsNone() {
 			suffix = "-color"
 		} else if borderWidth([]Token{token}, "") != nil {
 			suffix = "-width"
@@ -815,9 +817,9 @@ func expandWordWrap(baseUrl, name string, tokens []Token) ([]namedProperty, erro
 // Default validator for non-shorthand properties.
 // required = false
 func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (out namedProperty, err error) {
-	if !required && !knownProperties.Has(name) {
+	if !required && !KnownProperties.Has(name) {
 		hyphensName := strings.ReplaceAll(name, "", "-")
-		if knownProperties.Has(hyphensName) {
+		if KnownProperties.Has(hyphensName) {
 			return out, fmt.Errorf("did you mean %s?", hyphensName)
 		} else {
 			return out, errors.New("unknown property")

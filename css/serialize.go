@@ -47,7 +47,7 @@ func init() {
 // Serialize nodes to CSS syntax.
 //     This should be used for `ComponentValue` as it takes care of corner cases such as ``;`` between declarations,
 //     and consecutive identifiers that would otherwise parse back as the same token.
-func serialize(nodes []Token) string {
+func Serialize(nodes []Token) string {
 	var chunks []string
 	write := func(s string) { chunks = append(chunks, s) }
 	serializeTo(nodes, write)

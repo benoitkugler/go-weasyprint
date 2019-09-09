@@ -1,19 +1,18 @@
-package css
+package style
 
 import (
+	"github.com/benoitkugler/go-weasyprint/css"
 	"golang.org/x/net/html"
 )
 
-type Properties map[string]CssProperty
-
 type StyleDict struct {
-	Properties
+	css.Properties
 	Anonymous      bool
 	inheritedStyle *StyleDict
 }
 
 func NewStyleDict() StyleDict {
-	return StyleDict{Properties: Properties{}}
+	return StyleDict{Properties: css.Properties{}}
 }
 
 // IsZero returns `true` if the StyleDict is not initialized.
@@ -22,28 +21,12 @@ func (s StyleDict) IsZero() bool {
 	return s.Properties == nil
 }
 
-func (p Properties) Copy() Properties {
-	out := make(Properties, len(p))
-	for name, v := range p {
-		out[name] = v.Copy()
-	}
-	return out
-}
-
 // Deep copy.
 // inheritedStyle is a shallow copy
 func (s StyleDict) Copy() StyleDict {
 	out := s
 	out.Properties = s.Properties.Copy()
 	return out
-}
-
-func (p Properties) Keys() []string {
-	keys := make([]string, 0, len(p))
-	for k := range p {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 // InheritFrom returns a new StyleDict with inherited properties from this one.
@@ -58,22 +41,22 @@ func (s *StyleDict) InheritFrom() StyleDict {
 	return *s.inheritedStyle
 }
 
-func (s StyleDict) ResolveColor(key string) Color {
-	value := s.Properties[key].(Color)
-	if value.Type == ColorCurrentColor {
+func (s StyleDict) ResolveColor(key string) css.Color {
+	value := s.Properties[key].(css.Color)
+	if value.Type == css.ColorCurrentColor {
 		value = s.GetColor()
 	}
 	return value
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element html.Node, cascaded map[string]IntString, parentStyle StyleDict,
+func computedFromCascaded(element html.Node, cascaded map[string]css.IntString, parentStyle StyleDict,
 	rootStyle StyleDict, baseUrl string) StyleDict {
 	if cascaded == nil && !parentStyle.IsZero() {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
-		computed := InitialValues.Copy()
-		for key := range Inherited {
+		computed := css.InitialValues.Copy()
+		for key := range css.Inherited {
 			computed[key] = parentStyle.Properties[key]
 		}
 
@@ -82,27 +65,27 @@ func computedFromCascaded(element html.Node, cascaded map[string]IntString, pare
 		// border-*-style is none, so border-width computes to zero.
 		// Other than that, properties that would need computing are
 		// border-*-color, but they do not apply.
-		computed.SetBorderTopWidth(Value{})
-		computed.SetBorderBottomWidth(Value{})
-		computed.SetBorderLeftWidth(Value{})
-		computed.SetBorderRightWidth(Value{})
-		computed.SetOutlineWidth(Value{})
+		computed.SetBorderTopWidth(css.Value{})
+		computed.SetBorderBottomWidth(css.Value{})
+		computed.SetBorderLeftWidth(css.Value{})
+		computed.SetBorderRightWidth(css.Value{})
+		computed.SetOutlineWidth(css.Value{})
 		return StyleDict{Properties: computed}
 	}
 
 	// Handle inheritance and initial values
 	specified, computed := NewStyleDict(), NewStyleDict()
-	for name, initial := range InitialValues {
+	for name, initial := range css.InitialValues {
 		var (
 			keyword string
-			value   CssProperty
+			value   css.CssProperty
 		)
 		if _, in := cascaded[name]; in {
 			vp := cascaded[name]
 			keyword = vp.String
-			value = Value{String: vp.String}
+			value = css.Value{String: vp.String}
 		} else {
-			if Inherited[name] {
+			if css.Inherited.Has(name) {
 				keyword = "inherit"
 			} else {
 				keyword = "initial"
@@ -116,7 +99,7 @@ func computedFromCascaded(element html.Node, cascaded map[string]IntString, pare
 
 		if keyword == "initial" {
 			value = initial
-			if !InitialNotComputed[name] {
+			if !css.InitialNotComputed.Has(name) {
 				// The value is the same as when computed
 				computed.Properties[name] = initial
 			}
@@ -132,7 +115,7 @@ func computedFromCascaded(element html.Node, cascaded map[string]IntString, pare
 		// an element is auto, then its used value is the value specified on
 		// its nearest ancestor with a non-auto value. When specified on the
 		// root element, the used value for auto is the empty string.
-		val := Page{Valid: true, String: ""}
+		val := css.Page{Valid: true, String: ""}
 		if !parentStyle.IsZero() {
 			val = parentStyle.GetPage()
 		}

@@ -71,3 +71,15 @@ func TestPointer(t *testing.T) {
 	*p = append(*p, 4, 4, 5, 7, 8, 9, 6, 3, 8, 5, 9, 9, 3)
 	fmt.Println(i, j)
 }
+
+type T struct {
+	i int
+}
+
+func TestLoop(t *testing.T) {
+	a := make([]T, 10)
+	for _, t := range a {
+		t.i = 5
+	}
+	fmt.Println(a)
+}

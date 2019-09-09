@@ -149,6 +149,27 @@ func (s Properties) SetCounterIncrement(v SIntStrings) {
 	s["counter_increment"] = v
 }
 
+func (s Properties) GetFontVariantNumeric() SStrings {
+	return s["font_variant_numeric"].(SStrings)
+}
+func (s Properties) SetFontVariantNumeric(v SStrings) {
+	s["font_variant_numeric"] = v
+}
+
+func (s Properties) GetFontVariantLigatures() SStrings {
+	return s["font_variant_ligatures"].(SStrings)
+}
+func (s Properties) SetFontVariantLigatures(v SStrings) {
+	s["font_variant_ligatures"] = v
+}
+
+func (s Properties) GetFontVariantEastAsian() SStrings {
+	return s["font_variant_east_asian"].(SStrings)
+}
+func (s Properties) SetFontVariantEastAsian(v SStrings) {
+	s["font_variant_east_asian"] = v
+}
+
 func (s Properties) GetCounterReset() IntStrings {
 	return s["counter_reset"].(IntStrings)
 }
@@ -161,6 +182,20 @@ func (s Properties) GetBookmarkLabel() BookmarkLabel {
 }
 func (s Properties) SetBookmarkLabel(v BookmarkLabel) {
 	s["bookmark_label"] = v
+}
+
+func (s Properties) GetOpacity() Float {
+	return s["opacity"].(Float)
+}
+func (s Properties) SetOpacity(v Float) {
+	s["opacity"] = v
+}
+
+func (s Properties) GetHyphenateLimitChars() Ints3 {
+	return s["hyphenate_limit_chars"].(Ints3)
+}
+func (s Properties) SetHyphenateLimitChars(v Ints3) {
+	s["hyphenate_limit_chars"] = v
 }
 
 func (s Properties) GetPage() Page {
@@ -240,6 +275,13 @@ func (s Properties) SetBreakBefore(v String) {
 	s["break_before"] = v
 }
 
+func (s Properties) GetBreakInside() String {
+	return s["break_inside"].(String)
+}
+func (s Properties) SetBreakInside(v String) {
+	s["break_inside"] = v
+}
+
 func (s Properties) GetDisplay() String {
 	return s["display"].(String)
 }
@@ -252,6 +294,20 @@ func (s Properties) GetFloat() String {
 }
 func (s Properties) SetFloat(v String) {
 	s["float"] = v
+}
+
+func (s Properties) GetWeasySpecifiedDisplay() String {
+	return s["_weasy_specified_display"].(String)
+}
+func (s Properties) SetWeasySpecifiedDisplay(v String) {
+	s["_weasy_specified_display"] = v
+}
+
+func (s Properties) GetPosition() String {
+	return s["position"].(String)
+}
+func (s Properties) SetPosition(v String) {
+	s["position"] = v
 }
 
 func (s Properties) GetTop() Value {
@@ -464,13 +520,6 @@ func (s Properties) SetOutlineWidth(v Value) {
 	s["outline_width"] = v
 }
 
-func (s Properties) GetLetterSpacing() Value {
-	return s["letter_spacing"].(Value)
-}
-func (s Properties) SetLetterSpacing(v Value) {
-	s["letter_spacing"] = v
-}
-
 func (s Properties) GetColumnWidth() Value {
 	return s["column_width"].(Value)
 }
@@ -511,6 +560,13 @@ func (s Properties) GetVerticalAlign() Value {
 }
 func (s Properties) SetVerticalAlign(v Value) {
 	s["vertical_align"] = v
+}
+
+func (s Properties) GetLetterSpacing() Value {
+	return s["letter_spacing"].(Value)
+}
+func (s Properties) SetLetterSpacing(v Value) {
+	s["letter_spacing"] = v
 }
 
 func (s Properties) GetWordSpacing() Value {

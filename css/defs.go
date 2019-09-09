@@ -27,10 +27,14 @@ const (
 	Q
 )
 
+var ZeroPixels = Dimension{Unit: Px}
+
+var Has = struct{}{}
+
 type Set map[string]struct{}
 
 func (s Set) Add(key string) {
-	s[key] = struct{}{}
+	s[key] = Has
 }
 
 func (s Set) Has(key string) bool {
@@ -40,6 +44,22 @@ func (s Set) Has(key string) bool {
 
 type CssProperty interface {
 	Copy() CssProperty
+}
+
+func (p Properties) Copy() Properties {
+	out := make(Properties, len(p))
+	for name, v := range p {
+		out[name] = v.Copy()
+	}
+	return out
+}
+
+func (p Properties) Keys() []string {
+	keys := make([]string, 0, len(p))
+	for k := range p {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // ------------ Helpers type --------------------------
@@ -56,13 +76,33 @@ func (d Dimension) IsNone() bool {
 	return d == Dimension{}
 }
 
-func fToD(f float32) Dimension { return Dimension{Value: f} }
-func sToV(s string) Value      { return Value{String: s} }
-func fToV(f float32) Value     { return Value{Dimension: fToD(f)} }
-func iToV(i int) Value         { return fToV(float32(i)) }
+func (d Dimension) ToValue() Value {
+	return Value{Dimension: d}
+}
+
+func FToD(f float32) Dimension { return Dimension{Value: f} }
+func SToV(s string) Value      { return Value{String: s} }
+func FToV(f float32) Value     { return FToD(f).ToValue() }
+func iToV(i int) Value         { return FToV(float32(i)) }
 
 func (p Point) IsNone() bool {
 	return p == Point{}
+}
+
+func (p Point) ToSlice() []Dimension {
+	return []Dimension{p[0], p[1]}
+}
+
+func (s Size) IsNone() bool {
+	return s == Size{}
+}
+
+func (c Center) IsNone() bool {
+	return c == Center{}
+}
+
+type Quote struct {
+	Open, Insert bool
 }
 
 type ContentType int
@@ -72,7 +112,7 @@ type ContentProperty struct {
 
 	// Next are values fields
 	SStrings       // for type STRING, URI, attr or string, counter, counters
-	Quote    quote // for type QUOTE
+	Quote    Quote // for type QUOTE
 }
 
 func (cp ContentProperty) IsNone() bool {
@@ -81,7 +121,7 @@ func (cp ContentProperty) IsNone() bool {
 
 func (cp ContentProperty) Copy() ContentProperty {
 	out := cp
-	out.SStrings = cp.SStrings.Copy()
+	out.SStrings = cp.SStrings.copy()
 	return out
 }
 
@@ -89,13 +129,16 @@ func (s SContent) IsNone() bool {
 	return s.String == "" && s.Contents == nil
 }
 
-func (s SContent) Copy() CssProperty {
+func (s SContent) copy() SContent {
 	out := s
 	out.Contents = make([]ContentProperty, len(s.Contents))
 	for index, v := range s.Contents {
 		out.Contents[index] = v.Copy()
 	}
 	return out
+}
+func (s SContent) Copy() CssProperty {
+	return s.copy()
 }
 
 func (t SDimensions) Copy() SDimensions {
@@ -106,62 +149,97 @@ func (t SDimensions) Copy() SDimensions {
 
 // Might be an existing image or a gradient
 type Image interface {
-	isImage()
+	copy() Image
 	Copy() CssProperty
 }
 
 type NoneImage struct{}
 type UrlImage string
 
-func (NoneImage) isImage()      {}
-func (UrlImage) isImage()       {}
-func (LinearGradient) isImage() {}
-func (RadialGradient) isImage() {}
-
-func (_ NoneImage) Copy() CssProperty {
+func (_ NoneImage) copy() Image {
 	return NoneImage{}
 }
-func (s UrlImage) Copy() CssProperty {
+func (s UrlImage) copy() Image {
 	return s
+}
+func (i NoneImage) Copy() CssProperty {
+	return i.copy()
+}
+func (i UrlImage) Copy() CssProperty {
+	return i.copy()
+}
+
+type ColorStop struct {
+	Color    Color
+	Position Dimension
+}
+
+type DirectionType struct {
+	Corner string
+	Angle  float32
+}
+
+type GradientSize struct {
+	Keyword  string
+	Explicit Point
+}
+
+func (s GradientSize) IsNone() bool {
+	return s == GradientSize{}
+}
+
+func (s GradientSize) IsExplicit() bool {
+	return s.Keyword == ""
 }
 
 type LinearGradient struct {
 	ColorStops []ColorStop
-	Direction  directionType
+	Direction  DirectionType
 	Repeating  bool
 }
 
 type RadialGradient struct {
 	ColorStops []ColorStop
 	Shape      string
-	Size       gradientSize
+	Size       GradientSize
 	Center     Center
 	Repeating  bool
 }
 
-func (l LinearGradient) Copy() CssProperty {
+func (l LinearGradient) copy() Image {
 	out := l
 	out.ColorStops = append([]ColorStop{}, l.ColorStops...)
 	return out
 }
 
-func (r RadialGradient) Copy() CssProperty {
+func (r RadialGradient) copy() Image {
 	out := r
 	out.ColorStops = append([]ColorStop{}, r.ColorStops...)
 	return out
 }
 
-func (ss SStrings) Copy() SStrings {
+func (l LinearGradient) Copy() CssProperty {
+	return l.copy()
+}
+
+func (r RadialGradient) Copy() CssProperty {
+	return r.copy()
+}
+
+func (ss SStrings) copy() SStrings {
 	out := ss
 	out.Strings = append([]string{}, ss.Strings...)
 	return out
 }
+func (ss SStrings) Copy() CssProperty {
+	return ss.copy()
+}
 
 func (s StringSet) Copy() CssProperty {
 	out := s
-	out.Contents = make([]SStrings, len(s.Contents))
+	out.Contents = make([]SContent, len(s.Contents))
 	for index, l := range s.Contents {
-		out.Contents[index] = l.Copy()
+		out.Contents[index] = l.copy()
 	}
 	return out
 }
@@ -183,7 +261,7 @@ func (x NDecorations) Copy() CssProperty {
 	out := x
 	out.Decorations = Set{}
 	for dec := range x.Decorations {
-		out.Decorations[dec] = true
+		out.Decorations[dec] = Has
 	}
 	return out
 }
@@ -194,7 +272,7 @@ func (q Quotes) Copy() CssProperty {
 func (b Images) Copy() CssProperty {
 	out := make(Images, len(b))
 	for index, v := range b {
-		out[index] = v.Copy()
+		out[index] = v.copy()
 	}
 	return out
 }

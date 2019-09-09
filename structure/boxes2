@@ -684,7 +684,7 @@ func wrapTable(box, children) {
     return wrapper
 
 
-TRANSPARENT = tinycss2.color3.parseColor("transparent")
+TRANSPARENT = tinycss2.color3.ParseColor("transparent")
 
 
 // Resolve border conflicts for a table := range the collapsing border model.

@@ -11,8 +11,49 @@ var (
 
 	zeroPixelsValue = Value{Dimension: ZeroPixels}
 
+	// How many CSS pixels is one <unit>?
+	// http://www.w3.org/TR/CSS21/syndata.html#length-units
+	LengthsToPixels = map[Unit]float32{
+		Px: 1,
+		Pt: 1. / 0.75,
+		Pc: 16.,             // LengthsToPixels["pt"] * 12
+		In: 96.,             // LengthsToPixels["pt"] * 72
+		Cm: 96. / 2.54,      // LengthsToPixels["in"] / 2.54
+		Mm: 96. / 25.4,      // LengthsToPixels["in"] / 25.4
+		Q:  96. / 25.4 / 4., // LengthsToPixels["mm"] / 4
+	}
+
+	// Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
+	// medium, and scaling factors given in CSS3 for others:
+	// http://www.w3.org/TR/css3-fonts/#font-size-prop
+	// TODO: this will need to be ordered to implement 'smaller' and 'larger'
+	FontSizeKeywords = map[string]float32{ // medium is 16px, others are a ratio of medium
+		"xx-small": InitialValues.GetFontSize().Value * 3 / 5,
+		"x-small":  InitialValues.GetFontSize().Value * 3 / 4,
+		"small":    InitialValues.GetFontSize().Value * 8 / 9,
+		"medium":   InitialValues.GetFontSize().Value * 1 / 1,
+		"large":    InitialValues.GetFontSize().Value * 6 / 5,
+		"x-large":  InitialValues.GetFontSize().Value * 3 / 2,
+		"xx-large": InitialValues.GetFontSize().Value * 2 / 1,
+	}
+
+	// http://www.w3.org/TR/css3-page/#size
+	// name=(width in pixels, height in pixels)
+	PageSizes = map[string]Point{
+		"a5":     {Dimension{Value: 148, Unit: Mm}, Dimension{Value: 210, Unit: Mm}},
+		"a4":     InitialWidthHeight,
+		"a3":     {Dimension{Value: 297, Unit: Mm}, Dimension{Value: 420, Unit: Mm}},
+		"b5":     {Dimension{Value: 176, Unit: Mm}, Dimension{Value: 250, Unit: Mm}},
+		"b4":     {Dimension{Value: 250, Unit: Mm}, Dimension{Value: 353, Unit: Mm}},
+		"letter": {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 11, Unit: In}},
+		"legal":  {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 14, Unit: In}},
+		"ledger": {Dimension{Value: 11, Unit: In}, Dimension{Value: 17, Unit: In}},
+	}
+
+	InitialWidthHeight = Point{Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}}
+
 	InitialValues = Properties{
-		"bottom":       sToV("auto"),
+		"bottom":       SToV("auto"),
 		"caption_side": String("top"),
 		// "clear": "none",
 		// "clip": TBD,  // computed value for "auto"
@@ -23,17 +64,17 @@ var (
 		// Means "none", but allow `display: list-item` to increment the
 		// list-item counter. If we ever have a way for authors to query
 		// computed values (JavaScript?), this value should serialize to "none".
-		"counter_increment": CounterIncrements{String: "auto"},
-		"counter_reset":     CounterResets{}, // parsed value for "none"
+		"counter_increment": SIntStrings{String: "auto"},
+		"counter_reset":     IntStrings{}, // parsed value for "none"
 		"direction":         String("ltr"),
-		"display":           Display("inline"),
+		"display":           String("inline"),
 		// "empty_cells": "show",
-		"float":            Floating("none"),
-		"height":           sToV("auto"),
-		"left":             sToV("auto"),
-		"right":            sToV("auto"),
-		"line_height":      LineHeight(sToV("normal")),
-		"list_style_image": ListStyleImage{Type: "none"},
+		"float":            String("none"),
+		"height":           SToV("auto"),
+		"left":             SToV("auto"),
+		"right":            SToV("auto"),
+		"line_height":      SToV("normal"),
+		"list_style_image": NoneImage{},
 		// "list_style_position": "outside",
 		"list_style_type": String("disc"),
 		"margin_top":      zeroPixelsValue,
@@ -58,21 +99,20 @@ var (
 		// "vertical_align": "baseline",
 		// "visibility": "visible",
 		// "z_index": "auto",
-		"width": sToV("auto"),
+		"width": SToV("auto"),
 
 		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 		// "background_attachment": ("scroll",),
 		// "background_clip": ("border-box",),
 		"background_color": parseColorString("transparent"),
 		// "background_origin": ("padding-box",),
-		"background_position": BackgroundPosition{
-			Center{OriginX: "left", Pos: Point{X: Dimension{Unit: Percentage}}},
-			Center{OriginX: "top", Pos: Point{X: Dimension{Unit: Percentage}}},
+		"background_position": Centers{
+			Center{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Unit: Percentage}, Dimension{Unit: Percentage}}},
 		},
-		"background_image": BackgroundImage{NoneImage{}},
+		"background_image": Images{NoneImage{}},
 
 		// "background_repeat": (("repeat", "repeat"),),
-		"background_size": BackgroundSize{Size{Width: sToV("auto"), Height: sToV("auto")}},
+		"background_size": Sizes{Size{Width: SToV("auto"), Height: SToV("auto")}},
 		// "border_bottom_color": "currentColor",
 		// "border_left_color": "currentColor",
 		// "border_right_color": "currentColor",
@@ -87,26 +127,26 @@ var (
 		"border_right_style":  String("none"),
 		"border_top_style":    String("none"),
 		// "border_spacing": (0, 0),
-		"border_bottom_width": BorderWidth(Value{Dimension: Dimension{Value: 3}}),
-		"border_left_width":   BorderWidth(Value{Dimension: Dimension{Value: 3}}),
-		"border_top_width":    BorderWidth(Value{Dimension: Dimension{Value: 3}}), // computed value for "medium}"
-		"border_right_width":  BorderWidth(Value{Dimension: Dimension{Value: 3}}),
+		"border_bottom_width": Value{Dimension: Dimension{Value: 3}},
+		"border_left_width":   Value{Dimension: Dimension{Value: 3}},
+		"border_top_width":    Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
+		"border_right_width":  Value{Dimension: Dimension{Value: 3}},
 
-		"border_bottom_left_radius":  Lengths{zeroPixelsValue, zeroPixelsValue},
-		"border_bottom_right_radius": Lengths{zeroPixelsValue, zeroPixelsValue},
-		"border_top_left_radius":     Lengths{zeroPixelsValue, zeroPixelsValue},
-		"border_top_right_radius":    Lengths{zeroPixelsValue, zeroPixelsValue},
+		"border_bottom_left_radius":  Values{zeroPixelsValue, zeroPixelsValue},
+		"border_bottom_right_radius": Values{zeroPixelsValue, zeroPixelsValue},
+		"border_top_left_radius":     Values{zeroPixelsValue, zeroPixelsValue},
+		"border_top_right_radius":    Values{zeroPixelsValue, zeroPixelsValue},
 
 		// // Color 3 (REC): https://www.w3.org/TR/css3-color/
 		// "opacity": 1,
 
 		// Multi-column Layout (CR): https://www.w3.org/TR/css3-multicol/
-		"column_width": ColumnWidth(sToV("auto")),
-		"column_count": sToV("auto"),
-		"column_gap":   ColumnGap(Value{Dimension: Dimension{Value: 1, Unit: Em}}),
+		"column_width": SToV("auto"),
+		"column_count": SToV("auto"),
+		"column_gap":   Value{Dimension: Dimension{Value: 1, Unit: Em}},
 		// "column_rule_color": "currentColor",
 		// "column_rule_style": "none",
-		"column_rule_width": BorderWidth(sToV("medium")),
+		"column_rule_width": SToV("medium"),
 		// "column_fill": "balance",
 		// "column_span": "none",
 
@@ -124,12 +164,12 @@ var (
 		// "font_variant_ligatures": "normal",
 		// "font_variant_numeric": "normal",
 		// "font_variant_position": "normal",
-		"font_size":   FontSize(Value{Dimension: Dimension{Value: 16}}), // actually medium, but we define medium from thi}s
-		"font_weight": FontWeight(IntString{Value: 400}),
+		"font_size":   Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from this
+		"font_weight": IntString{Int: 400},
 
 		// // Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
-		"break_after":  Break("auto"),
-		"break_before": Break("auto"),
+		"break_after":  String("auto"),
+		"break_before": String("auto"),
 		"break_inside": String("auto"),
 		// "orphans": 2,
 		// "widows": 2,
@@ -144,29 +184,29 @@ var (
 		// "image_rendering": "auto",
 
 		// Paged Media 3 (WD): https://www.w3.org/TR/css3-page/
-		"size": WidthHeight{
-			{Value: initialWidthHeight[0].Value * LengthsToPixels[initialWidthHeight[0].Unit]},
-			{Value: initialWidthHeight[1].Value * LengthsToPixels[initialWidthHeight[1].Unit]},
+		"size": Point{
+			{Value: InitialWidthHeight[0].Value * LengthsToPixels[InitialWidthHeight[0].Unit]},
+			{Value: InitialWidthHeight[1].Value * LengthsToPixels[InitialWidthHeight[1].Unit]},
 		},
 		"page":         Page{String: "auto", Valid: true},
-		"bleed_left":   Bleed(sToV("auto")),
-		"bleed_right":  Bleed(sToV("auto")),
-		"bleed_top":    Bleed(sToV("auto")),
-		"bleed_bottom": Bleed(sToV("auto")),
+		"bleed_left":   SToV("auto"),
+		"bleed_right":  SToV("auto"),
+		"bleed_top":    SToV("auto"),
+		"bleed_bottom": SToV("auto"),
 		// "marks": "none",
 
 		// Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
 		// "hyphenate_character": "‐",  // computed value chosen by the user agent
 		// "hyphenate_limit_chars": (5, 2, 2),
 		"hyphens":              String("manual"),
-		"letter_spacing":       PixelsToV("normal"),
+		"letter_spacing":       SToV("normal"),
 		"hyphenate_limit_zone": zeroPixelsValue,
-		"tab_size":             TabSize(Value{Dimension: Dimension{Value: 8}}),
+		"tab_size":             Value{Dimension: Dimension{Value: 8}},
 		// "text_align": "-weasy-start",
 		"text_indent":    zeroPixelsValue,
 		"text_transform": String("none"),
 		"white_space":    String("normal"),
-		"word_spacing":   WordSpacing{}, // computed value for "normal"
+		"word_spacing":   Value{}, // computed value for "normal"
 
 		// Transforms 1 (WD): https://www.w3.org/TR/css-transforms-1/
 		"transform_origin": Point{{Value: 50, Unit: Percentage}, {Value: 50, Unit: Percentage}},
@@ -177,43 +217,43 @@ var (
 		// "outline_color": "currentColor",  // invert is not supported
 		// "outline_style": "none",
 		// "overflow_wrap": "normal",
-		"outline_width": BorderWidth(Value{Dimension: Dimension{Value: 3}}), // computed value for "medium"
+		"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
 
 		// Proprietary
-		"anchor": Link{}, // computed value of "none"
-		"link":   Link{}, // computed value of "none"
-		"lang":   Link{}, // computed value of "none"
+		"anchor": NamedString{}, // computed value of "none"
+		"link":   NamedString{}, // computed value of "none"
+		"lang":   NamedString{}, // computed value of "none"
 
 		// Internal, to implement the "static position" for absolute boxes.
-		"_weasy_specified_display": Display("inline"),
+		"_weasy_specified_display": String("inline"),
 	}
 
-	knownProperties = Set{}
+	KnownProperties = Set{}
 
 	// Not applicable to the print media
-	notPrintMedia = Set{
+	NotPrintMedia = Set{
 		// Aural media:
-		"azimuth",
-		"cue",
-		"cue-after",
-		"cue-before",
-		"cursor",
-		"elevation",
-		"pause",
-		"pause-after",
-		"pause-before",
-		"pitch-range",
-		"pitch",
-		"play-during",
-		"richness",
-		"speak-header",
-		"speak-numeral",
-		"speak-punctuation",
-		"speak",
-		"speech-rate",
-		"stress",
-		"voice-family",
-		"volume",
+		"azimuth":           Has,
+		"cue":               Has,
+		"cue-after":         Has,
+		"cue-before":        Has,
+		"cursor":            Has,
+		"elevation":         Has,
+		"pause":             Has,
+		"pause-after":       Has,
+		"pause-before":      Has,
+		"pitch-range":       Has,
+		"pitch":             Has,
+		"play-during":       Has,
+		"richness":          Has,
+		"speak-header":      Has,
+		"speak-numeral":     Has,
+		"speak-punctuation": Has,
+		"speak":             Has,
+		"speech-rate":       Has,
+		"stress":            Has,
+		"voice-family":      Has,
+		"volume":            Has,
 
 		// outlines are not just for interactive but any visual media in css3-ui
 	}
@@ -222,36 +262,38 @@ var (
 	// See also http://lists.w3.org/Archives/Public/www-style/2012Jun/0066.html
 	// Only non-inherited properties need to be included here.
 	TableWrapperBoxProperties = Set{
-		"bottom":            true,
-		"break_after":       true,
-		"break_before":      true,
-		"break_inside":      true,
-		"clear":             true,
-		"counter_increment": true,
-		"counter_reset":     true,
-		"float":             true,
-		"left":              true,
-		"margin_top":        true,
-		"margin_bottom":     true,
-		"margin_left":       true,
-		"margin_right":      true,
-		"opacity":           true,
-		"overflow":          true,
-		"position":          true,
-		"right":             true,
-		"top":               true,
-		"transform":         true,
-		"transform_origin":  true,
-		"vertical_align":    true,
-		"z_index":           true,
+		"bottom":            Has,
+		"break_after":       Has,
+		"break_before":      Has,
+		"break_inside":      Has,
+		"clear":             Has,
+		"counter_increment": Has,
+		"counter_reset":     Has,
+		"float":             Has,
+		"left":              Has,
+		"margin_top":        Has,
+		"margin_bottom":     Has,
+		"margin_left":       Has,
+		"margin_right":      Has,
+		"opacity":           Has,
+		"overflow":          Has,
+		"position":          Has,
+		"right":             Has,
+		"top":               Has,
+		"transform":         Has,
+		"transform_origin":  Has,
+		"vertical_align":    Has,
+		"z_index":           Has,
 	}
 )
 
 func init() {
 	for name := range InitialValues {
-		knownProperties[strings.ReplaceAll(name, "_", "-")] = true
+		KnownProperties[strings.ReplaceAll(name, "_", "-")] = Has
 	}
 }
+
+type Properties map[string]CssProperty
 
 // prop:string-set
 type StringSet struct {
@@ -308,6 +350,9 @@ type SIntStrings struct {
 	Values []IntString
 }
 
+// prop:font-variant-numeric
+// prop:font-variant-ligatures
+// prop:font-variant-east-asian
 type SStrings struct {
 	String  string
 	Strings []string
@@ -330,10 +375,12 @@ type BookmarkLabel []ContentProperty
 
 // -------------- value type ---------------------
 
+// prop:opacity
 type Float float32
 
 type Int int
 
+// prop:hyphenate-limit-chars
 type Ints3 [3]int
 
 // prop:page
@@ -341,6 +388,16 @@ type Page struct {
 	Valid  bool
 	String string
 	Page   int
+}
+
+// Dimension or "auto" or "cover" or "contain"
+type Size struct {
+	Width, Height Value
+	String        string
+}
+type Center struct {
+	OriginX, OriginY string
+	Pos              Point
 }
 
 // prop:color
@@ -374,8 +431,11 @@ type IntString struct {
 
 // prop:break-after
 // prop:break-before
+// prop:break-inside
 // prop:display
 // prop:float
+// prop:-weasy-specified-display
+// prop:position
 type String string
 
 // prop:top
@@ -408,13 +468,13 @@ type String string
 // prop:border-bottom-width
 // prop:column-rule-width
 // prop:outline-width
-// prop:letter-spacing
 // prop:column-width
 // prop:column-gap
 // prop:font-size
 // prop:line-height
 // prop:tab-size
 // prop:vertical-align
+// prop:letter-spacing
 // prop:word-spacing
 type Value struct {
 	Dimension

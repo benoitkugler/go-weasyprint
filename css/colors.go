@@ -241,9 +241,7 @@ func mustParseHexa(s string) float32 {
 }
 
 func parseColorString(color string) Color {
-	// TODO:
-	//     token = parseOneComponentValue(input, skipComments=true)
-	return parseColor(token)
+	return ParseColor(IdentToken{Value: LowerableString(color)})
 }
 
 // Parse a color value as defined in `CSS Color Level 3  <http://www.w3.org/TR/css3-color/>`.
@@ -253,7 +251,7 @@ func parseColorString(color string) Color {
 //  - RGBA color for every other values (including keywords, HSL && HSLA.)
 //    The alpha channel is clipped to [0, 1] but red, green, || blue can be out of range
 //    (eg. ``rgb(-10%, 120%, 0%)`` is represented as ``(-0.1, 1.2, 0, 1)``.
-func parseColor(_token Token) Color {
+func ParseColor(_token Token) Color {
 	switch token := _token.(type) {
 	case IdentToken:
 		return colorKeywords[token.Value.Lower()]
