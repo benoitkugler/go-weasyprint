@@ -155,27 +155,51 @@ func (t NumberToken) IntValue() int {
 	return int(t.Value)
 }
 
+// ---------------- Parsing ----------------------------------------------------
+
+type tokenIterator struct {
+	tokens []Token
+	index  int
+}
+
+func NewTokenIterator(tokens []Token) *tokenIterator {
+	return &tokenIterator{
+		tokens: tokens,
+	}
+}
+
+func (it tokenIterator) HasNext() bool {
+	return it.index < len(it.tokens)
+}
+
+func (it *tokenIterator) Next() Token {
+	t := it.tokens[it.index]
+	it.index += 1
+	return t
+}
+
 // Return the next significant (neither whitespace || comment) token.
 //     :param tokens: An *iterator* yielding :term:`component values`.
 //     :returns: A :term:`component value`, || :obj:`None`.
 //
-func nextSignificant(tokens []Token) (Token, []Token) {
-	for i, token := range tokens {
+func nextSignificant(tokens *tokenIterator) Token {
+	for tokens.HasNext() {
+		token := tokens.Next()
 		switch token.(type) {
 		case WhitespaceToken, Comment:
 			continue
 		default:
-			return token, tokens[i+1:]
+			return token
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 // Parse a declaration.
 //     Consume :obj:`tokens` until the end of the declaration || the first error.
 //     :param firstToken: The first :term:`component value` of the rule.
 //     :param tokens: An *iterator* yielding :term:`component values`.
-func parseDeclaration(firstToken Token, tokens []Token) Token {
+func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 	name, ok := firstToken.(IdentToken)
 	if !ok {
 		return ParseError{
@@ -183,8 +207,7 @@ func parseDeclaration(firstToken Token, tokens []Token) Token {
 			Message: fmt.Sprintf("Expected <ident> for declaration name, got %s.", firstToken.Type()),
 		}
 	}
-	var colon Token
-	colon, tokens = nextSignificant(tokens)
+	colon := nextSignificant(tokens)
 	if colon == nil {
 		return ParseError{Kind: "invalid",
 			Message: "Expected ':' after declaration name, got EOF",
@@ -199,8 +222,10 @@ func parseDeclaration(firstToken Token, tokens []Token) Token {
 
 	var value []Token
 	state := "value"
-	bangPosition := 0
-	for i, _token := range tokens {
+	bangPosition, i := 0, 0
+	for tokens.HasNext() {
+		i += 1
+		_token := tokens.Next()
 		switch token := _token.(type) {
 		case LiteralToken:
 			if state == "value" && lit.Value == "!" {
@@ -231,17 +256,16 @@ func parseDeclaration(firstToken Token, tokens []Token) Token {
 }
 
 // Like :func:`parseDeclaration`, but stop at the first ``;``.
-func consumeDeclarationInList(firstToken Token, tokens []Token) (Token, []Token) {
+func consumeDeclarationInList(firstToken Token, tokens *tokenIterator) Token {
 	var otherDeclarationTokens []Token
-	i := 0
-	for _, token := range tokens {
-		i += 1
+	for tokens.HasNext() {
+		token := tokens.Next()
 		if lit, ok := token.(LiteralToken); ok && lit.Value == ";" {
 			break
 		}
 		otherDeclarationTokens = append(otherDeclarationTokens, token)
 	}
-	return parseDeclaration(firstToken, otherDeclarationTokens), tokens[i:]
+	return parseDeclaration(firstToken, NewTokenIterator(otherDeclarationTokens))
 }
 
 // Parse a :diagram:`declaration list` (which may also contain at-rules).
@@ -253,14 +277,11 @@ func consumeDeclarationInList(firstToken Token, tokens []Token) (Token, []Token)
 // the `Declaration.value` of declarations and the `AtRule.prelude` and `AtRule.content` of at-rules.
 // skipComments = false, skipWhitespace = false
 func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []Token {
-	tokens := input
-	var (
-		result []Token
-		val    Token
-	)
-	for len(tokens) > 0 {
-		_token := tokens[0]
-		switch token := _token.(type) {
+	tokens := NewTokenIterator(input)
+	var result []Token
+
+	for tokens.HasNext() {
+		switch token := tokens.Next().(type) {
 		case WhitespaceToken:
 			if !skipWhitespace {
 				result = append(result, token)
@@ -270,15 +291,15 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 				result = append(result, token)
 			}
 		case AtKeywordToken:
-			val, tokens = consumeAtRule(token, tokens)
+			val := consumeAtRule(token, tokens)
 			result = append(result, val)
 		case LiteralToken:
 			if token.Value != ";" {
-				val, tokens = consumeDeclarationInList(token, tokens)
+				val := consumeDeclarationInList(token, tokens)
 				result = append(result, val)
 			}
 		default:
-			val, tokens = consumeDeclarationInList(token, tokens)
+			val := consumeDeclarationInList(token, tokens)
 			result = append(result, val)
 		}
 	}
@@ -300,13 +321,10 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 //     and the `QualifiedRule.content` of rules.
 // skipComments=false, skipWhitespace=false
 func parseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
-	tokens := input
-	var (
-		result []Token
-		val    Token
-	)
-	for len(tokens) > 0 {
-		token := tokens[0]
+	tokens := NewTokenIterator(input)
+	var result []Token
+	for tokens.HasNext() {
+		token := tokens.Next()
 		switch token.Type() {
 		case TypeWhitespaceToken:
 			if !skipWhitespace {
@@ -317,7 +335,7 @@ func parseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 				result = append(result, token)
 			}
 		default:
-			val, tokens = consumeRule(token, tokens)
+			val := consumeRule(token, tokens)
 			result = append(result, val)
 		}
 	}
@@ -328,7 +346,7 @@ func parseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 // Consume just enough of :obj:`tokens` for this rule.
 // :param firstToken: The first :term:`component value` of the rule.
 // :param tokens: An *iterator* yielding :term:`component values`.
-func consumeRule(_firstToken Token, tokens []Token) (Token, []Token) {
+func consumeRule(_firstToken Token, tokens *tokenIterator) Token {
 	var (
 		prelude []Token
 		block   CurlyBracketsBlock
@@ -341,9 +359,8 @@ func consumeRule(_firstToken Token, tokens []Token) (Token, []Token) {
 	default:
 		prelude = []Token{firstToken}
 		hasBroken := false
-		offset := 0
-		for _, token := range tokens {
-			offset += 1
+		for tokens.HasNext() {
+			token := tokens.Next()
 			if curly, ok := token.(CurlyBracketsBlock); ok {
 				block = curly
 				hasBroken = true
@@ -351,29 +368,27 @@ func consumeRule(_firstToken Token, tokens []Token) (Token, []Token) {
 			}
 			prelude = append(prelude, token)
 		}
-		tokens = tokens[offset:]
 		if !hasBroken {
 			return ParseError{
 				Kind:    "invalid",
 				Message: "EOF reached before {} block for a qualified rule.",
-			}, tokens
+			}
 		}
 	}
 	return QualifiedRule{
 		Content: block.Content,
 		Prelude: prelude,
-	}, tokens
+	}
 }
 
 // Parse an at-rule.
 // Consume just enough of :obj:`tokens` for this rule.
 // :param atKeyword: The :class:`AtKeywordToken` object starting this rule.
 // :param tokens: An *iterator* yielding :term:`component values`.
-func consumeAtRule(atKeyword AtKeywordToken, tokens []Token) (AtRule, []Token) {
+func consumeAtRule(atKeyword AtKeywordToken, tokens *tokenIterator) AtRule {
 	var prelude, content []Token
-	offset := 0
-	for _, token := range tokens {
-		offset += 1
+	for tokens.HasNext() {
+		token := tokens.Next()
 		if curly, ok := token.(CurlyBracketsBlock); ok {
 			content = curly.Content
 			break
@@ -384,12 +399,11 @@ func consumeAtRule(atKeyword AtKeywordToken, tokens []Token) (AtRule, []Token) {
 		}
 		prelude = append(prelude, token)
 	}
-	tokens = tokens[offset:]
 	return AtRule{
 		AtKeyword: atKeyword.Value,
 		QualifiedRule: QualifiedRule{
 			Prelude: prelude,
 			Content: content,
 		},
-	}, tokens
+	}
 }
