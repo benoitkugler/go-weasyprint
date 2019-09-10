@@ -45,8 +45,8 @@ func init() {
 }
 
 // Serialize nodes to CSS syntax.
-//     This should be used for `ComponentValue` as it takes care of corner cases such as ``;`` between declarations,
-//     and consecutive identifiers that would otherwise parse back as the same token.
+// This should be used for `ComponentValue` as it takes care of corner cases such as ``;`` between declarations,
+// and consecutive identifiers that would otherwise parse back as the same token.
 func Serialize(nodes []Token) string {
 	var chunks []string
 	write := func(s string) { chunks = append(chunks, s) }
@@ -151,8 +151,8 @@ func serializeStringValue(value []rune) string {
 
 // http://dev.w3.org/csswg/css-syntax/#serialization-tables
 // Serialize an iterable of nodes to CSS syntax,
-//     writing chunks as Unicode string
-//     by calling the provided `write` callback.
+//  writing chunks as Unicode string
+//  by calling the provided `write` callback.
 func serializeTo(nodes []Token, write func(s string)) {
 	var previousType string
 	for _, node := range nodes {

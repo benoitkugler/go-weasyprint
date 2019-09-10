@@ -13,9 +13,10 @@
 package style
 
 import (
-	"fmt"
 	"log"
 	"strings"
+
+	"github.com/andybalholm/cascadia"
 
 	. "github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/css/validation"
@@ -403,11 +404,16 @@ type pageRule struct {
 	declarations []Token
 }
 
+type match struct {
+	selector     cascadia.Selector
+	declarations []validation.ValidatedProperty
+}
+
 // Do the work that can be done early on stylesheet, before they are
 // in a document.
 // ignoreImports = false
 func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher, matcher, pageRules []pageRule, fonts []string, fontConfig int, ignoreImports bool) {
+	urlFetcher, matcher []match, pageRules []pageRule, fonts []string, fontConfig int, ignoreImports bool) {
 
 	for _, rule := range stylesheetRules {
 		if atRule, isAtRule := rule.(AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
@@ -416,20 +422,14 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 
 		switch typedRule := rule.(type) {
 		case QualifiedRule:
-			declarations := validation.PreprocessDeclarations(baseUrl, ParseDeclarationList(typedRule.Content))
+			declarations := validation.PreprocessDeclarations(baseUrl, ParseDeclarationList(typedRule.Content, false, false))
 			if len(declarations) > 0 {
-				selectors := cssselect2.compileSelectorList(typedRule.Prelude)
-				for _, selector := range selectors {
-					matcher.addSelector(selector, declarations)
-					if !pseudoElements.Has(selector.pseudoElement) {
-						err = fmt.Errorf("Unknown pseudo-element: %s", selector.pseudoElement)
-						break
-					}
-				}
+				selector, err := cascadia.Compile(Serialize(typedRule.Prelude))
 				if err != nil {
 					log.Printf("Invalid or unsupported selector '%s', %s \n", Serialize(typedRule.Prelude), err)
 					continue
 				}
+				matcher = append(matcher, match{selector: selector, declarations: declarations})
 				ignoreImports = true
 			} else {
 				ignoreImports = true

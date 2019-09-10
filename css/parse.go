@@ -1,6 +1,8 @@
 package css
 
 import (
+	"fmt"
+
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -153,6 +155,95 @@ func (t NumberToken) IntValue() int {
 	return int(t.Value)
 }
 
+// Return the next significant (neither whitespace || comment) token.
+//     :param tokens: An *iterator* yielding :term:`component values`.
+//     :returns: A :term:`component value`, || :obj:`None`.
+//
+func nextSignificant(tokens []Token) (Token, []Token) {
+	for i, token := range tokens {
+		switch token.(type) {
+		case WhitespaceToken, Comment:
+			continue
+		default:
+			return token, tokens[i+1:]
+		}
+	}
+	return nil, nil
+}
+
+// Parse a declaration.
+//     Consume :obj:`tokens` until the end of the declaration || the first error.
+//     :param firstToken: The first :term:`component value` of the rule.
+//     :param tokens: An *iterator* yielding :term:`component values`.
+func parseDeclaration(firstToken Token, tokens []Token) Token {
+	name, ok := firstToken.(IdentToken)
+	if !ok {
+		return ParseError{
+			Kind:    "invalid",
+			Message: fmt.Sprintf("Expected <ident> for declaration name, got %s.", firstToken.Type()),
+		}
+	}
+	var colon Token
+	colon, tokens = nextSignificant(tokens)
+	if colon == nil {
+		return ParseError{Kind: "invalid",
+			Message: "Expected ':' after declaration name, got EOF",
+		}
+	}
+	lit, ok := colon.(LiteralToken)
+	if !ok || lit.Value != ":" {
+		return ParseError{Kind: "invalid",
+			Message: fmt.Sprintf("Expected ':' after declaration name, got %s.", colon.Type()),
+		}
+	}
+
+	var value []Token
+	state := "value"
+	bangPosition := 0
+	for i, _token := range tokens {
+		switch token := _token.(type) {
+		case LiteralToken:
+			if state == "value" && lit.Value == "!" {
+				state = "bang"
+				bangPosition = i
+			}
+		case IdentToken:
+			if state == "bang" && token.Value.Lower() == "important" {
+				state = "important"
+			}
+		default:
+			if _token.Type() != "whitespace" && _token.Type() != "comment" {
+				state = "value"
+			}
+		}
+		value = append(value, _token)
+	}
+
+	if state == "important" {
+		value = value[:bangPosition]
+	}
+
+	return Declaration{
+		Name:      name.Value,
+		Value:     value,
+		Important: state == "important",
+	}
+}
+
+// Like :func:`parseDeclaration`, but stop at the first ``;``.
+func consumeDeclarationInList(firstToken Token, tokens []Token) (Token, []Token) {
+	var otherDeclarationTokens []Token
+	i := 0
+	for _, token := range tokens {
+		i += 1
+		if lit, ok := token.(LiteralToken); ok && lit.Value == ";" {
+			break
+		}
+		otherDeclarationTokens = append(otherDeclarationTokens, token)
+	}
+	return parseDeclaration(firstToken, otherDeclarationTokens), tokens[i:]
+}
+
 // Parse a :diagram:`declaration list` (which may also contain at-rules).
 // This is used e.g. for the `QualifiedRule.content`
 // of a style rule or ``@page`` rule, or for the ``style`` attribute of an HTML element.
@@ -162,9 +253,13 @@ func (t NumberToken) IntValue() int {
 // the `Declaration.value` of declarations and the `AtRule.prelude` and `AtRule.content` of at-rules.
 // skipComments = false, skipWhitespace = false
 func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []Token {
-	tokens := ToTokenIterator(input, skipComments)
-	var result []Token
-	for _, _token := range tokens {
+	tokens := input
+	var (
+		result []Token
+		val    Token
+	)
+	for len(tokens) > 0 {
+		_token := tokens[0]
 		switch token := _token.(type) {
 		case WhitespaceToken:
 			if !skipWhitespace {
@@ -175,14 +270,126 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 				result = append(result, token)
 			}
 		case AtKeywordToken:
-			result = append(result, consumeAtRule(token, tokens))
+			val, tokens = consumeAtRule(token, tokens)
+			result = append(result, val)
 		case LiteralToken:
 			if token.Value != ";" {
-				result = append(result, consumeDeclarationInList(token, tokens))
+				val, tokens = consumeDeclarationInList(token, tokens)
+				result = append(result, val)
 			}
 		default:
-			result = append(result, consumeDeclarationInList(token, tokens))
+			val, tokens = consumeDeclarationInList(token, tokens)
+			result = append(result, val)
 		}
 	}
 	return result
+}
+
+// Parse a non-top-level :diagram:`rule list`.
+// This is used for parsing the `AtRule.content`
+// of nested rules like ``@media``.
+// This differs from :func:`parseStylesheet` in that
+// top-level ``<!--`` and ``-->`` tokens are not ignored.
+// :param skipComments:
+//     Ignore CSS comments at the top-level of the list.
+//     If the input is a string, ignore all comments.
+// :param skipWhitespace:
+//     Ignore whitespace at the top-level of the list.
+//     Whitespace is still preserved
+//     in the `QualifiedRule.prelude`
+//     and the `QualifiedRule.content` of rules.
+// skipComments=false, skipWhitespace=false
+func parseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
+	tokens := input
+	var (
+		result []Token
+		val    Token
+	)
+	for len(tokens) > 0 {
+		token := tokens[0]
+		switch token.Type() {
+		case TypeWhitespaceToken:
+			if !skipWhitespace {
+				result = append(result, token)
+			}
+		case TypeComment:
+			if !skipComments {
+				result = append(result, token)
+			}
+		default:
+			val, tokens = consumeRule(token, tokens)
+			result = append(result, val)
+		}
+	}
+	return result
+}
+
+// Parse a qualified rule or at-rule.
+// Consume just enough of :obj:`tokens` for this rule.
+// :param firstToken: The first :term:`component value` of the rule.
+// :param tokens: An *iterator* yielding :term:`component values`.
+func consumeRule(_firstToken Token, tokens []Token) (Token, []Token) {
+	var (
+		prelude []Token
+		block   CurlyBracketsBlock
+	)
+	switch firstToken := _firstToken.(type) {
+	case AtKeywordToken:
+		return consumeAtRule(firstToken, tokens)
+	case CurlyBracketsBlock:
+		block = firstToken
+	default:
+		prelude = []Token{firstToken}
+		hasBroken := false
+		offset := 0
+		for _, token := range tokens {
+			offset += 1
+			if curly, ok := token.(CurlyBracketsBlock); ok {
+				block = curly
+				hasBroken = true
+				break
+			}
+			prelude = append(prelude, token)
+		}
+		tokens = tokens[offset:]
+		if !hasBroken {
+			return ParseError{
+				Kind:    "invalid",
+				Message: "EOF reached before {} block for a qualified rule.",
+			}, tokens
+		}
+	}
+	return QualifiedRule{
+		Content: block.Content,
+		Prelude: prelude,
+	}, tokens
+}
+
+// Parse an at-rule.
+// Consume just enough of :obj:`tokens` for this rule.
+// :param atKeyword: The :class:`AtKeywordToken` object starting this rule.
+// :param tokens: An *iterator* yielding :term:`component values`.
+func consumeAtRule(atKeyword AtKeywordToken, tokens []Token) (AtRule, []Token) {
+	var prelude, content []Token
+	offset := 0
+	for _, token := range tokens {
+		offset += 1
+		if curly, ok := token.(CurlyBracketsBlock); ok {
+			content = curly.Content
+			break
+		}
+		lit, ok := token.(LiteralToken)
+		if ok && lit.Value == ";" {
+			break
+		}
+		prelude = append(prelude, token)
+	}
+	tokens = tokens[offset:]
+	return AtRule{
+		AtKeyword: atKeyword.Value,
+		QualifiedRule: QualifiedRule{
+			Prelude: prelude,
+			Content: content,
+		},
+	}, tokens
 }

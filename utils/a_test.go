@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"unicode"
+
+	"github.com/andybalholm/cascadia"
 )
 
 func TestQuote(t *testing.T) {
@@ -14,6 +16,15 @@ func TestQuote(t *testing.T) {
 
 func TestSlice(t *testing.T) {
 	s := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	fmt.Println(s[9:])
+	for i, _ := range s {
+		if i == 4 {
+			s = s[i+1:]
+			break
+		}
+	}
+	fmt.Println(s)
+
 	var out []int
 	for i := 1; i < len(s); i += 2 {
 		out = append(out, s[i])
@@ -82,4 +93,12 @@ func TestLoop(t *testing.T) {
 		t.i = 5
 	}
 	fmt.Println(a)
+}
+
+func TestSelector(t *testing.T) {
+	sel, err := cascadia.Compile("#dfdf ,  div.test > p, p#id5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(sel)
 }
