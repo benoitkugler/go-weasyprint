@@ -320,7 +320,7 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 //     in the `QualifiedRule.prelude`
 //     and the `QualifiedRule.content` of rules.
 // skipComments=false, skipWhitespace=false
-func parseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
+func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 	tokens := NewTokenIterator(input)
 	var result []Token
 	for tokens.HasNext() {

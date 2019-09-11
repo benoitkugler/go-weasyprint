@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-
-	"golang.org/x/net/html"
 )
 
 // Turn an IRI that can contain any Unicode character into an ASCII-only  URI that conforms to RFC 3986.
@@ -45,8 +43,8 @@ func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) s
 // * the value is a relative URI but the document has no base URI and
 //   ``allowRelative`` is ``False``.
 // Otherwise return an URI, absolute if possible.
-func GetUrlAttribute(element html.Node, attrName, baseUrl string, allowRelative bool) string {
-	value := strings.TrimSpace(GetAttribute(element, attrName))
+func GetUrlAttribute(element HTMLNode, attrName, baseUrl string, allowRelative bool) string {
+	value := strings.TrimSpace(element.Get(attrName))
 	if value != "" {
 		return UrlJoin(baseUrl, value, allowRelative,
 			fmt.Sprintf("<%s %s='%s'>", element.Data, attrName, value))
@@ -65,8 +63,8 @@ func Unquote(s string) string {
 
 // Return ('external', absolute_uri) or
 // ('internal', unquoted_fragment_id) or nil.
-func GetLinkAttribute(element html.Node, attrName string, baseUrl string) []string {
-	attrValue := strings.TrimSpace(GetAttribute(element, attrName))
+func GetLinkAttribute(element HTMLNode, attrName string, baseUrl string) []string {
+	attrValue := strings.TrimSpace(element.Get(attrName))
 	if strings.HasPrefix(attrValue, "#") && len(attrValue) > 1 {
 		// Do not require a baseUrl when the value is just a fragment.
 		unescaped := Unquote(attrValue[1:])

@@ -429,6 +429,7 @@ type IntString struct {
 	String string
 }
 
+// prop:border-collapse
 // prop:break-after
 // prop:break-before
 // prop:break-inside

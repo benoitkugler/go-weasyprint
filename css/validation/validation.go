@@ -1999,7 +1999,7 @@ func opacity(tokens []Token, _ string) CssProperty {
 	}
 	token := tokens[0]
 	if number, ok := token.(NumberToken); ok {
-		return Float(Min(1, Max(0, number.Value)))
+		return Float(utils.Min(1, utils.Max(0, number.Value)))
 	}
 	return nil
 }

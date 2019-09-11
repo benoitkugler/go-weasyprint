@@ -261,6 +261,13 @@ func (s Properties) SetFontWeight(v IntString) {
 	s["font_weight"] = v
 }
 
+func (s Properties) GetBorderCollapse() String {
+	return s["border_collapse"].(String)
+}
+func (s Properties) SetBorderCollapse(v String) {
+	s["border_collapse"] = v
+}
+
 func (s Properties) GetBreakAfter() String {
 	return s["break_after"].(String)
 }

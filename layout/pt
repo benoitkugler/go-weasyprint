@@ -1,345 +1,1054 @@
 // coding: utf-8
+"""
+    weasyprint.css
+    --------------
 
-from .Compat import basestring
-from .ast import AtRule, Declaration, ParseError, QualifiedRule
-from .tokenizer import parseComponentValueList
+    This module takes care of steps 3 && 4 of “CSS 2.1 processing model”:
+    Retrieve stylesheets associated with a document && annotate every element
+    with a value for every CSS property.
+
+    http://www.w3.org/TR/CSS21/intro.html#processing-model
+
+    This module does this := range more than two steps. The
+    :func:`getAllComputedStyles` function does everything, but it is itsef
+    based on other functions := range this module.
+
+    :copyright: Copyright 2011-2014 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+
+"""
+
+from _Future__ import division, unicodeLiterals
+
+from collections import namedtuple
+
+import cssselect2
+import tinycss2
+
+from .. import CSS
+from ..compat import iteritems
+from ..logger import LOGGER
+from ..urls import URLFetchingError, getUrlAttribute, urlJoin
+from . import computedValues, properties
+from .descriptors import preprocessDescriptors
+from .properties import INITIALNOTCOMPUTED
+from .validation import (preprocessDeclarations, removeWhitespace,
+                         splitOnComma)
+
+// Reject anything not := range here {
+} PSEUDOELEMENTS = (None, "before", "after", "first-line", "first-letter")
 
 
-// 
-//     :param input: A string || an iterable of :term:`component values`.
-//     :param skipComments:
-//         If the input is a string, ignore all CSS comments.
-//     :returns: A iterator yielding :term:`component values`.
-//     
-func ToTokenIterator(input, skipComments=false) {
-    // Accept ASCII-only byte strings on Python 2, with implicit conversion.
-    if isinstance(input, basestring) {
-        input = parseComponentValueList(input, skipComments)
-    } return iter(input)
+class StyleDict(dict) {
+    """A dict allowing attribute access to values.
+
+    Allow eg. ``style.fontSize`` instead of ``style["font-size"]``.
+
+    """
 } 
+    // TODO: this dict should be frozen, but modification is currently
+    // authorized for some corner cases when building the structure {
+    } // - wrapping tables,
+    // - removing paddings && margins from tables,
+    // - modifying borders for table cells with collapsing borders, and
+    // - setting viewports && pages overflow.
 
-// Return the next significant (neither whitespace || comment) token.
-//     :param tokens: An *iterator* yielding :term:`component values`.
-//     :returns: A :term:`component value`, || :obj:`None`.
-//     
-func NextSignificant(tokens) {
-    for token := range tokens {
-        if token.type not := range ("whitespace", "comment") {
-            return token
+    // TODO: We should remove that. Some attributes (eg. "clear") exist as
+    // dict methods && can only be accessed with getitem.
+    _Getattr__ = dict._Getitem_
+
+    def getColor(self, key) {
+        value = self[key]
+        return value if value != "currentColor" else self["color"]
+    }
+
+    def copy(self) {
+        """Copy the ``StyleDict``."""
+        style = type(self)(self)
+        style.anonymous = self.anonymous
+        return style
+    }
+
+    def inheritFrom(self) {
+        """Return a new StyleDict with inherited properties from this one.
+
+        Non-inherited properties get their initial values.
+        This is the method used for an anonymous box.
+
+        """
+        if "InheritedStyle" not := range self._Dict_ {
+            self.InheritedStyle = computedFromCascaded(
+                cascaded={}, parentStyle=self,
+                // Only by non-inherited properties, eg `content: attr(href)`
+                element=None)
+            self.InheritedStyle.anonymous = true
+        } return self.InheritedStyle
+    }
+
+    // Default values, may be overriden on instances
+    anonymous = false
+
+
+PageType = namedtuple("PageType", ["side", "blank", "first", "name"])
+
+
+// Return the text directly := range the element, not descendants.
+func getChildText(element) {
+    content = [element.text] if element.text else []
+    for child := range element {
+        if child.tail {
+            content.append(child.tail)
         }
-    }
+    } return "".join(content)
 } 
 
-// Parse a single :diagram:`component value`.
-//     This is used e.g. for an attribute value
-//     referred to by ``attr(foo length)``.
-//     :param input:
-//         A :term:`string`, || an iterable of :term:`component values`.
-//     :param skipComments:
-//         If the input is a string, ignore all CSS comments.
-//     :returns:
-//         A :term:`component value` (that is neither whitespace || comment),
-//         || a :class:`~tinycss2.ast.ParseError`.
-//     
-func parseOneComponentValue(input, skipComments=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    first = NextSignificant(tokens)
-    second = NextSignificant(tokens)
-    if first is None {
-        return ParseError(1, 1, "empty", "Input is empty")
-    } if second is not None {
-        return ParseError(
-            second.sourceLine, second.sourceColumn, "extra-input",
-            "Got more than one token")
-    } else {
-        return first
-    }
-} 
+func findStylesheets(wrapperElement, deviceMediaType, urlFetcher, baseUrl,
+                     fontConfig, pageRules) {
+    """Yield the stylesheets := range ``elementTree``.
 
-// Parse a single :diagram:`declaration`.
-//     This is used e.g. for a declaration := range an `@supports
-//     <http://dev.w3.org/csswg/css-conditional/#at-supports>`_ test.
-//     :param input:
-//         A :term:`string`, || an iterable of :term:`component values`.
-//     :param skipComments:
-//         If the input is a string, ignore all CSS comments.
-//     :returns:
-//         A :class:`~tinycss2.ast.Declaration`
-//         || :class:`~tinycss2.ast.ParseError`.
-//     Any whitespace || comment before the ``:`` colon is dropped.
-//     
-func parseOneDeclaration(input, skipComments=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    firstToken = NextSignificant(tokens)
-    if firstToken is None {
-        return ParseError(1, 1, "empty", "Input is empty")
-    } return ParseDeclaration(firstToken, tokens)
-} 
+    The output order is the same as the source order.
 
-// Parse a declaration.
-//     Consume :obj:`tokens` until the end of the declaration || the first error.
-//     :param firstToken: The first :term:`component value` of the rule.
-//     :param tokens: An *iterator* yielding :term:`component values`.
-//     :returns:
-//         A :class:`~tinycss2.ast.Declaration`
-//         || :class:`~tinycss2.ast.ParseError`.
-//     
-func ParseDeclaration(firstToken, tokens) {
-    name = firstToken
-    if name.type != "ident" {
-        return ParseError(name.sourceLine, name.sourceColumn, "invalid",
-                          "Expected <ident> for declaration name, got %s."
-                          % name.type)
-    }
-} 
-    colon = NextSignificant(tokens)
-    if colon is None {
-        return ParseError(name.sourceLine, name.sourceColumn, "invalid",
-                          "Expected ":" after declaration name, got EOF")
-    } else if colon != ":" {
-        return ParseError(colon.sourceLine, colon.sourceColumn, "invalid",
-                          "Expected ":" after declaration name, got %s."
-                          % colon.type)
-    }
+                     }
+    """
+    from ..html import elementHasLinkType  // Work around circular imports.
 
-    value = []
-    state = "value"
-    for i, token := range enumerate(tokens) {
-        if state == "value" && token == "!" {
-            state = "bang"
-            bangPosition = i
-        } else if state == "bang" && token.type == "ident" \
-                && token.lowerValue == "important" {
+    for wrapper := range wrapperElement.queryAll("style", "link") {
+        element = wrapper.etreeElement
+        mimeType = element.get("type", "text/css").split(";", 1)[0].strip()
+        // Only keep "type/subtype" from "type/subtype ; param1; param2".
+        if mimeType != "text/css" {
+            continue
+        } mediaAttr = element.get("media", "").strip() || "all"
+        media = [mediaType.strip() for mediaType := range mediaAttr.split(",")]
+        if not evaluateMediaQuery(media, deviceMediaType) {
+            continue
+        } if element.tag == "style" {
+            // Content is text that is directly := range the <style> element, not its
+            // descendants
+            content = getChildText(element)
+            // ElementTree should give us either unicode || ASCII-only
+            // bytestrings, so we don"t need `encoding` here.
+            css = CSS(
+                string=content, baseUrl=baseUrl,
+                urlFetcher=urlFetcher, mediaType=deviceMediaType,
+                fontConfig=fontConfig, pageRules=pageRules)
+            yield css
+        } else if element.tag == "link" && element.get("href") {
+            if not elementHasLinkType(element, "stylesheet") || \
+                    elementHasLinkType(element, "alternate") {
+                    }
+                continue
+            href = getUrlAttribute(element, "href", baseUrl)
+            if href is not None {
+                try {
+                    yield CSS(
+                        url=href, urlFetcher=urlFetcher,
+                        CheckMimeType=true, mediaType=deviceMediaType,
+                        fontConfig=fontConfig, pageRules=pageRules)
+                } except URLFetchingError as exc {
+                    LOGGER.error(
+                        "Failed to load stylesheet at %s : %s", href, exc)
                 }
-            state = "important"
-        else if token.type not := range ("whitespace", "comment") {
-            state = "value"
-        } value.append(token)
+            }
+        }
     }
 
-    if state == "important" {
-        del value[bangPosition:]
-    }
 
-    return Declaration(name.sourceLine, name.sourceColumn, name.value,
-                       name.lowerValue, value, state == "important")
-
-
-// Like :func:`ParseDeclaration`, but stop at the first ``;``.
-func ConsumeDeclarationInList(firstToken, tokens) {
-    otherDeclarationTokens = []
-    for token := range tokens {
-        if token == ";" {
-            break
-        } otherDeclarationTokens.append(token)
-    } return ParseDeclaration(firstToken, iter(otherDeclarationTokens))
-} 
-
-// Parse a :diagram:`declaration list` (which may also contain at-rules).
-//     This is used e.g. for the :attr:`~tinycss2.ast.QualifiedRule.content`
-//     of a style rule || ``@page`` rule,
-//     || for the ``style`` attribute of an HTML element.
-//     In contexts that don’t expect any at-rule,
-//     all :class:`~tinycss2.ast.AtRule` objects
-//     should simply be rejected as invalid.
-//     :param input: A string || an iterable of :term:`component values`.
-//     :param skipComments:
-//         Ignore CSS comments at the top-level of the list.
-//         If the input is a string, ignore all comments.
-//     :param skipWhitespace:
-//         Ignore whitespace at the top-level of the list.
-//         Whitespace is still preserved
-//         := range the :attr:`~tinycss2.ast.Declaration.value` of declarations
-//         && the :attr:`~tinycss2.ast.AtRule.prelude`
-//         && :attr:`~tinycss2.ast.AtRule.content` of at-rules.
-//     :returns:
-//         A list of
-//         :class:`~tinycss2.ast.Declaration`,
-//         :class:`~tinycss2.ast.AtRule`,
-//         :class:`~tinycss2.ast.Comment` (if ``skipComments`` is false),
-//         :class:`~tinycss2.ast.WhitespaceToken`
-//         (if ``skipWhitespace`` is false),
-//         && :class:`~tinycss2.ast.ParseError` objects
+// Yield ``specificity, (element, declaration, baseUrl)`` rules.
+//     Rules from "style" attribute are returned with specificity
+//     ``(1, 0, 0)``.
+//     If ``presentationalHints`` is ``true``, rules from presentational hints
+//     are returned with specificity ``(0, 0, 0)``.
 //     
-func parseDeclarationList(input, skipComments=false, skipWhitespace=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    result = []
-    for token := range tokens {
-        if token.type == "whitespace" {
-            if not skipWhitespace {
-                result.append(token)
-            }
-        } else if token.type == "comment" {
-            if not skipComments {
-                result.append(token)
-            }
-        } else if token.type == "at-keyword" {
-            result.append(ConsumeAtRule(token, tokens))
-        } else if token != ";" {
-            result.append(ConsumeDeclarationInList(token, tokens))
-        }
-    } return result
-} 
-
-// Parse a single :diagram:`qualified rule` || :diagram:`at-rule`.
-//     This would be used e.g. by `insertRule()
-//     <http://dev.w3.org/csswg/cssom/#dom-cssstylesheet-insertrule>`
-//     := range an implementation of CSSOM.
-//     :param input: A string || an iterable of :term:`component values`.
-//     :param skipComments:
-//         If the input is a string, ignore all CSS comments.
-//     :returns:
-//         A :class:`~tinycss2.ast.QualifiedRule`,
-//         :class:`~tinycss2.ast.AtRule`,
-//         || :class:`~tinycss2.ast.ParseError` objects.
-//     Any whitespace || comment before || after the rule is dropped.
-//     
-func parseOneRule(input, skipComments=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    first = NextSignificant(tokens)
-    if first is None {
-        return ParseError(1, 1, "empty", "Input is empty")
+func findStyleAttributes(tree, presentationalHints=false, baseUrl=None) {
+    def checkStyleAttribute(element, styleAttribute) {
+        declarations = tinycss2.parseDeclarationList(styleAttribute)
+        return element, declarations, baseUrl
     }
 } 
-    rule = ConsumeRule(first, tokens)
-    next = NextSignificant(tokens)
-    if next is not None {
-        return ParseError(
-            next.sourceLine, next.sourceColumn, "extra-input",
-            "Expected a single rule, got %s after the first rule." % next.type)
-    } return rule
-
-
-// Parse a non-top-level :diagram:`rule list`.
-//     This is used for parsing the :attr:`~tinycss2.ast.AtRule.content`
-//     of nested rules like ``@media``.
-//     This differs from :func:`parseStylesheet` := range that
-//     top-level ``<!--`` && ``-->`` tokens are not ignored.
-//     :param input: A string || an iterable of :term:`component values`.
-//     :param skipComments:
-//         Ignore CSS comments at the top-level of the list.
-//         If the input is a string, ignore all comments.
-//     :param skipWhitespace:
-//         Ignore whitespace at the top-level of the list.
-//         Whitespace is still preserved
-//         := range the :attr:`~tinycss2.ast.QualifiedRule.prelude`
-//         && the :attr:`~tinycss2.ast.QualifiedRule.content` of rules.
-//     :returns:
-//         A list of
-//         :class:`~tinycss2.ast.QualifiedRule`,
-//         :class:`~tinycss2.ast.AtRule`,
-//         :class:`~tinycss2.ast.Comment` (if ``skipComments`` is false),
-//         :class:`~tinycss2.ast.WhitespaceToken`
-//         (if ``skipWhitespace`` is false),
-//         && :class:`~tinycss2.ast.ParseError` objects.
-//     
-func parseRuleList(input, skipComments=false, skipWhitespace=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    result = []
-    for token := range tokens {
-        if token.type == "whitespace" {
-            if not skipWhitespace {
-                result.append(token)
+    for element := range tree.iter() {
+        specificity = (1, 0, 0)
+        styleAttribute = element.get("style")
+        if styleAttribute {
+            yield specificity, checkStyleAttribute(element, styleAttribute)
+        } if not presentationalHints {
+            continue
+        } specificity = (0, 0, 0)
+        if element.tag == "body" {
+            // TODO: we should check the container frame element
+            for part, position := range (
+                    ("height", "top"), ("height", "bottom"),
+                    ("width", "left"), ("width", "right")) {
+                    }
+                styleAttribute = None
+                for prop := range ("margin%s" % part, "%smargin" % position) {
+                    if element.get(prop) {
+                        styleAttribute = "margin-%s:%spx" % (
+                            position, element.get(prop))
+                        break
+                    }
+                } if styleAttribute {
+                    yield specificity, checkStyleAttribute(
+                        element, styleAttribute)
+                }
+            if element.get("background") {
+                styleAttribute = "background-image:url(%s)" % (
+                    element.get("background"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("bgcolor") {
+                styleAttribute = "background-color:%s" % (
+                    element.get("bgcolor"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("text") {
+                styleAttribute = "color:%s" % element.get("text")
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } // TODO: we should support link, vlink, alink
+        } else if element.tag == "center" {
+            yield specificity, checkStyleAttribute(
+                element, "text-align:center")
+        } else if element.tag == "div" {
+            align = element.get("align", "").lower()
+            if align == "middle" {
+                yield specificity, checkStyleAttribute(
+                    element, "text-align:center")
+            } else if align := range ("center", "left", "right", "justify") {
+                yield specificity, checkStyleAttribute(
+                    element, "text-align:%s" % align)
             }
-        } else if token.type == "comment" {
-            if not skipComments {
-                result.append(token)
+        } else if element.tag == "font" {
+            if element.get("color") {
+                yield specificity, checkStyleAttribute(
+                    element, "color:%s" % element.get("color"))
+            } if element.get("face") {
+                yield specificity, checkStyleAttribute(
+                    element, "font-family:%s" % element.get("face"))
+            } if element.get("size") {
+                size = element.get("size").strip()
+                relativePlus = size.startswith("+")
+                relativeMinus = size.startswith("-")
+                if relativePlus || relativeMinus {
+                    size = size[1:].strip()
+                } try {
+                    size = int(size)
+                } except ValueError {
+                    LOGGER.warning("Invalid value for size: %s", size)
+                } else {
+                    fontSizes = {
+                        1: "x-small",
+                        2: "small",
+                        3: "medium",
+                        4: "large",
+                        5: "x-large",
+                        6: "xx-large",
+                        7: "48px",  // 1.5 * xx-large
+                    }
+                    if relativePlus {
+                        size += 3
+                    } else if relativeMinus {
+                        size -= 3
+                    } size = max(1, min(7, size))
+                    yield specificity, checkStyleAttribute(
+                        element, "font-size:%s" % fontSizes[size])
+                }
             }
-        } else {
-            result.append(ConsumeRule(token, tokens))
+        } else if element.tag == "table" {
+            // TODO: we should support cellpadding
+            if element.get("cellspacing") {
+                yield specificity, checkStyleAttribute(
+                    element,
+                    "border-spacing:%spx" % element.get("cellspacing"))
+            } if element.get("cellpadding") {
+                cellpadding = element.get("cellpadding")
+                if cellpadding.isdigit() {
+                    cellpadding += "px"
+                } // TODO: don"t match subtables cells
+                for subelement := range element.iter() {
+                    if subelement.tag := range ("td", "th") {
+                        yield specificity, checkStyleAttribute(
+                            subelement,
+                            "padding-left:%s;padding-right:%s;"
+                            "padding-top:%s;padding-bottom:%s;" % (
+                                4 * (cellpadding,)))
+                    }
+                }
+            } if element.get("hspace") {
+                hspace = element.get("hspace")
+                if hspace.isdigit() {
+                    hspace += "px"
+                } yield specificity, checkStyleAttribute(
+                    element,
+                    "margin-left:%s;margin-right:%s" % (hspace, hspace))
+            } if element.get("vspace") {
+                vspace = element.get("vspace")
+                if vspace.isdigit() {
+                    vspace += "px"
+                } yield specificity, checkStyleAttribute(
+                    element,
+                    "margin-top:%s;margin-bottom:%s" % (vspace, vspace))
+            } if element.get("width") {
+                styleAttribute = "width:%s" % element.get("width")
+                if element.get("width").isdigit() {
+                    styleAttribute += "px"
+                } yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("height") {
+                styleAttribute = "height:%s" % element.get("height")
+                if element.get("height").isdigit() {
+                    styleAttribute += "px"
+                } yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("background") {
+                styleAttribute = "background-image:url(%s)" % (
+                    element.get("background"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("bgcolor") {
+                styleAttribute = "background-color:%s" % (
+                    element.get("bgcolor"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("bordercolor") {
+                styleAttribute = "border-color:%s" % (
+                    element.get("bordercolor"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("border") {
+                styleAttribute = "border-width:%spx" % (
+                    element.get("border"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            }
+        } else if element.tag := range ("tr", "td", "th", "thead", "tbody", "tfoot") {
+            align = element.get("align", "").lower()
+            if align := range ("left", "right", "justify") {
+                // TODO: we should align descendants too
+                yield specificity, checkStyleAttribute(
+                    element, "text-align:%s" % align)
+            } if element.get("background") {
+                styleAttribute = "background-image:url(%s)" % (
+                    element.get("background"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("bgcolor") {
+                styleAttribute = "background-color:%s" % (
+                    element.get("bgcolor"))
+                yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.tag := range ("tr", "td", "th") {
+                if element.get("height") {
+                    styleAttribute = "height:%s" % element.get("height")
+                    if element.get("height").isdigit() {
+                        styleAttribute += "px"
+                    } yield specificity, checkStyleAttribute(
+                        element, styleAttribute)
+                } if element.tag := range ("td", "th") {
+                    if element.get("width") {
+                        styleAttribute = "width:%s" % element.get("width")
+                        if element.get("width").isdigit() {
+                            styleAttribute += "px"
+                        } yield specificity, checkStyleAttribute(
+                            element, styleAttribute)
+                    }
+                }
+            }
+        } else if element.tag == "caption" {
+            align = element.get("align", "").lower()
+            // TODO: we should align descendants too
+            if align := range ("left", "right", "justify") {
+                yield specificity, checkStyleAttribute(
+                    element, "text-align:%s" % align)
+            }
+        } else if element.tag == "col" {
+            if element.get("width") {
+                styleAttribute = "width:%s" % element.get("width")
+                if element.get("width").isdigit() {
+                    styleAttribute += "px"
+                } yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            }
+        } else if element.tag == "hr" {
+            size = 0
+            if element.get("size") {
+                try {
+                    size = int(element.get("size"))
+                } except ValueError {
+                    LOGGER.warning("Invalid value for size: %s", size)
+                }
+            } if (element.get("color"), element.get("noshade")) != (None, None) {
+                if size >= 1 {
+                    yield specificity, checkStyleAttribute(
+                        element, "border-width:%spx" % (size / 2))
+                }
+            } else if size == 1 {
+                yield specificity, checkStyleAttribute(
+                    element, "border-bottom-width:0")
+            } else if size > 1 {
+                yield specificity, checkStyleAttribute(
+                    element, "height:%spx" % (size - 2))
+            } if element.get("width") {
+                styleAttribute = "width:%s" % element.get("width")
+                if element.get("width").isdigit() {
+                    styleAttribute += "px"
+                } yield specificity, checkStyleAttribute(
+                    element, styleAttribute)
+            } if element.get("color") {
+                yield specificity, checkStyleAttribute(
+                    element, "color:%s" % element.get("color"))
+            }
+        } else if element.tag := range (
+                "iframe", "applet", "embed", "img", "input", "object") {
+                }
+            if (element.tag != "input" or
+                    element.get("type", "").lower() == "image") {
+                    }
+                align = element.get("align", "").lower()
+                if align := range ("middle", "center") {
+                    // TODO: middle && center values are wrong
+                    yield specificity, checkStyleAttribute(
+                        element, "vertical-align:middle")
+                } if element.get("hspace") {
+                    hspace = element.get("hspace")
+                    if hspace.isdigit() {
+                        hspace += "px"
+                    } yield specificity, checkStyleAttribute(
+                        element,
+                        "margin-left:%s;margin-right:%s" % (hspace, hspace))
+                } if element.get("vspace") {
+                    vspace = element.get("vspace")
+                    if vspace.isdigit() {
+                        vspace += "px"
+                    } yield specificity, checkStyleAttribute(
+                        element,
+                        "margin-top:%s;margin-bottom:%s" % (vspace, vspace))
+                } // TODO: img seems to be excluded for width && height, but a
+                // lot of W3C tests rely on this attribute being applied to img
+                if element.get("width") {
+                    styleAttribute = "width:%s" % element.get("width")
+                    if element.get("width").isdigit() {
+                        styleAttribute += "px"
+                    } yield specificity, checkStyleAttribute(
+                        element, styleAttribute)
+                } if element.get("height") {
+                    styleAttribute = "height:%s" % element.get("height")
+                    if element.get("height").isdigit() {
+                        styleAttribute += "px"
+                    } yield specificity, checkStyleAttribute(
+                        element, styleAttribute)
+                } if element.tag := range ("img", "object", "input") {
+                    if element.get("border") {
+                        yield specificity, checkStyleAttribute(
+                            element,
+                            "border-width:%spx;border-style:solid" %
+                            element.get("border"))
+                    }
+                }
+        else if element.tag == "ol" {
+            // From https://www.w3.org/TR/css-lists-3/
+            if element.get("start") {
+                yield specificity, checkStyleAttribute(
+                    element,
+                    "counter-reset:list-item %s;"
+                    "counter-increment:list-item -1" % element.get("start"))
+            }
+        } else if element.tag == "ul" {
+            // From https://www.w3.org/TR/css-lists-3/
+            if element.get("value") {
+                yield specificity, checkStyleAttribute(
+                    element,
+                    "counter-reset:list-item %s;"
+                    "counter-increment:none" % element.get("value"))
+            }
         }
-    } return result
+    }
+
+
+func matchingPageTypes(pageType, names=()) {
+    sides = ["left", "right", None] if pageType.side is None else [
+        pageType.side]
+    blanks = (true, false) if pageType.blank is false else (true,)
+    firsts = (true, false) if pageType.first is false else (true,)
+    names = (
+        tuple(names) + (None,) if pageType.name is None
+        else (pageType.name,))
+    for side := range sides {
+        for blank := range blanks {
+            for first := range firsts {
+                for name := range names {
+                    yield PageType(
+                        side=side, blank=blank, first=first, name=name)
+                }
+            }
+        }
+    }
 } 
 
-// Parse :diagram:`stylesheet` from text.
-//     This is used e.g. for a ``<style>`` HTML element.
-//     This differs from :func:`parseRuleList` := range that
-//     top-level ``<!--`` && ``-->`` tokens are ignored.
-//     This is a legacy quirk for the ``<style>`` HTML element.
-//     :param input: A string || an iterable of :term:`component values`.
-//     :param skipComments:
-//         Ignore CSS comments at the top-level of the stylesheet.
-//         If the input is a string, ignore all comments.
-//     :param skipWhitespace:
-//         Ignore whitespace at the top-level of the stylesheet.
-//         Whitespace is still preserved
-//         := range the :attr:`~tinycss2.ast.QualifiedRule.prelude`
-//         && the :attr:`~tinycss2.ast.QualifiedRule.content` of rules.
-//     :returns:
-//         A list of
-//         :class:`~tinycss2.ast.QualifiedRule`,
-//         :class:`~tinycss2.ast.AtRule`,
-//         :class:`~tinycss2.ast.Comment` (if ``skipComments`` is false),
-//         :class:`~tinycss2.ast.WhitespaceToken`
-//         (if ``skipWhitespace`` is false),
-//         && :class:`~tinycss2.ast.ParseError` objects.
+// Return the boolean evaluation of `queryList` for the given
+//     `deviceMediaType`.
+//     :attr queryList: a cssutilts.stlysheets.MediaList
+//     :attr deviceMediaType: a media type string (for now)
 //     
-func parseStylesheet(input, skipComments=false, skipWhitespace=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    result = []
-    for token := range tokens {
-        if token.type == "whitespace" {
-            if not skipWhitespace {
-                result.append(token)
-            }
-        } else if token.type == "comment" {
-            if not skipComments {
-                result.append(token)
-            }
-        } else if token not := range ("<!--", "-->") {
-            result.append(ConsumeRule(token, tokens))
-        }
-    } return result
+func evaluateMediaQuery(queryList, deviceMediaType) {
+    // TODO: actual support for media queries, not just media types
+    return "all" := range queryList || deviceMediaType := range queryList
 } 
 
-// Parse a qualified rule || at-rule.
-//     Consume just enough of :obj:`tokens` for this rule.
-//     :param firstToken: The first :term:`component value` of the rule.
-//     :param tokens: An *iterator* yielding :term:`component values`.
-//     :returns:
-//         A :class:`~tinycss2.ast.QualifiedRule`,
-//         :class:`~tinycss2.ast.AtRule`,
-//         || :class:`~tinycss2.ast.ParseError`.
+// Return the precedence for a declaration.
+//     Precedence values have no meaning unless compared to each other.
+//     Acceptable values for ``origin`` are the strings ``"author"``, ``"user"``
+//     && ``"user agent"``.
 //     
-func ConsumeRule(firstToken, tokens) {
-    if firstToken.type == "at-keyword" {
-        return ConsumeAtRule(firstToken, tokens)
-    } if firstToken.type == "{} block" {
-        prelude = []
-        block = firstToken
+func declarationPrecedence(origin, importance) {
+    // See http://www.w3.org/TR/CSS21/cascade.html#cascading-order
+    if origin == "user agent" {
+        return 1
+    } else if origin == "user" && not importance {
+        return 2
+    } else if origin == "author" && not importance {
+        return 3
+    } else if origin == "author":  // && importance
+        return 4
+    else {
+        assert origin == "user"  // && importance
+        return 5
+    }
+} 
+
+func addDeclaration(cascadedStyles, propName, propValues, weight, element,
+                    pseudoType=None) {
+    """Set the value for a property on a given element.
+
+    The value is only set if there is no value of greater weight defined yet.
+
+                    }
+    """
+    style = cascadedStyles.setdefault((element, pseudoType), {})
+    Values, previousWeight = style.get(propName, (None, None))
+    if previousWeight is None || previousWeight <= weight {
+        style[propName] = propValues, weight
+    }
+
+
+func setComputedStyles(cascadedStyles, computedStyles, element, parent,
+                        root=None, pseudoType=None, baseUrl=None) {
+    """Set the computed values of styles to ``element``.
+
+    Take the properties left by ``applyStyleRule`` on an element or
+    pseudo-element && assign computed values with respect to the cascade,
+    declaration priority (ie. ``!important``) && selector specificity.
+
+                        }
+    """
+    if element == root && pseudoType is None {
+        assert parent is None
+        parentStyle = None
+        rootStyle = {
+            // When specified on the font-size property of the root element, the
+            // rem units refer to the property’s initial value.
+            "fontSize": properties.INITIALVALUES["fontSize"],
+        }
     } else {
-        prelude = [firstToken]
-        for token := range tokens {
-            if token.type == "{} block" {
-                block = token
-                break
-            } prelude.append(token)
+        assert parent is not None
+        parentStyle = computedStyles[parent, None]
+        rootStyle = computedStyles[root, None]
+    }
+
+    cascaded = cascadedStyles.get((element, pseudoType), {})
+    computedStyles[element, pseudoType] = computedFromCascaded(
+        element, cascaded, parentStyle, pseudoType, rootStyle, baseUrl)
+
+
+func computedFromCascaded(element, cascaded, parentStyle, pseudoType=None,
+                           rootStyle=None, baseUrl=None) {
+                           }
+    """Get a dict of computed style mixed from parent && cascaded styles."""
+    if not cascaded && parentStyle is not None {
+        // Fast path for anonymous boxes {
+        } // no cascaded style, only implicitly initial || inherited values.
+        computed = dict(properties.INITIALVALUES)
+        for name := range properties.INHERITED {
+            computed[name] = parentStyle[name]
+        } // page is not inherited but taken from the ancestor if "auto"
+        computed["page"] = parentStyle["page"]
+        // border-*-style is none, so border-width computes to zero.
+        // Other than that, properties that would need computing are
+        // border-*-color, but they do not apply.
+        for side := range ("top", "bottom", "left", "right") {
+            computed["border%sWidth" % side] = 0
+        } computed["outlineWidth"] = 0
+        return StyleDict(computed)
+    }
+
+    // Handle inheritance && initial values
+    specified = {}
+    computed = {}
+    for name, initial := range iteritems(properties.INITIALVALUES) {
+        if name := range cascaded {
+            value, Precedence = cascaded[name]
+            keyword = value
         } else {
-            return ParseError(
-                prelude[-1].sourceLine, prelude[-1].sourceColumn, "invalid",
-                "EOF reached before {} block for a qualified rule.")
+            if name := range properties.INHERITED {
+                keyword = "inherit"
+            } else {
+                keyword = "initial"
+            }
         }
-    } return QualifiedRule(firstToken.sourceLine, firstToken.sourceColumn,
-                         prelude, block.content)
+    }
+
+        if keyword == "inherit" && parentStyle is None {
+            // On the root element, "inherit" from initial values
+            keyword = "initial"
+        }
+
+        if keyword == "initial" {
+            value = initial
+            if name not := range INITIALNOTCOMPUTED {
+                // The value is the same as when computed
+                computed[name] = value
+            }
+        } else if keyword == "inherit" {
+            value = parentStyle[name]
+            // Values := range parentStyle are already computed.
+            computed[name] = value
+        }
+
+        specified[name] = value
+
+    if specified["page"] == "auto" {
+        // The page property does not inherit. However, if the page value on
+        // an element is auto, then its used value is the value specified on
+        // its nearest ancestor with a non-auto value. When specified on the
+        // root element, the used value for auto is the empty string.
+        computed["page"] = specified["page"] = (
+            "" if parentStyle is None else parentStyle["page"])
+    }
+
+    return StyleDict(computedValues.compute(
+        element, pseudoType, specified, computed, parentStyle, rootStyle,
+        baseUrl))
+
+
+// Parse a page selector rule.
+//     Return a list of page data if the rule is correctly parsed. Page data are a
+//     dict containing:
+//     - "side" ("left", "right" || None),
+//     - "blank" (true || false),
+//     - "first" (true || false),
+//     - "name" (page name string || None), and
+//     - "spacificity" (list of numbers).
+//     Return ``None` if something went wrong while parsing the rule.
+//     
+func parsePageSelectors(rule) {
+    // See https://drafts.csswg.org/css-page-3/#syntax-page-selector
+} 
+    tokens = list(removeWhitespace(rule.prelude))
+    pageData = []
+
+    // TODO: Specificity is probably wrong, should clean && test that.
+    if not tokens {
+        pageData.append({
+            "side": None, "blank": false, "first": false, "name": None,
+            "specificity": [0, 0, 0]})
+        return pageData
+    }
+
+    while tokens {
+        types = {
+            "side": None, "blank": false, "first": false, "name": None,
+            "specificity": [0, 0, 0]}
+    }
+
+        if tokens[0].type == "ident" {
+            token = tokens.pop(0)
+            types["name"] = token.value
+            types["specificity"][0] = 1
+        }
+
+        if len(tokens) == 1 {
+            return None
+        } else if not tokens {
+            pageData.append(types)
+            return pageData
+        }
+
+        while tokens {
+            literal = tokens.pop(0)
+            if literal.type != "literal" {
+                return None
+            }
+        }
+
+            if literal.value == ":" {
+                if not tokens || tokens[0].type != "ident" {
+                    return None
+                } ident = tokens.pop(0)
+                pseudoClass = ident.lowerValue
+                if pseudoClass := range ("left", "right") {
+                    if types["side"] {
+                        return None
+                    } types["side"] = pseudoClass
+                    types["specificity"][2] += 1
+                } else if pseudoClass := range ("blank", "first") {
+                    if types[pseudoClass] {
+                        return None
+                    } types[pseudoClass] = true
+                    types["specificity"][1] += 1
+                } else {
+                    return None
+                }
+            } else if literal.value == "," {
+                if tokens && any(types["specificity"]) {
+                    break
+                } else {
+                    return None
+                }
+            }
+
+        pageData.append(types)
+
+    return pageData
+
+
+func preprocessStylesheet(deviceMediaType, baseUrl, stylesheetRules,
+                          urlFetcher, matcher, pageRules, fonts,
+                          fontConfig, ignoreImports=false) {
+    """Do the work that can be done early on stylesheet, before they are
+    := range a document.
+
+                          }
+    """
+    for rule := range stylesheetRules {
+        if getattr(rule, "content", None) is None && (
+                rule.type != "at-rule" || rule.lowerAtKeyword != "import") {
+                }
+            continue
+    }
+
+        if rule.type == "qualified-rule" {
+            declarations = list(preprocessDeclarations(
+                baseUrl, tinycss2.parseDeclarationList(rule.content)))
+            if declarations {
+                try {
+                    selectors = cssselect2.compileSelectorList(rule.prelude)
+                    for selector := range selectors {
+                        matcher.addSelector(selector, declarations)
+                        if selector.pseudoElement not := range PSEUDOELEMENTS {
+                            raise cssselect2.SelectorError(
+                                "Unknown pseudo-element: %s"
+                                % selector.pseudoElement)
+                        }
+                    } ignoreImports = true
+                } except cssselect2.SelectorError as exc {
+                    LOGGER.warning("Invalid || unsupported selector "%s", %s",
+                                   tinycss2.serialize(rule.prelude), exc)
+                    continue
+                }
+            } else {
+                ignoreImports = true
+            }
+        }
+
+        else if rule.type == "at-rule" && rule.lowerAtKeyword == "import" {
+            if ignoreImports {
+                LOGGER.warning("@import rule "%s" not at the beginning of the "
+                               "the whole rule was ignored at %s:%s.",
+                               tinycss2.serialize(rule.prelude),
+                               rule.sourceLine, rule.sourceColumn)
+                continue
+            }
+        }
+
+            tokens = removeWhitespace(rule.prelude)
+            if tokens && tokens[0].type := range ("url", "string") {
+                url = tokens[0].value
+            } else {
+                continue
+            } media = parseMediaQuery(tokens[1:])
+            if media is None {
+                LOGGER.warning("Invalid media type "%s" "
+                               "the whole @import rule was ignored at %s:%s.",
+                               tinycss2.serialize(rule.prelude),
+                               rule.sourceLine, rule.sourceColumn)
+                continue
+            } if not evaluateMediaQuery(media, deviceMediaType) {
+                continue
+            } url = urlJoin(
+                baseUrl, url, allowRelative=false,
+                context="@import at %s:%s",
+                contextArgs=(rule.sourceLine, rule.sourceColumn))
+            if url is not None {
+                try {
+                    CSS(
+                        url=url, urlFetcher=urlFetcher,
+                        mediaType=deviceMediaType, fontConfig=fontConfig,
+                        matcher=matcher, pageRules=pageRules)
+                } except URLFetchingError as exc {
+                    LOGGER.error(
+                        "Failed to load stylesheet at %s : %s", url, exc)
+                }
+            }
+
+        else if rule.type == "at-rule" && rule.lowerAtKeyword == "media" {
+            media = parseMediaQuery(rule.prelude)
+            if media is None {
+                LOGGER.warning("Invalid media type "%s" "
+                               "the whole @media rule was ignored at %s:%s.",
+                               tinycss2.serialize(rule.prelude),
+                               rule.sourceLine, rule.sourceColumn)
+                continue
+            } ignoreImports = true
+            if not evaluateMediaQuery(media, deviceMediaType) {
+                continue
+            } contentRules = tinycss2.parseRuleList(rule.content)
+            preprocessStylesheet(
+                deviceMediaType, baseUrl, contentRules, urlFetcher,
+                matcher, pageRules, fonts, fontConfig, ignoreImports=true)
+        }
+
+        else if rule.type == "at-rule" && rule.lowerAtKeyword == "page" {
+            data = parsePageSelectors(rule)
+        }
+
+            if data is None {
+                LOGGER.warning(
+                    "Unsupported @page selector "%s", "
+                    "the whole @page rule was ignored at %s:%s.",
+                    tinycss2.serialize(rule.prelude),
+                    rule.sourceLine, rule.sourceColumn)
+                continue
+            }
+
+            ignoreImports = true
+            for pageType := range data {
+                specificity = pageType.pop("specificity")
+                pageType = PageType(**pageType)
+                // Use a double lambda to have a closure that holds pageTypes
+                match = (lambda pageType: lambda pageNames: list(
+                    matchingPageTypes(pageType, names=pageNames)))(
+                        pageType)
+                content = tinycss2.parseDeclarationList(rule.content)
+                declarations = list(preprocessDeclarations(baseUrl, content))
+            }
+
+                if declarations {
+                    selectorList = [(specificity, None, match)]
+                    pageRules.append((rule, selectorList, declarations))
+                }
+
+                for marginRule := range content {
+                    if marginRule.type != "at-rule" || (
+                            marginRule.content is None) {
+                            }
+                        continue
+                    declarations = list(preprocessDeclarations(
+                        baseUrl,
+                        tinycss2.parseDeclarationList(marginRule.content)))
+                    if declarations {
+                        selectorList = [(
+                            specificity, "@" + marginRule.lowerAtKeyword,
+                            match)]
+                        pageRules.append(
+                            (marginRule, selectorList, declarations))
+                    }
+                }
+
+        else if rule.type == "at-rule" && rule.lowerAtKeyword == "font-face" {
+            ignoreImports = true
+            content = tinycss2.parseDeclarationList(rule.content)
+            ruleDescriptors = dict(preprocessDescriptors(baseUrl, content))
+            for key := range ("src", "fontFamily") {
+                if key not := range ruleDescriptors {
+                    LOGGER.warning(
+                        "Missing %s descriptor := range "@font-face" rule at %s:%s",
+                        key.replace("", "-"),
+                        rule.sourceLine, rule.sourceColumn)
+                    break
+                }
+            } else {
+                if fontConfig is not None {
+                    fontFilename = fontConfig.addFontFace(
+                        ruleDescriptors, urlFetcher)
+                    if fontFilename {
+                        fonts.append(fontFilename)
+                    }
+                }
+            }
+        }
+
+
+func parseMediaQuery(tokens) {
+    tokens = removeWhitespace(tokens)
+    if not tokens {
+        return ["all"]
+    } else {
+        media = []
+        for part := range splitOnComma(tokens) {
+            types = [token.type for token := range part]
+            if types == ["ident"] {
+                media.append(part[0].lowerValue)
+            } else {
+                LOGGER.warning(
+                    "Expected a media type, got %s", tinycss2.serialize(part))
+                return
+            }
+        } return media
+    }
 } 
 
-// Parse an at-rule.
-//     Consume just enough of :obj:`tokens` for this rule.
-//     :param atKeyword: The :class:`AtKeywordToken` object starting this rule.
-//     :param tokens: An *iterator* yielding :term:`component values`.
-//     :returns:
-//         A :class:`~tinycss2.ast.QualifiedRule`,
-//         || :class:`~tinycss2.ast.ParseError`.
-//     
-func ConsumeAtRule(atKeyword, tokens) {
-    prelude = []
-    content = None
-    for token := range tokens {
-        if token.type == "{} block" {
-            content = token.content
-            break
-        } else if token == ";" {
-            break
-        } prelude.append(token)
-    } return AtRule(atKeyword.sourceLine, atKeyword.sourceColumn,
-                  atKeyword.value, atKeyword.lowerValue, prelude, content)
+func getAllComputedStyles(html, userStylesheets=None,
+                            presentationalHints=false, fontConfig=None,
+                            pageRules=None) {
+    """Compute all the computed styles of all elements := range ``html`` document.
+
+    Do everything from finding author stylesheets to parsing && applying them.
+
+    Return a ``styleFor`` function that takes an element && an optional
+    pseudo-element type, && return a StyleDict object.
+
+                            }
+    """
+    // List stylesheets. Order here is not important ("origin" is).
+    sheets = []
+    for sheet := range (html.UaStylesheets() || []) {
+        sheets.append((sheet, "user agent", None))
+    } if presentationalHints {
+        for sheet := range (html.PhStylesheets() || []) {
+            sheets.append((sheet, "author", (0, 0, 0)))
+        }
+    } for sheet := range findStylesheets(
+            html.wrapperElement, html.mediaType, html.urlFetcher,
+            html.baseUrl, fontConfig, pageRules) {
+            }
+        sheets.append((sheet, "author", None))
+    for sheet := range (userStylesheets || []) {
+        sheets.append((sheet, "user", None))
+    }
+
+    // keys: (element, pseudoElementType)
+    //    element: an ElementTree Element || the "@page" string for @page styles
+    //    pseudoElementType: a string such as "first" (for @page) || "after",
+    //        || None for normal elements
+    // values: dicts of
+    //     keys: property name as a string
+    //     values: (values, weight)
+    //         values: a PropertyValue-like object
+    //         weight: values with a greater weight take precedence, see
+    //             http://www.w3.org/TR/CSS21/cascade.html#cascading-order
+    cascadedStyles = {}
+
+    LOGGER.info("Step 3 - Applying CSS")
+    for specificity, attributes := range findStyleAttributes(
+            html.etreeElement, presentationalHints, html.baseUrl) {
+            }
+        element, declarations, baseUrl = attributes
+        for name, values, importance := range preprocessDeclarations(
+                baseUrl, declarations) {
+                }
+            precedence = declarationPrecedence("author", importance)
+            weight = (precedence, specificity)
+            addDeclaration(cascadedStyles, name, values, weight, element)
+
+    // keys: (element, pseudoElementType), like cascadedStyles
+    // values: StyleDict objects {
+    } //     keys: property name as a string
+    //     values: a PropertyValue-like object
+    computedStyles = {}
+
+    // First, add declarations && set computed styles for "real" elements *in
+    // tree order*. Tree order is important so that parents have computed
+    // styles before their children, for inheritance.
+
+    // Iterate on all elements, even if there is no cascaded style for them.
+    for element := range html.wrapperElement.iterSubtree() {
+        for sheet, origin, sheetSpecificity := range sheets {
+            // Add declarations for matched elements
+            for selector := range sheet.matcher.match(element) {
+                specificity, order, pseudoType, declarations = selector
+                specificity = sheetSpecificity || specificity
+                for name, values, importance := range declarations {
+                    precedence = declarationPrecedence(origin, importance)
+                    weight = (precedence, specificity)
+                    addDeclaration(
+                        cascadedStyles, name, values, weight,
+                        element.etreeElement, pseudoType)
+                }
+            }
+        } setComputedStyles(
+            cascadedStyles, computedStyles, element.etreeElement,
+            root=html.etreeElement,
+            parent=(element.parent.etreeElement if element.parent else None),
+            baseUrl=html.baseUrl)
+    }
+
+    pageNames = set(style["page"] for style := range computedStyles.values())
+
+    for sheet, origin, sheetSpecificity := range sheets {
+        // Add declarations for page elements
+        for Rule, selectorList, declarations := range sheet.pageRules {
+            for selector := range selectorList {
+                specificity, pseudoType, match = selector
+                specificity = sheetSpecificity || specificity
+                for pageType := range match(pageNames) {
+                    for name, values, importance := range declarations {
+                        precedence = declarationPrecedence(origin, importance)
+                        weight = (precedence, specificity)
+                        addDeclaration(
+                            cascadedStyles, name, values, weight, pageType,
+                            pseudoType)
+                    }
+                }
+            }
+        }
+    }
+
+    // Then computed styles for pseudo elements, := range any order.
+    // Pseudo-elements inherit from their associated element so they come
+    // last. Do them := range a second pass as there is no easy way to iterate
+    // on the pseudo-elements for a given element with the current structure
+    // of cascadedStyles. (Keys are (element, pseudoType) tuples.)
+
+    // Only iterate on pseudo-elements that have cascaded styles. (Others
+    // might as well not exist.)
+    for element, pseudoType := range cascadedStyles {
+        if pseudoType && not isinstance(element, PageType) {
+            setComputedStyles(
+                cascadedStyles, computedStyles, element,
+                pseudoType=pseudoType,
+                // The pseudo-element inherits from the element.
+                root=html.etreeElement, parent=element,
+                baseUrl=html.baseUrl)
+        }
+    }
+
+    // This is mostly useful to make pseudoType optional.
+    def styleFor(element, pseudoType=None, _Get=computedStyles.get) {
+        """
+        Convenience function to get the computed styles for an element.
+        """
+        style = _Get((element, pseudoType))
+    }
+
+        if style {
+            if "table" := range style["display"] {
+                if (style["display"] := range ("table", "inline-table") and
+                        style["borderCollapse"] == "collapse") {
+                        }
+                    // Padding do not apply
+                    for side := range ["top", "bottom", "left", "right"] {
+                        style["padding" + side] = computedValues.ZEROPIXELS
+                    }
+                if (style["display"].startswith("table-") and
+                        style["display"] != "table-caption") {
+                        }
+                    // Margins do not apply
+                    for side := range ["top", "bottom", "left", "right"] {
+                        style["margin" + side] = computedValues.ZEROPIXELS
+                    }
+            }
+        }
+
+        return style
+
+    return styleFor, cascadedStyles, computedStyles

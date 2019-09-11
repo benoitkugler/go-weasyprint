@@ -16,7 +16,45 @@ var (
 	htmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", htmlWhitespace))
 )
 
+type HTMLNode html.Node
+
+// Get returns the attribute `name` or ""
+func (h HTMLNode) Get(name string) string {
+	for _, attr := range h.Attr {
+		if attr.Key == name {
+			return attr.Val
+		}
+	}
+	return ""
+}
+
 // ------------------------------------ html walk utilities ------------------------------------
+
+// HtmlIterator simplify the (depth first) walk on an HTML tree.
+type HtmlIterator struct {
+	toVisit []*html.Node
+}
+
+// NewHtmlIterator use `root` as start point.
+func NewHtmlIterator(root *html.Node) HtmlIterator {
+	return HtmlIterator{toVisit: []*html.Node{root}}
+}
+
+func (h HtmlIterator) HasNext() bool {
+	return len(h.toVisit) > 0
+}
+
+func (h *HtmlIterator) Next() *HTMLNode {
+	next := h.toVisit[0]
+	h.toVisit = h.toVisit[1:]
+	if next.FirstChild != nil {
+		h.toVisit = append(h.toVisit, next.FirstChild)
+	}
+	if next.NextSibling != nil {
+		h.toVisit = append(h.toVisit, next.NextSibling)
+	}
+	return (*HTMLNode)(next)
+}
 
 // NodeChildren returns the direct children of `element`
 func NodeChildren(element html.Node) (children []*html.Node) {
@@ -47,16 +85,6 @@ func Iter(element html.Node, tags ...atom.Atom) []html.Node {
 		return
 	}
 	return aux(element)
-}
-
-// GetAttribute returns the attribute `name` or ""
-func GetAttribute(element html.Node, name string) string {
-	for _, attr := range element.Attr {
-		if attr.Key == name {
-			return attr.Val
-		}
-	}
-	return ""
 }
 
 // GetChildText returns the text directly in the element, not descendants.
@@ -100,8 +128,8 @@ func AsciiLower(s string) string {
 // Return whether the given element has a ``rel`` attribute with the
 // given link type.
 // `linkType` must be a lower-case string.
-func ElementHasLinkType(element html.Node, linkType string) bool {
-	attr := GetAttribute(element, "rel")
+func ElementHasLinkType(element HTMLNode, linkType string) bool {
+	attr := element.Get("rel")
 	matchs := htmlSpaceSeparatedTokensRe.FindAllString(attr, -1)
 	for _, token := range matchs {
 		if AsciiLower(token) == linkType {

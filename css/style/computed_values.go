@@ -176,7 +176,7 @@ func compute(element *html.Node, specified, computed, parentStyle,
 		parentStyle = StyleDict{Properties: InitialValues}
 	}
 
-	computer.element = element
+	computer.element = (*utils.HTMLNode)(element)
 	computer.specified = specified
 	computer.computed = computed
 	computer.parentStyle = parentStyle
@@ -206,7 +206,7 @@ func compute(element *html.Node, specified, computed, parentStyle,
 type computer struct {
 	isRootElement                               bool
 	computed, rootStyle, parentStyle, specified StyleDict
-	element                                     *html.Node
+	element                                     *utils.HTMLNode
 	baseUrl                                     string
 }
 
@@ -416,7 +416,7 @@ func content(computer *computer, _ string, _value CssProperty) CssProperty {
 		// type_, value := v[0], v[1]
 		if v.Type == ContentAttr {
 			lis[index].Type = ContentSTRING
-			lis[index].String = utils.GetAttribute(*computer.element, value.String)
+			lis[index].String = computer.element.Get(value.String)
 		} else {
 			lis[index] = v
 		}
@@ -514,7 +514,7 @@ func lineHeight(computer *computer, name string, _value CssProperty) CssProperty
 func anchor(computer *computer, _ string, _value CssProperty) CssProperty {
 	value := _value.(NamedString)
 	if value.String != "none" {
-		s := utils.GetAttribute(*computer.element, value.String)
+		s := computer.element.Get(value.String)
 		if s == "" {
 			return nil
 		}
@@ -546,7 +546,7 @@ func lang(computer *computer, _ string, _value CssProperty) CssProperty {
 		return nil
 	}
 	if value.Name == "attr" {
-		s := utils.GetAttribute(*computer.element, value.String)
+		s := computer.element.Get(value.String)
 		if s == "" {
 			return nil
 		}
