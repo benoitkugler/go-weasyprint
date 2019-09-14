@@ -34,9 +34,8 @@ func TestSlice(t *testing.T) {
 	fmt.Println(out)
 
 	a := []int{1, 2, 3, 4, 5, 6, 7, 8}
-	fmt.Println(a[len(a)-2:])
-	a = a[:len(a)-2]
-	fmt.Println(a)
+	p, poped := a[len(a)-1], a[:len(a)-1]
+	fmt.Println(p, poped)
 
 }
 
@@ -98,11 +97,18 @@ func TestLoop(t *testing.T) {
 }
 
 func TestSelector(t *testing.T) {
-	sel, err := cascadia.Compile("#dfdf ,  div.test > p, p#id5")
+	sel, err := cascadia.Compile("style, link")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fmt.Println(sel)
+	s := "<html><p>dlfkdfk</p><div><style>sdsd</style><style>sdsd</style><link /></div></html>"
+	root, err := html.Parse(strings.NewReader(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(sel.MatchAll(root))
+
 }
 
 func TestWalkHtml(t *testing.T) {
@@ -118,7 +124,6 @@ func TestWalkHtml(t *testing.T) {
 		fmt.Printf("%p %v %s\n", n, n.DataAtom, n.Data)
 	}
 }
-
-func TestComparison(t *testing.T) {
-	fmt.Println([2]int{1, 0} < [2]int{2, 0})
+func TestRune(t *testing.T) {
+	fmt.Printf("%c", '\'')
 }

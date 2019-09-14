@@ -23,6 +23,7 @@ import (
 	"github.com/andybalholm/cascadia"
 
 	. "github.com/benoitkugler/go-weasyprint/css"
+	. "github.com/benoitkugler/go-weasyprint/css/parser"
 	"github.com/benoitkugler/go-weasyprint/css/validation"
 	"github.com/benoitkugler/go-weasyprint/fonts"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -65,7 +66,7 @@ func (s StyleDict) Copy() StyleDict {
 // This is the method used for an anonymous box.
 func (s *StyleDict) InheritFrom() StyleDict {
 	if s.inheritedStyle == nil {
-		is := computedFromCascaded(&html.Node{}, nil, *s, StyleDict{}, "")
+		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleDict{}, "")
 		is.Anonymous = true
 		s.inheritedStyle = &is
 	}
@@ -81,7 +82,7 @@ func (s StyleDict) ResolveColor(key string) Color {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element *html.Node, cascaded cascadedStyle, parentStyle, rootStyle StyleDict, baseUrl string) StyleDict {
+func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle StyleDict, baseUrl string) StyleDict {
 	if cascaded == nil && !parentStyle.IsZero() {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
@@ -156,35 +157,36 @@ func computedFromCascaded(element *html.Node, cascaded cascadedStyle, parentStyl
 	return compute(element, specified, computed, parentStyle, rootStyle, baseUrl)
 }
 
-type page struct {
-	side         string
-	blank, first bool
-	name         string
+type element interface {
+	ToKey(pseudoType string) utils.ElementKey
 }
 
-func matchingPageTypes(pageType page, names []string) (out []page) {
+func matchingPageTypes(pageType utils.PageElement, _names map[Page]struct{}) (out []utils.PageElement) {
 	sides := []string{"left", "right", ""}
-	if pageType.side != "" {
-		sides = []string{pageType.side}
+	if pageType.Side != "" {
+		sides = []string{pageType.Side}
 	}
 
 	blanks := []bool{true}
-	if pageType.blank == false {
+	if pageType.Blank == false {
 		blanks = []bool{true, false}
 	}
 	firsts := []bool{true}
-	if pageType.first == false {
+	if pageType.First == false {
 		firsts = []bool{true, false}
 	}
-	names = append(names, "")
-	if pageType.name != "" {
-		names = []string{pageType.name}
+	names := []string{pageType.Name}
+	if pageType.Name == "" {
+		names = []string{""}
+		for page := range _names {
+			names = append(names, page.String)
+		}
 	}
 	for _, side := range sides {
 		for _, blank := range blanks {
 			for _, first := range firsts {
 				for _, name := range names {
-					out = append(out, page{side: side, blank: blank, first: first, name: name})
+					out = append(out, utils.PageElement{Side: side, Blank: blank, First: first, Name: name})
 				}
 			}
 		}
@@ -229,10 +231,10 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 
 type weight struct {
 	precedence  uint8
-	specificity [3]int
+	specificity [3]uint8
 }
 
-func less(s1, s2 [3]int) bool {
+func less(s1, s2 [3]uint8) bool {
 	for i := range s1 {
 		if s1[i] < s2[i] {
 			return true
@@ -256,16 +258,11 @@ type weigthedValue struct {
 
 type cascadedStyle = map[string]weigthedValue
 
-type styleKey struct {
-	element    *html.Node
-	pseudoType string
-}
-
 // Set the value for a property on a given element.
 // The value is only set if there is no value of greater weight defined yet.
-func addDeclaration(cascadedStyles map[styleKey]cascadedStyle, propName string, propValues CssProperty,
-	weight weight, element *html.Node, pseudoType string) {
-	key := styleKey{element: element, pseudoType: pseudoType}
+func addDeclaration(cascadedStyles map[utils.ElementKey]cascadedStyle, propName string, propValues CssProperty,
+	weight weight, elt element, pseudoType string) {
+	key := elt.ToKey(pseudoType)
 	style := cascadedStyles[key]
 	if style == nil {
 		style = cascadedStyle{}
@@ -282,8 +279,8 @@ func addDeclaration(cascadedStyles map[styleKey]cascadedStyle, propName string, 
 // Take the properties left by ``applyStyleRule`` on an element or
 // pseudo-element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
-func setComputedStyles(cascadedStyles map[styleKey]cascadedStyle, computedStyles map[styleKey]StyleDict, element *html.Node, parent,
-	root *html.Node, pseudoType, baseUrl string) {
+func setComputedStyles(cascadedStyles map[utils.ElementKey]cascadedStyle, computedStyles map[utils.ElementKey]StyleDict, element, parent,
+	root *utils.HTMLNode, pseudoType, baseUrl string) {
 
 	var parentStyle, rootStyle StyleDict
 	if element == root && pseudoType == "" {
@@ -300,18 +297,18 @@ func setComputedStyles(cascadedStyles map[styleKey]cascadedStyle, computedStyles
 		if parent == nil {
 			log.Fatal("parent shouldn't be nil here")
 		}
-		parentStyle = computedStyles[styleKey{element: parent, pseudoType: ""}]
-		rootStyle = computedStyles[styleKey{element: root, pseudoType: ""}]
+		parentStyle = computedStyles[utils.ElementKey{Element: parent, PseudoType: ""}]
+		rootStyle = computedStyles[utils.ElementKey{Element: root, PseudoType: ""}]
 	}
-	key := styleKey{element: element, pseudoType: pseudoType}
+	key := utils.ElementKey{Element: element, PseudoType: pseudoType}
 	cascaded := cascadedStyles[key]
 	computedStyles[key] = computedFromCascaded(
 		element, cascaded, parentStyle, rootStyle, baseUrl)
 }
 
 type pageData struct {
-	page
-	specificity [3]int
+	utils.PageElement
+	specificity [3]uint8
 }
 
 // Parse a page selector rule.
@@ -326,22 +323,22 @@ type pageData struct {
 func parsePageSelectors(rule QualifiedRule) (out []pageData) {
 	// See https://drafts.csswg.org/css-page-3/#syntax-page-selector
 
-	tokens := validation.RemoveWhitespace(rule.Prelude)
+	tokens := validation.RemoveWhitespace(*rule.Prelude)
 
 	// TODO: Specificity is probably wrong, should clean and test that.
 	if len(tokens) == 0 {
-		out = append(out, pageData{page: page{
-			side: "", blank: false, first: false, name: ""}})
+		out = append(out, pageData{PageElement: utils.PageElement{
+			Side: "", Blank: false, First: false, Name: ""}})
 		return out
 	}
 
 	for len(tokens) > 0 {
-		types := pageData{page: page{
-			side: "", blank: false, first: false, name: ""}}
+		types := pageData{PageElement: utils.PageElement{
+			Side: "", Blank: false, First: false, Name: ""}}
 
 		if ident, ok := tokens[0].(IdentToken); ok {
 			tokens = tokens[1:]
-			types.name = string(ident.Value)
+			types.Name = string(ident.Value)
 			types.specificity[0] = 1
 		}
 
@@ -371,29 +368,29 @@ func parsePageSelectors(rule QualifiedRule) (out []pageData) {
 				pseudoClass := ident.Value.Lower()
 				switch pseudoClass {
 				case "left", "right":
-					if types.side != "" {
+					if types.Side != "" {
 						return nil
 					}
-					types.side = pseudoClass
+					types.Side = pseudoClass
 					types.specificity[2] += 1
 				case "blank":
-					if types.blank {
+					if types.Blank {
 						return nil
 					}
-					types.blank = true
+					types.Blank = true
 					types.specificity[1] += 1
 
 				case "first":
-					if types.first {
+					if types.First {
 						return nil
 					}
-					types.first = true
+					types.First = true
 					types.specificity[1] += 1
 				default:
 					return nil
 				}
 			} else if literal.Value == "," {
-				if len(tokens) > 0 && types.specificity != [3]int{} {
+				if len(tokens) > 0 && types.specificity != [3]uint8{} {
 					break
 				} else {
 					return nil
@@ -418,15 +415,15 @@ func _isContentNone(rule Token) bool {
 	}
 }
 
-type selector struct {
-	specificity [3]int
-	rule        string
-	match       func(pageNames []string) []page
+type selectorPageRule struct {
+	specificity [3]uint8
+	pseudoType  string
+	match       func(pageNames map[Page]struct{}) []utils.PageElement
 }
 
 type pageRule struct {
 	rule         AtRule
-	selectors    []selector
+	selectors    []selectorPageRule
 	declarations []validation.ValidatedProperty
 }
 
@@ -434,7 +431,7 @@ type pageRule struct {
 // in a document.
 // ignoreImports = false
 func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher, matcher []match, pageRules []pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
+	urlFetcher, matcher []match, pageRules *[]pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
 
 	for _, rule := range stylesheetRules {
 		if atRule, isAtRule := rule.(AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
@@ -443,11 +440,11 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 
 		switch typedRule := rule.(type) {
 		case QualifiedRule:
-			declarations := validation.PreprocessDeclarations(baseUrl, ParseDeclarationList(typedRule.Content, false, false))
+			declarations := validation.PreprocessDeclarations(baseUrl, ParseDeclarationList(*typedRule.Content, false, false))
 			if len(declarations) > 0 {
-				selector, err := cascadia.Compile(Serialize(typedRule.Prelude))
+				selector, err := cascadia.Compile(Serialize(*typedRule.Prelude))
 				if err != nil {
-					log.Printf("Invalid or unsupported selector '%s', %s \n", Serialize(typedRule.Prelude), err)
+					log.Printf("Invalid or unsupported selector '%s', %s \n", Serialize(*typedRule.Prelude), err)
 					continue
 				}
 				matcher = append(matcher, match{selector: selector, declarations: declarations})
@@ -460,11 +457,11 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 			case "import":
 				if ignoreImports {
 					log.Printf("@import rule '%s' not at the beginning of the whole rule was ignored. \n",
-						Serialize(typedRule.Prelude))
+						Serialize(*typedRule.Prelude))
 					continue
 				}
 
-				tokens := validation.RemoveWhitespace(typedRule.Prelude)
+				tokens := validation.RemoveWhitespace(*typedRule.Prelude)
 				var url string
 				if len(tokens) > 0 {
 					switch str := tokens[0].(type) {
@@ -479,7 +476,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				media := parseMediaQuery(tokens[1:])
 				if media == nil {
 					log.Printf("Invalid media type '%s' the whole @import rule was ignored. \n",
-						Serialize(typedRule.Prelude))
+						Serialize(*typedRule.Prelude))
 					continue
 				}
 				if !evaluateMediaQuery(media, deviceMediaType) {
@@ -487,7 +484,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				url = utils.UrlJoin(baseUrl, url, false, "@import")
 				if url != "" {
-					_, err := NewCSS()
+					_, err := NewCSS("")
 					// url=url, urlFetcher=urlFetcher,
 					// mediaType=deviceMediaType, fontConfig=fontConfig,
 					// matcher=matcher, pageRules=pageRules)
@@ -496,17 +493,17 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 					}
 				}
 			case "media":
-				media := parseMediaQuery(typedRule.Prelude)
+				media := parseMediaQuery(*typedRule.Prelude)
 				if media != nil {
 					log.Printf("Invalid media type '%s' the whole @media rule was ignored. \n",
-						Serialize(typedRule.Prelude))
+						Serialize(*typedRule.Prelude))
 					continue
 				}
 				ignoreImports = true
 				if !evaluateMediaQuery(media, deviceMediaType) {
 					continue
 				}
-				contentRules := ParseRuleList(typedRule.Content, false, false)
+				contentRules := ParseRuleList(*typedRule.Content, false, false)
 				preprocessStylesheet(
 					deviceMediaType, baseUrl, contentRules, urlFetcher,
 					matcher, pageRules, fonts, fontConfig, true)
@@ -514,25 +511,25 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				data := parsePageSelectors(typedRule.QualifiedRule)
 				if data == nil {
 					log.Printf("Unsupported @page selector '%s', the whole @page rule was ignored. \n",
-						Serialize(typedRule.Prelude))
+						Serialize(*typedRule.Prelude))
 					continue
 				}
 				ignoreImports = true
 				for _, pageType := range data {
 					specificity := pageType.specificity
-					pageType.specificity = [3]int{}
+					pageType.specificity = [3]uint8{}
 
 					pageType := pageType // capture for closure inside loop
-					match := func(pageNames []string) []page {
-						return matchingPageTypes(pageType.page, pageNames)
+					match := func(pageNames map[Page]struct{}) []utils.PageElement {
+						return matchingPageTypes(pageType.PageElement, pageNames)
 					}
-					content := ParseDeclarationList(typedRule.Content, false, false)
+					content := ParseDeclarationList(*typedRule.Content, false, false)
 					declarations := validation.PreprocessDeclarations(baseUrl, content)
 
-					var selectorList []selector
+					var selectors []selectorPageRule
 					if len(declarations) > 0 {
-						selectorList = []selector{{specificity: specificity, rule: "", match: match}}
-						pageRules = append(pageRules, pageRule{rule: typedRule, selectors: selectorList, declarations: declarations})
+						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", match: match}}
+						*pageRules = append(*pageRules, pageRule{rule: typedRule, selectors: selectors, declarations: declarations})
 					}
 
 					for _, marginRule := range content {
@@ -542,18 +539,18 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 						}
 						declarations = validation.PreprocessDeclarations(
 							baseUrl,
-							ParseDeclarationList(atRule.Content, false, false))
+							ParseDeclarationList(*atRule.Content, false, false))
 						if len(declarations) > 0 {
-							selectorList = []selector{{
-								specificity: specificity, rule: "@" + atRule.AtKeyword.Lower(),
+							selectors = []selectorPageRule{{
+								specificity: specificity, pseudoType: "@" + atRule.AtKeyword.Lower(),
 								match: match}}
-							pageRules = append(pageRules, pageRule{rule: atRule, selectors: selectorList, declarations: declarations})
+							*pageRules = append(*pageRules, pageRule{rule: atRule, selectors: selectors, declarations: declarations})
 						}
 					}
 				}
 			case "font-face":
 				ignoreImports = true
-				content := ParseDeclarationList(typedRule.Content, false, false)
+				content := ParseDeclarationList(*typedRule.Content, false, false)
 				ruleDescriptors := map[string]validation.Descriptor{}
 				for _, desc := range validation.PreprocessDescriptors(baseUrl, content) {
 					ruleDescriptors[desc.Name] = desc.Descriptor
@@ -606,11 +603,11 @@ func parseMediaQuery(tokens []Token) []string {
 type sheet struct {
 	sheet       CSS
 	origin      string
-	specificity []int
+	specificity []uint8
 }
 
 type sa struct {
-	element     *html.Node
+	element     *utils.HTMLNode
 	declaration []Token
 	baseUrl     string
 }
@@ -628,18 +625,18 @@ type sas struct {
 // presentationalHints=false
 func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl string) (out []sas) {
 
-	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute []Token) sa {
-		declarations := ParseDeclarationList(styleAttribute, false, false)
-		return styleAttribute{element: element, declaration: declarations, baseUrl: baseUrl}
+	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute string) sa {
+		declarations := ParseDeclarationList2(styleAttribute, false, false)
+		return sa{element: element, declaration: declarations, baseUrl: baseUrl}
 	}
 
-	iter := utils.NewHtmlIterator(tree)
+	iter := tree.Iter()
 	for iter.HasNext() {
 		element := iter.Next()
 		specificity := [3]uint8{1, 0, 0}
 		styleAttribute := element.Get("style")
 		if styleAttribute != "" {
-			out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+			out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 		}
 		if !presentationalHints {
 			continue
@@ -659,38 +656,38 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					}
 				}
 				if styleAttribute != "" {
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 				}
 			}
 			if element.Get("background") != "" {
 				styleAttribute = fmt.Sprintf("background-image:url(%s)", element.Get("background"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bgcolor") != "" {
 				styleAttribute = fmt.Sprintf("background-color:%s", element.Get("bgcolor"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("text") != "" {
 				styleAttribute = fmt.Sprintf("color:%s", element.Get("text"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 		// TODO: we should support link, vlink, alink
 		case atom.Center:
-			out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, "text-align:center")})
+			out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "text-align:center")})
 		case atom.Div:
 			align := strings.ToLower(element.Get("align"))
 			switch align {
 			case "middle":
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, "text-align:center")})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "text-align:center")})
 			case "center", "left", "right", "justify":
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
 			}
 		case atom.Font:
 			if element.Get("color") != "" {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
 			}
 			if element.Get("face") != "" {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("font-family:%s", element.Get("face")))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("font-family:%s", element.Get("face")))})
 			}
 			if element.Get("size") != "" {
 				size := strings.TrimSpace(element.Get("size"))
@@ -717,14 +714,14 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					} else if relativeMinus {
 						sizeI -= 3
 					}
-					sizeI = utils.MaxInt(1, utils.MintInt(7, sizeI))
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("font-size:%s", fontSizes[size]))})
+					sizeI = utils.MaxInt(1, utils.MinInt(7, sizeI))
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("font-size:%s", fontSizes[sizeI]))})
 				}
 			}
 		case atom.Table:
 			// TODO: we should support cellpadding
-			if element.Get != ""("cellspacing") {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("border-spacing:%spx", element.Get("cellspacing")))})
+			if element.Get("cellspacing") != "" {
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("border-spacing:%spx", element.Get("cellspacing")))})
 			}
 			if element.Get("cellpadding") != "" {
 				cellpadding := element.Get("cellpadding")
@@ -732,11 +729,11 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					cellpadding += "px"
 				}
 				// TODO: don't match subtables cells
-				iterElement = utils.NewHtmlIterator(element)
+				iterElement := element.Iter()
 				for iterElement.HasNext() {
 					subelement := iterElement.Next()
 					if subelement.DataAtom == atom.Td || subelement.DataAtom == atom.Th {
-						out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(subelement,
+						out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(subelement,
 							fmt.Sprintf("padding-left:%s;padding-right:%s;padding-top:%s;padding-bottom:%s;", cellpadding, cellpadding, cellpadding, cellpadding))})
 					}
 				}
@@ -746,7 +743,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(hspace) {
 					hspace += "px"
 				}
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 					fmt.Sprintf("margin-left:%s;margin-right:%s", hspace, hspace))})
 			}
 			if element.Get("vspace") != "" {
@@ -754,7 +751,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(vspace) {
 					vspace += "px"
 				}
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 					fmt.Sprintf("margin-top:%s;margin-bottom:%s", vspace, vspace))})
 			}
 			if element.Get("width") != "" {
@@ -762,44 +759,44 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(element.Get("width")) {
 					styleAttribute += "px"
 				}
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
-			if element.Get("height") {
+			if element.Get("height") != "" {
 				styleAttribute = fmt.Sprintf("height:%s", element.Get("height"))
 				if utils.IsDigit(element.Get("height")) {
 					styleAttribute += "px"
 				}
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("background") != "" {
 				styleAttribute = fmt.Sprintf("background-image:url(%s)", element.Get("background"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bgcolor") != "" {
 				styleAttribute = fmt.Sprintf("background-color:%s", element.Get("bgcolor"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bordercolor") != "" {
 				styleAttribute = fmt.Sprintf("border-color:%s", element.Get("bordercolor"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("border") != "" {
 				styleAttribute = fmt.Sprintf("border-width:%spx", element.Get("border"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 		case atom.Tr, atom.Td, atom.Th, atom.Thead, atom.Tbody, atom.Tfoot:
 			align := strings.ToLower(element.Get("align"))
 			if align == "left" || align == "right" || align == "justify" {
 				// TODO: we should align descendants too
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
 			}
-			if element.Get("background") {
+			if element.Get("background") != "" {
 				styleAttribute = fmt.Sprintf("background-image:url(%s)", element.Get("background"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
-			if element.Get("bgcolor") {
+			if element.Get("bgcolor") != "" {
 				styleAttribute = fmt.Sprintf("background-color:%s", element.Get("bgcolor"))
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.DataAtom == atom.Tr || element.DataAtom == atom.Td || element.DataAtom == atom.Th {
 				if element.Get("height") != "" {
@@ -807,7 +804,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					if utils.IsDigit(element.Get("height")) {
 						styleAttribute += "px"
 					}
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 				}
 				if element.DataAtom == atom.Td || element.DataAtom == atom.Th {
 					if element.Get("width") != "" {
@@ -815,7 +812,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 						if utils.IsDigit(element.Get("width")) {
 							styleAttribute += "px"
 						}
-						out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+						out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 					}
 				}
 			}
@@ -823,7 +820,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 			align := strings.ToLower(element.Get("align"))
 			// TODO: we should align descendants too
 			if align == "left" || align == "right" || align == "justify" {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
 			}
 		case atom.Col:
 			if element.Get("width") != "" {
@@ -831,24 +828,25 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(element.Get("width")) {
 					styleAttribute += "px"
 				}
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 		case atom.Hr:
-			size = 0
+			size := 0
 			if element.Get("size") != "" {
-				size, err := strconv.Atoi(element.Get("size"))
+				var err error
+				size, err = strconv.Atoi(element.Get("size"))
 				if err != nil {
 					log.Printf("Invalid value for size: %s \n", element.Get("size"))
 				}
 			}
 			if element.Get("color") != "" || element.Get("noshade") != "" {
 				if size >= 1 {
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("border-width:%spx", (size/2)))})
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("border-width:%dpx", size/2))})
 				}
 			} else if size == 1 {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, "border-bottom-width:0")})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "border-bottom-width:0")})
 			} else if size > 1 {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("height:%spx", (size-2)))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("height:%dpx", size-2))})
 			}
 
 			if element.Get("width") != "" {
@@ -856,32 +854,32 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(element.Get("width")) {
 					styleAttribute += "px"
 				}
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("color") != "" {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, fmt.Sprintf("color:%s"%element.Get("color")))})
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
 			}
 		case atom.Iframe, atom.Applet, atom.Embed, atom.Img, atom.Input, atom.Object:
 			if element.DataAtom != atom.Input || strings.ToLower(element.Get("type")) == "image" {
-				align = strings.ToLower(element.Get("align"))
+				align := strings.ToLower(element.Get("align"))
 				if align == "middle" || align == "center" {
 					// TODO: middle && center values are wrong
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, "vertical-align:middle")})
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "vertical-align:middle")})
 				}
 				if element.Get("hspace") != "" {
-					hspace = element.Get("hspace")
+					hspace := element.Get("hspace")
 					if utils.IsDigit(hspace) {
 						hspace += "px"
 					}
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 						fmt.Sprintf("margin-left:%s;margin-right:%s", hspace, hspace))})
 				}
-				if element.Get("vspace") {
-					vspace = element.Get("vspace")
+				if element.Get("vspace") != "" {
+					vspace := element.Get("vspace")
 					if utils.IsDigit(vspace) {
 						vspace += "px"
 					}
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 						fmt.Sprintf("margin-top:%s;margin-bottom:%s", vspace, vspace))})
 				}
 				// TODO: img seems to be excluded for width && height, but a
@@ -891,18 +889,18 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					if utils.IsDigit(element.Get("width")) {
 						styleAttribute += "px"
 					}
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 				}
 				if element.Get("height") != "" {
 					styleAttribute = fmt.Sprintf("height:%s", element.Get("height"))
 					if utils.IsDigit(element.Get("height")) {
 						styleAttribute += "px"
 					}
-					out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
 				}
 				if element.DataAtom == atom.Img || element.DataAtom == atom.Object || element.DataAtom == atom.Input {
 					if element.Get("border") != "" {
-						out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+						out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 							fmt.Sprintf("border-width:%spx;border-style:solid", element.Get("border")))})
 					}
 				}
@@ -910,13 +908,13 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 		case atom.Ol:
 			// From https://www.w3.org/TR/css-lists-3/
 			if element.Get("start") != "" {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 					fmt.Sprintf("counter-reset:list-item %s;counter-increment:list-item -1", element.Get("start")))})
 			}
 		case atom.Ul:
 			// From https://www.w3.org/TR/css-lists-3/
-			if element.Get("value") {
-				out = append(out, styleAttributeSpecificity{specificity: specificity, styleAttribute: checkStyleAttribute(element,
+			if element.Get("value") != "" {
+				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
 					fmt.Sprintf("counter-reset:list-item %s;counter-increment:none", element.Get("value")))})
 			}
 		}
@@ -924,14 +922,88 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 	return out
 }
 
+// Yield the stylesheets in ``elementTree``.
+// The output order is the same as the source order.
+func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher func(string) interface{}, baseUrl string,
+	fontConfig *fonts.FontConfiguration, pageRules int) (out []CSS, err error) {
+	sel := cascadia.MustCompile("style, link")
+	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
+		element := (*utils.HTMLNode)(_element)
+		mimeType := element.Get("type")
+		if mimeType == "" {
+			mimeType = "text/css"
+		}
+		mimeType = strings.TrimSpace(strings.SplitN(mimeType, ";", 1)[0])
+		// Only keep "type/subtype" from "type/subtype ; param1; param2".
+		if mimeType != "text/css" {
+			continue
+		}
+		mediaAttr := strings.TrimSpace(element.Get("media"))
+		if mediaAttr == "" {
+			mediaAttr = "all"
+		}
+		media := strings.Split(mediaAttr, ",")
+		for i, s := range media {
+			media[i] = strings.TrimSpace(s)
+		}
+		if !evaluateMediaQuery(media, deviceMediaType) {
+			continue
+		}
+		switch element.DataAtom {
+		case atom.Style:
+			// Content is text that is directly in the <style> element, not its
+			// descendants
+			content := element.GetChildText()
+			// ElementTree should give us either unicode or  ASCII-only
+			// bytestrings, so we don"t need `encoding` here.
+			css, err := NewCSS(content)
+			// string=content, baseUrl=baseUrl,
+			// urlFetcher=urlFetcher, mediaType=deviceMediaType,
+			// fontConfig=fontConfig, pageRules=pageRules)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, css)
+		case atom.Link:
+			if element.Get("href") != "" {
+				if !element.HasLinkType("stylesheet") || element.HasLinkType("alternate") {
+					continue
+				}
+				href := element.GetUrlAttribute("href", baseUrl, false)
+				if href != "" {
+					css, err := NewCSS("")
+					//    url=href, urlFetcher=urlFetcher,
+					//    CheckMimeType=true, mediaType=deviceMediaType,
+					//    fontConfig=fontConfig, pageRules=pageRules)
+					if err != nil {
+						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
+					} else {
+						out = append(out, css)
+					}
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+type htmlEntity struct {
+	root       *utils.HTMLNode
+	mediaType  string
+	urlFetcher func(string) interface{}
+	baseUrl    string
+}
+
+type styleGetter = func(element element, pseudoType string, get func(utils.ElementKey) StyleDict) StyleDict
+
 // Compute all the computed styles of all elements in ``html`` document.
 // Do everything from finding author stylesheets to parsing and applying them.
 // Return a ``styleFor`` function that takes an element and an optional
 // pseudo-element type, and return a StyleDict object.
 // presentationalHints=false
-func getAllComputedStyles(html, userStylesheets []CSS,
+func getAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules int) {
+	pageRules int) (styleGetter, map[utils.ElementKey]cascadedStyle, map[utils.ElementKey]StyleDict, error) {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -939,19 +1011,22 @@ func getAllComputedStyles(html, userStylesheets []CSS,
 	}
 
 	if presentationalHints {
-		sheets = append(sheets, sheet{sheet: sheet, origin: "author", specificity: []int{0, 0, 0}})
+		sheets = append(sheets, sheet{sheet: HTML5_PH_STYLESHEET, origin: "author", specificity: []uint8{0, 0, 0}})
 	}
-	for _, sheet := range findStylesheets(
-		html.wrapperElement, html.mediaType, html.urlFetcher,
-		html.baseUrl, fontConfig, pageRules) {
-		sheets = append(sheets, sheet{sheet: sheet, origin: "author", specificity: nil})
+	authorShts, err := findStylesheets(html.root, html.mediaType, html.urlFetcher,
+		html.baseUrl, fontConfig, pageRules)
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	for _, sheet := range userStylesheets {
-		sheets = append(sheets, sheet{sheet: sheet, origin: "user", specificity: nil})
+	for _, sht := range authorShts {
+		sheets = append(sheets, sheet{sheet: sht, origin: "author", specificity: nil})
+	}
+	for _, sht := range userStylesheets {
+		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
 
 	// keys: (element, pseudoElementType)
-	//    element: an ElementTree Element or the "@page" string for @page styles
+	//    Element: an ElementTree Element or the "@page" string for @page styles
 	//    pseudoElementType: a string such as "first" (for @page) or "after",
 	//        or None for normal elements
 	// values: dicts of
@@ -960,48 +1035,54 @@ func getAllComputedStyles(html, userStylesheets []CSS,
 	//         values: a PropertyValue-like object
 	//         weight: values with a greater weight take precedence, see
 	//             http://www.w3.org/TR/CSS21/cascade.html#cascading-order
-	cascadedStyles := map[styleKey]cascadedStyle{}
+	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 
 	log.Println("Step 3 - Applying CSS")
-	for _, styleAttr := range findStyleAttributes(html.etreeElement, presentationalHints, html.baseUrl) {
-		element, declarations, baseUrl = attributes
-		for _, vp := range PreprocessDeclarations(styleAttr, declarations) {
-			precedence := declarationPrecedence("author", vp.importance)
+	for _, styleAttr := range findStyleAttributes(html.root, presentationalHints, html.baseUrl) {
+		// element, declarations, baseUrl = attributes
+		for _, vp := range validation.PreprocessDeclarations(styleAttr.baseUrl, styleAttr.declaration) {
+			// name, values, importance = vp
+			precedence := declarationPrecedence("author", vp.Important)
 			we := weight{precedence: precedence, specificity: styleAttr.specificity}
-			addDeclaration(cascadedStyles, name, values, we, element, "")
+			addDeclaration(cascadedStyles, vp.Name, vp.Value, we, styleAttr.element, "")
 		}
 	}
 	// keys: (element, pseudoElementType), like cascadedStyles
 	// values: StyleDict objects:
 	//     keys: property name as a string
 	//     values: a PropertyValue-like object
-	computedStyles = map[styleKey]Properties{}
+	computedStyles := map[utils.ElementKey]StyleDict{}
 
 	// First, add declarations and set computed styles for "real" elements *in
 	// tree order*. Tree order is important so that parents have computed
 	// styles before their children, for inheritance.
 
 	// Iterate on all elements, even if there is no cascaded style for them.
-	for element := range html.wrapperElement.iterSubtree() {
+	iter := html.root.Iter()
+	for iter.HasNext() {
+		element := iter.Next()
 		for _, sh := range sheets {
 			// sheet, origin, sheetSpecificity
 			// Add declarations for matched elements
-			for _, selector := range sh.sheet.matcher.Match(element) {
+			for _, selector := range sh.sheet.matcher.Match(element.AsHtmlNode()) {
 				// specificity, order, pseudoType, declarations = selector
-				specificity := sheetSpecificity || selector.specificity
+				specificity := selector.specificity
+				if len(specificity) == 3 {
+					specificity = [3]uint8{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
+				}
 				for _, decl := range selector.payload {
-					precedence = declarationPrecedence(sh.origin, decl.Important)
-					we = weight{precedence: precedence, specificity: specificity}
-					addDeclaration(
-						cascadedStyles, name, values, weight, element.etreeElement, selector.pseudoType)
+					// name, values, importance = decl
+					precedence := declarationPrecedence(sh.origin, decl.Important)
+					we := weight{precedence: precedence, specificity: specificity}
+					addDeclaration(cascadedStyles, decl.Name, decl.Value, we, element, selector.pseudoType)
 				}
 			}
 		}
-		setComputedStyles(cascadedStyles, computedStyles, element.etreeElement,
-			element.Parent, html.etreeElement, "", html.baseUrl)
+		setComputedStyles(cascadedStyles, computedStyles, element,
+			(*utils.HTMLNode)(element.Parent), html.root, "", html.baseUrl)
 	}
 
-	pageNames := map[page]struct{}{}
+	pageNames := map[Page]struct{}{}
 
 	for _, style := range computedStyles {
 		pageNames[style.GetPage()] = Has
@@ -1011,17 +1092,20 @@ func getAllComputedStyles(html, userStylesheets []CSS,
 		// Add declarations for page elements
 		for _, pr := range sh.sheet.pageRules {
 			// Rule, selectorList, declarations
-			for _, selector := range pr.selectorList {
+			for _, selector := range pr.selectors {
 				// specificity, pseudoType, match = selector
-				specificity = sheetSpecificity || selector.specificity
+				specificity := selector.specificity
+				if len(specificity) == 3 {
+					specificity = [3]uint8{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
+				}
 				for _, pageType := range selector.match(pageNames) {
-					for _, decl := range declarations {
+					for _, decl := range pr.declarations {
 						// name, values, importance
-						precedence = declarationPrecedence(sh.origin, decl.Important)
-						we = weight{precedence: precedence, specificity: specificity}
+						precedence := declarationPrecedence(sh.origin, decl.Important)
+						we := weight{precedence: precedence, specificity: specificity}
 						addDeclaration(
-							cascadedStyles, name, values, weight, pageType,
-							pseudoType)
+							cascadedStyles, decl.Name, decl.Value, we, pageType,
+							selector.pseudoType)
 					}
 				}
 			}
@@ -1038,27 +1122,27 @@ func getAllComputedStyles(html, userStylesheets []CSS,
 	// might as well not exist.)
 	for key := range cascadedStyles {
 		// element, pseudoType
-		if key.pseudoType != "" && !isinstance(element, PageType) {
+		if key.PseudoType != "" && key.Element != nil {
 			setComputedStyles(
-				cascadedStyles, computedStyles, element, parent, html.etreeElement,
-				key.pseudoType, html.baseUrl)
+				cascadedStyles, computedStyles, key.Element, key.Element, html.root,
+				key.PseudoType, html.baseUrl)
 			// The pseudo-element inherits from the element.
 		}
 	}
 
-	__get := func(key styleKey) Properties {
+	__get := func(key utils.ElementKey) StyleDict {
 		return computedStyles[key]
 	}
 	// This is mostly useful to make pseudoType optional.
 	// Convenience function to get the computed styles for an element.
-	styleFor := func(element, pseudoType string, get func(styleKey) Properties) {
+	styleFor := func(element element, pseudoType string, get func(utils.ElementKey) StyleDict) StyleDict {
 		if get == nil {
 			get = __get
 		}
-		style := get(styleKey{element: element, pseudoType: pseudoType})
+		style := get(element.ToKey(pseudoType))
 
-		if style != nil {
-			display := style.GetDisplay()
+		if !style.IsZero() {
+			display := style.GetDisplay().String()
 			if strings.Contains(display, "table") {
 				if (display == "table" || display == "inline-table") && style.GetBorderCollapse() == "collapse" {
 
@@ -1083,5 +1167,5 @@ func getAllComputedStyles(html, userStylesheets []CSS,
 		return style
 	}
 
-	return styleFor, cascadedStyles, computedStyles
+	return styleFor, cascadedStyles, computedStyles, nil
 }

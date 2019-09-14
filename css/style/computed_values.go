@@ -7,7 +7,6 @@ import (
 
 	. "github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/utils"
-	"golang.org/x/net/html"
 )
 
 // Convert *specified* property values (the result of the cascade and
@@ -166,7 +165,7 @@ type computerFunc = func(*computer, string, CssProperty) CssProperty
 // 				 element (should contain value for all properties),
 // 				 or `zero if ``element`` is the root element.
 // :param baseUrl: The base URL used to resolve relative URLs.
-func compute(element *html.Node, specified, computed, parentStyle,
+func compute(element *utils.HTMLNode, specified, computed, parentStyle,
 	rootStyle StyleDict, baseUrl string) StyleDict {
 
 	computer := new(computer)
@@ -176,7 +175,7 @@ func compute(element *html.Node, specified, computed, parentStyle,
 		parentStyle = StyleDict{Properties: InitialValues}
 	}
 
-	computer.element = (*utils.HTMLNode)(element)
+	computer.element = element
 	computer.specified = specified
 	computer.computed = computed
 	computer.parentStyle = parentStyle

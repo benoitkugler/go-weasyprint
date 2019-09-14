@@ -62,6 +62,10 @@ func (p Properties) Keys() []string {
 	return keys
 }
 
+func (s String) String() string {
+	return string(s)
+}
+
 // ------------ Helpers type --------------------------
 
 type Unit uint8

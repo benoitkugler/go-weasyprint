@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	. "github.com/benoitkugler/go-weasyprint/css"
+	. "github.com/benoitkugler/go-weasyprint/css/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -81,7 +82,7 @@ func _src(tokens []Token, baseUrl string) (NamedString, error) {
 			tokens, token = tokens[:len(tokens)-1], tokens[len(tokens)-1]
 		}
 		if fn, ok := token.(FunctionBlock); ok && fn.Name.Lower() == "local" {
-			return NamedString{Name: "local", String: _fontFamilyDesc(fn.Arguments, true)}, nil
+			return NamedString{Name: "local", String: _fontFamilyDesc(*fn.Arguments, true)}, nil
 		}
 		if url, ok := token.(URLToken); ok {
 			if strings.HasPrefix(url.Value, "#") {

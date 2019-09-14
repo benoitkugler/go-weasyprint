@@ -9,6 +9,8 @@ import (
 	"path"
 	"strings"
 
+	. "github.com/benoitkugler/go-weasyprint/css/parser"
+
 	. "github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/structure/counters"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -459,7 +461,7 @@ func _backgroundImage(tokens []Token, baseUrl string) (Image, error) {
 	if !ok {
 		return _imageUrl(token, baseUrl)
 	}
-	arguments := SplitOnComma(RemoveWhitespace(token.Arguments))
+	arguments := SplitOnComma(RemoveWhitespace(*token.Arguments))
 	name := token.Name.Lower()
 	var err error
 	switch name {
@@ -1357,7 +1359,7 @@ func validateContentToken(baseUrl string, token Token) (ContentProperty, error) 
 //     with comma-separated arguments
 func parseFunction(functionToken Token) (string, []Token) {
 	if fun, ok := functionToken.(FunctionBlock); ok {
-		content := RemoveWhitespace(fun.Arguments)
+		content := RemoveWhitespace(*fun.Arguments)
 		if len(content) == 0 || len(content)%2 == 1 {
 			for i := 1; i < len(content); i += 2 { // token in content[1::2]
 				token := content[i]

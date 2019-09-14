@@ -1,12 +1,13 @@
-package css
+// This package is build on Gorilla CSS tokenizer,
+// and implements the construction of an Abstract Syntax Tree,
+// compatible with weasyprint one.
+package parser
 
 import (
 	"fmt"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
-
-// Link the css parser with Weasyprint representation of CSS properties
 
 const (
 	TypeQualifiedRule       tokenType = "qualified-rule"
@@ -59,7 +60,7 @@ type stringToken struct {
 }
 type bracketsBlock struct {
 	_token
-	Content []Token
+	Content *[]Token
 }
 type numericToken struct {
 	_token
@@ -70,7 +71,7 @@ type numericToken struct {
 
 type QualifiedRule struct {
 	_token
-	Prelude, Content []Token
+	Prelude, Content *[]Token
 }
 type AtRule struct {
 	QualifiedRule
@@ -121,7 +122,7 @@ type CurlyBracketsBlock bracketsBlock
 type FunctionBlock struct {
 	_token
 	Name      LowerableString
-	Arguments []Token
+	Arguments *[]Token
 }
 
 // ----------- boilerplate code for token type -------------------------------------
@@ -196,7 +197,7 @@ func nextSignificant(tokens *tokenIterator) Token {
 }
 
 // Parse a declaration.
-//     Consume :obj:`tokens` until the end of the declaration || the first error.
+//     Consume :obj:`tokens` until the end of the declaration or the first error.
 //     :param firstToken: The first :term:`component value` of the rule.
 //     :param tokens: An *iterator* yielding :term:`component values`.
 func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
@@ -306,6 +307,11 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 	return result
 }
 
+func ParseDeclarationList2(css string, skipComments, skipWhitespace bool) []Token {
+	l := ParseComponentValueList(css, skipComments)
+	return ParseDeclarationList(l, skipComments, skipWhitespace)
+}
+
 // Parse a non-top-level :diagram:`rule list`.
 // This is used for parsing the `AtRule.content`
 // of nested rules like ``@media``.
@@ -377,7 +383,7 @@ func consumeRule(_firstToken Token, tokens *tokenIterator) Token {
 	}
 	return QualifiedRule{
 		Content: block.Content,
-		Prelude: prelude,
+		Prelude: &prelude,
 	}
 }
 
@@ -386,7 +392,10 @@ func consumeRule(_firstToken Token, tokens *tokenIterator) Token {
 // :param atKeyword: The :class:`AtKeywordToken` object starting this rule.
 // :param tokens: An *iterator* yielding :term:`component values`.
 func consumeAtRule(atKeyword AtKeywordToken, tokens *tokenIterator) AtRule {
-	var prelude, content []Token
+	var (
+		prelude []Token
+		content *[]Token
+	)
 	for tokens.HasNext() {
 		token := tokens.Next()
 		if curly, ok := token.(CurlyBracketsBlock); ok {
@@ -402,7 +411,7 @@ func consumeAtRule(atKeyword AtKeywordToken, tokens *tokenIterator) AtRule {
 	return AtRule{
 		AtKeyword: atKeyword.Value,
 		QualifiedRule: QualifiedRule{
-			Prelude: prelude,
+			Prelude: &prelude,
 			Content: content,
 		},
 	}

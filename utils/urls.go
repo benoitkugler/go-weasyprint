@@ -43,7 +43,7 @@ func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) s
 // * the value is a relative URI but the document has no base URI and
 //   ``allowRelative`` is ``False``.
 // Otherwise return an URI, absolute if possible.
-func GetUrlAttribute(element HTMLNode, attrName, baseUrl string, allowRelative bool) string {
+func (element HTMLNode) GetUrlAttribute(attrName, baseUrl string, allowRelative bool) string {
 	value := strings.TrimSpace(element.Get(attrName))
 	if value != "" {
 		return UrlJoin(baseUrl, value, allowRelative,
@@ -70,7 +70,7 @@ func GetLinkAttribute(element HTMLNode, attrName string, baseUrl string) []strin
 		unescaped := Unquote(attrValue[1:])
 		return []string{"internal", unescaped}
 	}
-	uri := GetUrlAttribute(element, attrName, baseUrl, true)
+	uri := element.GetUrlAttribute(attrName, baseUrl, true)
 	if uri != "" {
 		if baseUrl != "" {
 			parsed, err := url.Parse(uri)

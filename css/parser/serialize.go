@@ -1,4 +1,4 @@
-package css
+package parser
 
 import (
 	"fmt"
@@ -178,21 +178,21 @@ func serializeTo(nodes []Token, write func(s string)) {
 }
 
 func (t QualifiedRule) serializeTo(write func(s string)) {
-	serializeTo(t.Prelude, write)
+	serializeTo(*t.Prelude, write)
 	write("{")
-	serializeTo(t.Content, write)
+	serializeTo(*t.Content, write)
 	write("}")
 }
 
 func (t AtRule) serializeTo(write func(s string)) {
 	write("@")
 	write(serializeIdentifier(string(t.AtKeyword)))
-	serializeTo(t.Prelude, write)
+	serializeTo(*t.Prelude, write)
 	if t.Content == nil {
 		write(";")
 	} else {
 		write("{")
-		serializeTo(t.Content, write)
+		serializeTo(*t.Content, write)
 		write("}")
 	}
 }
@@ -294,25 +294,25 @@ func (t DimensionToken) serializeTo(write func(s string)) {
 
 func (t ParenthesesBlock) serializeTo(write func(s string)) {
 	write("(")
-	serializeTo(t.Content, write)
+	serializeTo(*t.Content, write)
 	write(")")
 }
 
 func (t SquareBracketsBlock) serializeTo(write func(s string)) {
 	write("[")
-	serializeTo(t.Content, write)
+	serializeTo(*t.Content, write)
 	write("]")
 }
 
 func (t CurlyBracketsBlock) serializeTo(write func(s string)) {
 	write("{")
-	serializeTo(t.Content, write)
+	serializeTo(*t.Content, write)
 	write("}")
 }
 
 func (t FunctionBlock) serializeTo(write func(s string)) {
 	write(serializeIdentifier(string(t.Name)))
 	write("(")
-	serializeTo(t.Arguments, write)
+	serializeTo(*t.Arguments, write)
 	write(")")
 }

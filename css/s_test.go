@@ -1,6 +1,7 @@
 package css
 
 import (
+	"github.com/aymerick/douceur/parser"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,6 +21,8 @@ func TestHtmlParse(t *testing.T) {
 	}
 	st := n.FirstChild.FirstChild.NextSibling.FirstChild.FirstChild
 	fmt.Println(st, st.NextSibling)
+
+	parser.ParseDeclarations()
 }
 
 func TestIterTree(t *testing.T) {

@@ -16,7 +16,31 @@ var (
 	htmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", htmlWhitespace))
 )
 
+type PageElement struct {
+	Side         string
+	Blank, First bool
+	Name         string
+}
+
+type ElementKey struct {
+	Element    *HTMLNode
+	PageType   PageElement
+	PseudoType string
+}
+
+func (p PageElement) ToKey(pseudoType string) ElementKey {
+	return ElementKey{PseudoType: pseudoType, PageType: p}
+}
+
 type HTMLNode html.Node
+
+func (h *HTMLNode) AsHtmlNode() *html.Node {
+	return (*html.Node)(h)
+}
+
+func (h *HTMLNode) ToKey(pseudoType string) ElementKey {
+	return ElementKey{PseudoType: pseudoType, Element: h}
+}
 
 // Get returns the attribute `name` or ""
 func (h HTMLNode) Get(name string) string {
@@ -26,6 +50,10 @@ func (h HTMLNode) Get(name string) string {
 		}
 	}
 	return ""
+}
+
+func (h *HTMLNode) Iter() HtmlIterator {
+	return NewHtmlIterator((*html.Node)(h))
 }
 
 // ------------------------------------ html walk utilities ------------------------------------
@@ -57,7 +85,7 @@ func (h *HtmlIterator) Next() *HTMLNode {
 }
 
 // NodeChildren returns the direct children of `element`
-func NodeChildren(element html.Node) (children []*html.Node) {
+func (element HTMLNode) NodeChildren() (children []*html.Node) {
 	child := element.FirstChild
 	for child != nil {
 		children = append(children, child)
@@ -88,13 +116,13 @@ func Iter(element html.Node, tags ...atom.Atom) []html.Node {
 }
 
 // GetChildText returns the text directly in the element, not descendants.
-func GetChildText(element html.Node) string {
+func (element HTMLNode) GetChildText() string {
 	var content []string
 	if element.Type == html.TextNode {
 		content = []string{element.Data}
 	}
 
-	for _, child := range NodeChildren(element) {
+	for _, child := range element.NodeChildren() {
 		if child.Type == html.TextNode {
 			content = append(content, child.Data)
 		}
@@ -128,7 +156,7 @@ func AsciiLower(s string) string {
 // Return whether the given element has a ``rel`` attribute with the
 // given link type.
 // `linkType` must be a lower-case string.
-func ElementHasLinkType(element HTMLNode, linkType string) bool {
+func (element HTMLNode) HasLinkType(linkType string) bool {
 	attr := element.Get("rel")
 	matchs := htmlSpaceSeparatedTokensRe.FindAllString(attr, -1)
 	for _, token := range matchs {

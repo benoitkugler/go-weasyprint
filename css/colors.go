@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	. "github.com/benoitkugler/go-weasyprint/css/parser"
 )
 
 const (
@@ -266,7 +268,7 @@ func ParseColor(_token Token) Color {
 			}
 		}
 	case FunctionBlock:
-		args := parseCommaSeparated(token.Arguments)
+		args := parseCommaSeparated(*token.Arguments)
 		if len(args) != 0 {
 			switch token.Name.Lower() {
 			case "rgb":

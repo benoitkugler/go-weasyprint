@@ -9,10 +9,12 @@ import (
 var HTML5_UA_STYLESHEET, HTML5_PH_STYLESHEET CSS
 
 type CSS struct {
-	matcher matcher
+	matcher    matcher
+	pageRules  []pageRule
+	urlFetcher func(string) interface{}
 }
 
-func NewCSS() (CSS, error) {
+func NewCSS(content string) (CSS, error) {
 	return CSS{}, nil
 }
 
@@ -24,7 +26,7 @@ type match struct {
 type matcher []match
 
 type matchResult struct {
-	specificity [3]int
+	specificity [3]uint8
 	order       int
 	pseudoType  string
 	payload     []validation.ValidatedProperty
