@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"unicode"
@@ -126,4 +127,9 @@ func TestWalkHtml(t *testing.T) {
 }
 func TestRune(t *testing.T) {
 	fmt.Printf("%c", '\'')
+}
+
+func TestUrl(t *testing.T) {
+	var v io.Reader = strings.NewReader("lmdkdmlskdsmdl")
+	fmt.Printf("%p", v)
 }

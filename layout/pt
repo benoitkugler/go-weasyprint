@@ -1,46 +1,39 @@
-func findStylesheets(wrapperElement, deviceMediaType, urlFetcher, baseUrl,
-                     fontConfig, pageRules) {
-    """Yield the stylesheets := range ``elementTree``.
-
-    The output order is the same as the source order.
-
-                     }
-    """
-    from ..html import elementHasLinkType  // Work around circular imports.
-
-    for wrapper := range wrapperElement.queryAll("style", "link") {
-        element = wrapper.etreeElement
-        mimeType = element.get("type", "text/css").split(";", 1)[0].strip()
-        // Only keep "type/subtype" from "type/subtype ; param1; param2".
-        if mimeType != "text/css" {
-            continue
-        } mediaAttr = element.get("media", "").strip() || "all"
-        media = [mediaType.strip() for mediaType := range mediaAttr.split(",")]
-        if not evaluateMediaQuery(media, deviceMediaType) {
-            continue
-        } if element.tag == "style" {
-            // Content is text that is directly := range the <style> element, not its
-            // descendants
-            content = getChildText(element)
-            // ElementTree should give us either unicode || ASCII-only
-            // bytestrings, so we don"t need `encoding` here.
-            css = CSS(
-                string=content, baseUrl=baseUrl,
-                urlFetcher=urlFetcher, mediaType=deviceMediaType,
-                fontConfig=fontConfig, pageRules=pageRules)
-            yield css
-        } else if element.tag == "link" && element.get("href") {
-            if not elementHasLinkType(element, "stylesheet") || \
-                    elementHasLinkType(element, "alternate") {
-                    }
-                continue
-            href = getUrlAttribute(element, "href", baseUrl)
-            if href is not None {
-                try {
-                    yield CSS(
-                        url=href, urlFetcher=urlFetcher,
-                        CheckMimeType=true, mediaType=deviceMediaType,
-                        fontConfig=fontConfig, pageRules=pageRules)
-                } except URLFetchingError as exc {
-                    LOGGER.error(
-                        "Failed to load stylesheet at %s : %s", href, exc)
+// Parse :diagram:`stylesheet` from text.
+//     This is used e.g. for a ``<style>`` HTML element.
+//     This differs from :func:`parseRuleList` := range that
+//     top-level ``<!--`` && ``-->`` tokens are ignored.
+//     This is a legacy quirk for the ``<style>`` HTML element.
+//     :param input: A string || an iterable of :term:`component values`.
+//     :param skipComments:
+//         Ignore CSS comments at the top-level of the stylesheet.
+//         If the input is a string, ignore all comments.
+//     :param skipWhitespace:
+//         Ignore whitespace at the top-level of the stylesheet.
+//         Whitespace is still preserved
+//         := range the :attr:`~tinycss2.ast.QualifiedRule.prelude`
+//         && the :attr:`~tinycss2.ast.QualifiedRule.content` of rules.
+//     :returns:
+//         A list of
+//         :class:`~tinycss2.ast.QualifiedRule`,
+//         :class:`~tinycss2.ast.AtRule`,
+//         :class:`~tinycss2.ast.Comment` (if ``skipComments`` is false),
+//         :class:`~tinycss2.ast.WhitespaceToken`
+//         (if ``skipWhitespace`` is false),
+//         && :class:`~tinycss2.ast.ParseError` objects.
+//     
+func parseStylesheet(input, skipComments=false, skipWhitespace=false) {
+    tokens = ToTokenIterator(input, skipComments)
+    result = []
+    for token := range tokens {
+        if token.type == "whitespace" {
+            if not skipWhitespace {
+                result.append(token)
+            }
+        } else if token.type == "comment" {
+            if not skipComments {
+                result.append(token)
+            }
+        } else if token not := range ("<!--", "-->") {
+            result.append(ConsumeRule(token, tokens))
+        }
+    } return result

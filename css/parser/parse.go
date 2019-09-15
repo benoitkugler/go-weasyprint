@@ -348,6 +348,45 @@ func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 	return result
 }
 
+// Parse a stylesheet from text.
+//     This is used e.g. for a ``<style>`` HTML element.
+//     This differs from `parseRuleList` in that
+//     top-level ``<!--`` && ``-->`` tokens are ignored.
+//     This is a legacy quirk for the ``<style>`` HTML element.
+//     If `skipComments` is true, ignore CSS comments at the top-level of the stylesheet.
+//     If the input is a string, ignore all comments.
+//     If `skipWhitespace` is true, ignore whitespace at the top-level of the stylesheet.
+//         Whitespace is still preserved
+//         in the `QualifiedRule.Prelude`
+//         and the `QualifiedRule.Content` of rules.
+// skipComments=false, skipWhitespace=false
+func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
+	iter := NewTokenIterator(input)
+	var result []Token
+	for iter.HasNext() {
+		token := iter.Next()
+		switch token.Type() {
+		case TypeWhitespaceToken:
+			if !skipWhitespace {
+				result = append(result, token)
+			}
+		case TypeComment:
+			if !skipComments {
+				result = append(result, token)
+			}
+		case TypeLiteralToken:
+			if lit, ok := token.(LiteralToken); !ok || (lit.Value != "<!--" && lit.Value != "-->") {
+				result = append(result, consumeRule(token, iter))
+			}
+		}
+	}
+	return result
+}
+func ParseStylesheet2(input []byte, skipComments, skipWhitespace bool) []Token {
+	l := ParseComponentValueList(string(input), skipComments)
+	return ParseStylesheet(l, skipComments, skipWhitespace)
+}
+
 // Parse a qualified rule or at-rule.
 // Consume just enough of :obj:`tokens` for this rule.
 // :param firstToken: The first :term:`component value` of the rule.

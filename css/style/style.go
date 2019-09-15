@@ -30,12 +30,12 @@ import (
 	"golang.org/x/net/html"
 )
 
-var (
-	// Reject anything not in here
-	pseudoElements = Set{
-		"": Has, "before": Has, "after": Has, "first-line": Has, "first-letter": Has,
-	}
-)
+// var (
+// 	// Reject anything not in here
+// 	pseudoElements = Set{
+// 		"": Has, "before": Has, "after": Has, "first-line": Has, "first-letter": Has,
+// 	}
+// )
 
 type StyleDict struct {
 	Properties
@@ -431,7 +431,7 @@ type pageRule struct {
 // in a document.
 // ignoreImports = false
 func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher, matcher []match, pageRules *[]pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
+	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
 
 	for _, rule := range stylesheetRules {
 		if atRule, isAtRule := rule.(AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
@@ -447,7 +447,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 					log.Printf("Invalid or unsupported selector '%s', %s \n", Serialize(*typedRule.Prelude), err)
 					continue
 				}
-				matcher = append(matcher, match{selector: selector, declarations: declarations})
+				*matcher = append(*matcher, match{selector: selector, declarations: declarations})
 				ignoreImports = true
 			} else {
 				ignoreImports = true
@@ -484,10 +484,8 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				url = utils.UrlJoin(baseUrl, url, false, "@import")
 				if url != "" {
-					_, err := NewCSS("")
-					// url=url, urlFetcher=urlFetcher,
-					// mediaType=deviceMediaType, fontConfig=fontConfig,
-					// matcher=matcher, pageRules=pageRules)
+					_, err := NewCSS(CssUrl(url), "", urlFetcher, false,
+						deviceMediaType, fontConfig, matcher, pageRules)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", url, err)
 					}
@@ -924,8 +922,8 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 
 // Yield the stylesheets in ``elementTree``.
 // The output order is the same as the source order.
-func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher func(string) interface{}, baseUrl string,
-	fontConfig *fonts.FontConfiguration, pageRules int) (out []CSS, err error) {
+func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher utils.UrlFetcher, baseUrl string,
+	fontConfig *fonts.FontConfiguration, pageRules *[]pageRule) (out []CSS, err error) {
 	sel := cascadia.MustCompile("style, link")
 	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
 		element := (*utils.HTMLNode)(_element)
@@ -956,10 +954,8 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 			content := element.GetChildText()
 			// ElementTree should give us either unicode or  ASCII-only
 			// bytestrings, so we don"t need `encoding` here.
-			css, err := NewCSS(content)
-			// string=content, baseUrl=baseUrl,
-			// urlFetcher=urlFetcher, mediaType=deviceMediaType,
-			// fontConfig=fontConfig, pageRules=pageRules)
+			css, err := NewCSS(CssString(content), baseUrl, urlFetcher, false, deviceMediaType,
+				fontConfig, nil, pageRules)
 			if err != nil {
 				return nil, err
 			}
@@ -971,10 +967,8 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 				}
 				href := element.GetUrlAttribute("href", baseUrl, false)
 				if href != "" {
-					css, err := NewCSS("")
-					//    url=href, urlFetcher=urlFetcher,
-					//    CheckMimeType=true, mediaType=deviceMediaType,
-					//    fontConfig=fontConfig, pageRules=pageRules)
+					css, err := NewCSS(CssUrl(href), "", urlFetcher, true, deviceMediaType,
+						fontConfig, nil, pageRules)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
 					} else {
@@ -990,7 +984,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 type htmlEntity struct {
 	root       *utils.HTMLNode
 	mediaType  string
-	urlFetcher func(string) interface{}
+	urlFetcher utils.UrlFetcher
 	baseUrl    string
 }
 
@@ -1001,9 +995,9 @@ type styleGetter = func(element element, pseudoType string, get func(utils.Eleme
 // Return a ``styleFor`` function that takes an element and an optional
 // pseudo-element type, and return a StyleDict object.
 // presentationalHints=false
-func getAllComputedStyles(html htmlEntity, userStylesheets []CSS,
+func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules int) (styleGetter, map[utils.ElementKey]cascadedStyle, map[utils.ElementKey]StyleDict, error) {
+	pageRules *[]pageRule) (styleGetter, map[utils.ElementKey]cascadedStyle, map[utils.ElementKey]StyleDict, error) {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -1090,7 +1084,7 @@ func getAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 
 	for _, sh := range sheets {
 		// Add declarations for page elements
-		for _, pr := range sh.sheet.pageRules {
+		for _, pr := range *sh.sheet.pageRules {
 			// Rule, selectorList, declarations
 			for _, selector := range pr.selectors {
 				// specificity, pseudoType, match = selector
