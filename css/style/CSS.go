@@ -7,18 +7,34 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/benoitkugler/go-weasyprint/css/parser"
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
 
-	"github.com/andybalholm/cascadia"
+	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/css/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
 )
 
 var HTML5_UA_STYLESHEET, HTML5_PH_STYLESHEET CSS
+
+// LoadStyleSheet should be called once to load stylesheets ressources.
+// `path` is the folder containing the 'ressources' directory.
+// It will panic on failure.
+func LoadStyleSheet(path string) {
+	var err error
+	HTML5_UA_STYLESHEET, err = newCSS(CssFilename(filepath.Join(path, "ressources", "html5_ua.css")))
+	if err != nil {
+		panic(err)
+	}
+	HTML5_PH_STYLESHEET, err = newCSS(CssFilename(filepath.Join(path, "ressources", "html5_ph.css")))
+	if err != nil {
+		panic(err)
+	}
+}
 
 // CSS represents a parsed CSS stylesheet.
 // An instance is created in the same way as `HTML`, except that
@@ -78,6 +94,10 @@ func NewCSS(input cssInput, baseUrl string,
 	preprocessStylesheet(mediaType, baseUrl, stylesheet, urlFetcher, matcher,
 		out.pageRules, out.fonts, fontConfig, false)
 	return out, nil
+}
+
+func newCSS(input cssInput) (CSS, error) {
+	return NewCSS(input, "", nil, false, "", nil, nil, nil)
 }
 
 type cssInput interface {
@@ -180,12 +200,16 @@ func NewMatcher() *matcher {
 }
 
 type matchResult struct {
-	specificity [3]uint8
-	order       int
+	specificity cascadia.Specificity
 	pseudoType  string
 	payload     []validation.ValidatedProperty
 }
 
-func (m matcher) Match(element *html.Node) []matchResult {
-	return nil
+func (m matcher) Match(element *html.Node) (out []matchResult) {
+	for _, mat := range m {
+		for _, det := range mat.selector.MatchDetails(element) {
+			out = append(out, matchResult{specificity: det.Specificity, pseudoType: det.PseudoElement, payload: mat.declarations})
+		}
+	}
+	return
 }

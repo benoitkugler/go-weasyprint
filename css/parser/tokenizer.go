@@ -187,7 +187,7 @@ func consumeNumber(value string) (numericToken, string) {
 	match := numberRe.FindStringIndex(value)
 	if match != nil {
 		repr := value[match[0]:match[1]]
-		suffix := value[match[1]+1:]
+		suffix := value[match[1]:]
 		value, err := strconv.ParseFloat(repr, 32)
 		if err != nil {
 			log.Fatalf("should be a number %s \n", err)
@@ -280,7 +280,6 @@ func consumeUrl(input string) (value string, err error) {
 			switch c {
 			case ')':
 				chunks = append(chunks, string(css[startPos:pos]))
-				pos += 1
 				return strings.Join(chunks, ""), nil
 			case ' ', '\n', '\t':
 				chunks = append(chunks, string(css[startPos:pos]))
@@ -372,7 +371,7 @@ func consumeEscape(css []rune, pos int) (string, int) {
 	// http://dev.w3.org/csswg/css-syntax/#consume-an-escaped-character
 	hexMatch := hexEscapeRe.FindAllString(string(css[pos:]), -1)
 	if len(hexMatch) > 0 {
-		codepoint, err := strconv.ParseInt(hexMatch[1], 16, 0)
+		codepoint, err := strconv.ParseInt(hexMatch[0], 16, 0)
 		if err != nil {
 			log.Fatal("codepoint should be valid hexadecimal !")
 		}

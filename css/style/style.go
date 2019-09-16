@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/net/html/atom"
 
-	"github.com/andybalholm/cascadia"
+	"github.com/benoitkugler/cascadia"
 
 	. "github.com/benoitkugler/go-weasyprint/css"
 	. "github.com/benoitkugler/go-weasyprint/css/parser"
@@ -30,12 +30,10 @@ import (
 	"golang.org/x/net/html"
 )
 
-// var (
-// 	// Reject anything not in here
-// 	pseudoElements = Set{
-// 		"": Has, "before": Has, "after": Has, "first-line": Has, "first-letter": Has,
-// 	}
-// )
+var (
+	// Reject anything not in here
+	pseudoElements = Set{"before": Has, "after": Has, "first-line": Has, "first-letter": Has}
+)
 
 type StyleDict struct {
 	Properties
@@ -231,24 +229,12 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 
 type weight struct {
 	precedence  uint8
-	specificity [3]uint8
-}
-
-func less(s1, s2 [3]uint8) bool {
-	for i := range s1 {
-		if s1[i] < s2[i] {
-			return true
-		}
-		if s1[i] > s2[i] {
-			return false
-		}
-	}
-	return true
+	specificity cascadia.Specificity
 }
 
 // Less return `true` if w <= other
 func (w weight) Less(other weight) bool {
-	return w.precedence < other.precedence || (w.precedence == other.precedence && less(w.specificity, other.specificity))
+	return w.precedence < other.precedence || (w.precedence == other.precedence && w.specificity.Less(other.specificity))
 }
 
 type weigthedValue struct {
@@ -308,7 +294,7 @@ func setComputedStyles(cascadedStyles map[utils.ElementKey]cascadedStyle, comput
 
 type pageData struct {
 	utils.PageElement
-	specificity [3]uint8
+	specificity cascadia.Specificity
 }
 
 // Parse a page selector rule.
@@ -390,7 +376,7 @@ func parsePageSelectors(rule QualifiedRule) (out []pageData) {
 					return nil
 				}
 			} else if literal.Value == "," {
-				if len(tokens) > 0 && types.specificity != [3]uint8{} {
+				if len(tokens) > 0 && (types.specificity != cascadia.Specificity{}) {
 					break
 				} else {
 					return nil
@@ -416,7 +402,7 @@ func _isContentNone(rule Token) bool {
 }
 
 type selectorPageRule struct {
-	specificity [3]uint8
+	specificity cascadia.Specificity
 	pseudoType  string
 	match       func(pageNames map[Page]struct{}) []utils.PageElement
 }
@@ -442,9 +428,14 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 		case QualifiedRule:
 			declarations := validation.PreprocessDeclarations(baseUrl, ParseDeclarationList(*typedRule.Content, false, false))
 			if len(declarations) > 0 {
+				fmt.Println(Serialize(*typedRule.Prelude))
 				selector, err := cascadia.Compile(Serialize(*typedRule.Prelude))
 				if err != nil {
 					log.Printf("Invalid or unsupported selector '%s', %s \n", Serialize(*typedRule.Prelude), err)
+					continue
+				}
+				if err = selector.CheckPseudoElements(pseudoElements); err != nil {
+					log.Println(err)
 					continue
 				}
 				*matcher = append(*matcher, match{selector: selector, declarations: declarations})
@@ -515,7 +506,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				ignoreImports = true
 				for _, pageType := range data {
 					specificity := pageType.specificity
-					pageType.specificity = [3]uint8{}
+					pageType.specificity = cascadia.Specificity{}
 
 					pageType := pageType // capture for closure inside loop
 					match := func(pageNames map[Page]struct{}) []utils.PageElement {
@@ -612,7 +603,7 @@ type sa struct {
 
 type sas struct {
 	sa
-	specificity [3]uint8
+	specificity cascadia.Specificity
 }
 
 // Yield ``specificity, (element, declaration, baseUrl)`` rules.
@@ -631,7 +622,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 	iter := tree.Iter()
 	for iter.HasNext() {
 		element := iter.Next()
-		specificity := [3]uint8{1, 0, 0}
+		specificity := cascadia.Specificity{1, 0, 0}
 		styleAttribute := element.Get("style")
 		if styleAttribute != "" {
 			out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
@@ -639,7 +630,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 		if !presentationalHints {
 			continue
 		}
-		specificity = [3]uint8{0, 0, 0}
+		specificity = cascadia.Specificity{0, 0, 0}
 		switch element.DataAtom {
 		case atom.Body:
 			// TODO: we should check the container frame element
@@ -1062,7 +1053,7 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 				// specificity, order, pseudoType, declarations = selector
 				specificity := selector.specificity
 				if len(specificity) == 3 {
-					specificity = [3]uint8{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
+					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
 				}
 				for _, decl := range selector.payload {
 					// name, values, importance = decl
@@ -1090,7 +1081,7 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 				// specificity, pseudoType, match = selector
 				specificity := selector.specificity
 				if len(specificity) == 3 {
-					specificity = [3]uint8{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
+					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
 				}
 				for _, pageType := range selector.match(pageNames) {
 					for _, decl := range pr.declarations {
