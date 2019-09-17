@@ -434,7 +434,13 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 					log.Printf("Invalid or unsupported selector '%s', %s \n", Serialize(*typedRule.Prelude), err)
 					continue
 				}
-				if err = selector.CheckPseudoElements(pseudoElements); err != nil {
+				for _, sel := range selector {
+					if _, in := pseudoElements[sel.PseudoElement()]; !in {
+						err = fmt.Errorf("Unsupported pseudo-elment : %s", sel.PseudoElement())
+						break
+					}
+				}
+				if err != nil {
 					log.Println(err)
 					continue
 				}
