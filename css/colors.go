@@ -1,6 +1,8 @@
 package css
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"regexp"
@@ -221,6 +223,11 @@ func init() {
 // values in [-1, 1]
 type RGBA struct {
 	R, G, B, A float32
+}
+
+func (c RGBA) MarshalJSON() ([]byte, error) {
+	l := []string{fmt.Sprintf("%.10f", c.R), fmt.Sprintf("%.10f", c.G), fmt.Sprintf("%.10f", c.B), fmt.Sprintf("%.10f", c.A)}
+	return json.Marshal(l)
 }
 
 type ColorType uint8

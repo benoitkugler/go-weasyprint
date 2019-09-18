@@ -187,7 +187,7 @@ var (
 		"transform":         transform,
 	}
 	// regroup the two cases (with error or without error)
-	allValidators Set
+	allValidators = Set{}
 
 	proprietary = Set{
 		"anchor": Has,
