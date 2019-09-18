@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/net/html/atom"
 
-	"github.com/benoitkugler/cascadia"
+	cascadia "github.com/benoitkugler/cascadia2"
 
 	. "github.com/benoitkugler/go-weasyprint/css"
 	. "github.com/benoitkugler/go-weasyprint/css/parser"

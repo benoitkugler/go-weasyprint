@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -9,7 +10,9 @@ import (
 	"unicode"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
-	"github.com/gorilla/css/scanner"
+	// "github.com/gorilla/css/scanner"
+
+	"github.com/riking/cssparse/scanner"
 )
 
 // This file builds the ast from the Gorilla tokenizer.
@@ -51,14 +54,10 @@ func ParseComponentValueList(css string, skipComments bool) []Token {
 	var stack []nestedBlock
 	for {
 		token := scan.Next()
+		// fmt.Println(token)
 		switch token.Type {
-		case scanner.TokenEOF:
+		case scanner.TokenEOF, scanner.TokenError:
 			return out
-		case scanner.TokenError:
-			*ts = append(*ts, ParseError{
-				Kind:    "error",
-				Message: token.Value,
-			})
 		case scanner.TokenS:
 			*ts = append(*ts, WhitespaceToken{Value: token.Value})
 		case scanner.TokenUnicodeRange:
@@ -69,7 +68,7 @@ func ParseComponentValueList(css string, skipComments bool) []Token {
 				*ts = append(*ts, UnicodeRangeToken{Start: uint32(start), End: uint32(end)})
 			}
 		case scanner.TokenIdent:
-			*ts = append(*ts, IdentToken{Value: LowerableString(token.Value)})
+			*ts = append(*ts, IdentToken{Value: LowerableString(consumeIdent(token.Value))})
 		case scanner.TokenURI:
 			url, err := consumeUrl(token.Value)
 			if err != nil {
@@ -181,6 +180,32 @@ func isIdentStart(css []rune, pos int) bool {
 		return !strings.HasPrefix(string(css[pos:]), "\\\n")
 	}
 	return false
+}
+
+func consumeIdent(_value string) string {
+	// http://dev.w3.org/csswg/css-syntax/#consume-a-name
+	var chunks []string
+	value := []rune(_value)
+	length := len(value)
+	pos := 0
+	startPos := pos
+	for pos < length {
+		c := value[pos]
+		if strings.ContainsRune("abcdefghijklmnopqrstuvwxyz-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", c) || c > 0x7F {
+			pos += 1
+		} else if c == '\\' && !strings.HasPrefix(string(value[pos:]), "\\\n") {
+			// Valid escape
+			chunks = append(chunks, string(value[startPos:pos]))
+			var car string
+			car, pos = consumeEscape(value, pos+1)
+			chunks = append(chunks, car)
+			startPos = pos
+		} else {
+			break
+		}
+	}
+	chunks = append(chunks, string(value[startPos:pos]))
+	return strings.Join(chunks, "")
 }
 
 func consumeNumber(value string) (numericToken, string) {
@@ -369,11 +394,12 @@ func consumeQuotedString(value string) (string, error) {
 // Assumes a valid escape: pos is just after '\' and not followed by '\n'.
 func consumeEscape(css []rune, pos int) (string, int) {
 	// http://dev.w3.org/csswg/css-syntax/#consume-an-escaped-character
-	hexMatch := hexEscapeRe.FindAllString(string(css[pos:]), -1)
-	if len(hexMatch) > 0 {
-		codepoint, err := strconv.ParseInt(hexMatch[0], 16, 0)
+	hexMatch := hexEscapeRe.FindStringSubmatch(string(css[pos:]))
+	if len(hexMatch) >= 2 {
+		codepoint, err := strconv.ParseInt(hexMatch[1], 16, 0)
 		if err != nil {
-			log.Fatal("codepoint should be valid hexadecimal !")
+			fmt.Println(string(css[pos:]), hexMatch)
+			log.Fatalf("codepoint should be valid hexadecimal, got %s", hexMatch[0])
 		}
 		char := "\uFFFD"
 		if 0 < codepoint && codepoint <= unicode.MaxRune {

@@ -32,10 +32,14 @@ const (
 type tokenType string
 
 type Token interface {
+	jsonisable
 	isToken()
 	Type() tokenType
 	serializeTo(write func(s string))
-	MarshalJSON() ([]byte, error) // json representation, for tests
+}
+
+type jsonisable interface {
+	toJson() jsonisable // json representation, for tests
 }
 
 // LowerableString is a string which can be
@@ -155,142 +159,124 @@ func (t NumberToken) IntValue() int {
 }
 
 // ---------------- JSON -------------------------------------------
-func (n numericToken) toList() []interface{} {
-	l := []interface{}{n.Representation, n.Value}
+type myString string
+type myFloat float32
+type myBool bool
+type myInt int
+
+func (s myString) toJson() jsonisable { return s }
+func (s myFloat) toJson() jsonisable  { return s }
+func (s myBool) toJson() jsonisable   { return s }
+func (s myInt) toJson() jsonisable    { return s }
+
+type jsonList []jsonisable
+
+func (s jsonList) toJson() jsonisable {
+	for i, v := range s {
+		s[i] = v.toJson()
+	}
+	return s
+}
+
+func (n numericToken) toJson() jsonList {
+	l := jsonList{myString(n.Representation), myFloat(n.Value)}
 	if n.IsInteger {
-		l = append(l, "integer")
+		l = append(l, myString("integer"))
 	} else {
-		l = append(l, "number")
+		l = append(l, myString("number"))
 	}
 	return l
 }
 
-func toJson(l []Token) (out [][]byte, err error) {
-	out = make([][]byte, len(l))
+func toJson(l []Token) jsonList {
+	out := make(jsonList, len(l))
 	for i, t := range l {
-		out[i], err = t.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
+		out[i] = t.toJson()
 	}
-	return out, nil
+	return out
 }
 
-func (t QualifiedRule) MarshalJSON() ([]byte, error) {
-	prelude, err := toJson(*t.Prelude)
+func marshalJSON(l []Token) (string, error) {
+	normalize := toJson(l)
+	b, err := json.Marshal(normalize)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	content, err := toJson(*t.Content)
-	if err != nil {
-		return nil, err
-	}
-	l := []interface{}{"qualified rule", prelude, content}
-	return json.Marshal(l)
+	return string(b), nil
 }
-func (t AtRule) MarshalJSON() ([]byte, error) {
-	prelude, err := toJson(*t.Prelude)
-	if err != nil {
-		return nil, err
-	}
-	content, err := toJson(*t.Content)
-	if err != nil {
-		return nil, err
-	}
-	l := []interface{}{"at-rule", t.AtKeyword, prelude, content}
-	return json.Marshal(l)
+
+func (t QualifiedRule) toJson() jsonisable {
+	prelude := toJson(*t.Prelude)
+	content := toJson(*t.Content)
+	return jsonList{myString("qualified rule"), prelude, content}
 }
-func (t Declaration) MarshalJSON() ([]byte, error) {
-	content, err := toJson(t.Value)
-	if err != nil {
-		return nil, err
-	}
-	l := []interface{}{"declaration", t.Name, content, t.Important}
-	return json.Marshal(l)
+func (t AtRule) toJson() jsonisable {
+	prelude := toJson(*t.Prelude)
+	content := toJson(*t.Content)
+	return jsonList{myString("at-rule"), myString(t.AtKeyword), prelude, content}
 }
-func (t ParseError) MarshalJSON() ([]byte, error) {
-	l := []string{"error", t.Kind}
-	return json.Marshal(l)
+func (t Declaration) toJson() jsonisable {
+	content := toJson(t.Value)
+	return jsonList{myString("declaration"), myString(t.Name), content, myBool(t.Important)}
 }
-func (t Comment) MarshalJSON() ([]byte, error) {
-	return []byte("/* … */"), nil
+func (t ParseError) toJson() jsonisable {
+	return jsonList{myString("error"), myString(t.Kind)}
 }
-func (t WhitespaceToken) MarshalJSON() ([]byte, error) {
-	return []byte(" "), nil
+func (t Comment) toJson() jsonisable {
+	return myString("/* … */")
 }
-func (t LiteralToken) MarshalJSON() ([]byte, error) {
-	return []byte(t.Value), nil
+func (t WhitespaceToken) toJson() jsonisable {
+	return myString(" ")
 }
-func (t IdentToken) MarshalJSON() ([]byte, error) {
-	l := []string{"ident", string(t.Value)}
-	return json.Marshal(l)
+func (t LiteralToken) toJson() jsonisable {
+	return myString(t.Value)
 }
-func (t AtKeywordToken) MarshalJSON() ([]byte, error) {
-	l := []string{"at-keyword", string(t.Value)}
-	return json.Marshal(l)
+func (t IdentToken) toJson() jsonisable {
+	return jsonList{myString("ident"), myString(t.Value)}
 }
-func (t HashToken) MarshalJSON() ([]byte, error) {
-	l := []string{"hash", t.Value}
+func (t AtKeywordToken) toJson() jsonisable {
+	return jsonList{myString("at-keyword"), myString(t.Value)}
+}
+func (t HashToken) toJson() jsonisable {
+	l := jsonList{myString("hash"), myString(t.Value)}
 	if t.IsIdentifier {
-		l = append(l, "id")
+		l = append(l, myString("id"))
 	} else {
-		l = append(l, "unrestricted")
+		l = append(l, myString("unrestricted"))
 	}
-	return json.Marshal(l)
+	return l
 }
-func (t StringToken) MarshalJSON() ([]byte, error) {
-	l := []string{"string", t.Value}
-	return json.Marshal(l)
+func (t StringToken) toJson() jsonisable {
+	return jsonList{myString("string"), myString(t.Value)}
 }
-func (t URLToken) MarshalJSON() ([]byte, error) {
-	l := []string{"url", t.Value}
-	return json.Marshal(l)
+func (t URLToken) toJson() jsonisable {
+	return jsonList{myString("url"), myString(t.Value)}
 }
-func (t UnicodeRangeToken) MarshalJSON() ([]byte, error) {
-	l := []interface{}{"unicode-range", t.Start, t.End}
-	return json.Marshal(l)
+func (t UnicodeRangeToken) toJson() jsonisable {
+	return jsonList{myString("unicode-range"), myInt(t.Start), myInt(t.End)}
 }
-func (t NumberToken) MarshalJSON() ([]byte, error) {
-	l := append([]interface{}{"number"}, numericToken(t).toList()...)
-	return json.Marshal(l)
+func (t NumberToken) toJson() jsonisable {
+	return append(jsonList{myString("number")}, numericToken(t).toJson()...)
 }
-func (t PercentageToken) MarshalJSON() ([]byte, error) {
-	l := append([]interface{}{"percentage"}, numericToken(t).toList()...)
-	return json.Marshal(l)
+func (t PercentageToken) toJson() jsonisable {
+	return append(jsonList{myString("percentage")}, numericToken(t).toJson()...)
 }
-func (t DimensionToken) MarshalJSON() ([]byte, error) {
-	l := append(append([]interface{}{"dimension"}, t.toList()...), t.Unit)
-	return json.Marshal(l)
+func (t DimensionToken) toJson() jsonisable {
+	return append(append(jsonList{myString("dimension")}, t.numericToken.toJson()...), myString(t.Unit))
 }
-func (t ParenthesesBlock) MarshalJSON() ([]byte, error) {
-	content, err := toJson(*t.Content)
-	if err != nil {
-		return nil, err
-	}
-	l := append([][]byte{[]byte("()")}, content...)
-	return json.Marshal(l)
+func (t ParenthesesBlock) toJson() jsonisable {
+	content := toJson(*t.Content)
+	return append(jsonList{myString("()")}, content...)
 }
-func (t SquareBracketsBlock) MarshalJSON() ([]byte, error) {
-	content, err := toJson(*t.Content)
-	if err != nil {
-		return nil, err
-	}
-	l := append([][]byte{[]byte("[]")}, content...)
-	return json.Marshal(l)
+func (t SquareBracketsBlock) toJson() jsonisable {
+	content := toJson(*t.Content)
+	return append(jsonList{myString("[]")}, content...)
 }
-func (t CurlyBracketsBlock) MarshalJSON() ([]byte, error) {
-	content, err := toJson(*t.Content)
-	if err != nil {
-		return nil, err
-	}
-	l := append([][]byte{[]byte("{}")}, content...)
-	return json.Marshal(l)
+func (t CurlyBracketsBlock) toJson() jsonisable {
+	content := toJson(*t.Content)
+	return append(jsonList{myString("{}")}, content...)
 }
-func (t FunctionBlock) MarshalJSON() ([]byte, error) {
-	content, err := toJson(*t.Arguments)
-	if err != nil {
-		return nil, err
-	}
-	l := append([][]byte{[]byte("function"), []byte(t.Name)}, content...)
-	return json.Marshal(l)
+func (t FunctionBlock) toJson() jsonisable {
+	content := toJson(*t.Arguments)
+	return append(jsonList{myString("function"), myString(t.Name)}, content...)
 }

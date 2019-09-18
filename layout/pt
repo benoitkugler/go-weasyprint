@@ -1,39 +1,25 @@
-// Parse :diagram:`stylesheet` from text.
-//     This is used e.g. for a ``<style>`` HTML element.
-//     This differs from :func:`parseRuleList` := range that
-//     top-level ``<!--`` && ``-->`` tokens are ignored.
-//     This is a legacy quirk for the ``<style>`` HTML element.
-//     :param input: A string || an iterable of :term:`component values`.
-//     :param skipComments:
-//         Ignore CSS comments at the top-level of the stylesheet.
-//         If the input is a string, ignore all comments.
-//     :param skipWhitespace:
-//         Ignore whitespace at the top-level of the stylesheet.
-//         Whitespace is still preserved
-//         := range the :attr:`~tinycss2.ast.QualifiedRule.prelude`
-//         && the :attr:`~tinycss2.ast.QualifiedRule.content` of rules.
-//     :returns:
-//         A list of
-//         :class:`~tinycss2.ast.QualifiedRule`,
-//         :class:`~tinycss2.ast.AtRule`,
-//         :class:`~tinycss2.ast.Comment` (if ``skipComments`` is false),
-//         :class:`~tinycss2.ast.WhitespaceToken`
-//         (if ``skipWhitespace`` is false),
-//         && :class:`~tinycss2.ast.ParseError` objects.
+// Return (unescapedValue, newPos).
+//     Assumes pos starts at a valid identifier. See :func:`IsIdentStart`.
 //     
-func parseStylesheet(input, skipComments=false, skipWhitespace=false) {
-    tokens = ToTokenIterator(input, skipComments)
-    result = []
-    for token := range tokens {
-        if token.type == "whitespace" {
-            if not skipWhitespace {
-                result.append(token)
-            }
-        } else if token.type == "comment" {
-            if not skipComments {
-                result.append(token)
-            }
-        } else if token not := range ("<!--", "-->") {
-            result.append(ConsumeRule(token, tokens))
+func ConsumeIdent(css, pos) {
+    // http://dev.w3.org/csswg/css-syntax/#consume-a-name
+    chunks = []
+    length = len(css)
+    startPos = pos
+    while pos < length {
+        c = css[pos]
+        if c := range ("abcdefghijklmnopqrstuvwxyz-0123456789"
+                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ") || ord(c) > 0x7F {
+                 }
+            pos += 1
+        else if c == "\\" && not css.startswith("\\\n", pos) {
+            // Valid escape
+            chunks.append(css[startPos:pos])
+            c, pos = ConsumeEscape(css, pos + 1)
+            chunks.append(c)
+            startPos = pos
+        } else {
+            break
         }
-    } return result
+    } chunks.append(css[startPos:pos])
+    return "".join(chunks), pos
