@@ -12,7 +12,7 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
 
-	"github.com/andybalholm/cascadia"
+	cascadia "github.com/benoitkugler/cascadia2"
 	"github.com/benoitkugler/go-weasyprint/css/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
@@ -181,11 +181,19 @@ func NewMatcher() *matcher {
 
 type matchResult struct {
 	specificity [3]uint8
-	order       int
-	pseudoType  string
-	payload     []validation.ValidatedProperty
+	// order       int
+	pseudoType string
+	payload    []validation.ValidatedProperty
 }
 
+// Match selectors against the given element.
+// Returns a list of the `payload` objects associated
+// to selectors that match element.
 func (m matcher) Match(element *html.Node) []matchResult {
-	return nil
+	var out []matchResult
+	for _, selector := range m {
+		if selector.selector.Match(element) {
+			out = append(out, matchResult{})
+		}
+	}
 }
