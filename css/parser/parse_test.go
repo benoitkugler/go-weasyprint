@@ -35,23 +35,22 @@ func loadJson(filename string) ([]string, []string) {
 
 func runTest(t *testing.T, css, resJson []string, fn func(input string) []Token) {
 	for i, input := range css {
+		fmt.Println("test", i)
 		resToTest := fn(input)
 		res, err := marshalJSON(resToTest)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if res != resJson[i] {
-			t.Errorf(fmt.Sprintf("input (%d) %s faile d \n expected %s \n got  \n %s \n", i, input, resJson[i], res))
+			t.Fatalf(fmt.Sprintf("input (%d) %s faile d \n expected %s \n got  \n %s \n", i, input, resJson[i], res))
 		}
 	}
 }
 
 func TestComponentValueList(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
-	// l := ParseComponentValueList(inputs[6], true)
-	// fmt.Println(toJson(l))
-	// fmt.Println(resJson[6], "uu")
-	// fmt.Println(marshalJSON(l))
+	// fmt.Println(inputs[37], resJson[37])
+	// ParseComponentValueList(inputs[37], true)
 	runTest(t, inputs, resJson, func(s string) []Token {
 		return ParseComponentValueList(s, true)
 	})

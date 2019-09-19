@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +48,9 @@ func TestRune(t *testing.T) {
 func TestEscapeRe(t *testing.T) {
 	fmt.Println(hexEscapeRe.FindAllString("130 ", -1))
 	fmt.Println(hexEscapeRe.FindStringSubmatch("130 "))
+
+	f, err := strconv.ParseFloat("-0", 32)
+	fmt.Println(f == 0, err)
 }
 
 func TestJSON(t *testing.T) {
