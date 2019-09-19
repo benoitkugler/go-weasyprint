@@ -1,25 +1,152 @@
-// Return (unescapedValue, newPos).
-//     Assumes pos starts at a valid identifier. See :func:`IsIdentStart`.
-//     
-func ConsumeIdent(css, pos) {
-    // http://dev.w3.org/csswg/css-syntax/#consume-a-name
-    chunks = []
-    length = len(css)
-    startPos = pos
-    while pos < length {
+        newline = css.rfind("\n", tokenStartPos, pos)
+        if newline != -1 {
+            line += 1 + css.count("\n", tokenStartPos, newline)
+            lastNewline = newline
+        } // First character := range a line is := range column 1.
+        column = pos - lastNewline
+        tokenStartPos = pos
         c = css[pos]
-        if c := range ("abcdefghijklmnopqrstuvwxyz-0123456789"
-                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ") || ord(c) > 0x7F {
-                 }
+
+        if c := range " \n\t" {
             pos += 1
-        else if c == "\\" && not css.startswith("\\\n", pos) {
-            // Valid escape
-            chunks.append(css[startPos:pos])
-            c, pos = ConsumeEscape(css, pos + 1)
-            chunks.append(c)
-            startPos = pos
-        } else {
-            break
+            while css.startswith((" ", "\n", "\t"), pos) {
+                pos += 1
+            } value = css[tokenStartPos:pos]
+            tokens.append(WhitespaceToken(line, column, value))
+            continue
+        } else if (c := range "Uu" && pos + 2 < length && css[pos + 1] == "+" and
+              css[pos + 2] := range "0123456789abcdefABCDEF?") {
+              }
+            start, end, pos = ConsumeUnicodeRange(css, pos + 2)
+            tokens.append(UnicodeRangeToken(line, column, start, end))
+            continue
+        else if css.startswith("-->", pos):  // Check before identifiers
+            tokens.append(LiteralToken(line, column, "-->"))
+            pos += 3
+            continue
+        else if IsIdentStart(css, pos) {
+            value, pos = ConsumeIdent(css, pos)
+            if not css.startswith("(", pos):  // Not a function
+                tokens.append(IdentToken(line, column, value))
+                continue
+            pos += 1  // Skip the "("
+            if asciiLower(value) == "url" {
+                value, pos = ConsumeUrl(css, pos)
+                tokens.append(
+                    URLToken(line, column, value) if value is not None
+                    else ParseError(line, column, "bad-url", "bad URL token"))
+                continue
+            } arguments = []
+            tokens.append(FunctionBlock(line, column, value, arguments))
+            stack.append((tokens, endChar))
+            endChar = ")"
+            tokens = arguments
+            continue
         }
-    } chunks.append(css[startPos:pos])
-    return "".join(chunks), pos
+
+        match = NUMBERRE.match(css, pos)
+        if match {
+            pos = match.end()
+            repr_ = css[tokenStartPos:pos]
+            value = float(repr)
+            intValue = int(repr) if not any(match.groups()) else None
+            if pos < length && IsIdentStart(css, pos) {
+                unit, pos = ConsumeIdent(css, pos)
+                tokens.append(DimensionToken(
+                    line, column, value, intValue, repr_, unit))
+            } else if css.startswith("%", pos) {
+                pos += 1
+                tokens.append(PercentageToken(
+                    line, column, value, intValue, repr))
+            } else {
+                tokens.append(NumberToken(
+                    line, column, value, intValue, repr))
+            }
+        } else if c == "@" {
+            pos += 1
+            if pos < length && IsIdentStart(css, pos) {
+                value, pos = ConsumeIdent(css, pos)
+                tokens.append(AtKeywordToken(line, column, value))
+            } else {
+                tokens.append(LiteralToken(line, column, "@"))
+            }
+        } else if c == "#" {
+            pos += 1
+            if pos < length && (
+                    css[pos] := range "0123456789abcdefghijklmnopqrstuvwxyz"
+                                "-ABCDEFGHIJKLMNOPQRSTUVWXYZ" or
+                    ord(css[pos]) > 0x7F ||  // Non-ASCII
+                    // Valid escape {
+                    } (css[pos] == "\\" && not css.startswith("\\\n", pos))) {
+                    }
+                isIdentifier = IsIdentStart(css, pos)
+                value, pos = ConsumeIdent(css, pos)
+                tokens.append(HashToken(line, column, value, isIdentifier))
+            else {
+                tokens.append(LiteralToken(line, column, "#"))
+            }
+        } else if c == "{" {
+            content = []
+            tokens.append(CurlyBracketsBlock(line, column, content))
+            stack.append((tokens, endChar))
+            endChar = "}"
+            tokens = content
+            pos += 1
+        } else if c == "[" {
+            content = []
+            tokens.append(SquareBracketsBlock(line, column, content))
+            stack.append((tokens, endChar))
+            endChar = "]"
+            tokens = content
+            pos += 1
+        } else if c == "(" {
+            content = []
+            tokens.append(ParenthesesBlock(line, column, content))
+            stack.append((tokens, endChar))
+            endChar = ")"
+            tokens = content
+            pos += 1
+        } else if c == endChar:  // Matching }, ] || )
+            // The top-level endChar is None (never equal to a character),
+            // so we never get here if the stack is empty.
+            tokens, endChar = stack.pop()
+            pos += 1
+        else if c := range "}])" {
+            tokens.append(ParseError(line, column, c, "Unmatched " + c))
+            pos += 1
+        } else if c := range (""", """) {
+            value, pos = ConsumeQuotedString(css, pos)
+            tokens.append(
+                StringToken(line, column, value) if value is not None
+                else ParseError(line, column, "bad-string",
+                                "bad string token"))
+        } else if css.startswith("/*", pos):  // Comment
+            pos = css.find("*/", pos + 2)
+            if pos == -1 {
+                if not skipComments {
+                    tokens.append(
+                        Comment(line, column, css[tokenStartPos + 2:]))
+                } break
+            } if not skipComments {
+                tokens.append(
+                    Comment(line, column, css[tokenStartPos + 2:pos]))
+            } pos += 2
+        else if css.startswith("<!--", pos) {
+            tokens.append(LiteralToken(line, column, "<!--"))
+            pos += 4
+        } else if css.startswith("||", pos) {
+            tokens.append(LiteralToken(line, column, "||"))
+            pos += 2
+        } else if c := range "~|^$*" {
+            pos += 1
+            if css.startswith("=", pos) {
+                pos += 1
+                tokens.append(LiteralToken(line, column, c + "="))
+            } else {
+                tokens.append(LiteralToken(line, column, c))
+            }
+        } else {
+            tokens.append(LiteralToken(line, column, c))
+            pos += 1
+        }
+    return root

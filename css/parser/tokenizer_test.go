@@ -4,21 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
+	"strings"
 	"testing"
-
-	"github.com/gorilla/css/scanner"
+	"time"
+	"unicode/utf8"
 )
 
-func showTokens(s string) {
-	sc := scanner.New(s)
-	for {
-		token := sc.Next()
-		if token.Type == scanner.TokenEOF {
-			break
-		}
-		fmt.Println(token.Type, token.Value)
-	}
-}
 func TestUnicodeRange(t *testing.T) {
 	s := `html {
 		color: blue;
@@ -40,6 +32,16 @@ func TestGen(t *testing.T) {
 	fmt.Println(l)
 	s = Serialize(l)
 	fmt.Println(s)
+}
+
+func TestRune(t *testing.T) {
+	s := strings.Repeat(string(rand.Int()), 1000000)
+	ti := time.Now()
+	vi := []rune(s)
+	fmt.Println(time.Since(ti), len(vi))
+
+	fmt.Println(utf8.DecodeRuneInString("--"))
+	fmt.Println("--"[0])
 }
 
 func TestEscapeRe(t *testing.T) {
