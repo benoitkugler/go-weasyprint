@@ -3,6 +3,8 @@ package css
 import (
 	"math"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/css/parser"
 )
 
 var (
@@ -56,8 +58,8 @@ var (
 		"bottom":       SToV("auto"),
 		"caption_side": String("top"),
 		// "clear": "none",
-		// "clip": TBD,  // computed value for "auto"
-		"color": parseColorString("black"), // chosen by the user agent
+		"clip":  Values{},                           // computed value for "auto"
+		"color": Color(parser.ParseColor2("black")), // chosen by the user agent
 
 		"content": SContent{String: "normal"},
 
@@ -104,7 +106,7 @@ var (
 		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 		// "background_attachment": ("scroll",),
 		// "background_clip": ("border-box",),
-		"background_color": parseColorString("transparent"),
+		"background_color": Color(parser.ParseColor2("transparent")),
 		// "background_origin": ("padding-box",),
 		"background_position": Centers{
 			Center{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Unit: Percentage}, Dimension{Unit: Percentage}}},

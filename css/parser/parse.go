@@ -97,19 +97,24 @@ func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 	name, ok := firstToken.(IdentToken)
 	if !ok {
 		return ParseError{
+			Origine: name.Origine,
 			Kind:    "invalid",
 			Message: fmt.Sprintf("Expected <ident> for declaration name, got %s.", firstToken.Type()),
 		}
 	}
 	colon := nextSignificant(tokens)
 	if colon == nil {
-		return ParseError{Kind: "invalid",
+		return ParseError{
+			Origine: name.Origine,
+			Kind:    "invalid",
 			Message: "Expected ':' after declaration name, got EOF",
 		}
 	}
 
 	if lit, ok := colon.(LiteralToken); !ok || lit.Value != ":" {
-		return ParseError{Kind: "invalid",
+		return ParseError{
+			Origine: colon.Position(),
+			Kind:    "invalid",
 			Message: fmt.Sprintf("Expected ':' after declaration name, got %s.", colon.Type()),
 		}
 	}
@@ -145,6 +150,7 @@ func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 	}
 
 	return Declaration{
+		Origine:   name.Origine,
 		Name:      name.Value,
 		Value:     value,
 		Important: state == "important",
@@ -346,12 +352,14 @@ func consumeRule(_firstToken Token, tokens *tokenIterator) Token {
 		}
 		if !hasBroken {
 			return ParseError{
+				Origine: prelude[len(prelude)-1].Position(),
 				Kind:    "invalid",
 				Message: "EOF reached before {} block for a qualified rule.",
 			}
 		}
 	}
 	return QualifiedRule{
+		Origine: _firstToken.Position(),
 		Content: block.Content,
 		Prelude: &prelude,
 	}
@@ -381,6 +389,7 @@ func consumeAtRule(atKeyword AtKeywordToken, tokens *tokenIterator) AtRule {
 	return AtRule{
 		AtKeyword: atKeyword.Value,
 		QualifiedRule: QualifiedRule{
+			Origine: atKeyword.Origine,
 			Prelude: &prelude,
 			Content: content,
 		},

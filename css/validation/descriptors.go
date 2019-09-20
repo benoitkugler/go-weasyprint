@@ -5,8 +5,8 @@ import (
 	"log"
 	"strings"
 
-	. "github.com/benoitkugler/go-weasyprint/css"
-	. "github.com/benoitkugler/go-weasyprint/css/parser"
+	"github.com/benoitkugler/go-weasyprint/css"
+	"github.com/benoitkugler/go-weasyprint/css/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -39,12 +39,12 @@ type descriptor = func(tokens []Token, baseUrl string) (Descriptor, error)
 // ``font-family`` descriptor validation.
 // allowSpaces = false
 func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
-	allowedTypes := Set{string(TypeIdentToken): Has}
+	allowedTypes := css.Set{string(parser.TypeIdentToken): css.Has}
 	if allowSpaces {
-		allowedTypes.Add(string(TypeWhitespaceToken))
+		allowedTypes.Add(string(parser.TypeWhitespaceToken))
 	}
 	if len(tokens) == 1 {
-		if str, ok := tokens[0].(StringToken); ok {
+		if str, ok := tokens[0].(parser.StringToken); ok {
 			return str.Value
 		}
 	}
@@ -53,7 +53,7 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 	ok := true
 	for _, token := range tokens {
 		ok = ok && allowedTypes.Has(string(token.Type()))
-		if ident, ok := token.(IdentToken); ok {
+		if ident, ok := token.(parser.IdentToken); ok {
 			values = append(values, string(ident.Value))
 		}
 	}
@@ -74,40 +74,40 @@ func fontFamilyDescriptor(tokens []Token, _ string) (Descriptor, error) {
 // @descriptor(wantsBaseUrl=true)
 // @commaSeparatedList
 // ``src`` descriptor validation.
-func _src(tokens []Token, baseUrl string) (NamedString, error) {
+func _src(tokens []Token, baseUrl string) (css.NamedString, error) {
 	if len(tokens) > 0 && len(tokens) <= 2 {
 		token := tokens[len(tokens)-1]
 		tokens = tokens[:len(tokens)-1]
-		if fn, ok := token.(FunctionBlock); ok && fn.Name.Lower() == "format" {
+		if fn, ok := token.(parser.FunctionBlock); ok && fn.Name.Lower() == "format" {
 			tokens, token = tokens[:len(tokens)-1], tokens[len(tokens)-1]
 		}
-		if fn, ok := token.(FunctionBlock); ok && fn.Name.Lower() == "local" {
-			return NamedString{Name: "local", String: _fontFamilyDesc(*fn.Arguments, true)}, nil
+		if fn, ok := token.(parser.FunctionBlock); ok && fn.Name.Lower() == "local" {
+			return css.NamedString{Name: "local", String: _fontFamilyDesc(*fn.Arguments, true)}, nil
 		}
-		if url, ok := token.(URLToken); ok {
+		if url, ok := token.(parser.URLToken); ok {
 			if strings.HasPrefix(url.Value, "#") {
 				trimed := strings.TrimPrefix(url.Value, "#")
-				return NamedString{Name: "internal", String: utils.Unquote(trimed)}, nil
+				return css.NamedString{Name: "internal", String: utils.Unquote(trimed)}, nil
 			} else {
 				s, err := safeUrljoin(baseUrl, url.Value)
 				if err != nil {
-					return NamedString{}, err
+					return css.NamedString{}, err
 				}
-				return NamedString{Name: "external", String: s}, nil
+				return css.NamedString{Name: "external", String: s}, nil
 			}
 		}
 	}
-	return NamedString{}, nil
+	return css.NamedString{}, nil
 }
 
 func src(tokens []Token, baseUrl string) (Descriptor, error) {
-	var out []NamedString
+	var out []css.NamedString
 	for _, part := range SplitOnComma(tokens) {
 		result, err := _src(RemoveWhitespace(part), baseUrl)
 		if err != nil {
 			return nil, err
 		}
-		if (result == NamedString{}) {
+		if (result == css.NamedString{}) {
 			return nil, nil
 		}
 		out = append(out, result)
@@ -140,7 +140,7 @@ func fontWeightDescriptor(tokens []Token, _ string) (Descriptor, error) {
 	if keyword == "normal" || keyword == "bold" {
 		return keyword, nil
 	}
-	if number, ok := token.(NumberToken); ok && number.IsInteger {
+	if number, ok := token.(parser.NumberToken); ok && number.IsInteger {
 		v := number.IntValue()
 		switch v {
 		case 100, 200, 300, 400, 500, 600, 700, 800, 900:
@@ -220,7 +220,7 @@ func validate(baseUrl, name string, tokens []Token) (Descriptor, error) {
 func PreprocessDescriptors(baseUrl string, descriptors []Token) []NamedDescriptor {
 	var out []NamedDescriptor
 	for _, descriptor := range descriptors {
-		decl, ok := descriptor.(Declaration)
+		decl, ok := descriptor.(parser.Declaration)
 		if !ok || decl.Important {
 			continue
 		}
@@ -229,7 +229,7 @@ func PreprocessDescriptors(baseUrl string, descriptors []Token) []NamedDescripto
 		result, err := validate(baseUrl, name, tokens)
 
 		if err != nil {
-			log.Printf("Ignored `%s:%s`, %s. \n", name, Serialize(decl.Value), err)
+			log.Printf("Ignored `%s:%s` at %d:%d, %s.\n", name, parser.Serialize(decl.Value), decl.Position().Line, decl.Position().Column, err)
 			continue
 		}
 

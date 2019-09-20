@@ -6,12 +6,10 @@ import (
 	"log"
 	"math"
 	"net/url"
-	"path"
 	"strings"
 
-	. "github.com/benoitkugler/go-weasyprint/css/parser"
-
 	. "github.com/benoitkugler/go-weasyprint/css"
+	"github.com/benoitkugler/go-weasyprint/css/parser"
 	"github.com/benoitkugler/go-weasyprint/structure/counters"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
@@ -25,7 +23,7 @@ import (
 const prefix = "-weasy-"
 
 var (
-	InvalidValue = errors.New("Invalid or unsupported values for a known CSS property.")
+	InvalidValue = errors.New("invalid or unsupported values for a known CSS property")
 
 	LENGTHUNITS = map[string]Unit{"ex": Ex, "em": Em, "ch": Ch, "rem": Rem, "px": Px, "pt": Pt, "pc": Pc, "in": In, "cm": Cm, "mm": Mm, "q": Q}
 
@@ -272,6 +270,8 @@ func init() {
 	}
 }
 
+type Token = parser.Token
+
 type validator func(tokens []Token, baseUrl string) CssProperty
 type validatorError func(tokens []Token, baseUrl string) (CssProperty, error)
 type expander func(baseUrl, name string, tokens []Token) ([]namedProperty, error)
@@ -285,7 +285,7 @@ type ValidatedProperty struct {
 // If `token` is a keyword, return its name.
 // Otherwise return empty string.
 func getKeyword(token Token) string {
-	if ident, ok := token.(IdentToken); ok {
+	if ident, ok := token.(parser.IdentToken); ok {
 		return ident.Value.Lower()
 	}
 	return ""
@@ -303,16 +303,16 @@ func getSingleKeyword(tokens []Token) string {
 // negative  = true, percentage = false
 func getLength(_token Token, negative, percentage bool) Dimension {
 	switch token := _token.(type) {
-	case PercentageToken:
+	case parser.PercentageToken:
 		if percentage && (negative || token.Value >= 0) {
 			return Dimension{Value: token.Value, Unit: Percentage}
 		}
-	case DimensionToken:
+	case parser.DimensionToken:
 		unit, isKnown := LENGTHUNITS[string(token.Unit)]
 		if isKnown && (negative || token.Value >= 0) {
 			return Dimension{Value: token.Value, Unit: unit}
 		}
-	case NumberToken:
+	case parser.NumberToken:
 		if token.Value == 0 {
 			return Dimension{Unit: NoUnit}
 		}
@@ -322,7 +322,7 @@ func getLength(_token Token, negative, percentage bool) Dimension {
 
 // Return the value in radians of an <angle> token, or None.
 func getAngle(token Token) (float32, bool) {
-	if dim, ok := token.(DimensionToken); ok {
+	if dim, ok := token.(parser.DimensionToken); ok {
 		factor, in := ANGLETORADIANS[string(dim.Unit)]
 		if in {
 			return dim.Value * factor, true
@@ -333,7 +333,7 @@ func getAngle(token Token) (float32, bool) {
 
 // Return the value := range dppx of a <resolution> token, || None.
 func getResolution(token Token) (float32, bool) {
-	if dim, ok := token.(DimensionToken); ok {
+	if dim, ok := token.(parser.DimensionToken); ok {
 		factor, in := RESOLUTIONTODPPX[string(dim.Unit)]
 		if in {
 			return dim.Value * factor, true
@@ -342,14 +342,8 @@ func getResolution(token Token) (float32, bool) {
 	return 0, false
 }
 
-func safeUrljoin(baseUrl, url string) (string, error) {
-	if path.IsAbs(url) {
-		return utils.IriToUri(url), nil
-	} else if baseUrl != "" {
-		return utils.IriToUri(path.Join(baseUrl, url)), nil
-	} else {
-		return "", errors.New("Relative URI reference without a base URI: " + url)
-	}
+func safeUrljoin(baseUrl, urls string) (string, error) {
+	return utils.SafeUrljoin(baseUrl, urls, false)
 }
 
 //@validator()
@@ -388,7 +382,7 @@ func backgroundAttachment(tokens []Token, _ string) CssProperty {
 //@singleToken
 func otherColors(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
-		return ParseColor(tokens[0])
+		return Color(parser.ParseColor(tokens[0]))
 	}
 	return nil
 }
@@ -399,9 +393,9 @@ func outlineColor(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
 		token := tokens[0]
 		if getKeyword(token) == "invert" {
-			return Color{Type: ColorCurrentColor}
+			return Color{Type: parser.ColorCurrentColor}
 		} else {
-			return ParseColor(token)
+			return Color(parser.ParseColor(token))
 		}
 	}
 	return nil
@@ -438,11 +432,11 @@ func emptyCells(tokens []Token, _ string) CssProperty {
 func color(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
 		token := tokens[0]
-		result := ParseColor(token)
-		if result.Type == ColorCurrentColor {
-			return Color{Type: ColorInherit}
+		result := parser.ParseColor(token)
+		if result.Type == parser.ColorCurrentColor {
+			return Color{Type: parser.ColorInherit}
 		} else {
-			return result
+			return Color(result)
 		}
 	}
 	return nil
@@ -457,7 +451,7 @@ func _backgroundImage(tokens []Token, baseUrl string) (Image, error) {
 	}
 	_token := tokens[0]
 
-	token, ok := _token.(FunctionBlock)
+	token, ok := _token.(parser.FunctionBlock)
 	if !ok {
 		return _imageUrl(token, baseUrl)
 	}
@@ -662,15 +656,15 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 func parseColorStop(tokens []Token) (ColorStop, error) {
 	switch len(tokens) {
 	case 1:
-		color := ParseColor(tokens[0])
+		color := parser.ParseColor(tokens[0])
 		if !color.IsNone() {
-			return ColorStop{Color: color}, nil
+			return ColorStop{Color: Color(color)}, nil
 		}
 	case 2:
-		color := ParseColor(tokens[0])
+		color := parser.ParseColor(tokens[0])
 		position := getLength(tokens[1], true, true)
 		if !color.IsNone() && !position.IsNone() {
-			return ColorStop{Color: color, Position: position}, nil
+			return ColorStop{Color: Color(color), Position: position}, nil
 		}
 	default:
 		return ColorStop{}, InvalidValue
@@ -682,7 +676,7 @@ func _imageUrl(token Token, baseUrl string) (Image, error) {
 	if getKeyword(token) == "none" {
 		return NoneImage{}, nil
 	}
-	if urlT, ok := token.(URLToken); ok {
+	if urlT, ok := token.(parser.URLToken); ok {
 		s, err := safeUrljoin(baseUrl, urlT.Value)
 		return UrlImage(s), err
 	}
@@ -700,7 +694,7 @@ func imageUrl(tokens []Token, baseUrl string) (CssProperty, error) {
 	return _imageUrl(token, baseUrl)
 }
 
-var centerKeywordFakeToken = IdentToken{Value: "center"}
+var centerKeywordFakeToken = parser.IdentToken{Value: "center"}
 
 //@validator(unstable=true)
 func transformOrigin(tokens []Token, _ string) CssProperty {
@@ -1033,7 +1027,7 @@ func page(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	if ident, ok := token.(IdentToken); ok {
+	if ident, ok := token.(parser.IdentToken); ok {
 		if ident.Value.Lower() == "auto" {
 			return Page{String: "auto"}
 		}
@@ -1244,37 +1238,37 @@ func content(tokens []Token, baseUrl string) (CssProperty, error) {
 }
 
 // helpers for validateContentToken type switches
-func _isIdent(args []Token) (bool, IdentToken) {
+func _isIdent(args []Token) (bool, parser.IdentToken) {
 	if len(args) == 1 {
-		out, ok := args[0].(IdentToken)
+		out, ok := args[0].(parser.IdentToken)
 		return ok, out
 	}
-	return false, IdentToken{}
+	return false, parser.IdentToken{}
 }
-func _isIdent2(args []Token) (bool, IdentToken, IdentToken) {
+func _isIdent2(args []Token) (bool, parser.IdentToken, parser.IdentToken) {
 	if len(args) == 2 {
-		out1, ok1 := args[0].(IdentToken)
-		out2, ok2 := args[1].(IdentToken)
+		out1, ok1 := args[0].(parser.IdentToken)
+		out2, ok2 := args[1].(parser.IdentToken)
 		return ok1 && ok2, out1, out2
 	}
-	return false, IdentToken{}, IdentToken{}
+	return false, parser.IdentToken{}, parser.IdentToken{}
 }
-func _isIdentString(args []Token) (bool, IdentToken, StringToken) {
+func _isIdentString(args []Token) (bool, parser.IdentToken, parser.StringToken) {
 	if len(args) == 2 {
-		out1, ok1 := args[0].(IdentToken)
-		out2, ok2 := args[1].(StringToken)
+		out1, ok1 := args[0].(parser.IdentToken)
+		out2, ok2 := args[1].(parser.StringToken)
 		return ok1 && ok2, out1, out2
 	}
-	return false, IdentToken{}, StringToken{}
+	return false, parser.IdentToken{}, parser.StringToken{}
 }
-func _isIdentStringIdent(args []Token) (bool, IdentToken, StringToken, IdentToken) {
+func _isIdentStringIdent(args []Token) (bool, parser.IdentToken, parser.StringToken, parser.IdentToken) {
 	if len(args) == 3 {
-		out1, ok1 := args[0].(IdentToken)
-		out2, ok2 := args[1].(StringToken)
-		out3, ok3 := args[1].(IdentToken)
+		out1, ok1 := args[0].(parser.IdentToken)
+		out2, ok2 := args[1].(parser.StringToken)
+		out3, ok3 := args[1].(parser.IdentToken)
 		return ok1 && ok2 && ok3, out1, out2, out3
 	}
-	return false, IdentToken{}, StringToken{}, IdentToken{}
+	return false, parser.IdentToken{}, parser.StringToken{}, parser.IdentToken{}
 }
 
 // share attr, counter, counters cases
@@ -1320,9 +1314,9 @@ func validateContentToken(baseUrl string, token Token) (ContentProperty, error) 
 	}
 
 	switch tt := token.(type) {
-	case StringToken:
+	case parser.StringToken:
 		return ContentProperty{Type: ContentSTRING, SStrings: SStrings{String: tt.Value}}, nil
-	case URLToken:
+	case parser.URLToken:
 		url, err := safeUrljoin(baseUrl, tt.Value)
 		if err != nil {
 			return ContentProperty{}, err
@@ -1358,12 +1352,12 @@ func validateContentToken(baseUrl string, token Token) (ContentProperty, error) 
 // Return ``(name, args)`` if the given token is a function
 //     with comma-separated arguments
 func parseFunction(functionToken Token) (string, []Token) {
-	if fun, ok := functionToken.(FunctionBlock); ok {
+	if fun, ok := functionToken.(parser.FunctionBlock); ok {
 		content := RemoveWhitespace(*fun.Arguments)
 		if len(content) == 0 || len(content)%2 == 1 {
 			for i := 1; i < len(content); i += 2 { // token in content[1::2]
 				token := content[i]
-				lit, isLit := token.(LiteralToken)
+				lit, isLit := token.(parser.LiteralToken)
 				if !isLit || lit.Value != "," {
 					return "", nil
 				}
@@ -1410,7 +1404,7 @@ func counter(tokens []Token, defaultInteger int) ([]IntString, error) {
 	)
 	for i < len(tokens) {
 		token = tokens[i]
-		ident, ok := token.(IdentToken)
+		ident, ok := token.(parser.IdentToken)
 		if !ok {
 			return nil, nil // expected a keyword here
 		}
@@ -1421,7 +1415,7 @@ func counter(tokens []Token, defaultInteger int) ([]IntString, error) {
 		i += 1
 		if i < len(tokens) {
 			token = tokens[i]
-			if number, ok := token.(NumberToken); ok {
+			if number, ok := token.(parser.NumberToken); ok {
 				if number.IsInteger {
 					// Found an integer. Use it and get the next token
 					integer = number.IntValue()
@@ -1557,13 +1551,13 @@ func float(tokens []Token, _ string) CssProperty {
 
 func _fontFamily(tokens []Token) string {
 	if len(tokens) == 1 {
-		if tt, ok := tokens[0].(StringToken); ok {
+		if tt, ok := tokens[0].(parser.StringToken); ok {
 			return tt.Value
 		}
 	} else if len(tokens) > 0 {
 		var values []string
 		for _, token := range tokens {
-			if tt, ok := token.(IdentToken); ok {
+			if tt, ok := token.(parser.IdentToken); ok {
 				values = append(values, string(tt.Value))
 			} else {
 				return ""
@@ -1612,7 +1606,7 @@ func fontLanguageOverride(tokens []Token, _ string) CssProperty {
 	if keyword == "normal" {
 		return String(keyword)
 	}
-	if tt, ok := token.(StringToken); ok {
+	if tt, ok := token.(parser.StringToken); ok {
 		return String(tt.Value)
 	}
 	return nil
@@ -1629,7 +1623,7 @@ func parseFontVariant(tokens []Token, all Set, couples [][]string) SStrings {
 		return false
 	}
 	for _, token := range tokens {
-		ident, isIdent := token.(IdentToken)
+		ident, isIdent := token.(parser.IdentToken)
 		if !isIdent {
 			return SStrings{}
 		}
@@ -1719,13 +1713,13 @@ func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 		if len(tokens) == 2 {
 			tokens, token = tokens[0:1], tokens[1]
 			switch tt := token.(type) {
-			case IdentToken:
+			case parser.IdentToken:
 				if tt.Value == "on" {
 					value = 1
 				} else {
 					value = 0
 				}
-			case NumberToken:
+			case parser.NumberToken:
 				if tt.IsInteger && tt.IntValue() >= 0 {
 					value = tt.IntValue()
 				}
@@ -1736,7 +1730,7 @@ func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 
 		if len(tokens) == 1 {
 			token = tokens[0]
-			tt, ok := token.(StringToken)
+			tt, ok := token.(parser.StringToken)
 			if ok && len(tt.Value) == 4 {
 				ok := true
 				for _, letter := range tt.Value {
@@ -1855,7 +1849,7 @@ func fontWeight(tokens []Token, _ string) CssProperty {
 	if keyword == "normal" || keyword == "bold" || keyword == "bolder" || keyword == "lighter" {
 		return IntString{String: keyword}
 	}
-	if number, ok := token.(NumberToken); ok {
+	if number, ok := token.(parser.NumberToken); ok {
 		intValue := number.IntValue()
 		if number.IsInteger && (intValue == 100 || intValue == 200 || intValue == 300 || intValue == 400 || intValue == 500 || intValue == 600 || intValue == 700 || intValue == 800 || intValue == 900) {
 			return IntString{Int: intValue}
@@ -1911,15 +1905,15 @@ func lineHeight(tokens []Token, _ string) CssProperty {
 	}
 
 	switch tt := token.(type) {
-	case NumberToken:
+	case parser.NumberToken:
 		if tt.Value >= 0 {
 			return Value{Dimension: Dimension{Value: tt.Value, Unit: NoUnit}}
 		}
-	case PercentageToken:
+	case parser.PercentageToken:
 		if tt.Value >= 0 {
 			return Value{Dimension: Dimension{Value: tt.Value, Unit: Percentage}}
 		}
-	case DimensionToken:
+	case parser.DimensionToken:
 		if tt.Value >= 0 {
 			return Value{Dimension: getLength(token, true, false)}
 		}
@@ -2000,7 +1994,7 @@ func opacity(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	if number, ok := token.(NumberToken); ok {
+	if number, ok := token.(parser.NumberToken); ok {
 		return Float(utils.Min(1, utils.Max(0, number.Value)))
 	}
 	return nil
@@ -2017,7 +2011,7 @@ func zIndex(tokens []Token, _ string) CssProperty {
 	if getKeyword(token) == "auto" {
 		return IntString{String: "auto"}
 	}
-	if number, ok := token.(NumberToken); ok {
+	if number, ok := token.(parser.NumberToken); ok {
 		if number.IsInteger {
 			return IntString{Int: number.IntValue()}
 		}
@@ -2034,7 +2028,7 @@ func orphansWidows(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	if number, ok := token.(NumberToken); ok {
+	if number, ok := token.(parser.NumberToken); ok {
 		value := number.IntValue()
 		if number.IsInteger && value >= 1 {
 			return Int(value)
@@ -2051,7 +2045,7 @@ func columnCount(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	if number, ok := token.(NumberToken); ok {
+	if number, ok := token.(parser.NumberToken); ok {
 		value := number.IntValue()
 		if number.IsInteger && value >= 1 {
 			return IntString{Int: value}
@@ -2097,8 +2091,8 @@ func quotes(tokens []Token, _ string) CssProperty {
 		// Separate open && close quotes.
 		// eg.  ("«", "»", "“", "”")  -> (("«", "“"), ("»", "”"))
 		for i := 0; i < len(tokens); i += 2 {
-			open, ok1 := tokens[i].(StringToken)
-			close_, ok2 := tokens[i+1].(StringToken)
+			open, ok1 := tokens[i].(parser.StringToken)
+			close_, ok2 := tokens[i+1].(parser.StringToken)
 			if ok1 && ok2 {
 				opens = append(opens, open.Value)
 				closes = append(closes, close_.Value)
@@ -2328,7 +2322,7 @@ func anchor(tokens []Token, _ string) CssProperty {
 	name, args := parseFunction(token)
 	if name != "" {
 		if len(args) == 1 {
-			if ident, ok := args[0].(IdentToken); ok {
+			if ident, ok := args[0].(parser.IdentToken); ok {
 				return NamedString{Name: name, String: string(ident.Value)}
 			}
 		}
@@ -2346,7 +2340,7 @@ func link(tokens []Token, baseUrl string) (CssProperty, error) {
 	token := tokens[0]
 	if getKeyword(token) == "none" {
 		return NamedString{Name: "none"}, nil
-	} else if urlToken, isUrl := token.(URLToken); isUrl {
+	} else if urlToken, isUrl := token.(parser.URLToken); isUrl {
 		if strings.HasPrefix(urlToken.Value, "#") {
 			unescaped, err := url.PathUnescape(urlToken.Value[1:])
 			if err != nil {
@@ -2364,7 +2358,7 @@ func link(tokens []Token, baseUrl string) (CssProperty, error) {
 	name, args := parseFunction(token)
 	if name != "" {
 		if len(args) == 1 {
-			if ident, ok := args[0].(IdentToken); ok {
+			if ident, ok := args[0].(parser.IdentToken); ok {
 				return NamedString{Name: name, String: string(ident.Value)}, nil
 			}
 		}
@@ -2381,7 +2375,7 @@ func tabSize(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	if number, ok := token.(NumberToken); ok {
+	if number, ok := token.(parser.NumberToken); ok {
 		if number.IsInteger && number.Value >= 0 {
 			return FToV(number.Value)
 		}
@@ -2417,7 +2411,7 @@ func hyphenateCharacter(tokens []Token, _ string) CssProperty {
 	keyword := getKeyword(token)
 	if keyword == "auto" {
 		return String("‐")
-	} else if str, ok := token.(StringToken); ok {
+	} else if str, ok := token.(parser.StringToken); ok {
 		return String(str.Value)
 	}
 	return nil
@@ -2447,7 +2441,7 @@ func hyphenateLimitChars(tokens []Token, _ string) CssProperty {
 		keyword := getKeyword(token)
 		if keyword == "auto" {
 			return Ints3{5, 2, 2}
-		} else if number, ok := token.(NumberToken); ok && number.IsInteger {
+		} else if number, ok := token.(parser.NumberToken); ok && number.IsInteger {
 			return Ints3{number.IntValue(), 2, 2}
 
 		}
@@ -2455,14 +2449,14 @@ func hyphenateLimitChars(tokens []Token, _ string) CssProperty {
 		total, left := tokens[0], tokens[1]
 		totalKeyword := getKeyword(total)
 		leftKeyword := getKeyword(left)
-		if totalNumber, ok := total.(NumberToken); ok && totalNumber.IsInteger {
-			if leftNumber, ok := left.(NumberToken); ok && leftNumber.IsInteger {
+		if totalNumber, ok := total.(parser.NumberToken); ok && totalNumber.IsInteger {
+			if leftNumber, ok := left.(parser.NumberToken); ok && leftNumber.IsInteger {
 				return Ints3{totalNumber.IntValue(), leftNumber.IntValue(), leftNumber.IntValue()}
 			} else if leftKeyword == "auto" {
 				return Ints3{totalNumber.IntValue(), 2, 2}
 			}
 		} else if totalKeyword == "auto" {
-			if leftNumber, ok := left.(NumberToken); ok && leftNumber.IsInteger {
+			if leftNumber, ok := left.(parser.NumberToken); ok && leftNumber.IsInteger {
 				return Ints3{5, leftNumber.IntValue(), leftNumber.IntValue()}
 			} else if leftKeyword == "auto" {
 				return Ints3{5, 2, 2}
@@ -2470,9 +2464,9 @@ func hyphenateLimitChars(tokens []Token, _ string) CssProperty {
 		}
 	case 3:
 		total, left, right := tokens[0], tokens[1], tokens[2]
-		totalNumber, okT := total.(NumberToken)
-		leftNumber, okL := left.(NumberToken)
-		rightNumber, okR := right.(NumberToken)
+		totalNumber, okT := total.(parser.NumberToken)
+		leftNumber, okL := left.(parser.NumberToken)
+		rightNumber, okR := right.(parser.NumberToken)
 		if ((okT && totalNumber.IsInteger) || getKeyword(total) == "auto") &&
 			((okL && leftNumber.IsInteger) || getKeyword(left) == "auto") &&
 			((okR && rightNumber.IsInteger) || getKeyword(right) == "auto") {
@@ -2508,12 +2502,12 @@ func lang(tokens []Token, _ string) CssProperty {
 	name, args := parseFunction(token)
 	if name != "" {
 		if len(args) == 1 {
-			if ident, ok := args[0].(IdentToken); ok {
+			if ident, ok := args[0].(parser.IdentToken); ok {
 				return NamedString{Name: name, String: string(ident.Value)}
 			}
 		}
 
-	} else if str, ok := token.(StringToken); ok {
+	} else if str, ok := token.(parser.StringToken); ok {
 		return NamedString{Name: "string", String: str.Value}
 	}
 	return nil
@@ -2540,7 +2534,7 @@ func bookmarkLevel(tokens []Token, _ string) CssProperty {
 		return nil
 	}
 	token := tokens[0]
-	if number, ok := token.(NumberToken); ok && number.IsInteger && number.IntValue() >= 1 {
+	if number, ok := token.(parser.NumberToken); ok && number.IsInteger && number.IntValue() >= 1 {
 		return IntString{Int: number.IntValue()}
 	} else if getKeyword(token) == "none" {
 		return IntString{String: "none"}
@@ -2568,11 +2562,11 @@ func _stringSet(tokens []Token) SContent {
 		}
 	} else if len(tokens) > 0 {
 		switch tt := tokens[0].(type) {
-		case StringToken:
+		case parser.StringToken:
 			if tt.Value == "none" {
 				return SContent{String: "none"}
 			}
-		case IdentToken:
+		case parser.IdentToken:
 			if tt.Value == "none" {
 				return SContent{String: "none"}
 			}
@@ -2597,7 +2591,7 @@ func stringSet(tokens []Token, _ string) CssProperty {
 //     Return (type, content) or false for invalid tokens.
 //
 func validateContentListToken(token Token) ContentProperty {
-	if tt, ok := token.(StringToken); ok {
+	if tt, ok := token.(parser.StringToken); ok {
 		return ContentProperty{Type: ContentSTRING, SStrings: SStrings{String: tt.Value}}
 	}
 
@@ -2609,7 +2603,7 @@ func validateContentListToken(token Token) ContentProperty {
 			if len(args) == 0 {
 				return ContentProperty{Type: ContentContent, SStrings: SStrings{String: "text"}}
 			} else if len(args) == 1 {
-				if ident, ok := args[0].(IdentToken); ok && (ident.Value == "text" || ident.Value == "after" || ident.Value == "before" || ident.Value == "first-letter") {
+				if ident, ok := args[0].(parser.IdentToken); ok && (ident.Value == "text" || ident.Value == "after" || ident.Value == "before" || ident.Value == "first-letter") {
 					return ContentProperty{Type: ContentContent, SStrings: SStrings{String: string(ident.Value)}}
 				}
 			}
@@ -2647,7 +2641,7 @@ func transformFunction(token Token) (SDimensions, error) {
 	for index, a := range args {
 		lengths[index] = getLength(token, true, true)
 		isAllLengths = isAllLengths && !lengths[index].IsNone()
-		if aNumber, ok := a.(NumberToken); ok {
+		if aNumber, ok := a.(parser.NumberToken); ok {
 			values[index] = FToD(aNumber.Value)
 		} else {
 			isAllNumber = false
@@ -2672,15 +2666,15 @@ func transformFunction(token Token) (SDimensions, error) {
 				return SDimensions{String: "translate", Dimensions: []Dimension{ZeroPixels, length}}, nil
 			}
 		case "scalex":
-			if number, ok := args[0].(NumberToken); ok {
+			if number, ok := args[0].(parser.NumberToken); ok {
 				return SDimensions{String: "scale", Dimensions: []Dimension{FToD(number.Value), FToD(1.)}}, nil
 			}
 		case "scaley":
-			if number, ok := args[0].(NumberToken); ok {
+			if number, ok := args[0].(parser.NumberToken); ok {
 				return SDimensions{String: "scale", Dimensions: []Dimension{FToD(1.), FToD(number.Value)}}, nil
 			}
 		case "scale":
-			if number, ok := args[0].(NumberToken); ok {
+			if number, ok := args[0].(parser.NumberToken); ok {
 				return SDimensions{String: "scale", Dimensions: []Dimension{FToD(number.Value), FToD(number.Value)}}, nil
 			}
 		}
@@ -2707,11 +2701,11 @@ func transformFunction(token Token) (SDimensions, error) {
 func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedProperty {
 	var out []ValidatedProperty
 	for _, _declaration := range declarations {
-		if errToken, ok := _declaration.(ParseError); ok {
+		if errToken, ok := _declaration.(parser.ParseError); ok {
 			log.Printf("Error: %s \n", errToken.Message)
 		}
 
-		declaration, ok := _declaration.(Declaration)
+		declaration, ok := _declaration.(parser.Declaration)
 		if !ok {
 			continue
 		}
@@ -2719,7 +2713,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 		name := declaration.Name.Lower()
 
 		validationError := func(reason string) {
-			log.Printf("Ignored `%s:%s` , %s. \n", declaration.Name, Serialize(declaration.Value), reason)
+			log.Printf("Ignored `%s:%s` , %s. \n", declaration.Name, parser.Serialize(declaration.Value), reason)
 		}
 
 		if _, in := NotPrintMedia[name]; in {
@@ -2733,11 +2727,11 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 				name = unprefixedName
 			} else if _, in := unstable[unprefixedName]; in {
 				log.Printf("Deprecated `%s:%s`, prefixes on unstable attributes are deprecated, use `%s` instead. \n",
-					declaration.Name, Serialize(declaration.Value), unprefixedName)
+					declaration.Name, parser.Serialize(declaration.Value), unprefixedName)
 				name = unprefixedName
 			} else {
 				log.Printf("Ignored `%s:%s`,prefix on this attribute is not supported, use `%s` instead. \n",
-					declaration.Name, Serialize(declaration.Value), unprefixedName)
+					declaration.Name, parser.Serialize(declaration.Value), unprefixedName)
 				continue
 			}
 		}
@@ -2771,14 +2765,14 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 func RemoveWhitespace(tokens []Token) []Token {
 	var out []Token
 	for _, token := range tokens {
-		if token.Type() != TypeWhitespaceToken && token.Type() != TypeComment {
+		if token.Type() != parser.TypeWhitespaceToken && token.Type() != parser.TypeComment {
 			out = append(out, token)
 		}
 	}
 	return out
 }
 
-// Split a list of tokens on commas, ie ``LiteralToken(",")``.
+// Split a list of tokens on commas, ie ``parser.LiteralToken(",")``.
 //     Only "top-level" comma tokens are splitting points, not commas inside a
 //     function or blocks.
 //
@@ -2786,7 +2780,7 @@ func SplitOnComma(tokens []Token) [][]Token {
 	var parts [][]Token
 	var thisPart []Token
 	for _, token := range tokens {
-		litteral, ok := token.(LiteralToken)
+		litteral, ok := token.(parser.LiteralToken)
 		if ok && litteral.Value == "," {
 			parts = append(parts, thisPart)
 			thisPart = nil

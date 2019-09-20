@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,41 +21,35 @@ import (
 	"github.com/vincent-petithory/dataurl"
 )
 
-// Turn an IRI that can contain any Unicode character into an ASCII-only  URI that conforms to RFC 3986.
-func IriToUri(urlS string) string {
-	if strings.HasPrefix(urlS, "data:") {
-		// Data URIs can be huge, but don’t need this anyway.
-		return urlS
-	}
-	// This is a full URI, not just a component. Only %-encode characters
-	// that are not allowed at all in URIs. Everthing else is "safe":
-	// * Reserved characters: /:?#[]@!$&'()*+,;=
-	// * Unreserved characters: ASCII letters, digits and -._~
-	//   Of these, only '~' is not in urllib’s "always safe" list.
-	// * '%' to avoid double-encoding
-	return url.PathEscape(urlS)
-}
-
 // warn if baseUrl is required but missing.
 func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) string {
-	if urlIsAbsolute(urlS) {
-		return IriToUri(urlS)
-	} else if baseUrl != "" {
-		return IriToUri(path.Join(baseUrl, urlS))
-	} else if allowRelative {
-		return IriToUri(urlS)
-	} else {
-		log.Println("Relative URI reference without a base URI: ", context)
-		return ""
+	out, err := SafeUrljoin(baseUrl, urlS, allowRelative)
+	if err != nil {
+		log.Panicln(err, context)
 	}
+	return out
 }
 
-func urlIsAbsolute(urlS string) bool {
-	Url, err := url.Parse(urlS)
+// defaut: allowRelative = false
+func SafeUrljoin(baseUrl, urls string, allowRelative bool) (string, error) {
+	parsed, err := url.Parse(urls)
 	if err != nil {
-		return false
+		return "", fmt.Errorf("Invalid url : %s", urls)
 	}
-	return Url.IsAbs()
+	if parsed.IsAbs() {
+		return parsed.String(), nil
+	} else if baseUrl != "" {
+		parsedBase, err := url.Parse(baseUrl)
+		if err != nil {
+			return "", fmt.Errorf("Invalid base url : %s", baseUrl)
+		}
+		parsedBase.Path = path.Join(parsedBase.Path, urls)
+		return parsedBase.String(), nil
+	} else if allowRelative {
+		return parsed.String(), nil
+	} else {
+		return "", errors.New("Relative URI reference without a base URI: " + urls)
+	}
 }
 
 // Get the URI corresponding to the ``attrName`` attribute.
@@ -138,7 +133,11 @@ func Path2url(urlPath string) (out string, err error) {
 // If ``string`` looks like an URL, return it unchanged. Otherwise assume a
 // filename and convert it to a ``file://`` URL.
 func EnsureUrl(urlS string) (string, error) {
-	if urlIsAbsolute(urlS) {
+	parsed, err := url.Parse(urlS)
+	if err != nil {
+		return "", fmt.Errorf("Invalid url : %s", urlS)
+	}
+	if parsed.IsAbs() {
 		return urlS, nil
 	}
 	return Path2url(urlS)
@@ -216,7 +215,7 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	if !data.IsAbs() {
 		return RemoteRessource{}, fmt.Errorf("Not an absolute URI: %s", urlTarget)
 	}
-	urlTarget = IriToUri(urlTarget)
+	urlTarget = data.String()
 	req, err := http.NewRequest(http.MethodGet, urlTarget, nil)
 	if err != nil {
 		return RemoteRessource{}, err

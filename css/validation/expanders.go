@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	. "github.com/benoitkugler/go-weasyprint/css"
-	. "github.com/benoitkugler/go-weasyprint/css/parser"
+	"github.com/benoitkugler/go-weasyprint/css/parser"
 )
 
 var expanders = map[string]expander{
@@ -47,10 +47,10 @@ type namedProperty struct {
 
 type namedTokens struct {
 	name   string
-	tokens []Token
+	tokens []parser.Token
 }
 
-type beforeGeneric = func(baseUrl, name string, tokens []Token) ([]namedTokens, error)
+type beforeGeneric = func(baseUrl, name string, tokens []parser.Token) ([]namedTokens, error)
 
 // Decorator helping expanders to handle ``inherit`` && ``initial``.
 //     Wrap an expander so that it does not have to handle the "inherit" and
@@ -66,9 +66,9 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 	genericExpanderDecorator := func(wrapped beforeGeneric) expander {
 
 		// Wrap the expander.
-		genericExpanderWrapper := func(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+		genericExpanderWrapper := func(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
 			keyword := getSingleKeyword(tokens)
-			results, toBeValidated := map[string]CssProperty{}, map[string][]Token{}
+			results, toBeValidated := map[string]CssProperty{}, map[string][]parser.Token{}
 			var skipValidation bool
 			if keyword == "inherit" || keyword == "initial" {
 				for _, name := range expandedNames {
@@ -139,12 +139,12 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 //@expander("padding")
 //@expander("bleed")
 // Expand properties setting a token for the four sides of a box.
-func expandFourSides(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+func expandFourSides(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
 	// Make sure we have 4 tokens
 	if len(tokens) == 1 {
-		tokens = []Token{tokens[0], tokens[0], tokens[0], tokens[0]}
+		tokens = []parser.Token{tokens[0], tokens[0], tokens[0], tokens[0]}
 	} else if len(tokens) == 2 {
-		tokens = []Token{tokens[0], tokens[1], tokens[0], tokens[1]} // (bottom, left) defaults to (top, right)
+		tokens = []parser.Token{tokens[0], tokens[1], tokens[0], tokens[1]} // (bottom, left) defaults to (top, right)
 	} else if len(tokens) == 3 {
 		tokens = append(tokens, tokens[1]) // left defaults to right
 	} else if len(tokens) != 4 {
@@ -160,7 +160,7 @@ func expandFourSides(baseUrl, name string, tokens []Token) (out []namedProperty,
 			// eg. border-color becomes border-*-color, not border-color-*
 			newName = name[:i] + suffix + name[i:]
 		}
-		prop, err := validateNonShorthand(baseUrl, newName, []Token{token}, true)
+		prop, err := validateNonShorthand(baseUrl, newName, []parser.Token{token}, true)
 		if err != nil {
 			return out, err
 		}
@@ -171,12 +171,12 @@ func expandFourSides(baseUrl, name string, tokens []Token) (out []namedProperty,
 
 //@expander("border-radius")
 // Validator for the `border-radius` property.
-func borderRadius(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
-	var horizontal, vertical []Token
+func borderRadius(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+	var horizontal, vertical []parser.Token
 	current := &horizontal
 
 	for index, token := range tokens {
-		if lit, ok := token.(LiteralToken); ok && lit.Value == "/" {
+		if lit, ok := token.(parser.LiteralToken); ok && lit.Value == "/" {
 			if current == &horizontal {
 				if index == len(tokens)-1 {
 					return nil, errors.New("Expected value after '/' separator")
@@ -192,15 +192,15 @@ func borderRadius(baseUrl, name string, tokens []Token) (out []namedProperty, er
 	}
 
 	if len(vertical) == 0 {
-		vertical = append([]Token{}, horizontal...)
+		vertical = append([]parser.Token{}, horizontal...)
 	}
 
-	for _, values := range [2]*[]Token{&horizontal, &vertical} {
+	for _, values := range [2]*[]parser.Token{&horizontal, &vertical} {
 		// Make sure we have 4 tokens
 		if len(*values) == 1 {
-			*values = []Token{(*values)[0], (*values)[0], (*values)[0], (*values)[0]}
+			*values = []parser.Token{(*values)[0], (*values)[0], (*values)[0], (*values)[0]}
 		} else if len(*values) == 2 {
-			*values = []Token{(*values)[0], (*values)[1], (*values)[0], (*values)[1]} // (br, bl) defaults to (tl, tr)
+			*values = []parser.Token{(*values)[0], (*values)[1], (*values)[0], (*values)[1]} // (br, bl) defaults to (tl, tr)
 		} else if len(*values) == 3 {
 			*values = append(*values, (*values)[1]) // bl defaults to tr
 		} else if len(*values) != 4 {
@@ -210,7 +210,7 @@ func borderRadius(baseUrl, name string, tokens []Token) (out []namedProperty, er
 	corners := [4]string{"top-left", "top-right", "bottom-right", "bottom-left"}
 	for index, corner := range corners {
 		newName := fmt.Sprintf("border-%s-radius", corner)
-		ts := []Token{horizontal[index], vertical[index]}
+		ts := []parser.Token{horizontal[index], vertical[index]}
 		result, err := validateNonShorthand(baseUrl, newName, ts, true)
 		if err != nil {
 			return nil, err
@@ -225,10 +225,10 @@ func borderRadius(baseUrl, name string, tokens []Token) (out []namedProperty, er
 // Expand the ``list-style`` shorthand property.
 //     See http://www.w3.org/TR/CSS21/generate.html#propdef-list-style
 //
-func _expandListStyle(baseUrl, name string, tokens []Token) (out []namedTokens, err error) {
+func _expandListStyle(baseUrl, name string, tokens []parser.Token) (out []namedTokens, err error) {
 	var typeSpecified, imageSpecified bool
 	noneCount := 0
-	var noneToken Token
+	var noneToken parser.Token
 	for _, token := range tokens {
 		var suffix string
 		if getKeyword(token) == "none" {
@@ -238,13 +238,13 @@ func _expandListStyle(baseUrl, name string, tokens []Token) (out []namedTokens, 
 			noneToken = token
 			continue
 		}
-		if listStyleType([]Token{token}, "") != nil {
+		if listStyleType([]parser.Token{token}, "") != nil {
 			suffix = "-type"
 			typeSpecified = true
-		} else if listStylePosition([]Token{token}, "") != nil {
+		} else if listStylePosition([]parser.Token{token}, "") != nil {
 			suffix = "-position"
 		} else {
-			image, err := imageUrl([]Token{token}, baseUrl)
+			image, err := imageUrl([]parser.Token{token}, baseUrl)
 			if err != nil {
 				return nil, err
 			}
@@ -255,16 +255,16 @@ func _expandListStyle(baseUrl, name string, tokens []Token) (out []namedTokens, 
 				return nil, InvalidValue
 			}
 		}
-		out = append(out, namedTokens{name: suffix, tokens: []Token{token}})
+		out = append(out, namedTokens{name: suffix, tokens: []parser.Token{token}})
 	}
 
 	if !typeSpecified && noneCount > 0 {
-		out = append(out, namedTokens{name: "-type", tokens: []Token{noneToken}})
+		out = append(out, namedTokens{name: "-type", tokens: []parser.Token{noneToken}})
 		noneCount -= 1
 	}
 
 	if !imageSpecified && noneCount > 0 {
-		out = append(out, namedTokens{name: "-image", tokens: []Token{noneToken}})
+		out = append(out, namedTokens{name: "-image", tokens: []parser.Token{noneToken}})
 		noneCount -= 1
 	}
 
@@ -279,7 +279,7 @@ func _expandListStyle(baseUrl, name string, tokens []Token) (out []namedTokens, 
 // Expand the ``border`` shorthand property.
 //     See http://www.w3.org/TR/CSS21/box.html#propdef-border
 //
-func expandBorder(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+func expandBorder(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
 	for _, suffix := range [4]string{"-top", "-right", "-bottom", "-left"} {
 		props, err := expandBorderSide(baseUrl, name+suffix, tokens)
 		if err != nil {
@@ -300,20 +300,20 @@ func expandBorder(baseUrl, name string, tokens []Token) (out []namedProperty, er
 // Expand the ``border-*`` shorthand properties.
 //     See http://www.w3.org/TR/CSS21/box.html#propdef-border-top
 //
-func _expandBorderSide(_, name string, tokens []Token) ([]namedTokens, error) {
+func _expandBorderSide(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 	out := make([]namedTokens, len(tokens))
 	for index, token := range tokens {
 		var suffix string
-		if !ParseColor(token).IsNone() {
+		if !parser.ParseColor(token).IsNone() {
 			suffix = "-color"
-		} else if borderWidth([]Token{token}, "") != nil {
+		} else if borderWidth([]parser.Token{token}, "") != nil {
 			suffix = "-width"
-		} else if borderStyle([]Token{token}, "") != nil {
+		} else if borderStyle([]parser.Token{token}, "") != nil {
 			suffix = "-style"
 		} else {
 			return nil, InvalidValue
 		}
-		out[index] = namedTokens{name: suffix, tokens: []Token{token}}
+		out[index] = namedTokens{name: suffix, tokens: []parser.Token{token}}
 	}
 	return out, nil
 }
@@ -342,7 +342,7 @@ func (b backgroundProps) add(name string) error {
 // Expand the ``background`` shorthand property.
 //     See http://dev.w3.org/csswg/css3-background/#the-background
 //
-func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
 	properties := [8]string{
 		"background_color", "background_image", "background_repeat",
 		"background_attachment", "background_position", "background_size",
@@ -355,7 +355,7 @@ func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty
 		return
 	}
 
-	parseLayer := func(tokens []Token, finalLayer bool) (CssProperty, backgroundProps, error) {
+	parseLayer := func(tokens []parser.Token, finalLayer bool) (CssProperty, backgroundProps, error) {
 		results := backgroundProps{_keys: Set{}}
 
 		// Make `tokens` a stack
@@ -433,7 +433,7 @@ func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty
 					results.position = position
 					tokens = tokens[:len(tokens)-n]
 					if len(tokens) > 0 {
-						if lit, ok := tokens[len(tokens)-1].(LiteralToken); ok && lit.Value == "/" {
+						if lit, ok := tokens[len(tokens)-1].(parser.LiteralToken); ok && lit.Value == "/" {
 							index := 2 - len(tokens)
 							if index < 0 {
 								index = 0
@@ -523,7 +523,7 @@ func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty
 
 	_layers := SplitOnComma(tokens)
 	n := len(_layers)
-	layers := make([][]Token, n)
+	layers := make([][]parser.Token, n)
 	for i := range _layers {
 		layers[n-1-i] = _layers[i]
 	}
@@ -592,7 +592,7 @@ func expandBackground(baseUrl, name string, tokens []Token) (out []namedProperty
 // Expand legacy ``page-break-before`` && ``page-break-after`` properties.
 //     See https://www.w3.org/TR/css-break-3/#page-break-properties
 //
-func expandPageBreakBeforeAfter(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+func expandPageBreakBeforeAfter(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
 	keyword := getSingleKeyword(tokens)
 	splits := strings.SplitN(name, "-", 1)
 	if len(splits) < 2 {
@@ -611,7 +611,7 @@ func expandPageBreakBeforeAfter(baseUrl, name string, tokens []Token) (out []nam
 // Expand the legacy ``page-break-inside`` property.
 //     See https://www.w3.org/TR/css-break-3/#page-break-properties
 //
-func expandPageBreakInside(baseUrl, name string, tokens []Token) (out []namedProperty, err error) {
+func expandPageBreakInside(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "auto" || keyword == "avoid" {
 		out = append(out, namedProperty{name: "break-inside", property: String(keyword)})
@@ -622,13 +622,13 @@ func expandPageBreakInside(baseUrl, name string, tokens []Token) (out []namedPro
 //@expander("columns")
 //@genericExpander("column-width", "column-count")
 // Expand the ``columns`` shorthand property.
-func _expandColumns(_, name string, tokens []Token) (out []namedTokens, err error) {
+func _expandColumns(_, name string, tokens []parser.Token) (out []namedTokens, err error) {
 	if len(tokens) == 2 && getKeyword(tokens[0]) == "auto" {
 		tokens = reverse(tokens)
 	}
 	name = ""
 	for _, token := range tokens {
-		l := []Token{token}
+		l := []parser.Token{token}
 		if columnWidth(l, "") != nil && name != "column-width" {
 			name = "column-width"
 		} else if columnCount(l, "") != nil {
@@ -642,8 +642,8 @@ func _expandColumns(_, name string, tokens []Token) (out []namedTokens, err erro
 }
 
 var (
-	noneFakeToken   = IdentToken{Value: "none"}
-	normalFakeToken = IdentToken{Value: "normal"}
+	noneFakeToken   = parser.IdentToken{Value: "none"}
+	normalFakeToken = parser.IdentToken{Value: "normal"}
 )
 
 //@expander("font-variant")
@@ -652,25 +652,25 @@ var (
 // Expand the ``font-variant`` shorthand property.
 //     https://www.w3.org/TR/css-fonts-3/#font-variant-prop
 //
-func _fontVariant(_, name string, tokens []Token) (out []namedTokens, err error) {
+func _fontVariant(_, name string, tokens []parser.Token) (out []namedTokens, err error) {
 	return expandFontVariant(tokens)
 }
 
-func expandFontVariant(tokens []Token) (out []namedTokens, err error) {
+func expandFontVariant(tokens []parser.Token) (out []namedTokens, err error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "normal" || keyword == "none" {
 		out = make([]namedTokens, 6)
 		for index, suffix := range [5]string{"-alternates", "-caps", "-east-asian", "-numeric",
 			"-position"} {
-			out[index] = namedTokens{name: suffix, tokens: []Token{normalFakeToken}}
+			out[index] = namedTokens{name: suffix, tokens: []parser.Token{normalFakeToken}}
 		}
 		token := noneFakeToken
 		if keyword == "normal" {
 			token = normalFakeToken
 		}
-		out[6] = namedTokens{name: "-ligatures", tokens: []Token{token}}
+		out[6] = namedTokens{name: "-ligatures", tokens: []parser.Token{token}}
 	} else {
-		features := map[string][]Token{
+		features := map[string][]parser.Token{
 			"alternates": nil,
 			"caps":       nil,
 			"east-asian": nil,
@@ -686,7 +686,7 @@ func expandFontVariant(tokens []Token) (out []namedTokens, err error) {
 			}
 			found := false
 			for feature := range features {
-				if fontVariantMapper[feature]([]Token{token}, "") != nil {
+				if fontVariantMapper[feature]([]parser.Token{token}, "") != nil {
 					features[feature] = append(features[feature], token)
 					found = true
 					break
@@ -706,7 +706,7 @@ func expandFontVariant(tokens []Token) (out []namedTokens, err error) {
 	return out, nil
 }
 
-var fontVariantMapper = map[string]func(tokens []Token, _ string) CssProperty{
+var fontVariantMapper = map[string]func(tokens []parser.Token, _ string) CssProperty{
 	"alternates": fontVariantAlternates,
 	"caps":       fontVariantCaps,
 	"east-asian": fontVariantEastAsian,
@@ -721,7 +721,7 @@ var fontVariantMapper = map[string]func(tokens []Token, _ string) CssProperty{
 // Expand the ``font`` shorthand property.
 //     https://www.w3.org/TR/css-fonts-3/#font-prop
 //
-func _expandFont(_, name string, tokens []Token) ([]namedTokens, error) {
+func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 	expandFontKeyword := getSingleKeyword(tokens)
 	if expandFontKeyword == "caption" || expandFontKeyword == "icon" || expandFontKeyword == "menu" || expandFontKeyword == "message-box" || expandFontKeyword ==
 		"small-caption" || expandFontKeyword == "status-bar" {
@@ -730,7 +730,7 @@ func _expandFont(_, name string, tokens []Token) ([]namedTokens, error) {
 	}
 	var (
 		out   []namedTokens
-		token Token
+		token parser.Token
 	)
 	// Make `tokens` a stack
 	tokens = reverse(tokens)
@@ -748,31 +748,31 @@ func _expandFont(_, name string, tokens []Token) ([]namedTokens, error) {
 		}
 
 		var suffix string
-		if fontStyle([]Token{token}, "") != nil {
+		if fontStyle([]parser.Token{token}, "") != nil {
 			suffix = "-style"
 		} else if kw == "normal" || kw == "small-caps" {
 			suffix = "-variant-caps"
-		} else if fontWeight([]Token{token}, "") != nil {
+		} else if fontWeight([]parser.Token{token}, "") != nil {
 			suffix = "-weight"
-		} else if fontStretch([]Token{token}, "") != nil {
+		} else if fontStretch([]parser.Token{token}, "") != nil {
 			suffix = "-stretch"
 		} else {
 			// We’re done with these three, continue with font-size
 			break
 		}
-		out = append(out, namedTokens{name: suffix, tokens: []Token{token}})
+		out = append(out, namedTokens{name: suffix, tokens: []parser.Token{token}})
 	}
 
 	// Then font-size is mandatory
 	// Latest `token` from the loop.
-	fs, err := fontSize([]Token{token}, "")
+	fs, err := fontSize([]parser.Token{token}, "")
 	if err != nil {
 		return nil, err
 	}
 	if fs == nil {
 		return nil, errors.New("font-size is mandatory for short font attribute !")
 	}
-	out = append(out, namedTokens{name: "-size", tokens: []Token{token}})
+	out = append(out, namedTokens{name: "-size", tokens: []parser.Token{token}})
 
 	// Then line-height is optional, but font-family is not so the list
 	// must not be empty yet
@@ -782,13 +782,13 @@ func _expandFont(_, name string, tokens []Token) ([]namedTokens, error) {
 
 	token = tokens[len(tokens)-1]
 	tokens = tokens[:len(tokens)-1]
-	if lit, ok := token.(LiteralToken); ok && lit.Value == "/" {
+	if lit, ok := token.(parser.LiteralToken); ok && lit.Value == "/" {
 		token = tokens[len(tokens)-1]
 		tokens = tokens[:len(tokens)-1]
-		if lineHeight([]Token{token}, "") == nil {
+		if lineHeight([]parser.Token{token}, "") == nil {
 			return nil, InvalidValue
 		}
-		out = append(out, namedTokens{name: "line-height", tokens: []Token{token}})
+		out = append(out, namedTokens{name: "line-height", tokens: []parser.Token{token}})
 	} else {
 		// We pop()ed a font-family, add it back
 		tokens = append(tokens, token)
@@ -807,7 +807,7 @@ func _expandFont(_, name string, tokens []Token) ([]namedTokens, error) {
 // Expand the ``word-wrap`` legacy property.
 //     See http://http://www.w3.org/TR/css3-text/#overflow-wrap
 //
-func expandWordWrap(baseUrl, name string, tokens []Token) ([]namedProperty, error) {
+func expandWordWrap(baseUrl, name string, tokens []parser.Token) ([]namedProperty, error) {
 	keyword := overflowWrap(tokens, "")
 	if keyword == nil {
 		return nil, InvalidValue
@@ -817,7 +817,7 @@ func expandWordWrap(baseUrl, name string, tokens []Token) ([]namedProperty, erro
 
 // Default validator for non-shorthand properties.
 // required = false
-func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (out namedProperty, err error) {
+func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required bool) (out namedProperty, err error) {
 	if !required && !KnownProperties.Has(name) {
 		hyphensName := strings.ReplaceAll(name, "_", "-")
 		if KnownProperties.Has(hyphensName) {
@@ -855,7 +855,7 @@ func validateNonShorthand(baseUrl, name string, tokens []Token, required bool) (
 	return namedProperty{name: name, property: value}, nil
 }
 
-func defaultValidateShorthand(baseUrl, name string, tokens []Token) ([]namedProperty, error) {
+func defaultValidateShorthand(baseUrl, name string, tokens []parser.Token) ([]namedProperty, error) {
 	np, err := validateNonShorthand(baseUrl, name, tokens, false)
 	return []namedProperty{np}, err
 }

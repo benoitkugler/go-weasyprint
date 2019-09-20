@@ -52,11 +52,11 @@ func (s LowerableString) Lower() string {
 }
 
 type Origine struct {
-	line, column int
+	Line, Column int
 }
 
 func newOr(line, column int) Origine {
-	return Origine{line: line, column: column}
+	return Origine{Line: line, Column: column}
 }
 
 // guards type
