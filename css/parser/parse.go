@@ -47,6 +47,48 @@ func nextSignificant(tokens *tokenIterator) Token {
 	return nil
 }
 
+// Parse a single `component value`.
+// This is used e.g. for an attribute value referred to by ``attr(foo length)``.
+func ParseOneComponentValue(input []Token) Token {
+	tokens := NewTokenIterator(input)
+	first := nextSignificant(tokens)
+	second := nextSignificant(tokens)
+	if first == nil {
+		return ParseError{Origine: newOr(1, 1), Kind: "empty", Message: "Input is empty"}
+	}
+	if second != nil {
+		return ParseError{Origine: second.Position(), Kind: "extra-input", Message: "Got more than one token"}
+	}
+	return first
+}
+
+// If `skipComments`,  ignore all CSS comments.
+//   skipComments = false
+func ParseOneComponentValue2(css string, skipComments bool) Token {
+	l := ParseComponentValueList(css, skipComments)
+	return ParseOneComponentValue(l)
+}
+
+// Parse a single :diagram:`declaration`.
+// This is used e.g. for a declaration in an `@supports
+// <http://dev.w3.org/csswg/css-conditional/#at-supports>`_ test.
+// Any whitespace or comment before the ``:`` colon is dropped.
+func ParseOneDeclaration(input []Token) Token {
+	tokens := NewTokenIterator(input)
+	firstToken := nextSignificant(tokens)
+	if firstToken == nil {
+		return ParseError{Origine: newOr(1, 1), Kind: "empty", Message: "Input is empty"}
+	}
+	return parseDeclaration(firstToken, tokens)
+}
+
+//     If  `skipComments`, ignore all CSS comments.
+// skipComments=false
+func ParseOneDeclaration2(css string, skipComments bool) Token {
+	l := ParseComponentValueList(css, skipComments)
+	return ParseOneDeclaration(l)
+}
+
 // Parse a declaration.
 //     Consume :obj:`tokens` until the end of the declaration or the first error.
 //     :param firstToken: The first :term:`component value` of the rule.
@@ -65,8 +107,8 @@ func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 			Message: "Expected ':' after declaration name, got EOF",
 		}
 	}
-	lit, ok := colon.(LiteralToken)
-	if !ok || lit.Value != ":" {
+
+	if lit, ok := colon.(LiteralToken); !ok || lit.Value != ":" {
 		return ParseError{Kind: "invalid",
 			Message: fmt.Sprintf("Expected ':' after declaration name, got %s.", colon.Type()),
 		}
@@ -74,15 +116,17 @@ func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 
 	var value []Token
 	state := "value"
-	bangPosition, i := 0, 0
+	bangPosition, i := 0, -1
 	for tokens.HasNext() {
 		i += 1
 		_token := tokens.Next()
 		switch token := _token.(type) {
 		case LiteralToken:
-			if state == "value" && lit.Value == "!" {
+			if state == "value" && token.Value == "!" {
 				state = "bang"
 				bangPosition = i
+			} else {
+				state = "value"
 			}
 		case IdentToken:
 			if state == "bang" && token.Value.Lower() == "important" {
@@ -127,13 +171,13 @@ func consumeDeclarationInList(firstToken Token, tokens *tokenIterator) Token {
 // If `skipComments`, ignore CSS comments at the top-level of the list. If the input is a string, ignore all comments.
 // If `skipWhitespace`, ignore whitespace at the top-level of the list. Whitespace is still preserved in
 // the `Declaration.value` of declarations and the `AtRule.prelude` and `AtRule.content` of at-rules.
-// skipComments = false, skipWhitespace = false
 func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []Token {
 	tokens := NewTokenIterator(input)
 	var result []Token
 
 	for tokens.HasNext() {
-		switch token := tokens.Next().(type) {
+		_token := tokens.Next()
+		switch token := _token.(type) {
 		case WhitespaceToken:
 			if !skipWhitespace {
 				result = append(result, token)
@@ -158,9 +202,38 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 	return result
 }
 
+// skipComments = false, skipWhitespace = false
 func ParseDeclarationList2(css string, skipComments, skipWhitespace bool) []Token {
 	l := ParseComponentValueList(css, skipComments)
 	return ParseDeclarationList(l, skipComments, skipWhitespace)
+}
+
+// Parse a single :diagram:`qualified rule` or :diagram:`at-rule`.
+// This would be used e.g. by `insertRule()
+// <http://dev.w3.org/csswg/cssom/#dom-cssstylesheet-insertrule>`
+// in an implementation of CSSOM.
+// Any whitespace or comment before or after the rule is dropped.
+func ParseOneRule(input []Token) Token {
+	tokens := NewTokenIterator(input)
+	first := nextSignificant(tokens)
+	if first == nil {
+		return ParseError{Origine: newOr(1, 1), Kind: "empty", Message: "Input is empty"}
+	}
+
+	rule := consumeRule(first, tokens)
+	next := nextSignificant(tokens)
+	if next != nil {
+		return ParseError{Origine: next.Position(), Kind: "extra-input",
+			Message: fmt.Sprintf("Expected a single rule, got %s after the first rule.", next.Type())}
+	}
+	return rule
+}
+
+//     If `skipComments`, ignore all CSS comments.
+//     skipComments=false
+func ParseOneRule2(css string, skipComments bool) Token {
+	l := ParseComponentValueList(css, skipComments)
+	return ParseOneRule(l)
 }
 
 // Parse a non-top-level :diagram:`rule list`.
@@ -176,7 +249,6 @@ func ParseDeclarationList2(css string, skipComments, skipWhitespace bool) []Toke
 //     Whitespace is still preserved
 //     in the `QualifiedRule.prelude`
 //     and the `QualifiedRule.content` of rules.
-// skipComments=false, skipWhitespace=false
 func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 	tokens := NewTokenIterator(input)
 	var result []Token
@@ -197,6 +269,12 @@ func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 		}
 	}
 	return result
+}
+
+// skipComments=false, skipWhitespace=false
+func ParseRuleList2(css string, skipComments, skipWhitespace bool) []Token {
+	l := ParseComponentValueList(css, skipComments)
+	return ParseRuleList(l, skipComments, skipWhitespace)
 }
 
 // Parse a stylesheet from text.
@@ -229,6 +307,8 @@ func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 			if lit, ok := token.(LiteralToken); !ok || (lit.Value != "<!--" && lit.Value != "-->") {
 				result = append(result, consumeRule(token, iter))
 			}
+		default:
+			result = append(result, consumeRule(token, iter))
 		}
 	}
 	return result

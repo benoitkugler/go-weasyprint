@@ -34,6 +34,7 @@ type tokenType string
 type Token interface {
 	jsonisable
 	isToken()
+	Position() Origine
 	Type() tokenType
 	serializeTo(write func(s string))
 }
@@ -50,35 +51,39 @@ func (s LowerableString) Lower() string {
 	return utils.AsciiLower(string(s))
 }
 
-// guards type
-type tk struct {
+type Origine struct {
 	line, column int
 }
 
-func newTk(line, column int) tk {
-	return tk{line: line, column: column}
+func newOr(line, column int) Origine {
+	return Origine{line: line, column: column}
 }
 
-func (n tk) isToken() {}
+// guards type
+func (n Origine) isToken() {}
+
+func (n Origine) Position() Origine {
+	return n
+}
 
 // shared tokens
 type stringToken struct {
-	tk
+	Origine
 	Value string
 }
 type bracketsBlock struct {
-	tk
+	Origine
 	Content *[]Token
 }
 type numericToken struct {
-	tk
+	Origine
 	Value          float32
 	IsInteger      bool
 	Representation string
 }
 
 type QualifiedRule struct {
-	tk
+	Origine
 	Prelude, Content *[]Token
 }
 type AtRule struct {
@@ -86,13 +91,13 @@ type AtRule struct {
 	AtKeyword LowerableString
 }
 type Declaration struct {
-	tk
+	Origine
 	Name      LowerableString
 	Value     []Token
 	Important bool
 }
 type ParseError struct {
-	tk
+	Origine
 	Kind    string
 	Message string
 }
@@ -100,22 +105,22 @@ type Comment stringToken
 type WhitespaceToken stringToken
 type LiteralToken stringToken
 type IdentToken struct {
-	tk
+	Origine
 	Value LowerableString
 }
 type AtKeywordToken struct {
-	tk
+	Origine
 	Value LowerableString
 }
 type HashToken struct {
-	tk
+	Origine
 	Value        string
 	IsIdentifier bool
 }
 type StringToken stringToken
 type URLToken stringToken
 type UnicodeRangeToken struct {
-	tk
+	Origine
 	Start, End uint32
 }
 type NumberToken numericToken
@@ -128,7 +133,7 @@ type ParenthesesBlock bracketsBlock
 type SquareBracketsBlock bracketsBlock
 type CurlyBracketsBlock bracketsBlock
 type FunctionBlock struct {
-	tk
+	Origine
 	Name      LowerableString
 	Arguments *[]Token
 }
@@ -218,7 +223,10 @@ func (t QualifiedRule) toJson() jsonisable {
 }
 func (t AtRule) toJson() jsonisable {
 	prelude := toJson(*t.Prelude)
-	content := toJson(*t.Content)
+	var content jsonisable
+	if t.Content != nil {
+		content = toJson(*t.Content)
+	}
 	return jsonList{myString("at-rule"), myString(t.AtKeyword), prelude, content}
 }
 func (t Declaration) toJson() jsonisable {

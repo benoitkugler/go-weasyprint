@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"unicode/utf8"
 )
 
 var badPairs = map[[2]string]bool{}
@@ -54,17 +55,24 @@ func Serialize(nodes []Token) string {
 	return strings.Join(chunks, "")
 }
 
+// Serialize this node to CSS syntax
+func SerializeOne(node Token) string {
+	var chunks []string
+	write := func(s string) { chunks = append(chunks, s) }
+	node.serializeTo(write)
+	return strings.Join(chunks, "")
+}
+
 // Serialize any string as a CSS identifier
 // Returns an Unicode string
 // that would parse as an `IdentToken`
 // whose value attribute equals the passed `value` argument.
-func serializeIdentifier(_value string) string {
-	if _value == "-" {
+func serializeIdentifier(value string) string {
+	if value == "-" {
 		return `\-`
 	}
-	value := []rune(_value)
 
-	if string(value[:2]) == "--" {
+	if len(value) >= 2 && value[:2] == "--" {
 		return "--" + serializeName(value[2:])
 	}
 	var result string
@@ -74,7 +82,7 @@ func serializeIdentifier(_value string) string {
 	} else {
 		result = ""
 	}
-	c := value[0]
+	c, w := utf8.DecodeRuneInString(value)
 	var suffix string
 	switch c {
 	case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '_', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
@@ -95,16 +103,16 @@ func serializeIdentifier(_value string) string {
 		}
 
 	}
-	result += suffix + serializeName(value[1:])
+	result += suffix + serializeName(value[w:])
 	return result
 }
 
-func serializeName(value []rune) string {
-	chuncks := make([]string, len(value))
-	for index, c := range value {
+func serializeName(value string) string {
+	chuncks := make([]string, 0, len(value))
+	for _, c := range value {
 		var mapped string
 		switch c {
-		case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '_', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
+		case 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '-', '_', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z':
 			mapped = string(c)
 		case '\n':
 			mapped = `\A `
@@ -121,14 +129,14 @@ func serializeName(value []rune) string {
 				mapped = "\\" + string(c)
 			}
 		}
-		chuncks[index] = mapped
+		chuncks = append(chuncks, mapped)
 	}
 	return strings.Join(chuncks, "")
 }
 
-func serializeStringValue(value []rune) string {
-	chuncks := make([]string, len(value))
-	for index, c := range value {
+func serializeStringValue(value string) string {
+	chuncks := make([]string, 0, len(value))
+	for _, c := range value {
 		var mapped string
 		switch c {
 		case '"':
@@ -144,7 +152,7 @@ func serializeStringValue(value []rune) string {
 		default:
 			mapped = string(c)
 		}
-		chuncks[index] = mapped
+		chuncks = append(chuncks, mapped)
 	}
 	return strings.Join(chuncks, "")
 }
@@ -247,19 +255,19 @@ func (t HashToken) serializeTo(write func(s string)) {
 	if t.IsIdentifier {
 		write(serializeIdentifier(t.Value))
 	} else {
-		write(serializeName([]rune(t.Value)))
+		write(serializeName(t.Value))
 	}
 }
 
 func (t StringToken) serializeTo(write func(s string)) {
 	write(`"`)
-	write(serializeStringValue([]rune(t.Value)))
+	write(serializeStringValue(t.Value))
 	write(`"`)
 }
 
 func (t URLToken) serializeTo(write func(s string)) {
 	write(`url("`)
-	write(serializeStringValue([]rune(t.Value)))
+	write(serializeStringValue(t.Value))
 	write(`")`)
 }
 
@@ -286,7 +294,7 @@ func (t DimensionToken) serializeTo(write func(s string)) {
 	unit := string(t.Unit)
 	if unit == "e" || unit == "E" || strings.HasPrefix(unit, "e-") || strings.HasPrefix(unit, "E-") {
 		write("\\65 ")
-		write(serializeName([]rune(unit)[1:]))
+		write(serializeName(unit[1:]))
 	} else {
 		write(serializeIdentifier(unit))
 	}

@@ -402,10 +402,7 @@ type Center struct {
 
 // prop:color
 // prop:background-color
-type Color struct {
-	Type ColorType
-	RGBA RGBA
-}
+type Color parser.Color
 
 // prop:link
 // prop:anchor
