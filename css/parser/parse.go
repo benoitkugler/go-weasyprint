@@ -24,9 +24,12 @@ func (it tokenIterator) HasNext() bool {
 	return it.index < len(it.tokens)
 }
 
-func (it *tokenIterator) Next() Token {
-	t := it.tokens[it.index]
-	it.index += 1
+// Next returns the next token or nil at the end
+func (it *tokenIterator) Next() (t Token) {
+	if it.HasNext() {
+		t = it.tokens[it.index]
+		it.index += 1
+	}
 	return t
 }
 

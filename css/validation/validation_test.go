@@ -21,7 +21,8 @@ func expandToDict(t *testing.T, css string, expectedError string) map[string]Css
 
 	if expectedError != "" {
 		if len(logs) != 1 || !strings.Contains(logs[0], expectedError) {
-			t.Fatalf("expected %s got %v (len : %d)", expectedError, logs, len(logs))
+			t.Log(validated)
+			t.Fatalf("expected error %s got %v (len : %d)", expectedError, logs, len(logs))
 		}
 	} else {
 		capt.AssertNoLogs(t)
@@ -43,6 +44,13 @@ func assertInvalid(t *testing.T, css, message string) {
 	}
 }
 
+func assertValidDict(t *testing.T, css string, ref map[string]CssProperty) {
+	got := expandToDict(t, css, "")
+	if !reflect.DeepEqual(ref, got) {
+		t.Fatalf("expected %v got %v", ref, got)
+	}
+}
+
 func TestNotPrint(t *testing.T) {
 	capt := utils.CaptureLogs()
 	assertInvalid(t, "volume: 42", "the property does not apply for the print media")
@@ -51,18 +59,14 @@ func TestNotPrint(t *testing.T) {
 
 func TestFunction(t *testing.T) {
 	capt := utils.CaptureLogs()
-	d := expandToDict(t, "clip: rect(1px, 3em, auto, auto)", "")
-	ref := map[string]CssProperty{
+	assertValidDict(t, "clip: rect(1px, 3em, auto, auto)", map[string]CssProperty{
 		"clip": Values{
 			Dimension{Value: 1, Unit: Px}.ToValue(),
 			Dimension{Value: 3, Unit: Em}.ToValue(),
 			SToV("auto"),
 			SToV("auto"),
 		},
-	}
-	if !reflect.DeepEqual(ref, d) {
-		t.Fatalf("expected %v got %v", ref, d)
-	}
+	})
 	assertInvalid(t, "clip: square(1px, 3em, auto, auto)", "invalid")
 	assertInvalid(t, "clip: rect(1px, 3em, auto auto)", "invalid")
 	assertInvalid(t, "clip: rect(1px, 3em, auto)", "invalid")
@@ -70,43 +74,52 @@ func TestFunction(t *testing.T) {
 	capt.AssertNoLogs(t)
 }
 
-// func TestCounters(t *testing.T) {
-// capt := utils.CaptureLogs()
-// 	assert expandToDict("counter-reset: foo bar 2 baz") == {
-//         "counterReset": (("foo", 0), ("bar", 2), ("baz", 0))}
-//     assert expandToDict("counter-increment: foo bar 2 baz") == {
-//         "counterIncrement": (("foo", 1), ("bar", 2), ("baz", 1))}
-//     assert expandToDict("counter-reset: foo") == {
-//         "counterReset": (("foo", 0),)}
-//     assert expandToDict("counter-reset: FoO") == {
-//         "counterReset": (("FoO", 0),)}
-//     assert expandToDict("counter-increment: foo bAr 2 Bar") == {
-//         "counterIncrement": (("foo", 1), ("bAr", 2), ("Bar", 1))}
-//     assert expandToDict("counter-reset: none") == {
-//         "counterReset": ()}
-//     assert expandToDict(
-//         "counter-reset: foo none", "Invalid counter name") == {}
-//     assert expandToDict(
-//         "counter-reset: foo initial", "Invalid counter name") == {}
-//     assertInvalid("counter-reset: foo 3px")
-//     assertInvalid("counter-reset: 3")
-// }
+func TestCounters(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "counter-reset: foo bar 2 baz", map[string]CssProperty{
+		"counter_reset": IntStrings{{String: "foo", Int: 0}, {String: "bar", Int: 2}, {String: "baz", Int: 0}},
+	})
+	assertValidDict(t, "counter-increment: foo bar 2 baz", map[string]CssProperty{
+		"counter_increment": SIntStrings{Values: []IntString{{String: "foo", Int: 1}, {String: "bar", Int: 2}, {String: "baz", Int: 1}}},
+	})
+	assertValidDict(t, "counter-reset: foo", map[string]CssProperty{
+		"counter_reset": IntStrings{{String: "foo", Int: 0}},
+	})
+	assertValidDict(t, "counter-reset: FoO", map[string]CssProperty{
+		"counter_reset": IntStrings{{String: "FoO", Int: 0}},
+	})
+	assertValidDict(t, "counter-increment: foo bAr 2 Bar", map[string]CssProperty{
+		"counter_increment": SIntStrings{Values: []IntString{{String: "foo", Int: 1}, {String: "bAr", Int: 2}, {String: "Bar", Int: 1}}},
+	})
+	assertValidDict(t, "counter-reset: none", map[string]CssProperty{
+		"counter_reset": IntStrings{},
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "counter-reset: foo none", "Invalid counter name")
+	assertInvalid(t, "counter-reset: foo initial", "Invalid counter name")
+	assertInvalid(t, "counter-reset: foo 3px", "invalid")
+	assertInvalid(t, "counter-reset: 3", "invalid")
+}
 
-// func TestSpacing(t *testing.T) {
-// capt := utils.CaptureLogs()
-// 	assert expandToDict("letter-spacing: normal") == {
-//         "letterSpacing": "normal"}
-//     assert expandToDict("letter-spacing: 3px") == {
-//         "letterSpacing": (3, "px")}
-//     assertInvalid("letter-spacing: 3")
-//     assert expandToDict(
-//         "letterSpacing: normal", "did you mean letter-spacing") == {}
-// }
-//     assert expandToDict("word-spacing: normal") == {
-//         "wordSpacing": "normal"}
-//     assert expandToDict("word-spacing: 3px") == {
-//         "wordSpacing": (3, "px")}
-//     assertInvalid("word-spacing: 3")
+func TestSpacing(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "letter-spacing: normal", map[string]CssProperty{
+		"letter_spacing": SToV("normal"),
+	})
+	assertValidDict(t, "letter-spacing: 3px", map[string]CssProperty{
+		"letter_spacing": Dimension{Value: 3, Unit: Px}.ToValue(),
+	})
+	assertValidDict(t, "word-spacing: normal", map[string]CssProperty{
+		"word_spacing": SToV("normal"),
+	})
+	assertValidDict(t, "word-spacing: 3px", map[string]CssProperty{
+		"word_spacing": Dimension{Value: 3, Unit: Px}.ToValue(),
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "letter_spacing: normal", "did you mean letter-spacing")
+	assertInvalid(t, "letter-spacing: 3", "invalid")
+	assertInvalid(t, "word-spacing: 3", "invalid")
+}
 
 // func TestDecoration(t *testing.T) {
 // capt := utils.CaptureLogs()

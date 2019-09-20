@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -73,6 +74,11 @@ func TestLower(t *testing.T) {
 	fmt.Println(out, string(out))
 }
 
+func TestInterface(t *testing.T) {
+	var i io.Reader
+	_, ok := i.(*bytes.Reader)
+	fmt.Println(ok)
+}
 func TestPointer(t *testing.T) {
 	var i, j []int
 

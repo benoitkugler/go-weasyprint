@@ -1386,24 +1386,27 @@ func counterIncrement(tokens []Token, _ string) (CssProperty, error) {
 // ``counter-reset`` property validation.
 func counterReset(tokens []Token, _ string) (CssProperty, error) {
 	iss, err := counter(tokens, 0)
+	if err != nil || iss == nil {
+		return nil, err
+	}
 	return IntStrings(iss), err
 }
 
 // ``counter-increment`` && ``counter-reset`` properties validation.
 func counter(tokens []Token, defaultInteger int) ([]IntString, error) {
 	if getSingleKeyword(tokens) == "none" {
-		return nil, nil
+		return []IntString{}, nil
 	}
 	if len(tokens) == 0 {
 		return nil, errors.New("got an empty token list")
 	}
 	var (
-		results    []IntString
-		i, integer int
-		token      Token
+		results []IntString
+		integer int
 	)
-	for i < len(tokens) {
-		token = tokens[i]
+	iter := parser.NewTokenIterator(tokens)
+	token := iter.Next()
+	for token != nil {
 		ident, ok := token.(parser.IdentToken)
 		if !ok {
 			return nil, nil // expected a keyword here
@@ -1412,20 +1415,15 @@ func counter(tokens []Token, defaultInteger int) ([]IntString, error) {
 		if counterName == "none" || counterName == "initial" || counterName == "inherit" {
 			return nil, fmt.Errorf("Invalid counter name: %s", counterName)
 		}
-		i += 1
-		if i < len(tokens) {
-			token = tokens[i]
-			if number, ok := token.(parser.NumberToken); ok {
-				if number.IsInteger {
-					// Found an integer. Use it and get the next token
-					integer = number.IntValue()
-					i += 1
-				}
-			} else {
-				// Not an integer. Might be the next counter name.
-				// Keep `token` for the next loop iteration.
-				integer = defaultInteger
-			}
+		token = iter.Next()
+		if number, ok := token.(parser.NumberToken); ok && number.IsInteger { // implies token != nil
+			// Found an integer. Use it and get the next token
+			integer = number.IntValue()
+			token = iter.Next()
+		} else {
+			// Not an integer. Might be the next counter name.
+			// Keep `token` for the next loop iteration.
+			integer = defaultInteger
 		}
 		results = append(results, IntString{String: string(counterName), Int: integer})
 	}
