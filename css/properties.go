@@ -104,17 +104,17 @@ var (
 		"width": SToV("auto"),
 
 		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
-		// "background_attachment": ("scroll",),
-		// "background_clip": ("border-box",),
-		"background_color": Color(parser.ParseColor2("transparent")),
-		// "background_origin": ("padding-box",),
+		"background_attachment": Strings{"scroll"},
+		"background_clip":       Strings{"border-box"},
+		"background_color":      Color(parser.ParseColor2("transparent")),
+		"background_origin":     Strings{"padding-box"},
 		"background_position": Centers{
 			Center{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Unit: Percentage}, Dimension{Unit: Percentage}}},
 		},
 		"background_image": Images{NoneImage{}},
 
-		// "background_repeat": (("repeat", "repeat"),),
-		"background_size": Sizes{Size{Width: SToV("auto"), Height: SToV("auto")}},
+		"background_repeat": Repeats{{"repeat", "repeat"}},
+		"background_size":   Sizes{Size{Width: SToV("auto"), Height: SToV("auto")}},
 		// "border_bottom_color": "currentColor",
 		// "border_left_color": "currentColor",
 		// "border_right_color": "currentColor",

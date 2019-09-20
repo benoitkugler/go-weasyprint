@@ -220,8 +220,8 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 	delete(expected, "background_color")
 	nbLayers := len(expanded.GetBackgroundImage())
 	for name, value := range expected {
-		if expanded[name] != value {
-			t.Fatalf("expected %v got %v", value, expanded[name])
+		if !reflect.DeepEqual(expanded[name], value) {
+			t.Fatalf("for %s expected %v got %v", name, value, expanded[name])
 		}
 		delete(expanded, name)
 		delete(expected, name)
@@ -255,65 +255,65 @@ func TestExpandBackground(t *testing.T) {
 		"background_attachment": Strings{"fixed"},
 	})
 	assertBackground(t, "top", Properties{
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 0, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top right", Properties{
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension{Value: 0, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top right 20px", Properties{
-		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension{Value: 0, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top 1% right 20px", Properties{
-		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 1, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension{Value: 1, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top no-repeat", Properties{
 		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 0, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top right no-repeat", Properties{
 		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension{Value: 0, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top right 20px no-repeat", Properties{
 		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
-		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension{Value: 0, Unit: Percentage}}}},
 	})
 	assertBackground(t, "top 1% right 20px no-repeat", Properties{
 		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
-		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 1, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension{Value: 1, Unit: Percentage}}}},
 	})
 	assertBackground(t, "url(bar) #f00 repeat-y center left fixed", Properties{
 		"background_color":      NewColor(1, 0, 0, 1),
 		"background_image":      Images{UrlImage("http://weasyprint.org/foo/bar")},
 		"background_repeat":     Repeats{{"no-repeat", "repeat"}},
 		"background_attachment": Strings{"fixed"},
-		"background_position":   Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 0, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position":   Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 0, Unit: Percentage}, Dimension{Value: 50, Unit: Percentage}}}},
 	})
 	assertBackground(t, "#00f 10% 200px", Properties{
 		"background_color":    NewColor(0, 0, 1, 1),
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 10, Unit: Percentage}, Dimension: {Value: 20, Unit: Px}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 10, Unit: Percentage}, Dimension{Value: 200, Unit: Px}}}},
 	})
 	assertBackground(t, "right 78px fixed", Properties{
 		"background_attachment": Strings{"fixed"},
-		"background_position":   Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension: {Value: 8, Unit: Px}}}},
+		"background_position":   Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension{Value: 78, Unit: Px}}}},
 	})
 	assertBackground(t, "center / cover red", Properties{
-		"background_size":     Sizes{String: "cover"},
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_size":     Sizes{{String: "cover"}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 50, Unit: Percentage}}}},
 		"background_color":    NewColor(1, 0, 0, 1),
 	})
 	assertBackground(t, "center / auto red", Properties{
 		"background_size":     Sizes{{Width: SToV("auto"), Height: SToV("auto")}},
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 50, Unit: Percentage}}}},
 		"background_color":    NewColor(1, 0, 0, 1),
 	})
 	assertBackground(t, "center / 42px", Properties{
 		"background_size":     Sizes{{Width: Dimension{Value: 42, Unit: Px}.ToValue(), Height: SToV("auto")}},
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 50, Unit: Percentage}}}},
 	})
 	assertBackground(t, "center / 7% 4em", Properties{
 		"background_size":     Sizes{{Width: Dimension{Value: 7, Unit: Percentage}.ToValue(), Height: Dimension{Value: 4, Unit: Em}.ToValue()}},
-		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 50, Unit: Percentage}}}},
 	})
 	assertBackground(t, "red content-box", Properties{
 		"background_color":  NewColor(1, 0, 0, 1),
@@ -329,76 +329,85 @@ func TestExpandBackground(t *testing.T) {
 		"background_color": NewColor(0, 0, 0, 0),
 		"background_image": Images{UrlImage("http://weasyprint.org/foo/bar"), NoneImage{}},
 		"background_position": Centers{
-			{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}},
-			{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 0, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}},
+			{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension{Value: 50, Unit: Percentage}}},
+			{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 0, Unit: Percentage}, Dimension{Value: 0, Unit: Percentage}}},
 		},
 		"background_repeat": Repeats{{"repeat", "repeat"}, {"no-repeat", "no-repeat"}},
 	})
 	capt.AssertNoLogs(t)
-	assertInvalid("background: 10px lipsum", "invalid")
-	assertInvalid("background-position: 10px lipsum", "invalid")
-	assertInvalid("background: content-box red content-box", "invalid")
-	assertInvalid("background-image: inexistent-gradient(blue, green)", "invalid")
+	assertInvalid(t, "background: 10px lipsum", "invalid")
+	assertInvalid(t, "background-position: 10px lipsum", "invalid")
+	assertInvalid(t, "background: content-box red content-box", "invalid")
+	assertInvalid(t, "background-image: inexistent-gradient(blue, green)", "invalid")
 	// Color must be in the last layer :
-	assertInvalid("background: red, url(foo)", "invalid")
+	assertInvalid(t, "background: red, url(foo)", "invalid")
 }
 
-// // Test the ``background-position`` property.
-// capt := utils.CaptureLogs()
-// func TestExpandBackgroundPosition(t *testing.T) {
-//     def position(css, *expected) {
-//         [(name, [value])] = expandToDict(
-//             "background-position:" + css).items()
-//         assert name == "background_position"
-// Centers{{OriginX: /         assert OriginY:
-// / Pos:Point{/Dimension{Value:    } Unit:for  cssXvalue == expected , valX := range [
-//         ("left", (0, Percentage)), ("center", (50, Percentage)), ("right", (100, Percentage)),
-//         ("4.5%", (4.5, Percentage)), ("12px", (12, Px))
-//     ] {
-//         for cssY, valY := range [
-//             ("top", (0, Percentage)), ("center", (50, Percentage)), ("bottom", (100, Percentage)),
-//             ("7%", (7, Percentage)), ("1.5px", (1.5, Px))
-//         ] {
-//             // Two tokens {
-//             } position("%s %s" % (cssX, cssY), "left", valX, "top", valY)
-//         } // One token {
-//         } position(cssX, "left", valX, "top", (50, Percentage))
-//     } // One token, vertical
-//     position("top", "left", (50, Percentage), "top", (0, Percentage))
-//     position("bottom", "left", (50, Percentage), "top", (100, Percentage))
-// }
-//     // Three tokens {
-//     } position("center top 10%", "left", (50, Percentage), "top", (10, Percentage))
-//     position("top 10% center", "left", (50, Percentage), "top", (10, Percentage))
-//     position("center bottom 10%", "left", (50, Percentage), "bottom", (10, Percentage))
-//     position("bottom 10% center", "left", (50, Percentage), "bottom", (10, Percentage))
+func checkPosition(t *testing.T, css string, expected Center) {
+	l := expandToDict(t, "background-position:" + css, "")
+	for name, v := range l {}
+	if name != "background_position" {
+		t.Fatalf("expected background_position got %s", name)
+	}
+	if reflect.DeepEqual(v, []Centers{expected}) {
+		t.Fatalf("expected %v got %v", expected, v)
+	}
+}
 
-//     position("right top 10%", "right", (0, Percentage), "top", (10, Percentage))
-//     position("top 10% right", "right", (0, Percentage), "top", (10, Percentage))
-//     position("right bottom 10%", "right", (0, Percentage), "bottom", (10, Percentage))
-//     position("bottom 10% right", "right", (0, Percentage), "bottom", (10, Percentage))
+// Test the ``background-position`` property.
+func TestExpandBackgroundPosition(t *testing.T) {
+	capt := utils.CaptureLogs()
 
-//     position("center left 10%", "left", (10, Percentage), "top", (50, Percentage))
-//     position("left 10% center", "left", (10, Percentage), "top", (50, Percentage))
-//     position("center right 10%", "right", (10, Percentage), "top", (50, Percentage))
-//     position("right 10% center", "right", (10, Percentage), "top", (50, Percentage))
+	css_xs := [5]string{"left", "center","right"	,"4.5%"	,"12px"    }
+	val_xs := [5]Dimension{{Value:0, Unit: Percentage},	 {Value:50, Unit: Percentage},	 {Value:100, Unit: Percentage},	{Value:4.5, Unit: Percentage},{Value:12, Unit: Px}}
+	css_ys := [5]string{ "top",		"center",		"bottom",		"7%","1.5px"	}
+	val_ys := [5]Dimension{ {Value: 0, Unit: Percentage}, {Value: 50, Unit: Percentage}, {Value: 100, Unit: Percentage},{Value: 7, Unit: Percentage}, {Value: 1.5, Unit: Px}	}
+	for i, css_x := range css_xs {
+		val_x := val_xs[i]
+        for j, css_y := range css_ys {
+			val_y := val_ys[i]
+            // Two tokens:
+			checkPosition(t,fmt.Sprintf("%s %s",css_x, css_y), Center{OriginX:"left", OriginY:"top", Pos:Point{val_x, val_y}})
+		}
+        // One token:
+        checkPosition(t,css_x, Center{OriginX:"left", OriginY:"top", Pos:Point{val_x, {Value:50, Unit:Percentage}}})
+	}
+    // One token, vertical
+    checkPosition(t,"top", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:0, Unit:Percentage}}})
+    checkPosition(t,"bottom", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:100, Unit:Percentage}}})
 
-//     position("bottom left 10%", "left", (10, Percentage), "bottom", (0, Percentage))
-//     position("left 10% bottom", "left", (10, Percentage), "bottom", (0, Percentage))
-//     position("bottom right 10%", "right", (10, Percentage), "bottom", (0, Percentage))
-//     position("right 10% bottom", "right", (10, Percentage), "bottom", (0, Percentage))
+	// Three tokens:
+	 checkPosition(t,"center top 10%", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:10, Unit:Percentage}}})
+    checkPosition(t,"top 10% center", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:10, Unit:Percentage}}})
+    checkPosition(t,"center bottom 10%", Center{OriginX:"left", OriginY: "bottom", Pos:Point{Value:50, Unit:Percentage}, {Value:10, Unit:Percentage}})
+    checkPosition(t,"bottom 10% center", Center{OriginX:"left", OriginY: "bottom", Pos:Point{Value:50, Unit:Percentage}, {Value:10,Unit: Percentage}})
 
-//     // Four tokens {
-//     } position("left 10% bottom 3px", "left", (10, Percentage), "bottom", (3, Px))
-//     position("bottom 3px left 10%", "left", (10, Percentage), "bottom", (3, Px))
-//     position("right 10% top 3px", "right", (10, Percentage), "top", (3, Px))
-//     position("top 3px right 10%", "right", (10, Percentage), "top", (3, Px))
+    checkPosition(t,"right top 10%", Center{OriginX:"right",OriginY: "top", Pos:Point{{Value:0, Unit:Percentage},  {Value:10, Unit:Percentage}}})
+    checkPosition(t,"top 10% right", Center{OriginX:"right",OriginY: "top", Pos:Point{{Value:0, Unit:Percentage},  {Value:10, Unit:Percentage}}})
+    checkPosition(t,"right bottom 10%", "right", OriginY: "bottom", Pos:Point{Value:0, Unit:Percentage}, {Value:10, Unit:Percentage})
+    checkPosition(t,"bottom 10% right", "right", OriginY: "bottom", Pos:Point{Value:0, Unit:Percentage}, {Value:10,Unit: Percentage})
 
-//     assertInvalid("background-position: left center 3px")
-//     assertInvalid("background-position: 3px left")
-//     assertInvalid("background-position: bottom 4%")
-//     assertInvalid("background-position: bottom top")
+    checkPosition(t,"center left 10%", "left", {Value:10, Unit:Percentage}, "top", {Value:50, Unit:Percentage})
+    checkPosition(t,"left 10% center", "left", {Value:10, Unit:Percentage}, "top", {Value:50, Unit:Percentage})
+    checkPosition(t,"center right 10%", "right", {Value:10, Unit:Percentage}, "top", {Value:50, Unit:Percentage})
+    checkPosition(t,"right 10% center", "right", {Value:10, Unit:Percentage}, "top", (50, Percentage})
 
+    checkPosition(t,"bottom left 10%", "left", {Value:10, Unit:Percentage}, "bottom", {Value:0, Unit:Percentage})
+    checkPosition(t,"left 10% bottom", "left", {Value:10, Unit:Percentage}, "bottom", {Value:0, Unit:Percentage})
+    checkPosition(t,"bottom right 10%", "right", {Value:10, Unit:Percentage}, "bottom", {Value:0, Unit:Percentage})
+    checkPosition(t,"right 10% bottom", "right", {Value:10, Unit:Percentage}, "bottom", (0, Percentage})
+
+	// Four tokens :
+	checkPosition(t,"left 10% bottom 3px", "left", {Value:10, Unit:Percentage}, "bottom", (3, Px))
+    checkPosition(t,"bottom 3px left 10%", "left", {Value:10, Unit:Percentage}, "bottom", (3, Px))
+    checkPosition(t,"right 10% top 3px", "right", {Value:10, Unit:Percentage}, "top", (3, Px))
+    checkPosition(t,"top 3px right 10%", "right", {Value:10, Unit:Percentage}, "top", (3, Px))
+
+    assertInvalid("background-position: left center 3px")
+    assertInvalid("background-position: 3px left")
+    assertInvalid("background-position: bottom 4%")
+    assertInvalid("background-position: bottom top")
+}
 // // Test the ``font`` property.
 // capt := utils.CaptureLogs()
 // func TestFont(t *testing.T) {

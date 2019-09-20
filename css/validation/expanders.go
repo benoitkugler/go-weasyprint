@@ -7,6 +7,7 @@ import (
 
 	. "github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/css/parser"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 var expanders = map[string]expander{
@@ -333,8 +334,9 @@ type backgroundProps struct {
 func (b backgroundProps) add(name string) error {
 	name = "background_" + name
 	if b._keys.Has(name) {
-		return InvalidValue
+		return fmt.Errorf("invalid value : name %s already set", name)
 	}
+	b._keys.Add(name)
 	return nil
 }
 
@@ -361,13 +363,14 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 		// Make `tokens` a stack
 		tokens = reverse(tokens)
 		for len(tokens) > 0 {
-			repeat := _backgroundRepeat(reverse(tokens[len(tokens)-2:]))
+			i := utils.MaxInt(len(tokens)-2, 0)
+			repeat := _backgroundRepeat(reverse(tokens[i:]))
 			if repeat != [2]string{} {
 				if err = results.add("repeat"); err != nil {
 					return Color{}, backgroundProps{}, err
 				}
 				results.repeat = repeat
-				tokens = tokens[:len(tokens)-2]
+				tokens = tokens[:i]
 				continue
 			}
 
@@ -440,14 +443,15 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 							}
 							for _, n := range []int{3, 2}[index:] {
 								// n includes the "/" delimiter.
-								nTokens = reverse(tokens[len(tokens)-n : len(tokens)-1])
+								i, j := utils.MaxInt(0, len(tokens)-n), utils.MaxInt(0, len(tokens)-1)
+								nTokens = reverse(tokens[i:j])
 								size := _backgroundSize(nTokens)
 								if !size.IsNone() {
 									if err = results.add("size"); err != nil {
 										return Color{}, backgroundProps{}, err
 									}
 									results.size = size
-									tokens = tokens[:len(tokens)-n]
+									tokens = tokens[:i]
 								}
 							}
 						}
@@ -459,14 +463,15 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 				continue
 			}
 
-			origin := _box(tokens)
+			origin := _box(token)
 			if origin != "" {
 				if err = results.add("origin"); err != nil {
 					return Color{}, backgroundProps{}, err
 				}
 				results.origin = origin
 				tokens = tokens[:len(tokens)-1]
-				nextToken := tokens[len(tokens)-1:]
+
+				nextToken := tokens[utils.MaxInt(0, len(tokens)-1):]
 
 				clip := _box(nextToken)
 				if clip != "" {
@@ -477,8 +482,8 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 					tokens = tokens[:len(tokens)-1]
 				} else {
 					// The same keyword sets both:
-					clip := _box(nextToken)
-					if clip != "" {
+					clip := _box(token)
+					if clip == "" {
 						return Color{}, backgroundProps{}, errors.New("clip shoudn't be empty")
 					}
 					if err = results.add("clip"); err != nil {
@@ -573,7 +578,6 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 		rev_clips[n-1-i] = results_clips[i]
 		rev_origins[n-1-i] = results_origins[i]
 	}
-
 	out = []namedProperty{
 		{name: "background_image", property: rev_images},
 		{name: "background_repeat", property: rev_repeats},

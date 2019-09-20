@@ -382,7 +382,10 @@ func backgroundAttachment(tokens []Token, _ string) CssProperty {
 //@singleToken
 func otherColors(tokens []Token, _ string) CssProperty {
 	if len(tokens) == 1 {
-		return Color(parser.ParseColor(tokens[0]))
+		c := parser.ParseColor(tokens[0])
+		if !c.IsNone() {
+			return Color(c)
+		}
 	}
 	return nil
 }
@@ -453,7 +456,7 @@ func _backgroundImage(tokens []Token, baseUrl string) (Image, error) {
 
 	token, ok := _token.(parser.FunctionBlock)
 	if !ok {
-		return _imageUrl(token, baseUrl)
+		return _imageUrl(_token, baseUrl)
 	}
 	arguments := SplitOnComma(RemoveWhitespace(*token.Arguments))
 	name := token.Name.Lower()

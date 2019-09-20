@@ -11,10 +11,10 @@ import (
 func TestExpandFourSides(t *testing.T) {
 	capt := utils.CaptureLogs()
 	assertValidDict(t, "margin: inherit", map[string]CssProperty{
-		"margin_top":    String(String("inherit")),
-		"margin_right":  String(String("inherit")),
-		"margin_bottom": String(String("inherit")),
-		"margin_left":   String(String("inherit")),
+		"margin_top":    String("inherit"),
+		"margin_right":  String("inherit"),
+		"margin_bottom": String("inherit"),
+		"margin_left":   String("inherit"),
 	})
 	assertValidDict(t, "margin: 1em", map[string]CssProperty{
 		"margin_top":    Dimension{Value: 1, Unit: Em}.ToValue(),
