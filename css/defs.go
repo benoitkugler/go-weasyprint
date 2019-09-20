@@ -318,6 +318,43 @@ func (b Transforms) Copy() CssProperty {
 	return out
 }
 
+func (bs Images) Repeat(n int) CssProperty {
+	var out Images
+	for i := 0; i < n; i++ {
+		out = append(out, bs...)
+	}
+	return out
+}
+
+func (bs Centers) Repeat(n int) CssProperty {
+	var out Centers
+	for i := 0; i < n; i++ {
+		out = append(out, bs...)
+	}
+	return out
+}
+func (bs Sizes) Repeat(n int) CssProperty {
+	var out Sizes
+	for i := 0; i < n; i++ {
+		out = append(out, bs...)
+	}
+	return out
+}
+func (bs Repeats) Repeat(n int) CssProperty {
+	var out Repeats
+	for i := 0; i < n; i++ {
+		out = append(out, bs...)
+	}
+	return out
+}
+func (bs Strings) Repeat(n int) CssProperty {
+	var out Strings
+	for i := 0; i < n; i++ {
+		out = append(out, bs...)
+	}
+	return out
+}
+
 // ------------------ Value type -----------------
 func (p Float) Copy() CssProperty       { return p }
 func (p Int) Copy() CssProperty         { return p }

@@ -202,134 +202,146 @@ func TestTransforms(t *testing.T) {
 	assertInvalid(t, "transform: 6px", "invalid")
 }
 
+type repeatable interface {
+	Repeat(int) CssProperty
+}
+
 // Helper checking the background properties.
 func assertBackground(t *testing.T, css string, expected Properties) {
-	expanded := expandToDict(t, "background: " + css, "")
+	expanded := expandToDict(t, "background: "+css, "")
 	col, in := expected["background_color"]
 	if !in {
 		col = InitialValues["background_color"]
 	}
 	if expanded["background_color"] != col {
-		t.Fail("expected %v got %v", col, expanded["background_color"])
+		t.Fatalf("expected %v got %v", col, expanded["background_color"])
 	}
 	delete(expanded, "background_color")
 	delete(expected, "background_color")
-    nbLayers := len(expanded.GetBackgroundImage())
-    for name, value := range expected {
+	nbLayers := len(expanded.GetBackgroundImage())
+	for name, value := range expected {
 		if expanded[name] != value {
 			t.Fatalf("expected %v got %v", value, expanded[name])
 		}
-	} 
+		delete(expanded, name)
+		delete(expected, name)
+	}
 	for name, value := range expanded {
-        if isinstance(value, list) {
-            // TinyCSS returns lists where StyleDict stores tuples for hashing
-            // purpose
-            value = tuple(value)
-        } assert value == INITIALVALUES[name] * nbLayers
-    }
+		initv := InitialValues[name].(repeatable)
+		ref := initv.Repeat(nbLayers)
+		if !reflect.DeepEqual(value, ref) {
+			t.Fatalf("expected %v got %v", ref, value)
+		}
+	}
 }
 
-// // Test the ``background`` property.
-// capt := utils.CaptureLogs()
-// func TestExpandBackground(t *testing.T) {
-//     assertBackground("red", background_color=(1, 0, 0, 1))
-//     assertBackground(
-//         "url(lipsum.png)",
-//         backgroundImage=[("url", "http://weasyprint.org/foo/lipsum.png")])
-//     assertBackground(
-//         "no-repeat",
-//         backgroundRepeat=[("no-repeat", "no-repeat")])
-//     assertBackground("fixed", backgroundAttachment=["fixed"])
-//     assertBackground(
-//         "repeat no-repeat fixed",
-//         backgroundRepeat=[("repeat", "no-repeat")],
-//         backgroundAttachment=["fixed"])
-//     assertBackground(
-//         "top",
-//         backgroundPosition=[("left", (50, "%"), "top", (0, "%"))])
-//     assertBackground(
-//         "top right",
-//         backgroundPosition=[("left", (100, "%"), "top", (0, "%"))])
-//     assertBackground(
-//         "top right 20px",
-//         backgroundPosition=[("right", (20, Px), "top", (0, "%"))])
-//     assertBackground(
-//         "top 1% right 20px",
-//         backgroundPosition=[("right", (20, Px), "top", (1, "%"))])
-//     assertBackground(
-//         "top no-repeat",
-//         backgroundRepeat=[("no-repeat", "no-repeat")],
-//         backgroundPosition=[("left", (50, "%"), "top", (0, "%"))])
-//     assertBackground(
-//         "top right no-repeat",
-//         backgroundRepeat=[("no-repeat", "no-repeat")],
-//         backgroundPosition=[("left", (100, "%"), "top", (0, "%"))])
-//     assertBackground(
-//         "top right 20px no-repeat",
-//         backgroundRepeat=[("no-repeat", "no-repeat")],
-//         backgroundPosition=[("right", (20, Px), "top", (0, "%"))])
-//     assertBackground(
-//         "top 1% right 20px no-repeat",
-//         backgroundRepeat=[("no-repeat", "no-repeat")],
-//         backgroundPosition=[("right", (20, Px), "top", (1, "%"))])
-//     assertBackground(
-//         "url(bar) #f00 repeat-y center left fixed",
-//         background_color=(1, 0, 0, 1),
-//         backgroundImage=[("url", "http://weasyprint.org/foo/bar")],
-//         backgroundRepeat=[("no-repeat", "repeat")],
-//         backgroundAttachment=["fixed"],
-//         backgroundPosition=[("left", (0, "%"), "top", (50, "%"))])
-//     assertBackground(
-//         "#00f 10% 200px",
-//         background_color=(0, 0, 1, 1),
-//         backgroundPosition=[("left", (10, "%"), "top", (200, Px))])
-//     assertBackground(
-//         "right 78px fixed",
-//         backgroundAttachment=["fixed"],
-//         backgroundPosition=[("left", (100, "%"), "top", (78, Px))])
-//     assertBackground(
-//         "center / cover red",
-//         backgroundSize=["cover"],
-//         backgroundPosition=[("left", (50, "%"), "top", (50, "%"))],
-//         background_color=(1, 0, 0, 1))
-//     assertBackground(
-//         "center / auto red",
-//         backgroundSize=[("auto", "auto")],
-//         backgroundPosition=[("left", (50, "%"), "top", (50, "%"))],
-//         background_color=(1, 0, 0, 1))
-//     assertBackground(
-//         "center / 42px",
-//         backgroundSize=[((42, Px), "auto")],
-//         backgroundPosition=[("left", (50, "%"), "top", (50, "%"))])
-//     assertBackground(
-//         "center / 7% 4em",
-//         backgroundSize=[((7, "%"), (4, "em"))],
-//         backgroundPosition=[("left", (50, "%"), "top", (50, "%"))])
-//     assertBackground(
-//         "red content-box",
-//         background_color=(1, 0, 0, 1),
-//         backgroundOrigin=["content-box"],
-//         backgroundClip=["content-box"])
-//     assertBackground(
-//         "red border-box content-box",
-//         background_color=(1, 0, 0, 1),
-//         backgroundOrigin=["border-box"],
-//         backgroundClip=["content-box"])
-//     assertBackground(
-//         "url(bar) center, no-repeat",
-//         background_color=(0, 0, 0, 0),
-//         backgroundImage=[("url", "http://weasyprint.org/foo/bar"),
-//                           ("none", None)],
-//         backgroundPosition=[("left", (50, "%"), "top", (50, "%")),
-//                              ("left", (0, "%"), "top", (0, "%"))],
-//         backgroundRepeat=[("repeat", "repeat"), ("no-repeat", "no-repeat")])
-//     assertInvalid("background: 10px lipsum")
-//     assertInvalid("background-position: 10px lipsum")
-//     assertInvalid("background: content-box red content-box")
-//     assertInvalid("background-image: inexistent-gradient(blue, green)")
-//     // Color must be := range the last layer {
-//     } assertInvalid("background: red, url(foo)")
-// }
+// Test the ``background`` property.
+func TestExpandBackground(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertBackground(t, "red", Properties{
+		"background_color": NewColor(1, 0, 0, 1),
+	})
+	assertBackground(t, "url(lipsum.png)", Properties{
+		"background_image": Images{UrlImage("http://weasyprint.org/foo/lipsum.png")},
+	})
+	assertBackground(t, "no-repeat", Properties{
+		"background_repeat": Repeats{{"no-repeat", "no-repeat"}},
+	})
+	assertBackground(t, "fixed", Properties{
+		"background_attachment": Strings{"fixed"},
+	})
+	assertBackground(t, "repeat no-repeat fixed", Properties{
+		"background_repeat":     Repeats{{"repeat", "no-repeat"}},
+		"background_attachment": Strings{"fixed"},
+	})
+	assertBackground(t, "top", Properties{
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top right", Properties{
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top right 20px", Properties{
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top 1% right 20px", Properties{
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 1, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top no-repeat", Properties{
+		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top right no-repeat", Properties{
+		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top right 20px no-repeat", Properties{
+		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "top 1% right 20px no-repeat", Properties{
+		"background_repeat":   Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": Centers{{OriginX: "right", OriginY: "top", Pos: Point{Dimension{Value: 20, Unit: Px}, Dimension: {Value: 1, Unit: Percentage}}}},
+	})
+	assertBackground(t, "url(bar) #f00 repeat-y center left fixed", Properties{
+		"background_color":      NewColor(1, 0, 0, 1),
+		"background_image":      Images{UrlImage("http://weasyprint.org/foo/bar")},
+		"background_repeat":     Repeats{{"no-repeat", "repeat"}},
+		"background_attachment": Strings{"fixed"},
+		"background_position":   Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 0, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "#00f 10% 200px", Properties{
+		"background_color":    NewColor(0, 0, 1, 1),
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 10, Unit: Percentage}, Dimension: {Value: 20, Unit: Px}}}},
+	})
+	assertBackground(t, "right 78px fixed", Properties{
+		"background_attachment": Strings{"fixed"},
+		"background_position":   Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 100, Unit: Percentage}, Dimension: {Value: 8, Unit: Px}}}},
+	})
+	assertBackground(t, "center / cover red", Properties{
+		"background_size":     Sizes{String: "cover"},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_color":    NewColor(1, 0, 0, 1),
+	})
+	assertBackground(t, "center / auto red", Properties{
+		"background_size":     Sizes{{Width: SToV("auto"), Height: SToV("auto")}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+		"background_color":    NewColor(1, 0, 0, 1),
+	})
+	assertBackground(t, "center / 42px", Properties{
+		"background_size":     Sizes{{Width: Dimension{Value: 42, Unit: Px}.ToValue(), Height: SToV("auto")}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "center / 7% 4em", Properties{
+		"background_size":     Sizes{{Width: Dimension{Value: 7, Unit: Percentage}.ToValue(), Height: Dimension{Value: 4, Unit: Em}.ToValue()}},
+		"background_position": Centers{{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}}},
+	})
+	assertBackground(t, "red content-box", Properties{
+		"background_color":  NewColor(1, 0, 0, 1),
+		"background_origin": Strings{"content-box"},
+		"background_clip":   Strings{"content-box"},
+	})
+	assertBackground(t, "red border-box content-box", Properties{
+		"background_color":  NewColor(1, 0, 0, 1),
+		"background_origin": Strings{"border-box"},
+		"background_clip":   Strings{"content-box"},
+	})
+	assertBackground(t, "url(bar) center, no-repeat", Properties{
+		"background_color": NewColor(0, 0, 0, 0),
+		"background_image": Images{UrlImage("http://weasyprint.org/foo/bar"), NoneImage{}},
+		"background_position": Centers{
+			{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 50, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}},
+			{OriginX: "left", OriginY: "top", Pos: Point{Dimension{Value: 0, Unit: Percentage}, Dimension: {Value: 0, Unit: Percentage}}},
+		},
+		"background_repeat": Repeats{{"repeat", "repeat"}, {"no-repeat", "no-repeat"}},
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid("background: 10px lipsum", "invalid")
+	assertInvalid("background-position: 10px lipsum", "invalid")
+	assertInvalid("background: content-box red content-box", "invalid")
+	assertInvalid("background-image: inexistent-gradient(blue, green)", "invalid")
+	// Color must be in the last layer :
+	assertInvalid("background: red, url(foo)", "invalid")
+}
 
 // // Test the ``background-position`` property.
 // capt := utils.CaptureLogs()
@@ -337,50 +349,50 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 //     def position(css, *expected) {
 //         [(name, [value])] = expandToDict(
 //             "background-position:" + css).items()
-//         assert name == "backgroundPosition"
-//         assert value == expected
-//     } for cssX, valX := range [
-//         ("left", (0, "%")), ("center", (50, "%")), ("right", (100, "%")),
-//         ("4.5%", (4.5, "%")), ("12px", (12, Px))
+//         assert name == "background_position"
+// Centers{{OriginX: /         assert OriginY:
+// / Pos:Point{/Dimension{Value:    } Unit:for  cssXvalue == expected , valX := range [
+//         ("left", (0, Percentage)), ("center", (50, Percentage)), ("right", (100, Percentage)),
+//         ("4.5%", (4.5, Percentage)), ("12px", (12, Px))
 //     ] {
 //         for cssY, valY := range [
-//             ("top", (0, "%")), ("center", (50, "%")), ("bottom", (100, "%")),
-//             ("7%", (7, "%")), ("1.5px", (1.5, Px))
+//             ("top", (0, Percentage)), ("center", (50, Percentage)), ("bottom", (100, Percentage)),
+//             ("7%", (7, Percentage)), ("1.5px", (1.5, Px))
 //         ] {
 //             // Two tokens {
 //             } position("%s %s" % (cssX, cssY), "left", valX, "top", valY)
 //         } // One token {
-//         } position(cssX, "left", valX, "top", (50, "%"))
+//         } position(cssX, "left", valX, "top", (50, Percentage))
 //     } // One token, vertical
-//     position("top", "left", (50, "%"), "top", (0, "%"))
-//     position("bottom", "left", (50, "%"), "top", (100, "%"))
+//     position("top", "left", (50, Percentage), "top", (0, Percentage))
+//     position("bottom", "left", (50, Percentage), "top", (100, Percentage))
 // }
 //     // Three tokens {
-//     } position("center top 10%", "left", (50, "%"), "top", (10, "%"))
-//     position("top 10% center", "left", (50, "%"), "top", (10, "%"))
-//     position("center bottom 10%", "left", (50, "%"), "bottom", (10, "%"))
-//     position("bottom 10% center", "left", (50, "%"), "bottom", (10, "%"))
+//     } position("center top 10%", "left", (50, Percentage), "top", (10, Percentage))
+//     position("top 10% center", "left", (50, Percentage), "top", (10, Percentage))
+//     position("center bottom 10%", "left", (50, Percentage), "bottom", (10, Percentage))
+//     position("bottom 10% center", "left", (50, Percentage), "bottom", (10, Percentage))
 
-//     position("right top 10%", "right", (0, "%"), "top", (10, "%"))
-//     position("top 10% right", "right", (0, "%"), "top", (10, "%"))
-//     position("right bottom 10%", "right", (0, "%"), "bottom", (10, "%"))
-//     position("bottom 10% right", "right", (0, "%"), "bottom", (10, "%"))
+//     position("right top 10%", "right", (0, Percentage), "top", (10, Percentage))
+//     position("top 10% right", "right", (0, Percentage), "top", (10, Percentage))
+//     position("right bottom 10%", "right", (0, Percentage), "bottom", (10, Percentage))
+//     position("bottom 10% right", "right", (0, Percentage), "bottom", (10, Percentage))
 
-//     position("center left 10%", "left", (10, "%"), "top", (50, "%"))
-//     position("left 10% center", "left", (10, "%"), "top", (50, "%"))
-//     position("center right 10%", "right", (10, "%"), "top", (50, "%"))
-//     position("right 10% center", "right", (10, "%"), "top", (50, "%"))
+//     position("center left 10%", "left", (10, Percentage), "top", (50, Percentage))
+//     position("left 10% center", "left", (10, Percentage), "top", (50, Percentage))
+//     position("center right 10%", "right", (10, Percentage), "top", (50, Percentage))
+//     position("right 10% center", "right", (10, Percentage), "top", (50, Percentage))
 
-//     position("bottom left 10%", "left", (10, "%"), "bottom", (0, "%"))
-//     position("left 10% bottom", "left", (10, "%"), "bottom", (0, "%"))
-//     position("bottom right 10%", "right", (10, "%"), "bottom", (0, "%"))
-//     position("right 10% bottom", "right", (10, "%"), "bottom", (0, "%"))
+//     position("bottom left 10%", "left", (10, Percentage), "bottom", (0, Percentage))
+//     position("left 10% bottom", "left", (10, Percentage), "bottom", (0, Percentage))
+//     position("bottom right 10%", "right", (10, Percentage), "bottom", (0, Percentage))
+//     position("right 10% bottom", "right", (10, Percentage), "bottom", (0, Percentage))
 
 //     // Four tokens {
-//     } position("left 10% bottom 3px", "left", (10, "%"), "bottom", (3, Px))
-//     position("bottom 3px left 10%", "left", (10, "%"), "bottom", (3, Px))
-//     position("right 10% top 3px", "right", (10, "%"), "top", (3, Px))
-//     position("top 3px right 10%", "right", (10, "%"), "top", (3, Px))
+//     } position("left 10% bottom 3px", "left", (10, Percentage), "bottom", (3, Px))
+//     position("bottom 3px left 10%", "left", (10, Percentage), "bottom", (3, Px))
+//     position("right 10% top 3px", "right", (10, Percentage), "top", (3, Px))
+//     position("top 3px right 10%", "right", (10, Percentage), "top", (3, Px))
 
 //     assertInvalid("background-position: left center 3px")
 //     assertInvalid("background-position: 3px left")
@@ -480,8 +492,8 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 // capt := utils.CaptureLogs()
 // func TestLineHeight(t *testing.T) {
 //     assert expandToDict("line-height: 1px") == {"lineHeight": (1, Px)}
-//     assert expandToDict("line-height: 1.1%") == {"lineHeight": (1.1, "%")}
-//     assert expandToDict("line-height: 1em") == {"lineHeight": (1, "em")}
+//     assert expandToDict("line-height: 1.1%") == {"lineHeight": (1.1, Percentage)}
+//     assert expandToDict("line-height: 1em") == {"lineHeight": (1, Em)}
 //     assert expandToDict("line-height: 1") == {"lineHeight": (1, None)}
 //     assert expandToDict("line-height: 1.3") == {"lineHeight": (1.3, None)}
 //     assert expandToDict("line-height: -0") == {"lineHeight": (0, None)}
@@ -571,14 +583,14 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 //     gradient("blue", ("angle", pi))
 //     gradient("red", ("angle", pi), [red], [None])
 //     gradient("blue 1%, lime,red 2em ", ("angle", pi),
-//              [blue, lime, red], [(1, "%"), None, (2, "em")])
+//              [blue, lime, red], [(1, Percentage), None, (2, Em)])
 //     invalid("18deg")
 //     gradient("18deg, blue", ("angle", pi / 10))
 //     gradient("4rad, blue", ("angle", 4))
 //     gradient(".25turn, blue", ("angle", pi / 2))
 //     gradient("100grad, blue", ("angle", pi / 2))
 //     gradient("12rad, blue 1%, lime,red 2em ", ("angle", 12),
-//              [blue, lime, red], [(1, "%"), None, (2, "em")])
+//              [blue, lime, red], [(1, Percentage), None, (2, Em)])
 //     invalid("10arc-minutes, blue")
 //     invalid("10px, blue")
 //     invalid("to 90deg, blue")
@@ -587,7 +599,7 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 //     gradient("to bottom, blue", ("angle", pi))
 //     gradient("to left, blue", ("angle", pi * 3 / 2))
 //     gradient("to right, blue 1%, lime,red 2em ", ("angle", pi / 2),
-//              [blue, lime, red], [(1, "%"), None, (2, "em")])
+//              [blue, lime, red], [(1, Percentage), None, (2, Em)])
 //     invalid("to the top, blue")
 //     invalid("to up, blue")
 //     invalid("into top, blue")
@@ -629,8 +641,8 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 //     lime = (0, 1, 0, 1)
 //     blue = (0, 0, 1, 1)
 // }
-//     def gradient(css, shape="ellipse", size=("keyword", "farthest-corner"),
-//                  center=("left", (50, "%"), "top", (50, "%")),
+//     def gradient(css, shape="ellipse", size:("keyword", "farthest-corner"),
+//                  center=("left", (50, Percentage), "top", (50, Percentage)),
 //                  colors=[blue], stopPositions=[None]) {
 //                  }
 //         for repeating, prefix := range ((false, ""), (true, "repeating-")) {
@@ -661,7 +673,7 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 //     gradient("blue")
 //     gradient("red", colors=[red])
 //     gradient("blue 1%, lime,red 2em ", colors=[blue, lime, red],
-//              stopPositions=[(1, "%"), None, (2, "em")])
+//              stopPositions=[(1, Percentage), None, (2, Em)])
 //     gradient("circle, blue", "circle")
 //     gradient("ellipse, blue", "ellipse")
 //     invalid("circle")
@@ -699,11 +711,11 @@ func assertBackground(t *testing.T, css string, expected Properties) {
 //              "ellipse", ("explicit", ((10, Px), (50, Px))))
 //     invalid("at appex, blue")
 //     gradient("at top 10% right, blue",
-//              center=("right", (0, "%"), "top", (10, "%")))
+//              center=("right", (0, Percentage), "top", (10, Percentage)))
 //     gradient("circle at bottom, blue", shape="circle",
-//              center=("left", (50, "%"), "top", (100, "%")))
+//              center=("left", (50, Percentage), "top", (100, Percentage)))
 //     gradient("circle at 10px, blue", shape="circle",
-//              center=("left", (10, Px), "top", (50, "%")))
+//              center=("left", (10, Px), "top", (50, Percentage)))
 //     gradient("closest-side circle at right 5em, blue",
-//              shape="circle", size=("keyword", "closest-side"),
-//              center=("left", (100, "%"), "top", (5, "em")))
+//              shape="circle", size:("keyword", "closest-side"),
+//              center=("left", (100, Percentage), "top", (5, Em)))
