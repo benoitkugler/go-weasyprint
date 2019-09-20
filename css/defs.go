@@ -1,5 +1,7 @@
 package css
 
+import "github.com/benoitkugler/go-weasyprint/css/parser"
+
 const (
 	ContentQUOTE ContentType = iota + 1 // so that zero field corresponds to null content
 	ContentSTRING
@@ -12,7 +14,8 @@ const (
 )
 
 const (
-	NoUnit Unit = iota
+	NoUnit Unit = iota // means no value
+	Scalar             // means no unit, but a valid value
 	Percentage
 	Ex
 	Em
@@ -40,6 +43,14 @@ func (s Set) Add(key string) {
 func (s Set) Has(key string) bool {
 	_, in := s[key]
 	return in
+}
+
+func NewSet(values ...string) Set {
+	s := make(Set, len(values))
+	for _, v := range values {
+		s.Add(v)
+	}
+	return s
 }
 
 type CssProperty interface {
@@ -84,9 +95,13 @@ func (d Dimension) ToValue() Value {
 	return Value{Dimension: d}
 }
 
-func FToD(f float32) Dimension { return Dimension{Value: f} }
+func FToD(f float32) Dimension { return Dimension{Value: f, Unit: Scalar} }
 func SToV(s string) Value      { return Value{String: s} }
 func FToV(f float32) Value     { return FToD(f).ToValue() }
+
+func NewColor(r, g, b, a float32) Color {
+	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}
+}
 
 func (p Point) IsNone() bool {
 	return p == Point{}
@@ -268,6 +283,7 @@ func (x NDecorations) Copy() CssProperty {
 	}
 	return out
 }
+
 func (q Quotes) Copy() CssProperty {
 	return Quotes{Open: append([]string{}, q.Open...), Close: append([]string{}, q.Close...)}
 }

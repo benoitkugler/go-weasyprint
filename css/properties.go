@@ -71,31 +71,31 @@ var (
 		"direction":         String("ltr"),
 		"display":           String("inline"),
 		// "empty_cells": "show",
-		"float":            String("none"),
-		"height":           SToV("auto"),
-		"left":             SToV("auto"),
-		"right":            SToV("auto"),
-		"line_height":      SToV("normal"),
-		"list_style_image": NoneImage{},
-		// "list_style_position": "outside",
-		"list_style_type": String("disc"),
-		"margin_top":      zeroPixelsValue,
-		"margin_right":    zeroPixelsValue,
-		"margin_bottom":   zeroPixelsValue,
-		"margin_left":     zeroPixelsValue,
-		"max_height":      Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}, // parsed value for "none}"
-		"max_width":       Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}},
-		"min_height":      zeroPixelsValue,
-		"min_width":       zeroPixelsValue,
-		"overflow":        String("visible"),
-		"padding_top":     zeroPixelsValue,
-		"padding_right":   zeroPixelsValue,
-		"padding_bottom":  zeroPixelsValue,
-		"padding_left":    zeroPixelsValue,
-		"quotes":          Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
-		"position":        String("static"),
+		"float":               String("none"),
+		"height":              SToV("auto"),
+		"left":                SToV("auto"),
+		"right":               SToV("auto"),
+		"line_height":         SToV("normal"),
+		"list_style_image":    NoneImage{},
+		"list_style_position": String("outside"),
+		"list_style_type":     String("disc"),
+		"margin_top":          zeroPixelsValue,
+		"margin_right":        zeroPixelsValue,
+		"margin_bottom":       zeroPixelsValue,
+		"margin_left":         zeroPixelsValue,
+		"max_height":          Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}, // parsed value for "none}"
+		"max_width":           Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}},
+		"min_height":          zeroPixelsValue,
+		"min_width":           zeroPixelsValue,
+		"overflow":            String("visible"),
+		"padding_top":         zeroPixelsValue,
+		"padding_right":       zeroPixelsValue,
+		"padding_bottom":      zeroPixelsValue,
+		"padding_left":        zeroPixelsValue,
+		"quotes":              Quotes{Open: []string{"“", "‘"}, Close: []string{"”", "’"}}, // chosen by the user agent
+		"position":            String("static"),
 		// "table_layout": "auto",
-		// "text_decoration": "none",
+		"text_decoration": NDecorations{None: true},
 		// "top": "auto",
 		// "unicode_bidi": "normal",
 		// "vertical_align": "baseline",
@@ -295,6 +295,13 @@ func init() {
 	}
 }
 
+// Properties is the general container for validated and typed properties.
+// Each property has a type (not exclusive), so that a CssProperty will be of one
+// of the three options :
+// 	- nil : means no property
+//	- String("inherit") : special case for inherited properties
+//	- the concrete type linked to the property, see comment below
+// TODO: add a special type for inherited, and update accessors to handle it.
 type Properties map[string]CssProperty
 
 // prop:string-set
@@ -436,6 +443,7 @@ type IntString struct {
 // prop:float
 // prop:-weasy-specified-display
 // prop:position
+// prop:list-style-position
 type String string
 
 // prop:top

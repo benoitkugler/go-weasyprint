@@ -314,7 +314,7 @@ func getLength(_token Token, negative, percentage bool) Dimension {
 		}
 	case parser.NumberToken:
 		if token.Value == 0 {
-			return Dimension{Unit: NoUnit}
+			return Dimension{Unit: Scalar}
 		}
 	}
 	return Dimension{}
@@ -2615,7 +2615,7 @@ func validateContentListToken(token Token) ContentProperty {
 //@validator(unstable=true)
 func transform(tokens []Token, _ string) (CssProperty, error) {
 	if getSingleKeyword(tokens) == "none" {
-		return nil, nil
+		return Transforms{}, nil
 	}
 	out := make(Transforms, len(tokens))
 	var err error
@@ -2637,7 +2637,7 @@ func transformFunction(token Token) (SDimensions, error) {
 	lengths, values := make([]Dimension, len(args)), make([]Dimension, len(args))
 	isAllNumber, isAllLengths := true, true
 	for index, a := range args {
-		lengths[index] = getLength(token, true, true)
+		lengths[index] = getLength(a, true, true)
 		isAllLengths = isAllLengths && !lengths[index].IsNone()
 		if aNumber, ok := a.(parser.NumberToken); ok {
 			values[index] = FToD(aNumber.Value)
@@ -2645,7 +2645,6 @@ func transformFunction(token Token) (SDimensions, error) {
 			isAllNumber = false
 		}
 	}
-
 	switch len(args) {
 	case 1:
 		angle, notNone := getAngle(args[0])
@@ -2680,7 +2679,6 @@ func transformFunction(token Token) (SDimensions, error) {
 		if name == "scale" && isAllNumber {
 			return SDimensions{String: name, Dimensions: values}, nil
 		}
-
 		if name == "translate" && isAllLengths {
 			return SDimensions{String: name, Dimensions: lengths}, nil
 		}
