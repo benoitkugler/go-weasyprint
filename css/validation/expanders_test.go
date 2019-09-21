@@ -130,3 +130,102 @@ func TestExpandList_style(t *testing.T) {
 	assertInvalid(t, "list-style: circle disc",
 		"got multiple type values in a list-style shorthand")
 }
+
+// Test the ``font`` property.
+func TestFont(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "font: 12px My Fancy Font, serif", map[string]CssProperty{
+		"font_size":   Dimension{Value: 12, Unit: Px}.ToValue(),
+		"font_family": Strings{"My Fancy Font", "serif"},
+	})
+	assertValidDict(t, `font: small/1.2 "Some Font", serif`, map[string]CssProperty{
+		"font_size":   SToV("small"),
+		"line_height": Dimension{Value: 1.2, Unit: Scalar}.ToValue(),
+		"font_family": Strings{"Some Font", "serif"},
+	})
+	assertValidDict(t, "font: small-caps italic 700 large serif", map[string]CssProperty{
+		"font_style":        String("italic"),
+		"font_variant_caps": String("small-caps"),
+		"font_weight":       IntString{Int: 700},
+		"font_size":         SToV("large"),
+		"font_family":       Strings{"serif"},
+	})
+	assertValidDict(t, "font: small-caps condensed normal 700 large serif", map[string]CssProperty{
+		// "font_style": String("normal"),  XXX shouldn’t this be here?
+		"font_stretch":      String("condensed"),
+		"font_variant_caps": String("small-caps"),
+		"font_weight":       IntString{Int: 700},
+		"font_size":         SToV("large"),
+		"font_family":       Strings{"serif"},
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, `font-family: "My" Font, serif`, "invalid")
+	assertInvalid(t, `font-family: "My" "Font", serif`, "invalid")
+	assertInvalid(t, `font-family: "My", 12pt, serif`, "invalid")
+	assertInvalid(t, `font: menu`, "System fonts are not supported")
+	assertInvalid(t, `font: 12deg My Fancy Font, serif`, "invalid")
+	assertInvalid(t, `font: 12px`, "invalid")
+	assertInvalid(t, `font: 12px/foo serif`, "invalid")
+	assertInvalid(t, `font: 12px "Invalid" family`, "invalid")
+}
+
+// Test the ``font-variant`` property.
+func TestFontVariant(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "font-variant: normal", Properties{
+		"font_variant_alternates": String("normal"),
+		"font_variant_caps":       String("normal"),
+		"font_variant_east_asian": SStrings{String: "normal"},
+		"font_variant_ligatures":  SStrings{String: "normal"},
+		"font_variant_numeric":    SStrings{String: "normal"},
+		"font_variant_position":   String("normal"),
+	})
+	assertValidDict(t, "font-variant: none", Properties{
+		"font_variant_alternates": String("normal"),
+		"font_variant_caps":       String("normal"),
+		"font_variant_east_asian": SStrings{String: "normal"},
+		"font_variant_ligatures":  SStrings{String: "none"},
+		"font_variant_numeric":    SStrings{String: "normal"},
+		"font_variant_position":   String("normal"),
+	})
+	assertValidDict(t, "font-variant: historical-forms petite-caps", Properties{
+		"font_variant_alternates": String("historical-forms"),
+		"font_variant_caps":       String("petite-caps"),
+	})
+	assertValidDict(t, "font-variant: lining-nums contextual small-caps common-ligatures", Properties{
+		"font_variant_ligatures": SStrings{Strings: []string{"contextual", "common-ligatures"}},
+		"font_variant_numeric":   SStrings{Strings: []string{"lining-nums"}},
+		"font_variant_caps":      String("small-caps"),
+	})
+	assertValidDict(t, "font-variant: jis78 ruby proportional-width", Properties{
+		"font_variant_east_asian": SStrings{Strings: []string{"jis78", "ruby", "proportional-width"}},
+	})
+	// CSS2-style font-variant
+	assertValidDict(t, "font-variant: small-caps", Properties{
+		"font_variant_caps": String("small-caps"),
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "font-variant: normal normal", "invalid")
+	assertInvalid(t, "font-variant: 2", "invalid")
+	assertInvalid(t, `font-variant: ""`, "invalid")
+	assertInvalid(t, "font-variant: extra", "invalid")
+	assertInvalid(t, "font-variant: jis78 jis04", "invalid")
+	assertInvalid(t, "font-variant: full-width lining-nums ordinal normal", "invalid")
+	assertInvalid(t, "font-variant: diagonal-fractions stacked-fractions", "invalid")
+	assertInvalid(t, "font-variant: common-ligatures contextual no-common-ligatures", "invalid")
+	assertInvalid(t, "font-variant: sub super", "invalid")
+	assertInvalid(t, "font-variant: slashed-zero slashed-zero", "invalid")
+}
+
+func TestExpandWordWrap(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "word-wrap: normal", Properties{
+		"overflow_wrap": String("normal"),
+	})
+	assertValidDict(t, "word-wrap: break-word", Properties{
+		"overflow_wrap": String("break-word"),
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "word-wrap: none", "invalid")
+	assertInvalid(t, "word-wrap: normal, break-word", "invalid")
+}

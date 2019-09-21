@@ -672,24 +672,18 @@ func expandFontVariant(tokens []parser.Token) (out []namedTokens, err error) {
 		if keyword == "normal" {
 			token = normalFakeToken
 		}
-		out[6] = namedTokens{name: "-ligatures", tokens: []parser.Token{token}}
+		out[5] = namedTokens{name: "-ligatures", tokens: []parser.Token{token}}
 	} else {
-		features := map[string][]parser.Token{
-			"alternates": nil,
-			"caps":       nil,
-			"east-asian": nil,
-			"ligatures":  nil,
-			"numeric":    nil,
-			"position":   nil,
-		}
+		features := map[string][]parser.Token{}
+		featuresKeys := [6]string{"alternates", "caps", "east-asian", "ligatures", "numeric", "position"}
 		for _, token := range tokens {
 			keyword := getKeyword(token)
 			if keyword == "normal" {
 				// We don"t allow "normal", only the specific values
-				return nil, errors.New("normal not allowed")
+				return nil, errors.New("invalid : normal not allowed")
 			}
 			found := false
-			for feature := range features {
+			for _, feature := range featuresKeys {
 				if fontVariantMapper[feature]([]parser.Token{token}, "") != nil {
 					features[feature] = append(features[feature], token)
 					found = true
@@ -697,10 +691,9 @@ func expandFontVariant(tokens []parser.Token) (out []namedTokens, err error) {
 				}
 			}
 			if !found {
-				return nil, errors.New("font variant not supported")
+				return nil, errors.New("invalid : font variant not supported")
 			}
 		}
-		var out []namedTokens
 		for feature, tokens := range features {
 			if len(tokens) > 0 {
 				out = append(out, namedTokens{name: fmt.Sprintf("-%s", feature), tokens: tokens})
@@ -774,14 +767,14 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 		return nil, err
 	}
 	if fs == nil {
-		return nil, errors.New("font-size is mandatory for short font attribute !")
+		return nil, errors.New("invalid : font-size is mandatory for short font attribute !")
 	}
 	out = append(out, namedTokens{name: "-size", tokens: []parser.Token{token}})
 
 	// Then line-height is optional, but font-family is not so the list
 	// must not be empty yet
 	if len(tokens) == 0 {
-		return nil, errors.New("font-familly is mandatory for short font attribute !")
+		return nil, errors.New("invalid : font-familly is mandatory for short font attribute !")
 	}
 
 	token = tokens[len(tokens)-1]
@@ -797,7 +790,6 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 		// We pop()ed a font-family, add it back
 		tokens = append(tokens, token)
 	}
-
 	// Reverse the stack to get normal list
 	tokens = reverse(tokens)
 	if fontFamily(tokens, "") == nil {

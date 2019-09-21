@@ -244,11 +244,19 @@ func (r RadialGradient) Copy() CssProperty {
 	return r.copy()
 }
 
+func SToSS(s string) SStrings {
+	return SStrings{String: s}
+}
+
 func (ss SStrings) copy() SStrings {
 	out := ss
 	out.Strings = append([]string{}, ss.Strings...)
 	return out
 }
+func (ss SStrings) IsNone() bool {
+	return ss.String == "" && ss.Strings == nil
+}
+
 func (ss SStrings) Copy() CssProperty {
 	return ss.copy()
 }

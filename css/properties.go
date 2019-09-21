@@ -153,21 +153,21 @@ var (
 		// "column_span": "none",
 
 		// // Fonts 3 (CR): https://www.w3.org/TR/css-fonts-3/
-		// "font_family": ("serif",),  // depends on user agent
+		"font_family": Strings{"serif"}, // depends on user agent
 		// "font_feature_settings": "normal",
 		// "font_kerning": "auto",
 		// "font_language_override": "normal",
-		// "font_stretch": "normal",
-		// "font_style": "normal",
-		// "font_variant": "normal",
-		// "font_variant_alternates": "normal",
-		// "font_variant_caps": "normal",
-		// "font_variant_east_asian": "normal",
-		// "font_variant_ligatures": "normal",
-		// "font_variant_numeric": "normal",
-		// "font_variant_position": "normal",
-		"font_size":   Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from this
-		"font_weight": IntString{Int: 400},
+		"font_stretch":            String("normal"),
+		"font_style":              String("normal"),
+		"font_variant":            String("normal"),
+		"font_variant_alternates": String("normal"),
+		"font_variant_caps":       String("normal"),
+		"font_variant_east_asian": SStrings{String: "normal"},
+		"font_variant_ligatures":  SStrings{String: "normal"},
+		"font_variant_numeric":    SStrings{String: "normal"},
+		"font_variant_position":   String("normal"),
+		"font_size":               Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from this
+		"font_weight":             IntString{Int: 400},
 
 		// // Fragmentation 3 (CR): https://www.w3.org/TR/css-break-3/
 		"break_after":  String("auto"),
@@ -179,7 +179,7 @@ var (
 		// // Generated Content for Paged Media (WD): https://www.w3.org/TR/css-gcpm-3/
 		// "bookmark_label": (("content", "text"),),
 		// "bookmark_level": "none",
-		// "string_set": "none",
+		"string_set": StringSet{String: "none"},
 
 		// // Images 3/4 (CR/WD): https://www.w3.org/TR/css4-images/
 		// "image_resolution": 1,  // dppx
@@ -218,7 +218,7 @@ var (
 		// "box_sizing": "content-box",
 		// "outline_color": "currentColor",  // invert is not supported
 		// "outline_style": "none",
-		// "overflow_wrap": "normal",
+		"overflow_wrap": String("normal"),
 		"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
 
 		// Proprietary

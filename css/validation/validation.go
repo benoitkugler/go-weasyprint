@@ -530,14 +530,14 @@ var directionKeywords = map[[3]string]DirectionType{
 	{"to", "bottom", ""}: {Angle: math.Pi},
 	{"to", "left", ""}:   {Angle: math.Pi * 3 / 2},
 	// ("corner", keyword)
-	{"to", "top", "left"}:     {Corner: "topLeft"},
-	{"to", "left", "top"}:     {Corner: "topLeft"},
-	{"to", "top", "right"}:    {Corner: "topRight"},
-	{"to", "right", "top"}:    {Corner: "topRight"},
-	{"to", "bottom", "left"}:  {Corner: "bottomLeft"},
-	{"to", "left", "bottom"}:  {Corner: "bottomLeft"},
-	{"to", "bottom", "right"}: {Corner: "bottomRight"},
-	{"to", "right", "bottom"}: {Corner: "bottomRight"},
+	{"to", "top", "left"}:     {Corner: "top_left"},
+	{"to", "left", "top"}:     {Corner: "top_left"},
+	{"to", "top", "right"}:    {Corner: "top_right"},
+	{"to", "right", "top"}:    {Corner: "top_right"},
+	{"to", "bottom", "left"}:  {Corner: "bottom_left"},
+	{"to", "left", "bottom"}:  {Corner: "bottom_left"},
+	{"to", "bottom", "right"}: {Corner: "bottom_right"},
+	{"to", "right", "bottom"}: {Corner: "bottom_right"},
 }
 
 func parseLinearGradientParameters(arguments [][]Token) (DirectionType, [][]Token) {
@@ -589,30 +589,27 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 	stack := reverse(arguments[0])
 	for len(stack) > 0 {
 		token := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
 		keyword := getKeyword(token)
-		switch keyword {
-		case "at":
+		if keyword == "at" {
 			position = _backgroundPosition(reverse(stack))
 			if position.IsNone() {
 				return radialGradientParameters{}
 			}
 			break
-		case "circle", "ellipse":
-			if shape == "" {
-				shape = keyword
-			}
-		case "closest-corner", "farthest-corner", "closest-side", "farthest-side":
-			if size.IsNone() {
-				size = GradientSize{Keyword: keyword}
-			}
-		default:
+		} else if (keyword == "circle" || keyword == "ellipse") && shape == "" {
+			shape = keyword
+		} else if (keyword == "closest-corner" || keyword == "farthest-corner" || keyword == "closest-side" || keyword == "farthest-side") && size.IsNone() {
+			size = GradientSize{Keyword: keyword}
+		} else {
 			if len(stack) > 0 && size.IsNone() {
 				length1 := getLength(token, true, true)
 				length2 := getLength(stack[len(stack)-1], true, true)
 				if !length1.IsNone() && !length2.IsNone() {
 					size = GradientSize{Explicit: [2]Dimension{length1, length2}}
 					sizeShape = "ellipse"
-					stack = stack[:len(stack)-2]
+					i := utils.MaxInt(len(stack)-1, 0)
+					stack = stack[:i]
 				}
 			}
 			if size.IsNone() {
@@ -669,10 +666,8 @@ func parseColorStop(tokens []Token) (ColorStop, error) {
 		if !color.IsNone() && !position.IsNone() {
 			return ColorStop{Color: Color(color), Position: position}, nil
 		}
-	default:
-		return ColorStop{}, InvalidValue
 	}
-	return ColorStop{}, nil
+	return ColorStop{}, InvalidValue
 }
 
 func _imageUrl(token Token, baseUrl string) (Image, error) {
@@ -1268,7 +1263,7 @@ func _isIdentStringIdent(args []Token) (bool, parser.IdentToken, parser.StringTo
 	if len(args) == 3 {
 		out1, ok1 := args[0].(parser.IdentToken)
 		out2, ok2 := args[1].(parser.StringToken)
-		out3, ok3 := args[1].(parser.IdentToken)
+		out3, ok3 := args[2].(parser.IdentToken)
 		return ok1 && ok2 && ok3, out1, out2, out3
 	}
 	return false, parser.IdentToken{}, parser.StringToken{}, parser.IdentToken{}
@@ -1295,13 +1290,13 @@ func _parseContentArgs(name string, args []Token) ContentProperty {
 		}
 	case "counters":
 		if ok, ident, stri := _isIdentString(args); ok {
-			return ContentProperty{Type: ContentCounter, SStrings: SStrings{Strings: []string{string(ident.Value), stri.Value, "decimal"}}}
+			return ContentProperty{Type: ContentCounters, SStrings: SStrings{Strings: []string{string(ident.Value), stri.Value, "decimal"}}}
 		}
 		if ok, ident, stri, ident2 := _isIdentStringIdent(args); ok {
 			style := string(ident2.Value)
 			_, isIn := counters.STYLES[style]
 			if style == "none" || style == "decimal" || isIn {
-				return ContentProperty{Type: ContentCounter, SStrings: SStrings{Strings: []string{string(ident.Value), stri.Value, style}}}
+				return ContentProperty{Type: ContentCounters, SStrings: SStrings{Strings: []string{string(ident.Value), stri.Value, style}}}
 			}
 		}
 	}
@@ -1551,10 +1546,11 @@ func float(tokens []Token, _ string) CssProperty {
 }
 
 func _fontFamily(tokens []Token) string {
-	if len(tokens) == 1 {
-		if tt, ok := tokens[0].(parser.StringToken); ok {
-			return tt.Value
-		}
+	if len(tokens) == 0 {
+		return ""
+	}
+	if tt, ok := tokens[0].(parser.StringToken); len(tokens) == 1 && ok {
+		return tt.Value
 	} else if len(tokens) > 0 {
 		var values []string
 		for _, token := range tokens {
@@ -1661,7 +1657,11 @@ func fontVariantLigatures(tokens []Token, _ string) CssProperty {
 			return SStrings{String: keyword}
 		}
 	}
-	return parseFontVariant(tokens, allLigaturesValues, couplesLigatures)
+	ss := parseFontVariant(tokens, allLigaturesValues, couplesLigatures)
+	if ss.IsNone() {
+		return nil
+	}
+	return ss
 }
 
 // //@validator()
@@ -1697,7 +1697,11 @@ func fontVariantNumeric(tokens []Token, _ string) CssProperty {
 			return SStrings{String: keyword}
 		}
 	}
-	return parseFontVariant(tokens, allNumericValues, couplesNumeric)
+	ss := parseFontVariant(tokens, allNumericValues, couplesNumeric)
+	if ss.IsNone() {
+		return nil
+	}
+	return ss
 }
 
 // //@validator()
@@ -1785,7 +1789,11 @@ func fontVariantEastAsian(tokens []Token, _ string) CssProperty {
 			return SStrings{String: keyword}
 		}
 	}
-	return parseFontVariant(tokens, allEastAsianValues, couplesEastAsian)
+	ss := parseFontVariant(tokens, allEastAsianValues, couplesEastAsian)
+	if ss.IsNone() {
+		return nil
+	}
+	return ss
 }
 
 //@validator()
@@ -1908,7 +1916,7 @@ func lineHeight(tokens []Token, _ string) CssProperty {
 	switch tt := token.(type) {
 	case parser.NumberToken:
 		if tt.Value >= 0 {
-			return Value{Dimension: Dimension{Value: tt.Value, Unit: NoUnit}}
+			return Value{Dimension: Dimension{Value: tt.Value, Unit: Scalar}}
 		}
 	case parser.PercentageToken:
 		if tt.Value >= 0 {
@@ -1916,7 +1924,11 @@ func lineHeight(tokens []Token, _ string) CssProperty {
 		}
 	case parser.DimensionToken:
 		if tt.Value >= 0 {
-			return Value{Dimension: getLength(token, true, false)}
+			l := getLength(token, true, false)
+			if l.IsNone() {
+				return nil
+			}
+			return l.ToValue()
 		}
 	}
 	return nil
@@ -2549,7 +2561,8 @@ func bookmarkLevel(tokens []Token, _ string) CssProperty {
 func _stringSet(tokens []Token) SContent {
 	if len(tokens) >= 2 {
 		varName := getKeyword(tokens[0])
-		parsedTokens := make([]ContentProperty, len(tokens[1:]))
+		tokens = tokens[1:]
+		parsedTokens := make([]ContentProperty, len(tokens))
 		isNotNone := true
 		for index, v := range tokens {
 			parsedTokens[index] = validateContentListToken(v)

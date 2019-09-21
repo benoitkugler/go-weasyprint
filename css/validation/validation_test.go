@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -23,7 +24,7 @@ func expandToDict(t *testing.T, css string, expectedError string) Properties {
 	if expectedError != "" {
 		if len(logs) != 1 || !strings.Contains(logs[0], expectedError) {
 			t.Log(validated)
-			t.Fatalf("expected error %s got %v (len : %d)", expectedError, logs, len(logs))
+			t.Fatalf("for %s expected error \n%s\n got\n%v (len : %d)", css, expectedError, logs, len(logs))
 		}
 	} else {
 		capt.AssertNoLogs(t)
@@ -344,13 +345,21 @@ func TestExpandBackground(t *testing.T) {
 }
 
 func checkPosition(t *testing.T, css string, expected Center) {
-	l := expandToDict(t, "background-position:" + css, "")
-	for name, v := range l {}
+	l := expandToDict(t, "background-position:"+css, "")
+	var (
+		name string
+		v    CssProperty
+	)
+	for name_, v_ := range l {
+		name = name_
+		v = v_
+	}
 	if name != "background_position" {
 		t.Fatalf("expected background_position got %s", name)
 	}
-	if reflect.DeepEqual(v, []Centers{expected}) {
-		t.Fatalf("expected %v got %v", expected, v)
+	exp := Centers{expected}
+	if !reflect.DeepEqual(v, exp) {
+		t.Fatalf("expected %v got %v", exp, v)
 	}
 }
 
@@ -358,373 +367,378 @@ func checkPosition(t *testing.T, css string, expected Center) {
 func TestExpandBackgroundPosition(t *testing.T) {
 	capt := utils.CaptureLogs()
 
-	css_xs := [5]string{"left", "center","right"	,"4.5%"	,"12px"    }
-	val_xs := [5]Dimension{{Value:0, Unit: Percentage},	 {Value:50, Unit: Percentage},	 {Value:100, Unit: Percentage},	{Value:4.5, Unit: Percentage},{Value:12, Unit: Px}}
-	css_ys := [5]string{ "top",		"center",		"bottom",		"7%","1.5px"	}
-	val_ys := [5]Dimension{ {Value: 0, Unit: Percentage}, {Value: 50, Unit: Percentage}, {Value: 100, Unit: Percentage},{Value: 7, Unit: Percentage}, {Value: 1.5, Unit: Px}	}
+	css_xs := [5]string{"left", "center", "right", "4.5%", "12px"}
+	val_xs := [5]Dimension{{Value: 0, Unit: Percentage}, {Value: 50, Unit: Percentage}, {Value: 100, Unit: Percentage}, {Value: 4.5, Unit: Percentage}, {Value: 12, Unit: Px}}
+	css_ys := [5]string{"top", "center", "bottom", "7%", "1.5px"}
+	val_ys := [5]Dimension{{Value: 0, Unit: Percentage}, {Value: 50, Unit: Percentage}, {Value: 100, Unit: Percentage}, {Value: 7, Unit: Percentage}, {Value: 1.5, Unit: Px}}
 	for i, css_x := range css_xs {
 		val_x := val_xs[i]
-        for j, css_y := range css_ys {
-			val_y := val_ys[i]
-            // Two tokens:
-			checkPosition(t,fmt.Sprintf("%s %s",css_x, css_y), Center{OriginX:"left", OriginY:"top", Pos:Point{val_x, val_y}})
+		for j, css_y := range css_ys {
+			val_y := val_ys[j]
+			// Two tokens:
+			checkPosition(t, fmt.Sprintf("%s %s", css_x, css_y), Center{OriginX: "left", OriginY: "top", Pos: Point{val_x, val_y}})
 		}
-        // One token:
-        checkPosition(t,css_x, Center{OriginX:"left", OriginY:"top", Pos:Point{val_x, {Value:50, Unit:Percentage}}})
+		// One token:
+		checkPosition(t, css_x, Center{OriginX: "left", OriginY: "top", Pos: Point{val_x, {Value: 50, Unit: Percentage}}})
 	}
-    // One token, vertical
-    checkPosition(t,"top", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:0, Unit:Percentage}}})
-    checkPosition(t,"bottom", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:100, Unit:Percentage}}})
+	// One token, vertical
+	checkPosition(t, "top", Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 0, Unit: Percentage}}})
+	checkPosition(t, "bottom", Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 100, Unit: Percentage}}})
 
 	// Three tokens:
-	 checkPosition(t,"center top 10%", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:10, Unit:Percentage}}})
-    checkPosition(t,"top 10% center", Center{OriginX:"left", OriginY:"top", Pos:Point{{Value:50, Unit:Percentage},  {Value:10, Unit:Percentage}}})
-    checkPosition(t,"center bottom 10%", Center{OriginX:"left", OriginY: "bottom", Pos:Point{Value:50, Unit:Percentage}, {Value:10, Unit:Percentage}})
-    checkPosition(t,"bottom 10% center", Center{OriginX:"left", OriginY: "bottom", Pos:Point{Value:50, Unit:Percentage}, {Value:10,Unit: Percentage}})
+	checkPosition(t, "center top 10%", Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
+	checkPosition(t, "top 10% center", Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
+	checkPosition(t, "center bottom 10%", Center{OriginX: "left", OriginY: "bottom", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
+	checkPosition(t, "bottom 10% center", Center{OriginX: "left", OriginY: "bottom", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
 
-    checkPosition(t,"right top 10%", Center{OriginX:"right",OriginY: "top", Pos:Point{{Value:0, Unit:Percentage},  {Value:10, Unit:Percentage}}})
-    checkPosition(t,"top 10% right", Center{OriginX:"right",OriginY: "top", Pos:Point{{Value:0, Unit:Percentage},  {Value:10, Unit:Percentage}}})
-    checkPosition(t,"right bottom 10%", "right", OriginY: "bottom", Pos:Point{Value:0, Unit:Percentage}, {Value:10, Unit:Percentage})
-    checkPosition(t,"bottom 10% right", "right", OriginY: "bottom", Pos:Point{Value:0, Unit:Percentage}, {Value:10,Unit: Percentage})
+	checkPosition(t, "right top 10%", Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 0, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
+	checkPosition(t, "top 10% right", Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 0, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
+	checkPosition(t, "right bottom 10%", Center{OriginX: "right", OriginY: "bottom", Pos: Point{{Value: 0, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
+	checkPosition(t, "bottom 10% right", Center{OriginX: "right", OriginY: "bottom", Pos: Point{{Value: 0, Unit: Percentage}, {Value: 10, Unit: Percentage}}})
 
-    checkPosition(t,"center left 10%", "left", {Value:10, Unit:Percentage}, "top", {Value:50, Unit:Percentage})
-    checkPosition(t,"left 10% center", "left", {Value:10, Unit:Percentage}, "top", {Value:50, Unit:Percentage})
-    checkPosition(t,"center right 10%", "right", {Value:10, Unit:Percentage}, "top", {Value:50, Unit:Percentage})
-    checkPosition(t,"right 10% center", "right", {Value:10, Unit:Percentage}, "top", (50, Percentage})
+	checkPosition(t, "center left 10%", Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 50, Unit: Percentage}}})
+	checkPosition(t, "left 10% center", Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 50, Unit: Percentage}}})
+	checkPosition(t, "center right 10%", Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 50, Unit: Percentage}}})
+	checkPosition(t, "right 10% center", Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 50, Unit: Percentage}}})
 
-    checkPosition(t,"bottom left 10%", "left", {Value:10, Unit:Percentage}, "bottom", {Value:0, Unit:Percentage})
-    checkPosition(t,"left 10% bottom", "left", {Value:10, Unit:Percentage}, "bottom", {Value:0, Unit:Percentage})
-    checkPosition(t,"bottom right 10%", "right", {Value:10, Unit:Percentage}, "bottom", {Value:0, Unit:Percentage})
-    checkPosition(t,"right 10% bottom", "right", {Value:10, Unit:Percentage}, "bottom", (0, Percentage})
+	checkPosition(t, "bottom left 10%", Center{OriginX: "left", OriginY: "bottom", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 0, Unit: Percentage}}})
+	checkPosition(t, "left 10% bottom", Center{OriginX: "left", OriginY: "bottom", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 0, Unit: Percentage}}})
+	checkPosition(t, "bottom right 10%", Center{OriginX: "right", OriginY: "bottom", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 0, Unit: Percentage}}})
+	checkPosition(t, "right 10% bottom", Center{OriginX: "right", OriginY: "bottom", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 0, Unit: Percentage}}})
 
 	// Four tokens :
-	checkPosition(t,"left 10% bottom 3px", "left", {Value:10, Unit:Percentage}, "bottom", (3, Px))
-    checkPosition(t,"bottom 3px left 10%", "left", {Value:10, Unit:Percentage}, "bottom", (3, Px))
-    checkPosition(t,"right 10% top 3px", "right", {Value:10, Unit:Percentage}, "top", (3, Px))
-    checkPosition(t,"top 3px right 10%", "right", {Value:10, Unit:Percentage}, "top", (3, Px))
+	checkPosition(t, "left 10% bottom 3px", Center{OriginX: "left", OriginY: "bottom", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 3, Unit: Px}}})
+	checkPosition(t, "bottom 3px left 10%", Center{OriginX: "left", OriginY: "bottom", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 3, Unit: Px}}})
+	checkPosition(t, "right 10% top 3px", Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 3, Unit: Px}}})
+	checkPosition(t, "top 3px right 10%", Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 10, Unit: Percentage}, {Value: 3, Unit: Px}}})
 
-    assertInvalid("background-position: left center 3px")
-    assertInvalid("background-position: 3px left")
-    assertInvalid("background-position: bottom 4%")
-    assertInvalid("background-position: bottom top")
+	capt.AssertNoLogs(t)
+
+	assertInvalid(t, "background-position: left center 3px", "invalid")
+	assertInvalid(t, "background-position: 3px left", "invalid")
+	assertInvalid(t, "background-position: bottom 4%", "invalid")
+	assertInvalid(t, "background-position: bottom top", "invalid")
 }
-// // Test the ``font`` property.
-// capt := utils.CaptureLogs()
-// func TestFont(t *testing.T) {
-//     assert expandToDict("font: 12px My Fancy Font, serif") == {
-//         "fontSize": (12, Px),
-//         "fontFamily": ("My Fancy Font", "serif"),
-//     }
-//     assert expandToDict("font: small/1.2 "Some Font", serif") == {
-//         "fontSize": "small",
-//         "lineHeight": (1.2, None),
-//         "fontFamily": ("Some Font", "serif"),
-//     }
-//     assert expandToDict("font: small-caps italic 700 large serif") == {
-//         "fontStyle": "italic",
-//         "fontVariantCaps": "small-caps",
-//         "fontWeight": 700,
-//         "fontSize": "large",
-//         "fontFamily": ("serif",),
-//     }
-//     assert expandToDict(
-//         "font: small-caps condensed normal 700 large serif"
-//     ) == {
-//         // "fontStyle": "normal",  XXX shouldn’t this be here?
-//         "fontStretch": "condensed",
-//         "fontVariantCaps": "small-caps",
-//         "fontWeight": 700,
-//         "fontSize": "large",
-//         "fontFamily": ("serif",),
-//     }
-//     assertInvalid("font-family: "My" Font, serif")
-//     assertInvalid("font-family: "My" "Font", serif")
-//     assertInvalid("font-family: "My", 12pt, serif")
-//     assertInvalid("font: menu", "System fonts are not supported")
-//     assertInvalid("font: 12deg My Fancy Font, serif")
-//     assertInvalid("font: 12px")
-//     assertInvalid("font: 12px/foo serif")
-//     assertInvalid("font: 12px "Invalid" family")
-// }
 
-// // Test the ``font-variant`` property.
-// capt := utils.CaptureLogs()
-// func TestFontVariant(t *testing.T) {
-//     assert expandToDict("font-variant: normal") == {
-//         "fontVariantAlternates": "normal",
-//         "fontVariantCaps": "normal",
-//         "fontVariantEastAsian": "normal",
-//         "fontVariantLigatures": "normal",
-//         "fontVariantNumeric": "normal",
-//         "fontVariantPosition": "normal",
-//     }
-//     assert expandToDict("font-variant: none") == {
-//         "fontVariantAlternates": "normal",
-//         "fontVariantCaps": "normal",
-//         "fontVariantEastAsian": "normal",
-//         "fontVariantLigatures": "none",
-//         "fontVariantNumeric": "normal",
-//         "fontVariantPosition": "normal",
-//     }
-//     assert expandToDict("font-variant: historical-forms petite-caps") == {
-//         "fontVariantAlternates": "historical-forms",
-//         "fontVariantCaps": "petite-caps",
-//     }
-//     assert expandToDict(
-//         "font-variant: lining-nums contextual small-caps common-ligatures"
-//     ) == {
-//         "fontVariantLigatures": ("contextual", "common-ligatures"),
-//         "fontVariantNumeric": ("lining-nums",),
-//         "fontVariantCaps": "small-caps",
-//     }
-//     assert expandToDict("font-variant: jis78 ruby proportional-width") == {
-//         "fontVariantEastAsian": ("jis78", "ruby", "proportional-width"),
-//     }
-//     // CSS2-style font-variant
-//     assert expandToDict("font-variant: small-caps") == {
-//         "fontVariantCaps": "small-caps",
-//     }
-//     assertInvalid("font-variant: normal normal")
-//     assertInvalid("font-variant: 2")
-//     assertInvalid("font-variant: """)
-//     assertInvalid("font-variant: extra")
-//     assertInvalid("font-variant: jis78 jis04")
-//     assertInvalid("font-variant: full-width lining-nums ordinal normal")
-//     assertInvalid("font-variant: diagonal-fractions stacked-fractions")
-//     assertInvalid(
-//         "font-variant: common-ligatures contextual no-common-ligatures")
-//     assertInvalid("font-variant: sub super")
-//     assertInvalid("font-variant: slashed-zero slashed-zero")
-// }
+// Test the ``line-height`` property.
+func TestLineHeight(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "line-height: 1px", Properties{
+		"line_height": Dimension{Value: 1, Unit: Px}.ToValue(),
+	})
+	assertValidDict(t, "line-height: 1.1%", Properties{
+		"line_height": Dimension{Value: 1.1, Unit: Percentage}.ToValue(),
+	})
+	assertValidDict(t, "line-height: 1em", Properties{
+		"line_height": Dimension{Value: 1, Unit: Em}.ToValue(),
+	})
+	assertValidDict(t, "line-height: 1", Properties{
+		"line_height": Dimension{Value: 1, Unit: Scalar}.ToValue(),
+	})
+	assertValidDict(t, "line-height: 1.3", Properties{
+		"line_height": Dimension{Value: 1.3, Unit: Scalar}.ToValue(),
+	})
+	assertValidDict(t, "line-height: -0", Properties{
+		"line_height": Dimension{Value: 0, Unit: Scalar}.ToValue(),
+	})
+	assertValidDict(t, "line-height: 0px", Properties{
+		"line_height": Dimension{Value: 0, Unit: Px}.ToValue(),
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "line-height: 1deg", "invalid")
+	assertInvalid(t, "line-height: -1px", "invalid")
+	assertInvalid(t, "line-height: -1", "invalid")
+	assertInvalid(t, "line-height: -0.5%", "invalid")
+	assertInvalid(t, "line-height: 1px 1px", "invalid")
+}
 
-// // Test the ``line-height`` property.
-// capt := utils.CaptureLogs()
-// func TestLineHeight(t *testing.T) {
-//     assert expandToDict("line-height: 1px") == {"lineHeight": (1, Px)}
-//     assert expandToDict("line-height: 1.1%") == {"lineHeight": (1.1, Percentage)}
-//     assert expandToDict("line-height: 1em") == {"lineHeight": (1, Em)}
-//     assert expandToDict("line-height: 1") == {"lineHeight": (1, None)}
-//     assert expandToDict("line-height: 1.3") == {"lineHeight": (1.3, None)}
-//     assert expandToDict("line-height: -0") == {"lineHeight": (0, None)}
-//     assert expandToDict("line-height: 0px") == {"lineHeight": (0, Px)}
-//     assertInvalid("line-height: 1deg")
-//     assertInvalid("line-height: -1px")
-//     assertInvalid("line-height: -1")
-//     assertInvalid("line-height: -0.5%")
-//     assertInvalid("line-height: 1px 1px")
-// }
+// Test the ``string-set`` property.
+func TestStringSet(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "string-set: test content(text)", Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentContent, SStrings: SToSS("text")}}},
+		}},
+	})
+	assertValidDict(t, "string-set: test content(before)", Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentContent, SStrings: SToSS("before")}}},
+		}},
+	})
+	assertValidDict(t, `string-set: test "string"`, Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentSTRING, SStrings: SToSS("string")}}},
+		}},
+	})
+	assertValidDict(t, `string-set: test1 "string", test2 "string"`, Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test1", Contents: []ContentProperty{{Type: ContentSTRING, SStrings: SToSS("string")}}},
+			{String: "test2", Contents: []ContentProperty{{Type: ContentSTRING, SStrings: SToSS("string")}}},
+		}},
+	})
+	assertValidDict(t, "string-set: test attr(class)", Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentAttr, SStrings: SToSS("class")}}},
+		}},
+	})
+	assertValidDict(t, "string-set: test counter(count)", Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentCounter, SStrings: SStrings{Strings: []string{"count", "decimal"}}}}},
+		}},
+	})
+	assertValidDict(t, "string-set: test counter(count, upper-roman)", Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentCounter, SStrings: SStrings{Strings: []string{"count", "upper-roman"}}}}},
+		}},
+	})
+	assertValidDict(t, `string-set: test counters(count, ".")`, Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentCounters, SStrings: SStrings{Strings: []string{"count", ".", "decimal"}}}}},
+		}},
+	})
+	assertValidDict(t, `string-set: test counters(count, ".", upper-roman)`, Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{{Type: ContentCounters, SStrings: SStrings{Strings: []string{"count", ".", "upper-roman"}}}}},
+		}},
+	})
+	assertValidDict(t, `string-set: test content(text) "string" attr(title) attr(title) counter(count)`, Properties{
+		"string_set": StringSet{Contents: []SContent{
+			{String: "test", Contents: []ContentProperty{
+				{Type: ContentContent, SStrings: SToSS("text")},
+				{Type: ContentSTRING, SStrings: SToSS("string")},
+				{Type: ContentAttr, SStrings: SToSS("title")},
+				{Type: ContentAttr, SStrings: SToSS("title")},
+				{Type: ContentCounter, SStrings: SStrings{Strings: []string{"count", "decimal"}}},
+			}},
+		}},
+	})
 
-// // Test the ``string-set`` property.
-// capt := utils.CaptureLogs()
-// func TestStringSet(t *testing.T) {
-//     assert expandToDict("string-set: test content(text)") == {
-//         "stringSet": (("test", (("content", "text"),)),)}
-//     assert expandToDict("string-set: test content(before)") == {
-//         "stringSet": (("test", (("content", "before"),)),)}
-//     assert expandToDict("string-set: test "string"") == {
-//         "stringSet": (("test", (("STRING", "string"),)),)}
-//     assert expandToDict(
-//         "string-set: test1 "string", test2 "string"") == {
-//             "stringSet": (
-//                 ("test1", (("STRING", "string"),)),
-//                 ("test2", (("STRING", "string"),)))}
-//     assert expandToDict("string-set: test attr(class)") == {
-//         "stringSet": (("test", (("attr", "class"),)),)}
-//     assert expandToDict("string-set: test counter(count)") == {
-//         "stringSet": (("test", (("counter", ("count", "decimal")),)),)}
-//     assert expandToDict(
-//         "string-set: test counter(count, upper-roman)") == {
-//             "stringSet": (
-//                 ("test", (("counter", ("count", "upper-roman")),)),)}
-//     assert expandToDict("string-set: test counters(count, ".")") == {
-//         "stringSet": (("test", (("counters", ("count", ".", "decimal")),)),)}
-//     assert expandToDict(
-//         "string-set: test counters(count, ".", upper-roman)") == {
-//             "stringSet": (
-//                 ("test", (("counters", ("count", ".", "upper-roman")),)),)}
-//     assert expandToDict(
-//         "string-set: test content(text) "string" "
-//         "attr(title) attr(title) counter(count)") == {
-//             "stringSet": (("test", (
-//                 ("content", "text"), ("STRING", "string"),
-//                 ("attr", "title"), ("attr", "title"),
-//                 ("counter", ("count", "decimal")),)),)}
-// }
-//     assertInvalid("string-set: test")
-//     assertInvalid("string-set: test test1")
-//     assertInvalid("string-set: test content(test)")
-//     assertInvalid("string-set: test unknown()")
-//     assertInvalid("string-set: test attr(id, class)")
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "string-set: test", "invalid")
+	assertInvalid(t, "string-set: test test1", "invalid")
+	assertInvalid(t, "string-set: test content(test)", "invalid")
+	assertInvalid(t, "string-set: test unknown()", "invalid")
+	assertInvalid(t, "string-set: test attr(id, class)", "invalid")
+}
 
-// func TestLinearGradient(t *testing.T) {
-// capt := utils.CaptureLogs()
-// 	red = (1, 0, 0, 1)
-//     lime = (0, 1, 0, 1)
-//     blue = (0, 0, 1, 1)
-//     pi = math.pi
-// }
-//     def gradient(css, direction, colors=[blue], stopPositions=[None]) {
-//         for repeating, prefix := range ((false, ""), (true, "repeating-")) {
-//             expanded = expandToDict(
-//                 "background-image: %slinear-gradient(%s)" % (prefix, css))
-//             [(_, [(type_, image)])] = expanded.items()
-//             assert type_ == "linear-gradient"
-//             assert isinstance(image, LinearGradient)
-//             assert image.repeating == repeating
-//             assert almostEqual((image.directionType, image.direction),
-//                                 direction)
-//             assert almostEqual(image.colors, colors)
-//             assert almostEqual(image.stopPositions, stopPositions)
-//         }
-//     }
+var (
+	red          = NewColor(1, 0, 0, 1)
+	lime         = NewColor(0, 1, 0, 1)
+	blue         = NewColor(0, 0, 1, 1)
+	pi   float32 = math.Pi
+)
 
-//     def invalid(css) {
-//         assertInvalid("background-image: linear-gradient(%s)" % css)
-//         assertInvalid("background-image: repeating-linear-gradient(%s)" % css)
-//     }
+func checkGradientGeneric(t *testing.T, css string, expected Image) {
+	repeatings := [2]bool{false, true}
+	prefixs := [2]string{"", "repeating-"}
+	for i, repeating := range repeatings {
+		prefix := prefixs[i]
+		var mode string
+		switch typed := expected.(type) {
+		case LinearGradient:
+			typed.Repeating = repeating
+			expected = typed
+			mode = "linear"
+		case RadialGradient:
+			typed.Repeating = repeating
+			expected = typed
+			mode = "radial"
+		default:
+			t.Fatalf("bad expected gradient !")
+		}
 
-//     invalid(" ")
-//     invalid("1% blue")
-//     invalid("blue 10deg")
-//     invalid("blue 4")
-//     invalid("soylent-green 4px")
-//     invalid("red 4px 2px")
-//     gradient("blue", ("angle", pi))
-//     gradient("red", ("angle", pi), [red], [None])
-//     gradient("blue 1%, lime,red 2em ", ("angle", pi),
-//              [blue, lime, red], [(1, Percentage), None, (2, Em)])
-//     invalid("18deg")
-//     gradient("18deg, blue", ("angle", pi / 10))
-//     gradient("4rad, blue", ("angle", 4))
-//     gradient(".25turn, blue", ("angle", pi / 2))
-//     gradient("100grad, blue", ("angle", pi / 2))
-//     gradient("12rad, blue 1%, lime,red 2em ", ("angle", 12),
-//              [blue, lime, red], [(1, Percentage), None, (2, Em)])
-//     invalid("10arc-minutes, blue")
-//     invalid("10px, blue")
-//     invalid("to 90deg, blue")
-//     gradient("to top, blue", ("angle", 0))
-//     gradient("to right, blue", ("angle", pi / 2))
-//     gradient("to bottom, blue", ("angle", pi))
-//     gradient("to left, blue", ("angle", pi * 3 / 2))
-//     gradient("to right, blue 1%, lime,red 2em ", ("angle", pi / 2),
-//              [blue, lime, red], [(1, Percentage), None, (2, Em)])
-//     invalid("to the top, blue")
-//     invalid("to up, blue")
-//     invalid("into top, blue")
-//     invalid("top, blue")
-//     gradient("to top left, blue", ("corner", "topLeft"))
-//     gradient("to left top, blue", ("corner", "topLeft"))
-//     gradient("to top right, blue", ("corner", "topRight"))
-//     gradient("to right top, blue", ("corner", "topRight"))
-//     gradient("to bottom left, blue", ("corner", "bottomLeft"))
-//     gradient("to left bottom, blue", ("corner", "bottomLeft"))
-//     gradient("to bottom right, blue", ("corner", "bottomRight"))
-//     gradient("to right bottom, blue", ("corner", "bottomRight"))
-//     invalid("to bottom up, blue")
-//     invalid("bottom left, blue")
+		expanded := expandToDict(t, fmt.Sprintf("background-image: %s%s-gradient(%s)", prefix, mode, css), "")
+		var image Image
+		for _, v := range expanded {
+			image = v.(Images)[0]
+		}
+		if !reflect.DeepEqual(image, expected) {
+			t.Fatalf("expected %v got %v", expected, image)
+		}
+	}
+}
 
-// func TestOverflowWrap(t *testing.T) {
-// capt := utils.CaptureLogs()
-// 	assert expandToDict("overflow-wrap: normal") == {
-//         "overflowWrap": "normal"}
-//     assert expandToDict("overflow-wrap: break-word") == {
-//         "overflowWrap": "break-word"}
-//     assertInvalid("overflow-wrap: none")
-//     assertInvalid("overflow-wrap: normal, break-word")
-// }
+func invalidGeneric(mode string, t *testing.T, css string) {
+	assertInvalid(t, fmt.Sprintf("background-image: %s-gradient(%s)", mode, css), "invalid")
+	assertInvalid(t, fmt.Sprintf("background-image: repeating-%s-gradient(%s)", mode, css), "invalid")
+}
 
-// func TestExpandWordWrap(t *testing.T) {
-// capt := utils.CaptureLogs()
-// 	assert expandToDict("word-wrap: normal") == {
-//         "overflowWrap": "normal"}
-//     assert expandToDict("word-wrap: break-word") == {
-//         "overflowWrap": "break-word"}
-//     assertInvalid("word-wrap: none")
-//     assertInvalid("word-wrap: normal, break-word")
-// }
+func TestLinearGradient(t *testing.T) {
+	invalid := func(t *testing.T, css string) {
+		invalidGeneric("linear", t, css)
+	}
 
-// func TestRadialGradient(t *testing.T) {
-// capt := utils.CaptureLogs()
-// 	red = (1, 0, 0, 1)
-//     lime = (0, 1, 0, 1)
-//     blue = (0, 0, 1, 1)
-// }
-//     def gradient(css, shape="ellipse", size:("keyword", "farthest-corner"),
-//                  center=("left", (50, Percentage), "top", (50, Percentage)),
-//                  colors=[blue], stopPositions=[None]) {
-//                  }
-//         for repeating, prefix := range ((false, ""), (true, "repeating-")) {
-//             expanded = expandToDict(
-//                 "background-image: %sradial-gradient(%s)" % (prefix, css))
-//             [(_, [(type_, image)])] = expanded.items()
-//             assert type_ == "radial-gradient"
-//             assert isinstance(image, RadialGradient)
-//             assert image.repeating == repeating
-//             assert image.shape == shape
-//             assert almostEqual((image.sizeType, image.size), size)
-//             assert almostEqual(image.center, center)
-//             assert almostEqual(image.colors, colors)
-//             assert almostEqual(image.stopPositions, stopPositions)
-//         }
+	gradient := func(t *testing.T, css string, direction DirectionType, colors []Color, stopPositions []Dimension) {
+		if colors == nil {
+			colors = []Color{blue}
+		}
+		if stopPositions == nil {
+			stopPositions = []Dimension{Dimension{}}
+		}
+		colorStops := make([]ColorStop, len(colors))
+		for i, s := range stopPositions {
+			colorStops[i] = ColorStop{Color: colors[i], Position: s}
+		}
+		checkGradientGeneric(t, css, LinearGradient{ColorStops: colorStops, Direction: direction})
+	}
+	invalid(t, " ")
+	invalid(t, "1% blue")
+	invalid(t, "blue 10deg")
+	invalid(t, "blue 4")
+	invalid(t, "soylent-green 4px")
+	invalid(t, "red 4px 2px")
 
-//     def invalid(css) {
-//         assertInvalid("background-image: radial-gradient(%s)" % css)
-//         assertInvalid("background-image: repeating-radial-gradient(%s)" % css)
-//     }
+	invalid(t, "18deg")
 
-//     invalid(" ")
-//     invalid("1% blue")
-//     invalid("blue 10deg")
-//     invalid("blue 4")
-//     invalid("soylent-green 4px")
-//     invalid("red 4px 2px")
-//     gradient("blue")
-//     gradient("red", colors=[red])
-//     gradient("blue 1%, lime,red 2em ", colors=[blue, lime, red],
-//              stopPositions=[(1, Percentage), None, (2, Em)])
-//     gradient("circle, blue", "circle")
-//     gradient("ellipse, blue", "ellipse")
-//     invalid("circle")
-//     invalid("square, blue")
-//     invalid("closest-triangle, blue")
-//     invalid("center, blue")
-//     gradient("ellipse closest-corner, blue",
-//              "ellipse", ("keyword", "closest-corner"))
-//     gradient("circle closest-side, blue",
-//              "circle", ("keyword", "closest-side"))
-//     gradient("farthest-corner circle, blue",
-//              "circle", ("keyword", "farthest-corner"))
-//     gradient("farthest-side, blue",
-//              "ellipse", ("keyword", "farthest-side"))
-//     gradient("5ch, blue",
-//              "circle", ("explicit", ((5, "ch"), (5, "ch"))))
-//     gradient("5ch circle, blue",
-//              "circle", ("explicit", ((5, "ch"), (5, "ch"))))
-//     gradient("circle 5ch, blue",
-//              "circle", ("explicit", ((5, "ch"), (5, "ch"))))
-//     invalid("ellipse 5ch")
-//     invalid("5ch ellipse")
-//     gradient("10px 50px, blue",
-//              "ellipse", ("explicit", ((10, Px), (50, Px))))
-//     gradient("10px 50px ellipse, blue",
-//              "ellipse", ("explicit", ((10, Px), (50, Px))))
-//     gradient("ellipse 10px 50px, blue",
-//              "ellipse", ("explicit", ((10, Px), (50, Px))))
-//     invalid("circle 10px 50px, blue")
-//     invalid("10px 50px circle, blue")
-//     invalid("10%, blue")
-//     invalid("10% circle, blue")
-//     invalid("circle 10%, blue")
-//     gradient("10px 50px, blue",
-//              "ellipse", ("explicit", ((10, Px), (50, Px))))
-//     invalid("at appex, blue")
-//     gradient("at top 10% right, blue",
-//              center=("right", (0, Percentage), "top", (10, Percentage)))
-//     gradient("circle at bottom, blue", shape="circle",
-//              center=("left", (50, Percentage), "top", (100, Percentage)))
-//     gradient("circle at 10px, blue", shape="circle",
-//              center=("left", (10, Px), "top", (50, Percentage)))
-//     gradient("closest-side circle at right 5em, blue",
-//              shape="circle", size:("keyword", "closest-side"),
-//              center=("left", (100, Percentage), "top", (5, Em)))
+	invalid(t, "10arc-minutes, blue")
+	invalid(t, "10px, blue")
+	invalid(t, "to 90deg, blue")
+
+	invalid(t, "to the top, blue")
+	invalid(t, "to up, blue")
+	invalid(t, "into top, blue")
+	invalid(t, "top, blue")
+
+	invalid(t, "to bottom up, blue")
+	invalid(t, "bottom left, blue")
+
+	capt := utils.CaptureLogs()
+	gradient(t, "blue", DirectionType{Angle: pi}, nil, nil)
+	gradient(t, "red", DirectionType{Angle: pi}, []Color{red}, []Dimension{Dimension{}})
+	gradient(t, "blue 1%, lime,red 2em ", DirectionType{Angle: pi},
+		[]Color{blue, lime, red}, []Dimension{{Value: 1, Unit: Percentage}, Dimension{}, {Value: 2, Unit: Em}})
+
+	gradient(t, "18deg, blue", DirectionType{Angle: pi / 10}, nil, nil)
+	gradient(t, "4rad, blue", DirectionType{Angle: 4}, nil, nil)
+	gradient(t, ".25turn, blue", DirectionType{Angle: pi / 2}, nil, nil)
+	gradient(t, "100grad, blue", DirectionType{Angle: pi / 2}, nil, nil)
+	gradient(t, "12rad, blue 1%, lime,red 2em ", DirectionType{Angle: 12},
+		[]Color{blue, lime, red}, []Dimension{{Value: 1, Unit: Percentage}, Dimension{}, {Value: 2, Unit: Em}})
+
+	gradient(t, "to top, blue", DirectionType{Angle: 0}, nil, nil)
+	gradient(t, "to right, blue", DirectionType{Angle: pi / 2}, nil, nil)
+	gradient(t, "to bottom, blue", DirectionType{Angle: pi}, nil, nil)
+	gradient(t, "to left, blue", DirectionType{Angle: pi * 3 / 2}, nil, nil)
+	gradient(t, "to right, blue 1%, lime,red 2em ", DirectionType{Angle: pi / 2},
+		[]Color{blue, lime, red}, []Dimension{{Value: 1, Unit: Percentage}, Dimension{}, {Value: 2, Unit: Em}})
+
+	gradient(t, "to top left, blue", DirectionType{Corner: "top_left"}, nil, nil)
+	gradient(t, "to left top, blue", DirectionType{Corner: "top_left"}, nil, nil)
+	gradient(t, "to top right, blue", DirectionType{Corner: "top_right"}, nil, nil)
+	gradient(t, "to right top, blue", DirectionType{Corner: "top_right"}, nil, nil)
+	gradient(t, "to bottom left, blue", DirectionType{Corner: "bottom_left"}, nil, nil)
+	gradient(t, "to left bottom, blue", DirectionType{Corner: "bottom_left"}, nil, nil)
+	gradient(t, "to bottom right, blue", DirectionType{Corner: "bottom_right"}, nil, nil)
+	gradient(t, "to right bottom, blue", DirectionType{Corner: "bottom_right"}, nil, nil)
+	capt.AssertNoLogs(t)
+}
+
+func TestOverflowWrap(t *testing.T) {
+	capt := utils.CaptureLogs()
+	assertValidDict(t, "overflow-wrap: normal", Properties{
+		"overflow_wrap": String("normal"),
+	})
+	assertValidDict(t, "overflow-wrap: break-word", Properties{
+		"overflow_wrap": String("break-word"),
+	})
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "overflow-wrap: none", "invalid")
+	assertInvalid(t, "overflow-wrap: normal, break-word", "invalid")
+}
+
+func TestRadialGradient(t *testing.T) {
+	capt := utils.CaptureLogs()
+
+	gradient := func(t *testing.T, css string, shape string, size GradientSize, center Center, colors []Color, stopPositions []Dimension) {
+		if colors == nil {
+			colors = []Color{blue}
+		}
+		if stopPositions == nil {
+			stopPositions = []Dimension{Dimension{}}
+		}
+		colorStops := make([]ColorStop, len(colors))
+		for i, s := range stopPositions {
+			colorStops[i] = ColorStop{Color: colors[i], Position: s}
+		}
+		if shape == "" {
+			shape = "ellipse"
+		}
+		if size.IsNone() {
+			size = GradientSize{Keyword: "farthest-corner"}
+		}
+		if center.IsNone() {
+			center = Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 50, Unit: Percentage}}}
+		}
+		checkGradientGeneric(t, css, RadialGradient{ColorStops: colorStops, Shape: shape, Size: size, Center: center})
+	}
+
+	invalid := func(t *testing.T, css string) {
+		invalidGeneric("radial", t, css)
+	}
+
+	invalid(t, " ")
+	invalid(t, "1% blue")
+	invalid(t, "blue 10deg")
+	invalid(t, "blue 4")
+	invalid(t, "soylent-green 4px")
+	invalid(t, "red 4px 2px")
+
+	invalid(t, "circle")
+	invalid(t, "square, blue")
+	invalid(t, "closest-triangle, blue")
+	invalid(t, "center, blue")
+
+	invalid(t, "ellipse 5ch")
+	invalid(t, "5ch ellipse")
+
+	invalid(t, "circle 10px 50px, blue")
+	invalid(t, "10px 50px circle, blue")
+	invalid(t, "10%, blue")
+	invalid(t, "10% circle, blue")
+	invalid(t, "circle 10%, blue")
+
+	invalid(t, "at appex, blue")
+	capt.AssertNoLogs(t)
+
+	gradient(t, "blue", "", GradientSize{}, Center{}, nil, nil)
+	gradient(t, "red", "", GradientSize{}, Center{}, []Color{red}, nil)
+	gradient(t, "blue 1%, lime,red 2em ", "", GradientSize{}, Center{},
+		[]Color{blue, lime, red},
+		[]Dimension{{Value: 1, Unit: Percentage}, Dimension{}, {Value: 2, Unit: Em}})
+	gradient(t, "circle, blue", "circle", GradientSize{}, Center{}, nil, nil)
+	gradient(t, "ellipse, blue", "ellipse", GradientSize{}, Center{}, nil, nil)
+
+	gradient(t, "ellipse closest-corner, blue",
+		"ellipse", GradientSize{Keyword: "closest-corner"}, Center{}, nil, nil)
+	gradient(t, "circle closest-side, blue",
+		"circle", GradientSize{Keyword: "closest-side"}, Center{}, nil, nil)
+	gradient(t, "farthest-corner circle, blue",
+		"circle", GradientSize{Keyword: "farthest-corner"}, Center{}, nil, nil)
+	gradient(t, "farthest-side, blue",
+		"ellipse", GradientSize{Keyword: "farthest-side"}, Center{}, nil, nil)
+	gradient(t, "5ch, blue",
+		"circle", GradientSize{Explicit: Point{{Value: 5, Unit: Ch}, {Value: 5, Unit: Ch}}}, Center{}, nil, nil)
+	gradient(t, "5ch circle, blue",
+		"circle", GradientSize{Explicit: Point{{Value: 5, Unit: Ch}, {Value: 5, Unit: Ch}}}, Center{}, nil, nil)
+	gradient(t, "circle 5ch, blue",
+		"circle", GradientSize{Explicit: Point{{Value: 5, Unit: Ch}, {Value: 5, Unit: Ch}}}, Center{}, nil, nil)
+
+	gradient(t, "10px 50px, blue",
+		"ellipse", GradientSize{Explicit: Point{{Value: 10, Unit: Px}, {Value: 50, Unit: Px}}}, Center{}, nil, nil)
+	gradient(t, "10px 50px ellipse, blue",
+		"ellipse", GradientSize{Explicit: Point{{Value: 10, Unit: Px}, {Value: 50, Unit: Px}}}, Center{}, nil, nil)
+	gradient(t, "ellipse 10px 50px, blue",
+		"ellipse", GradientSize{Explicit: Point{{Value: 10, Unit: Px}, {Value: 50, Unit: Px}}}, Center{}, nil, nil)
+
+	gradient(t, "10px 50px, blue",
+		"ellipse", GradientSize{Explicit: Point{{Value: 10, Unit: Px}, {Value: 50, Unit: Px}}}, Center{}, nil, nil)
+	gradient(t, "at top 10% right, blue", "", GradientSize{},
+		Center{OriginX: "right", OriginY: "top", Pos: Point{{Value: 0, Unit: Percentage}, {Value: 10, Unit: Percentage}}}, nil, nil)
+	gradient(t, "circle at bottom, blue", "circle", GradientSize{},
+		Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 50, Unit: Percentage}, {Value: 100, Unit: Percentage}}}, nil, nil)
+	gradient(t, "circle at 10px, blue", "circle", GradientSize{},
+		Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 10, Unit: Px}, {Value: 50, Unit: Percentage}}}, nil, nil)
+	gradient(t, "closest-side circle at right 5em, blue",
+		"circle", GradientSize{Keyword: "closest-side"},
+		Center{OriginX: "left", OriginY: "top", Pos: Point{{Value: 100, Unit: Percentage}, {Value: 5, Unit: Em}}}, nil, nil)
+}
