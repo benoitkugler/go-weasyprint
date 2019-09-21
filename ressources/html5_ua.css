@@ -237,6 +237,7 @@ dd { display: block; margin-left: 40px; unicode-bidi: isolate; }
 dd[dir=ltr][dir][dir] { margin-left: 0; margin-right: 40px; }
 dd[dir=rtl][dir][dir] { margin-left: 40px; margin-right: 0; }
 
+details { display: block; unicode-bidi: isolate; }
 del { text-decoration: line-through; }
 dfn { font-style: italic; }
 
@@ -472,6 +473,7 @@ track { display: none; }
 tt { font-family: monospace; }
 u { text-decoration: underline; }
 
+::marker { unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
 ul { display: block; list-style-type: disc; margin-bottom: 1em; margin-top: 1em; padding-left: 40px; unicode-bidi: isolate; }
 
 *[dir=ltr] ul { padding-left: 40px; padding-right: 0; }

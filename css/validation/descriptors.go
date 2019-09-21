@@ -7,7 +7,6 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/css"
 	"github.com/benoitkugler/go-weasyprint/css/parser"
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // Validate descriptors, currently used for @font-face rules.
@@ -74,7 +73,7 @@ func fontFamilyDescriptor(tokens []Token, _ string) (Descriptor, error) {
 // @descriptor(wantsBaseUrl=true)
 // @commaSeparatedList
 // ``src`` descriptor validation.
-func _src(tokens []Token, baseUrl string) (css.NamedString, error) {
+func _src(tokens []Token, baseUrl string) (css.InnerContents, error) {
 	if len(tokens) > 0 && len(tokens) <= 2 {
 		token := tokens[len(tokens)-1]
 		tokens = tokens[:len(tokens)-1]
@@ -84,30 +83,25 @@ func _src(tokens []Token, baseUrl string) (css.NamedString, error) {
 		if fn, ok := token.(parser.FunctionBlock); ok && fn.Name.Lower() == "local" {
 			return css.NamedString{Name: "local", String: _fontFamilyDesc(*fn.Arguments, true)}, nil
 		}
-		if url, ok := token.(parser.URLToken); ok {
-			if strings.HasPrefix(url.Value, "#") {
-				trimed := strings.TrimPrefix(url.Value, "#")
-				return css.NamedString{Name: "internal", String: utils.Unquote(trimed)}, nil
-			} else {
-				s, err := safeUrljoin(baseUrl, url.Value)
-				if err != nil {
-					return css.NamedString{}, err
-				}
-				return css.NamedString{Name: "external", String: s}, nil
-			}
+		url, err := getUrl(token, baseUrl)
+		if err != nil {
+			return nil, err
+		}
+		if !url.IsNone() && url.Type == "url" {
+			return url.Content, nil
 		}
 	}
-	return css.NamedString{}, nil
+	return nil, nil
 }
 
 func src(tokens []Token, baseUrl string) (Descriptor, error) {
-	var out []css.NamedString
+	var out []css.InnerContents
 	for _, part := range SplitOnComma(tokens) {
 		result, err := _src(RemoveWhitespace(part), baseUrl)
 		if err != nil {
 			return nil, err
 		}
-		if (result == css.NamedString{}) {
+		if result == nil {
 			return nil, nil
 		}
 		out = append(out, result)
@@ -186,7 +180,7 @@ func fontVariant(tokens []Token, _ string) (Descriptor, error) {
 		return nil, err
 	}
 	for _, subTokens := range expanded {
-		prop, err := validateNonShorthand("", "font-variant"+subTokens.name, subTokens.tokens, true)
+		prop, err := validateNonShorthand("", "font-variant"+subTokens.Name, subTokens.Tokens, true)
 		if err != nil {
 			return nil, nil
 		}

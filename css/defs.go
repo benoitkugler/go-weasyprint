@@ -1,21 +1,12 @@
 package css
 
-import "github.com/benoitkugler/go-weasyprint/css/parser"
-
-const (
-	ContentQUOTE ContentType = iota + 1 // so that zero field corresponds to null content
-	ContentSTRING
-	ContentURI
-	ContentAttr
-	ContentCounter
-	ContentCounters
-	ContentString
-	ContentContent
+import (
+	"github.com/benoitkugler/go-weasyprint/css/parser"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-const (
-	NoUnit Unit = iota // means no value
-	Scalar             // means no unit, but a valid value
+const ( // zero field corresponds to null content
+	Scalar Unit = iota + 1 // means no unit, but a valid value
 	Percentage
 	Ex
 	Em
@@ -54,6 +45,7 @@ func NewSet(values ...string) Set {
 }
 
 type CssProperty interface {
+	// Copy implements the deep copy of the property
 	Copy() CssProperty
 }
 
@@ -123,23 +115,76 @@ type Quote struct {
 	Open, Insert bool
 }
 
-type ContentType int
+type Url utils.Url
 
-type ContentProperty struct {
-	Type ContentType
+type AttrFallback struct {
+	Name  string
+	Value CssProperty
+}
 
-	// Next are values fields
-	SStrings       // for type STRING, URI, attr or string, counter, counters
-	Quote    Quote // for type QUOTE
+func (a AttrFallback) copy() AttrFallback {
+	a.Value = a.Value.Copy() // deep copy
+	return a
+}
+
+type Attr struct {
+	Name, TypeOrUnit string
+	Fallback         AttrFallback
+}
+
+func (a Attr) IsNone() bool {
+	return a == Attr{}
+}
+
+type NamedTokens struct {
+	Name   string
+	Tokens []parser.Token
+}
+
+type SContentProp struct {
+	String          string
+	ContentProperty ContentProperty
+}
+type SContentProps []SContentProp
+
+// guard for possible content properties
+type InnerContents interface {
+	copyAsContent() InnerContents
 }
 
 func (cp ContentProperty) IsNone() bool {
-	return cp.Type == 0
+	return cp.Type == "" && cp.Content == nil
 }
 
-func (cp ContentProperty) Copy() ContentProperty {
+func (cp ContentProperty) copy() ContentProperty {
 	out := cp
-	out.SStrings = cp.SStrings.copy()
+	out.Content = cp.Content.copyAsContent()
+	return out
+}
+
+func (cp ContentProperty) Copy() CssProperty {
+	return cp.copy()
+}
+
+func (s String) copyAsContent() InnerContents      { return s }
+func (s NamedString) copyAsContent() InnerContents { return s }
+func (s Strings) copyAsContent() InnerContents     { return s.copy() }
+func (s Quote) copyAsContent() InnerContents       { return s }
+func (s Url) copyAsContent() InnerContents         { return s }
+func (s Attr) copyAsContent() InnerContents {
+	s.Fallback = s.Fallback.copy()
+	return s
+}
+func (s NamedTokens) copyAsContent() InnerContents {
+	s.Tokens = append([]parser.Token{}, s.Tokens...)
+	return s
+}
+func (s SContentProps) copyAsContent() InnerContents {
+	out := make(SContentProps, len(s))
+	for i, v := range s {
+		out[i] = v
+		out[i].ContentProperty = v.ContentProperty.Copy()
+	}
 	return out
 }
 
@@ -167,6 +212,7 @@ func (t SDimensions) Copy() SDimensions {
 
 // Might be an existing image or a gradient
 type Image interface {
+	InnerContents
 	copy() Image
 	Copy() CssProperty
 }
@@ -177,7 +223,13 @@ type UrlImage string
 func (_ NoneImage) copy() Image {
 	return NoneImage{}
 }
+func (_ NoneImage) copyAsContent() InnerContents {
+	return NoneImage{}
+}
 func (s UrlImage) copy() Image {
+	return s
+}
+func (s UrlImage) copyAsContent() InnerContents {
 	return s
 }
 func (i NoneImage) Copy() CssProperty {
@@ -229,11 +281,17 @@ func (l LinearGradient) copy() Image {
 	out.ColorStops = append([]ColorStop{}, l.ColorStops...)
 	return out
 }
+func (l LinearGradient) copyAsContent() InnerContents {
+	return l.copy()
+}
 
 func (r RadialGradient) copy() Image {
 	out := r
 	out.ColorStops = append([]ColorStop{}, r.ColorStops...)
 	return out
+}
+func (l RadialGradient) copyAsContent() InnerContents {
+	return l.copy()
 }
 
 func (l LinearGradient) Copy() CssProperty {
@@ -315,8 +373,11 @@ func (b Repeats) Copy() CssProperty {
 func (b Values) Copy() CssProperty {
 	return append(Values{}, b...)
 }
-func (b Strings) Copy() CssProperty {
+func (b Strings) copy() Strings {
 	return append(Strings{}, b...)
+}
+func (b Strings) Copy() CssProperty {
+	return b.copy()
 }
 func (b Transforms) Copy() CssProperty {
 	out := make(Transforms, len(b))
@@ -375,3 +436,4 @@ func (p String) Copy() CssProperty      { return p }
 func (p Value) Copy() CssProperty       { return p }
 func (p Color) Copy() CssProperty       { return p }
 func (p Point) Copy() CssProperty       { return p }
+func (p Center) Copy() CssProperty      { return p }

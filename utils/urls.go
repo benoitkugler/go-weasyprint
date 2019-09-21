@@ -76,6 +76,16 @@ func Unquote(s string) string {
 	return unescaped
 }
 
+// Url represent an url which can be either internal or external
+type Url struct {
+	Internal bool
+	Url      string
+}
+
+func (u Url) IsNone() bool {
+	return u == Url{}
+}
+
 // Return ('external', absolute_uri) or
 // ('internal', unquoted_fragment_id) or nil.
 func GetLinkAttribute(element HTMLNode, attrName string, baseUrl string) []string {

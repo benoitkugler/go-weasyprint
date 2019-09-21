@@ -229,3 +229,45 @@ func TestExpandWordWrap(t *testing.T) {
 	assertInvalid(t, "word-wrap: none", "invalid")
 	assertInvalid(t, "word-wrap: normal, break-word", "invalid")
 }
+
+func TestExpandFlex(t *testing.T) {
+	capt := utils.CaptureLogs()
+
+	assertValidDict(t, "flex: auto", Properties{
+		"flex_grow":   1,
+		"flex_shrink": 1,
+		"flex_basis":  "auto",
+	})
+	assertValidDict(t, "flex: none", Properties{
+		"flex_grow":   0,
+		"flex_shrink": 0,
+		"flex_basis":  "auto",
+	})
+	assertValidDict(t, "flex: 10", Properties{
+		"flex_grow":   10,
+		"flex_shrink": 1,
+		"flex_basis":  ZERO_PIXELS,
+	})
+	assertValidDict(t, "flex: 2 2", Properties{
+		"flex_grow":   2,
+		"flex_shrink": 2,
+		"flex_basis":  ZERO_PIXELS,
+	})
+	assertValidDict(t, "flex: 2 2 1px", Properties{
+		"flex_grow":   2,
+		"flex_shrink": 2,
+		"flex_basis":  Dimension(1, "px"),
+	})
+	assertValidDict(t, "flex: 2 2 auto", Properties{
+		"flex_grow":   2,
+		"flex_shrink": 2,
+		"flex_basis":  "auto",
+	})
+	assertValidDict(t, "flex: 2 auto", Properties{
+		"flex_grow":   2,
+		"flex_shrink": 1,
+		"flex_basis":  "auto",
+	})
+
+	capt.AssertNoLogs(t)
+}

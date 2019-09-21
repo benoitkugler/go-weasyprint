@@ -36,6 +36,9 @@ var expanders = map[string]expander{
 		"-numeric", "-position")(_fontVariant),
 	"font": genericExpander("-style", "-variant-caps", "-weight", "-stretch", "-size",
 		"line-height", "-family")(_expandFont),
+	"text-decoration": expandTextDecoration,
+	"flex":            expandFlex,
+	"flex-flow":       expandFlexFlow,
 }
 
 var expandBorderSide = genericExpander("-width", "-color", "-style")(_expandBorderSide)
@@ -46,12 +49,12 @@ type namedProperty struct {
 	property CssProperty
 }
 
-type namedTokens struct {
-	name   string
-	tokens []parser.Token
-}
+// type NamedTokens struct {
+// 	name   string
+// 	tokens []parser.Token
+// }
 
-type beforeGeneric = func(baseUrl, name string, tokens []parser.Token) ([]namedTokens, error)
+type beforeGeneric = func(baseUrl, name string, tokens []parser.Token) ([]NamedTokens, error)
 
 // Decorator helping expanders to handle ``inherit`` && ``initial``.
 //     Wrap an expander so that it does not have to handle the "inherit" and
@@ -85,7 +88,7 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 				}
 
 				for _, nameToken := range result {
-					newName, newToken := nameToken.name, nameToken.tokens
+					newName, newToken := nameToken.Name, nameToken.Tokens
 					if !_expandedNames.Has(newName) {
 						return nil, fmt.Errorf("unknown expanded property %s", newName)
 					}
@@ -226,7 +229,7 @@ func borderRadius(baseUrl, name string, tokens []parser.Token) (out []namedPrope
 // Expand the ``list-style`` shorthand property.
 //     See http://www.w3.org/TR/CSS21/generate.html#propdef-list-style
 //
-func _expandListStyle(baseUrl, name string, tokens []parser.Token) (out []namedTokens, err error) {
+func _expandListStyle(baseUrl, name string, tokens []parser.Token) (out []NamedTokens, err error) {
 	var typeSpecified, imageSpecified bool
 	noneCount := 0
 	var noneToken parser.Token
@@ -245,7 +248,7 @@ func _expandListStyle(baseUrl, name string, tokens []parser.Token) (out []namedT
 		} else if listStylePosition([]parser.Token{token}, "") != nil {
 			suffix = "-position"
 		} else {
-			image, err := imageUrl([]parser.Token{token}, baseUrl)
+			image, err := listStyleImage([]parser.Token{token}, baseUrl)
 			if err != nil {
 				return nil, err
 			}
@@ -256,16 +259,16 @@ func _expandListStyle(baseUrl, name string, tokens []parser.Token) (out []namedT
 				return nil, InvalidValue
 			}
 		}
-		out = append(out, namedTokens{name: suffix, tokens: []parser.Token{token}})
+		out = append(out, NamedTokens{Name: suffix, Tokens: []parser.Token{token}})
 	}
 
 	if !typeSpecified && noneCount > 0 {
-		out = append(out, namedTokens{name: "-type", tokens: []parser.Token{noneToken}})
+		out = append(out, NamedTokens{Name: "-type", Tokens: []parser.Token{noneToken}})
 		noneCount -= 1
 	}
 
 	if !imageSpecified && noneCount > 0 {
-		out = append(out, namedTokens{name: "-image", tokens: []parser.Token{noneToken}})
+		out = append(out, NamedTokens{Name: "-image", Tokens: []parser.Token{noneToken}})
 		noneCount -= 1
 	}
 
@@ -301,8 +304,8 @@ func expandBorder(baseUrl, name string, tokens []parser.Token) (out []namedPrope
 // Expand the ``border-*`` shorthand properties.
 //     See http://www.w3.org/TR/CSS21/box.html#propdef-border-top
 //
-func _expandBorderSide(_, name string, tokens []parser.Token) ([]namedTokens, error) {
-	out := make([]namedTokens, len(tokens))
+func _expandBorderSide(_, name string, tokens []parser.Token) ([]NamedTokens, error) {
+	out := make([]NamedTokens, len(tokens))
 	for index, token := range tokens {
 		var suffix string
 		if !parser.ParseColor(token).IsNone() {
@@ -314,7 +317,7 @@ func _expandBorderSide(_, name string, tokens []parser.Token) ([]namedTokens, er
 		} else {
 			return nil, InvalidValue
 		}
-		out[index] = namedTokens{name: suffix, tokens: []parser.Token{token}}
+		out[index] = NamedTokens{Name: suffix, Tokens: []parser.Token{token}}
 	}
 	return out, nil
 }
@@ -428,7 +431,7 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 			var position Center
 			for _, n := range []int{4, 3, 2, 1}[index:] {
 				nTokens := reverse(tokens[len(tokens)-n:])
-				position = _backgroundPosition(nTokens)
+				position = parsePosition(nTokens)
 				if !position.IsNone() {
 					if err = results.add("position"); err != nil {
 						return Color{}, backgroundProps{}, err
@@ -591,6 +594,59 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 	return out, nil
 }
 
+// @expander("text-decoration")
+func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+	var (
+		textDecorationLine  = Set{}
+		outDecorations      NDecorations
+		textDecorationColor Color
+		textDecorationStyle string
+	)
+
+	for _, token := range tokens {
+		keyword := getKeyword(token)
+		switch keyword {
+		case "none", "underline", "overline", "line-through", "blink":
+			textDecorationLine.Add(keyword)
+		case "solid", "double", "dotted", "dashed", "wavy":
+			if textDecorationStyle != "" {
+				return nil, InvalidValue
+			} else {
+				textDecorationStyle = keyword
+			}
+		default:
+			color := parser.ParseColor(token)
+			if color.IsNone() {
+				return nil, InvalidValue
+			} else if !parser.Color(textDecorationColor).IsNone() {
+				return nil, InvalidValue
+			} else {
+				textDecorationColor = Color(color)
+			}
+		}
+	}
+
+	if textDecorationLine.Has("none") {
+		if len(textDecorationLine) != 1 {
+			return nil, InvalidValue
+		}
+		outDecorations.None = true
+	} else if len(textDecorationLine) == 0 {
+		outDecorations.None = true
+	}
+	if parser.Color(textDecorationColor).IsNone() {
+		textDecorationColor = Color{Type: parser.ColorCurrentColor}
+	}
+	if textDecorationStyle == "" {
+		textDecorationStyle = "solid"
+	}
+	return []namedProperty{
+		{name: "text_decoration_line", property: outDecorations},
+		{name: "text_decoration_color", property: textDecorationColor},
+		{name: "text_decoration_style", property: String(textDecorationStyle)},
+	}, nil
+}
+
 //@expander("page-break-after")
 //@expander("page-break-before")
 // Expand legacy ``page-break-before`` && ``page-break-after`` properties.
@@ -626,7 +682,7 @@ func expandPageBreakInside(baseUrl, name string, tokens []parser.Token) (out []n
 //@expander("columns")
 //@genericExpander("column-width", "column-count")
 // Expand the ``columns`` shorthand property.
-func _expandColumns(_, name string, tokens []parser.Token) (out []namedTokens, err error) {
+func _expandColumns(_, name string, tokens []parser.Token) (out []NamedTokens, err error) {
 	if len(tokens) == 2 && getKeyword(tokens[0]) == "auto" {
 		tokens = reverse(tokens)
 	}
@@ -640,7 +696,7 @@ func _expandColumns(_, name string, tokens []parser.Token) (out []namedTokens, e
 		} else {
 			return nil, InvalidValue
 		}
-		out = append(out, namedTokens{name: name, tokens: l})
+		out = append(out, NamedTokens{Name: name, Tokens: l})
 	}
 	return out, nil
 }
@@ -656,23 +712,23 @@ var (
 // Expand the ``font-variant`` shorthand property.
 //     https://www.w3.org/TR/css-fonts-3/#font-variant-prop
 //
-func _fontVariant(_, name string, tokens []parser.Token) (out []namedTokens, err error) {
+func _fontVariant(_, name string, tokens []parser.Token) (out []NamedTokens, err error) {
 	return expandFontVariant(tokens)
 }
 
-func expandFontVariant(tokens []parser.Token) (out []namedTokens, err error) {
+func expandFontVariant(tokens []parser.Token) (out []NamedTokens, err error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "normal" || keyword == "none" {
-		out = make([]namedTokens, 6)
+		out = make([]NamedTokens, 6)
 		for index, suffix := range [5]string{"-alternates", "-caps", "-east-asian", "-numeric",
 			"-position"} {
-			out[index] = namedTokens{name: suffix, tokens: []parser.Token{normalFakeToken}}
+			out[index] = NamedTokens{Name: suffix, Tokens: []parser.Token{normalFakeToken}}
 		}
 		token := noneFakeToken
 		if keyword == "normal" {
 			token = normalFakeToken
 		}
-		out[5] = namedTokens{name: "-ligatures", tokens: []parser.Token{token}}
+		out[5] = NamedTokens{Name: "-ligatures", Tokens: []parser.Token{token}}
 	} else {
 		features := map[string][]parser.Token{}
 		featuresKeys := [6]string{"alternates", "caps", "east-asian", "ligatures", "numeric", "position"}
@@ -696,7 +752,7 @@ func expandFontVariant(tokens []parser.Token) (out []namedTokens, err error) {
 		}
 		for feature, tokens := range features {
 			if len(tokens) > 0 {
-				out = append(out, namedTokens{name: fmt.Sprintf("-%s", feature), tokens: tokens})
+				out = append(out, NamedTokens{Name: fmt.Sprintf("-%s", feature), Tokens: tokens})
 			}
 		}
 	}
@@ -718,7 +774,7 @@ var fontVariantMapper = map[string]func(tokens []parser.Token, _ string) CssProp
 // Expand the ``font`` shorthand property.
 //     https://www.w3.org/TR/css-fonts-3/#font-prop
 //
-func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
+func _expandFont(_, name string, tokens []parser.Token) ([]NamedTokens, error) {
 	expandFontKeyword := getSingleKeyword(tokens)
 	if expandFontKeyword == "caption" || expandFontKeyword == "icon" || expandFontKeyword == "menu" || expandFontKeyword == "message-box" || expandFontKeyword ==
 		"small-caption" || expandFontKeyword == "status-bar" {
@@ -726,21 +782,21 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 		return nil, errors.New("System fonts are not supported")
 	}
 	var (
-		out   []namedTokens
+		out   []NamedTokens
 		token parser.Token
 	)
 	// Make `tokens` a stack
 	tokens = reverse(tokens)
-	// Values for font-style font-variant and font-weight can come in any
-	// order and are all optional.
-	for len(tokens) > 0 {
-		token = tokens[len(tokens)-1]
-		tokens = tokens[:len(tokens)-1]
+	// Values for font-style, font-variant-caps, font-weight and font-stretch
+	// can come in any order and are all optional.
+	hasBroken := false
+	for i := 0; i < 4; i++ {
+		token, tokens = tokens[len(tokens)-1], tokens[:len(tokens)-1]
+
 		kw := getKeyword(token)
 		if kw == "normal" {
 			// Just ignore "normal" keywords. Unspecified properties will get
 			// their initial token, which is "normal" for all three here.
-			// TODO: fail if there is too many "normal" values?
 			continue
 		}
 
@@ -754,10 +810,18 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 		} else if fontStretch([]parser.Token{token}, "") != nil {
 			suffix = "-stretch"
 		} else {
-			// We’re done with these three, continue with font-size
+			// We’re done with these four, continue with font-size
+			hasBroken = true
 			break
 		}
-		out = append(out, namedTokens{name: suffix, tokens: []parser.Token{token}})
+		out = append(out, NamedTokens{Name: suffix, Tokens: []parser.Token{token}})
+
+		if len(tokens) == 0 {
+			return nil, InvalidValue
+		}
+	}
+	if !hasBroken {
+		token, tokens = tokens[len(tokens)-1], tokens[:len(tokens)-1]
 	}
 
 	// Then font-size is mandatory
@@ -769,7 +833,7 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 	if fs == nil {
 		return nil, errors.New("invalid : font-size is mandatory for short font attribute !")
 	}
-	out = append(out, namedTokens{name: "-size", tokens: []parser.Token{token}})
+	out = append(out, NamedTokens{Name: "-size", Tokens: []parser.Token{token}})
 
 	// Then line-height is optional, but font-family is not so the list
 	// must not be empty yet
@@ -785,7 +849,7 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 		if lineHeight([]parser.Token{token}, "") == nil {
 			return nil, InvalidValue
 		}
-		out = append(out, namedTokens{name: "line-height", tokens: []parser.Token{token}})
+		out = append(out, NamedTokens{Name: "line-height", Tokens: []parser.Token{token}})
 	} else {
 		// We pop()ed a font-family, add it back
 		tokens = append(tokens, token)
@@ -795,7 +859,7 @@ func _expandFont(_, name string, tokens []parser.Token) ([]namedTokens, error) {
 	if fontFamily(tokens, "") == nil {
 		return nil, InvalidValue
 	}
-	out = append(out, namedTokens{name: "-family", tokens: tokens})
+	out = append(out, NamedTokens{Name: "-family", Tokens: tokens})
 	return out, nil
 }
 
@@ -809,6 +873,103 @@ func expandWordWrap(baseUrl, name string, tokens []parser.Token) ([]namedPropert
 		return nil, InvalidValue
 	}
 	return []namedProperty{{name: "overflow-wrap", property: keyword}}, nil
+}
+
+// @expander("flex")
+// Expand the ``flex`` property.
+func expandFlex(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+	keyword := getSingleKeyword(tokens)
+	if keyword == "none" {
+		out = []namedProperty{
+			{name: "flex-grow", property: Float(0)},
+			{name: "flex-shrink", property: Float(0)},
+			{name: "flex-basis", property: SToV("auto")},
+		}
+	} else {
+		var (
+			grow   CssProperty = Float(1)
+			shrink CssProperty = Float(1)
+			basis  CssProperty = ZeroPixels.ToValue()
+		)
+		growFound, shrinkFound, basisFound := false, false, false
+		for _, token := range tokens {
+			// "A unitless zero that is not already preceded by two flex factors
+			// must be interpreted as a flex factor."
+			number, ok := token.(parser.NumberToken)
+			forcedFlexFactor := ok && number.IntValue() == 0 && !(growFound && shrinkFound)
+			if !basisFound && !forcedFlexFactor {
+				newBasis := flexBasis([]Token{token}, "")
+				if newBasis != nil {
+					basis = newBasis
+					basisFound = true
+					continue
+				}
+			}
+			if !growFound {
+				newGrow := flexGrowShrink([]Token{token}, "")
+				if newGrow == nil {
+					return nil, InvalidValue
+				} else {
+					grow = newGrow
+					growFound = true
+					continue
+				}
+			} else if !shrinkFound {
+				newShrink := flexGrowShrink([]Token{token}, "")
+				if newShrink == nil {
+					return nil, InvalidValue
+				} else {
+					shrink = newShrink
+					shrinkFound = true
+					continue
+				}
+			} else {
+				return nil, InvalidValue
+			}
+		}
+		out = []namedProperty{
+			{name: "flex-grow", property: grow},
+			{name: "flex-shrink", property: shrink},
+			{name: "flex-basis", property: basis},
+		}
+	}
+	return out, nil
+}
+
+// @expander("flex-flow")
+// Expand the ``flex-flow`` property.
+func expandFlexFlow(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+	if len(tokens) == 2 {
+		hasBroken := false
+		for _, sortedTokens := range [2][]Token{tokens, reverse(tokens)} {
+			direction := flexDirection(sortedTokens[0:1], "")
+			wrap := flexWrap(sortedTokens[1:2], "")
+			if direction != nil && wrap != nil {
+				out = append(out, namedProperty{name: "flex-direction", property: direction})
+				out = append(out, namedProperty{name: "flex-wrap", property: wrap})
+				hasBroken = true
+				break
+			}
+		}
+		if !hasBroken {
+			return nil, InvalidValue
+		}
+	} else if len(tokens) == 1 {
+		direction := flexDirection(tokens[0:1], "")
+		if direction != nil {
+			out = append(out, namedProperty{name: "flex-direction", property: direction})
+		} else {
+			wrap := flexWrap(tokens[0:1], "")
+			if wrap != nil {
+				out = append(out, namedProperty{name: "flex-wrap", property: wrap})
+			} else {
+				return nil, InvalidValue
+			}
+		}
+	} else {
+		return nil, InvalidValue
+	}
+	return out, nil
 }
 
 // Default validator for non-shorthand properties.

@@ -90,3 +90,5 @@ func TestBadFontFace(t *testing.T) {
 		"Ignored `font-stretch: wrong` at 1:133, invalid or unsupported values for a known CSS property.",
 	}, t)
 }
+
+// see style/style_test.go for other font face tests
