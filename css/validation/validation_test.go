@@ -457,58 +457,58 @@ func TestStringSet(t *testing.T) {
 	capt := utils.CaptureLogs()
 	assertValidDict(t, "string-set: test content(text)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentContent, SStrings: SToSS("text")}}},
+			{String: "test", Contents: []ContentProperty{{Type: "content()", Content: String("text")}}},
 		}},
 	})
 	assertValidDict(t, "string-set: test content(before)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentContent, SStrings: SToSS("before")}}},
+			{String: "test", Contents: []ContentProperty{{Type: "content()", Content: String("before")}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test "string"`, Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentSTRING, SStrings: SToSS("string")}}},
+			{String: "test", Contents: []ContentProperty{{Type: "string", Content: String("string")}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test1 "string", test2 "string"`, Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test1", Contents: []ContentProperty{{Type: ContentSTRING, SStrings: SToSS("string")}}},
-			{String: "test2", Contents: []ContentProperty{{Type: ContentSTRING, SStrings: SToSS("string")}}},
+			{String: "test1", Contents: []ContentProperty{{Type: "string", Content: String("string")}}},
+			{String: "test2", Contents: []ContentProperty{{Type: "string", Content: String("string")}}},
 		}},
 	})
 	assertValidDict(t, "string-set: test attr(class)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentAttr, SStrings: SToSS("class")}}},
+			{String: "test", Contents: []ContentProperty{{Type: "attr()", Content: Attr{Name: "class", TypeOrUnit: "string"}}}},
 		}},
 	})
 	assertValidDict(t, "string-set: test counter(count)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentCounter, SStrings: SStrings{Strings: []string{"count", "decimal"}}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counter", Content: Strings{"count", "decimal"}}}},
 		}},
 	})
 	assertValidDict(t, "string-set: test counter(count, upper-roman)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentCounter, SStrings: SStrings{Strings: []string{"count", "upper-roman"}}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counter", Content: Strings{"count", "upper-roman"}}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test counters(count, ".")`, Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentCounters, SStrings: SStrings{Strings: []string{"count", ".", "decimal"}}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counters", Content: Strings{"count", ".", "decimal"}}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test counters(count, ".", upper-roman)`, Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: ContentCounters, SStrings: SStrings{Strings: []string{"count", ".", "upper-roman"}}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counters", Content: Strings{"count", ".", "upper-roman"}}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test content(text) "string" attr(title) attr(title) counter(count)`, Properties{
 		"string_set": StringSet{Contents: []SContent{
 			{String: "test", Contents: []ContentProperty{
-				{Type: ContentContent, SStrings: SToSS("text")},
-				{Type: ContentSTRING, SStrings: SToSS("string")},
-				{Type: ContentAttr, SStrings: SToSS("title")},
-				{Type: ContentAttr, SStrings: SToSS("title")},
-				{Type: ContentCounter, SStrings: SStrings{Strings: []string{"count", "decimal"}}},
+				{Type: "content()", Content: String("text")},
+				{Type: "string", Content: String("string")},
+				{Type: "attr()", Content: String("title")},
+				{Type: "attr()", Content: String("title")},
+				{Type: "counter", Content: Strings{"count", "decimal"}},
 			}},
 		}},
 	})

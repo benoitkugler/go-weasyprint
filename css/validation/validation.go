@@ -527,17 +527,6 @@ var directionKeywords = map[[3]string]DirectionType{
 	{"to", "right", "bottom"}: {Corner: "bottom_right"},
 }
 
-func _imageUrl(token Token, baseUrl string) (Image, error) {
-	if getKeyword(token) == "none" {
-		return NoneImage{}, nil
-	}
-	if urlT, ok := token.(parser.URLToken); ok {
-		s, err := safeUrljoin(baseUrl, urlT.Value)
-		return UrlImage(s), err
-	}
-	return nil, nil
-}
-
 //@validator("list-style-image", wantsBaseUrl=true)
 //@singleToken
 // ``list-style-image`` property validation.

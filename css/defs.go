@@ -183,7 +183,7 @@ func (s SContentProps) copyAsContent() InnerContents {
 	out := make(SContentProps, len(s))
 	for i, v := range s {
 		out[i] = v
-		out[i].ContentProperty = v.ContentProperty.Copy()
+		out[i].ContentProperty = v.ContentProperty.copy()
 	}
 	return out
 }
@@ -196,7 +196,7 @@ func (s SContent) copy() SContent {
 	out := s
 	out.Contents = make([]ContentProperty, len(s.Contents))
 	for index, v := range s.Contents {
-		out.Contents[index] = v.Copy()
+		out.Contents[index] = v.copy()
 	}
 	return out
 }

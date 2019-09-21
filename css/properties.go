@@ -91,7 +91,7 @@ var (
 		"vertical_align": SToV("baseline"),
 		"visibility":     String("visible"),
 		"width":          SToV("auto"),
-		"z_index":        IntString{"auto"},
+		"z_index":        IntString{String: "auto"},
 
 		// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 		"background_attachment": Strings{"scroll"},

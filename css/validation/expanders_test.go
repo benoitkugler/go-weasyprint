@@ -234,39 +234,39 @@ func TestExpandFlex(t *testing.T) {
 	capt := utils.CaptureLogs()
 
 	assertValidDict(t, "flex: auto", Properties{
-		"flex_grow":   1,
-		"flex_shrink": 1,
-		"flex_basis":  "auto",
+		"flex_grow":   Float(1),
+		"flex_shrink": Float(1),
+		"flex_basis":  SToV("auto"),
 	})
 	assertValidDict(t, "flex: none", Properties{
-		"flex_grow":   0,
-		"flex_shrink": 0,
-		"flex_basis":  "auto",
+		"flex_grow":   Float(0),
+		"flex_shrink": Float(0),
+		"flex_basis":  SToV("auto"),
 	})
 	assertValidDict(t, "flex: 10", Properties{
-		"flex_grow":   10,
-		"flex_shrink": 1,
-		"flex_basis":  ZERO_PIXELS,
+		"flex_grow":   Float(10),
+		"flex_shrink": Float(1),
+		"flex_basis":  ZeroPixels.ToValue(),
 	})
 	assertValidDict(t, "flex: 2 2", Properties{
-		"flex_grow":   2,
-		"flex_shrink": 2,
-		"flex_basis":  ZERO_PIXELS,
+		"flex_grow":   Float(2),
+		"flex_shrink": Float(2),
+		"flex_basis":  ZeroPixels.ToValue(),
 	})
 	assertValidDict(t, "flex: 2 2 1px", Properties{
-		"flex_grow":   2,
-		"flex_shrink": 2,
-		"flex_basis":  Dimension(1, "px"),
+		"flex_grow":   Float(2),
+		"flex_shrink": Float(2),
+		"flex_basis":  Dimension{Value: 1, Unit: Px}.ToValue(),
 	})
 	assertValidDict(t, "flex: 2 2 auto", Properties{
-		"flex_grow":   2,
-		"flex_shrink": 2,
-		"flex_basis":  "auto",
+		"flex_grow":   Float(2),
+		"flex_shrink": Float(2),
+		"flex_basis":  SToV("auto"),
 	})
 	assertValidDict(t, "flex: 2 auto", Properties{
-		"flex_grow":   2,
-		"flex_shrink": 1,
-		"flex_basis":  "auto",
+		"flex_grow":   Float(2),
+		"flex_shrink": Float(1),
+		"flex_basis":  SToV("auto"),
 	})
 
 	capt.AssertNoLogs(t)
