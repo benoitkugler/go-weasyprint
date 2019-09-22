@@ -1,80 +1,38 @@
-@expander("flex")
-// Expand the ``flex`` property.
-func expandFlex(baseUrl, name, tokens) {
-    keyword = getSingleKeyword(tokens)
-    if keyword == "none" {
-        yield "flex-grow", 0
-        yield "flex-shrink", 0
-        yield "flex-basis", "auto"
-    } else {
-        grow, shrink, basis = 1, 1, Dimension(0, "px")
-        growFound, shrinkFound, basisFound = false, false, false
-        for token := range tokens {
-            // "A unitless zero that is not already preceded by two flex factors
-            // must be interpreted as a flex factor."
-            forcedFlexFactor = (
-                token.type == "number" && token.intValue == 0 and
-                not all((growFound, shrinkFound)))
-            if not basisFound && not forcedFlexFactor {
-                newBasis = flexBasis([token])
-                if newBasis is not None {
-                    basis = newBasis
-                    basisFound = true
-                    continue
-                }
-            } if not growFound {
-                newGrow = flexGrowShrink([token])
-                if newGrow is None {
-                    raise InvalidValues
-                } else {
-                    grow = newGrow
-                    growFound = true
-                    continue
-                }
-            } else if not shrinkFound {
-                newShrink = flexGrowShrink([token])
-                if newShrink is None {
-                    raise InvalidValues
-                } else {
-                    shrink = newShrink
-                    shrinkFound = true
-                    continue
-                }
+func computeAttrFunction(computer, values) {
+    // TODO: use real token parsing instead of casting with Python types
+    funcName, value = values
+    assert funcName == "attr()"
+    attrName, typeOrUnit, fallback = value
+    // computer["element"] sometimes is None
+    // computer["element"] sometimes is a "PageType" object without .get()
+    // so wrapt the .get() into try && return None instead of crashing
+    try {
+        attrValue = computer["element"].get(attrName, fallback)
+        if typeOrUnit == "string" {
+            pass  // Keep the string
+        } else if typeOrUnit == "url" {
+            if attrValue.startswith("#") {
+                attrValue = ("internal", unquote(attrValue[1:]))
             } else {
-                raise InvalidValues
+                attrValue = (
+                    "external", safeUrljoin(computer["baseUrl"], attrValue))
             }
-        } yield "flex-grow", grow
-        yield "flex-shrink", shrink
-        yield "flex-basis", basis
-    }
-} 
-
-@expander("flex-flow")
-// Expand the ``flex-flow`` property.
-func expandFlexFlow(baseUrl, name, tokens) {
-    if len(tokens) == 2 {
-        for sortedTokens := range tokens, tokens[::-1] {
-            direction = flexDirection([sortedTokens[0]])
-            wrap = flexWrap([sortedTokens[1]])
-            if direction && wrap {
-                yield "flex-direction", direction
-                yield "flex-wrap", wrap
-                break
-            }
-        } else {
-            raise InvalidValues
+        } else if typeOrUnit == "color" {
+            attrValue = parseColor(attrValue.strip())
+        } else if typeOrUnit == "integer" {
+            attrValue = int(attrValue.strip())
+        } else if typeOrUnit == "number" {
+            attrValue = float(attrValue.strip())
+        } else if typeOrUnit == "%" {
+            attrValue = Dimension(float(attrValue.strip()), "%")
+            typeOrUnit = "length"
+        } else if typeOrUnit := range LENGTHUNITS {
+            attrValue = Dimension(float(attrValue.strip()), typeOrUnit)
+            typeOrUnit = "length"
+        } else if typeOrUnit := range ANGLETORADIANS {
+            attrValue = Dimension(float(attrValue.strip()), typeOrUnit)
+            typeOrUnit = "angle"
         }
-    } else if len(tokens) == 1 {
-        direction = flexDirection([tokens[0]])
-        if direction {
-            yield "flex-direction", direction
-        } else {
-            wrap = flexWrap([tokens[0]])
-            if wrap {
-                yield "flex-wrap", wrap
-            } else {
-                raise InvalidValues
-            }
-        }
-    } else {
-        raise InvalidValues
+    } except Exception {
+        return
+    } return (typeOrUnit, attrValue)
