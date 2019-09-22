@@ -44,10 +44,6 @@ var expanders = map[string]expander{
 var expandBorderSide = genericExpander("-width", "-color", "-style")(_expandBorderSide)
 
 // Expanders
-type namedProperty struct {
-	name     string
-	property CssProperty
-}
 
 // type NamedTokens struct {
 // 	name   string
@@ -70,7 +66,7 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 	genericExpanderDecorator := func(wrapped beforeGeneric) expander {
 
 		// Wrap the expander.
-		genericExpanderWrapper := func(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+		genericExpanderWrapper := func(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 			keyword := getSingleKeyword(tokens)
 			results, toBeValidated := map[string]CssProperty{}, map[string][]parser.Token{}
 			var skipValidation bool
@@ -119,15 +115,15 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 						if err != nil {
 							return nil, err
 						}
-						actualNewName = np.name
-						value = np.property
+						actualNewName = np.Name
+						value = np.Property
 					}
 				}
 				if !in {
 					value = String("initial")
 				}
 
-				out = append(out, namedProperty{name: actualNewName, property: value})
+				out = append(out, NamedProperty{Name: actualNewName, Property: value})
 			}
 			return out, nil
 		}
@@ -143,7 +139,7 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 //@expander("padding")
 //@expander("bleed")
 // Expand properties setting a token for the four sides of a box.
-func expandFourSides(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandFourSides(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	// Make sure we have 4 tokens
 	if len(tokens) == 1 {
 		tokens = []parser.Token{tokens[0], tokens[0], tokens[0], tokens[0]}
@@ -175,7 +171,7 @@ func expandFourSides(baseUrl, name string, tokens []parser.Token) (out []namedPr
 
 //@expander("border-radius")
 // Validator for the `border-radius` property.
-func borderRadius(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func borderRadius(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	var horizontal, vertical []parser.Token
 	current := &horizontal
 
@@ -283,7 +279,7 @@ func _expandListStyle(baseUrl, name string, tokens []parser.Token) (out []NamedT
 // Expand the ``border`` shorthand property.
 //     See http://www.w3.org/TR/CSS21/box.html#propdef-border
 //
-func expandBorder(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandBorder(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	for _, suffix := range [4]string{"-top", "-right", "-bottom", "-left"} {
 		props, err := expandBorderSide(baseUrl, name+suffix, tokens)
 		if err != nil {
@@ -347,7 +343,7 @@ func (b backgroundProps) add(name string) error {
 // Expand the ``background`` shorthand property.
 //     See http://dev.w3.org/csswg/css3-background/#the-background
 //
-func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandBackground(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	properties := [8]string{
 		"background_color", "background_image", "background_repeat",
 		"background_attachment", "background_position", "background_size",
@@ -355,7 +351,7 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 	keyword := getSingleKeyword(tokens)
 	if keyword == "initial" || keyword == "inherit" {
 		for _, name := range properties {
-			out = append(out, namedProperty{name: name, property: String(keyword)})
+			out = append(out, NamedProperty{Name: name, Property: String(keyword)})
 		}
 		return
 	}
@@ -581,21 +577,21 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out []namedP
 		rev_clips[n-1-i] = results_clips[i]
 		rev_origins[n-1-i] = results_origins[i]
 	}
-	out = []namedProperty{
-		{name: "background_image", property: rev_images},
-		{name: "background_repeat", property: rev_repeats},
-		{name: "background_attachment", property: rev_attachments},
-		{name: "background_position", property: rev_positions},
-		{name: "background_size", property: rev_sizes},
-		{name: "background_clip", property: rev_clips},
-		{name: "background_origin", property: rev_origins},
-		{name: "background-color", property: result_color},
+	out = NamedProperties{
+		{Name: "background_image", Property: rev_images},
+		{Name: "background_repeat", Property: rev_repeats},
+		{Name: "background_attachment", Property: rev_attachments},
+		{Name: "background_position", Property: rev_positions},
+		{Name: "background_size", Property: rev_sizes},
+		{Name: "background_clip", Property: rev_clips},
+		{Name: "background_origin", Property: rev_origins},
+		{Name: "background-color", Property: result_color},
 	}
 	return out, nil
 }
 
 // @expander("text-decoration")
-func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	var (
 		textDecorationLine  = Set{}
 		outDecorations      NDecorations
@@ -633,6 +629,8 @@ func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out []na
 		outDecorations.None = true
 	} else if len(textDecorationLine) == 0 {
 		outDecorations.None = true
+	} else {
+		outDecorations.Decorations = textDecorationLine
 	}
 	if parser.Color(textDecorationColor).IsNone() {
 		textDecorationColor = Color{Type: parser.ColorCurrentColor}
@@ -640,10 +638,10 @@ func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out []na
 	if textDecorationStyle == "" {
 		textDecorationStyle = "solid"
 	}
-	return []namedProperty{
-		{name: "text_decoration_line", property: outDecorations},
-		{name: "text_decoration_color", property: textDecorationColor},
-		{name: "text_decoration_style", property: String(textDecorationStyle)},
+	return NamedProperties{
+		{Name: "text_decoration_line", Property: outDecorations},
+		{Name: "text_decoration_color", Property: textDecorationColor},
+		{Name: "text_decoration_style", Property: String(textDecorationStyle)},
 	}, nil
 }
 
@@ -652,7 +650,7 @@ func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out []na
 // Expand legacy ``page-break-before`` && ``page-break-after`` properties.
 //     See https://www.w3.org/TR/css-break-3/#page-break-properties
 //
-func expandPageBreakBeforeAfter(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandPageBreakBeforeAfter(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	keyword := getSingleKeyword(tokens)
 	splits := strings.SplitN(name, "-", 1)
 	if len(splits) < 2 {
@@ -660,9 +658,9 @@ func expandPageBreakBeforeAfter(baseUrl, name string, tokens []parser.Token) (ou
 	}
 	newName := splits[1]
 	if keyword == "auto" || keyword == "left" || keyword == "right" || keyword == "avoid" {
-		out = append(out, namedProperty{name: newName, property: String(keyword)})
+		out = append(out, NamedProperty{Name: newName, Property: String(keyword)})
 	} else if keyword == "always" {
-		out = append(out, namedProperty{name: newName, property: String("page")})
+		out = append(out, NamedProperty{Name: newName, Property: String("page")})
 	}
 	return out, nil
 }
@@ -671,10 +669,10 @@ func expandPageBreakBeforeAfter(baseUrl, name string, tokens []parser.Token) (ou
 // Expand the legacy ``page-break-inside`` property.
 //     See https://www.w3.org/TR/css-break-3/#page-break-properties
 //
-func expandPageBreakInside(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandPageBreakInside(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "auto" || keyword == "avoid" {
-		out = append(out, namedProperty{name: "break-inside", property: String(keyword)})
+		out = append(out, NamedProperty{Name: "break-inside", Property: String(keyword)})
 	}
 	return out, nil
 }
@@ -867,23 +865,23 @@ func _expandFont(_, name string, tokens []parser.Token) ([]NamedTokens, error) {
 // Expand the ``word-wrap`` legacy property.
 //     See http://http://www.w3.org/TR/css3-text/#overflow-wrap
 //
-func expandWordWrap(baseUrl, name string, tokens []parser.Token) ([]namedProperty, error) {
+func expandWordWrap(baseUrl, name string, tokens []parser.Token) (NamedProperties, error) {
 	keyword := overflowWrap(tokens, "")
 	if keyword == nil {
 		return nil, InvalidValue
 	}
-	return []namedProperty{{name: "overflow-wrap", property: keyword}}, nil
+	return NamedProperties{{Name: "overflow-wrap", Property: keyword}}, nil
 }
 
 // @expander("flex")
 // Expand the ``flex`` property.
-func expandFlex(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandFlex(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "none" {
-		out = []namedProperty{
-			{name: "flex-grow", property: Float(0)},
-			{name: "flex-shrink", property: Float(0)},
-			{name: "flex-basis", property: SToV("auto")},
+		out = NamedProperties{
+			{Name: "flex-grow", Property: Float(0)},
+			{Name: "flex-shrink", Property: Float(0)},
+			{Name: "flex-basis", Property: SToV("auto")},
 		}
 	} else {
 		var (
@@ -927,10 +925,10 @@ func expandFlex(baseUrl, name string, tokens []parser.Token) (out []namedPropert
 				return nil, InvalidValue
 			}
 		}
-		out = []namedProperty{
-			{name: "flex-grow", property: grow},
-			{name: "flex-shrink", property: shrink},
-			{name: "flex-basis", property: basis},
+		out = NamedProperties{
+			{Name: "flex-grow", Property: grow},
+			{Name: "flex-shrink", Property: shrink},
+			{Name: "flex-basis", Property: basis},
 		}
 	}
 	return out, nil
@@ -938,15 +936,15 @@ func expandFlex(baseUrl, name string, tokens []parser.Token) (out []namedPropert
 
 // @expander("flex-flow")
 // Expand the ``flex-flow`` property.
-func expandFlexFlow(baseUrl, name string, tokens []parser.Token) (out []namedProperty, err error) {
+func expandFlexFlow(baseUrl, name string, tokens []parser.Token) (out NamedProperties, err error) {
 	if len(tokens) == 2 {
 		hasBroken := false
 		for _, sortedTokens := range [2][]Token{tokens, reverse(tokens)} {
 			direction := flexDirection(sortedTokens[0:1], "")
 			wrap := flexWrap(sortedTokens[1:2], "")
 			if direction != nil && wrap != nil {
-				out = append(out, namedProperty{name: "flex-direction", property: direction})
-				out = append(out, namedProperty{name: "flex-wrap", property: wrap})
+				out = append(out, NamedProperty{Name: "flex-direction", Property: direction})
+				out = append(out, NamedProperty{Name: "flex-wrap", Property: wrap})
 				hasBroken = true
 				break
 			}
@@ -957,11 +955,11 @@ func expandFlexFlow(baseUrl, name string, tokens []parser.Token) (out []namedPro
 	} else if len(tokens) == 1 {
 		direction := flexDirection(tokens[0:1], "")
 		if direction != nil {
-			out = append(out, namedProperty{name: "flex-direction", property: direction})
+			out = append(out, NamedProperty{Name: "flex-direction", Property: direction})
 		} else {
 			wrap := flexWrap(tokens[0:1], "")
 			if wrap != nil {
-				out = append(out, namedProperty{name: "flex-wrap", property: wrap})
+				out = append(out, NamedProperty{Name: "flex-wrap", Property: wrap})
 			} else {
 				return nil, InvalidValue
 			}
@@ -974,7 +972,7 @@ func expandFlexFlow(baseUrl, name string, tokens []parser.Token) (out []namedPro
 
 // Default validator for non-shorthand properties.
 // required = false
-func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required bool) (out namedProperty, err error) {
+func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required bool) (out NamedProperty, err error) {
 	if !required && !KnownProperties.Has(name) {
 		hyphensName := strings.ReplaceAll(name, "_", "-")
 		if KnownProperties.Has(hyphensName) {
@@ -1009,10 +1007,10 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 			return out, errors.New("invalid property (nil function return)")
 		}
 	}
-	return namedProperty{name: name, property: value}, nil
+	return NamedProperty{Name: name, Property: value}, nil
 }
 
-func defaultValidateShorthand(baseUrl, name string, tokens []parser.Token) ([]namedProperty, error) {
+func defaultValidateShorthand(baseUrl, name string, tokens []parser.Token) (NamedProperties, error) {
 	np, err := validateNonShorthand(baseUrl, name, tokens, false)
-	return []namedProperty{np}, err
+	return NamedProperties{np}, err
 }

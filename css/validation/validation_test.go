@@ -125,16 +125,30 @@ func TestSpacing(t *testing.T) {
 
 func TestDecoration(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "text-decoration: none", Properties{
-		"text_decoration": NDecorations{None: true},
+	assertValidDict(t, "text-decoration-line: none", Properties{
+		"text_decoration_line": NDecorations{None: true},
 	})
-	assertValidDict(t, "text-decoration: overline", Properties{
-		"text_decoration": NDecorations{Decorations: NewSet("overline")},
+	assertValidDict(t, "text-decoration-line: overline", Properties{
+		"text_decoration_line": NDecorations{Decorations: NewSet("overline")},
 	})
 	// blink is accepted but ignored
-	assertValidDict(t, "text-decoration: overline blink line-through", Properties{
-		"text_decoration": NDecorations{Decorations: NewSet("line-through", "overline")},
+	assertValidDict(t, "text-decoration-line: overline blink line-through", Properties{
+		"text_decoration_line": NDecorations{Decorations: NewSet("blink", "line-through", "overline")},
 	})
+
+	assertValidDict(t, "text-decoration-style: solid", Properties{
+		"text_decoration_style": String("solid"),
+	})
+	assertValidDict(t, "text-decoration-style: double", Properties{
+		"text_decoration_style": String("double"),
+	})
+	assertValidDict(t, "text-decoration-style: dotted", Properties{
+		"text_decoration_style": String("dotted"),
+	})
+	assertValidDict(t, "text-decoration-style: dashed", Properties{
+		"text_decoration_style": String("dashed"),
+	})
+
 	capt.AssertNoLogs(t)
 }
 
@@ -192,11 +206,13 @@ func TestTransforms(t *testing.T) {
 	assertValidDict(t, "transform: translate(6px, 20%)", Properties{
 		"transform": Transforms{{String: "translate", Dimensions: []Dimension{{Value: 6, Unit: Px}, {Value: 20, Unit: Percentage}}}},
 	})
+	assertValidDict(t, "transform: translate(6px 20%)", Properties{
+		"transform": Transforms{{String: "translate", Dimensions: []Dimension{{Value: 6, Unit: Px}, {Value: 20, Unit: Percentage}}}},
+	})
 	assertValidDict(t, "transform: scale(2)", Properties{
 		"transform": Transforms{{String: "scale", Dimensions: []Dimension{FToD(2), FToD(2)}}},
 	})
 	capt.AssertNoLogs(t)
-	assertInvalid(t, "transform: translate(6px 20%)", "invalid") // missing comma
 	assertInvalid(t, "transform: lipsumize(6px)", "invalid")
 	assertInvalid(t, "transform: foo", "invalid")
 	assertInvalid(t, "transform: scale(2) foo", "invalid")
@@ -483,22 +499,22 @@ func TestStringSet(t *testing.T) {
 	})
 	assertValidDict(t, "string-set: test counter(count)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: "counter", Content: Strings{"count", "decimal"}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counter()", Content: Strings{"count", "decimal"}}}},
 		}},
 	})
 	assertValidDict(t, "string-set: test counter(count, upper-roman)", Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: "counter", Content: Strings{"count", "upper-roman"}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counter()", Content: Strings{"count", "upper-roman"}}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test counters(count, ".")`, Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: "counters", Content: Strings{"count", ".", "decimal"}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counters()", Content: Strings{"count", ".", "decimal"}}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test counters(count, ".", upper-roman)`, Properties{
 		"string_set": StringSet{Contents: []SContent{
-			{String: "test", Contents: []ContentProperty{{Type: "counters", Content: Strings{"count", ".", "upper-roman"}}}},
+			{String: "test", Contents: []ContentProperty{{Type: "counters()", Content: Strings{"count", ".", "upper-roman"}}}},
 		}},
 	})
 	assertValidDict(t, `string-set: test content(text) "string" attr(title) attr(title) counter(count)`, Properties{
@@ -506,9 +522,9 @@ func TestStringSet(t *testing.T) {
 			{String: "test", Contents: []ContentProperty{
 				{Type: "content()", Content: String("text")},
 				{Type: "string", Content: String("string")},
-				{Type: "attr()", Content: String("title")},
-				{Type: "attr()", Content: String("title")},
-				{Type: "counter", Content: Strings{"count", "decimal"}},
+				{Type: "attr()", Content: Attr{Name: "title", TypeOrUnit: "string"}},
+				{Type: "attr()", Content: Attr{Name: "title", TypeOrUnit: "string"}},
+				{Type: "counter()", Content: Strings{"count", "decimal"}},
 			}},
 		}},
 	})

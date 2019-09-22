@@ -25,14 +25,12 @@ var descriptors = map[string]descriptor{
 	"font-variant":          fontVariant,
 }
 
-type Descriptor interface{}
-
 type NamedDescriptor struct {
 	Name       string
-	Descriptor Descriptor
+	Descriptor css.Descriptor
 }
 
-type descriptor = func(tokens []Token, baseUrl string) (Descriptor, error)
+type descriptor = func(tokens []Token, baseUrl string) (css.Descriptor, error)
 
 // @descriptor()
 // ``font-family`` descriptor validation.
@@ -62,12 +60,12 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 	return ""
 }
 
-func fontFamilyDescriptor(tokens []Token, _ string) (Descriptor, error) {
+func fontFamilyDescriptor(tokens []Token, _ string) (css.Descriptor, error) {
 	s := _fontFamilyDesc(tokens, false)
 	if s == "" {
 		return nil, nil
 	}
-	return s, nil
+	return css.String(s), nil
 }
 
 // @descriptor(wantsBaseUrl=true)
@@ -94,8 +92,8 @@ func _src(tokens []Token, baseUrl string) (css.InnerContents, error) {
 	return nil, nil
 }
 
-func src(tokens []Token, baseUrl string) (Descriptor, error) {
-	var out []css.InnerContents
+func src(tokens []Token, baseUrl string) (css.Descriptor, error) {
+	var out css.Contents
 	for _, part := range SplitOnComma(tokens) {
 		result, err := _src(RemoveWhitespace(part), baseUrl)
 		if err != nil {
@@ -112,11 +110,11 @@ func src(tokens []Token, baseUrl string) (Descriptor, error) {
 // @descriptor()
 // @singleKeyword
 // ``font-style`` descriptor validation.
-func fontStyleDescriptor(tokens []Token, _ string) (Descriptor, error) {
+func fontStyleDescriptor(tokens []Token, _ string) (css.Descriptor, error) {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "italic", "oblique":
-		return keyword, nil
+		return css.String(keyword), nil
 	default:
 		return nil, nil
 	}
@@ -125,20 +123,20 @@ func fontStyleDescriptor(tokens []Token, _ string) (Descriptor, error) {
 // @descriptor()
 // @singleToken
 // ``font-weight`` descriptor validation.
-func fontWeightDescriptor(tokens []Token, _ string) (Descriptor, error) {
+func fontWeightDescriptor(tokens []Token, _ string) (css.Descriptor, error) {
 	if len(tokens) != 1 {
 		return nil, nil
 	}
 	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "normal" || keyword == "bold" {
-		return keyword, nil
+		return css.String(keyword), nil
 	}
 	if number, ok := token.(parser.NumberToken); ok && number.IsInteger {
 		v := number.IntValue()
 		switch v {
 		case 100, 200, 300, 400, 500, 600, 700, 800, 900:
-			return v, nil
+			return css.String(v), nil
 		}
 	}
 	return nil, nil
@@ -147,13 +145,13 @@ func fontWeightDescriptor(tokens []Token, _ string) (Descriptor, error) {
 // @descriptor()
 // @singleKeyword
 // Validation for the ``font-stretch`` descriptor.
-func fontStretchDescriptor(tokens []Token, _ string) (Descriptor, error) {
+func fontStretchDescriptor(tokens []Token, _ string) (css.Descriptor, error) {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
 		"normal",
 		"semi-expanded", "expanded", "extra-expanded", "ultra-expanded":
-		return keyword, nil
+		return css.String(keyword), nil
 	default:
 		return nil, nil
 	}
@@ -161,20 +159,24 @@ func fontStretchDescriptor(tokens []Token, _ string) (Descriptor, error) {
 
 // @descriptor("font-feature-settings")
 // ``font-feature-settings`` descriptor validation.
-func fontFeatureSettingsDescriptor(tokens []Token, _ string) (Descriptor, error) {
-	return fontFeatureSettings(tokens, ""), nil
+func fontFeatureSettingsDescriptor(tokens []Token, _ string) (css.Descriptor, error) {
+	s := _fontFeatureSettings(tokens)
+	if s.IsNone() {
+		return nil, nil
+	}
+	return s, nil
 }
 
 // @descriptor()
 // ``font-variant`` descriptor validation.
-func fontVariant(tokens []Token, _ string) (Descriptor, error) {
+func fontVariant(tokens []Token, _ string) (css.Descriptor, error) {
 	if len(tokens) == 1 {
 		keyword := getKeyword(tokens[0])
 		if keyword == "normal" || keyword == "none" || keyword == "inherit" {
-			return []namedProperty{}, nil
+			return css.NamedProperties{}, nil
 		}
 	}
-	var values []namedProperty
+	var values css.NamedProperties
 	expanded, err := expandFontVariant(tokens)
 	if err != nil {
 		return nil, err
@@ -191,7 +193,7 @@ func fontVariant(tokens []Token, _ string) (Descriptor, error) {
 }
 
 // Default validator for descriptors.
-func validate(baseUrl, name string, tokens []Token) (Descriptor, error) {
+func validate(baseUrl, name string, tokens []Token) (css.Descriptor, error) {
 	function, ok := descriptors[name]
 	if !ok {
 		return nil, errors.New("descriptor not supported")

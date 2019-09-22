@@ -9,7 +9,7 @@ import (
 
 var (
 	zeroPixelsValue = Value{Dimension: ZeroPixels}
-	currentColor    = Color{Type: parser.ColorCurrentColor}
+	CurrentColor    = Color{Type: parser.ColorCurrentColor}
 	// How many CSS pixels is one <unit>?
 	// http://www.w3.org/TR/CSS21/syndata.html#length-units
 	LengthsToPixels = map[Unit]float32{
@@ -104,10 +104,10 @@ var (
 		},
 		"background_repeat":   Repeats{{"repeat", "repeat"}},
 		"background_size":     Sizes{Size{Width: SToV("auto"), Height: SToV("auto")}},
-		"border_bottom_color": currentColor,
-		"border_left_color":   currentColor,
-		"border_right_color":  currentColor,
-		"border_top_color":    currentColor,
+		"border_bottom_color": CurrentColor,
+		"border_left_color":   CurrentColor,
+		"border_right_color":  CurrentColor,
+		"border_top_color":    CurrentColor,
 		"border_bottom_style": String("none"),
 		"border_left_style":   String("none"),
 		"border_right_style":  String("none"),
@@ -131,7 +131,7 @@ var (
 		"column_width":      SToV("auto"),
 		"column_count":      SToV("auto"),
 		"column_gap":        Value{Dimension: Dimension{Value: 1, Unit: Em}},
-		"column_rule_color": currentColor,
+		"column_rule_color": CurrentColor,
 		"column_rule_style": String("none"),
 		"column_rule_width": SToV("medium"),
 		"column_fill":       String("balance"),
@@ -208,7 +208,7 @@ var (
 
 		// User Interface 3 (REC): https://www.w3.org/TR/css-ui-3/
 		"box_sizing":    String("content-box"),
-		"outline_color": currentColor, // invert is not supported
+		"outline_color": CurrentColor, // invert is not supported
 		"outline_style": String("none"),
 		"outline_width": Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
 		"overflow_wrap": String("normal"),
@@ -229,7 +229,7 @@ var (
 
 		// Text Decoration Module 3 (CR): https://www.w3.org/TR/css-text-decor-3/
 		"text_decoration_line":  NDecorations{None: true},
-		"text_decoration_color": currentColor,
+		"text_decoration_color": CurrentColor,
 		"text_decoration_style": String("solid"),
 
 		// Overflow Module 3 (WD): https://www.w3.org/TR/css-overflow-3/

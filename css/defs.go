@@ -49,6 +49,24 @@ type CssProperty interface {
 	Copy() CssProperty
 }
 
+type Descriptor interface {
+	isDescriptor()
+}
+
+type Contents []InnerContents
+
+type NamedProperty struct {
+	Name     string
+	Property CssProperty
+}
+
+type NamedProperties []NamedProperty
+
+func (d String) isDescriptor()          {}
+func (d Contents) isDescriptor()        {}
+func (d SIntStrings) isDescriptor()     {}
+func (d NamedProperties) isDescriptor() {}
+
 func (p Properties) Copy() Properties {
 	out := make(Properties, len(p))
 	for name, v := range p {
@@ -334,6 +352,10 @@ func (l BookmarkLabel) Copy() CssProperty {
 
 func (l IntStrings) Copy() CssProperty {
 	return append(IntStrings{}, l...)
+}
+
+func (x SIntStrings) IsNone() bool {
+	return x.String == "" && x.Values == nil
 }
 
 func (x SIntStrings) Copy() CssProperty {

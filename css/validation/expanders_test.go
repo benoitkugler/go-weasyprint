@@ -167,6 +167,10 @@ func TestFont(t *testing.T) {
 	assertInvalid(t, `font: 12px`, "invalid")
 	assertInvalid(t, `font: 12px/foo serif`, "invalid")
 	assertInvalid(t, `font: 12px "Invalid" family`, "invalid")
+	assertInvalid(t, "font: normal normal normal normal normal large serif", "invalid")
+	assertInvalid(t, "font: normal small-caps italic 700 condensed large serif", "invalid")
+	assertInvalid(t, "font: small-caps italic 700 normal condensed large serif", "invalid")
+	assertInvalid(t, "font: small-caps italic 700 condensed normal large serif", "invalid")
 }
 
 // Test the ``font-variant`` property.
@@ -228,6 +232,36 @@ func TestExpandWordWrap(t *testing.T) {
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "word-wrap: none", "invalid")
 	assertInvalid(t, "word-wrap: normal, break-word", "invalid")
+}
+
+func fillTextDecoration(prop Properties) Properties {
+	base := Properties{
+		"text_decoration_line":  NDecorations{None: true},
+		"text_decoration_color": CurrentColor,
+		"text_decoration_style": String("solid"),
+	}
+	for k, v := range prop {
+		base[k] = v
+	}
+	return base
+}
+
+func TestExpandTextDecoration(t *testing.T) {
+	capt := utils.CaptureLogs()
+
+	assertValidDict(t, "text-decoration: none", fillTextDecoration(Properties{
+		"text_decoration_line": NDecorations{None: true},
+	}))
+	assertValidDict(t, "text-decoration: overline", fillTextDecoration(Properties{
+		"text_decoration_line": NDecorations{Decorations: NewSet("overline")},
+	}))
+	assertValidDict(t, "text-decoration: overline blink line-through", fillTextDecoration(Properties{
+		"text_decoration_line": NDecorations{Decorations: NewSet("blink", "line-through", "overline")},
+	}))
+	assertValidDict(t, "text-decoration: red", fillTextDecoration(Properties{
+		"text_decoration_color": NewColor(1, 0, 0, 1),
+	}))
+	capt.AssertNoLogs(t)
 }
 
 func TestExpandFlex(t *testing.T) {

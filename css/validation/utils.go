@@ -273,14 +273,14 @@ func getUrl(_token Token, baseUrl string) (out ContentProperty, err error) {
 	switch token := _token.(type) {
 	case parser.URLToken:
 		if strings.HasPrefix(token.Value, "#") {
-			return ContentProperty{Type: "url", Content: Url{Internal: true, Url: utils.Unquote(token.Value[1:])}}, nil
+			return ContentProperty{Type: "url", Content: NamedString{Name: "internal", String: utils.Unquote(token.Value[1:])}}, nil
 		} else {
 			var joined string
 			joined, err = safeUrljoin(baseUrl, token.Value)
 			if err != nil {
 				return
 			}
-			return ContentProperty{Type: "url", Content: Url{Internal: false, Url: joined}}, nil
+			return ContentProperty{Type: "url", Content: NamedString{Name: "external", String: joined}}, nil
 		}
 	case parser.FunctionBlock:
 		if token.Name == "attr" {

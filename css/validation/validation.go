@@ -304,7 +304,7 @@ type Token = parser.Token
 
 type validator func(tokens []Token, baseUrl string) CssProperty
 type validatorError func(tokens []Token, baseUrl string) (CssProperty, error)
-type expander func(baseUrl, name string, tokens []Token) ([]namedProperty, error)
+type expander func(baseUrl, name string, tokens []Token) (NamedProperties, error)
 
 type ValidatedProperty struct {
 	Name      string
@@ -1545,6 +1545,14 @@ func fontVariantNumeric(tokens []Token, _ string) CssProperty {
 // //@validator()
 // ``font-feature-settings`` property validation.
 func fontFeatureSettings(tokens []Token, _ string) CssProperty {
+	s := _fontFeatureSettings(tokens)
+	if s.IsNone() {
+		return nil
+	}
+	return s
+}
+
+func _fontFeatureSettings(tokens []Token) SIntStrings {
 	if len(tokens) == 1 && getKeyword(tokens[0]) == "normal" {
 		return SIntStrings{String: "normal"}
 	}
@@ -1598,7 +1606,7 @@ func fontFeatureSettings(tokens []Token, _ string) CssProperty {
 	for _, part := range SplitOnComma(tokens) {
 		result := fontFeatureSettingsList(RemoveWhitespace(part))
 		if (result == IntString{}) {
-			return nil
+			return SIntStrings{}
 		}
 		out.Values = append(out.Values, result)
 	}
@@ -2754,8 +2762,8 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 
 		for _, np := range result {
 			out = append(out, ValidatedProperty{
-				Name:      strings.ReplaceAll(np.name, "-", "_"),
-				Value:     np.property,
+				Name:      strings.ReplaceAll(np.Name, "-", "_"),
+				Value:     np.Property,
 				Important: important,
 			})
 		}
