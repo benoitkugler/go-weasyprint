@@ -32,8 +32,8 @@ func TestFontFace(t *testing.T) {
 		src: url(http://example.com/fonts/Gentium.woff);
 	  }`, t)
 	fontFamily, src := l[0], l[1]
-	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: "Gentium Hard"}, fontFamily, t)
-	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: []InnerContents{NamedString{Name: "external", String: "http://example.com/fonts/Gentium.woff"}}}, src, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: String("Gentium Hard")}, fontFamily, t)
+	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: Contents{NamedString{Name: "external", String: "http://example.com/fonts/Gentium.woff"}}}, src, t)
 
 	l = processFontFace(`@font-face {
           font-family: "Fonty Smiley";
@@ -43,19 +43,19 @@ func TestFontFace(t *testing.T) {
          font-stretch: condensed;
         }`, t)
 	fontFamily, src, fontStyle, fontWeight, fontStretch := l[0], l[1], l[2], l[3], l[4]
-	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: "Fonty Smiley"}, fontFamily, t)
-	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: []InnerContents{NamedString{Name: "external", String: "http://weasyprint.org/foo/Fonty-Smiley.woff"}}}, src, t)
-	checkNameDescriptor(NamedDescriptor{Name: "font_style", Descriptor: "italic"}, fontStyle, t)
-	checkNameDescriptor(NamedDescriptor{Name: "font_weight", Descriptor: 200}, fontWeight, t)
-	checkNameDescriptor(NamedDescriptor{Name: "font_stretch", Descriptor: "condensed"}, fontStretch, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: String("Fonty Smiley")}, fontFamily, t)
+	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: Contents{NamedString{Name: "external", String: "http://weasyprint.org/foo/Fonty-Smiley.woff"}}}, src, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_style", Descriptor: String("italic")}, fontStyle, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_weight", Descriptor: IntString{Int: 200}}, fontWeight, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_stretch", Descriptor: String("condensed")}, fontStretch, t)
 
 	l = processFontFace(`@font-face {
 		font-family: Gentium Hard;
 		src: local();
         }`, t)
 	fontFamily, src = l[0], l[1]
-	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: "Gentium Hard"}, fontFamily, t)
-	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: []InnerContents{NamedString{Name: "local", String: ""}}}, src, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: String("Gentium Hard")}, fontFamily, t)
+	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: Contents{NamedString{Name: "local", String: ""}}}, src, t)
 
 	// See bug #487
 	l = processFontFace(`@font-face {
@@ -63,8 +63,8 @@ func TestFontFace(t *testing.T) {
 		src: local(Gentium Hard);
         }`, t)
 	fontFamily, src = l[0], l[1]
-	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: "Gentium Hard"}, fontFamily, t)
-	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: []InnerContents{NamedString{Name: "local", String: "Gentium Hard"}}}, src, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: String("Gentium Hard")}, fontFamily, t)
+	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: Contents{NamedString{Name: "local", String: "Gentium Hard"}}}, src, t)
 }
 
 // Test bad ``font-face`` rules.
@@ -80,9 +80,9 @@ func TestBadFontFace(t *testing.T) {
 		`}`, t)
 	fontFamily, src, fontStretch := l[0], l[1], l[2]
 
-	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: "Bad Font"}, fontFamily, t)
-	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: []InnerContents{NamedString{Name: "external", String: "http://weasyprint.org/foo/BadFont.woff"}}}, src, t)
-	checkNameDescriptor(NamedDescriptor{Name: "font_stretch", Descriptor: "expanded"}, fontStretch, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_family", Descriptor: String("Bad Font")}, fontFamily, t)
+	checkNameDescriptor(NamedDescriptor{Name: "src", Descriptor: Contents{NamedString{Name: "external", String: "http://weasyprint.org/foo/BadFont.woff"}}}, src, t)
+	checkNameDescriptor(NamedDescriptor{Name: "font_stretch", Descriptor: String("expanded")}, fontStretch, t)
 
 	logs.CheckEqual([]string{
 		"Ignored `font-style: wrong` at 1:91, invalid or unsupported values for a known CSS property.",

@@ -130,13 +130,13 @@ func fontWeightDescriptor(tokens []Token, _ string) (css.Descriptor, error) {
 	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "normal" || keyword == "bold" {
-		return css.String(keyword), nil
+		return css.IntString{String: keyword}, nil
 	}
 	if number, ok := token.(parser.NumberToken); ok && number.IsInteger {
 		v := number.IntValue()
 		switch v {
 		case 100, 200, 300, 400, 500, 600, 700, 800, 900:
-			return css.String(v), nil
+			return css.IntString{Int: v}, nil
 		}
 	}
 	return nil, nil

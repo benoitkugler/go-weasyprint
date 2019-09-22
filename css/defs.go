@@ -63,6 +63,7 @@ type NamedProperty struct {
 type NamedProperties []NamedProperty
 
 func (d String) isDescriptor()          {}
+func (d IntString) isDescriptor()       {}
 func (d Contents) isDescriptor()        {}
 func (d SIntStrings) isDescriptor()     {}
 func (d NamedProperties) isDescriptor() {}
