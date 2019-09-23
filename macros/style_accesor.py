@@ -8,19 +8,14 @@ RE_PROPERTY = re.compile(r'"(\S+)":\s*([^({\s]+)[({,]')
 # RE_TYPEDEF = re.compile(r"^type (\S+) ")
 
 TEMPLATE = """
-func (s Properties) Get{prop_cap}() (kind CssKind, out {type_}) {{
-    inter := s["{prop}"]
-	if inter == nil  {{
-		return None, out
-	}}
-	if kind, ok := inter.(CssKind); ok {{
-		return kind, out
-	}}
-	return Normal, inter.({type_})
+func (s Properties) Get{prop_cap}() {type_} {{
+    return s["{prop}"].({type_})
 }}
 func (s Properties) Set{prop_cap}(v {type_}) {{
     s["{prop}"] = v
 }}
+func ({type_}) afterCascaded() {{}}
+func ({type_}) afterCompute() {{}}
 """
 
 SPECIAL_VALUES = {
