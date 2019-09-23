@@ -5,7 +5,6 @@ SOURCE = "properties/initial_values.go"
 OUT = "properties/accessors.go"
 
 RE_PROPERTY = re.compile(r'"(\S+)":\s*([^({\s]+)[({,]')
-# RE_TYPEDEF = re.compile(r"^type (\S+) ")
 
 TEMPLATE = """
 func (s Properties) Get{prop_cap}() {type_} {{
