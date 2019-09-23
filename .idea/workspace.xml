@@ -3,6 +3,46 @@
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/accessors.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/defs.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/ast.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/colors.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/An+B.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/LICENSE" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/README.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/color3.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/color3_hsl.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/color3_keywords.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/component_value_list.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/declaration_list.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/make_color3_hsl.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/make_color3_keywords.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/one_component_value.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/one_declaration.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/one_rule.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/rule_list.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/stylesheet.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/css-parsing-tests/stylesheet_bytes.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/parse.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/parse_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/serialize.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/serialize_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/parser/tokenizer.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/properties.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/s_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/style/CSS.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/style/computed_values.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/style/media_query.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/style/style.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/style/style_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/descriptors.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/descriptors_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/expanders.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/expanders_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/utils.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/validation.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/css/validation/validation_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -10,96 +50,9 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.6451315">
-      <split-first>
-        <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/structure/boxes.go">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="12512">
-                  <caret line="745" column="28" selection-start-line="745" selection-start-column="28" selection-end-line="745" selection-end-column="28" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/structure/boxes2">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1598">
-                  <caret line="94" selection-start-line="94" selection-end-line="94" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/structure/counters.go">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="5695">
-                  <caret line="339" column="5" selection-start-line="339" selection-start-column="5" selection-end-line="339" selection-end-column="5" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/structure/build.go">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="275">
-                  <caret line="133" column="23" lean-forward="true" selection-start-line="133" selection-start-column="23" selection-end-line="133" selection-end-column="23" />
-                  <folding>
-                    <element signature="e#19#133#0" expanded="true" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/css/style.go">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2567">
-                  <caret line="151" selection-start-line="151" selection-end-line="151" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-        </leaf>
-      </split-first>
-      <split-second>
-        <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/structure/boxes2">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="58">
-                  <caret line="1136" column="23" selection-start-line="1136" selection-start-column="16" selection-end-line="1136" selection-end-column="23" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/macro.py">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="306">
-                  <caret line="18" column="20" selection-start-line="18" selection-start-column="20" selection-end-line="18" selection-end-column="20" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-        </leaf>
-      </split-second>
-    </splitter>
-  </component>
   <component name="GOROOT" path="/usr/local/go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
-  </component>
-  <component name="IdeDocumentHistory">
-    <option name="CHANGED_PATHS">
-      <list>
-        <option value="$PROJECT_DIR$/structure/boxes_test.go" />
-        <option value="$PROJECT_DIR$/css/style.go" />
-        <option value="$PROJECT_DIR$/structure/boxes.go" />
-      </list>
-    </option>
   </component>
   <component name="ProjectConfigurationFiles">
     <option name="files">
@@ -112,43 +65,9 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="683" />
-    <option name="y" value="27" />
-    <option name="width" value="683" />
-    <option name="height" value="741" />
-  </component>
+  <component name="ProjectId" id="1RCKyB3tKPpGMVIps0LrB3CyKcl" />
   <component name="ProjectLevelVcsManager">
     <OptionsSetting value="false" id="Update" />
-  </component>
-  <component name="ProjectView">
-    <navigator proportions="" version="1">
-      <foldersAlwaysOnTop value="true" />
-    </navigator>
-    <panes>
-      <pane id="ProjectPane">
-        <subPane>
-          <expand>
-            <path>
-              <item name="go-weasyprint" type="b2602c69:ProjectViewProjectNode" />
-              <item name="go-weasyprint" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="go-weasyprint" type="b2602c69:ProjectViewProjectNode" />
-              <item name="go-weasyprint" type="462c0819:PsiDirectoryNode" />
-              <item name="css" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="go-weasyprint" type="b2602c69:ProjectViewProjectNode" />
-              <item name="go-weasyprint" type="462c0819:PsiDirectoryNode" />
-              <item name="structure" type="462c0819:PsiDirectoryNode" />
-            </path>
-          </expand>
-          <select />
-        </subPane>
-      </pane>
-      <pane id="Scope" />
-    </panes>
   </component>
   <component name="PropertiesComponent">
     <property name="GO_FMT" value="true" />
@@ -200,93 +119,22 @@
       <configuration name="TestHexa in github.com/benoitkugler/go-weasyprint/structure" configurationId="GoTestRunConfiguration" />
     </history-entry>
   </component>
-  <component name="ToolWindowManager">
-    <frame x="64" y="-11" width="2497" height="1452" extended-state="6" />
-    <editor active="true" />
-    <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.11678236" />
-      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
-      <window_info id="Favorites" order="2" side_tool="true" />
-      <window_info anchor="bottom" id="Message" order="0" />
-      <window_info anchor="bottom" id="Find" order="1" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.3289256" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
-      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
-      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Version Control" order="8" />
-      <window_info anchor="bottom" id="Database Changes" order="9" />
-      <window_info anchor="bottom" id="Terminal" order="10" weight="0.3289256" />
-      <window_info anchor="bottom" id="Event Log" order="11" side_tool="true" />
-      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
-      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
-      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="Database" order="3" />
-    </layout>
-  </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="WIP : boxes" />
     <option name="LAST_COMMIT_MESSAGE" value="WIP : boxes" />
-  </component>
-  <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/structure/boxes_test.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="136">
-          <caret line="8" column="4" selection-start-line="8" selection-start-column="4" selection-end-line="8" selection-end-column="35" />
-          <folding>
-            <element signature="e#19#47#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structure/boxes.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="12512">
-          <caret line="745" column="28" selection-start-line="745" selection-start-column="28" selection-end-line="745" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structure/counters.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5695">
-          <caret line="339" column="5" selection-start-line="339" selection-start-column="5" selection-end-line="339" selection-end-column="5" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/css/style.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2567">
-          <caret line="151" selection-start-line="151" selection-end-line="151" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structure/boxes2">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1598">
-          <caret line="94" selection-start-line="94" selection-end-line="94" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/macro.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="306">
-          <caret line="18" column="20" selection-start-line="18" selection-start-column="20" selection-end-line="18" selection-end-column="20" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/structure/build.go">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="275">
-          <caret line="133" column="23" lean-forward="true" selection-start-line="133" selection-start-column="23" selection-end-line="133" selection-end-column="23" />
-          <folding>
-            <element signature="e#19#133#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
   </component>
 </project>
