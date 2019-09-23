@@ -1,34 +1,42 @@
 // This package defines the types needed to handle the various CSS properties.
 // There are 3 groups of types for a property, separated by 2 steps : cascading and computation.
-// Thus, we use 3 narrowing interfaces :
-//	- ValidatedProperty : all valid css inputs
-//	- CascadedProperty : "initial" and "inherited" are resolved
-// 	- CssProperty : final form, "var()", "attr()" and custom properties are resolved
-//
+// Thus the need of 3 types (see below).
 // Schematically, the style computation is :
-//		ValidatedProperty (ComputedFromCascaded)-> CascadedPropery (Compute)-> Property
+//		ValidatedProperty (ComputedFromCascaded)-> CascadedPropery (Compute)-> CssProperty
 package properties
 
-type ValidatedProperty interface {
-	// Copy implements the deep copy of the property
-	Copy() ValidatedProperty
-}
+const (
+	Inherit defaultKind = iota + 1
+	Initial
+)
 
-type CascadedProperty interface {
-	ValidatedProperty
-	Copy2() CascadedProperty
-}
-
+// CssProperty is final form of a css input :
+// "var()", "attr()" and custom properties have been resolved.
 type CssProperty interface {
-	CascadedProperty
-	Copy3() CssProperty
+	// Copy implements the deep copy of the property
+	Copy() CssProperty
 }
 
-type Inherit struct{}
-type Initial struct{}
+// CascadedProperty may contain either a classic CSS property
+// or one the 3 special values var(), attr() or custom properties
+// "initial" and "inherited" values have been resolved
+type CascadedProperty struct {
+	CssProperty
+	SpecialProperty specialProperty
+}
 
-func (v Inherit) Copy() ValidatedProperty { return v }
-func (v Initial) Copy() ValidatedProperty { return v }
+type specialProperty interface {
+	isSpecialProperty()
+}
+
+type defaultKind uint8
+
+// ValidatedProperty is valid css input, so it may contain
+// a classic property, a special one, or one of the keyword "inherited" or "initial".
+type ValidatedProperty struct {
+	CascadedProperty
+	Default defaultKind
+}
 
 type VarData struct {
 	Name        string // name of a custom property
@@ -41,23 +49,20 @@ type AttrData struct {
 	Fallback   CssProperty
 }
 
-func (v VarData) Copy2() CascadedProperty {
-	out := v
-	out.Declaration = v.Declaration.copy()
-	return out
-}
-func (v AttrData) Copy2() CascadedProperty {
-	out := v
-	out.Fallback = v.Fallback.Copy3()
-	return out
-}
-func (v CustomProperty) Copy2() CascadedProperty {
-	return v.copy()
+func (v VarData) isSpecialProperty()        {}
+func (v AttrData) isSpecialProperty()       {}
+func (v CustomProperty) isSpecialProperty() {}
+
+// ---------- Convenience constructor -------------------------------
+// Note than a CssProperty can naturally be seen as a CascadedProperty, but not the other way around.
+
+func ToC(prop CssProperty) CascadedProperty {
+	return CascadedProperty{CssProperty: prop}
 }
 
-func (v VarData) Copy() ValidatedProperty        { return v.Copy2() }
-func (v AttrData) Copy() ValidatedProperty       { return v.Copy2() }
-func (v CustomProperty) Copy() ValidatedProperty { return v.Copy2() }
+func (c CascadedProperty) ToV() ValidatedProperty {
+	return ValidatedProperty{CascadedProperty: c}
+}
 
 // Properties is the general container for validated, cascaded and computed properties.
 // In addition to the generic acces, an attempt to provide a "type safe" way is provided through the

@@ -1,61 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="WIP : computed values">
-      <change afterPath="$PROJECT_DIR$/macros/style_accessor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/css/accessors.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/css/defs.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/css/properties.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/css/s_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/ast.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/colors.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/An+B.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/LICENSE" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/README.rst" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/color3.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/color3_hsl.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/color3_keywords.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/component_value_list.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/declaration_list.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/make_color3_hsl.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/make_color3_keywords.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/one_component_value.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/one_declaration.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/one_rule.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/rule_list.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/stylesheet.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/css-parsing-tests/stylesheet_bytes.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/parse.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/parse_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/serialize.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/serialize_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/parser/tokenizer.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/properties/datas.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/properties/generated.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/properties/types.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/style/CSS.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/style/computed_values.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/style/media_query.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/style/style.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/style/style_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/style/target.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/descriptors.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/descriptors_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/expanders.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/expanders_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/utils.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/validation.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/validation/validation_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/go-weasyprint.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/go-weasyprint.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macros/copy.py" beforeDir="false" afterPath="$PROJECT_DIR$/macros/copy.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macros/style_accesor.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/properties/accessors.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/accessors.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/properties/initial_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/initial_values.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/properties/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/properties/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/utils.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/build.go" afterDir="false" />
-    </list>
+    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,6 +49,7 @@
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/deprecated" />
       <recent name="$PROJECT_DIR$/style" />
     </key>
   </component>
@@ -163,6 +110,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="WIP : boxes" />
     <MESSAGE value="WIP : computed values" />
-    <option name="LAST_COMMIT_MESSAGE" value="WIP : computed values" />
+    <MESSAGE value="refactor css properties types" />
+    <option name="LAST_COMMIT_MESSAGE" value="refactor css properties types" />
   </component>
 </project>

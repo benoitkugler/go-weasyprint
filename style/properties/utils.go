@@ -49,22 +49,14 @@ func (s GradientSize) IsExplicit() bool {
 
 // -------------- Images ------------------------
 
-func (i NoneImage) copyAsImage() Image           { return i }
-func (i UrlImage) copyAsImage() Image            { return i }
-func (i LinearGradient) copyAsImage() Image      { return i.copy() }
-func (i RadialGradient) copyAsImage() Image      { return i.copy() }
-func (i NoneImage) Copy() ValidatedProperty      { return i.Copy3() }
-func (i UrlImage) Copy() ValidatedProperty       { return i.Copy3() }
-func (i LinearGradient) Copy() ValidatedProperty { return i.Copy3() }
-func (i RadialGradient) Copy() ValidatedProperty { return i.Copy3() }
-func (i NoneImage) Copy2() CascadedProperty      { return i.Copy3() }
-func (i UrlImage) Copy2() CascadedProperty       { return i.Copy3() }
-func (i LinearGradient) Copy2() CascadedProperty { return i.Copy3() }
-func (i RadialGradient) Copy2() CascadedProperty { return i.Copy3() }
-func (i NoneImage) Copy3() CssProperty           { return i.Copy3() }
-func (i UrlImage) Copy3() CssProperty            { return i.Copy3() }
-func (i LinearGradient) Copy3() CssProperty      { return i.Copy3() }
-func (i RadialGradient) Copy3() CssProperty      { return i.Copy3() }
+func (i NoneImage) copyAsImage() Image      { return i }
+func (i UrlImage) copyAsImage() Image       { return i }
+func (i LinearGradient) copyAsImage() Image { return i.copy() }
+func (i RadialGradient) copyAsImage() Image { return i.copy() }
+func (i NoneImage) Copy() CssProperty       { return i.copyAsImage() }
+func (i UrlImage) Copy() CssProperty        { return i.copyAsImage() }
+func (i LinearGradient) Copy() CssProperty  { return i.copyAsImage() }
+func (i RadialGradient) Copy() CssProperty  { return i.copyAsImage() }
 
 // ------------------------- Usefull for test ---------------------------
 
