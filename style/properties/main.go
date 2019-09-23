@@ -16,17 +16,19 @@ type ValidatedProperty interface {
 
 type CascadedProperty interface {
 	ValidatedProperty
-	afterCascaded()
+	Copy2() CascadedProperty
 }
 
 type CssProperty interface {
 	CascadedProperty
-	afterCompute()
+	Copy3() CssProperty
 }
 
 type Inherit struct{}
-
 type Initial struct{}
+
+func (v Inherit) Copy() ValidatedProperty { return v }
+func (v Initial) Copy() ValidatedProperty { return v }
 
 type VarData struct {
 	Name        string // name of a custom property
@@ -39,11 +41,23 @@ type AttrData struct {
 	Fallback   CssProperty
 }
 
-type CustomProperty []parser.Token
+func (v VarData) Copy2() CascadedProperty {
+	out := v
+	out.Declaration = v.Declaration.copy()
+	return out
+}
+func (v AttrData) Copy2() CascadedProperty {
+	out := v
+	out.Fallback = v.Fallback.Copy3()
+	return out
+}
+func (v CustomProperty) Copy2() CascadedProperty {
+	return v.copy()
+}
 
-func (VarData) afterCascaded()        {}
-func (AttrData) afterCascaded()       {}
-func (CustomProperty) afterCascaded() {}
+func (v VarData) Copy() ValidatedProperty        { return v.Copy2() }
+func (v AttrData) Copy() ValidatedProperty       { return v.Copy2() }
+func (v CustomProperty) Copy() ValidatedProperty { return v.Copy2() }
 
 // Properties is the general container for validated, cascaded and computed properties.
 // In addition to the generic acces, an attempt to provide a "type safe" way is provided through the

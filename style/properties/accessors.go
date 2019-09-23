@@ -8,8 +8,6 @@ func (s Properties) GetBottom() Value {
 func (s Properties) SetBottom(v Value) {
 	s["bottom"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetCaptionSide() String {
 	return s["caption_side"].(String)
@@ -17,8 +15,6 @@ func (s Properties) GetCaptionSide() String {
 func (s Properties) SetCaptionSide(v String) {
 	s["caption_side"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetClear() String {
 	return s["clear"].(String)
@@ -26,8 +22,6 @@ func (s Properties) GetClear() String {
 func (s Properties) SetClear(v String) {
 	s["clear"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetClip() Values {
 	return s["clip"].(Values)
@@ -35,8 +29,6 @@ func (s Properties) GetClip() Values {
 func (s Properties) SetClip(v Values) {
 	s["clip"] = v
 }
-func (Values) afterCascaded() {}
-func (Values) afterCompute()  {}
 
 func (s Properties) GetColor() Color {
 	return s["color"].(Color)
@@ -44,8 +36,6 @@ func (s Properties) GetColor() Color {
 func (s Properties) SetColor(v Color) {
 	s["color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetCounterIncrement() SIntStrings {
 	return s["counter_increment"].(SIntStrings)
@@ -53,8 +43,6 @@ func (s Properties) GetCounterIncrement() SIntStrings {
 func (s Properties) SetCounterIncrement(v SIntStrings) {
 	s["counter_increment"] = v
 }
-func (SIntStrings) afterCascaded() {}
-func (SIntStrings) afterCompute()  {}
 
 func (s Properties) GetCounterReset() IntStrings {
 	return s["counter_reset"].(IntStrings)
@@ -62,8 +50,6 @@ func (s Properties) GetCounterReset() IntStrings {
 func (s Properties) SetCounterReset(v IntStrings) {
 	s["counter_reset"] = v
 }
-func (IntStrings) afterCascaded() {}
-func (IntStrings) afterCompute()  {}
 
 func (s Properties) GetDirection() String {
 	return s["direction"].(String)
@@ -71,8 +57,6 @@ func (s Properties) GetDirection() String {
 func (s Properties) SetDirection(v String) {
 	s["direction"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetDisplay() String {
 	return s["display"].(String)
@@ -80,8 +64,6 @@ func (s Properties) GetDisplay() String {
 func (s Properties) SetDisplay(v String) {
 	s["display"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetEmptyCells() String {
 	return s["empty_cells"].(String)
@@ -89,8 +71,6 @@ func (s Properties) GetEmptyCells() String {
 func (s Properties) SetEmptyCells(v String) {
 	s["empty_cells"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFloat() String {
 	return s["float"].(String)
@@ -98,8 +78,6 @@ func (s Properties) GetFloat() String {
 func (s Properties) SetFloat(v String) {
 	s["float"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetHeight() Value {
 	return s["height"].(Value)
@@ -107,8 +85,6 @@ func (s Properties) GetHeight() Value {
 func (s Properties) SetHeight(v Value) {
 	s["height"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetLeft() Value {
 	return s["left"].(Value)
@@ -116,8 +92,6 @@ func (s Properties) GetLeft() Value {
 func (s Properties) SetLeft(v Value) {
 	s["left"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetRight() Value {
 	return s["right"].(Value)
@@ -125,8 +99,6 @@ func (s Properties) GetRight() Value {
 func (s Properties) SetRight(v Value) {
 	s["right"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetLineHeight() Value {
 	return s["line_height"].(Value)
@@ -134,8 +106,6 @@ func (s Properties) GetLineHeight() Value {
 func (s Properties) SetLineHeight(v Value) {
 	s["line_height"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetListStyleImage() Image {
 	return s["list_style_image"].(Image)
@@ -143,8 +113,6 @@ func (s Properties) GetListStyleImage() Image {
 func (s Properties) SetListStyleImage(v Image) {
 	s["list_style_image"] = v
 }
-func (Image) afterCascaded() {}
-func (Image) afterCompute()  {}
 
 func (s Properties) GetListStylePosition() String {
 	return s["list_style_position"].(String)
@@ -152,8 +120,6 @@ func (s Properties) GetListStylePosition() String {
 func (s Properties) SetListStylePosition(v String) {
 	s["list_style_position"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetListStyleType() String {
 	return s["list_style_type"].(String)
@@ -161,8 +127,6 @@ func (s Properties) GetListStyleType() String {
 func (s Properties) SetListStyleType(v String) {
 	s["list_style_type"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetMarginTop() Value {
 	return s["margin_top"].(Value)
@@ -170,8 +134,6 @@ func (s Properties) GetMarginTop() Value {
 func (s Properties) SetMarginTop(v Value) {
 	s["margin_top"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMarginRight() Value {
 	return s["margin_right"].(Value)
@@ -179,8 +141,6 @@ func (s Properties) GetMarginRight() Value {
 func (s Properties) SetMarginRight(v Value) {
 	s["margin_right"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMarginBottom() Value {
 	return s["margin_bottom"].(Value)
@@ -188,8 +148,6 @@ func (s Properties) GetMarginBottom() Value {
 func (s Properties) SetMarginBottom(v Value) {
 	s["margin_bottom"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMarginLeft() Value {
 	return s["margin_left"].(Value)
@@ -197,8 +155,6 @@ func (s Properties) GetMarginLeft() Value {
 func (s Properties) SetMarginLeft(v Value) {
 	s["margin_left"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMaxHeight() Value {
 	return s["max_height"].(Value)
@@ -206,8 +162,6 @@ func (s Properties) GetMaxHeight() Value {
 func (s Properties) SetMaxHeight(v Value) {
 	s["max_height"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMaxWidth() Value {
 	return s["max_width"].(Value)
@@ -215,8 +169,6 @@ func (s Properties) GetMaxWidth() Value {
 func (s Properties) SetMaxWidth(v Value) {
 	s["max_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetPaddingTop() Value {
 	return s["padding_top"].(Value)
@@ -224,8 +176,6 @@ func (s Properties) GetPaddingTop() Value {
 func (s Properties) SetPaddingTop(v Value) {
 	s["padding_top"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetPaddingRight() Value {
 	return s["padding_right"].(Value)
@@ -233,8 +183,6 @@ func (s Properties) GetPaddingRight() Value {
 func (s Properties) SetPaddingRight(v Value) {
 	s["padding_right"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetPaddingBottom() Value {
 	return s["padding_bottom"].(Value)
@@ -242,8 +190,6 @@ func (s Properties) GetPaddingBottom() Value {
 func (s Properties) SetPaddingBottom(v Value) {
 	s["padding_bottom"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetPaddingLeft() Value {
 	return s["padding_left"].(Value)
@@ -251,8 +197,6 @@ func (s Properties) GetPaddingLeft() Value {
 func (s Properties) SetPaddingLeft(v Value) {
 	s["padding_left"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetPosition() String {
 	return s["position"].(String)
@@ -260,8 +204,6 @@ func (s Properties) GetPosition() String {
 func (s Properties) SetPosition(v String) {
 	s["position"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetTableLayout() String {
 	return s["table_layout"].(String)
@@ -269,8 +211,6 @@ func (s Properties) GetTableLayout() String {
 func (s Properties) SetTableLayout(v String) {
 	s["table_layout"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetTop() Value {
 	return s["top"].(Value)
@@ -278,8 +218,6 @@ func (s Properties) GetTop() Value {
 func (s Properties) SetTop(v Value) {
 	s["top"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetUnicodeBidi() String {
 	return s["unicode_bidi"].(String)
@@ -287,8 +225,6 @@ func (s Properties) GetUnicodeBidi() String {
 func (s Properties) SetUnicodeBidi(v String) {
 	s["unicode_bidi"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetVerticalAlign() Value {
 	return s["vertical_align"].(Value)
@@ -296,8 +232,6 @@ func (s Properties) GetVerticalAlign() Value {
 func (s Properties) SetVerticalAlign(v Value) {
 	s["vertical_align"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetVisibility() String {
 	return s["visibility"].(String)
@@ -305,8 +239,6 @@ func (s Properties) GetVisibility() String {
 func (s Properties) SetVisibility(v String) {
 	s["visibility"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetWidth() Value {
 	return s["width"].(Value)
@@ -314,8 +246,6 @@ func (s Properties) GetWidth() Value {
 func (s Properties) SetWidth(v Value) {
 	s["width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetZIndex() IntString {
 	return s["z_index"].(IntString)
@@ -323,8 +253,6 @@ func (s Properties) GetZIndex() IntString {
 func (s Properties) SetZIndex(v IntString) {
 	s["z_index"] = v
 }
-func (IntString) afterCascaded() {}
-func (IntString) afterCompute()  {}
 
 func (s Properties) GetBackgroundAttachment() Strings {
 	return s["background_attachment"].(Strings)
@@ -332,8 +260,6 @@ func (s Properties) GetBackgroundAttachment() Strings {
 func (s Properties) SetBackgroundAttachment(v Strings) {
 	s["background_attachment"] = v
 }
-func (Strings) afterCascaded() {}
-func (Strings) afterCompute()  {}
 
 func (s Properties) GetBackgroundClip() Strings {
 	return s["background_clip"].(Strings)
@@ -341,8 +267,6 @@ func (s Properties) GetBackgroundClip() Strings {
 func (s Properties) SetBackgroundClip(v Strings) {
 	s["background_clip"] = v
 }
-func (Strings) afterCascaded() {}
-func (Strings) afterCompute()  {}
 
 func (s Properties) GetBackgroundColor() Color {
 	return s["background_color"].(Color)
@@ -350,8 +274,6 @@ func (s Properties) GetBackgroundColor() Color {
 func (s Properties) SetBackgroundColor(v Color) {
 	s["background_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetBackgroundImage() Images {
 	return s["background_image"].(Images)
@@ -359,8 +281,6 @@ func (s Properties) GetBackgroundImage() Images {
 func (s Properties) SetBackgroundImage(v Images) {
 	s["background_image"] = v
 }
-func (Images) afterCascaded() {}
-func (Images) afterCompute()  {}
 
 func (s Properties) GetBackgroundOrigin() Strings {
 	return s["background_origin"].(Strings)
@@ -368,8 +288,6 @@ func (s Properties) GetBackgroundOrigin() Strings {
 func (s Properties) SetBackgroundOrigin(v Strings) {
 	s["background_origin"] = v
 }
-func (Strings) afterCascaded() {}
-func (Strings) afterCompute()  {}
 
 func (s Properties) GetBackgroundPosition() Centers {
 	return s["background_position"].(Centers)
@@ -377,8 +295,6 @@ func (s Properties) GetBackgroundPosition() Centers {
 func (s Properties) SetBackgroundPosition(v Centers) {
 	s["background_position"] = v
 }
-func (Centers) afterCascaded() {}
-func (Centers) afterCompute()  {}
 
 func (s Properties) GetBackgroundRepeat() Repeats {
 	return s["background_repeat"].(Repeats)
@@ -386,8 +302,6 @@ func (s Properties) GetBackgroundRepeat() Repeats {
 func (s Properties) SetBackgroundRepeat(v Repeats) {
 	s["background_repeat"] = v
 }
-func (Repeats) afterCascaded() {}
-func (Repeats) afterCompute()  {}
 
 func (s Properties) GetBackgroundSize() Sizes {
 	return s["background_size"].(Sizes)
@@ -395,8 +309,6 @@ func (s Properties) GetBackgroundSize() Sizes {
 func (s Properties) SetBackgroundSize(v Sizes) {
 	s["background_size"] = v
 }
-func (Sizes) afterCascaded() {}
-func (Sizes) afterCompute()  {}
 
 func (s Properties) GetBorderBottomColor() Color {
 	return s["border_bottom_color"].(Color)
@@ -404,8 +316,6 @@ func (s Properties) GetBorderBottomColor() Color {
 func (s Properties) SetBorderBottomColor(v Color) {
 	s["border_bottom_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetBorderLeftColor() Color {
 	return s["border_left_color"].(Color)
@@ -413,8 +323,6 @@ func (s Properties) GetBorderLeftColor() Color {
 func (s Properties) SetBorderLeftColor(v Color) {
 	s["border_left_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetBorderRightColor() Color {
 	return s["border_right_color"].(Color)
@@ -422,8 +330,6 @@ func (s Properties) GetBorderRightColor() Color {
 func (s Properties) SetBorderRightColor(v Color) {
 	s["border_right_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetBorderTopColor() Color {
 	return s["border_top_color"].(Color)
@@ -431,8 +337,6 @@ func (s Properties) GetBorderTopColor() Color {
 func (s Properties) SetBorderTopColor(v Color) {
 	s["border_top_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetBorderBottomStyle() String {
 	return s["border_bottom_style"].(String)
@@ -440,8 +344,6 @@ func (s Properties) GetBorderBottomStyle() String {
 func (s Properties) SetBorderBottomStyle(v String) {
 	s["border_bottom_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBorderLeftStyle() String {
 	return s["border_left_style"].(String)
@@ -449,8 +351,6 @@ func (s Properties) GetBorderLeftStyle() String {
 func (s Properties) SetBorderLeftStyle(v String) {
 	s["border_left_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBorderRightStyle() String {
 	return s["border_right_style"].(String)
@@ -458,8 +358,6 @@ func (s Properties) GetBorderRightStyle() String {
 func (s Properties) SetBorderRightStyle(v String) {
 	s["border_right_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBorderTopStyle() String {
 	return s["border_top_style"].(String)
@@ -467,8 +365,6 @@ func (s Properties) GetBorderTopStyle() String {
 func (s Properties) SetBorderTopStyle(v String) {
 	s["border_top_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBorderCollapse() String {
 	return s["border_collapse"].(String)
@@ -476,8 +372,6 @@ func (s Properties) GetBorderCollapse() String {
 func (s Properties) SetBorderCollapse(v String) {
 	s["border_collapse"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBorderSpacing() Point {
 	return s["border_spacing"].(Point)
@@ -485,8 +379,6 @@ func (s Properties) GetBorderSpacing() Point {
 func (s Properties) SetBorderSpacing(v Point) {
 	s["border_spacing"] = v
 }
-func (Point) afterCascaded() {}
-func (Point) afterCompute()  {}
 
 func (s Properties) GetBorderBottomWidth() Value {
 	return s["border_bottom_width"].(Value)
@@ -494,8 +386,6 @@ func (s Properties) GetBorderBottomWidth() Value {
 func (s Properties) SetBorderBottomWidth(v Value) {
 	s["border_bottom_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBorderLeftWidth() Value {
 	return s["border_left_width"].(Value)
@@ -503,8 +393,6 @@ func (s Properties) GetBorderLeftWidth() Value {
 func (s Properties) SetBorderLeftWidth(v Value) {
 	s["border_left_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBorderTopWidth() Value {
 	return s["border_top_width"].(Value)
@@ -512,8 +400,6 @@ func (s Properties) GetBorderTopWidth() Value {
 func (s Properties) SetBorderTopWidth(v Value) {
 	s["border_top_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBorderRightWidth() Value {
 	return s["border_right_width"].(Value)
@@ -521,8 +407,6 @@ func (s Properties) GetBorderRightWidth() Value {
 func (s Properties) SetBorderRightWidth(v Value) {
 	s["border_right_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBorderBottomLeftRadius() Values {
 	return s["border_bottom_left_radius"].(Values)
@@ -530,8 +414,6 @@ func (s Properties) GetBorderBottomLeftRadius() Values {
 func (s Properties) SetBorderBottomLeftRadius(v Values) {
 	s["border_bottom_left_radius"] = v
 }
-func (Values) afterCascaded() {}
-func (Values) afterCompute()  {}
 
 func (s Properties) GetBorderBottomRightRadius() Values {
 	return s["border_bottom_right_radius"].(Values)
@@ -539,8 +421,6 @@ func (s Properties) GetBorderBottomRightRadius() Values {
 func (s Properties) SetBorderBottomRightRadius(v Values) {
 	s["border_bottom_right_radius"] = v
 }
-func (Values) afterCascaded() {}
-func (Values) afterCompute()  {}
 
 func (s Properties) GetBorderTopLeftRadius() Values {
 	return s["border_top_left_radius"].(Values)
@@ -548,8 +428,6 @@ func (s Properties) GetBorderTopLeftRadius() Values {
 func (s Properties) SetBorderTopLeftRadius(v Values) {
 	s["border_top_left_radius"] = v
 }
-func (Values) afterCascaded() {}
-func (Values) afterCompute()  {}
 
 func (s Properties) GetBorderTopRightRadius() Values {
 	return s["border_top_right_radius"].(Values)
@@ -557,8 +435,6 @@ func (s Properties) GetBorderTopRightRadius() Values {
 func (s Properties) SetBorderTopRightRadius(v Values) {
 	s["border_top_right_radius"] = v
 }
-func (Values) afterCascaded() {}
-func (Values) afterCompute()  {}
 
 func (s Properties) GetOpacity() Float {
 	return s["opacity"].(Float)
@@ -566,8 +442,6 @@ func (s Properties) GetOpacity() Float {
 func (s Properties) SetOpacity(v Float) {
 	s["opacity"] = v
 }
-func (Float) afterCascaded() {}
-func (Float) afterCompute()  {}
 
 func (s Properties) GetColumnWidth() Value {
 	return s["column_width"].(Value)
@@ -575,8 +449,6 @@ func (s Properties) GetColumnWidth() Value {
 func (s Properties) SetColumnWidth(v Value) {
 	s["column_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetColumnCount() Value {
 	return s["column_count"].(Value)
@@ -584,8 +456,6 @@ func (s Properties) GetColumnCount() Value {
 func (s Properties) SetColumnCount(v Value) {
 	s["column_count"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetColumnGap() Value {
 	return s["column_gap"].(Value)
@@ -593,8 +463,6 @@ func (s Properties) GetColumnGap() Value {
 func (s Properties) SetColumnGap(v Value) {
 	s["column_gap"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetColumnRuleColor() Color {
 	return s["column_rule_color"].(Color)
@@ -602,8 +470,6 @@ func (s Properties) GetColumnRuleColor() Color {
 func (s Properties) SetColumnRuleColor(v Color) {
 	s["column_rule_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetColumnRuleStyle() String {
 	return s["column_rule_style"].(String)
@@ -611,8 +477,6 @@ func (s Properties) GetColumnRuleStyle() String {
 func (s Properties) SetColumnRuleStyle(v String) {
 	s["column_rule_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetColumnRuleWidth() Value {
 	return s["column_rule_width"].(Value)
@@ -620,8 +484,6 @@ func (s Properties) GetColumnRuleWidth() Value {
 func (s Properties) SetColumnRuleWidth(v Value) {
 	s["column_rule_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetColumnFill() String {
 	return s["column_fill"].(String)
@@ -629,8 +491,6 @@ func (s Properties) GetColumnFill() String {
 func (s Properties) SetColumnFill(v String) {
 	s["column_fill"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetColumnSpan() String {
 	return s["column_span"].(String)
@@ -638,8 +498,6 @@ func (s Properties) GetColumnSpan() String {
 func (s Properties) SetColumnSpan(v String) {
 	s["column_span"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontFamily() Strings {
 	return s["font_family"].(Strings)
@@ -647,8 +505,6 @@ func (s Properties) GetFontFamily() Strings {
 func (s Properties) SetFontFamily(v Strings) {
 	s["font_family"] = v
 }
-func (Strings) afterCascaded() {}
-func (Strings) afterCompute()  {}
 
 func (s Properties) GetFontFeatureSettings() SIntStrings {
 	return s["font_feature_settings"].(SIntStrings)
@@ -656,8 +512,6 @@ func (s Properties) GetFontFeatureSettings() SIntStrings {
 func (s Properties) SetFontFeatureSettings(v SIntStrings) {
 	s["font_feature_settings"] = v
 }
-func (SIntStrings) afterCascaded() {}
-func (SIntStrings) afterCompute()  {}
 
 func (s Properties) GetFontKerning() String {
 	return s["font_kerning"].(String)
@@ -665,8 +519,6 @@ func (s Properties) GetFontKerning() String {
 func (s Properties) SetFontKerning(v String) {
 	s["font_kerning"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontLanguageOverride() String {
 	return s["font_language_override"].(String)
@@ -674,8 +526,6 @@ func (s Properties) GetFontLanguageOverride() String {
 func (s Properties) SetFontLanguageOverride(v String) {
 	s["font_language_override"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontSize() Value {
 	return s["font_size"].(Value)
@@ -683,8 +533,6 @@ func (s Properties) GetFontSize() Value {
 func (s Properties) SetFontSize(v Value) {
 	s["font_size"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetFontStretch() String {
 	return s["font_stretch"].(String)
@@ -692,8 +540,6 @@ func (s Properties) GetFontStretch() String {
 func (s Properties) SetFontStretch(v String) {
 	s["font_stretch"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontStyle() String {
 	return s["font_style"].(String)
@@ -701,8 +547,6 @@ func (s Properties) GetFontStyle() String {
 func (s Properties) SetFontStyle(v String) {
 	s["font_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontVariant() String {
 	return s["font_variant"].(String)
@@ -710,8 +554,6 @@ func (s Properties) GetFontVariant() String {
 func (s Properties) SetFontVariant(v String) {
 	s["font_variant"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontVariantAlternates() String {
 	return s["font_variant_alternates"].(String)
@@ -719,8 +561,6 @@ func (s Properties) GetFontVariantAlternates() String {
 func (s Properties) SetFontVariantAlternates(v String) {
 	s["font_variant_alternates"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontVariantCaps() String {
 	return s["font_variant_caps"].(String)
@@ -728,8 +568,6 @@ func (s Properties) GetFontVariantCaps() String {
 func (s Properties) SetFontVariantCaps(v String) {
 	s["font_variant_caps"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontVariantEastAsian() SStrings {
 	return s["font_variant_east_asian"].(SStrings)
@@ -737,8 +575,6 @@ func (s Properties) GetFontVariantEastAsian() SStrings {
 func (s Properties) SetFontVariantEastAsian(v SStrings) {
 	s["font_variant_east_asian"] = v
 }
-func (SStrings) afterCascaded() {}
-func (SStrings) afterCompute()  {}
 
 func (s Properties) GetFontVariantLigatures() SStrings {
 	return s["font_variant_ligatures"].(SStrings)
@@ -746,8 +582,6 @@ func (s Properties) GetFontVariantLigatures() SStrings {
 func (s Properties) SetFontVariantLigatures(v SStrings) {
 	s["font_variant_ligatures"] = v
 }
-func (SStrings) afterCascaded() {}
-func (SStrings) afterCompute()  {}
 
 func (s Properties) GetFontVariantNumeric() SStrings {
 	return s["font_variant_numeric"].(SStrings)
@@ -755,8 +589,6 @@ func (s Properties) GetFontVariantNumeric() SStrings {
 func (s Properties) SetFontVariantNumeric(v SStrings) {
 	s["font_variant_numeric"] = v
 }
-func (SStrings) afterCascaded() {}
-func (SStrings) afterCompute()  {}
 
 func (s Properties) GetFontVariantPosition() String {
 	return s["font_variant_position"].(String)
@@ -764,8 +596,6 @@ func (s Properties) GetFontVariantPosition() String {
 func (s Properties) SetFontVariantPosition(v String) {
 	s["font_variant_position"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFontWeight() IntString {
 	return s["font_weight"].(IntString)
@@ -773,8 +603,6 @@ func (s Properties) GetFontWeight() IntString {
 func (s Properties) SetFontWeight(v IntString) {
 	s["font_weight"] = v
 }
-func (IntString) afterCascaded() {}
-func (IntString) afterCompute()  {}
 
 func (s Properties) GetBoxDecorationBreak() String {
 	return s["box_decoration_break"].(String)
@@ -782,8 +610,6 @@ func (s Properties) GetBoxDecorationBreak() String {
 func (s Properties) SetBoxDecorationBreak(v String) {
 	s["box_decoration_break"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBreakAfter() String {
 	return s["break_after"].(String)
@@ -791,8 +617,6 @@ func (s Properties) GetBreakAfter() String {
 func (s Properties) SetBreakAfter(v String) {
 	s["break_after"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBreakBefore() String {
 	return s["break_before"].(String)
@@ -800,8 +624,6 @@ func (s Properties) GetBreakBefore() String {
 func (s Properties) SetBreakBefore(v String) {
 	s["break_before"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetBreakInside() String {
 	return s["break_inside"].(String)
@@ -809,8 +631,6 @@ func (s Properties) GetBreakInside() String {
 func (s Properties) SetBreakInside(v String) {
 	s["break_inside"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetMarginBreak() String {
 	return s["margin_break"].(String)
@@ -818,8 +638,6 @@ func (s Properties) GetMarginBreak() String {
 func (s Properties) SetMarginBreak(v String) {
 	s["margin_break"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetOrphans() Int {
 	return s["orphans"].(Int)
@@ -827,8 +645,6 @@ func (s Properties) GetOrphans() Int {
 func (s Properties) SetOrphans(v Int) {
 	s["orphans"] = v
 }
-func (Int) afterCascaded() {}
-func (Int) afterCompute()  {}
 
 func (s Properties) GetWidows() Int {
 	return s["widows"].(Int)
@@ -836,17 +652,13 @@ func (s Properties) GetWidows() Int {
 func (s Properties) SetWidows(v Int) {
 	s["widows"] = v
 }
-func (Int) afterCascaded() {}
-func (Int) afterCompute()  {}
 
-func (s Properties) GetBookmarkLabel() BookmarkLabel {
-	return s["bookmark_label"].(BookmarkLabel)
+func (s Properties) GetBookmarkLabel() ContentProperties {
+	return s["bookmark_label"].(ContentProperties)
 }
-func (s Properties) SetBookmarkLabel(v BookmarkLabel) {
+func (s Properties) SetBookmarkLabel(v ContentProperties) {
 	s["bookmark_label"] = v
 }
-func (BookmarkLabel) afterCascaded() {}
-func (BookmarkLabel) afterCompute()  {}
 
 func (s Properties) GetBookmarkLevel() IntString {
 	return s["bookmark_level"].(IntString)
@@ -854,8 +666,6 @@ func (s Properties) GetBookmarkLevel() IntString {
 func (s Properties) SetBookmarkLevel(v IntString) {
 	s["bookmark_level"] = v
 }
-func (IntString) afterCascaded() {}
-func (IntString) afterCompute()  {}
 
 func (s Properties) GetBookmarkState() String {
 	return s["bookmark_state"].(String)
@@ -863,8 +673,6 @@ func (s Properties) GetBookmarkState() String {
 func (s Properties) SetBookmarkState(v String) {
 	s["bookmark_state"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetContent() SContent {
 	return s["content"].(SContent)
@@ -872,8 +680,6 @@ func (s Properties) GetContent() SContent {
 func (s Properties) SetContent(v SContent) {
 	s["content"] = v
 }
-func (SContent) afterCascaded() {}
-func (SContent) afterCompute()  {}
 
 func (s Properties) GetQuotes() Quotes {
 	return s["quotes"].(Quotes)
@@ -881,8 +687,6 @@ func (s Properties) GetQuotes() Quotes {
 func (s Properties) SetQuotes(v Quotes) {
 	s["quotes"] = v
 }
-func (Quotes) afterCascaded() {}
-func (Quotes) afterCompute()  {}
 
 func (s Properties) GetStringSet() StringSet {
 	return s["string_set"].(StringSet)
@@ -890,8 +694,6 @@ func (s Properties) GetStringSet() StringSet {
 func (s Properties) SetStringSet(v StringSet) {
 	s["string_set"] = v
 }
-func (StringSet) afterCascaded() {}
-func (StringSet) afterCompute()  {}
 
 func (s Properties) GetImageResolution() Value {
 	return s["image_resolution"].(Value)
@@ -899,8 +701,6 @@ func (s Properties) GetImageResolution() Value {
 func (s Properties) SetImageResolution(v Value) {
 	s["image_resolution"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetImageRendering() String {
 	return s["image_rendering"].(String)
@@ -908,8 +708,6 @@ func (s Properties) GetImageRendering() String {
 func (s Properties) SetImageRendering(v String) {
 	s["image_rendering"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetObjectFit() String {
 	return s["object_fit"].(String)
@@ -917,8 +715,6 @@ func (s Properties) GetObjectFit() String {
 func (s Properties) SetObjectFit(v String) {
 	s["object_fit"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetObjectPosition() Center {
 	return s["object_position"].(Center)
@@ -926,8 +722,6 @@ func (s Properties) GetObjectPosition() Center {
 func (s Properties) SetObjectPosition(v Center) {
 	s["object_position"] = v
 }
-func (Center) afterCascaded() {}
-func (Center) afterCompute()  {}
 
 func (s Properties) GetSize() Values {
 	return s["size"].(Values)
@@ -935,8 +729,6 @@ func (s Properties) GetSize() Values {
 func (s Properties) SetSize(v Values) {
 	s["size"] = v
 }
-func (Values) afterCascaded() {}
-func (Values) afterCompute()  {}
 
 func (s Properties) GetPage() Page {
 	return s["page"].(Page)
@@ -944,8 +736,6 @@ func (s Properties) GetPage() Page {
 func (s Properties) SetPage(v Page) {
 	s["page"] = v
 }
-func (Page) afterCascaded() {}
-func (Page) afterCompute()  {}
 
 func (s Properties) GetBleedLeft() Value {
 	return s["bleed_left"].(Value)
@@ -953,8 +743,6 @@ func (s Properties) GetBleedLeft() Value {
 func (s Properties) SetBleedLeft(v Value) {
 	s["bleed_left"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBleedRight() Value {
 	return s["bleed_right"].(Value)
@@ -962,8 +750,6 @@ func (s Properties) GetBleedRight() Value {
 func (s Properties) SetBleedRight(v Value) {
 	s["bleed_right"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBleedTop() Value {
 	return s["bleed_top"].(Value)
@@ -971,8 +757,6 @@ func (s Properties) GetBleedTop() Value {
 func (s Properties) SetBleedTop(v Value) {
 	s["bleed_top"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetBleedBottom() Value {
 	return s["bleed_bottom"].(Value)
@@ -980,8 +764,6 @@ func (s Properties) GetBleedBottom() Value {
 func (s Properties) SetBleedBottom(v Value) {
 	s["bleed_bottom"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMarks() Marks {
 	return s["marks"].(Marks)
@@ -989,8 +771,6 @@ func (s Properties) GetMarks() Marks {
 func (s Properties) SetMarks(v Marks) {
 	s["marks"] = v
 }
-func (Marks) afterCascaded() {}
-func (Marks) afterCompute()  {}
 
 func (s Properties) GetHyphenateCharacter() String {
 	return s["hyphenate_character"].(String)
@@ -998,8 +778,6 @@ func (s Properties) GetHyphenateCharacter() String {
 func (s Properties) SetHyphenateCharacter(v String) {
 	s["hyphenate_character"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetHyphenateLimitChars() Ints3 {
 	return s["hyphenate_limit_chars"].(Ints3)
@@ -1007,8 +785,6 @@ func (s Properties) GetHyphenateLimitChars() Ints3 {
 func (s Properties) SetHyphenateLimitChars(v Ints3) {
 	s["hyphenate_limit_chars"] = v
 }
-func (Ints3) afterCascaded() {}
-func (Ints3) afterCompute()  {}
 
 func (s Properties) GetHyphenateLimitZone() Value {
 	return s["hyphenate_limit_zone"].(Value)
@@ -1016,8 +792,6 @@ func (s Properties) GetHyphenateLimitZone() Value {
 func (s Properties) SetHyphenateLimitZone(v Value) {
 	s["hyphenate_limit_zone"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetHyphens() String {
 	return s["hyphens"].(String)
@@ -1025,8 +799,6 @@ func (s Properties) GetHyphens() String {
 func (s Properties) SetHyphens(v String) {
 	s["hyphens"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetLetterSpacing() Value {
 	return s["letter_spacing"].(Value)
@@ -1034,8 +806,6 @@ func (s Properties) GetLetterSpacing() Value {
 func (s Properties) SetLetterSpacing(v Value) {
 	s["letter_spacing"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetTabSize() Value {
 	return s["tab_size"].(Value)
@@ -1043,8 +813,6 @@ func (s Properties) GetTabSize() Value {
 func (s Properties) SetTabSize(v Value) {
 	s["tab_size"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetTextAlign() String {
 	return s["text_align"].(String)
@@ -1052,8 +820,6 @@ func (s Properties) GetTextAlign() String {
 func (s Properties) SetTextAlign(v String) {
 	s["text_align"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetTextIndent() Value {
 	return s["text_indent"].(Value)
@@ -1061,8 +827,6 @@ func (s Properties) GetTextIndent() Value {
 func (s Properties) SetTextIndent(v Value) {
 	s["text_indent"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetTextTransform() String {
 	return s["text_transform"].(String)
@@ -1070,8 +834,6 @@ func (s Properties) GetTextTransform() String {
 func (s Properties) SetTextTransform(v String) {
 	s["text_transform"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetWhiteSpace() String {
 	return s["white_space"].(String)
@@ -1079,8 +841,6 @@ func (s Properties) GetWhiteSpace() String {
 func (s Properties) SetWhiteSpace(v String) {
 	s["white_space"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetWordSpacing() Value {
 	return s["word_spacing"].(Value)
@@ -1088,8 +848,6 @@ func (s Properties) GetWordSpacing() Value {
 func (s Properties) SetWordSpacing(v Value) {
 	s["word_spacing"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetTransformOrigin() Point {
 	return s["transform_origin"].(Point)
@@ -1097,8 +855,6 @@ func (s Properties) GetTransformOrigin() Point {
 func (s Properties) SetTransformOrigin(v Point) {
 	s["transform_origin"] = v
 }
-func (Point) afterCascaded() {}
-func (Point) afterCompute()  {}
 
 func (s Properties) GetTransform() Transforms {
 	return s["transform"].(Transforms)
@@ -1106,8 +862,6 @@ func (s Properties) GetTransform() Transforms {
 func (s Properties) SetTransform(v Transforms) {
 	s["transform"] = v
 }
-func (Transforms) afterCascaded() {}
-func (Transforms) afterCompute()  {}
 
 func (s Properties) GetBoxSizing() String {
 	return s["box_sizing"].(String)
@@ -1115,8 +869,6 @@ func (s Properties) GetBoxSizing() String {
 func (s Properties) SetBoxSizing(v String) {
 	s["box_sizing"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetOutlineColor() Color {
 	return s["outline_color"].(Color)
@@ -1124,8 +876,6 @@ func (s Properties) GetOutlineColor() Color {
 func (s Properties) SetOutlineColor(v Color) {
 	s["outline_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetOutlineStyle() String {
 	return s["outline_style"].(String)
@@ -1133,8 +883,6 @@ func (s Properties) GetOutlineStyle() String {
 func (s Properties) SetOutlineStyle(v String) {
 	s["outline_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetOutlineWidth() Value {
 	return s["outline_width"].(Value)
@@ -1142,8 +890,6 @@ func (s Properties) GetOutlineWidth() Value {
 func (s Properties) SetOutlineWidth(v Value) {
 	s["outline_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetOverflowWrap() String {
 	return s["overflow_wrap"].(String)
@@ -1151,8 +897,6 @@ func (s Properties) GetOverflowWrap() String {
 func (s Properties) SetOverflowWrap(v String) {
 	s["overflow_wrap"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetAlignContent() String {
 	return s["align_content"].(String)
@@ -1160,8 +904,6 @@ func (s Properties) GetAlignContent() String {
 func (s Properties) SetAlignContent(v String) {
 	s["align_content"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetAlignItems() String {
 	return s["align_items"].(String)
@@ -1169,8 +911,6 @@ func (s Properties) GetAlignItems() String {
 func (s Properties) SetAlignItems(v String) {
 	s["align_items"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetAlignSelf() String {
 	return s["align_self"].(String)
@@ -1178,8 +918,6 @@ func (s Properties) GetAlignSelf() String {
 func (s Properties) SetAlignSelf(v String) {
 	s["align_self"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFlexBasis() Value {
 	return s["flex_basis"].(Value)
@@ -1187,8 +925,6 @@ func (s Properties) GetFlexBasis() Value {
 func (s Properties) SetFlexBasis(v Value) {
 	s["flex_basis"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetFlexDirection() String {
 	return s["flex_direction"].(String)
@@ -1196,8 +932,6 @@ func (s Properties) GetFlexDirection() String {
 func (s Properties) SetFlexDirection(v String) {
 	s["flex_direction"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetFlexGrow() Float {
 	return s["flex_grow"].(Float)
@@ -1205,8 +939,6 @@ func (s Properties) GetFlexGrow() Float {
 func (s Properties) SetFlexGrow(v Float) {
 	s["flex_grow"] = v
 }
-func (Float) afterCascaded() {}
-func (Float) afterCompute()  {}
 
 func (s Properties) GetFlexShrink() Float {
 	return s["flex_shrink"].(Float)
@@ -1214,8 +946,6 @@ func (s Properties) GetFlexShrink() Float {
 func (s Properties) SetFlexShrink(v Float) {
 	s["flex_shrink"] = v
 }
-func (Float) afterCascaded() {}
-func (Float) afterCompute()  {}
 
 func (s Properties) GetFlexWrap() String {
 	return s["flex_wrap"].(String)
@@ -1223,8 +953,6 @@ func (s Properties) GetFlexWrap() String {
 func (s Properties) SetFlexWrap(v String) {
 	s["flex_wrap"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetJustifyContent() String {
 	return s["justify_content"].(String)
@@ -1232,8 +960,6 @@ func (s Properties) GetJustifyContent() String {
 func (s Properties) SetJustifyContent(v String) {
 	s["justify_content"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetMinHeight() Value {
 	return s["min_height"].(Value)
@@ -1241,8 +967,6 @@ func (s Properties) GetMinHeight() Value {
 func (s Properties) SetMinHeight(v Value) {
 	s["min_height"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetMinWidth() Value {
 	return s["min_width"].(Value)
@@ -1250,8 +974,6 @@ func (s Properties) GetMinWidth() Value {
 func (s Properties) SetMinWidth(v Value) {
 	s["min_width"] = v
 }
-func (Value) afterCascaded() {}
-func (Value) afterCompute()  {}
 
 func (s Properties) GetOrder() Int {
 	return s["order"].(Int)
@@ -1259,8 +981,6 @@ func (s Properties) GetOrder() Int {
 func (s Properties) SetOrder(v Int) {
 	s["order"] = v
 }
-func (Int) afterCascaded() {}
-func (Int) afterCompute()  {}
 
 func (s Properties) GetTextDecorationLine() NDecorations {
 	return s["text_decoration_line"].(NDecorations)
@@ -1268,8 +988,6 @@ func (s Properties) GetTextDecorationLine() NDecorations {
 func (s Properties) SetTextDecorationLine(v NDecorations) {
 	s["text_decoration_line"] = v
 }
-func (NDecorations) afterCascaded() {}
-func (NDecorations) afterCompute()  {}
 
 func (s Properties) GetTextDecorationColor() Color {
 	return s["text_decoration_color"].(Color)
@@ -1277,8 +995,6 @@ func (s Properties) GetTextDecorationColor() Color {
 func (s Properties) SetTextDecorationColor(v Color) {
 	s["text_decoration_color"] = v
 }
-func (Color) afterCascaded() {}
-func (Color) afterCompute()  {}
 
 func (s Properties) GetTextDecorationStyle() String {
 	return s["text_decoration_style"].(String)
@@ -1286,8 +1002,6 @@ func (s Properties) GetTextDecorationStyle() String {
 func (s Properties) SetTextDecorationStyle(v String) {
 	s["text_decoration_style"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetOverflow() String {
 	return s["overflow"].(String)
@@ -1295,8 +1009,6 @@ func (s Properties) GetOverflow() String {
 func (s Properties) SetOverflow(v String) {
 	s["overflow"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetTextOverflow() String {
 	return s["text_overflow"].(String)
@@ -1304,8 +1016,6 @@ func (s Properties) GetTextOverflow() String {
 func (s Properties) SetTextOverflow(v String) {
 	s["text_overflow"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}
 
 func (s Properties) GetAnchor() NamedString {
 	return s["anchor"].(NamedString)
@@ -1313,8 +1023,6 @@ func (s Properties) GetAnchor() NamedString {
 func (s Properties) SetAnchor(v NamedString) {
 	s["anchor"] = v
 }
-func (NamedString) afterCascaded() {}
-func (NamedString) afterCompute()  {}
 
 func (s Properties) GetLink() NamedString {
 	return s["link"].(NamedString)
@@ -1322,8 +1030,6 @@ func (s Properties) GetLink() NamedString {
 func (s Properties) SetLink(v NamedString) {
 	s["link"] = v
 }
-func (NamedString) afterCascaded() {}
-func (NamedString) afterCompute()  {}
 
 func (s Properties) GetLang() NamedString {
 	return s["lang"].(NamedString)
@@ -1331,8 +1037,6 @@ func (s Properties) GetLang() NamedString {
 func (s Properties) SetLang(v NamedString) {
 	s["lang"] = v
 }
-func (NamedString) afterCascaded() {}
-func (NamedString) afterCompute()  {}
 
 func (s Properties) GetWeasySpecifiedDisplay() String {
 	return s["_weasy_specified_display"].(String)
@@ -1340,5 +1044,3 @@ func (s Properties) GetWeasySpecifiedDisplay() String {
 func (s Properties) SetWeasySpecifiedDisplay(v String) {
 	s["_weasy_specified_display"] = v
 }
-func (String) afterCascaded() {}
-func (String) afterCompute()  {}

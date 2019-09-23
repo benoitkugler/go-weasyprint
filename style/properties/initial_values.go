@@ -3,7 +3,7 @@ package properties
 import (
 	"math"
 
-	"github.com/benoitkugler/go-weasyprint/css/parser"
+	"github.com/benoitkugler/go-weasyprint/style/parser"
 )
 
 var InitialValues = Properties{
@@ -119,7 +119,7 @@ var InitialValues = Properties{
 	"widows":               Int(2),
 
 	// Generated Content 3 (WD): https://www.w3.org/TR/css-content-3/
-	"bookmark_label": BookmarkLabel{{Type: "content", Content: String("text")}},
+	"bookmark_label": ContentProperties{{Type: "content", Content: String("text")}},
 	"bookmark_level": IntString{String: "none"},
 	"bookmark_state": String("open"),
 	"content":        SContent{String: "normal"},

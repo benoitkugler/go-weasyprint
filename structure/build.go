@@ -1329,10 +1329,10 @@ func setContentLists(element *html.Node, box AllBox, style css.StyleDict, counte
 	}
 	box.BaseBox().stringSet = stringSet
 
-	if style.BookmarkLabel.Name == "none" {
+	if style.ContentProperties.Name == "none" {
 		box.BaseBox().bookmarkLabel = ""
 	} else {
-		box.BaseBox().bookmarkLabel = computeContentListString(element, box, counterValues, style.BookmarkLabel.Values)
+		box.BaseBox().bookmarkLabel = computeContentListString(element, box, counterValues, style.ContentProperties.Values)
 	}
 
 }
