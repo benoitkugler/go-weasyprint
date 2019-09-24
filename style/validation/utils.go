@@ -2,34 +2,33 @@ package validation
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/structure/counters"
-	. "github.com/benoitkugler/go-weasyprint/style/css"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 var (
 	// Default fallback values used in attr() functions
-	attrFallbacks = map[string]AttrFallback{
-		"string":  {Name: "string", Value: String("")},
-		"color":   {Name: "ident", Value: String("currentcolor")},
-		"url":     {Name: "external", Value: String("about:invalid")},
-		"integer": {Name: "number", Value: Dimension{Unit: Scalar}.ToValue()},
-		"number":  {Name: "number", Value: Dimension{Unit: Scalar}.ToValue()},
-		"%":       {Name: "number", Value: Dimension{Unit: Scalar}.ToValue()},
+	attrFallbacks = map[string]pr.CssProperty{
+		"string":  pr.String(""),
+		"color":   pr.String("currentcolor"),
+		"url":     pr.String("about:invalid"),
+		"integer": pr.Dimension{Unit: pr.Scalar}.ToValue(),
+		"number":  pr.Dimension{Unit: pr.Scalar}.ToValue(),
+		"%":       pr.Dimension{Unit: pr.Scalar}.ToValue(),
 	}
 )
 
 func init() {
 	for unitString, unit := range LENGTHUNITS {
-		attrFallbacks[unitString] = AttrFallback{Name: "length", Value: Dimension{Unit: unit}.ToValue()}
+		attrFallbacks[unitString] = pr.Dimension{Unit: unit}.ToValue()
 	}
-	for unit := range ANGLETORADIANS {
-		attrFallbacks[unit] = AttrFallback{Name: "angle", Value: Dimension{Unit: LENGTHUNITS[unit]}.ToValue()}
+	for unitString, unit := range AngleUnits {
+		attrFallbacks[unitString] = pr.Dimension{Unit: unit}.ToValue()
 	}
 }
 
@@ -75,19 +74,15 @@ func getCustomIdent(token Token) string {
 }
 
 // Parse an <image> token.
-func getImage(_token Token, baseUrl string) (Image, error) {
+func getImage(_token Token, baseUrl string) (pr.Image, error) {
 	token, ok := _token.(parser.FunctionBlock)
 	if !ok {
-		parsed, err := getUrl(_token, baseUrl)
+		parsed, _, err := getUrl(_token, baseUrl)
 		if err != nil {
 			return nil, err
 		}
-		parsedUrl, ok := parsed.Content.(NamedString)
-		if !ok {
-			log.Fatalln("content should be an url here")
-		}
-		if parsedUrl.Name == "external" {
-			return UrlImage(parsedUrl.String), nil
+		if parsed.Name == "external" {
+			return pr.UrlImage(parsed.String), nil
 		}
 		return nil, nil
 	}
@@ -98,14 +93,14 @@ func getImage(_token Token, baseUrl string) (Image, error) {
 	case "linear-gradient", "repeating-linear-gradient":
 		direction, colorStops := parseLinearGradientParameters(arguments)
 		if len(colorStops) > 0 {
-			parsedColorsStop := make([]ColorStop, len(colorStops))
+			parsedColorsStop := make([]pr.ColorStop, len(colorStops))
 			for index, stop := range colorStops {
 				parsedColorsStop[index], err = parseColorStop(stop)
 				if err != nil {
 					return nil, err
 				}
 			}
-			return LinearGradient{
+			return pr.LinearGradient{
 				Direction:  direction,
 				Repeating:  name == "repeating-linear-gradient",
 				ColorStops: parsedColorsStop,
@@ -115,19 +110,19 @@ func getImage(_token Token, baseUrl string) (Image, error) {
 		result := parseRadialGradientParameters(arguments)
 		if result.IsNone() {
 			result.shape = "ellipse"
-			result.size = GradientSize{Keyword: "farthest-corner"}
-			result.position = Center{OriginX: "left", OriginY: "top", Pos: Point{fiftyPercent, fiftyPercent}}
+			result.size = pr.GradientSize{Keyword: "farthest-corner"}
+			result.position = pr.Center{OriginX: "left", OriginY: "top", Pos: pr.Point{fiftyPercent, fiftyPercent}}
 			result.colorStops = arguments
 		}
 		if len(result.colorStops) > 0 {
-			parsedColorsStop := make([]ColorStop, len(result.colorStops))
+			parsedColorsStop := make([]pr.ColorStop, len(result.colorStops))
 			for index, stop := range result.colorStops {
 				parsedColorsStop[index], err = parseColorStop(stop)
 				if err != nil {
 					return nil, err
 				}
 			}
-			return RadialGradient{
+			return pr.RadialGradient{
 				ColorStops: parsedColorsStop,
 				Shape:      result.shape,
 				Size:       result.size,
@@ -139,12 +134,12 @@ func getImage(_token Token, baseUrl string) (Image, error) {
 	return nil, nil
 }
 
-func parseLinearGradientParameters(arguments [][]Token) (DirectionType, [][]Token) {
+func parseLinearGradientParameters(arguments [][]Token) (pr.DirectionType, [][]Token) {
 	firstArg := arguments[0]
 	if len(firstArg) == 1 {
 		angle, isNotNone := getAngle(firstArg[0])
 		if isNotNone {
-			return DirectionType{Angle: angle}, arguments[1:]
+			return pr.DirectionType{Angle: angle}, arguments[1:]
 		}
 	} else {
 		var mapped [3]string
@@ -158,7 +153,7 @@ func parseLinearGradientParameters(arguments [][]Token) (DirectionType, [][]Toke
 			return result, arguments[1:]
 		}
 	}
-	return DirectionType{Angle: math.Pi}, arguments // Default direction is "to bottom"
+	return pr.DirectionType{Angle: math.Pi}, arguments // Default direction is "to bottom"
 }
 
 func reverse(a []Token) []Token {
@@ -172,8 +167,8 @@ func reverse(a []Token) []Token {
 
 type radialGradientParameters struct {
 	shape      string
-	size       GradientSize
-	position   Center
+	size       pr.GradientSize
+	position   pr.Center
 	colorStops [][]Token
 }
 
@@ -183,8 +178,8 @@ func (r radialGradientParameters) IsNone() bool {
 
 func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters {
 	var shape, sizeShape string
-	var position Center
-	var size GradientSize
+	var position pr.Center
+	var size pr.GradientSize
 	stack := reverse(arguments[0])
 	for len(stack) > 0 {
 		token := stack[len(stack)-1]
@@ -199,13 +194,13 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 		} else if (keyword == "circle" || keyword == "ellipse") && shape == "" {
 			shape = keyword
 		} else if (keyword == "closest-corner" || keyword == "farthest-corner" || keyword == "closest-side" || keyword == "farthest-side") && size.IsNone() {
-			size = GradientSize{Keyword: keyword}
+			size = pr.GradientSize{Keyword: keyword}
 		} else {
 			if len(stack) > 0 && size.IsNone() {
 				length1 := getLength(token, true, true)
 				length2 := getLength(stack[len(stack)-1], true, true)
 				if !length1.IsNone() && !length2.IsNone() {
-					size = GradientSize{Explicit: [2]Dimension{length1, length2}}
+					size = pr.GradientSize{Explicit: [2]pr.Dimension{length1, length2}}
 					sizeShape = "ellipse"
 					i := utils.MaxInt(len(stack)-1, 0)
 					stack = stack[:i]
@@ -214,7 +209,7 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 			if size.IsNone() {
 				length1 := getLength(token, true, false)
 				if !length1.IsNone() {
-					size = GradientSize{Explicit: [2]Dimension{length1, length1}}
+					size = pr.GradientSize{Explicit: [2]pr.Dimension{length1, length1}}
 					sizeShape = "circle"
 				}
 			}
@@ -240,57 +235,58 @@ func parseRadialGradientParameters(arguments [][]Token) radialGradientParameters
 		}
 	}
 	if size.IsNone() {
-		out.size = GradientSize{Keyword: "farthest-corner"}
+		out.size = pr.GradientSize{Keyword: "farthest-corner"}
 	}
 	if position.IsNone() {
-		out.position = Center{
+		out.position = pr.Center{
 			OriginX: "left",
 			OriginY: "top",
-			Pos:     Point{fiftyPercent, fiftyPercent},
+			Pos:     pr.Point{fiftyPercent, fiftyPercent},
 		}
 	}
 	return out
 }
 
-func parseColorStop(tokens []Token) (ColorStop, error) {
+func parseColorStop(tokens []Token) (pr.ColorStop, error) {
 	switch len(tokens) {
 	case 1:
 		color := parser.ParseColor(tokens[0])
 		if !color.IsNone() {
-			return ColorStop{Color: Color(color)}, nil
+			return pr.ColorStop{Color: pr.Color(color)}, nil
 		}
 	case 2:
 		color := parser.ParseColor(tokens[0])
 		position := getLength(tokens[1], true, true)
 		if !color.IsNone() && !position.IsNone() {
-			return ColorStop{Color: Color(color), Position: position}, nil
+			return pr.ColorStop{Color: pr.Color(color), Position: position}, nil
 		}
 	}
-	return ColorStop{}, InvalidValue
+	return pr.ColorStop{}, InvalidValue
 }
 
-func getUrl(_token Token, baseUrl string) (out ContentProperty, err error) {
+func getUrl(_token Token, baseUrl string) (url pr.NamedString, attr pr.AttrData, err error) {
 	switch token := _token.(type) {
 	case parser.URLToken:
 		if strings.HasPrefix(token.Value, "#") {
-			return ContentProperty{Type: "url", Content: NamedString{Name: "internal", String: utils.Unquote(token.Value[1:])}}, nil
+			return pr.NamedString{Name: "internal", String: utils.Unquote(token.Value[1:])}, attr, nil
 		} else {
 			var joined string
 			joined, err = utils.SafeUrljoin(baseUrl, token.Value, false)
 			if err != nil {
 				return
 			}
-			return ContentProperty{Type: "url", Content: NamedString{Name: "external", String: joined}}, nil
+			return pr.NamedString{Name: "external", String: joined}, attr, nil
 		}
 	case parser.FunctionBlock:
 		if token.Name == "attr" {
-			return checkAttrFunction(token, "url"), nil
+			attr = checkAttrFunction(token, "url")
+			return
 		}
 	}
 	return
 }
 
-func checkStringFunction(token Token) (out ContentProperty) {
+func checkStringFunction(token Token) (out pr.ContentProperty) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
@@ -316,12 +312,12 @@ func checkStringFunction(token Token) (out ContentProperty) {
 		} else {
 			ident = "first"
 		}
-		return ContentProperty{Type: "string()", Content: Strings{string(customIdent), ident}}
+		return pr.ContentProperty{Type: "string()", Content: pr.Strings{string(customIdent), ident}}
 	}
 	return
 }
 
-func CheckVarFunction(token Token) (outName string, content NamedTokens) {
+func CheckVarFunction(token Token) (out pr.VarData) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
@@ -335,7 +331,10 @@ func CheckVarFunction(token Token) (outName string, content NamedTokens) {
 		// TODO: we should check authorized tokens
 		// https://drafts.csswg.org/css-syntax-3/#typedef-declaration-value
 		v := strings.ReplaceAll(ident.Value, "-", "_")
-		return "var()", NamedTokens{Name: v, Tokens: args}
+		return pr.VarData{
+			Name:        v,
+			Declaration: args,
+		}
 	}
 	return
 }
@@ -380,7 +379,7 @@ func parseFunction(functionToken_ Token) (string, []Token) {
 	return functionToken.Name.Lower(), arguments
 }
 
-func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out ContentProperty) {
+func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out pr.AttrData) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
@@ -394,7 +393,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out Cont
 		attrName := ident.Value
 		var (
 			typeOrUnit string
-			fallback   AttrFallback
+			fallback   pr.CssProperty
 		)
 		if la == 1 {
 			typeOrUnit = "string"
@@ -413,7 +412,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out Cont
 			} else {
 				switch fbValue := args[2].(type) {
 				case parser.StringToken:
-					fallback = AttrFallback{Name: "string", Value: String(fbValue.Value)}
+					fallback = pr.String(fbValue.Value)
 				default:
 					// TODO: handle other fallback types
 					return
@@ -421,7 +420,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out Cont
 			}
 		}
 		if allowedType == "" || allowedType == typeOrUnit {
-			return ContentProperty{Type: "attr()", Content: Attr{Name: string(attrName), TypeOrUnit: typeOrUnit, Fallback: fallback}}
+			return pr.AttrData{Name: string(attrName), TypeOrUnit: typeOrUnit, Fallback: fallback}
 		}
 	}
 	return
@@ -431,10 +430,10 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out Cont
 //
 // See http://dev.w3.org/csswg/css3-background/#the-background-position
 // https://drafts.csswg.org/css-images-3/#propdef-object-position
-func parsePosition(tokens []Token) Center {
+func parsePosition(tokens []Token) pr.Center {
 	center := parse2dPosition(tokens)
 	if !center.IsNone() {
-		return Center{
+		return pr.Center{
 			OriginX: "left",
 			OriginY: "top",
 			Pos:     center,
@@ -448,15 +447,15 @@ func parsePosition(tokens []Token) Center {
 		length2 := getLength(tokens[3], true, true)
 		if !length1.IsNone() && !length2.IsNone() {
 			if (keyword1 == "left" || keyword1 == "right") && (keyword2 == "top" || keyword2 == "bottom") {
-				return Center{OriginX: keyword1,
+				return pr.Center{OriginX: keyword1,
 					OriginY: keyword2,
-					Pos:     Point{length1, length2},
+					Pos:     pr.Point{length1, length2},
 				}
 			}
 			if (keyword2 == "left" || keyword2 == "right") && (keyword1 == "top" || keyword1 == "bottom") {
-				return Center{OriginX: keyword2,
+				return pr.Center{OriginX: keyword2,
 					OriginY: keyword1,
-					Pos:     Point{length2, length1},
+					Pos:     pr.Point{length2, length1},
 				}
 			}
 		}
@@ -479,34 +478,37 @@ func parsePosition(tokens []Token) Center {
 			case "center":
 				switch keyword {
 				case "top", "bottom":
-					return Center{OriginX: "left", OriginY: keyword, Pos: Point{fiftyPercent, length}}
+					return pr.Center{OriginX: "left", OriginY: keyword, Pos: pr.Point{fiftyPercent, length}}
 				case "left", "right":
-					return Center{OriginX: keyword, OriginY: "top", Pos: Point{length, fiftyPercent}}
+					return pr.Center{OriginX: keyword, OriginY: "top", Pos: pr.Point{length, fiftyPercent}}
 				}
 			case "top", "bottom":
 				if keyword == "left" || keyword == "right" {
-					return Center{OriginX: keyword, OriginY: otherKeyword, Pos: Point{length, ZEROPERCENT}}
+					return pr.Center{OriginX: keyword, OriginY: otherKeyword, Pos: pr.Point{length, ZEROPERCENT}}
 				}
 			case "left", "right":
 				if keyword == "top" || keyword == "bottom" {
-					return Center{OriginX: otherKeyword, OriginY: keyword, Pos: Point{ZEROPERCENT, length}}
+					return pr.Center{OriginX: otherKeyword, OriginY: keyword, Pos: pr.Point{ZEROPERCENT, length}}
 				}
 			}
 		}
 	}
-	return Center{}
+	return pr.Center{}
 }
 
 // Parse a <string> token.
-func getString(_token Token) ContentProperty {
+func getString(_token Token) (out pr.ContentProperty) {
 	switch token := _token.(type) {
 	case parser.StringToken:
-		return ContentProperty{Type: "string", Content: String(token.Value)}
+		return pr.ContentProperty{Type: "string", Content: pr.String(token.Value)}
 	case parser.FunctionBlock:
 		switch token.Name {
-
 		case "attr":
-			return checkAttrFunction(token, "string")
+			attr := checkAttrFunction(token, "string")
+			if attr.IsNone() {
+				return
+			}
+			return pr.ContentProperty{Type: "attr()", Content: attr}
 		case "counter", "counters":
 			return checkCounterFunction(token)
 		case "content":
@@ -515,15 +517,15 @@ func getString(_token Token) ContentProperty {
 			return checkStringFunction(token)
 		}
 	}
-	return ContentProperty{}
+	return
 }
 
-func checkCounterFunction(token Token) (out ContentProperty) {
+func checkCounterFunction(token Token) (out pr.ContentProperty) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
 	}
-	var arguments Strings
+	var arguments pr.Strings
 	la := len(args)
 	if (name == "counter" && (la == 1 || la == 2)) || (name == "counters" && (la == 2 || la == 3)) {
 		ident, ok := args[0].(parser.IdentToken)
@@ -553,24 +555,24 @@ func checkCounterFunction(token Token) (out ContentProperty) {
 			arguments = append(arguments, "decimal")
 		}
 
-		return ContentProperty{Type: fmt.Sprintf("%s()", name), Content: arguments}
+		return pr.ContentProperty{Type: fmt.Sprintf("%s()", name), Content: arguments}
 	}
 	return
 }
 
-func checkContentFunction(token Token) (out ContentProperty) {
+func checkContentFunction(token Token) (out pr.ContentProperty) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
 	}
 	if name == "content" {
 		if len(args) == 0 {
-			return ContentProperty{Type: "content()", Content: String("text")}
+			return pr.ContentProperty{Type: "content()", Content: pr.String("text")}
 		} else if len(args) == 1 {
 			ident, ok := args[0].(parser.IdentToken)
 			v := ident.Value.Lower()
 			if ok && (v == "text" || v == "before" || v == "after" || v == "first-letter" || v == "marker") {
-				return ContentProperty{Type: "content()", Content: String(v)}
+				return pr.ContentProperty{Type: "content()", Content: pr.String(v)}
 			}
 		}
 	}
@@ -578,13 +580,13 @@ func checkContentFunction(token Token) (out ContentProperty) {
 }
 
 // Parse a <quote> token.
-func getQuote(token Token) (bool, Quote) {
+func getQuote(token Token) (bool, pr.Quote) {
 	keyword := getKeyword(token)
 	return false, ContentQuoteKeywords[keyword]
 }
 
 // Parse a <target> token.
-func getTarget(token Token, baseUrl string) (out ContentProperty, err error) {
+func getTarget(token Token, baseUrl string) (out pr.ContentProperty, err error) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
@@ -613,24 +615,28 @@ func getTarget(token Token, baseUrl string) (out ContentProperty, err error) {
 	}
 
 	var (
-		values SContentProps
-		value  SContentProp
+		values pr.SContentProps
+		value  pr.SContentProp
 	)
 
 	link := args[0]
 	args = args[1:]
 	stringLink := getString(link)
 	if stringLink.IsNone() {
-		value.ContentProperty, err = getUrl(link, baseUrl)
+		ur, attr, err := getUrl(link, baseUrl)
 		if err != nil {
-			return
+			return out, err
 		}
-		if value.ContentProperty.IsNone() {
-			return
+		if !ur.IsNone() {
+			value.ContentProperty = pr.ContentProperty{Type: "url", Content: ur}
+		} else if !attr.IsNone() {
+			value.ContentProperty = pr.ContentProperty{Type: "attr()", Content: attr}
+		} else {
+			return out, nil
 		}
 		values = append(values, value)
 	} else {
-		values = append(values, SContentProp{ContentProperty: stringLink})
+		values = append(values, pr.SContentProp{ContentProperty: stringLink})
 	}
 
 	if strings.HasPrefix(name, "target-counter") {
@@ -644,7 +650,7 @@ func getTarget(token Token, baseUrl string) (out ContentProperty, err error) {
 		if !ok {
 			return
 		}
-		values = append(values, SContentProp{String: string(ident.Value)})
+		values = append(values, pr.SContentProp{String: string(ident.Value)})
 
 		if name == "target-counters" {
 			string_ := getString(args[0])
@@ -652,7 +658,7 @@ func getTarget(token Token, baseUrl string) (out ContentProperty, err error) {
 			if string_.IsNone() {
 				return
 			}
-			values = append(values, SContentProp{ContentProperty: string_})
+			values = append(values, pr.SContentProp{ContentProperty: string_})
 		}
 
 		var counterStyle string
@@ -665,7 +671,7 @@ func getTarget(token Token, baseUrl string) (out ContentProperty, err error) {
 		} else {
 			counterStyle = "decimal"
 		}
-		values = append(values, SContentProp{String: counterStyle})
+		values = append(values, pr.SContentProp{String: counterStyle})
 	} else {
 		var content string
 		if len(args) > 0 {
@@ -677,15 +683,15 @@ func getTarget(token Token, baseUrl string) (out ContentProperty, err error) {
 		} else {
 			content = "content"
 		}
-		values = append(values, SContentProp{String: content})
+		values = append(values, pr.SContentProp{String: content})
 	}
-	return ContentProperty{Type: fmt.Sprintf("%s()", name), Content: values}, nil
+	return pr.ContentProperty{Type: fmt.Sprintf("%s()", name), Content: values}, nil
 }
 
 // Parse <content-list> tokens.
-func getContentList(tokens []Token, baseUrl string) (out []ContentProperty, err error) {
+func getContentList(tokens []Token, baseUrl string) (out pr.ContentProperties, err error) {
 	// See https://www.w3.org/TR/css-content-3/#typedef-content-list
-	parsedTokens := make([]ContentProperty, len(tokens))
+	parsedTokens := make([]pr.ContentProperty, len(tokens))
 	for i, token := range tokens {
 		parsedTokens[i], err = getContentListToken(token, baseUrl)
 		if err != nil {
@@ -699,7 +705,7 @@ func getContentList(tokens []Token, baseUrl string) (out []ContentProperty, err 
 }
 
 // Parse one of the <content-list> tokens.
-func getContentListToken(token Token, baseUrl string) (ContentProperty, error) {
+func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error) {
 	// See https://www.w3.org/TR/css-content-3/#typedef-content-list
 
 	// <string>
@@ -710,22 +716,24 @@ func getContentListToken(token Token, baseUrl string) (ContentProperty, error) {
 
 	// contents
 	if getKeyword(token) == "contents" {
-		return ContentProperty{Type: "content", Content: String("text")}, nil
+		return pr.ContentProperty{Type: "content", Content: pr.String("text")}, nil
 	}
 
 	// <uri>
-	url, err := getUrl(token, baseUrl)
+	url, attr, err := getUrl(token, baseUrl)
 	if err != nil {
-		return ContentProperty{}, err
+		return pr.ContentProperty{}, err
 	}
 	if !url.IsNone() {
-		return url, nil
+		return pr.ContentProperty{Type: "url", Content: url}, nil
+	} else if !attr.IsNone() {
+		return pr.ContentProperty{Type: "attr()", Content: attr}, nil
 	}
 
 	// <quote>
 	notNone, quote := getQuote(token)
 	if notNone {
-		return ContentProperty{Type: "quote", Content: quote}, nil
+		return pr.ContentProperty{Type: "quote", Content: quote}, nil
 	}
 
 	// <target>
@@ -737,11 +745,11 @@ func getContentListToken(token Token, baseUrl string) (ContentProperty, error) {
 	// <leader>
 	name, args := parseFunction(token)
 	if name == "" {
-		return ContentProperty{}, nil
+		return pr.ContentProperty{}, nil
 	}
 	if name == "leader" {
 		if len(args) != 1 {
-			return ContentProperty{}, nil
+			return pr.ContentProperty{}, nil
 		}
 		arg_ := args[0]
 		var str string
@@ -755,12 +763,12 @@ func getContentListToken(token Token, baseUrl string) (ContentProperty, error) {
 			case "space":
 				str = " "
 			default:
-				return ContentProperty{}, nil
+				return pr.ContentProperty{}, nil
 			}
 		case parser.StringToken:
 			str = arg.Value
 		}
-		return ContentProperty{Type: "leader()", Content: Strings{"string", str}}, nil
+		return pr.ContentProperty{Type: "leader()", Content: pr.Strings{"string", str}}, nil
 	}
-	return ContentProperty{}, nil
+	return pr.ContentProperty{}, nil
 }

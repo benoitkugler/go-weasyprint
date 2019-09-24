@@ -90,7 +90,7 @@ type ContentProperty struct {
 	// SStrings for type STRING, attr or string, counter, counters
 	// Quote for type QUOTE
 	// Url for URI
-	Content InnerContents
+	Content InnerContent
 }
 
 type NamedString struct {
@@ -123,11 +123,11 @@ type Descriptor interface {
 	isDescriptor()
 }
 
-type Contents []InnerContents
+type Contents []InnerContent
 
 type NamedProperty struct {
 	Name     string
-	Property CssProperty
+	Property ValidatedProperty
 }
 
 type NamedProperties []NamedProperty
@@ -141,9 +141,15 @@ func (d NamedProperties) isDescriptor() {}
 // ---------------------- helpers types -----------------------------------
 type CustomProperty []parser.Token
 
+type SContentProp struct {
+	String          string
+	ContentProperty ContentProperty
+}
+type SContentProps []SContentProp
+
 // guard for possible content properties
-type InnerContents interface {
-	copyAsContent() InnerContents
+type InnerContent interface {
+	copyAsInnerContent() InnerContent
 }
 
 type Unit uint8
@@ -161,6 +167,7 @@ type Quote struct {
 
 // Might be an existing image or a gradient
 type Image interface {
+	// InnerContent
 	CssProperty
 	copyAsImage() Image
 }

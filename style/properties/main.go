@@ -18,7 +18,7 @@ type CssProperty interface {
 }
 
 // CascadedProperty may contain either a classic CSS property
-// or one the 3 special values var(), attr() or custom properties
+// or one the 3 special values var(), attr() or custom properties.
 // "initial" and "inherited" values have been resolved
 type CascadedProperty struct {
 	prop            CssProperty
@@ -31,6 +31,10 @@ func (c CascadedProperty) AsCss() CssProperty {
 		panic("attempted to bypass the SpecialProperty of a CascadedProperty")
 	}
 	return c.prop
+}
+
+func (c CascadedProperty) IsNone() bool {
+	return c.prop == nil && c.SpecialProperty == nil
 }
 
 // ValidatedProperty is valid css input, so it may contain
@@ -63,10 +67,18 @@ type VarData struct {
 	Declaration CustomProperty
 }
 
+func (v VarData) IsNone() bool {
+	return v.Name == "" && v.Declaration == nil
+}
+
 type AttrData struct {
 	Name       string
 	TypeOrUnit string
 	Fallback   CssProperty
+}
+
+func (a AttrData) IsNone() bool {
+	return a.Name == "" && a.TypeOrUnit == "" && a.Fallback == nil
 }
 
 func (v VarData) isSpecialProperty()        {}
@@ -78,6 +90,10 @@ func (v CustomProperty) isSpecialProperty() {}
 
 func ToC(prop CssProperty) CascadedProperty {
 	return CascadedProperty{prop: prop}
+}
+
+func ToC2(spe specialProperty) CascadedProperty {
+	return CascadedProperty{SpecialProperty: spe}
 }
 
 func (c CascadedProperty) ToV() ValidatedProperty {

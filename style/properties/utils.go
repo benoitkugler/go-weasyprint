@@ -15,6 +15,16 @@ func (s Set) Has(key string) bool {
 	return in
 }
 
+func (s Set) copy() Set {
+	out := make(Set, len(s))
+	for k, v := range s {
+		out[k] = v
+	}
+	return out
+}
+
+func (s Set) IsNone() bool { return s == nil }
+
 func NewSet(values ...string) Set {
 	s := make(Set, len(values))
 	for _, v := range values {
@@ -47,6 +57,12 @@ func (s GradientSize) IsExplicit() bool {
 	return s.Keyword == ""
 }
 
+func (s AttrData) copy() AttrData {
+	out := s
+	s.Fallback = s.Fallback.Copy()
+	return out
+}
+
 // -------------- Images ------------------------
 
 func (i NoneImage) copyAsImage() Image      { return i }
@@ -57,6 +73,24 @@ func (i NoneImage) Copy() CssProperty       { return i.copyAsImage() }
 func (i UrlImage) Copy() CssProperty        { return i.copyAsImage() }
 func (i LinearGradient) Copy() CssProperty  { return i.copyAsImage() }
 func (i RadialGradient) Copy() CssProperty  { return i.copyAsImage() }
+
+// -------------------------- Content Property --------------------------
+// func (i NoneImage) copyAsInnerContent() InnerContent      { return i }
+// func (i UrlImage) copyAsInnerContent() InnerContent       { return i }
+// func (i LinearGradient) copyAsInnerContent() InnerContent { return i.copy() }
+// func (i RadialGradient) copyAsInnerContent() InnerContent { return i.copy() }
+
+// contents,
+func (s String) copyAsInnerContent() InnerContent  { return s }
+func (s Strings) copyAsInnerContent() InnerContent { return s.copy() }
+
+// target
+func (s SContentProps) copyAsInnerContent() InnerContent { return s.copy() }
+
+// url
+func (s NamedString) copyAsInnerContent() InnerContent { return s }
+func (s Quote) copyAsInnerContent() InnerContent       { return s }
+func (s AttrData) copyAsInnerContent() InnerContent    { return s.copy() }
 
 // ------------------------- Usefull for test ---------------------------
 

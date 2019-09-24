@@ -4,6 +4,9 @@ package properties
 
 func (v Center) Copy() CssProperty { return v }
 
+func (v Center) IsNone() bool {
+	return v == Center{}
+}
 func (v Centers) Copy() CssProperty {
 	out := make(Centers, len(v))
 	for i, k := range v {
@@ -36,6 +39,9 @@ func (v Int) Copy() CssProperty { return v }
 
 func (v IntString) Copy() CssProperty { return v }
 
+func (v IntString) IsNone() bool {
+	return v == IntString{}
+}
 func (v IntStrings) Copy() CssProperty {
 	out := make(IntStrings, len(v))
 	for i, k := range v {
@@ -46,16 +52,39 @@ func (v IntStrings) Copy() CssProperty {
 
 func (v Ints3) Copy() CssProperty { return v }
 
+func (v Ints3) IsNone() bool {
+	return v == Ints3{}
+}
 func (v Marks) Copy() CssProperty { return v }
 
-func (v NDecorations) Copy() CssProperty { return v }
+func (v Marks) IsNone() bool {
+	return v == Marks{}
+}
+func (v NDecorations) Copy() CssProperty {
+	out := v
+	out.Decorations = v.Decorations.copy()
 
+	return out
+}
+
+func (v NDecorations) IsNone() bool {
+	return v.None == false
+}
 func (v NamedString) Copy() CssProperty { return v }
 
+func (v NamedString) IsNone() bool {
+	return v == NamedString{}
+}
 func (v Page) Copy() CssProperty { return v }
 
+func (v Page) IsNone() bool {
+	return v == Page{}
+}
 func (v Point) Copy() CssProperty { return v }
 
+func (v Point) IsNone() bool {
+	return v == Point{}
+}
 func (v Quotes) Copy() CssProperty {
 	out := v
 	out.Open = v.Open.copy()
@@ -64,6 +93,9 @@ func (v Quotes) Copy() CssProperty {
 	return out
 }
 
+func (v Quotes) IsNone() bool {
+	return v.Open == nil && v.Close == nil
+}
 func (v Repeats) Copy() CssProperty {
 	out := make(Repeats, len(v))
 	for i, k := range v {
@@ -79,6 +111,9 @@ func (v SContent) Copy() CssProperty {
 	return out
 }
 
+func (v SContent) IsNone() bool {
+	return v.String == "" && v.Contents == nil
+}
 func (v SIntStrings) Copy() CssProperty {
 	out := v
 	out.Values = v.Values.copy()
@@ -86,6 +121,9 @@ func (v SIntStrings) Copy() CssProperty {
 	return out
 }
 
+func (v SIntStrings) IsNone() bool {
+	return v.String == "" && v.Values == nil
+}
 func (v SStrings) Copy() CssProperty {
 	out := v
 	out.Strings = v.Strings.copy()
@@ -93,6 +131,9 @@ func (v SStrings) Copy() CssProperty {
 	return out
 }
 
+func (v SStrings) IsNone() bool {
+	return v.String == "" && v.Strings == nil
+}
 func (v Sizes) Copy() CssProperty {
 	out := make(Sizes, len(v))
 	for i, k := range v {
@@ -110,6 +151,9 @@ func (v StringSet) Copy() CssProperty {
 	return out
 }
 
+func (v StringSet) IsNone() bool {
+	return v.String == "" && v.Contents == nil
+}
 func (v Strings) Copy() CssProperty {
 	out := make(Strings, len(v))
 	for i, k := range v {
@@ -128,6 +172,9 @@ func (v Transforms) Copy() CssProperty {
 
 func (v Value) Copy() CssProperty { return v }
 
+func (v Value) IsNone() bool {
+	return v == Value{}
+}
 func (v Values) Copy() CssProperty {
 	out := make(Values, len(v))
 	for i, k := range v {
@@ -136,15 +183,77 @@ func (v Values) Copy() CssProperty {
 	return out
 }
 
+func (v Strings) copy() Strings {
+	out := make(Strings, len(v))
+	for i, k := range v {
+		out[i] = k
+	}
+	return out
+}
+
+func (v ContentProperties) copy() ContentProperties {
+	out := make(ContentProperties, len(v))
+	for i, k := range v {
+		out[i] = k.copy()
+	}
+	return out
+}
+
+func (v LinearGradient) copy() LinearGradient {
+	out := v
+	out.ColorStops = v.ColorStops.copy()
+
+	return out
+}
+
+func (v SDimensions) copy() SDimensions {
+	out := v
+	out.Dimensions = v.Dimensions.copy()
+
+	return out
+}
+
 func (v ContentProperty) copy() ContentProperty {
 	out := v
-	out.Content = v.Content.copyAsInnerContents()
+	out.Content = v.Content.copyAsInnerContent()
 
+	return out
+}
+
+func (v Dimensions) copy() Dimensions {
+	out := make(Dimensions, len(v))
+	for i, k := range v {
+		out[i] = k
+	}
 	return out
 }
 
 func (v SContents) copy() SContents {
 	out := make(SContents, len(v))
+	for i, k := range v {
+		out[i] = k.copy()
+	}
+	return out
+}
+
+func (v ColorsStops) copy() ColorsStops {
+	out := make(ColorsStops, len(v))
+	for i, k := range v {
+		out[i] = k
+	}
+	return out
+}
+
+func (v CustomProperty) copy() CustomProperty {
+	out := make(CustomProperty, len(v))
+	for i, k := range v {
+		out[i] = k
+	}
+	return out
+}
+
+func (v SContentProps) copy() SContentProps {
+	out := make(SContentProps, len(v))
 	for i, k := range v {
 		out[i] = k.copy()
 	}
@@ -158,37 +267,6 @@ func (v RadialGradient) copy() RadialGradient {
 	return out
 }
 
-func (v CustomProperty) copy() CustomProperty {
-	out := make(CustomProperty, len(v))
-	for i, k := range v {
-		out[i] = k
-	}
-	return out
-}
-
-func (v SDimensions) copy() SDimensions {
-	out := v
-	out.Dimensions = v.Dimensions.copy()
-
-	return out
-}
-
-func (v ContentProperties) copy() ContentProperties {
-	out := make(ContentProperties, len(v))
-	for i, k := range v {
-		out[i] = k.copy()
-	}
-	return out
-}
-
-func (v Strings) copy() Strings {
-	out := make(Strings, len(v))
-	for i, k := range v {
-		out[i] = k
-	}
-	return out
-}
-
 func (v IntStrings) copy() IntStrings {
 	out := make(IntStrings, len(v))
 	for i, k := range v {
@@ -197,32 +275,53 @@ func (v IntStrings) copy() IntStrings {
 	return out
 }
 
-func (v Dimensions) copy() Dimensions {
-	out := make(Dimensions, len(v))
-	for i, k := range v {
-		out[i] = k
-	}
-	return out
-}
-
-func (v ColorsStops) copy() ColorsStops {
-	out := make(ColorsStops, len(v))
-	for i, k := range v {
-		out[i] = k
-	}
-	return out
-}
-
-func (v LinearGradient) copy() LinearGradient {
-	out := v
-	out.ColorStops = v.ColorStops.copy()
-
-	return out
-}
-
 func (v SContent) copy() SContent {
 	out := v
 	out.Contents = v.Contents.copy()
 
 	return out
+}
+
+func (v SContentProp) copy() SContentProp {
+	out := v
+	out.ContentProperty = v.ContentProperty.copy()
+
+	return out
+}
+
+func (v ContentProperty) IsNone() bool {
+	return v.Type == ""
+}
+func (v Quote) IsNone() bool {
+	return v == Quote{}
+}
+func (v SDimensions) IsNone() bool {
+	return v.String == "" && v.Dimensions == nil
+}
+func (v ColorStop) IsNone() bool {
+	return v == ColorStop{}
+}
+func (v SContentProp) IsNone() bool {
+	return v.String == ""
+}
+func (v LinearGradient) IsNone() bool {
+	return v.ColorStops == nil && v.Direction == DirectionType{} && v.Repeating == false
+}
+func (v NamedProperty) IsNone() bool {
+	return v.Name == ""
+}
+func (v GradientSize) IsNone() bool {
+	return v == GradientSize{}
+}
+func (v DirectionType) IsNone() bool {
+	return v == DirectionType{}
+}
+func (v Dimension) IsNone() bool {
+	return v == Dimension{}
+}
+func (v Size) IsNone() bool {
+	return v == Size{}
+}
+func (v RadialGradient) IsNone() bool {
+	return v.ColorStops == nil && v.Shape == "" && v.Size == GradientSize{} && v.Center == Center{} && v.Repeating == false
 }

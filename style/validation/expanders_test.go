@@ -3,49 +3,49 @@ package validation
 import (
 	"testing"
 
-	. "github.com/benoitkugler/go-weasyprint/style/css"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-// Test the 4-value properties.
+// Test the 4-value pr.
 func TestExpandFourSides(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "margin: inherit", map[string]CssProperty{
-		"margin_top":    String("inherit"),
-		"margin_right":  String("inherit"),
-		"margin_bottom": String("inherit"),
-		"margin_left":   String("inherit"),
+	assertValidDict(t, "margin: inherit", map[string]pr.ValidatedProperty{
+		"margin_top":    pr.Inherit.ToV(),
+		"margin_right":  pr.Inherit.ToV(),
+		"margin_bottom": pr.Inherit.ToV(),
+		"margin_left":   pr.Inherit.ToV(),
 	})
-	assertValidDict(t, "margin: 1em", map[string]CssProperty{
-		"margin_top":    Dimension{Value: 1, Unit: Em}.ToValue(),
-		"margin_right":  Dimension{Value: 1, Unit: Em}.ToValue(),
-		"margin_bottom": Dimension{Value: 1, Unit: Em}.ToValue(),
-		"margin_left":   Dimension{Value: 1, Unit: Em}.ToValue(),
-	})
-	assertValidDict(t, "margin: -1em auto 20%", map[string]CssProperty{
-		"margin_top":    Dimension{Value: -1, Unit: Em}.ToValue(),
-		"margin_right":  SToV("auto"),
-		"margin_bottom": Dimension{Value: 20, Unit: Percentage}.ToValue(),
-		"margin_left":   SToV("auto"),
-	})
-	assertValidDict(t, "padding: 1em 0", map[string]CssProperty{
-		"padding_top":    Dimension{Value: 1, Unit: Em}.ToValue(),
-		"padding_right":  Dimension{Value: 0, Unit: Scalar}.ToValue(),
-		"padding_bottom": Dimension{Value: 1, Unit: Em}.ToValue(),
-		"padding_left":   Dimension{Value: 0, Unit: Scalar}.ToValue(),
-	})
-	assertValidDict(t, "padding: 1em 0 2%", map[string]CssProperty{
-		"padding_top":    Dimension{Value: 1, Unit: Em}.ToValue(),
-		"padding_right":  Dimension{Value: 0, Unit: Scalar}.ToValue(),
-		"padding_bottom": Dimension{Value: 2, Unit: Percentage}.ToValue(),
-		"padding_left":   Dimension{Value: 0, Unit: Scalar}.ToValue(),
-	})
-	assertValidDict(t, "padding: 1em 0 2em 5px", map[string]CssProperty{
-		"padding_top":    Dimension{Value: 1, Unit: Em}.ToValue(),
-		"padding_right":  Dimension{Value: 0, Unit: Scalar}.ToValue(),
-		"padding_bottom": Dimension{Value: 2, Unit: Em}.ToValue(),
-		"padding_left":   Dimension{Value: 5, Unit: Px}.ToValue(),
-	})
+	assertValidDict(t, "margin: 1em", toValidated(pr.Properties{
+		"margin_top":    pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"margin_right":  pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"margin_bottom": pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"margin_left":   pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+	}))
+	assertValidDict(t, "margin: -1em auto 20%", toValidated(pr.Properties{
+		"margin_top":    pr.Dimension{Value: -1, Unit: pr.Em}.ToValue(),
+		"margin_right":  pr.SToV("auto"),
+		"margin_bottom": pr.Dimension{Value: 20, Unit: pr.Percentage}.ToValue(),
+		"margin_left":   pr.SToV("auto"),
+	}))
+	assertValidDict(t, "padding: 1em 0", toValidated(pr.Properties{
+		"padding_top":    pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"padding_right":  pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue(),
+		"padding_bottom": pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"padding_left":   pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue(),
+	}))
+	assertValidDict(t, "padding: 1em 0 2%", toValidated(pr.Properties{
+		"padding_top":    pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"padding_right":  pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue(),
+		"padding_bottom": pr.Dimension{Value: 2, Unit: pr.Percentage}.ToValue(),
+		"padding_left":   pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue(),
+	}))
+	assertValidDict(t, "padding: 1em 0 2em 5px", toValidated(pr.Properties{
+		"padding_top":    pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
+		"padding_right":  pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue(),
+		"padding_bottom": pr.Dimension{Value: 2, Unit: pr.Em}.ToValue(),
+		"padding_left":   pr.Dimension{Value: 5, Unit: pr.Px}.ToValue(),
+	}))
 	capt.AssertNoLogs(t)
 
 	assertInvalid(t, "padding: 1 2 3 4 5", "Expected 1 to 4 token components got 5")
@@ -59,39 +59,39 @@ func TestExpandFourSides(t *testing.T) {
 // Test the ``border`` property.
 func TestExpandBorders(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "border-top: 3px dotted red", map[string]CssProperty{
-		"border_top_width": Dimension{Value: 3, Unit: Px}.ToValue(),
-		"border_top_style": String("dotted"),
-		"border_top_color": NewColor(1, 0, 0, 1), // red
-	})
-	assertValidDict(t, "border-top: 3px dotted", map[string]CssProperty{
-		"border_top_width": Dimension{Value: 3, Unit: Px}.ToValue(),
-		"border_top_style": String("dotted"),
-	})
-	assertValidDict(t, "border-top: 3px red", map[string]CssProperty{
-		"border_top_width": Dimension{Value: 3, Unit: Px}.ToValue(),
-		"border_top_color": NewColor(1, 0, 0, 1), // red
-	})
-	assertValidDict(t, "border-top: solid", map[string]CssProperty{
-		"border_top_style": String("solid"),
-	})
-	assertValidDict(t, "border: 6px dashed lime", map[string]CssProperty{
-		"border_top_width": Dimension{Value: 6, Unit: Px}.ToValue(),
-		"border_top_style": String("dashed"),
-		"border_top_color": NewColor(0, 1, 0, 1), // lime
+	assertValidDict(t, "border-top: 3px dotted red", toValidated(pr.Properties{
+		"border_top_width": pr.Dimension{Value: 3, Unit: pr.Px}.ToValue(),
+		"border_top_style": pr.String("dotted"),
+		"border_top_color": pr.NewColor(1, 0, 0, 1), // red
+	}))
+	assertValidDict(t, "border-top: 3px dotted", toValidated(pr.Properties{
+		"border_top_width": pr.Dimension{Value: 3, Unit: pr.Px}.ToValue(),
+		"border_top_style": pr.String("dotted"),
+	}))
+	assertValidDict(t, "border-top: 3px red", toValidated(pr.Properties{
+		"border_top_width": pr.Dimension{Value: 3, Unit: pr.Px}.ToValue(),
+		"border_top_color": pr.NewColor(1, 0, 0, 1), // red
+	}))
+	assertValidDict(t, "border-top: solid", toValidated(pr.Properties{
+		"border_top_style": pr.String("solid"),
+	}))
+	assertValidDict(t, "border: 6px dashed lime", toValidated(pr.Properties{
+		"border_top_width": pr.Dimension{Value: 6, Unit: pr.Px}.ToValue(),
+		"border_top_style": pr.String("dashed"),
+		"border_top_color": pr.NewColor(0, 1, 0, 1), // lime
 
-		"border_left_width": Dimension{Value: 6, Unit: Px}.ToValue(),
-		"border_left_style": String("dashed"),
-		"border_left_color": NewColor(0, 1, 0, 1), // lime
+		"border_left_width": pr.Dimension{Value: 6, Unit: pr.Px}.ToValue(),
+		"border_left_style": pr.String("dashed"),
+		"border_left_color": pr.NewColor(0, 1, 0, 1), // lime
 
-		"border_bottom_width": Dimension{Value: 6, Unit: Px}.ToValue(),
-		"border_bottom_style": String("dashed"),
-		"border_bottom_color": NewColor(0, 1, 0, 1), // lime
+		"border_bottom_width": pr.Dimension{Value: 6, Unit: pr.Px}.ToValue(),
+		"border_bottom_style": pr.String("dashed"),
+		"border_bottom_color": pr.NewColor(0, 1, 0, 1), // lime
 
-		"border_right_width": Dimension{Value: 6, Unit: Px}.ToValue(),
-		"border_right_style": String("dashed"),
-		"border_right_color": NewColor(0, 1, 0, 1), // lime
-	})
+		"border_right_width": pr.Dimension{Value: 6, Unit: pr.Px}.ToValue(),
+		"border_right_style": pr.String("dashed"),
+		"border_right_color": pr.NewColor(0, 1, 0, 1), // lime
+	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "border: 6px dashed left", "invalid")
 }
@@ -99,31 +99,31 @@ func TestExpandBorders(t *testing.T) {
 // Test the ``list_style`` property.
 func TestExpandList_style(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "list-style: inherit", map[string]CssProperty{
-		"list_style_position": String("inherit"),
-		"list_style_image":    String("inherit"),
-		"list_style_type":     String("inherit"),
+	assertValidDict(t, "list-style: inherit", map[string]pr.ValidatedProperty{
+		"list_style_position": pr.Inherit.ToV(),
+		"list_style_image":    pr.Inherit.ToV(),
+		"list_style_type":     pr.Inherit.ToV(),
 	})
-	assertValidDict(t, "list-style: url(../bar/lipsum.png)", map[string]CssProperty{
-		"list_style_image": UrlImage("http://weasyprint.org/bar/lipsum.png"),
-	})
-	assertValidDict(t, "list-style: square", map[string]CssProperty{
-		"list_style_type": String("square"),
-	})
-	assertValidDict(t, "list-style: circle inside", map[string]CssProperty{
-		"list_style_position": String("inside"),
-		"list_style_type":     String("circle"),
-	})
-	assertValidDict(t, "list-style: none circle inside", map[string]CssProperty{
-		"list_style_position": String("inside"),
-		"list_style_image":    NoneImage{},
-		"list_style_type":     String("circle"),
-	})
-	assertValidDict(t, "list-style: none inside none", map[string]CssProperty{
-		"list_style_position": String("inside"),
-		"list_style_image":    NoneImage{},
-		"list_style_type":     String("none"),
-	})
+	assertValidDict(t, "list-style: url(../bar/lipsum.png)", toValidated(pr.Properties{
+		"list_style_image": pr.UrlImage("http://weasyprint.org/bar/lipsum.png"),
+	}))
+	assertValidDict(t, "list-style: square", toValidated(pr.Properties{
+		"list_style_type": pr.String("square"),
+	}))
+	assertValidDict(t, "list-style: circle inside", toValidated(pr.Properties{
+		"list_style_position": pr.String("inside"),
+		"list_style_type":     pr.String("circle"),
+	}))
+	assertValidDict(t, "list-style: none circle inside", toValidated(pr.Properties{
+		"list_style_position": pr.String("inside"),
+		"list_style_image":    pr.NoneImage{},
+		"list_style_type":     pr.String("circle"),
+	}))
+	assertValidDict(t, "list-style: none inside none", toValidated(pr.Properties{
+		"list_style_position": pr.String("inside"),
+		"list_style_image":    pr.NoneImage{},
+		"list_style_type":     pr.String("none"),
+	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "list-style: none inside none none", "invalid")
 	assertInvalid(t, "list-style: red", "invalid")
@@ -134,30 +134,30 @@ func TestExpandList_style(t *testing.T) {
 // Test the ``font`` property.
 func TestFont(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "font: 12px My Fancy Font, serif", map[string]CssProperty{
-		"font_size":   Dimension{Value: 12, Unit: Px}.ToValue(),
-		"font_family": Strings{"My Fancy Font", "serif"},
-	})
-	assertValidDict(t, `font: small/1.2 "Some Font", serif`, map[string]CssProperty{
-		"font_size":   SToV("small"),
-		"line_height": Dimension{Value: 1.2, Unit: Scalar}.ToValue(),
-		"font_family": Strings{"Some Font", "serif"},
-	})
-	assertValidDict(t, "font: small-caps italic 700 large serif", map[string]CssProperty{
-		"font_style":        String("italic"),
-		"font_variant_caps": String("small-caps"),
-		"font_weight":       IntString{Int: 700},
-		"font_size":         SToV("large"),
-		"font_family":       Strings{"serif"},
-	})
-	assertValidDict(t, "font: small-caps condensed normal 700 large serif", map[string]CssProperty{
+	assertValidDict(t, "font: 12px My Fancy Font, serif", toValidated(pr.Properties{
+		"font_size":   pr.Dimension{Value: 12, Unit: pr.Px}.ToValue(),
+		"font_family": pr.Strings{"My Fancy Font", "serif"},
+	}))
+	assertValidDict(t, `font: small/1.2 "Some Font", serif`, toValidated(pr.Properties{
+		"font_size":   pr.SToV("small"),
+		"line_height": pr.Dimension{Value: 1.2, Unit: pr.Scalar}.ToValue(),
+		"font_family": pr.Strings{"Some Font", "serif"},
+	}))
+	assertValidDict(t, "font: small-caps italic 700 large serif", toValidated(pr.Properties{
+		"font_style":        pr.String("italic"),
+		"font_variant_caps": pr.String("small-caps"),
+		"font_weight":       pr.IntString{Int: 700},
+		"font_size":         pr.SToV("large"),
+		"font_family":       pr.Strings{"serif"},
+	}))
+	assertValidDict(t, "font: small-caps condensed normal 700 large serif", toValidated(pr.Properties{
 		// "font_style": String("normal"),  XXX shouldn’t this be here?
-		"font_stretch":      String("condensed"),
-		"font_variant_caps": String("small-caps"),
-		"font_weight":       IntString{Int: 700},
-		"font_size":         SToV("large"),
-		"font_family":       Strings{"serif"},
-	})
+		"font_stretch":      pr.String("condensed"),
+		"font_variant_caps": pr.String("small-caps"),
+		"font_weight":       pr.IntString{Int: 700},
+		"font_size":         pr.SToV("large"),
+		"font_family":       pr.Strings{"serif"},
+	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, `font-family: "My" Font, serif`, "invalid")
 	assertInvalid(t, `font-family: "My" "Font", serif`, "invalid")
@@ -176,38 +176,38 @@ func TestFont(t *testing.T) {
 // Test the ``font-variant`` property.
 func TestFontVariant(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "font-variant: normal", Properties{
-		"font_variant_alternates": String("normal"),
-		"font_variant_caps":       String("normal"),
-		"font_variant_east_asian": SStrings{String: "normal"},
-		"font_variant_ligatures":  SStrings{String: "normal"},
-		"font_variant_numeric":    SStrings{String: "normal"},
-		"font_variant_position":   String("normal"),
-	})
-	assertValidDict(t, "font-variant: none", Properties{
-		"font_variant_alternates": String("normal"),
-		"font_variant_caps":       String("normal"),
-		"font_variant_east_asian": SStrings{String: "normal"},
-		"font_variant_ligatures":  SStrings{String: "none"},
-		"font_variant_numeric":    SStrings{String: "normal"},
-		"font_variant_position":   String("normal"),
-	})
-	assertValidDict(t, "font-variant: historical-forms petite-caps", Properties{
-		"font_variant_alternates": String("historical-forms"),
-		"font_variant_caps":       String("petite-caps"),
-	})
-	assertValidDict(t, "font-variant: lining-nums contextual small-caps common-ligatures", Properties{
-		"font_variant_ligatures": SStrings{Strings: []string{"contextual", "common-ligatures"}},
-		"font_variant_numeric":   SStrings{Strings: []string{"lining-nums"}},
-		"font_variant_caps":      String("small-caps"),
-	})
-	assertValidDict(t, "font-variant: jis78 ruby proportional-width", Properties{
-		"font_variant_east_asian": SStrings{Strings: []string{"jis78", "ruby", "proportional-width"}},
-	})
+	assertValidDict(t, "font-variant: normal", toValidated(pr.Properties{
+		"font_variant_alternates": pr.String("normal"),
+		"font_variant_caps":       pr.String("normal"),
+		"font_variant_east_asian": pr.SStrings{String: "normal"},
+		"font_variant_ligatures":  pr.SStrings{String: "normal"},
+		"font_variant_numeric":    pr.SStrings{String: "normal"},
+		"font_variant_position":   pr.String("normal"),
+	}))
+	assertValidDict(t, "font-variant: none", toValidated(pr.Properties{
+		"font_variant_alternates": pr.String("normal"),
+		"font_variant_caps":       pr.String("normal"),
+		"font_variant_east_asian": pr.SStrings{String: "normal"},
+		"font_variant_ligatures":  pr.SStrings{String: "none"},
+		"font_variant_numeric":    pr.SStrings{String: "normal"},
+		"font_variant_position":   pr.String("normal"),
+	}))
+	assertValidDict(t, "font-variant: historical-forms petite-caps", toValidated(pr.Properties{
+		"font_variant_alternates": pr.String("historical-forms"),
+		"font_variant_caps":       pr.String("petite-caps"),
+	}))
+	assertValidDict(t, "font-variant: lining-nums contextual small-caps common-ligatures", toValidated(pr.Properties{
+		"font_variant_ligatures": pr.SStrings{Strings: []string{"contextual", "common-ligatures"}},
+		"font_variant_numeric":   pr.SStrings{Strings: []string{"lining-nums"}},
+		"font_variant_caps":      pr.String("small-caps"),
+	}))
+	assertValidDict(t, "font-variant: jis78 ruby proportional-width", toValidated(pr.Properties{
+		"font_variant_east_asian": pr.SStrings{Strings: []string{"jis78", "ruby", "proportional-width"}},
+	}))
 	// CSS2-style font-variant
-	assertValidDict(t, "font-variant: small-caps", Properties{
-		"font_variant_caps": String("small-caps"),
-	})
+	assertValidDict(t, "font-variant: small-caps", toValidated(pr.Properties{
+		"font_variant_caps": pr.String("small-caps"),
+	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "font-variant: normal normal", "invalid")
 	assertInvalid(t, "font-variant: 2", "invalid")
@@ -223,25 +223,25 @@ func TestFontVariant(t *testing.T) {
 
 func TestExpandWordWrap(t *testing.T) {
 	capt := utils.CaptureLogs()
-	assertValidDict(t, "word-wrap: normal", Properties{
-		"overflow_wrap": String("normal"),
-	})
-	assertValidDict(t, "word-wrap: break-word", Properties{
-		"overflow_wrap": String("break-word"),
-	})
+	assertValidDict(t, "word-wrap: normal", toValidated(pr.Properties{
+		"overflow_wrap": pr.String("normal"),
+	}))
+	assertValidDict(t, "word-wrap: break-word", toValidated(pr.Properties{
+		"overflow_wrap": pr.String("break-word"),
+	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "word-wrap: none", "invalid")
 	assertInvalid(t, "word-wrap: normal, break-word", "invalid")
 }
 
-func fillTextDecoration(prop Properties) Properties {
-	base := Properties{
-		"text_decoration_line":  NDecorations{None: true},
-		"text_decoration_color": CurrentColor,
-		"text_decoration_style": String("solid"),
+func fillTextDecoration(prop pr.Properties) map[string]pr.ValidatedProperty {
+	base := map[string]pr.ValidatedProperty{
+		"text_decoration_line":  pr.ToC(pr.NDecorations{None: true}).ToV(),
+		"text_decoration_color": pr.ToC(pr.CurrentColor).ToV(),
+		"text_decoration_style": pr.ToC(pr.String("solid")).ToV(),
 	}
 	for k, v := range prop {
-		base[k] = v
+		base[k] = pr.ToC(v).ToV()
 	}
 	return base
 }
@@ -249,17 +249,17 @@ func fillTextDecoration(prop Properties) Properties {
 func TestExpandTextDecoration(t *testing.T) {
 	capt := utils.CaptureLogs()
 
-	assertValidDict(t, "text-decoration: none", fillTextDecoration(Properties{
-		"text_decoration_line": NDecorations{None: true},
+	assertValidDict(t, "text-decoration: none", fillTextDecoration(pr.Properties{
+		"text_decoration_line": pr.NDecorations{None: true},
 	}))
-	assertValidDict(t, "text-decoration: overline", fillTextDecoration(Properties{
-		"text_decoration_line": NDecorations{Decorations: NewSet("overline")},
+	assertValidDict(t, "text-decoration: overline", fillTextDecoration(pr.Properties{
+		"text_decoration_line": pr.NDecorations{Decorations: pr.NewSet("overline")},
 	}))
-	assertValidDict(t, "text-decoration: overline blink line-through", fillTextDecoration(Properties{
-		"text_decoration_line": NDecorations{Decorations: NewSet("blink", "line-through", "overline")},
+	assertValidDict(t, "text-decoration: overline blink line-through", fillTextDecoration(pr.Properties{
+		"text_decoration_line": pr.NDecorations{Decorations: pr.NewSet("blink", "line-through", "overline")},
 	}))
-	assertValidDict(t, "text-decoration: red", fillTextDecoration(Properties{
-		"text_decoration_color": NewColor(1, 0, 0, 1),
+	assertValidDict(t, "text-decoration: red", fillTextDecoration(pr.Properties{
+		"text_decoration_color": pr.NewColor(1, 0, 0, 1),
 	}))
 	capt.AssertNoLogs(t)
 }
@@ -267,41 +267,41 @@ func TestExpandTextDecoration(t *testing.T) {
 func TestExpandFlex(t *testing.T) {
 	capt := utils.CaptureLogs()
 
-	assertValidDict(t, "flex: auto", Properties{
-		"flex_grow":   Float(1),
-		"flex_shrink": Float(1),
-		"flex_basis":  SToV("auto"),
-	})
-	assertValidDict(t, "flex: none", Properties{
-		"flex_grow":   Float(0),
-		"flex_shrink": Float(0),
-		"flex_basis":  SToV("auto"),
-	})
-	assertValidDict(t, "flex: 10", Properties{
-		"flex_grow":   Float(10),
-		"flex_shrink": Float(1),
-		"flex_basis":  ZeroPixels.ToValue(),
-	})
-	assertValidDict(t, "flex: 2 2", Properties{
-		"flex_grow":   Float(2),
-		"flex_shrink": Float(2),
-		"flex_basis":  ZeroPixels.ToValue(),
-	})
-	assertValidDict(t, "flex: 2 2 1px", Properties{
-		"flex_grow":   Float(2),
-		"flex_shrink": Float(2),
-		"flex_basis":  Dimension{Value: 1, Unit: Px}.ToValue(),
-	})
-	assertValidDict(t, "flex: 2 2 auto", Properties{
-		"flex_grow":   Float(2),
-		"flex_shrink": Float(2),
-		"flex_basis":  SToV("auto"),
-	})
-	assertValidDict(t, "flex: 2 auto", Properties{
-		"flex_grow":   Float(2),
-		"flex_shrink": Float(1),
-		"flex_basis":  SToV("auto"),
-	})
+	assertValidDict(t, "flex: auto", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(1),
+		"flex_shrink": pr.Float(1),
+		"flex_basis":  pr.SToV("auto"),
+	}))
+	assertValidDict(t, "flex: none", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(0),
+		"flex_shrink": pr.Float(0),
+		"flex_basis":  pr.SToV("auto"),
+	}))
+	assertValidDict(t, "flex: 10", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(10),
+		"flex_shrink": pr.Float(1),
+		"flex_basis":  pr.ZeroPixels.ToValue(),
+	}))
+	assertValidDict(t, "flex: 2 2", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(2),
+		"flex_shrink": pr.Float(2),
+		"flex_basis":  pr.ZeroPixels.ToValue(),
+	}))
+	assertValidDict(t, "flex: 2 2 1px", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(2),
+		"flex_shrink": pr.Float(2),
+		"flex_basis":  pr.Dimension{Value: 1, Unit: pr.Px}.ToValue(),
+	}))
+	assertValidDict(t, "flex: 2 2 auto", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(2),
+		"flex_shrink": pr.Float(2),
+		"flex_basis":  pr.SToV("auto"),
+	}))
+	assertValidDict(t, "flex: 2 auto", toValidated(pr.Properties{
+		"flex_grow":   pr.Float(2),
+		"flex_shrink": pr.Float(1),
+		"flex_basis":  pr.SToV("auto"),
+	}))
 
 	capt.AssertNoLogs(t)
 }
