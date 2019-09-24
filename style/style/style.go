@@ -23,8 +23,8 @@ import (
 	cascadia "github.com/benoitkugler/cascadia2"
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
-	. "github.com/benoitkugler/go-weasyprint/style/css"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
@@ -32,19 +32,19 @@ import (
 
 var (
 	// Reject anything not in here
-	pseudoElements = Set{"before": Has, "after": Has, "first-line": Has, "first-letter": Has}
+	pseudoElements = pr.Set{"before": pr.Has, "after": pr.Has, "first-line": pr.Has, "first-letter": pr.Has}
 )
 
 type Token = parser.Token
 
 type StyleDict struct {
-	Properties
+	pr.Properties
 	Anonymous      bool
 	inheritedStyle *StyleDict
 }
 
 func NewStyleDict() StyleDict {
-	return StyleDict{Properties: Properties{}}
+	return StyleDict{Properties: pr.Properties{}}
 }
 
 // IsZero returns `true` if the StyleDict is not initialized.
@@ -73,8 +73,8 @@ func (s *StyleDict) InheritFrom() StyleDict {
 	return *s.inheritedStyle
 }
 
-func (s StyleDict) ResolveColor(key string) Color {
-	value := s.Properties[key].(Color)
+func (s StyleDict) ResolveColor(key string) pr.Color {
+	value := s.Properties[key].(pr.Color)
 	if value.Type == parser.ColorCurrentColor {
 		value = s.GetColor()
 	}
@@ -86,8 +86,8 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 	if cascaded == nil && !parentStyle.IsZero() {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
-		computed := InitialValues.Copy()
-		for key := range Inherited {
+		computed := pr.InitialValues.Copy()
+		for key := range pr.Inherited {
 			computed[key] = parentStyle.Properties[key]
 		}
 
@@ -96,27 +96,27 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 		// border-*-style is none, so border-width computes to zero.
 		// Other than that, properties that would need computing are
 		// border-*-color, but they do not apply.
-		computed.SetBorderTopWidth(Value{})
-		computed.SetBorderBottomWidth(Value{})
-		computed.SetBorderLeftWidth(Value{})
-		computed.SetBorderRightWidth(Value{})
-		computed.SetOutlineWidth(Value{})
+		computed.SetBorderTopWidth(pr.Value{})
+		computed.SetBorderBottomWidth(pr.Value{})
+		computed.SetBorderLeftWidth(pr.Value{})
+		computed.SetBorderRightWidth(pr.Value{})
+		computed.SetOutlineWidth(pr.Value{})
 		return StyleDict{Properties: computed}
 	}
 
 	// Handle inheritance and initial values
 	specified, computed := NewStyleDict(), NewStyleDict()
-	for name, initial := range InitialValues {
+	for name, initial := range pr.InitialValues {
 		var (
-			keyword String
-			value   CssProperty
+			keyword pr.String
+			value   pr.CssProperty
 		)
 		if _, in := cascaded[name]; in {
 			vp := cascaded[name]
-			keyword, _ = vp.value.(String)
+			keyword, _ = vp.value.(pr.String)
 			value = vp.value
 		} else {
-			if Inherited.Has(name) {
+			if pr.Inherited.Has(name) {
 				keyword = "inherit"
 			} else {
 				keyword = "initial"
@@ -130,7 +130,7 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 
 		if keyword == "initial" {
 			value = initial
-			if !InitialNotComputed.Has(name) {
+			if !pr.InitialNotComputed.Has(name) {
 				// The value is the same as when computed
 				computed.Properties[name] = initial
 			}
@@ -146,7 +146,7 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 		// an element is auto, then its used value is the value specified on
 		// its nearest ancestor with a non-auto value. When specified on the
 		// root element, the used value for auto is the empty string.
-		val := Page{Valid: true, String: ""}
+		val := pr.Page{Valid: true, String: ""}
 		if !parentStyle.IsZero() {
 			val = parentStyle.GetPage()
 		}
@@ -161,7 +161,7 @@ type element interface {
 	ToKey(pseudoType string) utils.ElementKey
 }
 
-func matchingPageTypes(pageType utils.PageElement, _names map[Page]struct{}) (out []utils.PageElement) {
+func matchingPageTypes(pageType utils.PageElement, _names map[pr.Page]struct{}) (out []utils.PageElement) {
 	sides := []string{"left", "right", ""}
 	if pageType.Side != "" {
 		sides = []string{pageType.Side}
@@ -228,7 +228,7 @@ func (w weight) Less(other weight) bool {
 }
 
 type weigthedValue struct {
-	value  CssProperty
+	value  pr.CssProperty
 	weight weight
 }
 
@@ -236,7 +236,7 @@ type cascadedStyle = map[string]weigthedValue
 
 // Set the value for a property on a given element.
 // The value is only set if there is no value of greater weight defined yet.
-func addDeclaration(cascadedStyles map[utils.ElementKey]cascadedStyle, propName string, propValues CssProperty,
+func addDeclaration(cascadedStyles map[utils.ElementKey]cascadedStyle, propName string, propValues pr.CssProperty,
 	weight weight, elt element, pseudoType string) {
 	key := elt.ToKey(pseudoType)
 	style := cascadedStyles[key]
@@ -264,10 +264,10 @@ func setComputedStyles(cascadedStyles map[utils.ElementKey]cascadedStyle, comput
 			log.Fatal("parent should be nil here")
 		}
 		parentStyle = StyleDict{}
-		rootStyle = StyleDict{Properties: Properties{
+		rootStyle = StyleDict{Properties: pr.Properties{
 			// When specified on the font-size property of the root element, the
 			// rem units refer to the property’s initial value.
-			"font_size": InitialValues.GetFontSize(),
+			"font_size": pr.InitialValues.GetFontSize(),
 		}}
 	} else {
 		if parent == nil {
@@ -394,7 +394,7 @@ func _isContentNone(rule Token) bool {
 type selectorPageRule struct {
 	specificity cascadia.Specificity
 	pseudoType  string
-	match       func(pageNames map[Page]struct{}) []utils.PageElement
+	match       func(pageNames map[pr.Page]struct{}) []utils.PageElement
 }
 
 type pageRule struct {
@@ -505,7 +505,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 					pageType.specificity = cascadia.Specificity{}
 
 					pageType := pageType // capture for closure inside loop
-					match := func(pageNames map[Page]struct{}) []utils.PageElement {
+					match := func(pageNames map[pr.Page]struct{}) []utils.PageElement {
 						return matchingPageTypes(pageType.PageElement, pageNames)
 					}
 					content := parser.ParseDeclarationList(*typedRule.Content, false, false)
@@ -536,7 +536,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 			case "font-face":
 				ignoreImports = true
 				content := parser.ParseDeclarationList(*typedRule.Content, false, false)
-				ruleDescriptors := map[string]Descriptor{}
+				ruleDescriptors := map[string]pr.Descriptor{}
 				for _, desc := range validation.PreprocessDescriptors(baseUrl, content) {
 					ruleDescriptors[desc.Name] = desc.Descriptor
 				}
@@ -1042,10 +1042,10 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 			(*utils.HTMLNode)(element.Parent), html.root, "", html.baseUrl)
 	}
 
-	pageNames := map[Page]struct{}{}
+	pageNames := map[pr.Page]struct{}{}
 
 	for _, style := range computedStyles {
-		pageNames[style.GetPage()] = Has
+		pageNames[style.GetPage()] = pr.Has
 	}
 
 	for _, sh := range sheets {
@@ -1107,18 +1107,18 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 				if (display == "table" || display == "inline-table") && style.GetBorderCollapse() == "collapse" {
 
 					// Padding do not apply
-					style.SetPaddingTop(ZeroPixels.ToValue())
-					style.SetPaddingBottom(ZeroPixels.ToValue())
-					style.SetPaddingLeft(ZeroPixels.ToValue())
-					style.SetPaddingRight(ZeroPixels.ToValue())
+					style.SetPaddingTop(pr.ZeroPixels.ToValue())
+					style.SetPaddingBottom(pr.ZeroPixels.ToValue())
+					style.SetPaddingLeft(pr.ZeroPixels.ToValue())
+					style.SetPaddingRight(pr.ZeroPixels.ToValue())
 				}
 				if strings.HasPrefix(display, "table-") && display != "table-caption" {
 
 					// Margins do not apply
-					style.SetMarginTop(ZeroPixels.ToValue())
-					style.SetMarginBottom(ZeroPixels.ToValue())
-					style.SetMarginLeft(ZeroPixels.ToValue())
-					style.SetMarginRight(ZeroPixels.ToValue())
+					style.SetMarginTop(pr.ZeroPixels.ToValue())
+					style.SetMarginBottom(pr.ZeroPixels.ToValue())
+					style.SetMarginLeft(pr.ZeroPixels.ToValue())
+					style.SetMarginRight(pr.ZeroPixels.ToValue())
 				}
 			}
 

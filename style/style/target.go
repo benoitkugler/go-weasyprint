@@ -4,7 +4,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/style/css"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
 // Handle target-counter, target-counters && target-text.
@@ -34,9 +34,29 @@ func (c CounterValues) Copy() CounterValues {
 	return out
 }
 
-// Equal deeply compare each elements of c and ohter
-func (c CounterValues) Equal(other CounterValues) bool {
+func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, ai := range a {
+		if ai != b[i] {
+			return false
+		}
+	}
+	return true
+}
 
+// Equal deeply compare each elements of c and other
+func (c CounterValues) Equal(other CounterValues) bool {
+	if len(c) != len(other) {
+		return false
+	}
+	for k, v := range c {
+		if !equalInts(v, other[k]) {
+			return false
+		}
+	}
+	return true
 }
 
 type functionKey struct {
@@ -90,8 +110,8 @@ type counterLookupItem struct {
 	parseAgain checkFunc
 
 	// Missing counters and target counters
-	missingCounters       css.Set
-	missingTargetCounters map[string]css.Set
+	missingCounters       pr.Set
+	missingTargetCounters map[string]pr.Set
 
 	// Box position during pagination (pageNumber - 1)
 	pageMakerIndex optionnalInt
@@ -103,7 +123,7 @@ type counterLookupItem struct {
 	cachedPageCounterValues CounterValues
 }
 
-func NewCounterLookupItem(parseAgain checkFunc, missingCounters css.Set, missingTargetCounters map[string]css.Set) *counterLookupItem {
+func NewCounterLookupItem(parseAgain checkFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) *counterLookupItem {
 	return &counterLookupItem{
 		parseAgain:              parseAgain,
 		missingCounters:         missingCounters,
@@ -131,7 +151,7 @@ type targetCollector struct {
 	hadPendingTargets bool
 
 	// List of anchors that have already been seen during parsing.
-	existingAnchors css.Set
+	existingAnchors pr.Set
 }
 
 func NewTargetCollector() targetCollector {
@@ -143,9 +163,9 @@ func NewTargetCollector() targetCollector {
 }
 
 // Get anchor name from string or uri token.
-func anchorNameFromToken(anchorToken css.ContentProperty) string {
-	asString, ok := anchorToken.Content.(css.String)
-	asUrl, ok := anchorToken.Content.(css.NamedString)
+func anchorNameFromToken(anchorToken pr.ContentProperty) string {
+	asString, ok := anchorToken.Content.(pr.String)
+	asUrl, ok := anchorToken.Content.(pr.NamedString)
 	if anchorToken.Type == "string" && ok && strings.HasPrefix(string(asString), "#") {
 		return string(asString[1:])
 	} else if anchorToken.Type == "url" && asUrl.Name == "internal" {
@@ -167,7 +187,7 @@ func (tc targetCollector) collectAnchor(anchorName string) {
 
 // Store a computed internal target"s ``anchorName``.
 // ``anchorName`` must not start with "#" and be already unquoted.
-func (tc targetCollector) collectComputedTarget(anchorToken css.ContentProperty) {
+func (tc targetCollector) collectComputedTarget(anchorToken pr.ContentProperty) {
 	anchorName := anchorNameFromToken(anchorToken)
 	if anchorName != "" {
 		if _, in := tc.targetLookupItems[anchorName]; !in {
@@ -181,7 +201,7 @@ func (tc targetCollector) collectComputedTarget(anchorToken css.ContentProperty)
 // If it is already filled by a previous anchor-element, the status is
 // "up-to-date". Otherwise, it is "pending", we must parse the whole
 // tree again.
-func (tc *targetCollector) lookupTarget(anchorToken css.ContentProperty, sourceBox Box, cssToken string, parseAgain checkFunc) *targetLookupItem {
+func (tc *targetCollector) lookupTarget(anchorToken pr.ContentProperty, sourceBox Box, cssToken string, parseAgain checkFunc) *targetLookupItem {
 	anchorName := anchorNameFromToken(anchorToken)
 	item, in := tc.targetLookupItems[anchorName]
 	if !in {
@@ -232,7 +252,7 @@ func (tc *targetCollector) storeTarget(anchorName string, targetCounterValues Co
 // The ``missingLink`` attribute added to the parentBox is required to
 // connect the paginated boxes to their originating ``parentBox``.
 func (tc targetCollector) collectMissingCounters(parentBox Box, cssToken string,
-	parseAgainFunction checkFunc, missingCounters css.Set, missingTargetCounters map[string]css.Set) {
+	parseAgainFunction checkFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) {
 
 	// No counter collection during pagination
 	if !tc.collecting {

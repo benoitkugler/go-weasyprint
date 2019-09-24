@@ -106,3 +106,11 @@ func (c CascadedProperty) ToV() ValidatedProperty {
 // and values never be nil.
 // "None" values are then encoded by the zero value of the concrete type.
 type Properties map[string]CssProperty
+
+func (p Properties) Keys() []string {
+	keys := make([]string, 0, len(p))
+	for k := range p {
+		keys = append(keys, k)
+	}
+	return keys
+}
