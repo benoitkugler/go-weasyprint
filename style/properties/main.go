@@ -6,7 +6,7 @@
 package properties
 
 const (
-	Inherit defaultKind = iota + 1
+	Inherit DefaultKind = iota + 1
 	Initial
 )
 
@@ -41,7 +41,7 @@ func (c CascadedProperty) IsNone() bool {
 // a classic property, a special one, or one of the keyword "inherited" or "initial".
 type ValidatedProperty struct {
 	prop    CascadedProperty
-	Default defaultKind
+	Default DefaultKind
 }
 
 // AsCascaded will panic if c.Default is not zero.
@@ -56,9 +56,9 @@ type specialProperty interface {
 	isSpecialProperty()
 }
 
-type defaultKind uint8
+type DefaultKind uint8
 
-func (d defaultKind) ToV() ValidatedProperty {
+func (d DefaultKind) ToV() ValidatedProperty {
 	return ValidatedProperty{Default: d}
 }
 
@@ -105,4 +105,12 @@ func (p Properties) Keys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (p Properties) Copy() Properties {
+	out := make(Properties, len(p))
+	for name, v := range p {
+		out[name] = v.Copy()
+	}
+	return out
 }

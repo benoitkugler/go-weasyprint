@@ -39,222 +39,100 @@ type Token = parser.Token
 
 // StyleFor provides a convenience function `Get` to get the computed styles for an element.
 type StyleFor struct {
-	pr.Properties
-	Anonymous      bool
-	inheritedStyle *StyleFor
+	//pr.Properties
+	//Anonymous      bool
+	//inheritedStyle *StyleFor
 
 	cascadedStyles map[utils.ElementKey]cascadedStyle
 	computedStyles map[utils.ElementKey]pr.Properties
 	sheets         []sheet
 }
 
-func NewStyleFor(html htmlEntity, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) StyleFor {
-
-	return StyleFor{Properties: pr.Properties{}}
-}
-
-// IsZero returns `true` if the StyleFor is not initialized.
-// Thus, we can use a zero StyleFor as null value.
-func (s StyleFor) IsZero() bool {
-	return s.Properties == nil
-}
-
-// Deep copy.
-// inheritedStyle is a shallow copy
-func (s StyleFor) Copy() StyleFor {
-	out := s
-	out.Properties = s.Properties.Copy()
-	return out
-}
-
-// InheritFrom returns a new StyleFor with inherited properties from this one.
-// Non-inherited properties get their initial values.
-// This is the method used for an anonymous box.
-func (s *StyleFor) InheritFrom() StyleFor {
-	if s.inheritedStyle == nil {
-		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleFor{}, "")
-		is.Anonymous = true
-		s.inheritedStyle = &is
+func NewStyleFor(html htmlEntity, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) *StyleFor {
+	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
+	out := StyleFor{
+		cascadedStyles: map[utils.ElementKey]cascadedStyle{},
+		computedStyles: map[utils.ElementKey]pr.Properties{},
+		sheets:         sheets,
 	}
-	return *s.inheritedStyle
-}
 
-func (s StyleFor) ResolveColor(key string) pr.Color {
-	value := s.Properties[key].(pr.Color)
-	if value.Type == parser.ColorCurrentColor {
-		value = s.GetColor()
-	}
-	return value
-}
-
-// Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle StyleFor, baseUrl string) StyleFor {
-	if cascaded == nil && !parentStyle.IsZero() {
-		// Fast path for anonymous boxes:
-		// no cascaded style, only implicitly initial or inherited values.
-		computed := pr.InitialValues.Copy()
-		for key := range pr.Inherited {
-			computed[key] = parentStyle.Properties[key]
+	log.Println("Step 3 - Applying CSS")
+	for _, styleAttr := range findStyleAttributes(html.root, presentationalHints, html.baseUrl) {
+		// element, declarations, baseUrl = attributes
+		style, ok := cascadedStyles[styleAttr.element.ToKey("")]
+		if !ok {
+			style = cascadedStyle{}
+			cascadedStyles[styleAttr.element.ToKey("")] = style
 		}
-
-		// page is not inherited but taken from the ancestor if "auto"
-		computed.SetPage(parentStyle.GetPage())
-		// border-*-style is none, so border-width computes to zero.
-		// Other than that, properties that would need computing are
-		// border-*-color, but they do not apply.
-		computed.SetBorderTopWidth(pr.Value{})
-		computed.SetBorderBottomWidth(pr.Value{})
-		computed.SetBorderLeftWidth(pr.Value{})
-		computed.SetBorderRightWidth(pr.Value{})
-		computed.SetOutlineWidth(pr.Value{})
-		return StyleFor{Properties: computed}
-	}
-
-	// Handle inheritance and initial values
-	specified, computed := NewStyleFor(), NewStyleFor()
-	for name, initial := range pr.InitialValues {
-		var (
-			keyword pr.String
-			value   pr.CssProperty
-		)
-		if _, in := cascaded[name]; in {
-			vp := cascaded[name]
-			keyword, _ = vp.value.(pr.String)
-			value = vp.value
-		} else {
-			if pr.Inherited.Has(name) {
-				keyword = "inherit"
-			} else {
-				keyword = "initial"
+		for _, decl := range validation.PreprocessDeclarations(styleAttr.baseUrl, styleAttr.declaration) {
+			// name, values, importance = decl
+			precedence := declarationPrecedence("author", decl.Important)
+			we := weight{precedence: precedence, specificity: styleAttr.specificity}
+			oldWeight := style[decl.Name].weight
+			if oldWeight.isNone() || oldWeight.Less(we) {
+				style[decl.Name] = weigthedValue{weight: we, value: decl.Value}
 			}
 		}
-
-		if keyword == "inherit" && parentStyle.IsZero() {
-			// On the root element, "inherit" from initial values
-			keyword = "initial"
-		}
-
-		if keyword == "initial" {
-			value = initial
-			if !pr.InitialNotComputed.Has(name) {
-				// The value is the same as when computed
-				computed.Properties[name] = initial
-			}
-		} else if keyword == "inherit" {
-			value = parentStyle.Properties[name]
-			// Values in parentStyle are already computed.
-			computed.Properties[name] = value
-		}
-		specified.Properties[name] = value
-	}
-	if specified.GetPage().String == "auto" {
-		// The page property does not inherit. However, if the page value on
-		// an element is auto, then its used value is the value specified on
-		// its nearest ancestor with a non-auto value. When specified on the
-		// root element, the used value for auto is the empty string.
-		val := pr.Page{Valid: true, String: ""}
-		if !parentStyle.IsZero() {
-			val = parentStyle.GetPage()
-		}
-		computed.SetPage(val)
-		specified.SetPage(val)
 	}
 
-	return compute(element, specified, computed, parentStyle, rootStyle, baseUrl)
-}
+	// First, add declarations and set computed styles for "real" elements *in
+	// tree order*. Tree order is important so that parents have computed
+	// styles before their children, for inheritance.
 
-// either a html node or a page type
-type element interface {
-	ToKey(pseudoType string) utils.ElementKey
-}
-
-func matchingPageTypes(pageType utils.PageElement, _names map[pr.Page]struct{}) (out []utils.PageElement) {
-	sides := []string{"left", "right", ""}
-	if pageType.Side != "" {
-		sides = []string{pageType.Side}
-	}
-
-	blanks := []bool{true}
-	if pageType.Blank == false {
-		blanks = []bool{true, false}
-	}
-	firsts := []bool{true}
-	if pageType.First == false {
-		firsts = []bool{true, false}
-	}
-	names := []string{pageType.Name}
-	if pageType.Name == "" {
-		names = []string{""}
-		for page := range _names {
-			names = append(names, page.String)
-		}
-	}
-	for _, side := range sides {
-		for _, blank := range blanks {
-			for _, first := range firsts {
-				for _, name := range names {
-					out = append(out, utils.PageElement{Side: side, Blank: blank, First: first, Name: name})
+	// Iterate on all elements, even if there is no cascaded style for them.
+	iter := html.root.Iter()
+	for iter.HasNext() {
+		element := iter.Next()
+		for _, sh := range sheets {
+			// sheet, origin, sheetSpecificity
+			// Add declarations for matched elements
+			for _, selector := range sh.sheet.matcher.Match(element.AsHtmlNode()) {
+				// specificity, order, pseudoType, declarations = selector
+				specificity := selector.specificity
+				if len(sh.specificity) == 3 {
+					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
+				}
+				style, in := cascadedStyles[element.ToKey(selector.pseudoType)]
+				if !in {
+					style = cascadedStyle{}
+					cascadedStyles[element.ToKey(selector.pseudoType)] = style
+				}
+				for _, decl := range selector.payload {
+					// name, values, importance = decl
+					precedence := declarationPrecedence(sh.origin, decl.Important)
+					we := weight{precedence: precedence, specificity: specificity}
+					oldWeight := style[decl.Name].weight
+					if oldWeight.isNone() || oldWeight.Less(we) {
+						style[decl.Name] = weigthedValue{weight: we, value: decl.Value}
+					}
 				}
 			}
 		}
+		out.setComputedStyles(element, (*utils.HTMLNode)(element.Parent), html.root, "", html.baseUrl, targetColllector)
 	}
-	return
-}
 
-// Return the precedence for a declaration.
-// Precedence values have no meaning unless compared to each other.
-// Acceptable values for ``origin`` are the strings ``"author"``, ``"user"``
-// and ``"user agent"``.
-//
-func declarationPrecedence(origin string, importance bool) uint8 {
-	// See http://www.w3.org/TR/CSS21/cascade.html#cascading-order
-	if origin == "user agent" {
-		return 1
-	} else if origin == "user" && !importance {
-		return 2
-	} else if origin == "author" && !importance {
-		return 3
-	} else if origin == "author" { // && importance
-		return 4
-	} else {
-		if origin != "user" {
-			log.Fatalf("origin should be 'user' got %s", origin)
+	// Then computed styles for pseudo elements, in any order.
+	// Pseudo-elements inherit from their associated element so they come
+	// last. Do them in a second pass as there is no easy way to iterate
+	// on the pseudo-elements for a given element with the current structure
+	// of cascadedStyles. (Keys are (element, pseudoType) tuples.)
+
+	// Only iterate on pseudo-elements that have cascaded styles. (Others
+	// might as well not exist.)
+	for key := range cascadedStyles {
+		// element, pseudoType
+		if key.PseudoType != "" && !key.IsPageType() {
+			out.setComputedStyles(key.Element, key.Element, html.root,
+				key.PseudoType, html.baseUrl, targetColllector)
+			// The pseudo-element inherits from the element.
 		}
-		return 5
 	}
-}
-
-type weight struct {
-	precedence  uint8
-	specificity cascadia.Specificity
-}
-
-// Less return `true` if w <= other
-func (w weight) Less(other weight) bool {
-	return w.precedence < other.precedence || (w.precedence == other.precedence && w.specificity.Less(other.specificity))
-}
-
-type weigthedValue struct {
-	value  pr.CssProperty
-	weight weight
-}
-
-type cascadedStyle = map[string]weigthedValue
-
-// Set the value for a property on a given element.
-// The value is only set if there is no value of greater weight defined yet.
-func addDeclaration(cascadedStyles map[utils.ElementKey]cascadedStyle, propName string, propValues pr.CssProperty,
-	weight weight, elt element, pseudoType string) {
-	key := elt.ToKey(pseudoType)
-	style := cascadedStyles[key]
-	if style == nil {
-		style = cascadedStyle{}
-		cascadedStyles[key] = style
+	// Clear the cascaded styles, we don't need them anymore. Keep the
+	// dictionary, it is used later for page margins.
+	for k := range out.cascadedStyles {
+		delete(out.cascadedStyles, k)
 	}
-	vw := style[propName]
-	if vw.weight.Less(weight) {
-		style[propName] = weigthedValue{value: propValues, weight: weight}
-	}
+	return &out
 }
 
 // Set the computed values of styles to ``element``.
@@ -262,330 +140,183 @@ func addDeclaration(cascadedStyles map[utils.ElementKey]cascadedStyle, propName 
 // Take the properties left by ``applyStyleRule`` on an element or
 // pseudo-element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
-func setComputedStyles(cascadedStyles map[utils.ElementKey]cascadedStyle, computedStyles map[utils.ElementKey]StyleFor, element, parent,
-	root *utils.HTMLNode, pseudoType, baseUrl string) {
+func (self *StyleFor) setComputedStyles(element, parent,
+	root *utils.HTMLNode, pseudoType, baseUrl string, targetCollector *targetCollector) {
 
-	var parentStyle, rootStyle StyleFor
+	var parentStyle, rootStyle pr.Properties
 	if element == root && pseudoType == "" {
 		if parent != nil {
 			log.Fatal("parent should be nil here")
 		}
-		parentStyle = StyleFor{}
-		rootStyle = StyleFor{Properties: pr.Properties{
+		rootStyle = pr.Properties{
 			// When specified on the font-size property of the root element, the
 			// rem units refer to the property’s initial value.
 			"font_size": pr.InitialValues.GetFontSize(),
-		}}
+		}
 	} else {
 		if parent == nil {
 			log.Fatal("parent shouldn't be nil here")
 		}
-		parentStyle = computedStyles[utils.ElementKey{Element: parent, PseudoType: ""}]
-		rootStyle = computedStyles[utils.ElementKey{Element: root, PseudoType: ""}]
+		parentStyle = self.computedStyles[utils.ElementKey{Element: parent, PseudoType: ""}]
+		rootStyle = self.computedStyles[utils.ElementKey{Element: root, PseudoType: ""}]
 	}
 	key := utils.ElementKey{Element: element, PseudoType: pseudoType}
-	cascaded := cascadedStyles[key]
-	computedStyles[key] = computedFromCascaded(
-		element, cascaded, parentStyle, rootStyle, baseUrl)
-}
-
-type pageData struct {
-	utils.PageElement
-	specificity cascadia.Specificity
-}
-
-// Parse a page selector rule.
-//     Return a list of page data if the rule is correctly parsed. Page data are a
-//     dict containing:
-//     - "side" ("left", "right" or ""),
-//     - "blank" (true or false),
-//     - "first" (true or false),
-//     - "name" (page name string or ""), and
-//     - "specificity" (list of numbers).
-//     Return ``None` if something went wrong while parsing the rule.
-func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
-	// See https://drafts.csswg.org/css-page-3/#syntax-page-selector
-
-	tokens := validation.RemoveWhitespace(*rule.Prelude)
-
-	// TODO: Specificity is probably wrong, should clean and test that.
-	if len(tokens) == 0 {
-		out = append(out, pageData{PageElement: utils.PageElement{
-			Side: "", Blank: false, First: false, Name: ""}})
-		return out
+	cascaded, in := self.cascadedStyles[key]
+	if !in {
+		cascaded = cascadedStyle{}
 	}
+	self.computedStyles[key] = computedFromCascaded(element, cascaded, parentStyle,
+		rootStyle, pseudoType, baseUrl, targetCollector)
+}
 
-	for len(tokens) > 0 {
-		types := pageData{PageElement: utils.PageElement{
-			Side: "", Blank: false, First: false, Name: ""}}
+func (s StyleFor) Get(element element, pseudoType string) pr.Properties {
+	style := s.computedStyles[element.ToKey(pseudoType)]
+	if style != nil {
+		display := string(style.GetDisplay())
+		if strings.Contains(display, "table") {
+			if (display == "table" || display == "inline-table") && style.GetBorderCollapse() == "collapse" {
 
-		if ident, ok := tokens[0].(parser.IdentToken); ok {
-			tokens = tokens[1:]
-			types.Name = string(ident.Value)
-			types.specificity[0] = 1
-		}
-
-		if len(tokens) == 1 {
-			return nil
-		} else if len(tokens) == 0 {
-			out = append(out, types)
-			return out
-		}
-
-		for len(tokens) > 0 {
-			token := tokens[0]
-			tokens = tokens[1:]
-			literal, ok := token.(parser.LiteralToken)
-			if !ok {
-				return nil
+				// Padding do not apply
+				style.SetPaddingTop(pr.ZeroPixels.ToValue())
+				style.SetPaddingBottom(pr.ZeroPixels.ToValue())
+				style.SetPaddingLeft(pr.ZeroPixels.ToValue())
+				style.SetPaddingRight(pr.ZeroPixels.ToValue())
 			}
+			if strings.HasPrefix(display, "table-") && display != "table-caption" {
 
-			if literal.Value == ":" {
-				if len(tokens) == 0 {
-					return nil
-				}
-				ident, ok := tokens[0].(parser.IdentToken)
-				if !ok {
-					return nil
-				}
-				pseudoClass := ident.Value.Lower()
-				switch pseudoClass {
-				case "left", "right":
-					if types.Side != "" {
-						return nil
-					}
-					types.Side = pseudoClass
-					types.specificity[2] += 1
-				case "blank":
-					if types.Blank {
-						return nil
-					}
-					types.Blank = true
-					types.specificity[1] += 1
+				// Margins do not apply
+				style.SetMarginTop(pr.ZeroPixels.ToValue())
+				style.SetMarginBottom(pr.ZeroPixels.ToValue())
+				style.SetMarginLeft(pr.ZeroPixels.ToValue())
+				style.SetMarginRight(pr.ZeroPixels.ToValue())
+			}
+		}
+	}
+	return style
+}
 
-				case "first":
-					if types.First {
-						return nil
+func (s StyleFor) addPageDeclaration(pageType_ utils.PageElement) {
+	for _, sh := range s.sheets {
+		// Add declarations for page elements
+		for _, pageR := range *sh.sheet.pageRules {
+			// Rule, selectorList, declarations
+			for _, selector := range pageR.selectors {
+				// specificity, pseudoType, selector_page_type = selector
+				if pageTypeMatch(selector.pageType, pageType_) {
+					specificity := selector.specificity
+					if len(sh.specificity) == 3 {
+						specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
 					}
-					types.First = true
-					types.specificity[1] += 1
-				default:
-					return nil
-				}
-			} else if literal.Value == "," {
-				if len(tokens) > 0 && (types.specificity != cascadia.Specificity{}) {
-					break
-				} else {
-					return nil
+					style, in := s.cascadedStyles[pageType_.ToKey(selector.pseudoType)]
+					if !in {
+						style = cascadedStyle{}
+						s.cascadedStyles[pageType_.ToKey(selector.pseudoType)] = style
+					}
+
+					for _, decl := range pageR.declarations {
+						// name, values, importance
+						precedence := declarationPrecedence(sh.origin, decl.Important)
+						we := weight{precedence: precedence, specificity: specificity}
+						oldWeight := style[decl.Name].weight
+						if oldWeight.isNone() || oldWeight.Less(we) {
+							style[decl.Name] = weigthedValue{weight: we, value: decl.Value}
+						}
+					}
 				}
 			}
 		}
-
-		out = append(out, types)
-	}
-
-	return out
-}
-
-func _isContentNone(rule Token) bool {
-	switch token := rule.(type) {
-	case parser.QualifiedRule:
-		return token.Content == nil
-	case parser.AtRule:
-		return token.Content == nil
-	default:
-		return true
 	}
 }
 
-type selectorPageRule struct {
-	specificity cascadia.Specificity
-	pseudoType  string
-	match       func(pageNames map[pr.Page]struct{}) []utils.PageElement
+func pageTypeMatch(selectorPageType utils.PageSelector, pageType utils.PageElement) bool {
+	if selectorPageType.Side != "" && selectorPageType.Side != pageType.Side {
+		return false
+	}
+	if selectorPageType.Blank && selectorPageType.Blank != pageType.Blank {
+		return false
+	}
+	if selectorPageType.First && selectorPageType.First != pageType.First {
+		return false
+	}
+	if selectorPageType.Name != "" && selectorPageType.Name != pageType.Name {
+		return false
+	}
+	if !selectorPageType.Index.IsNone() {
+		a, b := selectorPageType.Index.A, selectorPageType.Index.B
+		// TODO: handle group
+		if a != 0 {
+			if (pageType.Index+1-b)%a != 0 {
+				return false
+			}
+		} else {
+			if pageType.Index+1 != b {
+				return false
+			}
+		}
+	}
+	return true
 }
 
-type pageRule struct {
-	rule         parser.AtRule
-	selectors    []selectorPageRule
-	declarations []validation.ValidatedProperty
-}
-
-// Do the work that can be done early on stylesheet, before they are
-// in a document.
-// ignoreImports = false
-func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
-
-	for _, rule := range stylesheetRules {
-		if atRule, isAtRule := rule.(parser.AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
+// Yield the stylesheets in ``elementTree``.
+// The output order is the same as the source order.
+func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher utils.UrlFetcher, baseUrl string,
+	fontConfig *fonts.FontConfiguration, pageRules *[]pageRule) (out []CSS) {
+	sel := cascadia.MustCompile("style, link")
+	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
+		element := (*utils.HTMLNode)(_element)
+		mimeType := element.Get("type")
+		if mimeType == "" {
+			mimeType = "text/css"
+		}
+		mimeType = strings.TrimSpace(strings.SplitN(mimeType, ";", 1)[0])
+		// Only keep "type/subtype" from "type/subtype ; param1; param2".
+		if mimeType != "text/css" {
 			continue
 		}
-
-		switch typedRule := rule.(type) {
-		case parser.QualifiedRule:
-			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*typedRule.Content, false, false))
-			if len(declarations) > 0 {
-				fmt.Println(parser.Serialize(*typedRule.Prelude))
-				selector, err := cascadia.Compile(parser.Serialize(*typedRule.Prelude))
-				if err != nil {
-					log.Printf("Invalid or unsupported selector '%s', %s \n", parser.Serialize(*typedRule.Prelude), err)
-					continue
-				}
-				for _, sel := range selector {
-					if _, in := pseudoElements[sel.PseudoElement()]; !in {
-						err = fmt.Errorf("Unsupported pseudo-elment : %s", sel.PseudoElement())
-						break
-					}
-				}
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				*matcher = append(*matcher, match{selector: selector, declarations: declarations})
-				ignoreImports = true
+		mediaAttr := strings.TrimSpace(element.Get("media"))
+		if mediaAttr == "" {
+			mediaAttr = "all"
+		}
+		media := strings.Split(mediaAttr, ",")
+		for i, s := range media {
+			media[i] = strings.TrimSpace(s)
+		}
+		if !evaluateMediaQuery(media, deviceMediaType) {
+			continue
+		}
+		switch element.DataAtom {
+		case atom.Style:
+			// Content is text that is directly in the <style> element, not its
+			// descendants
+			content := element.GetChildText()
+			// ElementTree should give us either unicode or  ASCII-only
+			// bytestrings, so we don"t need `encoding` here.
+			css, err := NewCSS(CssString(content), baseUrl, urlFetcher, false, deviceMediaType,
+				fontConfig, nil, pageRules)
+			if err != nil {
+				log.Printf("Invalid style %s : %s \n", content, err)
 			} else {
-				ignoreImports = true
+				out = append(out, css)
 			}
-		case parser.AtRule:
-			switch typedRule.AtKeyword.Lower() {
-			case "import":
-				if ignoreImports {
-					log.Printf("@import rule '%s' not at the beginning of the whole rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
+		case atom.Link:
+			if element.Get("href") != "" {
+				if !element.HasLinkType("stylesheet") || element.HasLinkType("alternate") {
 					continue
 				}
-
-				tokens := validation.RemoveWhitespace(*typedRule.Prelude)
-				var url string
-				if len(tokens) > 0 {
-					switch str := tokens[0].(type) {
-					case parser.URLToken:
-						url = str.Value
-					case parser.StringToken:
-						url = str.Value
-					}
-				} else {
-					continue
-				}
-				media := parseMediaQuery(tokens[1:])
-				if media == nil {
-					log.Printf("Invalid media type '%s' the whole @import rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
-					continue
-				}
-				if !evaluateMediaQuery(media, deviceMediaType) {
-					continue
-				}
-				url = utils.UrlJoin(baseUrl, url, false, "@import")
-				if url != "" {
-					_, err := NewCSS(CssUrl(url), "", urlFetcher, false,
-						deviceMediaType, fontConfig, matcher, pageRules)
+				href := element.GetUrlAttribute("href", baseUrl, false)
+				if href != "" {
+					css, err := NewCSS(CssUrl(href), "", urlFetcher, true, deviceMediaType,
+						fontConfig, nil, pageRules)
 					if err != nil {
-						log.Printf("Failed to load stylesheet at %s : %s \n", url, err)
-					}
-				}
-			case "media":
-				media := parseMediaQuery(*typedRule.Prelude)
-				if media != nil {
-					log.Printf("Invalid media type '%s' the whole @media rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
-					continue
-				}
-				ignoreImports = true
-				if !evaluateMediaQuery(media, deviceMediaType) {
-					continue
-				}
-				contentRules := parser.ParseRuleList(*typedRule.Content, false, false)
-				preprocessStylesheet(
-					deviceMediaType, baseUrl, contentRules, urlFetcher,
-					matcher, pageRules, fonts, fontConfig, true)
-			case "page":
-				data := parsePageSelectors(typedRule.QualifiedRule)
-				if data == nil {
-					log.Printf("Unsupported @page selector '%s', the whole @page rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
-					continue
-				}
-				ignoreImports = true
-				for _, pageType := range data {
-					specificity := pageType.specificity
-					pageType.specificity = cascadia.Specificity{}
-
-					pageType := pageType // capture for closure inside loop
-					match := func(pageNames map[pr.Page]struct{}) []utils.PageElement {
-						return matchingPageTypes(pageType.PageElement, pageNames)
-					}
-					content := parser.ParseDeclarationList(*typedRule.Content, false, false)
-					declarations := validation.PreprocessDeclarations(baseUrl, content)
-
-					var selectors []selectorPageRule
-					if len(declarations) > 0 {
-						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", match: match}}
-						*pageRules = append(*pageRules, pageRule{rule: typedRule, selectors: selectors, declarations: declarations})
-					}
-
-					for _, marginRule := range content {
-						atRule, ok := marginRule.(parser.AtRule)
-						if !ok || atRule.Content == nil {
-							continue
-						}
-						declarations = validation.PreprocessDeclarations(
-							baseUrl,
-							parser.ParseDeclarationList(*atRule.Content, false, false))
-						if len(declarations) > 0 {
-							selectors = []selectorPageRule{{
-								specificity: specificity, pseudoType: "@" + atRule.AtKeyword.Lower(),
-								match: match}}
-							*pageRules = append(*pageRules, pageRule{rule: atRule, selectors: selectors, declarations: declarations})
-						}
-					}
-				}
-			case "font-face":
-				ignoreImports = true
-				content := parser.ParseDeclarationList(*typedRule.Content, false, false)
-				ruleDescriptors := map[string]pr.Descriptor{}
-				for _, desc := range validation.PreprocessDescriptors(baseUrl, content) {
-					ruleDescriptors[desc.Name] = desc.Descriptor
-				}
-				ok := true
-				for _, key := range [2]string{"src", "font_family"} {
-					if _, in := ruleDescriptors[key]; !in {
-						log.Printf(
-							`Missing %s descriptor in "@font-face" rule at %d:%d`+"\n",
-							strings.ReplaceAll(key, "_", "-"), rule.Position().Line, rule.Position().Column)
-						ok = false
-						break
-					}
-				}
-				if ok {
-					if fontConfig != nil {
-						fontFilename := fontConfig.AddFontFace(
-							ruleDescriptors, urlFetcher)
-						if fontFilename != "" {
-							*fonts = append(*fonts, fontFilename)
-						}
+						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
+					} else {
+						out = append(out, css)
 					}
 				}
 			}
 		}
 	}
-}
-
-type sheet struct {
-	sheet       CSS
-	origin      string
-	specificity []uint8
-}
-
-type sa struct {
-	element     *utils.HTMLNode
-	declaration []Token
-	baseUrl     string
-}
-
-type sas struct {
-	sa
-	specificity cascadia.Specificity
+	return out
 }
 
 // Yield ``specificity, (element, declaration, baseUrl)`` rules.
@@ -893,65 +624,516 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 	return out
 }
 
-// Yield the stylesheets in ``elementTree``.
-// The output order is the same as the source order.
-func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher utils.UrlFetcher, baseUrl string,
-	fontConfig *fonts.FontConfiguration, pageRules *[]pageRule) (out []CSS, err error) {
-	sel := cascadia.MustCompile("style, link")
-	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
-		element := (*utils.HTMLNode)(_element)
-		mimeType := element.Get("type")
-		if mimeType == "" {
-			mimeType = "text/css"
+// Return the precedence for a declaration.
+// Precedence values have no meaning unless compared to each other.
+// Acceptable values for ``origin`` are the strings ``"author"``, ``"user"``
+// and ``"user agent"``.
+//
+func declarationPrecedence(origin string, importance bool) uint8 {
+	// See http://www.w3.org/TR/CSS21/cascade.html#cascading-order
+	if origin == "user agent" {
+		return 1
+	} else if origin == "user" && !importance {
+		return 2
+	} else if origin == "author" && !importance {
+		return 3
+	} else if origin == "author" { // && importance
+		return 4
+	} else {
+		if origin != "user" {
+			log.Fatalf("origin should be 'user' got %s", origin)
 		}
-		mimeType = strings.TrimSpace(strings.SplitN(mimeType, ";", 1)[0])
-		// Only keep "type/subtype" from "type/subtype ; param1; param2".
-		if mimeType != "text/css" {
-			continue
-		}
-		mediaAttr := strings.TrimSpace(element.Get("media"))
-		if mediaAttr == "" {
-			mediaAttr = "all"
-		}
-		media := strings.Split(mediaAttr, ",")
-		for i, s := range media {
-			media[i] = strings.TrimSpace(s)
-		}
-		if !evaluateMediaQuery(media, deviceMediaType) {
-			continue
-		}
-		switch element.DataAtom {
-		case atom.Style:
-			// Content is text that is directly in the <style> element, not its
-			// descendants
-			content := element.GetChildText()
-			// ElementTree should give us either unicode or  ASCII-only
-			// bytestrings, so we don"t need `encoding` here.
-			css, err := NewCSS(CssString(content), baseUrl, urlFetcher, false, deviceMediaType,
-				fontConfig, nil, pageRules)
-			if err != nil {
-				return nil, err
+		return 5
+	}
+}
+
+// IsZero returns `true` if the StyleFor is not initialized.
+// Thus, we can use a zero StyleFor as null value.
+func (s StyleFor) IsZero() bool {
+	return s.Properties == nil
+}
+
+// Deep copy.
+// inheritedStyle is a shallow copy
+func (s StyleFor) Copy() StyleFor {
+	out := s
+	out.Properties = s.Properties.Copy()
+	return out
+}
+
+// InheritFrom returns a new StyleFor with inherited properties from this one.
+// Non-inherited properties get their initial values.
+// This is the method used for an anonymous box.
+func (s *StyleFor) InheritFrom() StyleFor {
+	if s.inheritedStyle == nil {
+		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleFor{}, "")
+		is.Anonymous = true
+		s.inheritedStyle = &is
+	}
+	return *s.inheritedStyle
+}
+
+func (s StyleFor) ResolveColor(key string) pr.Color {
+	value := s.Properties[key].(pr.Color)
+	if value.Type == parser.ColorCurrentColor {
+		value = s.GetColor()
+	}
+	return value
+}
+
+// Get a dict of computed style mixed from parent and cascaded styles.
+func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
+	if cascaded == nil && parentStyle != nil {
+		// Fast path for anonymous boxes:
+		// no cascaded style, only implicitly initial or inherited values.
+		computed := pr.InitialValues.Copy()
+		for name := range parentStyle {
+			if pr.Inherited.Has(name) || strings.HasPrefix(name, "__") {
+				computed[name] = parentStyle[name]
 			}
-			out = append(out, css)
-		case atom.Link:
-			if element.Get("href") != "" {
-				if !element.HasLinkType("stylesheet") || element.HasLinkType("alternate") {
+		}
+
+		// page is not inherited but taken from the ancestor if "auto"
+		computed.SetPage(parentStyle.GetPage())
+		// border-*-style is none, so border-width computes to zero.
+		// Other than that, properties that would need computing are
+		// border-*-color, but they do not apply.
+		computed.SetBorderTopWidth(pr.Value{})
+		computed.SetBorderBottomWidth(pr.Value{})
+		computed.SetBorderLeftWidth(pr.Value{})
+		computed.SetBorderRightWidth(pr.Value{})
+		computed.SetOutlineWidth(pr.Value{})
+		return computed
+	}
+
+	// Handle inheritance and initial values
+	specified, computed := map[string]pr.CascadedProperty{}, pr.Properties{}
+	if parentStyle != nil {
+		for name := range parentStyle {
+			if strings.HasPrefix(name, "__") {
+				computed[name] = parentStyle[name]
+				specified[name] = pr.ToC(parentStyle[name])
+			}
+		}
+	}
+	for name := range cascaded {
+		if strings.HasPrefix(name, "__") {
+			computed[name] = cascaded[name].value.AsCascaded().AsCss()
+			specified[name] = cascaded[name].value.AsCascaded()
+		}
+	}
+
+	for name, initial := range pr.InitialValues {
+		var (
+			keyword pr.DefaultKind
+			value   pr.CascadedProperty
+		)
+		if _, in := cascaded[name]; in {
+			vp := cascaded[name].value
+			if vp.Default == 0 {
+				value = vp.AsCascaded()
+			}
+			keyword = vp.Default
+		} else {
+			if pr.Inherited.Has(name) {
+				keyword = pr.Inherit
+			} else {
+				keyword = pr.Initial
+			}
+		}
+
+		if keyword == pr.Inherit && parentStyle == nil {
+			// On the root element, "inherit" from initial values
+			keyword = pr.Initial
+		}
+
+		if keyword == pr.Initial {
+			value = pr.ToC(initial)
+			if !pr.InitialNotComputed.Has(name) {
+				// The value is the same as when computed
+				computed[name] = initial
+			}
+		} else if keyword == pr.Inherit {
+			value = pr.ToC(parentStyle[name])
+			// Values in parentStyle are already computed.
+			computed[name] = parentStyle[name]
+		}
+		specified[name] = value
+	}
+	sp := specified["page"]
+	if sp.SpecialProperty == nil && sp.AsCss() != nil && sp.AsCss().(pr.String) == "auto" {
+		// The page property does not inherit. However, if the page value on
+		// an element is auto, then its used value is the value specified on
+		// its nearest ancestor with a non-auto value. When specified on the
+		// root element, the used value for auto is the empty string.
+		val := pr.Page{Valid: true, String: ""}
+		if parentStyle != nil {
+			val = parentStyle.GetPage()
+		}
+		computed.SetPage(val)
+		specified["page"] = pr.ToC(val)
+	}
+
+	return compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, targetCollector)
+}
+
+// either a html node or a page type
+type element interface {
+	ToKey(pseudoType string) utils.ElementKey
+}
+
+func matchingPageTypes(pageType utils.PageElement, _names map[pr.Page]struct{}) (out []utils.PageElement) {
+	sides := []string{"left", "right", ""}
+	if pageType.Side != "" {
+		sides = []string{pageType.Side}
+	}
+
+	blanks := []bool{true}
+	if pageType.Blank == false {
+		blanks = []bool{true, false}
+	}
+	firsts := []bool{true}
+	if pageType.First == false {
+		firsts = []bool{true, false}
+	}
+	names := []string{pageType.Name}
+	if pageType.Name == "" {
+		names = []string{""}
+		for page := range _names {
+			names = append(names, page.String)
+		}
+	}
+	for _, side := range sides {
+		for _, blank := range blanks {
+			for _, first := range firsts {
+				for _, name := range names {
+					out = append(out, utils.PageElement{Side: side, Blank: blank, First: first, Name: name})
+				}
+			}
+		}
+	}
+	return
+}
+
+type weight struct {
+	precedence  uint8
+	specificity cascadia.Specificity
+}
+
+func (w weight) isNone() bool {
+	return w == weight{}
+}
+
+// Less return `true` if w <= other
+func (w weight) Less(other weight) bool {
+	return w.precedence < other.precedence || (w.precedence == other.precedence && w.specificity.Less(other.specificity))
+}
+
+type weigthedValue struct {
+	value  pr.ValidatedProperty
+	weight weight
+}
+
+type cascadedStyle = map[string]weigthedValue
+
+type pageData struct {
+	utils.PageElement
+	specificity cascadia.Specificity
+}
+
+// FIXME: update this function
+// Parse a page selector rule.
+//     Return a list of page data if the rule is correctly parsed. Page data are a
+//     dict containing:
+//     - "side" ("left", "right" or ""),
+//     - "blank" (true or false),
+//     - "first" (true or false),
+//     - "name" (page name string or ""), and
+//     - "specificity" (list of numbers).
+//     Return ``None` if something went wrong while parsing the rule.
+func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
+	// See https://drafts.csswg.org/css-page-3/#syntax-page-selector
+
+	tokens := validation.RemoveWhitespace(*rule.Prelude)
+
+	// TODO: Specificity is probably wrong, should clean and test that.
+	if len(tokens) == 0 {
+		out = append(out, pageData{PageElement: utils.PageElement{
+			Side: "", Blank: false, First: false, Name: ""}})
+		return out
+	}
+
+	for len(tokens) > 0 {
+		types := pageData{PageElement: utils.PageElement{
+			Side: "", Blank: false, First: false, Name: ""}}
+
+		if ident, ok := tokens[0].(parser.IdentToken); ok {
+			tokens = tokens[1:]
+			types.Name = string(ident.Value)
+			types.specificity[0] = 1
+		}
+
+		if len(tokens) == 1 {
+			return nil
+		} else if len(tokens) == 0 {
+			out = append(out, types)
+			return out
+		}
+
+		for len(tokens) > 0 {
+			token := tokens[0]
+			tokens = tokens[1:]
+			literal, ok := token.(parser.LiteralToken)
+			if !ok {
+				return nil
+			}
+
+			if literal.Value == ":" {
+				if len(tokens) == 0 {
+					return nil
+				}
+				ident, ok := tokens[0].(parser.IdentToken)
+				if !ok {
+					return nil
+				}
+				pseudoClass := ident.Value.Lower()
+				switch pseudoClass {
+				case "left", "right":
+					if types.Side != "" {
+						return nil
+					}
+					types.Side = pseudoClass
+					types.specificity[2] += 1
+				case "blank":
+					if types.Blank {
+						return nil
+					}
+					types.Blank = true
+					types.specificity[1] += 1
+
+				case "first":
+					if types.First {
+						return nil
+					}
+					types.First = true
+					types.specificity[1] += 1
+				default:
+					return nil
+				}
+			} else if literal.Value == "," {
+				if len(tokens) > 0 && (types.specificity != cascadia.Specificity{}) {
+					break
+				} else {
+					return nil
+				}
+			}
+		}
+
+		out = append(out, types)
+	}
+
+	return out
+}
+
+func _isContentNone(rule Token) bool {
+	switch token := rule.(type) {
+	case parser.QualifiedRule:
+		return token.Content == nil
+	case parser.AtRule:
+		return token.Content == nil
+	default:
+		return true
+	}
+}
+
+type selectorPageRule struct {
+	specificity cascadia.Specificity
+	pseudoType  string
+	pageType    utils.PageSelector
+}
+
+type pageRule struct {
+	rule         parser.AtRule
+	selectors    []selectorPageRule
+	declarations []validation.ValidatedProperty
+}
+
+// Do the work that can be done early on stylesheet, before they are
+// in a document.
+// ignoreImports = false
+func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
+	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
+
+	for _, rule := range stylesheetRules {
+		if atRule, isAtRule := rule.(parser.AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
+			continue
+		}
+
+		switch typedRule := rule.(type) {
+		case parser.QualifiedRule:
+			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*typedRule.Content, false, false))
+			if len(declarations) > 0 {
+				fmt.Println(parser.Serialize(*typedRule.Prelude))
+				selector, err := cascadia.Compile(parser.Serialize(*typedRule.Prelude))
+				if err != nil {
+					log.Printf("Invalid or unsupported selector '%s', %s \n", parser.Serialize(*typedRule.Prelude), err)
 					continue
 				}
-				href := element.GetUrlAttribute("href", baseUrl, false)
-				if href != "" {
-					css, err := NewCSS(CssUrl(href), "", urlFetcher, true, deviceMediaType,
-						fontConfig, nil, pageRules)
+				for _, sel := range selector {
+					if _, in := pseudoElements[sel.PseudoElement()]; !in {
+						err = fmt.Errorf("Unsupported pseudo-elment : %s", sel.PseudoElement())
+						break
+					}
+				}
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				*matcher = append(*matcher, match{selector: selector, declarations: declarations})
+				ignoreImports = true
+			} else {
+				ignoreImports = true
+			}
+		case parser.AtRule:
+			switch typedRule.AtKeyword.Lower() {
+			case "import":
+				if ignoreImports {
+					log.Printf("@import rule '%s' not at the beginning of the whole rule was ignored. \n",
+						parser.Serialize(*typedRule.Prelude))
+					continue
+				}
+
+				tokens := validation.RemoveWhitespace(*typedRule.Prelude)
+				var url string
+				if len(tokens) > 0 {
+					switch str := tokens[0].(type) {
+					case parser.URLToken:
+						url = str.Value
+					case parser.StringToken:
+						url = str.Value
+					}
+				} else {
+					continue
+				}
+				media := parseMediaQuery(tokens[1:])
+				if media == nil {
+					log.Printf("Invalid media type '%s' the whole @import rule was ignored. \n",
+						parser.Serialize(*typedRule.Prelude))
+					continue
+				}
+				if !evaluateMediaQuery(media, deviceMediaType) {
+					continue
+				}
+				url = utils.UrlJoin(baseUrl, url, false, "@import")
+				if url != "" {
+					_, err := NewCSS(CssUrl(url), "", urlFetcher, false,
+						deviceMediaType, fontConfig, matcher, pageRules)
 					if err != nil {
-						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
-					} else {
-						out = append(out, css)
+						log.Printf("Failed to load stylesheet at %s : %s \n", url, err)
+					}
+				}
+			case "media":
+				media := parseMediaQuery(*typedRule.Prelude)
+				if media != nil {
+					log.Printf("Invalid media type '%s' the whole @media rule was ignored. \n",
+						parser.Serialize(*typedRule.Prelude))
+					continue
+				}
+				ignoreImports = true
+				if !evaluateMediaQuery(media, deviceMediaType) {
+					continue
+				}
+				contentRules := parser.ParseRuleList(*typedRule.Content, false, false)
+				preprocessStylesheet(
+					deviceMediaType, baseUrl, contentRules, urlFetcher,
+					matcher, pageRules, fonts, fontConfig, true)
+			case "page":
+				data := parsePageSelectors(typedRule.QualifiedRule)
+				if data == nil {
+					log.Printf("Unsupported @page selector '%s', the whole @page rule was ignored. \n",
+						parser.Serialize(*typedRule.Prelude))
+					continue
+				}
+				ignoreImports = true
+				for _, pageType := range data {
+					specificity := pageType.specificity
+					pageType.specificity = cascadia.Specificity{}
+
+					pageType := pageType // capture for closure inside loop
+					match := func(pageNames map[pr.Page]struct{}) []utils.PageElement {
+						return matchingPageTypes(pageType.PageElement, pageNames)
+					}
+					content := parser.ParseDeclarationList(*typedRule.Content, false, false)
+					declarations := validation.PreprocessDeclarations(baseUrl, content)
+
+					var selectors []selectorPageRule
+					if len(declarations) > 0 {
+						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", match: match}}
+						*pageRules = append(*pageRules, pageRule{rule: typedRule, selectors: selectors, declarations: declarations})
+					}
+
+					for _, marginRule := range content {
+						atRule, ok := marginRule.(parser.AtRule)
+						if !ok || atRule.Content == nil {
+							continue
+						}
+						declarations = validation.PreprocessDeclarations(
+							baseUrl,
+							parser.ParseDeclarationList(*atRule.Content, false, false))
+						if len(declarations) > 0 {
+							selectors = []selectorPageRule{{
+								specificity: specificity, pseudoType: "@" + atRule.AtKeyword.Lower(),
+								match: match}}
+							*pageRules = append(*pageRules, pageRule{rule: atRule, selectors: selectors, declarations: declarations})
+						}
+					}
+				}
+			case "font-face":
+				ignoreImports = true
+				content := parser.ParseDeclarationList(*typedRule.Content, false, false)
+				ruleDescriptors := map[string]pr.Descriptor{}
+				for _, desc := range validation.PreprocessDescriptors(baseUrl, content) {
+					ruleDescriptors[desc.Name] = desc.Descriptor
+				}
+				ok := true
+				for _, key := range [2]string{"src", "font_family"} {
+					if _, in := ruleDescriptors[key]; !in {
+						log.Printf(
+							`Missing %s descriptor in "@font-face" rule at %d:%d`+"\n",
+							strings.ReplaceAll(key, "_", "-"), rule.Position().Line, rule.Position().Column)
+						ok = false
+						break
+					}
+				}
+				if ok {
+					if fontConfig != nil {
+						fontFilename := fontConfig.AddFontFace(
+							ruleDescriptors, urlFetcher)
+						if fontFilename != "" {
+							*fonts = append(*fonts, fontFilename)
+						}
 					}
 				}
 			}
 		}
 	}
-	return out, nil
+}
+
+type sheet struct {
+	sheet       CSS
+	origin      string
+	specificity []uint8
+}
+
+type sa struct {
+	element     *utils.HTMLNode
+	declaration []Token
+	baseUrl     string
+}
+
+type sas struct {
+	sa
+	specificity cascadia.Specificity
 }
 
 type htmlEntity struct {
@@ -965,12 +1147,13 @@ type styleGetter = func(element element, pseudoType string, get func(utils.Eleme
 
 // Compute all the computed styles of all elements in ``html`` document.
 // Do everything from finding author stylesheets to parsing and applying them.
-// Return a ``styleFor`` function that takes an element and an optional
-// pseudo-element type, and return a StyleFor object.
+//
+// Return a ``style_for`` function like object that takes an element and an optional
+// pseudo-element type, and return a style dict object.
 // presentationalHints=false
 func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules *[]pageRule) (styleGetter, map[utils.ElementKey]cascadedStyle, map[utils.ElementKey]StyleFor, error) {
+	pageRules *[]pageRule, targetCollector *targetCollector) (*StyleFor, error) {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -983,7 +1166,7 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 	authorShts, err := findStylesheets(html.root, html.mediaType, html.urlFetcher,
 		html.baseUrl, fontConfig, pageRules)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	for _, sht := range authorShts {
 		sheets = append(sheets, sheet{sheet: sht, origin: "author", specificity: nil})
@@ -991,148 +1174,5 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 	for _, sht := range userStylesheets {
 		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
-
-	// keys: (element, pseudoElementType)
-	//    Element: an ElementTree Element or the "@page" string for @page styles
-	//    pseudoElementType: a string such as "first" (for @page) or "after",
-	//        or None for normal elements
-	// values: dicts of
-	//     keys: property name as a string
-	//     values: (values, weight)
-	//         values: a PropertyValue-like object
-	//         weight: values with a greater weight take precedence, see
-	//             http://www.w3.org/TR/CSS21/cascade.html#cascading-order
-	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
-
-	log.Println("Step 3 - Applying CSS")
-	for _, styleAttr := range findStyleAttributes(html.root, presentationalHints, html.baseUrl) {
-		// element, declarations, baseUrl = attributes
-		for _, vp := range validation.PreprocessDeclarations(styleAttr.baseUrl, styleAttr.declaration) {
-			// name, values, importance = vp
-			precedence := declarationPrecedence("author", vp.Important)
-			we := weight{precedence: precedence, specificity: styleAttr.specificity}
-			addDeclaration(cascadedStyles, vp.Name, vp.Value, we, styleAttr.element, "")
-		}
-	}
-	// keys: (element, pseudoElementType), like cascadedStyles
-	// values: StyleFor objects:
-	//     keys: property name as a string
-	//     values: a PropertyValue-like object
-	computedStyles := map[utils.ElementKey]StyleFor{}
-
-	// First, add declarations and set computed styles for "real" elements *in
-	// tree order*. Tree order is important so that parents have computed
-	// styles before their children, for inheritance.
-
-	// Iterate on all elements, even if there is no cascaded style for them.
-	iter := html.root.Iter()
-	for iter.HasNext() {
-		element := iter.Next()
-		for _, sh := range sheets {
-			// sheet, origin, sheetSpecificity
-			// Add declarations for matched elements
-			for _, selector := range sh.sheet.matcher.Match(element.AsHtmlNode()) {
-				// specificity, order, pseudoType, declarations = selector
-				specificity := selector.specificity
-				if len(specificity) == 3 {
-					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
-				}
-				for _, decl := range selector.payload {
-					// name, values, importance = decl
-					precedence := declarationPrecedence(sh.origin, decl.Important)
-					we := weight{precedence: precedence, specificity: specificity}
-					addDeclaration(cascadedStyles, decl.Name, decl.Value, we, element, selector.pseudoType)
-				}
-			}
-		}
-		setComputedStyles(cascadedStyles, computedStyles, element,
-			(*utils.HTMLNode)(element.Parent), html.root, "", html.baseUrl)
-	}
-
-	pageNames := map[pr.Page]struct{}{}
-
-	for _, style := range computedStyles {
-		pageNames[style.GetPage()] = pr.Has
-	}
-
-	for _, sh := range sheets {
-		// Add declarations for page elements
-		for _, pr := range *sh.sheet.pageRules {
-			// Rule, selectorList, declarations
-			for _, selector := range pr.selectors {
-				// specificity, pseudoType, match = selector
-				specificity := selector.specificity
-				if len(specificity) == 3 {
-					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
-				}
-				for _, pageType := range selector.match(pageNames) {
-					for _, decl := range pr.declarations {
-						// name, values, importance
-						precedence := declarationPrecedence(sh.origin, decl.Important)
-						we := weight{precedence: precedence, specificity: specificity}
-						addDeclaration(
-							cascadedStyles, decl.Name, decl.Value, we, pageType,
-							selector.pseudoType)
-					}
-				}
-			}
-		}
-	}
-
-	// Then computed styles for pseudo elements, in any order.
-	// Pseudo-elements inherit from their associated element so they come
-	// last. Do them in a second pass as there is no easy way to iterate
-	// on the pseudo-elements for a given element with the current structure
-	// of cascadedStyles. (Keys are (element, pseudoType) tuples.)
-
-	// Only iterate on pseudo-elements that have cascaded styles. (Others
-	// might as well not exist.)
-	for key := range cascadedStyles {
-		// element, pseudoType
-		if key.PseudoType != "" && key.Element != nil {
-			setComputedStyles(
-				cascadedStyles, computedStyles, key.Element, key.Element, html.root,
-				key.PseudoType, html.baseUrl)
-			// The pseudo-element inherits from the element.
-		}
-	}
-
-	__get := func(key utils.ElementKey) StyleFor {
-		return computedStyles[key]
-	}
-	// This is mostly useful to make pseudoType optional.
-	// Convenience function to get the computed styles for an element.
-	styleFor := func(element element, pseudoType string, get func(utils.ElementKey) StyleFor) StyleFor {
-		if get == nil {
-			get = __get
-		}
-		style := get(element.ToKey(pseudoType))
-
-		if !style.IsZero() {
-			display := style.GetDisplay().String()
-			if strings.Contains(display, "table") {
-				if (display == "table" || display == "inline-table") && style.GetBorderCollapse() == "collapse" {
-
-					// Padding do not apply
-					style.SetPaddingTop(pr.ZeroPixels.ToValue())
-					style.SetPaddingBottom(pr.ZeroPixels.ToValue())
-					style.SetPaddingLeft(pr.ZeroPixels.ToValue())
-					style.SetPaddingRight(pr.ZeroPixels.ToValue())
-				}
-				if strings.HasPrefix(display, "table-") && display != "table-caption" {
-
-					// Margins do not apply
-					style.SetMarginTop(pr.ZeroPixels.ToValue())
-					style.SetMarginBottom(pr.ZeroPixels.ToValue())
-					style.SetMarginLeft(pr.ZeroPixels.ToValue())
-					style.SetMarginRight(pr.ZeroPixels.ToValue())
-				}
-			}
-
-		}
-
-		return style
-	}
-
-	return styleFor, cascadedStyles, computedStyles, nil
+	return NewStyleFor(html, sheets, presentationalHints, targetCollector), nil
 }

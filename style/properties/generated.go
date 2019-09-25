@@ -134,6 +134,7 @@ func (v SStrings) Copy() CssProperty {
 func (v SStrings) IsNone() bool {
 	return v.String == "" && v.Strings == nil
 }
+
 func (v Sizes) Copy() CssProperty {
 	out := make(Sizes, len(v))
 	for i, k := range v {

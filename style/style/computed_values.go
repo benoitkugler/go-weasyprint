@@ -212,14 +212,14 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 // :param baseUrl: The base URL used to resolve relative URLs.
 // 		targetCollector: A target collector used to get computed targets.
 func compute(element element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
-	rootStyle StyleFor, baseUrl string, targetCollector *targetCollector) (pr.Properties, error) {
+	rootStyle pr.Properties, baseUrl string, targetCollector *targetCollector) pr.Properties {
 
-	if parentStyle.IsZero() {
-		parentStyle = StyleFor{Properties: pr.InitialValues}
+	if parentStyle == nil {
+		parentStyle = pr.InitialValues
 	}
 
 	computer := &computer{
-		isRootElement:   parentStyle.IsZero(),
+		isRootElement:   parentStyle == nil,
 		element:         element,
 		pseudoType:      pseudoType,
 		specified:       specified,
@@ -256,8 +256,8 @@ func compute(element element, pseudoType string, specified map[string]pr.Cascade
 				cp := strings.Join(chunks, "")
 				log.Printf("Unsupported computed value `%s` set in variable `%s` for property `%s`.", cp,
 					strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
-				if pr.Inherited.Has(name) && !parentStyle.IsZero() {
-					newValue = parentStyle.Properties[name]
+				if pr.Inherited.Has(name) && parentStyle != nil {
+					newValue = parentStyle[name]
 				} else {
 					newValue = pr.InitialValues[name]
 				}
@@ -286,7 +286,7 @@ func compute(element element, pseudoType string, specified map[string]pr.Cascade
 		computed[name] = value
 	}
 	computed.SetWeasySpecifiedDisplay(resolveds.GetDisplay())
-	return computed, nil
+	return computed
 }
 
 type computer struct {
@@ -294,7 +294,7 @@ type computer struct {
 	pseudoType             string
 	computed               pr.Properties
 	specified              map[string]pr.CascadedProperty
-	rootStyle, parentStyle StyleFor
+	rootStyle, parentStyle pr.Properties
 	element                element
 	baseUrl                string
 	targetCollector        *targetCollector
@@ -409,7 +409,7 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32) pr.
 		result = value.Value * pr.LengthsToPixels[unit]
 	case pr.Em, pr.Ex, pr.Ch, pr.Rem:
 		if fontSize < 0 {
-			fontSize := computer.computed.GetFontSize().Value
+			fontSize = computer.computed.GetFontSize().Value
 		}
 		switch unit {
 		// TODO: we dont support 'ex' and 'ch' units for now.
@@ -506,15 +506,15 @@ func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.Content
 		return
 	}
 
+	var prop pr.InnerContent
 	attrValue := node.Get(attrName)
 	if attrValue == "" {
 		atrValue_, ok := fallback.(pr.String)
 		if !ok {
 			return out, fmt.Errorf("fallback type not supported : %t", fallback)
 		}
-		attrValue = string(attrValue)
+		prop = atrValue_
 	}
-	var prop pr.InnerContent
 	switch typeOrUnit {
 	case "string":
 		prop = pr.String(attrValue) // Keep the string
@@ -583,7 +583,8 @@ func contentList(computer *computer, values pr.ContentProperties) (pr.ContentPro
 			if !ok || attr.TypeOrUnit != "string" {
 				log.Fatalf("invalid attr() property : %v", value.Content)
 			}
-			computeValue, err := computeAttrFunction(computer, attr)
+			var err error
+			computedValue, err = computeAttrFunction(computer, attr)
 			if err != nil {
 				return nil, err
 			}

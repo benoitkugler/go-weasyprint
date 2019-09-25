@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="" />
+    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/generated.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/generated.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/computed_values.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/style.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/html.go" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,7 +37,7 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" path="$PROJECT_DIR$/../../../../../../go" />
+  <component name="GOROOT" path="/usr/local/go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>

@@ -16,16 +16,37 @@ var (
 	htmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", htmlWhitespace))
 )
 
+type PageIndex struct {
+	A, B  int
+	Group interface{} //TODO: handle groups
+}
+
+func (p PageIndex) IsNone() bool {
+	return p.A == 0 && p.B == 0 && p.Group == nil
+}
+
 type PageElement struct {
 	Side         string
 	Blank, First bool
 	Name         string
+	Index        int
+}
+
+type PageSelector struct {
+	Side         string
+	Blank, First bool
+	Name         string
+	Index        PageIndex
 }
 
 type ElementKey struct {
 	Element    *HTMLNode
 	PageType   PageElement
 	PseudoType string
+}
+
+func (e ElementKey) IsPageType() bool {
+	return e.Element != nil
 }
 
 func (p PageElement) ToKey(pseudoType string) ElementKey {

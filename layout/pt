@@ -1,36 +1,22 @@
-func ContentList(computer, values) {
-    computedValues = []
-    for value := range values {
-        if value[0] := range ("string", "content", "url", "quote", "leader()") {
-            computedValue = value
-        } else if value[0] == "attr()" {
-            assert value[1][1] == "string"
-            computedValue = computeAttrFunction(computer, value)
-        } else if value[0] := range ("counter()", "counters()", "content()", "string()") {
-            // Other values need layout context, their computed value cannot be
-            // better than their specified value yet.
-            // See build.computeContentList.
-            computedValue = value
-        } else if value[0] := range (
-                "target-counter()", "target-counters()", "target-text()") {
-                }
-            anchorToken = value[1][0]
-            if anchorToken[0] == "attr()" {
-                attr = computeAttrFunction(computer, anchorToken)
-                if attr is None {
-                    computedValue = None
-                } else {
-                    computedValue = (value[0], (
-                        (attr,) + value[1][1:]))
+    def PageTypeMatch(selectorPageType, pageType) {
+        if selectorPageType.side not := range (None, pageType.side) {
+            return false
+        } if selectorPageType.blank not := range (None, pageType.blank) {
+            return false
+        } if selectorPageType.first not := range (None, pageType.first) {
+            return false
+        } if selectorPageType.name not := range (None, pageType.name) {
+            return false
+        } if selectorPageType.index is not None {
+            a, b, group = selectorPageType.index
+            // TODO: handle group
+            if a {
+                if (pageType.index + 1 - b) % a {
+                    return false
                 }
             } else {
-                computedValue = value
-            } if computer["targetCollector"] && computedValue {
-                computer["targetCollector"].collectComputedTarget(
-                    computedValue[1][0])
+                if pageType.index + 1 != b {
+                    return false
+                }
             }
-        if computedValue is None {
-            LOGGER.warning("Unable to compute %s\"s value for content: %s" % (
-                computer["element"], ", ".join(str(item) for item := range value)))
-        } else {
-            computedValues.append(computedValue)
+        } return true
