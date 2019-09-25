@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/properties/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/computed_values.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/style.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/target.go" afterDir="false" />
-    </list>
+    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -178,6 +172,7 @@
     <MESSAGE value="WIP : computed values" />
     <MESSAGE value="refactor css properties types" />
     <MESSAGE value="up and test validation" />
-    <option name="LAST_COMMIT_MESSAGE" value="up and test validation" />
+    <MESSAGE value="WIP" />
+    <option name="LAST_COMMIT_MESSAGE" value="WIP" />
   </component>
 </project>
