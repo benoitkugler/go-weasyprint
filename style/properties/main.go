@@ -71,19 +71,11 @@ func (v VarData) IsNone() bool {
 	return v.Name == "" && v.Declaration == nil
 }
 
-type AttrData struct {
-	Name       string
-	TypeOrUnit string
-	Fallback   CssProperty
-}
-
-func (a AttrData) IsNone() bool {
-	return a.Name == "" && a.TypeOrUnit == "" && a.Fallback == nil
-}
-
 func (v VarData) isSpecialProperty()        {}
-func (v AttrData) isSpecialProperty()       {}
 func (v CustomProperty) isSpecialProperty() {}
+
+// AttrData is actually only supported inside other properties.
+// func (v AttrData) isSpecialProperty()       {}
 
 // ---------- Convenience constructor -------------------------------
 // Note than a CssProperty can naturally be seen as a CascadedProperty, but not the other way around.

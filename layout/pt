@@ -1,38 +1,36 @@
-func computeAttrFunction(computer, values) {
-    // TODO: use real token parsing instead of casting with Python types
-    funcName, value = values
-    assert funcName == "attr()"
-    attrName, typeOrUnit, fallback = value
-    // computer["element"] sometimes is None
-    // computer["element"] sometimes is a "PageType" object without .get()
-    // so wrapt the .get() into try && return None instead of crashing
-    try {
-        attrValue = computer["element"].get(attrName, fallback)
-        if typeOrUnit == "string" {
-            pass  // Keep the string
-        } else if typeOrUnit == "url" {
-            if attrValue.startswith("#") {
-                attrValue = ("internal", unquote(attrValue[1:]))
+func ContentList(computer, values) {
+    computedValues = []
+    for value := range values {
+        if value[0] := range ("string", "content", "url", "quote", "leader()") {
+            computedValue = value
+        } else if value[0] == "attr()" {
+            assert value[1][1] == "string"
+            computedValue = computeAttrFunction(computer, value)
+        } else if value[0] := range ("counter()", "counters()", "content()", "string()") {
+            // Other values need layout context, their computed value cannot be
+            // better than their specified value yet.
+            // See build.computeContentList.
+            computedValue = value
+        } else if value[0] := range (
+                "target-counter()", "target-counters()", "target-text()") {
+                }
+            anchorToken = value[1][0]
+            if anchorToken[0] == "attr()" {
+                attr = computeAttrFunction(computer, anchorToken)
+                if attr is None {
+                    computedValue = None
+                } else {
+                    computedValue = (value[0], (
+                        (attr,) + value[1][1:]))
+                }
             } else {
-                attrValue = (
-                    "external", safeUrljoin(computer["baseUrl"], attrValue))
+                computedValue = value
+            } if computer["targetCollector"] && computedValue {
+                computer["targetCollector"].collectComputedTarget(
+                    computedValue[1][0])
             }
-        } else if typeOrUnit == "color" {
-            attrValue = parseColor(attrValue.strip())
-        } else if typeOrUnit == "integer" {
-            attrValue = int(attrValue.strip())
-        } else if typeOrUnit == "number" {
-            attrValue = float(attrValue.strip())
-        } else if typeOrUnit == "%" {
-            attrValue = Dimension(float(attrValue.strip()), "%")
-            typeOrUnit = "length"
-        } else if typeOrUnit := range LENGTHUNITS {
-            attrValue = Dimension(float(attrValue.strip()), typeOrUnit)
-            typeOrUnit = "length"
-        } else if typeOrUnit := range ANGLETORADIANS {
-            attrValue = Dimension(float(attrValue.strip()), typeOrUnit)
-            typeOrUnit = "angle"
-        }
-    } except Exception {
-        return
-    } return (typeOrUnit, attrValue)
+        if computedValue is None {
+            LOGGER.warning("Unable to compute %s\"s value for content: %s" % (
+                computer["element"], ", ".join(str(item) for item := range value)))
+        } else {
+            computedValues.append(computedValue)

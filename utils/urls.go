@@ -87,7 +87,7 @@ func (u Url) IsNone() bool {
 }
 
 // Return ('external', absolute_uri) or
-// ('internal', unquoted_fragment_id) or nil.
+// ('internal', unquoted_fragment_id) or nil.s
 func GetLinkAttribute(element HTMLNode, attrName string, baseUrl string) []string {
 	attrValue := strings.TrimSpace(element.Get(attrName))
 	if strings.HasPrefix(attrValue, "#") && len(attrValue) > 1 {

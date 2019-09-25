@@ -239,10 +239,9 @@ var (
 		"bookmark-label":    bookmarkLabel,
 		"transform":         transform,
 		"string-set":        stringSet,
+		"link":              link,
 	}
-	validatorSpe = map[string]validatorSpecial{
-		"link": link,
-	}
+
 	// regroup the two cases (with error or without error)
 	allValidators = pr.Set{}
 
@@ -305,7 +304,6 @@ func init() {
 type Token = parser.Token
 
 type validator func(tokens []Token, baseUrl string) pr.CssProperty // dont support var(), attr()
-type validatorSpecial func(tokens []Token, baseUrl string) (pr.CascadedProperty, error)
 type validatorError func(tokens []Token, baseUrl string) (pr.CssProperty, error)
 type expander func(baseUrl, name string, tokens []Token) (pr.NamedProperties, error)
 
@@ -315,18 +313,12 @@ type ValidatedProperty struct {
 	Important bool
 }
 
-// Validate validate one property. initial and inherit have already been filtered out
-func Validate(name string, tokens []Token, baseUrl string) (value pr.CascadedProperty, err error) {
-	var prop pr.CssProperty
+// Validate validate one property. initial, inherit, var() and custom properties have already been filtered out
+func Validate(name string, tokens []Token, baseUrl string) (value pr.CssProperty, err error) {
 	if function := validators[name]; function != nil {
-		prop = function(tokens, baseUrl)
+		value = function(tokens, baseUrl)
 	} else if functionE := validatorsError[name]; functionE != nil {
-		prop, err = functionE(tokens, baseUrl)
-	} else if funcSpe := validatorSpe[name]; funcSpe != nil {
-		value, err = funcSpe(tokens, baseUrl)
-	}
-	if prop != nil {
-		value = pr.ToC(prop)
+		value, err = functionE(tokens, baseUrl)
 	}
 	return
 }
@@ -370,10 +362,10 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 		if err != nil {
 			return out, err
 		}
-		if cascValue.IsNone() {
+		if cascValue == nil {
 			return out, errors.New("invalid property (nil function return)")
 		}
-		value = cascValue.ToV()
+		value = pr.ToC(cascValue).ToV()
 	}
 	return pr.NamedProperty{Name: name, Property: value}, nil
 }
@@ -2493,13 +2485,13 @@ func anchor(tokens []Token, _ string) pr.CssProperty {
 //@validator(proprietary=true, wantsBaseUrl=true)
 //@singleToken
 // Validation for ``link``.
-func link(tokens []Token, baseUrl string) (out pr.CascadedProperty, err error) {
+func link(tokens []Token, baseUrl string) (out pr.CssProperty, err error) {
 	if len(tokens) != 1 {
 		return
 	}
 	token := tokens[0]
 	if getKeyword(token) == "none" {
-		return pr.ToC(pr.NamedString{Name: "none"}), nil
+		return pr.NamedString{Name: "none"}, nil
 	}
 
 	parsedUrl, attr, err := getUrl(token, baseUrl)
@@ -2507,7 +2499,7 @@ func link(tokens []Token, baseUrl string) (out pr.CascadedProperty, err error) {
 		return
 	}
 	if !parsedUrl.IsNone() {
-		return pr.ToC(parsedUrl), nil
+		return parsedUrl, nil
 	}
 	name, args := parseFunction(token)
 	if name != "" {
@@ -2518,7 +2510,7 @@ func link(tokens []Token, baseUrl string) (out pr.CascadedProperty, err error) {
 		}
 	}
 	if !attr.IsNone() {
-		out = pr.ToC2(attr)
+		out = attr
 	}
 	return
 }

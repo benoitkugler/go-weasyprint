@@ -57,6 +57,12 @@ type Quotes struct {
 
 type ContentProperties []ContentProperty
 
+type AttrData struct {
+	Name       string
+	TypeOrUnit string
+	Fallback   CssProperty
+}
+
 type Float float32
 
 type Int int
