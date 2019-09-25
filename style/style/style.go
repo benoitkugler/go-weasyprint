@@ -37,43 +37,49 @@ var (
 
 type Token = parser.Token
 
-type StyleDict struct {
+// StyleFor provides a convenience function `Get` to get the computed styles for an element.
+type StyleFor struct {
 	pr.Properties
 	Anonymous      bool
-	inheritedStyle *StyleDict
+	inheritedStyle *StyleFor
+
+	cascadedStyles map[utils.ElementKey]cascadedStyle
+	computedStyles map[utils.ElementKey]pr.Properties
+	sheets         []sheet
 }
 
-func NewStyleDict() StyleDict {
-	return StyleDict{Properties: pr.Properties{}}
+func NewStyleFor(html htmlEntity, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) StyleFor {
+
+	return StyleFor{Properties: pr.Properties{}}
 }
 
-// IsZero returns `true` if the StyleDict is not initialized.
-// Thus, we can use a zero StyleDict as null value.
-func (s StyleDict) IsZero() bool {
+// IsZero returns `true` if the StyleFor is not initialized.
+// Thus, we can use a zero StyleFor as null value.
+func (s StyleFor) IsZero() bool {
 	return s.Properties == nil
 }
 
 // Deep copy.
 // inheritedStyle is a shallow copy
-func (s StyleDict) Copy() StyleDict {
+func (s StyleFor) Copy() StyleFor {
 	out := s
 	out.Properties = s.Properties.Copy()
 	return out
 }
 
-// InheritFrom returns a new StyleDict with inherited properties from this one.
+// InheritFrom returns a new StyleFor with inherited properties from this one.
 // Non-inherited properties get their initial values.
 // This is the method used for an anonymous box.
-func (s *StyleDict) InheritFrom() StyleDict {
+func (s *StyleFor) InheritFrom() StyleFor {
 	if s.inheritedStyle == nil {
-		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleDict{}, "")
+		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleFor{}, "")
 		is.Anonymous = true
 		s.inheritedStyle = &is
 	}
 	return *s.inheritedStyle
 }
 
-func (s StyleDict) ResolveColor(key string) pr.Color {
+func (s StyleFor) ResolveColor(key string) pr.Color {
 	value := s.Properties[key].(pr.Color)
 	if value.Type == parser.ColorCurrentColor {
 		value = s.GetColor()
@@ -82,7 +88,7 @@ func (s StyleDict) ResolveColor(key string) pr.Color {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle StyleDict, baseUrl string) StyleDict {
+func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle StyleFor, baseUrl string) StyleFor {
 	if cascaded == nil && !parentStyle.IsZero() {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
@@ -101,11 +107,11 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 		computed.SetBorderLeftWidth(pr.Value{})
 		computed.SetBorderRightWidth(pr.Value{})
 		computed.SetOutlineWidth(pr.Value{})
-		return StyleDict{Properties: computed}
+		return StyleFor{Properties: computed}
 	}
 
 	// Handle inheritance and initial values
-	specified, computed := NewStyleDict(), NewStyleDict()
+	specified, computed := NewStyleFor(), NewStyleFor()
 	for name, initial := range pr.InitialValues {
 		var (
 			keyword pr.String
@@ -256,16 +262,16 @@ func addDeclaration(cascadedStyles map[utils.ElementKey]cascadedStyle, propName 
 // Take the properties left by ``applyStyleRule`` on an element or
 // pseudo-element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
-func setComputedStyles(cascadedStyles map[utils.ElementKey]cascadedStyle, computedStyles map[utils.ElementKey]StyleDict, element, parent,
+func setComputedStyles(cascadedStyles map[utils.ElementKey]cascadedStyle, computedStyles map[utils.ElementKey]StyleFor, element, parent,
 	root *utils.HTMLNode, pseudoType, baseUrl string) {
 
-	var parentStyle, rootStyle StyleDict
+	var parentStyle, rootStyle StyleFor
 	if element == root && pseudoType == "" {
 		if parent != nil {
 			log.Fatal("parent should be nil here")
 		}
-		parentStyle = StyleDict{}
-		rootStyle = StyleDict{Properties: pr.Properties{
+		parentStyle = StyleFor{}
+		rootStyle = StyleFor{Properties: pr.Properties{
 			// When specified on the font-size property of the root element, the
 			// rem units refer to the property’s initial value.
 			"font_size": pr.InitialValues.GetFontSize(),
@@ -955,16 +961,16 @@ type htmlEntity struct {
 	baseUrl    string
 }
 
-type styleGetter = func(element element, pseudoType string, get func(utils.ElementKey) StyleDict) StyleDict
+type styleGetter = func(element element, pseudoType string, get func(utils.ElementKey) StyleFor) StyleFor
 
 // Compute all the computed styles of all elements in ``html`` document.
 // Do everything from finding author stylesheets to parsing and applying them.
 // Return a ``styleFor`` function that takes an element and an optional
-// pseudo-element type, and return a StyleDict object.
+// pseudo-element type, and return a StyleFor object.
 // presentationalHints=false
 func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules *[]pageRule) (styleGetter, map[utils.ElementKey]cascadedStyle, map[utils.ElementKey]StyleDict, error) {
+	pageRules *[]pageRule) (styleGetter, map[utils.ElementKey]cascadedStyle, map[utils.ElementKey]StyleFor, error) {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -1009,10 +1015,10 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 		}
 	}
 	// keys: (element, pseudoElementType), like cascadedStyles
-	// values: StyleDict objects:
+	// values: StyleFor objects:
 	//     keys: property name as a string
 	//     values: a PropertyValue-like object
-	computedStyles := map[utils.ElementKey]StyleDict{}
+	computedStyles := map[utils.ElementKey]StyleFor{}
 
 	// First, add declarations and set computed styles for "real" elements *in
 	// tree order*. Tree order is important so that parents have computed
@@ -1091,12 +1097,12 @@ func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
 		}
 	}
 
-	__get := func(key utils.ElementKey) StyleDict {
+	__get := func(key utils.ElementKey) StyleFor {
 		return computedStyles[key]
 	}
 	// This is mostly useful to make pseudoType optional.
 	// Convenience function to get the computed styles for an element.
-	styleFor := func(element element, pseudoType string, get func(utils.ElementKey) StyleDict) StyleDict {
+	styleFor := func(element element, pseudoType string, get func(utils.ElementKey) StyleFor) StyleFor {
 		if get == nil {
 			get = __get
 		}

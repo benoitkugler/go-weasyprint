@@ -193,7 +193,7 @@ func beforeAfterToBox(element, pseudoType, state, styleFor,
     """Yield the box for ::before || ::after pseudo-element if there is one."""
     style = styleFor(element, pseudoType)
     if pseudoType && style is None {
-        // Pseudo-elements with no style at all do not get a StyleDict
+        // Pseudo-elements with no style at all do not get a StyleFor
         // Their initial content property computes to "none".
         return
     }

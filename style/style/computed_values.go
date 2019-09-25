@@ -212,10 +212,10 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 // :param baseUrl: The base URL used to resolve relative URLs.
 // 		targetCollector: A target collector used to get computed targets.
 func compute(element element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
-	rootStyle StyleDict, baseUrl string, targetCollector *targetCollector) (pr.Properties, error) {
+	rootStyle StyleFor, baseUrl string, targetCollector *targetCollector) (pr.Properties, error) {
 
 	if parentStyle.IsZero() {
-		parentStyle = StyleDict{Properties: pr.InitialValues}
+		parentStyle = StyleFor{Properties: pr.InitialValues}
 	}
 
 	computer := &computer{
@@ -294,7 +294,7 @@ type computer struct {
 	pseudoType             string
 	computed               pr.Properties
 	specified              map[string]pr.CascadedProperty
-	rootStyle, parentStyle StyleDict
+	rootStyle, parentStyle StyleFor
 	element                element
 	baseUrl                string
 	targetCollector        *targetCollector

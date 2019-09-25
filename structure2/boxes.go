@@ -185,7 +185,7 @@ type TextBox struct {
 	justificationSpacing int
 	text                 string
 
-	// constructor:elementTag string, style css.StyleDict, text string
+	// constructor:elementTag string, style css.StyleFor, text string
 }
 
 func (b *TextBox) Box() *BoxFields {
@@ -215,7 +215,7 @@ type ReplacedBox struct {
 
 	replacement css.ImageType
 
-	// constructor:elementTag string, style css.StyleDict, replacement css.ImageType
+	// constructor:elementTag string, style css.StyleFor, replacement css.ImageType
 }
 
 func (b *ReplacedBox) Box() *BoxFields {
@@ -229,7 +229,7 @@ type BlockReplacedBox struct {
 	ReplacedBox
 	BlockLevelBox
 
-	// constructor:elementTag string, style css.StyleDict, replacement css.ImageType
+	// constructor:elementTag string, style css.StyleFor, replacement css.ImageType
 }
 
 // InlineReplacedBox is a box that is both replaced and inline-level.
@@ -240,7 +240,7 @@ type InlineReplacedBox struct {
 	ReplacedBox
 	AtomicInlineLevelBox
 
-	// constructor:elementTag string, style css.StyleDict, replacement css.ImageType
+	// constructor:elementTag string, style css.StyleFor, replacement css.ImageType
 }
 
 // TableBox is a box for elements with ``display: table``

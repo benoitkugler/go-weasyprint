@@ -90,7 +90,7 @@ type point struct {
 
 type TBD struct{}
 
-func (self *Box) init(elementTag string, style css.StyleDict) {
+func (self *Box) init(elementTag string, style css.StyleFor) {
 	self.elementTag = elementTag
 	self.style = style
 }
@@ -386,7 +386,7 @@ func (self Box) descendants() []AllBox {
 	return []AllBox{&self}
 }
 
-func (p *ParentBox) init(elementTag string, style css.StyleDict, children []AllBox) {
+func (p *ParentBox) init(elementTag string, style css.StyleFor, children []AllBox) {
 	p.Box.init(elementTag, style)
 	p.children = children
 }
@@ -465,7 +465,7 @@ func (self BlockLevelBox) IsBlockLevelBox() bool {
 	return true
 }
 
-func NewBlockBox(elementTag string, style css.StyleDict, children []AllBox) *BlockBox {
+func NewBlockBox(elementTag string, style css.StyleFor, children []AllBox) *BlockBox {
 	var out BlockBox
 	out.init(elementTag, style, children)
 	return &out
@@ -490,7 +490,7 @@ func (self BlockContainerBox) IsBlockContainerBox() bool {
 // 	return self.BlockContainerBox.pageValues()
 // }
 
-func NewLineBox(elementTag string, style css.StyleDict, children []AllBox) *LineBox {
+func NewLineBox(elementTag string, style css.StyleFor, children []AllBox) *LineBox {
 	if !style.Anonymous {
 		log.Fatal("style must be anonymous")
 	}
@@ -512,7 +512,7 @@ func LineBoxIsInstance(box AllBox) bool {
 	return is
 }
 
-func NewInlineBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBox {
+func NewInlineBox(elementTag string, style css.StyleFor, children []AllBox) *InlineBox {
 	var out InlineBox
 	out.init(elementTag, style, children)
 	return &out
@@ -528,7 +528,7 @@ func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
 	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
 }
 
-func NewTextBox(elementTag string, style css.StyleDict, text string) *TextBox {
+func NewTextBox(elementTag string, style css.StyleFor, text string) *TextBox {
 	var self TextBox
 	if !style.Anonymous {
 		panic("style is not anonymous")
@@ -586,7 +586,7 @@ func TextBoxIsInstance(box AllBox) bool {
 	return is
 }
 
-func NewInlineBlockBox(elementTag string, style css.StyleDict, children []AllBox) *InlineBlockBox {
+func NewInlineBlockBox(elementTag string, style css.StyleFor, children []AllBox) *InlineBlockBox {
 	var out InlineBlockBox
 	out.init(elementTag, style, children)
 	return &out
@@ -596,20 +596,20 @@ func InlineBlockBoxAnonymousFrom(parent AllBox, children []AllBox) AllBox {
 	return NewInlineBlockBox(parent.BaseBox().elementTag, parent.BaseBox().style.InheritFrom(), children)
 }
 
-func NewReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *ReplacedBox {
+func NewReplacedBox(elementTag string, style css.StyleFor, replacement css.ImageType) *ReplacedBox {
 	var self ReplacedBox
 	self.Box.init(elementTag, style)
 	self.replacement = replacement
 	return &self
 }
 
-func NewBlockReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *BlockReplacedBox {
+func NewBlockReplacedBox(elementTag string, style css.StyleFor, replacement css.ImageType) *BlockReplacedBox {
 	var self BlockReplacedBox
 	self.ReplacedBox = *NewReplacedBox(elementTag, style, replacement)
 	return &self
 }
 
-func NewInlineReplacedBox(elementTag string, style css.StyleDict, replacement css.ImageType) *InlineReplacedBox {
+func NewInlineReplacedBox(elementTag string, style css.StyleFor, replacement css.ImageType) *InlineReplacedBox {
 	var self InlineReplacedBox
 	self.ReplacedBox = *NewReplacedBox(elementTag, style, replacement)
 	return &self
@@ -638,7 +638,7 @@ func (t *TableBox) TableFields() *TableFields {
 	return &t.tableFields
 }
 
-func NewTableBox(elementTag string, style css.StyleDict, children []AllBox) *TableBox {
+func NewTableBox(elementTag string, style css.StyleFor, children []AllBox) *TableBox {
 	var out TableBox
 	out.init(elementTag, style, children)
 	out.tableFields = newTableFields()
@@ -670,11 +670,11 @@ func (self TableBox) IsTableBox() bool {
 	return true
 }
 
-func NewInlineTableBox(elementTag string, style css.StyleDict, children []AllBox) *InlineTableBox {
+func NewInlineTableBox(elementTag string, style css.StyleFor, children []AllBox) *InlineTableBox {
 	return &InlineTableBox{*NewTableBox(elementTag, style, children)}
 }
 
-func NewTableRowGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowGroupBox {
+func NewTableRowGroupBox(elementTag string, style css.StyleFor, children []AllBox) *TableRowGroupBox {
 	var out TableRowGroupBox
 	out.init(elementTag, style, children)
 	out.tableFields = newTableFields()
@@ -694,7 +694,7 @@ func (self TableRowGroupBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-func NewTableRowBox(elementTag string, style css.StyleDict, children []AllBox) *TableRowBox {
+func NewTableRowBox(elementTag string, style css.StyleFor, children []AllBox) *TableRowBox {
 	var out TableRowBox
 	out.init(elementTag, style, children)
 	out.tableFields = newTableFields()
@@ -714,7 +714,7 @@ func (self TableRowBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-func NewTableColumnGroupBox(elementTag string, style css.StyleDict, children []AllBox) *TableColumnGroupBox {
+func NewTableColumnGroupBox(elementTag string, style css.StyleFor, children []AllBox) *TableColumnGroupBox {
 	var out TableColumnGroupBox
 	out.init(elementTag, style, children)
 	out.tableFields = newTableFields()
@@ -754,7 +754,7 @@ func (self TableColumnGroupBox) getCells() []AllBox {
 	return out
 }
 
-func NewTableColumnBox(elementTag string, style css.StyleDict, children []AllBox) *TableColumnBox {
+func NewTableColumnBox(elementTag string, style css.StyleFor, children []AllBox) *TableColumnBox {
 	var out TableColumnBox
 	out.init(elementTag, style, children)
 	out.tableFields = newTableFields()
@@ -781,7 +781,7 @@ func (self TableColumnBox) IsProperChild(parent AllBox) bool {
 	}
 }
 
-func NewTableCellBox(elementTag string, style css.StyleDict, children []AllBox) *TableCellBox {
+func NewTableCellBox(elementTag string, style css.StyleFor, children []AllBox) *TableCellBox {
 	var out TableCellBox
 	out.init(elementTag, style, children)
 	out.tableFields = newTableFields()
@@ -792,7 +792,7 @@ func (t *TableCellBox) TableFields() *TableFields {
 	return &t.tableFields
 }
 
-func NewTableCaptionBox(elementTag string, style css.StyleDict, children []AllBox) *TableCaptionBox {
+func NewTableCaptionBox(elementTag string, style css.StyleFor, children []AllBox) *TableCaptionBox {
 	var out TableCaptionBox
 	out.BlockBox = *NewBlockBox(elementTag, style, children)
 
@@ -819,7 +819,7 @@ func TableCaptionBoxIsInstance(box AllBox) bool {
 	return is
 }
 
-func (self *PageBox) init(pageType TBD, style css.StyleDict) {
+func (self *PageBox) init(pageType TBD, style css.StyleFor) {
 	self.pageType = pageType
 	// Page boxes are not linked to any element.
 	self.ParentBox.init("", style, nil)
@@ -829,7 +829,7 @@ func (self PageBox) String() string {
 	return fmt.Sprintf("<PageBox %s>", self.pageType)
 }
 
-func (self *MarginBox) init(atKeyword TBD, style css.StyleDict) {
+func (self *MarginBox) init(atKeyword TBD, style css.StyleFor) {
 	self.atKeyword = atKeyword
 	//  Margin boxes are not linked to any element.
 	self.BlockContainerBox.init("", style, nil)

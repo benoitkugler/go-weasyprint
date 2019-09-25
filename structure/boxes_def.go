@@ -38,9 +38,9 @@ type Box struct {
 	stringSet     []css.NameValue
 
 	elementTag string
-	style      css.StyleDict
+	style      css.StyleFor
 
-	firstLetterStyle, firstLineStyle css.StyleDict
+	firstLetterStyle, firstLineStyle css.StyleFor
 
 	positionX, positionY float64
 

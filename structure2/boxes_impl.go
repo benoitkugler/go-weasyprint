@@ -30,9 +30,9 @@ type BoxFields struct {
 	stringSet     []css.NameValue
 
 	elementTag string
-	style      css.StyleDict
+	style      css.StyleFor
 
-	firstLetterStyle, firstLineStyle css.StyleDict
+	firstLetterStyle, firstLineStyle css.StyleFor
 
 	positionX, positionY float64
 
@@ -345,7 +345,7 @@ func (self BoxFields) descendants() []Box {
 	return []Box{&self}
 }
 
-func (p *ParentBox) init(elementTag string, style css.StyleDict, children []Box) {
+func (p *ParentBox) init(elementTag string, style css.StyleFor, children []Box) {
 	p.Box.init(elementTag, style)
 	p.children = children
 }
@@ -427,7 +427,7 @@ func (self BlockBox) AllChildren() []Box {
 // 	return self.BlockContainerBox.pageValues()
 // }
 
-func NewLineBox(elementTag string, style css.StyleDict, children []Box) *LineBox {
+func NewLineBox(elementTag string, style css.StyleFor, children []Box) *LineBox {
 	if !style.Anonymous {
 		log.Fatal("style must be anonymous")
 	}
@@ -441,7 +441,7 @@ func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
 	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
 }
 
-func NewTextBox(elementTag string, style css.StyleDict, text string) *TextBox {
+func NewTextBox(elementTag string, style css.StyleFor, text string) *TextBox {
 	var self TextBox
 	if !style.Anonymous {
 		panic("style is not anonymous")

@@ -89,8 +89,6 @@ func NewCSS(input cssInput, baseUrl string,
 		pageRules: pageRules,
 		fonts:     &[]string{},
 	}
-	// TODO: fonts are stored here and should be cleaned after rendering
-
 	preprocessStylesheet(mediaType, baseUrl, stylesheet, urlFetcher, matcher,
 		out.pageRules, out.fonts, fontConfig, false)
 	return out, nil

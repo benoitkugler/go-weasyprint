@@ -8,7 +8,7 @@ RE_TYPE = re.compile(r"^type (\w+)Box struct ")
 RE_FIELDS = re.compile(r"(\w+)\s+\w+ // init:(\S+)")
 RE_CONSTRUCTOR = re.compile(r"// constructor:(.+)")
 
-DEFAULT_ARGS = "elementTag string, style css.StyleDict, children []Box"
+DEFAULT_ARGS = "elementTag string, style css.StyleFor, children []Box"
 
 TEMPLATE = """func New{name}({args}) *{name} {{
     out := {name}{{

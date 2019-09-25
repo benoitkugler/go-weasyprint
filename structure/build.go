@@ -30,7 +30,7 @@ var (
 	}
 )
 
-type styleForType = func(element *html.Node, pseudoType string) css.StyleDict
+type styleForType = func(element *html.Node, pseudoType string) css.StyleFor
 
 type stateShared struct {
 	quoteDepth    []int
@@ -53,7 +53,7 @@ func max(x, y int) int {
 }
 
 // Maps values of the ``display`` CSS property to box types.
-func makeBox(elementTag string, style css.StyleDict, content []AllBox) AllBox {
+func makeBox(elementTag string, style css.StyleFor, content []AllBox) AllBox {
 	switch style.Strings["display"] {
 	case "block":
 		return NewBlockBox(elementTag, style, content)
@@ -94,7 +94,7 @@ func BuildFormattingStructure(elementTree *html.Node, styleFor styleForType, get
 	if len(boxList) > 0 {
 		box = boxList[0]
 	} else { //  No root element
-		rootStyleFor := func(element *html.Node, pseudoType string) css.StyleDict {
+		rootStyleFor := func(element *html.Node, pseudoType string) css.StyleFor {
 			style := styleFor(element, pseudoType)
 			if !style.IsZero() {
 				// TODO: we should check that the element has a parent instead.
@@ -250,7 +250,7 @@ func beforeAfterToBox(element *html.Node, pseudoType string, state *stateShared,
 }
 
 // Takes the value of a ``content`` property && yield boxes.
-func contentToBoxes(style css.StyleDict, parentBox AllBox, quoteDepth []int, counterValues map[string][]int,
+func contentToBoxes(style css.StyleFor, parentBox AllBox, quoteDepth []int, counterValues map[string][]int,
 	getImageFromUri gifu, _ *TBD, _ *TBD) []AllBox {
 
 	var out []AllBox
@@ -873,7 +873,7 @@ func collapseTableBorders(table AllBox, gridWidth, gridHeight int) BorderGrids {
 	// horizontalBorders = [[weakNullBorder for x in range(gridWidth)]
 	//                       for y in range(gridHeight + 1)]
 
-	setOneBorder := func(borderGrid [][]border, boxStyle css.StyleDict, side css.Side, gridX, gridY int) {
+	setOneBorder := func(borderGrid [][]border, boxStyle css.StyleFor, side css.Side, gridX, gridY int) {
 		style := boxStyle.Strings[fmt.Sprintf("border_%s_style", side)]
 		width := boxStyle.Values[fmt.Sprintf("border_%s_width", side)]
 		color := boxStyle.GetColor(fmt.Sprintf("border_%s_color", side))
@@ -1318,7 +1318,7 @@ func computeContentListString(element *html.Node, box AllBox, counterValues map[
 // Set the content-lists by strings.
 // These content-lists are used in GCPM properties like ``string-set`` and
 // ``bookmark-label``.
-func setContentLists(element *html.Node, box AllBox, style css.StyleDict, counterValues map[string][]int) {
+func setContentLists(element *html.Node, box AllBox, style css.StyleFor, counterValues map[string][]int) {
 	var stringSet []css.NameValue
 	if style.StringSet.String != "none" {
 		for _, c := range style.StringSet.Contents {
@@ -1338,7 +1338,7 @@ func setContentLists(element *html.Node, box AllBox, style css.StyleDict, counte
 }
 
 // Handle the ``counter-*`` properties.
-func updateCounters(state *stateShared, style css.StyleDict) {
+func updateCounters(state *stateShared, style css.StyleFor) {
 	_, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
 	siblingScopes := counterScopes[len(counterScopes)-1]
 
