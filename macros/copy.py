@@ -143,7 +143,8 @@ with open(SOURCE) as f:
             else:
                 TYPES[type_] = analyse_type(content)
 
-needed_types = sorted(set(type_ for _, type_ in style_accessor.parse()))
+needed_types = sorted(list(set(type_ for _, type_ in style_accessor.parse())))
+needed_types.append("AttrData")
 
 need_private_copy = {"CustomProperty", "RadialGradient", "LinearGradient", "SContentProps"}
 

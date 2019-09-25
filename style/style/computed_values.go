@@ -124,9 +124,9 @@ var (
 		"transform":           transforms,
 		"vertical_align":      verticalAlign,
 		"word_spacing":        wordSpacing,
-	}
-	computerFromSpe = map[string]computerFuncSpe{
-		"link": link,
+		"bookmark_label":      bookmarkLabel,
+		"string_set":          stringSet,
+		"link":                link,
 	}
 )
 
@@ -161,12 +161,11 @@ func init() {
 }
 
 type computerFunc = func(*computer, string, pr.CssProperty) pr.CssProperty
-type computerFuncSpe = func(*computer, string, pr.CascadedProperty) pr.CssProperty
 
-func resolveVar(computed map[string]pr.CascadedProperty, var_ pr.VarData) pr.CustomProperty {
+func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.CustomProperty {
 	knownVariableNames := pr.NewSet(var_.Name)
 	default_ := var_.Declaration
-	computedValue_, isIn := computed[var_.Name]
+	computedValue_, isIn := specified[var_.Name]
 	computedValue, ok := computedValue_.SpecialProperty.(pr.CustomProperty)
 	if ok && len(computedValue) == 1 {
 		value := computedValue[0]
@@ -186,7 +185,7 @@ func resolveVar(computed map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cus
 				break
 			}
 			knownVariableNames.Add(varFunction.Name)
-			computedValue_, in = computed[varFunction.Name]
+			computedValue_, in = specified[varFunction.Name]
 			if !in {
 				computedValue = varFunction.Declaration
 			} else {
@@ -212,8 +211,8 @@ func resolveVar(computed map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cus
 // 				 or `zero if ``element`` is the root element.
 // :param baseUrl: The base URL used to resolve relative URLs.
 // 		targetCollector: A target collector used to get computed targets.
-func compute(element *utils.HTMLNode, specified, computed map[string]pr.CascadedProperty, parentStyle,
-	rootStyle StyleDict, baseUrl string, targetCollector *targetCollector) (StyleDict, error) {
+func compute(element element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
+	rootStyle StyleDict, baseUrl string, targetCollector *targetCollector) (pr.Properties, error) {
 
 	if parentStyle.IsZero() {
 		parentStyle = StyleDict{Properties: pr.InitialValues}
@@ -222,6 +221,7 @@ func compute(element *utils.HTMLNode, specified, computed map[string]pr.Cascaded
 	computer := &computer{
 		isRootElement:   parentStyle.IsZero(),
 		element:         element,
+		pseudoType:      pseudoType,
 		specified:       specified,
 		computed:        computed,
 		parentStyle:     parentStyle,
@@ -229,28 +229,26 @@ func compute(element *utils.HTMLNode, specified, computed map[string]pr.Cascaded
 		baseUrl:         baseUrl,
 		targetCollector: targetCollector,
 	}
-	out := make(pr.Properties, len(ComputingOrder))
+
+	// To have better typing, we start by resolving all var() and custom propperties.
+	resolveds := make(pr.Properties, len(ComputingOrder))
 	for _, name := range ComputingOrder {
-		if _, in := computed[name]; in {
-			// Already computed
-			continue
-		}
-
 		value := specified[name]
-
 		if var_, ok := value.SpecialProperty.(pr.VarData); ok {
-			computedValue := resolveVar(computed, var_)
-			var newValue pr.CascadedProperty
+			computedValue := resolveVar(specified, var_)
+			var newValue pr.CssProperty
 			if computedValue != nil {
 				var err error
 				newValue, err = validation.Validate(strings.ReplaceAll(name, "_", "-"), computedValue, baseUrl)
 				if err != nil {
-					return StyleDict{}, err
+					log.Printf("Unsupported computed value set in variable `%s` for property `%s`.",
+						strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
+					continue
 				}
 			}
 
 			// See https://drafts.csswg.org/css-variables/#invalid-variables
-			if newValue.IsNone() {
+			if newValue == nil {
 				chunks := make([]string, len(computedValue))
 				for i, token := range computedValue {
 					chunks[i] = parser.SerializeOne(token)
@@ -259,48 +257,45 @@ func compute(element *utils.HTMLNode, specified, computed map[string]pr.Cascaded
 				log.Printf("Unsupported computed value `%s` set in variable `%s` for property `%s`.", cp,
 					strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
 				if pr.Inherited.Has(name) && !parentStyle.IsZero() {
-					value = pr.ToC(parentStyle.Properties[name])
+					newValue = parentStyle.Properties[name]
 				} else {
-					value = pr.ToC(pr.InitialValues[name])
+					newValue = pr.InitialValues[name]
 				}
-			} else {
-				value = newValue
 			}
-
-		}
-
-		fnSpe := computerFromSpe[name]
-		fn := computerFunctions[name]
-		var finalValue pr.CssProperty
-		if fnSpe != nil {
-			finalValue = fnSpe(computer, name, value)
+			resolveds[name] = newValue
+		} else if _, ok := value.SpecialProperty.(pr.CustomProperty); ok {
+			log.Printf("unexpected custom property for %s\n", name)
 		} else {
-			if value.SpecialProperty != nil {
-				return StyleDict{}, fmt.Errorf("specified value not resolved : %v", value)
-			}
-			finalValue = value.AsCss()
-			if fn != nil {
-				finalValue = fn(computer, name, finalValue)
-			}
-			// else: same as specified
+			resolveds[name] = value.AsCss()
 		}
+	}
 
-		computed[name] = pr.ToC(finalValue)
-		out[name] = finalValue
+	for _, name := range ComputingOrder {
+		if _, in := computed[name]; in {
+			// Already computed
+			continue
+		}
+		value := resolveds[name]
+
+		fn := computerFunctions[name]
+		if fn != nil {
+			value = fn(computer, name, value)
+		}
+		// else: same as specified
+
+		computed[name] = value
 	}
-	disp := specified["display"]
-	if disp.SpecialProperty != nil {
-		return StyleDict{}, fmt.Errorf("specified display value not resolved : %v", disp)
-	}
-	out["_weasy_specified_display"] = disp.AsCss()
-	return StyleDict{Properties: out}, nil
+	computed.SetWeasySpecifiedDisplay(resolveds.GetDisplay())
+	return computed, nil
 }
 
 type computer struct {
 	isRootElement          bool
-	computed, specified    map[string]pr.CascadedProperty
+	pseudoType             string
+	computed               pr.Properties
+	specified              map[string]pr.CascadedProperty
 	rootStyle, parentStyle StyleDict
-	element                *utils.HTMLNode
+	element                element
 	baseUrl                string
 	targetCollector        *targetCollector
 }
@@ -414,9 +409,7 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32) pr.
 		result = value.Value * pr.LengthsToPixels[unit]
 	case pr.Em, pr.Ex, pr.Ch, pr.Rem:
 		if fontSize < 0 {
-			fs := computer.computed["font_size"]
-			fs_, _ := fs.AsCss().(pr.Float)
-			fontSize = float32(fs_)
+			fontSize := computer.computed.GetFontSize().Value
 		}
 		switch unit {
 		// TODO: we dont support 'ex' and 'ch' units for now.
@@ -435,7 +428,7 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32) pr.
 func bleed(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
 	if value.String == "auto" {
-		if computer.computed["marks"].AsCss().(pr.Marks).Crop {
+		if computer.computed.GetMarks().Crop {
 			return pr.Dimension{Value: 8, Unit: pr.Px}.ToValue() // 6pt
 		}
 		return pr.ZeroPixels.ToValue()
@@ -476,7 +469,7 @@ func backgroundSize(computer *computer, name string, _value pr.CssProperty) pr.C
 // value.String may be the string representation of an int
 func borderWidth(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
-	style := computer.computed[strings.ReplaceAll(name, "width", "style")].AsCss().(pr.String)
+	style := computer.computed[strings.ReplaceAll(name, "width", "style")].(pr.String)
 	if style == "none" || style == "hidden" {
 		return pr.Value{}
 	}
@@ -502,57 +495,59 @@ func columnGap(computer *computer, name string, _value pr.CssProperty) pr.CssPro
 	return length(computer, name, value)
 }
 
-func computeAttrFunction(computer *computer, values pr.ContentProperty) (string, pr.CssProperty, error) {
+func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.ContentProperty, err error) {
 	// TODO: use real token parsing instead of casting with Python types
-	value, ok := values.Content.(Attr)
-	if values.Type != "attr()" || !ok {
-		log.Fatalf("values should be attr() here")
-	}
-	attrName, typeOrUnit, fallback := value.Name, value.TypeOrUnit, value.Fallback
+
+	attrName, typeOrUnit, fallback := values.Name, values.TypeOrUnit, values.Fallback
 	// computer["element"] sometimes is None
 	// computer["element"] sometimes is a "PageType" object without .get()
-	if computer.element == nil {
-		return "", nil, nil
+	node, ok := computer.element.(*utils.HTMLNode)
+	if !ok {
+		return
 	}
 
-	attrValue := computer.element.Get(attrName)
+	attrValue := node.Get(attrName)
 	if attrValue == "" {
-		attrValue = string(fallback.Value.(pr.String))
+		atrValue_, ok := fallback.(pr.String)
+		if !ok {
+			return out, fmt.Errorf("fallback type not supported : %t", fallback)
+		}
+		attrValue = string(attrValue)
 	}
-	var out pr.CssProperty
+	var prop pr.InnerContent
 	switch typeOrUnit {
 	case "string":
-		out = pr.String(attrValue) // Keep the string
+		prop = pr.String(attrValue) // Keep the string
 	case "url":
 		if strings.HasPrefix(attrValue, "#") {
-			out = pr.NamedString{Name: "internal", String: utils.Unquote(attrValue[1:])}
+			prop = pr.NamedString{Name: "internal", String: utils.Unquote(attrValue[1:])}
 		} else {
 			u, err := utils.SafeUrljoin(computer.baseUrl, attrValue, false)
 			if err != nil {
-				return "", nil, err
+				return out, err
 			}
-			out = pr.NamedString{Name: "external", String: u}
+			prop = pr.NamedString{Name: "external", String: u}
 		}
 	case "color":
-		out = pr.Color(parser.ParseColor2(strings.TrimSpace(attrValue)))
+		prop = pr.Color(parser.ParseColor2(strings.TrimSpace(attrValue)))
 	case "integer":
 		i, err := strconv.Atoi(strings.TrimSpace(attrValue))
 		if err != nil {
-			return "", nil, err
+			return out, err
 		}
-		out = pr.Int(i)
+		prop = pr.Int(i)
 	case "number":
 		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
 		if err != nil {
-			return "", nil, err
+			return out, err
 		}
-		out = pr.Float(f)
+		prop = pr.Float(f)
 	case "%":
 		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
 		if err != nil {
-			return "", nil, err
+			return out, err
 		}
-		out = pr.Dimension{Value: float32(f), Unit: pr.Percentage}.ToValue()
+		prop = pr.Dimension{Value: float32(f), Unit: pr.Percentage}.ToValue()
 		typeOrUnit = "length"
 	default:
 		unit, isUnit := validation.LENGTHUNITS[typeOrUnit]
@@ -560,47 +555,133 @@ func computeAttrFunction(computer *computer, values pr.ContentProperty) (string,
 		if isUnit {
 			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
 			if err != nil {
-				return "", nil, err
+				return out, err
 			}
-			out = pr.Dimension{Value: float32(f), Unit: unit}.ToValue()
+			prop = pr.Dimension{Value: float32(f), Unit: unit}.ToValue()
 			typeOrUnit = "length"
 		} else if isAngle {
 			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
 			if err != nil {
-				return "", nil, err
+				return out, err
 			}
-			out = pr.Dimension{Value: float32(f), Unit: angle}.ToValue()
+			prop = pr.Dimension{Value: float32(f), Unit: angle}.ToValue()
 			typeOrUnit = "angle"
 		}
 	}
-	return typeOrUnit, out, nil
+	return pr.ContentProperty{Type: typeOrUnit, Content: prop}, nil
+}
+
+func contentList(computer *computer, values pr.ContentProperties) (pr.ContentProperties, error) {
+	var computedValues pr.ContentProperties
+	for _, value := range values {
+		var computedValue pr.ContentProperty
+		switch value.Type {
+		case "string", "content", "url", "quote", "leader()":
+			computedValue = value
+		case "attr()":
+			attr, ok := value.Content.(pr.AttrData)
+			if !ok || attr.TypeOrUnit != "string" {
+				log.Fatalf("invalid attr() property : %v", value.Content)
+			}
+			computeValue, err := computeAttrFunction(computer, attr)
+			if err != nil {
+				return nil, err
+			}
+		case "counter()", "counters()", "content()", "string()":
+			// Other values need layout context, their computed value cannot be
+			// better than their specified value yet.
+			// See build.computeContentList.
+			computedValue = value
+		case "target-counter()", "target-counters()", "target-text()":
+			prop, ok := value.Content.(pr.SContentProps)
+			if !ok || len(prop) == 0 {
+				return nil, fmt.Errorf("expected a non empty list of String or ContentProperty, got %v", value.Content)
+			}
+			anchorToken := prop[0].ContentProperty
+			if anchorToken.Type == "attr()" {
+				proper, err := computeAttrFunction(computer, anchorToken.Content.(pr.AttrData))
+				if err != nil {
+					return nil, err
+				}
+				if !proper.IsNone() {
+					computedValue = pr.ContentProperty{Type: value.Type, Content: append(pr.SContentProps{{ContentProperty: proper}}, prop[1:]...)}
+				}
+			} else {
+				computedValue = value
+			}
+			if computer.targetCollector != nil && computedValue.Content != nil {
+				props := computedValue.Content.(pr.SContentProps) // here, this assertion is always fullfilled
+				computer.targetCollector.collectComputedTarget(props[0].ContentProperty)
+			}
+		}
+		if computedValue.IsNone() {
+			log.Printf("Unable to compute %v's value for content: %v\n", computer.element, value)
+		} else {
+			computedValues = append(computedValues, computedValue)
+		}
+	}
+	return computedValues, nil
+}
+
+// Compute the ``bookmark-label`` property.
+func bookmarkLabel(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
+	if value, ok := _value.(pr.ContentProperties); ok {
+		out, err := contentList(computer, value)
+		if err != nil {
+			log.Printf("error computing bookmark-label : %s\n", err)
+			return nil
+		}
+		return out
+	}
+	return nil
+}
+
+// Compute the ``string-set`` property.
+func stringSet(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
+	// Spec asks for strings after custom keywords, but we allow content-lists
+	if stringset, ok := _value.(pr.StringSet); ok {
+		out := make(pr.SContents, len(stringset.Contents))
+		for i, sset := range stringset.Contents {
+			v, err := contentList(computer, sset.Contents)
+			if err != nil {
+				log.Printf("error computing string-set : %s \n", err)
+				return nil
+			}
+			out[i] = pr.SContent{String: sset.String, Contents: v}
+		}
+		return pr.StringSet{String: stringset.String, Contents: out}
+	}
+	return nil
 }
 
 // Compute the ``content`` property.
 func content(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
-	value := _value.(pr.SContent)
-	if value.String == "normal" || value.String == "none" {
-		return value
-	}
-	lis := make([]pr.ContentProperty, len(value.Contents))
-	for index, v := range value.Contents {
-		// type_, value := v[0], v[1]
-		if v.Type == ContentAttr {
-			lis[index].Type = ContentSTRING
-			lis[index].String = computer.element.Get(value.String)
-		} else {
-			lis[index] = v
+	if value, ok := _value.(pr.SContent); ok {
+		if value.String == "normal" {
+			if computer.pseudoType != "" {
+				return pr.SContent{String: "inhibit"}
+			} else {
+				return pr.SContent{String: "contents"}
+			}
+		} else if value.String == "none" {
+			return pr.SContent{String: "inhibit"}
 		}
+		props, err := contentList(computer, value.Contents)
+		if err != nil {
+			log.Printf("error computing content : %s\n", err)
+			return nil
+		}
+		return pr.SContent{Contents: props}
 	}
-	return pr.SContent{Contents: lis}
+	return nil
 }
 
 //Compute the ``display`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func display(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
-	float_ := computer.specified.GetFloat()
-	position := computer.specified.GetPosition()
+	float_ := computer.specified["float"].AsCss().(pr.String)
+	position := computer.specified["position"].AsCss().(pr.String)
 	if (position == "absolute" || position == "fixed") || float_ != "none" || computer.isRootElement {
 		switch value {
 		case "inline-table":
@@ -619,7 +700,7 @@ func display(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func floating(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
-	position := computer.specified.GetPosition()
+	position := computer.specified["position"].AsCss().(pr.String)
 	if position == "absolute" || position == "fixed" {
 		return pr.String("none")
 	}
@@ -632,13 +713,31 @@ func fontSize(computer *computer, name string, _value pr.CssProperty) pr.CssProp
 	if fs, in := pr.FontSizeKeywords[value.String]; in {
 		return pr.FToV(fs)
 	}
-	// TODO: support "larger" and "smaller"
 
-	parentFontSize := computer.parentStyle.GetFontSize().Value
-	if value.Unit == pr.Percentage {
-		return pr.FToV(value.Value * parentFontSize / 100.)
+	keywordsValues := make([]float32, len(pr.FontSizeKeywords))
+	for i, k := range pr.FontSizeKeywordsOrder {
+		keywordsValues[i] = pr.FontSizeKeywords[k]
 	}
-	return length2(computer, name, value, parentFontSize)
+	parentFontSize := computer.parentStyle.GetFontSize().Value
+	if value.String == "larger" {
+		for _, keywordValue := range keywordsValues {
+			if keywordValue > parentFontSize {
+				return pr.FToV(keywordValue)
+			}
+		}
+		return pr.FToV(parentFontSize * 1.2)
+	} else if value.String == "smaller" {
+		for i := len(keywordsValues); i > 0; i -= 1 {
+			if keywordsValues[i] < parentFontSize {
+				return pr.FToV(keywordsValues[i])
+			}
+		}
+		return pr.FToV(parentFontSize * 0.8)
+	} else if value.Unit == pr.Percentage {
+		return pr.FToV(value.Value * parentFontSize / 100.)
+	} else {
+		return length2(computer, name, value, parentFontSize)
+	}
 }
 
 // Compute the ``font-weight`` property.
@@ -669,7 +768,7 @@ func lineHeight(computer *computer, name string, _value pr.CssProperty) pr.CssPr
 	switch {
 	case value.String == "normal":
 		return value
-	case value.Unit == NoUnit:
+	case value.Unit == pr.Scalar:
 		return value
 	case value.Unit == pr.Percentage:
 		factor := value.Value / 100.
@@ -684,28 +783,35 @@ func lineHeight(computer *computer, name string, _value pr.CssProperty) pr.CssPr
 // Compute the ``anchor`` property.
 func anchor(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.NamedString)
-	if value.String != "none" {
-		s := computer.element.Get(value.String)
-		if s == "" {
+	if node, ok := computer.element.(*utils.HTMLNode); ok && value.String != "none" {
+		anchorName := node.Get(value.String)
+		if anchorName == "" {
 			return nil
 		}
-		return pr.NamedString{String: s}
+		computer.targetCollector.collectAnchor(anchorName)
+		return pr.NamedString{String: anchorName}
 	}
 	return nil
 }
 
 // Compute the ``link`` property.
-func link(computer *computer, _ string, _value pr.CascadedProperty) pr.CssProperty {
-	value := _value.(pr.NamedString)
-	if value.String == "none" {
-		return nil
-	}
-	if value.Name == "attr" {
-		type_attr := utils.GetLinkAttribute(*computer.element, value.String, computer.baseUrl)
-		if len(type_attr) < 2 {
+func link(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
+	switch value := _value.(type) {
+	case pr.NamedString:
+		if value.String == "none" {
 			return nil
+		} else {
+			return value
 		}
-		return pr.NamedString{Name: type_attr[0], String: type_attr[1]}
+
+	case pr.AttrData:
+		if node, ok := computer.element.(*utils.HTMLNode); ok {
+			type_attr := utils.GetLinkAttribute(*node, value.Name, computer.baseUrl)
+			if len(type_attr) < 2 {
+				return nil
+			}
+			return pr.NamedString{Name: type_attr[0], String: type_attr[1]}
+		}
 	}
 	return nil
 }
@@ -716,8 +822,8 @@ func lang(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	if value.String == "none" {
 		return nil
 	}
-	if value.Name == "attr" {
-		s := computer.element.Get(value.String)
+	if node, ok := computer.element.(*utils.HTMLNode); ok && value.Name == "attr" {
+		s := node.Get(value.String)
 		if s == "" {
 			return nil
 		}
@@ -731,7 +837,7 @@ func lang(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 // Compute the ``tab-size`` property.
 func tabSize(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
-	if value.Unit == NoUnit {
+	if value.Unit == pr.Scalar {
 		return value
 	}
 	return length(computer, name, value)

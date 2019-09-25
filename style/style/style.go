@@ -157,6 +157,7 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 	return compute(element, specified, computed, parentStyle, rootStyle, baseUrl)
 }
 
+// either a html node or a page type
 type element interface {
 	ToKey(pseudoType string) utils.ElementKey
 }

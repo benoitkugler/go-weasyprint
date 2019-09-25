@@ -89,6 +89,10 @@ func (s SContentProps) copyAsInnerContent() InnerContent { return s.copy() }
 
 // url
 func (s NamedString) copyAsInnerContent() InnerContent { return s }
+func (s Dimension) copyAsInnerContent() InnerContent   { return s }
+func (s Float) copyAsInnerContent() InnerContent       { return s }
+func (s Int) copyAsInnerContent() InnerContent         { return s }
+func (s Color) copyAsInnerContent() InnerContent       { return s }
 func (s Quote) copyAsInnerContent() InnerContent       { return s }
 func (s AttrData) copyAsInnerContent() InnerContent    { return s.copy() }
 
