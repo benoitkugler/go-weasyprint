@@ -647,40 +647,6 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 	}
 }
 
-// IsZero returns `true` if the StyleFor is not initialized.
-// Thus, we can use a zero StyleFor as null value.
-func (s StyleFor) IsZero() bool {
-	return s.Properties == nil
-}
-
-// Deep copy.
-// inheritedStyle is a shallow copy
-func (s StyleFor) Copy() StyleFor {
-	out := s
-	out.Properties = s.Properties.Copy()
-	return out
-}
-
-// InheritFrom returns a new StyleFor with inherited properties from this one.
-// Non-inherited properties get their initial values.
-// This is the method used for an anonymous box.
-func (s *StyleFor) InheritFrom() StyleFor {
-	if s.inheritedStyle == nil {
-		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleFor{}, "")
-		is.Anonymous = true
-		s.inheritedStyle = &is
-	}
-	return *s.inheritedStyle
-}
-
-func (s StyleFor) ResolveColor(key string) pr.Color {
-	value := s.Properties[key].(pr.Color)
-	if value.Type == parser.ColorCurrentColor {
-		value = s.GetColor()
-	}
-	return value
-}
-
 // Get a dict of computed style mixed from parent and cascaded styles.
 func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
 	if cascaded == nil && parentStyle != nil {
@@ -777,6 +743,40 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 	return compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, targetCollector)
 }
 
+// IsZero returns `true` if the StyleFor is not initialized.
+// Thus, we can use a zero StyleFor as null value.
+func (s StyleFor) IsZero() bool {
+	return s.Properties == nil
+}
+
+// Deep copy.
+// inheritedStyle is a shallow copy
+func (s StyleFor) Copy() StyleFor {
+	out := s
+	out.Properties = s.Properties.Copy()
+	return out
+}
+
+// InheritFrom returns a new StyleFor with inherited properties from this one.
+// Non-inherited properties get their initial values.
+// This is the method used for an anonymous box.
+func (s *StyleFor) InheritFrom() StyleFor {
+	if s.inheritedStyle == nil {
+		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleFor{}, "")
+		is.Anonymous = true
+		s.inheritedStyle = &is
+	}
+	return *s.inheritedStyle
+}
+
+func (s StyleFor) ResolveColor(key string) pr.Color {
+	value := s.Properties[key].(pr.Color)
+	if value.Type == parser.ColorCurrentColor {
+		value = s.GetColor()
+	}
+	return value
+}
+
 // either a html node or a page type
 type element interface {
 	ToKey(pseudoType string) utils.ElementKey
@@ -841,7 +841,6 @@ type pageData struct {
 	specificity cascadia.Specificity
 }
 
-// FIXME: update this function
 // Parse a page selector rule.
 //     Return a list of page data if the rule is correctly parsed. Page data are a
 //     dict containing:
@@ -858,14 +857,12 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
 
 	// TODO: Specificity is probably wrong, should clean and test that.
 	if len(tokens) == 0 {
-		out = append(out, pageData{PageElement: utils.PageElement{
-			Side: "", Blank: false, First: false, Name: ""}})
+		out = append(out, pageData{})
 		return out
 	}
 
 	for len(tokens) > 0 {
-		types := pageData{PageElement: utils.PageElement{
-			Side: "", Blank: false, First: false, Name: ""}}
+		types := pageData{}
 
 		if ident, ok := tokens[0].(parser.IdentToken); ok {
 			tokens = tokens[1:]
@@ -892,34 +889,45 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
 				if len(tokens) == 0 {
 					return nil
 				}
-				ident, ok := tokens[0].(parser.IdentToken)
-				if !ok {
-					return nil
-				}
-				pseudoClass := ident.Value.Lower()
-				switch pseudoClass {
-				case "left", "right":
-					if types.Side != "" {
+				switch firstToken := tokens[0].(type) {
+				case parser.IdentToken:
+					tokens = tokens[1:]
+					pseudoClass := firstToken.Value.Lower()
+					switch pseudoClass {
+					case "left", "right":
+						if types.Side != "" && types.Side != pseudoClass {
+							return nil
+						}
+						types.Side = pseudoClass
+						types.specificity[2] += 1
+						continue
+					case "blank":
+						types.Blank = true
+						types.specificity[1] += 1
+						continue
+					case "first":
+						types.First = true
+						types.specificity[1] += 1
+						continue
+					}
+				case parser.FunctionBlock:
+					tokens = tokens[1:]
+					if firstToken.Name != "nth" {
 						return nil
 					}
-					types.Side = pseudoClass
-					types.specificity[2] += 1
-				case "blank":
-					if types.Blank {
-						return nil
+					var group []parser.Token
+					nth := *firstToken.Arguments
+					for i, argument := range *firstToken.Arguments {
+						if ident, ok := argument.(parser.IdentToken); ok && ident.Value == "of" {
+							nth = (*firstToken.Arguments)[:(i - 1)]
+							group = (*firstToken.Arguments)[i:]
+						}
 					}
-					types.Blank = true
-					types.specificity[1] += 1
 
-				case "first":
-					if types.First {
-						return nil
-					}
-					types.First = true
-					types.specificity[1] += 1
 				default:
 					return nil
 				}
+
 			} else if literal.Value == "," {
 				if len(tokens) > 0 && (types.specificity != cascadia.Specificity{}) {
 					break
