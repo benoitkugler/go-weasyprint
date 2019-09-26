@@ -10,7 +10,7 @@
 //
 // :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
-package style
+package tree
 
 import (
 	"fmt"
@@ -48,7 +48,7 @@ type StyleFor struct {
 	sheets         []sheet
 }
 
-func NewStyleFor(html htmlEntity, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) *StyleFor {
+func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) *StyleFor {
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		cascadedStyles: map[utils.ElementKey]cascadedStyle{},
@@ -291,7 +291,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 			content := element.GetChildText()
 			// ElementTree should give us either unicode or  ASCII-only
 			// bytestrings, so we don"t need `encoding` here.
-			css, err := NewCSS(CssString(content), baseUrl, urlFetcher, false, deviceMediaType,
+			css, err := NewCSS(InputString(content), baseUrl, urlFetcher, false, deviceMediaType,
 				fontConfig, nil, pageRules)
 			if err != nil {
 				log.Printf("Invalid style %s : %s \n", content, err)
@@ -305,7 +305,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 				}
 				href := element.GetUrlAttribute("href", baseUrl, false)
 				if href != "" {
-					css, err := NewCSS(CssUrl(href), "", urlFetcher, true, deviceMediaType,
+					css, err := NewCSS(InputUrl(href), "", urlFetcher, true, deviceMediaType,
 						fontConfig, nil, pageRules)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
@@ -743,76 +743,9 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 	return compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, targetCollector)
 }
 
-// IsZero returns `true` if the StyleFor is not initialized.
-// Thus, we can use a zero StyleFor as null value.
-func (s StyleFor) IsZero() bool {
-	return s.Properties == nil
-}
-
-// Deep copy.
-// inheritedStyle is a shallow copy
-func (s StyleFor) Copy() StyleFor {
-	out := s
-	out.Properties = s.Properties.Copy()
-	return out
-}
-
-// InheritFrom returns a new StyleFor with inherited properties from this one.
-// Non-inherited properties get their initial values.
-// This is the method used for an anonymous box.
-func (s *StyleFor) InheritFrom() StyleFor {
-	if s.inheritedStyle == nil {
-		is := computedFromCascaded(&utils.HTMLNode{}, nil, *s, StyleFor{}, "")
-		is.Anonymous = true
-		s.inheritedStyle = &is
-	}
-	return *s.inheritedStyle
-}
-
-func (s StyleFor) ResolveColor(key string) pr.Color {
-	value := s.Properties[key].(pr.Color)
-	if value.Type == parser.ColorCurrentColor {
-		value = s.GetColor()
-	}
-	return value
-}
-
 // either a html node or a page type
 type element interface {
 	ToKey(pseudoType string) utils.ElementKey
-}
-
-func matchingPageTypes(pageType utils.PageElement, _names map[pr.Page]struct{}) (out []utils.PageElement) {
-	sides := []string{"left", "right", ""}
-	if pageType.Side != "" {
-		sides = []string{pageType.Side}
-	}
-
-	blanks := []bool{true}
-	if pageType.Blank == false {
-		blanks = []bool{true, false}
-	}
-	firsts := []bool{true}
-	if pageType.First == false {
-		firsts = []bool{true, false}
-	}
-	names := []string{pageType.Name}
-	if pageType.Name == "" {
-		names = []string{""}
-		for page := range _names {
-			names = append(names, page.String)
-		}
-	}
-	for _, side := range sides {
-		for _, blank := range blanks {
-			for _, first := range firsts {
-				for _, name := range names {
-					out = append(out, utils.PageElement{Side: side, Blank: blank, First: first, Name: name})
-				}
-			}
-		}
-	}
-	return
 }
 
 type weight struct {
@@ -836,11 +769,6 @@ type weigthedValue struct {
 
 type cascadedStyle = map[string]weigthedValue
 
-type pageData struct {
-	utils.PageElement
-	specificity cascadia.Specificity
-}
-
 // Parse a page selector rule.
 //     Return a list of page data if the rule is correctly parsed. Page data are a
 //     dict containing:
@@ -850,30 +778,30 @@ type pageData struct {
 //     - "name" (page name string or ""), and
 //     - "specificity" (list of numbers).
 //     Return ``None` if something went wrong while parsing the rule.
-func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
+func parsePageSelectors(rule parser.QualifiedRule) (out []utils.PageSelector) {
 	// See https://drafts.csswg.org/css-page-3/#syntax-page-selector
 
 	tokens := validation.RemoveWhitespace(*rule.Prelude)
 
 	// TODO: Specificity is probably wrong, should clean and test that.
 	if len(tokens) == 0 {
-		out = append(out, pageData{})
+		out = append(out, utils.PageSelector{})
 		return out
 	}
 
 	for len(tokens) > 0 {
-		types := pageData{}
+		var types_ utils.PageSelector
 
 		if ident, ok := tokens[0].(parser.IdentToken); ok {
 			tokens = tokens[1:]
-			types.Name = string(ident.Value)
-			types.specificity[0] = 1
+			types_.Name = string(ident.Value)
+			types_.Specificity[0] = 1
 		}
 
 		if len(tokens) == 1 {
 			return nil
 		} else if len(tokens) == 0 {
-			out = append(out, types)
+			out = append(out, types_)
 			return out
 		}
 
@@ -895,19 +823,19 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
 					pseudoClass := firstToken.Value.Lower()
 					switch pseudoClass {
 					case "left", "right":
-						if types.Side != "" && types.Side != pseudoClass {
+						if types_.Side != "" && types_.Side != pseudoClass {
 							return nil
 						}
-						types.Side = pseudoClass
-						types.specificity[2] += 1
+						types_.Side = pseudoClass
+						types_.Specificity[2] += 1
 						continue
 					case "blank":
-						types.Blank = true
-						types.specificity[1] += 1
+						types_.Blank = true
+						types_.Specificity[1] += 1
 						continue
 					case "first":
-						types.First = true
-						types.specificity[1] += 1
+						types_.First = true
+						types_.Specificity[1] += 1
 						continue
 					}
 				case parser.FunctionBlock:
@@ -923,13 +851,41 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
 							group = (*firstToken.Arguments)[i:]
 						}
 					}
-
+					nthValues := parser.ParseNth(nth)
+					if nthValues == nil {
+						return nil
+					}
+					if group != nil {
+						var group_ []parser.Token
+						for _, token := range group {
+							if ty := token.Type(); ty != parser.TypeComment && ty != parser.TypeWhitespaceToken {
+								group_ = append(group_, token)
+							}
+						}
+						if len(group_) != 1 {
+							return nil
+						}
+						if _, ok := group_[0].(parser.IdentToken); ok {
+							// TODO: handle page groups
+							return nil
+						}
+						return nil
+					}
+					types_.Index = utils.PageIndex{
+						A:     nthValues[0],
+						B:     nthValues[1],
+						Group: group,
+					}
+					// TODO: specificity is not specified yet
+					// https://github.com/w3c/csswg-drafts/issues/3524
+					types_.Specificity[1] += 1
+					continue
 				default:
 					return nil
 				}
 
 			} else if literal.Value == "," {
-				if len(tokens) > 0 && (types.specificity != cascadia.Specificity{}) {
+				if len(tokens) > 0 && (types_.Specificity != cascadia.Specificity{}) {
 					break
 				} else {
 					return nil
@@ -937,7 +893,7 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []pageData) {
 			}
 		}
 
-		out = append(out, types)
+		out = append(out, types_)
 	}
 
 	return out
@@ -981,7 +937,6 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 		case parser.QualifiedRule:
 			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*typedRule.Content, false, false))
 			if len(declarations) > 0 {
-				fmt.Println(parser.Serialize(*typedRule.Prelude))
 				selector, err := cascadia.Compile(parser.Serialize(*typedRule.Prelude))
 				if err != nil {
 					log.Printf("Invalid or unsupported selector '%s', %s \n", parser.Serialize(*typedRule.Prelude), err)
@@ -989,7 +944,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				for _, sel := range selector {
 					if _, in := pseudoElements[sel.PseudoElement()]; !in {
-						err = fmt.Errorf("Unsupported pseudo-elment : %s", sel.PseudoElement())
+						err = fmt.Errorf("Unsupported pseudo-element : %s", sel.PseudoElement())
 						break
 					}
 				}
@@ -1034,7 +989,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				url = utils.UrlJoin(baseUrl, url, false, "@import")
 				if url != "" {
-					_, err := NewCSS(CssUrl(url), "", urlFetcher, false,
+					_, err := NewCSS(InputUrl(url), "", urlFetcher, false,
 						deviceMediaType, fontConfig, matcher, pageRules)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", url, err)
@@ -1064,19 +1019,14 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				ignoreImports = true
 				for _, pageType := range data {
-					specificity := pageType.specificity
-					pageType.specificity = cascadia.Specificity{}
-
-					pageType := pageType // capture for closure inside loop
-					match := func(pageNames map[pr.Page]struct{}) []utils.PageElement {
-						return matchingPageTypes(pageType.PageElement, pageNames)
-					}
+					specificity := pageType.Specificity
+					pageType.Specificity = cascadia.Specificity{}
 					content := parser.ParseDeclarationList(*typedRule.Content, false, false)
 					declarations := validation.PreprocessDeclarations(baseUrl, content)
 
 					var selectors []selectorPageRule
 					if len(declarations) > 0 {
-						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", match: match}}
+						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", pageType: pageType}}
 						*pageRules = append(*pageRules, pageRule{rule: typedRule, selectors: selectors, declarations: declarations})
 					}
 
@@ -1091,7 +1041,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 						if len(declarations) > 0 {
 							selectors = []selectorPageRule{{
 								specificity: specificity, pseudoType: "@" + atRule.AtKeyword.Lower(),
-								match: match}}
+								pageType: pageType}}
 							*pageRules = append(*pageRules, pageRule{rule: atRule, selectors: selectors, declarations: declarations})
 						}
 					}
@@ -1144,14 +1094,11 @@ type sas struct {
 	specificity cascadia.Specificity
 }
 
-type htmlEntity struct {
-	root       *utils.HTMLNode
-	mediaType  string
-	urlFetcher utils.UrlFetcher
-	baseUrl    string
+type htmlLike interface {
+	HTML() HTML
+	UAStyleSheet() CSS
+	PHStyleSheet() CSS
 }
-
-type styleGetter = func(element element, pseudoType string, get func(utils.ElementKey) StyleFor) StyleFor
 
 // Compute all the computed styles of all elements in ``html`` document.
 // Do everything from finding author stylesheets to parsing and applying them.
@@ -1159,28 +1106,26 @@ type styleGetter = func(element element, pseudoType string, get func(utils.Eleme
 // Return a ``style_for`` function like object that takes an element and an optional
 // pseudo-element type, and return a style dict object.
 // presentationalHints=false
-func GetAllComputedStyles(html htmlEntity, userStylesheets []CSS,
+func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules *[]pageRule, targetCollector *targetCollector) (*StyleFor, error) {
+	pageRules *[]pageRule, targetCollector *targetCollector) *StyleFor {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
-		{sheet: HTML5_UA_STYLESHEET, origin: "", specificity: nil},
+		{sheet: html_.UAStyleSheet(), origin: "", specificity: nil},
 	}
 
 	if presentationalHints {
-		sheets = append(sheets, sheet{sheet: HTML5_PH_STYLESHEET, origin: "author", specificity: []uint8{0, 0, 0}})
+		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet(), origin: "author", specificity: []uint8{0, 0, 0}})
 	}
-	authorShts, err := findStylesheets(html.root, html.mediaType, html.urlFetcher,
-		html.baseUrl, fontConfig, pageRules)
-	if err != nil {
-		return nil, err
-	}
+	htmlElement := html_.HTML()
+	authorShts := findStylesheets(htmlElement.root, htmlElement.mediaType, htmlElement.urlFetcher,
+		htmlElement.baseUrl, fontConfig, pageRules)
 	for _, sht := range authorShts {
 		sheets = append(sheets, sheet{sheet: sht, origin: "author", specificity: nil})
 	}
 	for _, sht := range userStylesheets {
 		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
-	return NewStyleFor(html, sheets, presentationalHints, targetCollector), nil
+	return NewStyleFor(htmlElement, sheets, presentationalHints, targetCollector)
 }

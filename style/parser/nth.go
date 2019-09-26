@@ -1,5 +1,17 @@
 package parser
 
+import (
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+var nDashDigitRe = regexp.MustCompile("^n(-[0-9]+)$")
+
+func ParseNth2(css string) []int {
+	l := ParseComponentValueList(css, true)
+	return ParseNth(l)
+}
 
 // Parse `<An+B> <http://dev.w3.org/csswg/css-syntax-3/#anb>`_,
 //     as found in `:nth-child()
@@ -9,102 +21,111 @@ package parser
 //     this bit of syntax is included as it is particularly tricky to define
 //     on top of a CSS tokenizer.
 //     Returns  ``(a, b)`` slice of integers or nil
-func parseNth(input []Token) []int {
-    tokens := NewTokenIterator(input)
-    token_ = nextSignificant(tokens)
-    if token_ == nil {
-        return nil
-	} 
-	switch token := token_.(type) {
-	case NumberToken: 
-    if  token.Integer {
-		return parseEnd(tokens, 0, token.intValue)
+func ParseNth(input []Token) []int {
+	tokens := NewTokenIterator(input)
+	token_ := nextSignificant(tokens)
+	if token_ == nil {
+		return nil
 	}
-case DimensionToken:
-	if token.isInteger {
-        unit = token.lowerUnit
-        if unit == "n" {
-            return parseB(tokens, token.intValue)
-        } else if unit == "n-" {
-            return parseSignlessB(tokens, token.intValue, -1)
-        } else {
-            match = NDASHDIGITSRE.match(unit)
-            if match {
-                return parseEnd(tokens, token.intValue, int(match.group(1)))
-            }
+	switch token := token_.(type) {
+	case NumberToken:
+		if token.IsInteger {
+			return parseEnd(tokens, 0, token.IntValue())
+		}
+	case DimensionToken:
+		if token.IsInteger {
+			unit := token.Unit.Lower()
+			if unit == "n" {
+				return parseB(tokens, token.IntValue())
+			} else if unit == "n-" {
+				return parseSignlessB(tokens, token.IntValue(), -1)
+			} else {
+				if match, b := matchInt(unit); match {
+					return parseEnd(tokens, token.IntValue(), b)
+				}
+			}
+		}
+	case IdentToken:
+		ident := token.Value.Lower()
+		if ident == "even" {
+			return parseEnd(tokens, 2, 0)
+		} else if ident == "odd" {
+			return parseEnd(tokens, 2, 1)
+		} else if ident == "n" {
+			return parseB(tokens, 1)
+		} else if ident == "-n" {
+			return parseB(tokens, -1)
+		} else if ident == "n-" {
+			return parseSignlessB(tokens, 1, -1)
+		} else if ident == "-n-" {
+			return parseSignlessB(tokens, -1, -1)
+		} else if ident[0] == '-' {
+			if match, b := matchInt(ident[1:]); match {
+				return parseEnd(tokens, -1, b)
+			}
+		} else {
+			if match, b := matchInt(ident); match {
+				return parseEnd(tokens, 1, b)
+			}
+		}
+	case LiteralToken:
+		if token.Value == "+" {
+			token_ = tokens.Next() // Whitespace after an initial "+" is invalid.
+			if identToken, ok := token_.(IdentToken); ok {
+				ident := identToken.Value.Lower()
+				if ident == "n" {
+					return parseB(tokens, 1)
+				} else if ident == "n-" {
+					return parseSignlessB(tokens, 1, -1)
+				} else {
+					if match, b := matchInt(ident); match {
+						return parseEnd(tokens, 1, b)
+					}
+				}
+			}
 		}
 	}
-    case IdentToken:
-        ident = token.lowerValue
-        if ident == "even" {
-            return parseEnd(tokens, 2, 0)
-        } else if ident == "odd" {
-            return parseEnd(tokens, 2, 1)
-        } else if ident == "n" {
-            return parseB(tokens, 1)
-        } else if ident == "-n" {
-            return parseB(tokens, -1)
-        } else if ident == "n-" {
-            return parseSignlessB(tokens, 1, -1)
-        } else if ident == "-n-" {
-            return parseSignlessB(tokens, -1, -1)
-        } else if ident[0] == "-" {
-            match = NDASHDIGITSRE.match(ident[1:])
-            if match {
-                return parseEnd(tokens, -1, int(match.group(1)))
-            }
-        } else {
-            match = NDASHDIGITSRE.match(ident)
-            if match {
-                return parseEnd(tokens, 1, int(match.group(1)))
-            }
-        }
-	case LiteralToken:
-		if token == "+" {
-        token = next(tokens)  // Whitespace after an initial "+" is invalid.
-        if ident, ok := token.(IdentToken); ok {
-            ident = token.lowerValue
-            if ident == "n" {
-                return parseB(tokens, 1)
-            } else if ident == "n-" {
-                return parseSignlessB(tokens, 1, -1)
-            } else {
-                match = NDASHDIGITSRE.match(ident)
-                if match {
-                    return parseEnd(tokens, 1, int(match.group(1)))
-                }
-            }
-        }
-	}
+	return nil
 }
-} 
 
-// func parseB(tokens, a) {
-//     token = NextSignificant(tokens)
-//     if token is None {
-//         return (a, 0)
-//     } else if token == "+" {
-//         return parseSignlessB(tokens, a, 1)
-//     } else if token == "-" {
-//         return parseSignlessB(tokens, a, -1)
-//     } else if (token.type == "number" && token.isInteger and
-//           token.representation[0] := range "-+") {
-//           }
-//         return parseEnd(tokens, a, token.intValue)
-// } 
+func matchInt(s string) (bool, int) {
+	match := nDashDigitRe.FindStringSubmatch(s)
+	if len(match) > 0 {
+		if out, err := strconv.Atoi(match[1]); err == nil {
+			return true, out
+		}
+	}
+	return false, 0
+}
 
-// func parseSignlessB(tokens, a, bSign) {
-//     token = NextSignificant(tokens)
-//     if (token.type == "number" && token.isInteger and
-//             not token.representation[0] := range "-+") {
-//             }
-//         return parseEnd(tokens, a, bSign * token.intValue)
-// } 
+func parseB(tokens *tokenIterator, a int) []int {
+	token := nextSignificant(tokens)
+	if token == nil {
+		return []int{a, 0}
+	}
+	lit, ok := token.(LiteralToken)
+	if ok && lit.Value == "+" {
+		return parseSignlessB(tokens, a, 1)
+	} else if ok && lit.Value == "-" {
+		return parseSignlessB(tokens, a, -1)
+	}
+	if number, ok := token.(NumberToken); ok && number.IsInteger && strings.Contains("-+", number.Representation[0:1]) {
+		return parseEnd(tokens, a, number.IntValue())
+	}
+	return nil
+}
 
-// func parseEnd(tokens, a, b) {
-//     if NextSignificant(tokens) is None {
-//         return (a, b)
-//     }
-// } 
+func parseSignlessB(tokens *tokenIterator, a, bSign int) []int {
+	token := nextSignificant(tokens)
+	if number, ok := token.(NumberToken); ok && number.IsInteger && !strings.Contains("-+", number.Representation[0:1]) {
+		return parseEnd(tokens, a, bSign*number.IntValue())
+	}
+	return nil
+}
 
-NDASHDIGITSRE = re.compile("^n(-[0-9]+)$")
+func parseEnd(tokens *tokenIterator, a, b int) []int {
+	if nextSignificant(tokens) == nil {
+		return []int{a, b}
+	}
+	return nil
+}

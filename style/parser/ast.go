@@ -165,8 +165,14 @@ func (t FunctionBlock) Type() tokenType       { return TypeFunctionBlock }
 
 // IntValue returns the rounded value
 // Should be used only if  `IsInteger` is true
-func (t NumberToken) IntValue() int {
+func (t numericToken) IntValue() int {
 	return int(t.Value)
+}
+func (t NumberToken) IntValue() int {
+	return numericToken(t).IntValue()
+}
+func (t PercentageToken) IntValue() int {
+	return numericToken(t).IntValue()
 }
 
 // ---------------- JSON -------------------------------------------

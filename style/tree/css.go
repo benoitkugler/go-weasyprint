@@ -1,4 +1,4 @@
-package style
+package tree
 
 import (
 	"errors"
@@ -19,18 +19,18 @@ import (
 	"golang.org/x/net/html"
 )
 
-var HTML5_UA_STYLESHEET, HTML5_PH_STYLESHEET CSS
+var html5UAStylesheet, html5PHStylesheet CSS
 
 // LoadStyleSheet should be called once to load stylesheets ressources.
 // `path` is the folder containing the 'ressources' directory.
 // It will panic on failure.
 func LoadStyleSheet(path string) {
 	var err error
-	HTML5_UA_STYLESHEET, err = newCSS(CssFilename(filepath.Join(path, "ressources", "html5_ua.css")))
+	html5UAStylesheet, err = newCSS(InputFilename(filepath.Join(path, "ressources", "html5_ua.css")))
 	if err != nil {
 		panic(err)
 	}
-	HTML5_PH_STYLESHEET, err = newCSS(CssFilename(filepath.Join(path, "ressources", "html5_ph.css")))
+	html5PHStylesheet, err = newCSS(InputFilename(filepath.Join(path, "ressources", "html5_ph.css")))
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +53,7 @@ type CSS struct {
 }
 
 // checkMimeType = false
-func NewCSS(input cssInput, baseUrl string,
+func NewCSS(input contentInput, baseUrl string,
 	urlFetcher utils.UrlFetcher, checkMimeType bool,
 	mediaType string, fontConfig *fonts.FontConfiguration, matcher *matcher,
 	pageRules *[]pageRule) (CSS, error) {
@@ -94,36 +94,36 @@ func NewCSS(input cssInput, baseUrl string,
 	return out, nil
 }
 
-func newCSS(input cssInput) (CSS, error) {
+func newCSS(input contentInput) (CSS, error) {
 	return NewCSS(input, "", nil, false, "", nil, nil, nil)
 }
 
-type cssInput interface {
-	isCssInput()
+type contentInput interface {
+	isContentInput()
 	String() string
 }
 
-type CssFilename string
-type CssUrl string
-type CssString string
-type CssReader struct {
+type InputFilename string
+type InputUrl string
+type InputString string
+type InputReader struct {
 	io.ReadCloser
 }
 
-func (c CssFilename) isCssInput() {}
-func (c CssUrl) isCssInput()      {}
-func (c CssString) isCssInput()   {}
-func (c CssReader) isCssInput()   {}
-func (c CssFilename) String() string {
+func (c InputFilename) isContentInput() {}
+func (c InputUrl) isContentInput()      {}
+func (c InputString) isContentInput()   {}
+func (c InputReader) isContentInput()   {}
+func (c InputFilename) String() string {
 	return string(c)
 }
-func (c CssUrl) String() string {
+func (c InputUrl) String() string {
 	return string(c)
 }
-func (c CssString) String() string {
+func (c InputString) String() string {
 	return string(c)
 }
-func (c CssReader) String() string {
+func (c InputReader) String() string {
 	return fmt.Sprintf("reader at %p", c.ReadCloser)
 }
 
@@ -136,7 +136,7 @@ type source struct {
 // normalized ``baseUrl``.
 // checkCssMimeType=false
 // source may have nil content
-func selectSource(input cssInput, baseUrl string, urlFetcher utils.UrlFetcher,
+func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetcher,
 	checkCssMimeType bool) (out source, err error) {
 
 	if baseUrl != "" {
@@ -146,7 +146,7 @@ func selectSource(input cssInput, baseUrl string, urlFetcher utils.UrlFetcher,
 		}
 	}
 	switch data := input.(type) {
-	case CssFilename:
+	case InputFilename:
 		if baseUrl == "" {
 			baseUrl, err = utils.Path2url(string(data))
 			if err != nil {
@@ -158,7 +158,7 @@ func selectSource(input cssInput, baseUrl string, urlFetcher utils.UrlFetcher,
 			return source{}, err
 		}
 		return source{content: f, baseUrl: baseUrl}, nil
-	case CssUrl:
+	case InputUrl:
 		result, err := urlFetcher(string(data))
 		if err != nil {
 			return source{}, err
@@ -177,9 +177,9 @@ func selectSource(input cssInput, baseUrl string, urlFetcher utils.UrlFetcher,
 			return source{content: result.Content, baseUrl: baseUrl}, nil
 		}
 
-	case CssReader:
+	case InputReader:
 		return source{content: data.ReadCloser, baseUrl: baseUrl}, nil
-	case CssString:
+	case InputString:
 		return source{content: utils.NewBytesCloser(string(data)), baseUrl: baseUrl}, nil
 	default:
 		return source{}, errors.New("unexpected css input")

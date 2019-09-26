@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 
+	cascadia "github.com/benoitkugler/cascadia2"
+
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
@@ -37,6 +39,7 @@ type PageSelector struct {
 	Blank, First bool
 	Name         string
 	Index        PageIndex
+	Specificity  cascadia.Specificity
 }
 
 type ElementKey struct {
@@ -82,11 +85,17 @@ func (h *HTMLNode) Iter() HtmlIterator {
 // HtmlIterator simplify the (depth first) walk on an HTML tree.
 type HtmlIterator struct {
 	toVisit []*html.Node
+	tagsMap map[atom.Atom]bool // if nil, means all
 }
 
 // NewHtmlIterator use `root` as start point.
-func NewHtmlIterator(root *html.Node) HtmlIterator {
-	return HtmlIterator{toVisit: []*html.Node{root}}
+// If `tags` is given, only node matching one of them are returned.
+func NewHtmlIterator(root *html.Node, tags ...atom.Atom) HtmlIterator {
+	tagsMap := make(map[atom.Atom]bool)
+	for _, tag := range tags {
+		tagsMap[tag] = true
+	}
+	return HtmlIterator{toVisit: []*html.Node{root}, tagsMap: tagsMap}
 }
 
 func (h HtmlIterator) HasNext() bool {
@@ -94,6 +103,9 @@ func (h HtmlIterator) HasNext() bool {
 }
 
 func (h *HtmlIterator) Next() *HTMLNode {
+	if len(h.toVisit) == 0 {
+		return nil
+	}
 	next := h.toVisit[0]
 	h.toVisit = h.toVisit[1:]
 	if next.FirstChild != nil {
@@ -102,8 +114,32 @@ func (h *HtmlIterator) Next() *HTMLNode {
 	if next.NextSibling != nil {
 		h.toVisit = append(h.toVisit, next.NextSibling)
 	}
-	return (*HTMLNode)(next)
+	if len(h.tagsMap) == 0 || h.tagsMap[next.DataAtom] {
+		return (*HTMLNode)(next)
+	}
+	return h.Next()
 }
+
+// Iter recursively `element` (and its children and so on ...) and returns the elements matching one of the given tags
+//func Iter(element html.Node, tags ...atom.Atom) []html.Node {
+//	tagsMap := make(map[atom.Atom]bool)
+//	for _, tag := range tags {
+//		tagsMap[tag] = true
+//	}
+//	var aux func(html.Node) []html.Node
+//	aux = func(el html.Node) (out []html.Node) {
+//		if tagsMap[el.DataAtom] {
+//			out = append(out, el)
+//		}
+//		child := el.FirstChild
+//		for child != nil {
+//			out = append(out, aux(*child)...)
+//			child = child.NextSibling
+//		}
+//		return
+//	}
+//	return aux(element)
+//}
 
 // NodeChildren returns the direct children of `element`
 func (element HTMLNode) NodeChildren() (children []*html.Node) {
@@ -113,27 +149,6 @@ func (element HTMLNode) NodeChildren() (children []*html.Node) {
 		child = child.NextSibling
 	}
 	return
-}
-
-// Iter recursively `element` (and its children and so on ...) and returns the elements matching one of the given tags
-func Iter(element html.Node, tags ...atom.Atom) []html.Node {
-	tagsMap := make(map[atom.Atom]bool)
-	for _, tag := range tags {
-		tagsMap[tag] = true
-	}
-	var aux func(html.Node) []html.Node
-	aux = func(el html.Node) (out []html.Node) {
-		if tagsMap[el.DataAtom] {
-			out = append(out, el)
-		}
-		child := el.FirstChild
-		for child != nil {
-			out = append(out, aux(*child)...)
-			child = child.NextSibling
-		}
-		return
-	}
-	return aux(element)
 }
 
 // GetChildText returns the text directly in the element, not descendants.
@@ -186,4 +201,22 @@ func (element HTMLNode) HasLinkType(linkType string) bool {
 		}
 	}
 	return false
+}
+
+// Return the base URL for the document.
+// See http://www.w3.org/TR/html5/urls.html#document-base-url
+func FindBaseUrl(htmlDocument *html.Node, fallbackBaseUrl string) string {
+	iter := NewHtmlIterator(htmlDocument, atom.Base)
+	firstBaseElement := iter.Next()
+	if firstBaseElement != nil {
+		href := strings.TrimSpace(firstBaseElement.Get("href"))
+		if href != "" {
+			out, err := SafeUrljoin(fallbackBaseUrl, href, true)
+			if err != nil {
+				return ""
+			}
+			return out
+		}
+	}
+	return fallbackBaseUrl
 }

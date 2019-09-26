@@ -2,12 +2,41 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/deprecated/css/style.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/AHEM____.TTF" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/acid2-reference.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/acid2-test.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/blue.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/doc1.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/doc1_UTF-16BE.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/latin1-test.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/logo_small.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/mini_ua.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/pattern.gif" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/pattern.palette.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/pattern.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/pattern.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/really-a-png.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/really-a-svg.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/sheet2.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/sub_directory/sheet1.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/user.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/utf8-test.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/resource_test/weasyprint.otf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/style/tree/html.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/style/tree/tests_ua.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/properties/generated.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/generated.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/properties/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/computed_values.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/style/style.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/parser/ast.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/ast.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/parser/nth.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/nth.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/parser/parse_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/parse_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/CSS.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/css.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/computed_values.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/media_query.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/media_query.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/style_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/style/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/target.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/html.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -94,16 +123,16 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Go Test.go test github.com/benoitkugler/go-weasyprint/style/validation">
-    <configuration name="TestExpandFourSides in github.com/benoitkugler/go-weasyprint/style/validation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Go Test.TestDescriptors in github.com/benoitkugler/go-weasyprint/style/style">
+    <configuration name="TestDescriptors in github.com/benoitkugler/go-weasyprint/style/style" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="go-weasyprint" />
-      <working_directory value="$PROJECT_DIR$/style/validation" />
+      <working_directory value="$PROJECT_DIR$/style/style" />
       <framework value="gotest" />
       <kind value="PACKAGE" />
-      <package value="github.com/benoitkugler/go-weasyprint/style/validation" />
+      <package value="github.com/benoitkugler/go-weasyprint/style/style" />
       <directory value="$PROJECT_DIR$/" />
       <filePath value="$PROJECT_DIR$/" />
-      <pattern value="^TestExpandFourSides$" />
+      <pattern value="^TestDescriptors$" />
       <method v="2" />
     </configuration>
     <configuration name="TestFunction in github.com/benoitkugler/go-weasyprint/style/validation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -117,26 +146,26 @@
       <pattern value="^TestFunction$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestHexa in github.com/benoitkugler/go-weasyprint/structure" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestLoadStyleSheets in github.com/benoitkugler/go-weasyprint/style/style" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="go-weasyprint" />
-      <working_directory value="$PROJECT_DIR$/structure" />
+      <working_directory value="$PROJECT_DIR$/style/style" />
       <framework value="gotest" />
       <kind value="PACKAGE" />
-      <package value="github.com/benoitkugler/go-weasyprint/structure" />
+      <package value="github.com/benoitkugler/go-weasyprint/style/style" />
       <directory value="$PROJECT_DIR$/" />
       <filePath value="$PROJECT_DIR$/" />
-      <pattern value="^TestHexa$" />
+      <pattern value="^TestLoadStyleSheets$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestNotPrint in github.com/benoitkugler/go-weasyprint/style/validation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestNth in github.com/benoitkugler/go-weasyprint/style/parser" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="go-weasyprint" />
-      <working_directory value="$PROJECT_DIR$/style/validation" />
+      <working_directory value="$PROJECT_DIR$/style/parser" />
       <framework value="gotest" />
       <kind value="PACKAGE" />
-      <package value="github.com/benoitkugler/go-weasyprint/style/validation" />
+      <package value="github.com/benoitkugler/go-weasyprint/style/parser" />
       <directory value="$PROJECT_DIR$/" />
       <filePath value="$PROJECT_DIR$/" />
-      <pattern value="^TestNotPrint$" />
+      <pattern value="^TestNth$" />
       <method v="2" />
     </configuration>
     <configuration name="go test github.com/benoitkugler/go-weasyprint/style/validation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -151,11 +180,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Go Test.TestDescriptors in github.com/benoitkugler/go-weasyprint/style/style" />
+        <item itemvalue="Go Test.TestLoadStyleSheets in github.com/benoitkugler/go-weasyprint/style/style" />
+        <item itemvalue="Go Test.TestNth in github.com/benoitkugler/go-weasyprint/style/parser" />
         <item itemvalue="Go Test.go test github.com/benoitkugler/go-weasyprint/style/validation" />
         <item itemvalue="Go Test.TestFunction in github.com/benoitkugler/go-weasyprint/style/validation" />
-        <item itemvalue="Go Test.TestExpandFourSides in github.com/benoitkugler/go-weasyprint/style/validation" />
-        <item itemvalue="Go Test.TestNotPrint in github.com/benoitkugler/go-weasyprint/style/validation" />
-        <item itemvalue="Go Test.TestHexa in github.com/benoitkugler/go-weasyprint/structure" />
       </list>
     </recent_temporary>
   </component>
@@ -181,6 +210,7 @@
     <MESSAGE value="refactor css properties types" />
     <MESSAGE value="up and test validation" />
     <MESSAGE value="WIP" />
-    <option name="LAST_COMMIT_MESSAGE" value="WIP" />
+    <MESSAGE value="WIP : style" />
+    <option name="LAST_COMMIT_MESSAGE" value="WIP : style" />
   </component>
 </project>

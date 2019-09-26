@@ -7,8 +7,6 @@ import (
 	"log"
 	"path/filepath"
 	"testing"
-
-	cascadia "github.com/benoitkugler/cascadia2"
 )
 
 func loadJson(filename string) ([]string, []string) {
@@ -121,12 +119,12 @@ func TestColor3(t *testing.T) {
 func TestNth(t *testing.T) {
 	inputs, resJson := loadJson("An+B.json")
 	runTestOneToken(t, inputs, resJson, func(s string) jsonisable {
-		a, b, err := cascadia.ParseNth(s)
-		if err != nil {
-			var u jsonList
-			return u
+		l := ParseNth2(s)
+		if len(l) == 2 {
+			return jsonList{myInt(l[0]), myInt(l[1])}
 		}
-		return jsonList{myInt(a), myInt(b)}
+		var out jsonList
+		return out
 	})
 }
 
