@@ -1,8 +1,10 @@
 package tree
 
 import (
+	"bytes"
 	"fmt"
-	"log"
+
+	"github.com/benoitkugler/go-weasyprint/logger"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
@@ -24,7 +26,7 @@ type HTML struct {
 // fetch external resources such as stylesheets and images, UTF-8 encoded
 // `mediaType` is the media type to use for ``@media``, and defaults to ``'print'``.
 func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string) (*HTML, error) {
-	log.Println("Step 1 - Fetching and parsing HTML")
+	logger.ProgressLogger.Println("Step 1 - Fetching and parsing HTML")
 	if urlFetcher == nil {
 		urlFetcher = utils.DefaultUrlFetcher
 	}
@@ -33,16 +35,15 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 	}
 	result, err := selectSource(htmlContent, baseUrl, urlFetcher, false)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't fetch html input : %s", err)
 	}
-	defer result.content.Close()
-	var out HTML
-	root, err := html.Parse(result.content)
+	root, err := html.Parse(bytes.NewReader(result.content))
 	if err != nil {
 		return nil, fmt.Errorf("invalid html input : %s", err)
 	}
+	var out HTML
 	out.root = (*utils.HTMLNode)(root)
-	out.baseUrl = utils.FindBaseUrl(root, baseUrl)
+	out.baseUrl = utils.FindBaseUrl(root, result.baseUrl)
 	out.urlFetcher = urlFetcher
 	out.mediaType = mediaType
 	return &out, nil

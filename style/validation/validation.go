@@ -2090,13 +2090,22 @@ func textOverflow(tokens []Token, _ string) pr.CssProperty {
 }
 
 //@validator()
-//@singleKeyword
+//@singleToken
 // ``position`` property validation.
 func position(tokens []Token, _ string) pr.CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
+	if fn, ok := token.(parser.FunctionBlock); ok && fn.Name == "running" && len(*fn.Arguments) == 1 {
+		if ident, ok := (*fn.Arguments)[0].(parser.IdentToken); ok {
+			return pr.BoolString{Bool: true, String: string(ident.Value)}
+		}
+	}
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "static", "relative", "absolute", "fixed":
-		return pr.String(keyword)
+		return pr.BoolString{String: keyword}
 	default:
 		return nil
 	}

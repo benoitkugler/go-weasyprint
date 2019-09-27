@@ -166,6 +166,11 @@ type Dimension struct {
 	Value float32
 }
 
+type BoolString struct {
+	Bool   bool
+	String string
+}
+
 type Quote struct {
 	Open   bool
 	Insert bool

@@ -6,14 +6,17 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
+
+	"golang.org/x/net/html/charset"
+
+	"github.com/benoitkugler/go-weasyprint/logger"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
 
-	cascadia "github.com/benoitkugler/cascadia2"
+	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/style/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
@@ -58,7 +61,7 @@ func NewCSS(input contentInput, baseUrl string,
 	mediaType string, fontConfig *fonts.FontConfiguration, matcher *matcher,
 	pageRules *[]pageRule) (CSS, error) {
 
-	log.Printf("Step 2 - Fetching and parsing CSS - %s", input)
+	logger.ProgressLogger.Printf("Step 2 - Fetching and parsing CSS - %s", input)
 
 	if urlFetcher == nil {
 		urlFetcher = utils.DefaultUrlFetcher
@@ -66,16 +69,13 @@ func NewCSS(input contentInput, baseUrl string,
 	if mediaType == "" {
 		mediaType = "print"
 	}
+
 	ressource, err := selectSource(input, baseUrl, urlFetcher, checkMimeType)
 	if err != nil {
 		return CSS{}, fmt.Errorf("error fetching css input : %s", err)
 	}
-	defer ressource.content.Close()
-	content, err := ioutil.ReadAll(ressource.content)
-	if err != nil {
-		return CSS{}, fmt.Errorf("cannot read ressource : %s", err)
-	}
-	stylesheet := parser.ParseStylesheet2(content, false, false)
+
+	stylesheet := parser.ParseStylesheet2(ressource.content, false, false)
 
 	if matcher == nil {
 		matcher = NewMatcher()
@@ -84,12 +84,12 @@ func NewCSS(input contentInput, baseUrl string,
 		pageRules = &[]pageRule{}
 	}
 	out := CSS{
-		baseUrl:   baseUrl,
+		baseUrl:   ressource.baseUrl,
 		matcher:   matcher,
 		pageRules: pageRules,
 		fonts:     &[]string{},
 	}
-	preprocessStylesheet(mediaType, baseUrl, stylesheet, urlFetcher, matcher,
+	preprocessStylesheet(mediaType, ressource.baseUrl, stylesheet, urlFetcher, matcher,
 		out.pageRules, out.fonts, fontConfig, false)
 	return out, nil
 }
@@ -128,7 +128,7 @@ func (c InputReader) String() string {
 }
 
 type source struct {
-	content io.ReadCloser
+	content []byte // utf8 encoded
 	baseUrl string
 }
 
@@ -153,7 +153,7 @@ func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetche
 				return
 			}
 		}
-		f, err := os.Open(string(data))
+		f, err := ioutil.ReadFile(string(data))
 		if err != nil {
 			return source{}, err
 		}
@@ -174,20 +174,41 @@ func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetche
 			if baseUrl == "" {
 				baseUrl = result.RedirectedUrl
 			}
-			return source{content: result.Content, baseUrl: baseUrl}, nil
+			decoded, err := decodeToUtf8(result.Content, result.ProtocolEncoding)
+			if err != nil {
+				return source{}, err
+			}
+			if err = result.Content.Close(); err != nil {
+				return source{}, err
+			}
+			return source{content: decoded, baseUrl: baseUrl}, nil
 		}
-
 	case InputReader:
-		return source{content: data.ReadCloser, baseUrl: baseUrl}, nil
+		bt, err := ioutil.ReadAll(data.ReadCloser)
+		if err != nil {
+			return source{}, err
+		}
+		if err = data.ReadCloser.Close(); err != nil {
+			return source{}, err
+		}
+		return source{content: bt, baseUrl: baseUrl}, nil
 	case InputString:
-		return source{content: utils.NewBytesCloser(string(data)), baseUrl: baseUrl}, nil
+		return source{content: []byte(data), baseUrl: baseUrl}, nil
 	default:
 		return source{}, errors.New("unexpected css input")
 	}
 }
 
+func decodeToUtf8(data io.Reader, encod string) ([]byte, error) {
+	enc, _ := charset.Lookup(encod)
+	if enc == nil {
+		return nil, fmt.Errorf("unsupported encoding %s", encod)
+	}
+	return ioutil.ReadAll(enc.NewDecoder().Reader(data))
+}
+
 type match struct {
-	selector     cascadia.Selector
+	selector     cascadia.SelectorGroup
 	declarations []validation.ValidatedProperty
 }
 
@@ -205,8 +226,10 @@ type matchResult struct {
 
 func (m matcher) Match(element *html.Node) (out []matchResult) {
 	for _, mat := range m {
-		for _, det := range mat.selector.MatchDetails(element) {
-			out = append(out, matchResult{specificity: det.Specificity, pseudoType: det.PseudoElement, payload: mat.declarations})
+		for _, sel := range mat.selector {
+			if sel.Match(element) {
+				out = append(out, matchResult{specificity: sel.Specificity(), pseudoType: sel.PseudoElement(), payload: mat.declarations})
+			}
 		}
 	}
 	return

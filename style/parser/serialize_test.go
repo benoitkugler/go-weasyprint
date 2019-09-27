@@ -108,3 +108,9 @@ func TestBackslashDelim(t *testing.T) {
 		t.Errorf("expected %s got %s", source, ser)
 	}
 }
+
+func TestDataurl(t *testing.T) {
+	input := `@import "data:text/css;charset=utf-16le;base64,\
+				bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=";`
+	fmt.Println(Serialize(ParseComponentValueList(input, true)))
+}
