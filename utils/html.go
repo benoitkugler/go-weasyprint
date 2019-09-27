@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	cascadia "github.com/benoitkugler/cascadia2"
+	"github.com/benoitkugler/cascadia"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"

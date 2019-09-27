@@ -769,6 +769,13 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 			str = arg.Value
 		}
 		return pr.ContentProperty{Type: "leader()", Content: pr.Strings{"string", str}}, nil
+	} else if name == "element" {
+		if len(args) != 1 {
+			return pr.ContentProperty{}, nil
+		}
+		if ident, ok := args[0].(parser.IdentToken); ok {
+			return pr.ContentProperty{Type: "element()", Content: pr.String(ident.Value)}, nil
+		}
 	}
 	return pr.ContentProperty{}, nil
 }

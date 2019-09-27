@@ -588,7 +588,7 @@ func contentList(computer *computer, values pr.ContentProperties) (pr.ContentPro
 			if err != nil {
 				return nil, err
 			}
-		case "counter()", "counters()", "content()", "string()":
+		case "counter()", "counters()", "content()", "element()", "string()":
 			// Other values need layout context, their computed value cannot be
 			// better than their specified value yet.
 			// See build.computeContentList.

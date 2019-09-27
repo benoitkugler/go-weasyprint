@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/net/html/atom"
 
-	cascadia "github.com/benoitkugler/cascadia2"
+	"github.com/benoitkugler/cascadia"
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -32,7 +32,7 @@ import (
 
 var (
 	// Reject anything not in here
-	pseudoElements = pr.Set{"before": pr.Has, "after": pr.Has, "first-line": pr.Has, "first-letter": pr.Has}
+	pseudoElements = pr.NewSet("", "before", "after", "marker", "first-line", "first-letter")
 )
 
 type Token = parser.Token
@@ -937,7 +937,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 		case parser.QualifiedRule:
 			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*typedRule.Content, false, false))
 			if len(declarations) > 0 {
-				selector, err := cascadia.Compile(parser.Serialize(*typedRule.Prelude))
+				selector, err := cascadia.ParseGroup(parser.Serialize(*typedRule.Prelude))
 				if err != nil {
 					log.Printf("Invalid or unsupported selector '%s', %s \n", parser.Serialize(*typedRule.Prelude), err)
 					continue
@@ -997,7 +997,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 			case "media":
 				media := parseMediaQuery(*typedRule.Prelude)
-				if media != nil {
+				if media == nil {
 					log.Printf("Invalid media type '%s' the whole @media rule was ignored. \n",
 						parser.Serialize(*typedRule.Prelude))
 					continue
@@ -1080,7 +1080,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 type sheet struct {
 	sheet       CSS
 	origin      string
-	specificity []uint8
+	specificity []int
 }
 
 type sa struct {
@@ -1116,7 +1116,7 @@ func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	}
 
 	if presentationalHints {
-		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet(), origin: "author", specificity: []uint8{0, 0, 0}})
+		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet(), origin: "author", specificity: []int{0, 0, 0}})
 	}
 	htmlElement := html_.HTML()
 	authorShts := findStylesheets(htmlElement.root, htmlElement.mediaType, htmlElement.urlFetcher,

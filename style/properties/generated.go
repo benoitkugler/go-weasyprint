@@ -184,6 +184,10 @@ func (v Values) Copy() CssProperty {
 	return out
 }
 
+func (v BoolString) Copy() CssProperty {
+	return v
+}
+
 func (v AttrData) Copy() CssProperty {
 	out := v
 	out.Fallback = v.Fallback.Copy()

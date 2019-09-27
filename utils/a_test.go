@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path"
 	"strings"
 	"testing"
 	"unicode"
+
+	"github.com/vincent-petithory/dataurl"
 
 	"golang.org/x/net/html"
 
@@ -136,6 +139,11 @@ func TestRune(t *testing.T) {
 }
 
 func TestUrl(t *testing.T) {
-	var v io.Reader = strings.NewReader("lmdkdmlskdsmdl")
-	fmt.Printf("%p", v)
+	p := "/ssdsmldk/mldsjkd/erree/"
+	fmt.Println(path.Join(path.Dir(p), "mùd.html"))
+
+	_, err := dataurl.DecodeString("data:text/css;charset=utf-16le;base64,                    bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=")
+	if err != nil {
+		t.Fatal(err)
+	}
 }

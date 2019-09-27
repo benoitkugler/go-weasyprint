@@ -25,7 +25,7 @@ import (
 func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) string {
 	out, err := SafeUrljoin(baseUrl, urlS, allowRelative)
 	if err != nil {
-		log.Panicln(err, context)
+		log.Println(err, context)
 	}
 	return out
 }
@@ -43,7 +43,11 @@ func SafeUrljoin(baseUrl, urls string, allowRelative bool) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("Invalid base url : %s", baseUrl)
 		}
-		parsedBase.Path = path.Join(parsedBase.Path, urls)
+		if path.Ext(parsedBase.Path) != "" {
+			parsedBase.Path = path.Join(path.Dir(parsedBase.Path), urls)
+		} else {
+			parsedBase.Path = path.Join(parsedBase.Path, urls)
+		}
 		return parsedBase.String(), nil
 	} else if allowRelative {
 		return parsed.String(), nil
@@ -170,6 +174,8 @@ type RemoteRessource struct {
 	// 	derived from the *filename* parameter in a *Content-Disposition*
 	// 	header
 	Filename string
+
+	ProtocolEncoding string
 }
 
 type UrlFetcher = func(url string) (RemoteRessource, error)
@@ -208,16 +214,19 @@ func NewBytesCloser(s string) *BytesCloser {
 // Fetch an external resource such as an image or stylesheet.
 func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	if strings.HasPrefix(strings.ToLower(urlTarget), "data:") {
+		fmt.Println(urlTarget)
 		data, err := dataurl.DecodeString(urlTarget)
 		if err != nil {
 			return RemoteRessource{}, err
 		}
 		return RemoteRessource{
-			Content:       (*BytesCloser)(bytes.NewReader(data.Data)),
-			MimeType:      data.ContentType(),
-			RedirectedUrl: urlTarget,
+			Content:          (*BytesCloser)(bytes.NewReader(data.Data)),
+			MimeType:         data.ContentType(),
+			RedirectedUrl:    urlTarget,
+			ProtocolEncoding: data.Encoding,
 		}, nil
 	}
+
 	data, err := url.Parse(urlTarget)
 	if err != nil {
 		return RemoteRessource{}, err
@@ -226,6 +235,20 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 		return RemoteRessource{}, fmt.Errorf("Not an absolute URI: %s", urlTarget)
 	}
 	urlTarget = data.String()
+
+	if data.Scheme == "file" {
+		f, err := os.Open(data.Path)
+		if err != nil {
+			return RemoteRessource{}, fmt.Errorf("local file not found : %s", err)
+		}
+		return RemoteRessource{
+			Content:       f,
+			Filename:      filepath.Base(data.Path),
+			MimeType:      mime.TypeByExtension(filepath.Ext(data.Path)),
+			RedirectedUrl: urlTarget,
+		}, nil
+	}
+
 	req, err := http.NewRequest(http.MethodGet, urlTarget, nil)
 	if err != nil {
 		return RemoteRessource{}, err
@@ -244,10 +267,7 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	mediaType, params, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if err == nil {
 		result.MimeType = mediaType
-		enc := params["charset"]
-		if enc != "" && enc != "utf-8" {
-			return RemoteRessource{}, fmt.Errorf("unsupported encoding : %s", enc)
-		}
+		result.ProtocolEncoding = params["charset"]
 	}
 	_, params, err = mime.ParseMediaType(response.Header.Get("Content-Disposition"))
 	if err == nil {
@@ -276,7 +296,3 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	}
 	return result, nil
 }
-
-// Call an urlFetcher, fill in optional data.
-// Content should still be closed
-// func fetch(urlFetcher UrlFetcher, url string) (RemoteRessource, error) {
