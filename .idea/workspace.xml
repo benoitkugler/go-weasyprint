@@ -1,44 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/deprecated/css/style.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/AHEM____.TTF" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/acid2-reference.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/acid2-test.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/blue.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/doc1.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/doc1_UTF-16BE.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/icon.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/latin1-test.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/logo_small.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/mini_ua.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/pattern.gif" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/pattern.palette.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/pattern.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/pattern.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/really-a-png.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/really-a-svg.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/sheet2.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/sub_directory/sheet1.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/user.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/utf8-test.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/resource_test/weasyprint.otf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/tree/html.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/style/tree/tests_ua.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/parser/ast.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/ast.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/parser/nth.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/nth.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/parser/parse_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/parse_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/CSS.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/css.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/computed_values.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/media_query.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/media_query.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/style_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/style/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/target.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/html.go" afterDir="false" />
-    </list>
+    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -211,6 +174,7 @@
     <MESSAGE value="up and test validation" />
     <MESSAGE value="WIP" />
     <MESSAGE value="WIP : style" />
-    <option name="LAST_COMMIT_MESSAGE" value="WIP : style" />
+    <MESSAGE value="WIP : test style" />
+    <option name="LAST_COMMIT_MESSAGE" value="WIP : test style" />
   </component>
 </project>
