@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/net/html/charset"
 
@@ -118,13 +119,16 @@ func (c InputFilename) String() string {
 	return string(c)
 }
 func (c InputUrl) String() string {
+	if strings.HasPrefix(string(c), "data:") {
+		return fmt.Sprintf("data url of len. %d", len(c))
+	}
 	return string(c)
 }
 func (c InputString) String() string {
-	return string(c)
+	return fmt.Sprintf("string of len. %d", len(c))
 }
 func (c InputReader) String() string {
-	return fmt.Sprintf("reader at %p", c.ReadCloser)
+	return fmt.Sprintf("reader of type %T", c.ReadCloser)
 }
 
 type source struct {
@@ -200,6 +204,9 @@ func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetche
 }
 
 func decodeToUtf8(data io.Reader, encod string) ([]byte, error) {
+	if encod == "" { // assume UTF8
+		return ioutil.ReadAll(data)
+	}
 	enc, _ := charset.Lookup(encod)
 	if enc == nil {
 		return nil, fmt.Errorf("unsupported encoding %s", encod)

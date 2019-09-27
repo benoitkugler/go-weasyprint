@@ -15,6 +15,7 @@ import (
 const htmlWhitespace = " \t\n\f\r"
 
 var (
+	htmlSpacesRe               = regexp.MustCompile(fmt.Sprintf("[%s]+", htmlWhitespace))
 	htmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", htmlWhitespace))
 )
 

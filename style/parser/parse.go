@@ -1,5 +1,4 @@
-// This package is build on Gorilla CSS tokenizer,
-// and implements the construction of an Abstract Syntax Tree,
+// This package implements the construction of an Abstract Syntax Tree,
 // compatible with weasyprint one.
 package parser
 

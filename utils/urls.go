@@ -214,7 +214,9 @@ func NewBytesCloser(s string) *BytesCloser {
 // Fetch an external resource such as an image or stylesheet.
 func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	if strings.HasPrefix(strings.ToLower(urlTarget), "data:") {
-		fmt.Println(urlTarget)
+		// data url can't contains spaces and the strings comming from css
+		// may contain tabs when separated on several lines with \
+		urlTarget = htmlSpacesRe.ReplaceAllString(urlTarget, "")
 		data, err := dataurl.DecodeString(urlTarget)
 		if err != nil {
 			return RemoteRessource{}, err
@@ -223,7 +225,7 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 			Content:          (*BytesCloser)(bytes.NewReader(data.Data)),
 			MimeType:         data.ContentType(),
 			RedirectedUrl:    urlTarget,
-			ProtocolEncoding: data.Encoding,
+			ProtocolEncoding: data.Params["charset"],
 		}, nil
 	}
 

@@ -1,12 +1,12 @@
 package tree
 
 import (
-	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
@@ -134,7 +134,6 @@ func TestFindStylesheets(t *testing.T) {
 	// Also test that stylesheets are in tree order
 	var got [2]string
 	for i, s := range sheets {
-		fmt.Println(s.baseUrl)
 		got[i] = rsplit(rsplit(s.baseUrl, "/"), ",")
 	}
 	exp := [2]string{"a%7Bcolor%3AcurrentColor%7D", "doc1.html"}
@@ -142,21 +141,21 @@ func TestFindStylesheets(t *testing.T) {
 		t.Errorf("expected %v got %v", exp, got)
 	}
 
-	// var rules []int
+	var (
+		rules      []cascadia.Sel
+		pagesRules []pageRule
+	)
 	for _, sheet := range sheets {
 		for _, sheetRules := range *sheet.matcher {
-			fmt.Printf("%T \n", sheetRules)
-			// for _, rule := range sheetRules {
-			// 	rules = append(rules, rule)
-			// }
+			rules = append(rules, sheetRules.selector...)
 		}
-		// for rule := range sheet.pageRules {
-		// 	rules = append(rules, rule)
-		// }
+		for _, rule := range *sheet.pageRules {
+			pagesRules = append(pagesRules, rule)
+		}
 	}
-	// if len(rules) != 10 {
-	// 	t.Errorf("expected 10 rules, got %d", len(rules))
-	// }
+	if len(rules)+len(pagesRules) != 10 {
+		t.Errorf("expected 10 rules, got %d", len(rules)+len(pagesRules))
+	}
 	capt.AssertNoLogs(t)
 	// TODO: test that the values are correct too
 }
