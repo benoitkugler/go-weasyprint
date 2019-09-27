@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+
 	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -102,10 +104,14 @@ func TestDescriptors(t *testing.T) {
 
 type fakeHTML struct {
 	HTML
+	customUA CSS
 }
 
 func (f fakeHTML) UAStylesheet() CSS {
-	return testUAStylesheet
+	if (f.customUA == CSS{}) {
+		return testUAStylesheet
+	}
+	return f.customUA
 }
 
 func resourceFilename(s string) string {
@@ -160,119 +166,166 @@ func TestFindStylesheets(t *testing.T) {
 	// TODO: test that the values are correct too
 }
 
-//
-////@assertNoLogs
-//func TestExpandShorthands(t *testing.T) {
-//capt := utils.CaptureLogs()
-//	sheet = CSS(resourceFilename("sheet2.css"))
-//	assert list(sheet.matcher.lowerLocalNameSelectors) == ["li"]
-//}
-//rules = sheet.matcher.lowerLocalNameSelectors["li"][0][4]
-//assert rules[0][0] == "marginBottom"
-//assert rules[0][1] == (3, "em")
-//assert rules[1][0] == "marginTop"
-//assert rules[1][1] == (2, "em")
-//assert rules[2][0] == "marginRight"
-//assert rules[2][1] == (0, None)
-//assert rules[3][0] == "marginBottom"
-//assert rules[3][1] == (2, "em")
-//assert rules[4][0] == "marginLeft"
-//assert rules[4][1] == (0, None)
-//assert rules[5][0] == "marginLeft"
-//assert rules[5][1] == (4, "em")
-//
-//// TODO: test that the values are correct too
-//
-//
-////@assertNoLogs
-//func TestAnnotateDocument(t *testing.T) {
-//capt := utils.CaptureLogs()
-//	document = FakeHTML(resourceFilename("doc1.html"))
-//	document.UaStylesheets = lambda: [CSS(resourceFilename("miniUa.css"))]
-//	styleFor = getAllComputedStyles(
-//		document, userStylesheets=[CSS(resourceFilename("user.css"))])
-//}
-//// Element objects behave as lists of their children
-//Head, body = document.etreeElement
-//h1, p, ul, div = body
-//li0, Li1 = ul
-//a, = li0
-//span1, = div
-//span2, = span1
-//
-//h1 = styleFor(h1)
-//p = styleFor(p)
-//ul = styleFor(ul)
-//li0 = styleFor(li0)
-//div = styleFor(div)
-//after = styleFor(a, "after")
-//a = styleFor(a)
-//span1 = styleFor(span1)
-//span2 = styleFor(span2)
-//
-//assert h1["backgroundImage"] == (
-//("url", path2url(resourceFilename("logoSmall.png"))),)
-//
-//assert h1["fontWeight"] == 700
-//assert h1["fontSize"] == 40  // 2em
-//
-//// x-large * initial = 3/2 * 16 = 24
-//assert p["marginTop"] == (24, "px")
-//assert p["marginRight"] == (0, "px")
-//assert p["marginBottom"] == (24, "px")
-//assert p["marginLeft"] == (0, "px")
-//assert p["backgroundColor"] == "currentColor"
-//
-//// 2em * 1.25ex = 2 * 20 * 1.25 * 0.8 = 40
-//// 2.5ex * 1.25ex = 2.5 * 0.8 * 20 * 1.25 * 0.8 = 40
-//// TODO: ex unit doesn"t work with @font-face fonts, see computedValues.py
-//// assert ul["marginTop"] == (40, "px")
-//// assert ul["marginRight"] == (40, "px")
-//// assert ul["marginBottom"] == (40, "px")
-//// assert ul["marginLeft"] == (40, "px")
-//
-//assert ul["fontWeight"] == 400
-//// thick = 5px, 0.25 inches = 96*.25 = 24px
-//assert ul["borderTopWidth"] == 0
-//assert ul["borderRightWidth"] == 5
-//assert ul["borderBottomWidth"] == 0
-//assert ul["borderLeftWidth"] == 24
-//
-//assert li0["fontWeight"] == 700
-//assert li0["fontSize"] == 8  // 6pt
-//assert li0["marginTop"] == (16, "px")  // 2em
-//assert li0["marginRight"] == (0, "px")
-//assert li0["marginBottom"] == (16, "px")
-//assert li0["marginLeft"] == (32, "px")  // 4em
-//
-//assert a["textDecorationLine"] == {"underline"}
-//assert a["fontWeight"] == 900
-//assert a["fontSize"] == 24  // 300% of 8px
-//assert a["paddingTop"] == (1, "px")
-//assert a["paddingRight"] == (2, "px")
-//assert a["paddingBottom"] == (3, "px")
-//assert a["paddingLeft"] == (4, "px")
-//assert a["borderTopWidth"] == 42
-//assert a["borderBottomWidth"] == 42
-//
-//assert a["color"] == (1, 0, 0, 1)
-//assert a["borderTopColor"] == "currentColor"
-//
-//assert div["fontSize"] == 40  // 2 * 20px
-//assert span1["width"] == (160, "px")  // 10 * 16px (root default is 16px)
-//assert span1["height"] == (400, "px")  // 10 * (2 * 20px)
-//assert span2["fontSize"] == 32
-//
-//// The href attr should be as := range the source, not made absolute.
-//assert after["content"] == (
-//("string", " ["), ("string", "home.html"), ("string", "]"))
-//assert after["backgroundColor"] == (1, 0, 0, 1)
-//assert after["borderTopWidth"] == 42
-//assert after["borderBottomWidth"] == 3
-//
-//// TODO: much more tests here: test that origin && selector precedence
-//// && inheritance are correct…
-//
+//@assertNoLogs
+func TestExpandShorthands(t *testing.T) {
+	capt := utils.CaptureLogs()
+	sheet, err := newCSS(InputFilename(resourceFilename("sheet2.css")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sels []cascadia.Sel
+	for _, match := range *sheet.matcher {
+		sels = append(sels, match.selector...)
+	}
+	if len(sels) != 1 {
+		t.Errorf("expected ['li'] got %v", sels)
+	}
+	if sels[0].String() != "li" {
+		t.Errorf("expected 'li' got %s", sels[0].String())
+	}
+
+	m := (*sheet.matcher)[0].declarations
+	if m[0].Name != "margin_bottom" {
+		t.Errorf("expected margin_bottom got %s", m[0].Name)
+	}
+	if (m[0].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 3, Unit: pr.Em}.ToValue()) {
+		t.Errorf("expected got %v", m[0].Value)
+	}
+	if m[1].Name != "margin_top" {
+		t.Errorf("expected margin_top got %s", m[1].Name)
+	}
+	if (m[1].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 2, Unit: pr.Em}.ToValue()) {
+		t.Errorf("expected got %v", m[1].Value)
+	}
+	if m[2].Name != "margin_right" {
+		t.Errorf("expected margin_right got %s", m[2].Name)
+	}
+	if (m[2].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue()) {
+		t.Errorf("expected got %v", m[2].Value)
+	}
+	if m[3].Name != "margin_bottom" {
+		t.Errorf("expected margin_bottom got %s", m[3].Name)
+	}
+	if (m[3].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 2, Unit: pr.Em}.ToValue()) {
+		t.Errorf("expected got %v", m[3].Value)
+	}
+	if m[4].Name != "margin_left" {
+		t.Errorf("expected margin_left got %s", m[4].Name)
+	}
+	if (m[4].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue()) {
+		t.Errorf("expected got %v", m[4].Value)
+	}
+	if m[5].Name != "margin_left" {
+		t.Errorf("expected margin_left got %s", m[5].Name)
+	}
+	if (m[5].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 4, Unit: pr.Em}.ToValue()) {
+		t.Errorf("expected got %v", m[5].Value)
+	}
+	capt.AssertNoLogs(t)
+	// TODO: test that the values are correct too
+}
+
+//@assertNoLogs
+func TestAnnotateDocument(t *testing.T) {
+	capt := utils.CaptureLogs()
+	document_, err := newHtml(InputFilename(resourceFilename("doc1.html")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := fakeHTML{HTML: *document_}
+	document.customUA, err = newCSS(InputFilename(resourceFilename("mini_ua.css")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userStylesheet, err := newCSS(InputFilename(resourceFilename("user.css")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil)
+
+	//// Element objects behave as lists of their children
+	//Head, body = document.etreeElement
+	//h1, p, ul, div = body
+	//li0, Li1 = ul
+	//a, = li0
+	//span1, = div
+	//span2, = span1
+	//
+	//h1 = styleFor(h1)
+	//p = styleFor(p)
+	//ul = styleFor(ul)
+	//li0 = styleFor(li0)
+	//div = styleFor(div)
+	//after = styleFor(a, "after")
+	//a = styleFor(a)
+	//span1 = styleFor(span1)
+	//span2 = styleFor(span2)
+	//
+	//assert h1["backgroundImage"] == (
+	//("url", path2url(resourceFilename("logoSmall.png"))),)
+	//
+	//assert h1["fontWeight"] == 700
+	//assert h1["fontSize"] == 40  // 2em
+	//
+	//// x-large * initial = 3/2 * 16 = 24
+	//assert p["marginTop"] == (24, "px")
+	//assert p["marginRight"] == (0, "px")
+	//assert p["marginBottom"] == (24, "px")
+	//assert p["marginLeft"] == (0, "px")
+	//assert p["backgroundColor"] == "currentColor"
+	//
+	//// 2em * 1.25ex = 2 * 20 * 1.25 * 0.8 = 40
+	//// 2.5ex * 1.25ex = 2.5 * 0.8 * 20 * 1.25 * 0.8 = 40
+	//// TODO: ex unit doesn"t work with @font-face fonts, see computedValues.py
+	//// assert ul["marginTop"] == (40, "px")
+	//// assert ul["marginRight"] == (40, "px")
+	//// assert ul["marginBottom"] == (40, "px")
+	//// assert ul["marginLeft"] == (40, "px")
+	//
+	//assert ul["fontWeight"] == 400
+	//// thick = 5px, 0.25 inches = 96*.25 = 24px
+	//assert ul["borderTopWidth"] == 0
+	//assert ul["borderRightWidth"] == 5
+	//assert ul["borderBottomWidth"] == 0
+	//assert ul["borderLeftWidth"] == 24
+	//
+	//assert li0["fontWeight"] == 700
+	//assert li0["fontSize"] == 8  // 6pt
+	//assert li0["marginTop"] == (16, "px")  // 2em
+	//assert li0["marginRight"] == (0, "px")
+	//assert li0["marginBottom"] == (16, "px")
+	//assert li0["marginLeft"] == (32, "px")  // 4em
+	//
+	//assert a["textDecorationLine"] == {"underline"}
+	//assert a["fontWeight"] == 900
+	//assert a["fontSize"] == 24  // 300% of 8px
+	//assert a["paddingTop"] == (1, "px")
+	//assert a["paddingRight"] == (2, "px")
+	//assert a["paddingBottom"] == (3, "px")
+	//assert a["paddingLeft"] == (4, "px")
+	//assert a["borderTopWidth"] == 42
+	//assert a["borderBottomWidth"] == 42
+	//
+	//assert a["color"] == (1, 0, 0, 1)
+	//assert a["borderTopColor"] == "currentColor"
+	//
+	//assert div["fontSize"] == 40  // 2 * 20px
+	//assert span1["width"] == (160, "px")  // 10 * 16px (root default is 16px)
+	//assert span1["height"] == (400, "px")  // 10 * (2 * 20px)
+	//assert span2["fontSize"] == 32
+	//
+	//// The href attr should be as := range the source, not made absolute.
+	//assert after["content"] == (
+	//("string", " ["), ("string", "home.html"), ("string", "]"))
+	//assert after["backgroundColor"] == (1, 0, 0, 1)
+	//assert after["borderTopWidth"] == 42
+	//assert after["borderBottomWidth"] == 3
+	//
+	//// TODO: much more tests here: test that origin && selector precedence
+	//// && inheritance are correct…
+}
+
 //
 ////@assertNoLogs
 //func TestPage(t *testing.T) {

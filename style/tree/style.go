@@ -1095,7 +1095,7 @@ type sas struct {
 }
 
 type htmlLike interface {
-	HTML() HTML
+	AsHTML() HTML
 	UAStyleSheet() CSS
 	PHStyleSheet() CSS
 }
@@ -1118,7 +1118,7 @@ func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	if presentationalHints {
 		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet(), origin: "author", specificity: []int{0, 0, 0}})
 	}
-	htmlElement := html_.HTML()
+	htmlElement := html_.AsHTML()
 	authorShts := findStylesheets(htmlElement.root, htmlElement.mediaType, htmlElement.urlFetcher,
 		htmlElement.baseUrl, fontConfig, pageRules)
 	for _, sht := range authorShts {

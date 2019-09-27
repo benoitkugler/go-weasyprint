@@ -53,7 +53,7 @@ func newHtml(htmlContent contentInput) (*HTML, error) {
 	return NewHTML(htmlContent, "", nil, "")
 }
 
-func (h HTML) HTML() HTML {
+func (h HTML) AsHTML() HTML {
 	return h
 }
 
