@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/logger"
+
 	"golang.org/x/net/html/atom"
 
 	"github.com/benoitkugler/cascadia"
@@ -56,7 +58,7 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 		sheets:         sheets,
 	}
 
-	log.Println("Step 3 - Applying CSS")
+	logger.ProgressLogger.Println("Step 3 - Applying CSS")
 	for _, styleAttr := range findStyleAttributes(html.root, presentationalHints, html.baseUrl) {
 		// element, declarations, baseUrl = attributes
 		style, ok := cascadedStyles[styleAttr.element.ToKey("")]
@@ -86,7 +88,8 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 		for _, sh := range sheets {
 			// sheet, origin, sheetSpecificity
 			// Add declarations for matched elements
-			for _, selector := range sh.sheet.matcher.Match(element.AsHtmlNode()) {
+			sels := sh.sheet.matcher.Match(element.AsHtmlNode())
+			for _, selector := range sels {
 				// specificity, order, pseudoType, declarations = selector
 				specificity := selector.specificity
 				if len(sh.specificity) == 3 {
@@ -198,7 +201,7 @@ func (s StyleFor) Get(element element, pseudoType string) pr.Properties {
 func (s StyleFor) addPageDeclaration(pageType_ utils.PageElement) {
 	for _, sh := range s.sheets {
 		// Add declarations for page elements
-		for _, pageR := range *sh.sheet.pageRules {
+		for _, pageR := range sh.sheet.pageRules {
 			// Rule, selectorList, declarations
 			for _, selector := range pageR.selectors {
 				// specificity, pseudoType, selector_page_type = selector
@@ -727,7 +730,7 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 		specified[name] = value
 	}
 	sp := specified["page"]
-	if sp.SpecialProperty == nil && sp.AsCss() != nil && sp.AsCss().(pr.String) == "auto" {
+	if sp.SpecialProperty == nil && sp.AsCss() != nil && sp.AsCss().(pr.Page).String == "auto" {
 		// The page property does not inherit. However, if the page value on
 		// an element is auto, then its used value is the value specified on
 		// its nearest ancestor with a non-auto value. When specified on the

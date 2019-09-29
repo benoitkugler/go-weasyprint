@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
@@ -108,7 +109,7 @@ type fakeHTML struct {
 }
 
 func (f fakeHTML) UAStylesheet() CSS {
-	if (f.customUA == CSS{}) {
+	if f.customUA.IsNone() {
 		return testUAStylesheet
 	}
 	return f.customUA
@@ -152,10 +153,10 @@ func TestFindStylesheets(t *testing.T) {
 		pagesRules []pageRule
 	)
 	for _, sheet := range sheets {
-		for _, sheetRules := range *sheet.matcher {
+		for _, sheetRules := range sheet.matcher {
 			rules = append(rules, sheetRules.selector...)
 		}
-		for _, rule := range *sheet.pageRules {
+		for _, rule := range sheet.pageRules {
 			pagesRules = append(pagesRules, rule)
 		}
 	}
@@ -174,17 +175,17 @@ func TestExpandShorthands(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sels []cascadia.Sel
-	for _, match := range *sheet.matcher {
+	for _, match := range sheet.matcher {
 		sels = append(sels, match.selector...)
 	}
 	if len(sels) != 1 {
-		t.Errorf("expected ['li'] got %v", sels)
+		t.Fatalf("expected ['li'] got %v", sels)
 	}
 	if sels[0].String() != "li" {
 		t.Errorf("expected 'li' got %s", sels[0].String())
 	}
 
-	m := (*sheet.matcher)[0].declarations
+	m := (sheet.matcher)[0].declarations
 	if m[0].Name != "margin_bottom" {
 		t.Errorf("expected margin_bottom got %s", m[0].Name)
 	}
@@ -225,6 +226,12 @@ func TestExpandShorthands(t *testing.T) {
 	// TODO: test that the values are correct too
 }
 
+func assertProp(t *testing.T, got, expected pr.CssProperty) {
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("expected %v got %v", expected, got)
+	}
+}
+
 //@assertNoLogs
 func TestAnnotateDocument(t *testing.T) {
 	capt := utils.CaptureLogs()
@@ -243,87 +250,86 @@ func TestAnnotateDocument(t *testing.T) {
 	}
 
 	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil)
+	// Element objects behave as lists of their children
+	body := document.root.NodeChildren(true)[1]
+	children := body.NodeChildren(true)
+	h1_, p_, ul_, div_ := children[0], children[1], children[2], children[3]
+	li0_, Li1_ := ul_.NodeChildren(true)[0],ul_.NodeChildren(true)[1]
+	a_ := li0_.NodeChildren(true)[0]
+	span1_ := div_.NodeChildren(true)[0]
+	span2_ := span1_.NodeChildren(true)[0]
 
-	//// Element objects behave as lists of their children
-	//Head, body = document.etreeElement
-	//h1, p, ul, div = body
-	//li0, Li1 = ul
-	//a, = li0
-	//span1, = div
-	//span2, = span1
-	//
-	//h1 = styleFor(h1)
-	//p = styleFor(p)
-	//ul = styleFor(ul)
-	//li0 = styleFor(li0)
-	//div = styleFor(div)
-	//after = styleFor(a, "after")
-	//a = styleFor(a)
-	//span1 = styleFor(span1)
-	//span2 = styleFor(span2)
-	//
-	//assert h1["backgroundImage"] == (
-	//("url", path2url(resourceFilename("logoSmall.png"))),)
-	//
-	//assert h1["fontWeight"] == 700
-	//assert h1["fontSize"] == 40  // 2em
-	//
-	//// x-large * initial = 3/2 * 16 = 24
-	//assert p["marginTop"] == (24, "px")
-	//assert p["marginRight"] == (0, "px")
-	//assert p["marginBottom"] == (24, "px")
-	//assert p["marginLeft"] == (0, "px")
-	//assert p["backgroundColor"] == "currentColor"
-	//
-	//// 2em * 1.25ex = 2 * 20 * 1.25 * 0.8 = 40
-	//// 2.5ex * 1.25ex = 2.5 * 0.8 * 20 * 1.25 * 0.8 = 40
-	//// TODO: ex unit doesn"t work with @font-face fonts, see computedValues.py
-	//// assert ul["marginTop"] == (40, "px")
-	//// assert ul["marginRight"] == (40, "px")
-	//// assert ul["marginBottom"] == (40, "px")
-	//// assert ul["marginLeft"] == (40, "px")
-	//
-	//assert ul["fontWeight"] == 400
-	//// thick = 5px, 0.25 inches = 96*.25 = 24px
-	//assert ul["borderTopWidth"] == 0
-	//assert ul["borderRightWidth"] == 5
-	//assert ul["borderBottomWidth"] == 0
-	//assert ul["borderLeftWidth"] == 24
-	//
-	//assert li0["fontWeight"] == 700
-	//assert li0["fontSize"] == 8  // 6pt
-	//assert li0["marginTop"] == (16, "px")  // 2em
-	//assert li0["marginRight"] == (0, "px")
-	//assert li0["marginBottom"] == (16, "px")
-	//assert li0["marginLeft"] == (32, "px")  // 4em
-	//
-	//assert a["textDecorationLine"] == {"underline"}
-	//assert a["fontWeight"] == 900
-	//assert a["fontSize"] == 24  // 300% of 8px
-	//assert a["paddingTop"] == (1, "px")
-	//assert a["paddingRight"] == (2, "px")
-	//assert a["paddingBottom"] == (3, "px")
-	//assert a["paddingLeft"] == (4, "px")
-	//assert a["borderTopWidth"] == 42
-	//assert a["borderBottomWidth"] == 42
-	//
-	//assert a["color"] == (1, 0, 0, 1)
-	//assert a["borderTopColor"] == "currentColor"
-	//
-	//assert div["fontSize"] == 40  // 2 * 20px
-	//assert span1["width"] == (160, "px")  // 10 * 16px (root default is 16px)
-	//assert span1["height"] == (400, "px")  // 10 * (2 * 20px)
-	//assert span2["fontSize"] == 32
-	//
-	//// The href attr should be as := range the source, not made absolute.
-	//assert after["content"] == (
-	//("string", " ["), ("string", "home.html"), ("string", "]"))
-	//assert after["backgroundColor"] == (1, 0, 0, 1)
-	//assert after["borderTopWidth"] == 42
-	//assert after["borderBottomWidth"] == 3
-	//
-	//// TODO: much more tests here: test that origin && selector precedence
-	//// && inheritance are correct…
+	h1 := styleFor.Get(h1_)
+	p := styleFor.Get(p_)
+	ul := styleFor.Get(ul_)
+	li0 := styleFor.Get(li0_)
+	div := styleFor.Get(div_)
+	after := styleFor.Get(a_, "after")
+	a := styleFor.Get(a_)
+	span1 := styleFor.Get(span1_)
+	span2 := styleFor.Get(span2_)
+
+	assertProp(t, h1["backgroundImage"] , (("url", path2url(resourceFilename("logoSmall.png"))),))
+
+	assertProp(t, h1["fontWeight"] , 700)
+	assertProp(t, h1["fontSize"] , 40  // 2em)
+
+	// x-large * initial = 3/2 * 16 = 24
+	assertProp(t, p["marginTop"] , (24, "px"))
+	assertProp(t, p["marginRight"] , (0, "px"))
+	assertProp(t, p["marginBottom"] , (24, "px"))
+	assertProp(t, p["marginLeft"] , (0, "px"))
+	assertProp(t, p["backgroundColor"] , "currentColor")
+
+	// 2em * 1.25ex = 2 * 20 * 1.25 * 0.8 = 40
+	// 2.5ex * 1.25ex = 2.5 * 0.8 * 20 * 1.25 * 0.8 = 40
+	// TODO: ex unit doesn"t work with @font-face fonts, see computedValues.py
+	// assert ul["marginTop"] , (40, "px")
+	// assert ul["marginRight"] , (40, "px")
+	// assert ul["marginBottom"] , (40, "px")
+	// assert ul["marginLeft"] , (40, "px")
+
+	assertProp(t, ul["fontWeight"] , 400)
+	// thick = 5px, 0.25 inches = 96*.25 = 24px
+	assertProp(t, ul["borderTopWidth"] , 0)
+	assertProp(t, ul["borderRightWidth"] , 5)
+	assertProp(t, ul["borderBottomWidth"] , 0)
+	assertProp(t, ul["borderLeftWidth"] , 24)
+
+	assertProp(t, li0["fontWeight"] , 700)
+	assertProp(t, li0["fontSize"] , 8  // 6pt)
+	assertProp(t, li0["marginTop"] , (16, "px")  // 2em)
+	assertProp(t, li0["marginRight"] , (0, "px"))
+	assertProp(t, li0["marginBottom"] , (16, "px"))
+	assertProp(t, li0["marginLeft"] , (32, "px")  // 4em)
+
+	assertProp(t, a["textDecorationLine"] , {"underline"})
+	assertProp(t, a["fontWeight"] , 900)
+	assertProp(t, a["fontSize"] , 24  // 300% of 8px)
+	assertProp(t, a["paddingTop"] , (1, "px"))
+	assertProp(t, a["paddingRight"] , (2, "px"))
+	assertProp(t, a["paddingBottom"] , (3, "px"))
+	assertProp(t, a["paddingLeft"] , (4, "px"))
+	assertProp(t, a["borderTopWidth"] , 42)
+	assertProp(t, a["borderBottomWidth"] , 42)
+
+	assertProp(t, a["color"] , (1, 0, 0, 1))
+	assertProp(t, a["borderTopColor"] , "currentColor")
+
+	assertProp(t, div["fontSize"] , 40  // 2 * 20px)
+	assertProp(t, span1["width"] , (160, "px")  // 10 * 16px (root default is 16px))
+	assertProp(t, span1["height"] , (400, "px")  // 10 * (2 * 20px))
+	assertProp(t, span2["fontSize"] , 32)
+
+	// The href attr should be as := range the source, not made absolute.
+	assertProp(t, after["content"] , (("string", " ["), ("string", "home.html"), ("string", "]")))
+	assertProp(t, after["backgroundColor"] , (1, 0, 0, 1))
+	assertProp(t, after["borderTopWidth"] , 42)
+	assertProp(t, after["borderBottomWidth"] , 3)
+
+	// TODO: much more tests here: test that origin && selector precedence
+	// && inheritance are correct…
+	capt.AssertNoLogs(t)
 }
 
 //
@@ -654,7 +660,7 @@ func TestAnnotateDocument(t *testing.T) {
 //	styleFor = getAllComputedStyles(document, userStylesheets=[CSS(
 //		string="p{font-size:%s}span{font-size:%s}" % (parentCss, childCss))])
 //
-//Head, body = document.etreeElement
+//head, body = document.etreeElement
 //p, = body
 //span, = p
 //assert isclose(styleFor(p)["fontSize"], parentSize)

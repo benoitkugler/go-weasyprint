@@ -50,10 +50,10 @@ func LoadStyleSheet(path string) {
 // be used in the `HTML.WritePdf`, `HTML.WritePng` and
 // `HTML.Render` methods of `HTML` objects.
 type CSS struct {
-	matcher   *matcher
-	pageRules *[]pageRule
+	matcher   matcher
+	pageRules []pageRule
 	baseUrl   string
-	fonts     *[]string
+	fonts     []string
 }
 
 // checkMimeType = false
@@ -84,15 +84,18 @@ func NewCSS(input contentInput, baseUrl string,
 	if pageRules == nil {
 		pageRules = &[]pageRule{}
 	}
-	out := CSS{
-		baseUrl:   ressource.baseUrl,
-		matcher:   matcher,
-		pageRules: pageRules,
-		fonts:     &[]string{},
-	}
+	fonts := &[]string{}
+	out := CSS{baseUrl: ressource.baseUrl}
 	preprocessStylesheet(mediaType, ressource.baseUrl, stylesheet, urlFetcher, matcher,
-		out.pageRules, out.fonts, fontConfig, false)
+		pageRules, fonts, fontConfig, false)
+	out.matcher = *matcher
+	out.pageRules = *pageRules
+	out.fonts = *fonts
 	return out, nil
+}
+
+func (c CSS) IsNone() bool {
+	return c.baseUrl == "" && c.fonts == nil && c.matcher == nil && c.pageRules == nil
 }
 
 func newCSS(input contentInput) (CSS, error) {

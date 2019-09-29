@@ -38,11 +38,13 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 		return nil, fmt.Errorf("can't fetch html input : %s", err)
 	}
 	root, err := html.Parse(bytes.NewReader(result.content))
-	if err != nil {
+	if err != nil || root.FirstChild == nil {
 		return nil, fmt.Errorf("invalid html input : %s", err)
 	}
 	var out HTML
-	out.root = (*utils.HTMLNode)(root)
+	// html.Parse wraps the <html> tag
+	out.root = (*utils.HTMLNode)(root.FirstChild)
+	out.root.Parent = nil
 	out.baseUrl = utils.FindBaseUrl(root, result.baseUrl)
 	out.urlFetcher = urlFetcher
 	out.mediaType = mediaType
@@ -61,6 +63,6 @@ func (h HTML) UAStyleSheet() CSS {
 	return html5UAStylesheet
 }
 
-func (h HTML) UPHStyleSheet() CSS {
+func (h HTML) PHStyleSheet() CSS {
 	return html5PHStylesheet
 }

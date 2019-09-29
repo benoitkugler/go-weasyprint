@@ -142,11 +142,14 @@ func (h *HtmlIterator) Next() *HTMLNode {
 //	return aux(element)
 //}
 
-// NodeChildren returns the direct children of `element`
-func (element HTMLNode) NodeChildren() (children []*html.Node) {
+// NodeChildren returns the direct children of `element`.
+// Skip empty text nodes
+func (element HTMLNode) NodeChildren(skipBlank bool) (children []*HTMLNode) {
 	child := element.FirstChild
 	for child != nil {
-		children = append(children, child)
+		if !(skipBlank && child.Type == html.TextNode && strings.TrimSpace(child.Data) == "") {
+			children = append(children, (*HTMLNode)(child))
+		}
 		child = child.NextSibling
 	}
 	return
@@ -159,7 +162,7 @@ func (element HTMLNode) GetChildText() string {
 		content = []string{element.Data}
 	}
 
-	for _, child := range element.NodeChildren() {
+	for _, child := range element.NodeChildren(false) {
 		if child.Type == html.TextNode {
 			content = append(content, child.Data)
 		}

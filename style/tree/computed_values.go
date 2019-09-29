@@ -682,8 +682,8 @@ func content(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty
 func display(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
 	float_ := computer.specified["float"].AsCss().(pr.String)
-	position := computer.specified["position"].AsCss().(pr.String)
-	if (position == "absolute" || position == "fixed") || float_ != "none" || computer.isRootElement {
+	position := computer.specified["position"].AsCss().(pr.BoolString)
+	if (!position.Bool && (position.String == "absolute" || position.String == "fixed")) || float_ != "none" || computer.isRootElement {
 		switch value {
 		case "inline-table":
 			return pr.String("table")
