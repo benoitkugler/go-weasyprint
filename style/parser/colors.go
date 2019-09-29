@@ -13,7 +13,6 @@ import (
 const (
 	ColorInvalid ColorType = iota
 	ColorCurrentColor
-	ColorInherit
 	ColorRGBA
 )
 

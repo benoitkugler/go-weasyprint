@@ -104,7 +104,6 @@ var (
 		"outline-color":              outlineColor,
 		"border-collapse":            borderCollapse,
 		"empty-cells":                emptyCells,
-		"color":                      color,
 		"transform-origin":           transformOrigin,
 		"object-position":            backgroundPosition,
 		"background-position":        backgroundPosition,
@@ -243,7 +242,7 @@ var (
 	}
 
 	// regroup the two cases (with error or without error)
-	allValidators = pr.Set{}
+	allValidators = pr.NewSet("color") // special case because of inherited
 
 	proprietary = pr.NewSet(
 		"anchor",
@@ -314,13 +313,17 @@ type ValidatedProperty struct {
 }
 
 // Validate validate one property. initial, inherit, var() and custom properties have already been filtered out
-func Validate(name string, tokens []Token, baseUrl string) (value pr.CssProperty, err error) {
+func Validate(name string, tokens []Token, baseUrl string) (out pr.ValidatedProperty, err error) {
+	if name == "color" { // special case for inherit
+		return color(tokens, ""), nil
+	}
+	var value pr.CssProperty
 	if function := validators[name]; function != nil {
 		value = function(tokens, baseUrl)
 	} else if functionE := validatorsError[name]; functionE != nil {
 		value, err = functionE(tokens, baseUrl)
 	}
-	return
+	return pr.ToC(value).ToV(), err
 }
 
 // Default validator for non-shorthand pr.
@@ -358,15 +361,15 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 	if keyword == "initial" || keyword == "inherit" {
 		value = defaultFromString(keyword)
 	} else {
-		cascValue, err := Validate(name, tokens, baseUrl)
+		value, err = Validate(name, tokens, baseUrl)
 		if err != nil {
 			return out, err
 		}
-		if cascValue == nil {
+		if value.IsNone() {
 			return out, errors.New("invalid property (nil function return)")
 		}
-		value = pr.ToC(cascValue).ToV()
 	}
+
 	return pr.NamedProperty{Name: name, Property: value}, nil
 }
 
@@ -416,7 +419,6 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 				continue
 			}
 		}
-
 		expander_, in := expanders[name]
 		if !in {
 			expander_ = defaultValidateShorthand
@@ -588,17 +590,17 @@ func emptyCells(tokens []Token, _ string) pr.CssProperty {
 //@validator("color")
 //@singleToken
 // ``*-color`` && ``color`` properties validation.
-func color(tokens []Token, _ string) pr.CssProperty {
-	if len(tokens) == 1 {
-		token := tokens[0]
-		result := parser.ParseColor(token)
-		if result.Type == parser.ColorCurrentColor {
-			return pr.Color{Type: parser.ColorInherit}
-		} else {
-			return pr.Color(result)
-		}
+func color(tokens []Token, _ string) pr.ValidatedProperty {
+	if len(tokens) != 1 {
+		return pr.ValidatedProperty{}
 	}
-	return nil
+	token := tokens[0]
+	result := parser.ParseColor(token)
+	if result.Type == parser.ColorCurrentColor {
+		return pr.Inherit.ToV()
+	} else {
+		return pr.ToC(pr.Color(result)).ToV()
+	}
 }
 
 // @validator("background-image", wantsBaseUrl=true)

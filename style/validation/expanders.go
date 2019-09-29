@@ -68,7 +68,7 @@ func defaultFromString(keyword string) pr.ValidatedProperty {
 func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 	_expandedNames := pr.Set{}
 	for _, name := range expandedNames {
-		_expandedNames[name] = pr.Has
+		_expandedNames.Add(name)
 	}
 	// Decorate the ``wrapped`` expander.
 	genericExpanderDecorator := func(wrapped beforeGeneric) expander {

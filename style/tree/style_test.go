@@ -1,9 +1,9 @@
 package tree
 
 import (
-	"fmt"
 	"log"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -108,7 +108,7 @@ type fakeHTML struct {
 	customUA CSS
 }
 
-func (f fakeHTML) UAStylesheet() CSS {
+func (f fakeHTML) UAStyleSheet() CSS {
 	if f.customUA.IsNone() {
 		return testUAStylesheet
 	}
@@ -226,15 +226,16 @@ func TestExpandShorthands(t *testing.T) {
 	// TODO: test that the values are correct too
 }
 
-func assertProp(t *testing.T, got, expected pr.CssProperty) {
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("expected %v got %v", expected, got)
+func assertProp(t *testing.T, got pr.Properties, name string, expected pr.CssProperty) {
+	g := got[name]
+	if !reflect.DeepEqual(g, expected) {
+		t.Fatalf("%s - expected %v got %v", name, expected, g)
 	}
 }
 
 //@assertNoLogs
 func TestAnnotateDocument(t *testing.T) {
-	capt := utils.CaptureLogs()
+	// capt := utils.CaptureLogs()
 	document_, err := newHtml(InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
@@ -244,6 +245,7 @@ func TestAnnotateDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	userStylesheet, err := newCSS(InputFilename(resourceFilename("user.css")))
 	if err != nil {
 		t.Fatal(err)
@@ -254,82 +256,86 @@ func TestAnnotateDocument(t *testing.T) {
 	body := document.root.NodeChildren(true)[1]
 	children := body.NodeChildren(true)
 	h1_, p_, ul_, div_ := children[0], children[1], children[2], children[3]
-	li0_, Li1_ := ul_.NodeChildren(true)[0],ul_.NodeChildren(true)[1]
+	li0_ := ul_.NodeChildren(true)[0]
 	a_ := li0_.NodeChildren(true)[0]
 	span1_ := div_.NodeChildren(true)[0]
 	span2_ := span1_.NodeChildren(true)[0]
 
-	h1 := styleFor.Get(h1_)
-	p := styleFor.Get(p_)
-	ul := styleFor.Get(ul_)
-	li0 := styleFor.Get(li0_)
-	div := styleFor.Get(div_)
+	h1 := styleFor.Get(h1_, "")
+	p := styleFor.Get(p_, "")
+	ul := styleFor.Get(ul_, "")
+	li0 := styleFor.Get(li0_, "")
+	div := styleFor.Get(div_, "")
 	after := styleFor.Get(a_, "after")
-	a := styleFor.Get(a_)
-	span1 := styleFor.Get(span1_)
-	span2 := styleFor.Get(span2_)
+	a := styleFor.Get(a_, "")
+	span1 := styleFor.Get(span1_, "")
+	span2 := styleFor.Get(span2_, "")
 
-	assertProp(t, h1["backgroundImage"] , (("url", path2url(resourceFilename("logoSmall.png"))),))
+	u, err := utils.Path2url(resourceFilename("logo_small.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertProp(t, h1, "background_image", pr.Images{pr.UrlImage(u)})
 
-	assertProp(t, h1["fontWeight"] , 700)
-	assertProp(t, h1["fontSize"] , 40  // 2em)
+	assertProp(t, h1, "font_weight", pr.IntString{Int: 700})
+	assertProp(t, h1, "font_size", pr.FToV(40)) // 2em
 
 	// x-large * initial = 3/2 * 16 = 24
-	assertProp(t, p["marginTop"] , (24, "px"))
-	assertProp(t, p["marginRight"] , (0, "px"))
-	assertProp(t, p["marginBottom"] , (24, "px"))
-	assertProp(t, p["marginLeft"] , (0, "px"))
-	assertProp(t, p["backgroundColor"] , "currentColor")
+	assertProp(t, p, "margin_top", pr.Dimension{Value: 24, Unit: pr.Px}.ToValue())
+	assertProp(t, p, "margin_right", pr.Dimension{Value: 0, Unit: pr.Px}.ToValue())
+	assertProp(t, p, "margin_bottom", pr.Dimension{Value: 24, Unit: pr.Px}.ToValue())
+	assertProp(t, p, "margin_left", pr.Dimension{Value: 0, Unit: pr.Px}.ToValue())
+	assertProp(t, p, "background_color", pr.CurrentColor)
 
 	// 2em * 1.25ex = 2 * 20 * 1.25 * 0.8 = 40
 	// 2.5ex * 1.25ex = 2.5 * 0.8 * 20 * 1.25 * 0.8 = 40
 	// TODO: ex unit doesn"t work with @font-face fonts, see computedValues.py
-	// assert ul["marginTop"] , (40, "px")
-	// assert ul["marginRight"] , (40, "px")
-	// assert ul["marginBottom"] , (40, "px")
-	// assert ul["marginLeft"] , (40, "px")
+	// assert ul["marginTop"] , pr.Dimension {Value:40,Unit: pr.Px}
+	// .ToValue()assert ul["marginRight"] , pr.Dimension {Value:40,Unit: pr.Px}
+	// .ToValue()assert ul["marginBottom"] , pr.Dimension {Value:40,Unit: pr.Px}
+	// .ToValue()assert ul["marginLeft"] , pr.Dimension {Value:40,Unit: pr.Px}
 
-	assertProp(t, ul["fontWeight"] , 400)
+	assertProp(t, ul, "font_weight", pr.IntString{Int: 400})
 	// thick = 5px, 0.25 inches = 96*.25 = 24px
-	assertProp(t, ul["borderTopWidth"] , 0)
-	assertProp(t, ul["borderRightWidth"] , 5)
-	assertProp(t, ul["borderBottomWidth"] , 0)
-	assertProp(t, ul["borderLeftWidth"] , 24)
+	assertProp(t, ul, "border_top_width", pr.FToV(0))
+	assertProp(t, ul, "border_right_width", pr.FToV(5))
+	assertProp(t, ul, "border_bottom_width", pr.FToV(0))
+	assertProp(t, ul, "border_left_width", pr.FToV(24))
 
-	assertProp(t, li0["fontWeight"] , 700)
-	assertProp(t, li0["fontSize"] , 8  // 6pt)
-	assertProp(t, li0["marginTop"] , (16, "px")  // 2em)
-	assertProp(t, li0["marginRight"] , (0, "px"))
-	assertProp(t, li0["marginBottom"] , (16, "px"))
-	assertProp(t, li0["marginLeft"] , (32, "px")  // 4em)
+	assertProp(t, li0, "font_weight", pr.IntString{Int: 700})
+	assertProp(t, li0, "font_size", pr.FToV(8))                                      // 6pt)
+	assertProp(t, li0, "margin_top", pr.Dimension{Value: 16, Unit: pr.Px}.ToValue()) // 2em)
+	assertProp(t, li0, "margin_right", pr.Dimension{Value: 0, Unit: pr.Px}.ToValue())
+	assertProp(t, li0, "margin_bottom", pr.Dimension{Value: 16, Unit: pr.Px}.ToValue())
+	assertProp(t, li0, "margin_left", pr.Dimension{Value: 32, Unit: pr.Px}.ToValue()) // 4em)
 
-	assertProp(t, a["textDecorationLine"] , {"underline"})
-	assertProp(t, a["fontWeight"] , 900)
-	assertProp(t, a["fontSize"] , 24  // 300% of 8px)
-	assertProp(t, a["paddingTop"] , (1, "px"))
-	assertProp(t, a["paddingRight"] , (2, "px"))
-	assertProp(t, a["paddingBottom"] , (3, "px"))
-	assertProp(t, a["paddingLeft"] , (4, "px"))
-	assertProp(t, a["borderTopWidth"] , 42)
-	assertProp(t, a["borderBottomWidth"] , 42)
+	assertProp(t, a, "text_decoration_line", pr.NDecorations{Decorations: pr.NewSet("underline")})
+	assertProp(t, a, "font_weight", pr.IntString{Int: 900})
+	assertProp(t, a, "font_size", pr.FToV(24)) // 300% of 8px)
+	assertProp(t, a, "padding_top", pr.Dimension{Value: 1, Unit: pr.Px}.ToValue())
+	assertProp(t, a, "padding_right", pr.Dimension{Value: 2, Unit: pr.Px}.ToValue())
+	assertProp(t, a, "padding_bottom", pr.Dimension{Value: 3, Unit: pr.Px}.ToValue())
+	assertProp(t, a, "padding_left", pr.Dimension{Value: 4, Unit: pr.Px}.ToValue())
+	assertProp(t, a, "border_top_width", pr.FToV(42))
+	assertProp(t, a, "border_bottom_width", pr.FToV(42))
 
-	assertProp(t, a["color"] , (1, 0, 0, 1))
-	assertProp(t, a["borderTopColor"] , "currentColor")
+	assertProp(t, a, "color", pr.NewColor(1, 0, 0, 1))
+	assertProp(t, a, "border_top_color", pr.CurrentColor)
 
-	assertProp(t, div["fontSize"] , 40  // 2 * 20px)
-	assertProp(t, span1["width"] , (160, "px")  // 10 * 16px (root default is 16px))
-	assertProp(t, span1["height"] , (400, "px")  // 10 * (2 * 20px))
-	assertProp(t, span2["fontSize"] , 32)
+	assertProp(t, div, "font_size", pr.FToV(40))                                    // 2 * 20px)
+	assertProp(t, span1, "width", pr.Dimension{Value: 160, Unit: pr.Px}.ToValue())  // 10 * 16px (root default is 16px))
+	assertProp(t, span1, "height", pr.Dimension{Value: 400, Unit: pr.Px}.ToValue()) // 10 * (2 * 20px))
+	assertProp(t, span2, "font_size", pr.FToV(32))
 
-	// The href attr should be as := range the source, not made absolute.
-	assertProp(t, after["content"] , (("string", " ["), ("string", "home.html"), ("string", "]")))
-	assertProp(t, after["backgroundColor"] , (1, 0, 0, 1))
-	assertProp(t, after["borderTopWidth"] , 42)
-	assertProp(t, after["borderBottomWidth"] , 3)
+	// The href attr should be as in the source, not made absolute.
+	assertProp(t, after, "background_color", pr.NewColor(1, 0, 0, 1))
+	assertProp(t, after, "border_top_width", pr.FToV(42))
+	assertProp(t, after, "border_bottom_width", pr.FToV(3))
+	assertProp(t, after, "content", pr.SContent{Contents: pr.ContentProperties{{Type: "string", Content: pr.String(" [")}, {Type: "string", Content: pr.String("home.html")}, {Type: "string", Content: pr.String("]")}}})
 
-	// TODO: much more tests here: test that origin && selector precedence
-	// && inheritance are correct…
-	capt.AssertNoLogs(t)
+	// TODO: much more tests here: test that origin and selector precedence
+	// and inheritance are correct…
+	// capt.AssertNoLogs(t)
 }
 
 //

@@ -53,12 +53,13 @@ type StyleFor struct {
 func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) *StyleFor {
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
-		cascadedStyles: map[utils.ElementKey]cascadedStyle{},
+		cascadedStyles: cascadedStyles,
 		computedStyles: map[utils.ElementKey]pr.Properties{},
 		sheets:         sheets,
 	}
 
-	logger.ProgressLogger.Println("Step 3 - Applying CSS")
+	logger.ProgressLogger.Printf("Step 3 - Applying CSS - %d sheet(s)\n", len(sheets))
+
 	for _, styleAttr := range findStyleAttributes(html.root, presentationalHints, html.baseUrl) {
 		// element, declarations, baseUrl = attributes
 		style, ok := cascadedStyles[styleAttr.element.ToKey("")]
@@ -95,10 +96,11 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 				if len(sh.specificity) == 3 {
 					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
 				}
-				style, in := cascadedStyles[element.ToKey(selector.pseudoType)]
+				key := element.ToKey(selector.pseudoType)
+				style, in := cascadedStyles[key]
 				if !in {
 					style = cascadedStyle{}
-					cascadedStyles[element.ToKey(selector.pseudoType)] = style
+					cascadedStyles[key] = style
 				}
 				for _, decl := range selector.payload {
 					// name, values, importance = decl
@@ -697,8 +699,8 @@ func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, paren
 			keyword pr.DefaultKind
 			value   pr.CascadedProperty
 		)
-		if _, in := cascaded[name]; in {
-			vp := cascaded[name].value
+		if casc, in := cascaded[name]; in {
+			vp := casc.value
 			if vp.Default == 0 {
 				value = vp.AsCascaded()
 			}
@@ -762,7 +764,7 @@ func (w weight) isNone() bool {
 
 // Less return `true` if w <= other
 func (w weight) Less(other weight) bool {
-	return w.precedence < other.precedence || (w.precedence == other.precedence && w.specificity.Less(other.specificity))
+	return w.precedence < other.precedence || (w.precedence == other.precedence && (w.specificity.Less(other.specificity) || w.specificity == other.specificity))
 }
 
 type weigthedValue struct {
@@ -1115,7 +1117,7 @@ func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
-		{sheet: html_.UAStyleSheet(), origin: "", specificity: nil},
+		{sheet: html_.UAStyleSheet(), origin: "user agent", specificity: nil},
 	}
 
 	if presentationalHints {

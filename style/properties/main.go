@@ -44,6 +44,10 @@ type ValidatedProperty struct {
 	Default DefaultKind
 }
 
+func (v ValidatedProperty) IsNone() bool {
+	return v.prop.IsNone() && v.Default == 0
+}
+
 // AsCascaded will panic if c.Default is not zero.
 func (c ValidatedProperty) AsCascaded() CascadedProperty {
 	if c.Default != 0 {

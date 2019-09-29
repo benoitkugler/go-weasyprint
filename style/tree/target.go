@@ -164,12 +164,12 @@ func NewTargetCollector() targetCollector {
 
 // Get anchor name from string or uri token.
 func anchorNameFromToken(anchorToken pr.ContentProperty) string {
-	asString, ok := anchorToken.Content.(pr.String)
+	asString, _ := anchorToken.Content.(pr.String)
 	asUrl, ok := anchorToken.Content.(pr.NamedString)
 	if anchorToken.Type == "string" && ok && strings.HasPrefix(string(asString), "#") {
 		return string(asString[1:])
 	} else if anchorToken.Type == "url" && asUrl.Name == "internal" {
-		return string(asUrl.String)
+		return asUrl.String
 	}
 	return ""
 }

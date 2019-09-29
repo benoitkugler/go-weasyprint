@@ -68,10 +68,10 @@ var (
 		"border-spacing":             lengths,
 		"size":                       lengths,
 		"clip":                       lengths,
-		"border_top_left_radius":     lengths,
-		"border_top_right_radius":    lengths,
-		"border_bottom_left_radius":  lengths,
-		"border_bottom_right_radius": lengths,
+		"border_top_left_radius":     borderRadius,
+		"border_top_right_radius":    borderRadius,
+		"border_bottom_left_radius":  borderRadius,
+		"border_bottom_right_radius": borderRadius,
 
 		"break_before": break_,
 		"break_after":  break_,
@@ -213,7 +213,6 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 // 		targetCollector: A target collector used to get computed targets.
 func compute(element element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
 	rootStyle pr.Properties, baseUrl string, targetCollector *targetCollector) pr.Properties {
-
 	if parentStyle == nil {
 		parentStyle = pr.InitialValues
 	}
@@ -229,7 +228,6 @@ func compute(element element, pseudoType string, specified map[string]pr.Cascade
 		baseUrl:         baseUrl,
 		targetCollector: targetCollector,
 	}
-
 	// To have better typing, we start by resolving all var() and custom propperties.
 	resolveds := make(pr.Properties, len(ComputingOrder))
 	for _, name := range ComputingOrder {
@@ -238,13 +236,17 @@ func compute(element element, pseudoType string, specified map[string]pr.Cascade
 			computedValue := resolveVar(specified, var_)
 			var newValue pr.CssProperty
 			if computedValue != nil {
-				var err error
-				newValue, err = validation.Validate(strings.ReplaceAll(name, "_", "-"), computedValue, baseUrl)
+				val, err := validation.Validate(strings.ReplaceAll(name, "_", "-"), computedValue, baseUrl)
 				if err != nil {
 					log.Printf("Unsupported computed value set in variable `%s` for property `%s`.",
 						strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
 					continue
 				}
+				if val.Default != 0 || val.AsCascaded().SpecialProperty != nil {
+					log.Printf("Unsupported 'inherited' or 'initial' set in variable `%s` for property `%s`",
+						strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
+				}
+				newValue = val.AsCascaded().AsCss()
 			}
 
 			// See https://drafts.csswg.org/css-variables/#invalid-variables
@@ -271,6 +273,7 @@ func compute(element element, pseudoType string, specified map[string]pr.Cascade
 	}
 
 	for _, name := range ComputingOrder {
+
 		if _, in := computed[name]; in {
 			// Already computed
 			continue
@@ -307,12 +310,12 @@ func backgroundImage(computer *computer, name string, _value pr.CssProperty) pr.
 		switch gradient := image.(type) {
 		case pr.LinearGradient:
 			for j, pos := range gradient.ColorStops {
-				gradient.ColorStops[j].Position = length2(computer, name, pr.Value{Dimension: pos.Position}, -1).Dimension
+				gradient.ColorStops[j].Position = length2(computer, name, pr.Value{Dimension: pos.Position}, -1, false).Dimension
 			}
 			image = gradient
 		case pr.RadialGradient:
 			for j, pos := range gradient.ColorStops {
-				gradient.ColorStops[j].Position = length2(computer, name, pr.Value{Dimension: pos.Position}, -1).Dimension
+				gradient.ColorStops[j].Position = length2(computer, name, pr.Value{Dimension: pos.Position}, -1, false).Dimension
 			}
 			gradient.Center = _backgroundPosition(computer, name, []pr.Center{gradient.Center})[0]
 			if gradient.Size.IsExplicit() {
@@ -333,8 +336,8 @@ func _backgroundPosition(computer *computer, name string, value pr.Centers) pr.C
 			OriginX: v.OriginX,
 			OriginY: v.OriginY,
 			Pos: pr.Point{
-				length2(computer, name, pr.Value{Dimension: v.Pos[0]}, -1).Dimension,
-				length2(computer, name, pr.Value{Dimension: v.Pos[1]}, -1).Dimension,
+				length2(computer, name, pr.Value{Dimension: v.Pos[0]}, -1, false).Dimension,
+				length2(computer, name, pr.Value{Dimension: v.Pos[1]}, -1, false).Dimension,
 			},
 		}
 	}
@@ -358,7 +361,16 @@ func lengths(computer *computer, name string, _value pr.CssProperty) pr.CssPrope
 	value := _value.(pr.Values)
 	out := make(pr.Values, len(value))
 	for index, v := range value {
-		out[index] = length2(computer, name, v, -1)
+		out[index] = length2(computer, name, v, -1, true)
+	}
+	return out
+}
+
+func borderRadius(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
+	value := _value.(pr.Values)
+	out := make(pr.Values, len(value))
+	for index, v := range value {
+		out[index] = length2(computer, name, v, -1, false)
 	}
 	return out
 }
@@ -367,7 +379,7 @@ func lengths(computer *computer, name string, _value pr.CssProperty) pr.CssPrope
 func _lengthOrPercentageTuple2(computer *computer, name string, value []pr.Dimension) []pr.Dimension {
 	out := make([]pr.Dimension, len(value))
 	for index, v := range value {
-		out[index] = length2(computer, name, pr.Value{Dimension: v}, -1).Dimension
+		out[index] = length2(computer, name, pr.Value{Dimension: v}, -1, false).Dimension
 	}
 	return out
 }
@@ -385,25 +397,33 @@ func break_(_ *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 
 func length(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
-	return length2(computer, name, value, -1)
+	return length2(computer, name, value, -1, false)
+}
+
+func asPixels(v pr.Value, pixelsOnly bool) pr.Value {
+	if pixelsOnly {
+		v.Unit = pr.Scalar
+	}
+	return v
 }
 
 // Computes a length ``value``.
 // passing a negative fontSize means null
 // Always returns a Value which is interpreted as float32 if Unit is zero.
-func length2(computer *computer, _ string, value pr.Value, fontSize float32) pr.Value {
+// pixelsOnly=false
+func length2(computer *computer, _ string, value pr.Value, fontSize float32, pixelsOnly bool) pr.Value {
 	if value.String == "auto" || value.String == "content" {
 		return value
 	}
 	if value.Value == 0 {
-		return pr.ZeroPixels.ToValue()
+		return asPixels(pr.ZeroPixels.ToValue(), pixelsOnly)
 	}
 
 	unit := value.Unit
 	var result float32
 	switch unit {
 	case pr.Px:
-		return value
+		return asPixels(value, pixelsOnly)
 	case pr.Pt, pr.Pc, pr.In, pr.Cm, pr.Mm, pr.Q:
 		// Convert absolute lengths to pixels
 		result = value.Value * pr.LengthsToPixels[unit]
@@ -422,7 +442,7 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32) pr.
 			return value
 		}
 	}
-	return pr.Dimension{Value: result, Unit: pr.Px}.ToValue()
+	return asPixels(pr.Dimension{Value: result, Unit: pr.Px}.ToValue(), pixelsOnly)
 }
 
 func bleed(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
@@ -471,13 +491,12 @@ func borderWidth(computer *computer, name string, _value pr.CssProperty) pr.CssP
 	value := _value.(pr.Value)
 	style := computer.computed[strings.ReplaceAll(name, "width", "style")].(pr.String)
 	if style == "none" || style == "hidden" {
-		return pr.Value{}
+		return pr.Dimension{Unit: pr.Scalar}.ToValue()
 	}
-
 	if bw, in := BorderWidthKeywords[value.String]; in {
 		return pr.FToV(bw)
 	}
-	return length(computer, name, value)
+	return length2(computer, name, value, -1, true)
 }
 
 // Compute the ``column-width`` property.
@@ -737,7 +756,8 @@ func fontSize(computer *computer, name string, _value pr.CssProperty) pr.CssProp
 	} else if value.Unit == pr.Percentage {
 		return pr.FToV(value.Value * parentFontSize / 100.)
 	} else {
-		return length2(computer, name, value, parentFontSize)
+		l := length2(computer, name, value, parentFontSize, true)
+		return l
 	}
 }
 
@@ -776,7 +796,7 @@ func lineHeight(computer *computer, name string, _value pr.CssProperty) pr.CssPr
 		fontSizeValue := computer.computed.GetFontSize().Value
 		pixels = factor * fontSizeValue
 	default:
-		pixels = length2(computer, name, value, -1).Value
+		pixels = length2(computer, name, value, -1, true).Value
 	}
 	return pr.Dimension{Value: pixels, Unit: pr.Px}.ToValue()
 }
@@ -871,7 +891,7 @@ func verticalAlign(computer *computer, name string, _value pr.CssProperty) pr.Cs
 	case "sub":
 		out.Value = computer.computed.GetFontSize().Value * -0.5
 	default:
-		out.Value = length2(computer, name, value, -1).Value
+		out.Value = length2(computer, name, value, -1, true).Value
 	}
 	if value.Unit == pr.Percentage {
 		//TODO: support
