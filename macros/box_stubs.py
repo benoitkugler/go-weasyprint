@@ -1,14 +1,14 @@
 import re
 
-PACKAGE = "structure2"
+PACKAGE = "structure"
 SOURCE = f"{PACKAGE}/boxes.go"
 TARGET = f"{PACKAGE}/generated.go"
 
 RE_TYPE = re.compile(r"^type (\w+)Box struct ")
-RE_FIELDS = re.compile(r"(\w+)\s+\w+ // init:(\S+)")
+RE_FIELDS = re.compile(r"(\w+)\s+\S+ // init:(\S+)")
 RE_CONSTRUCTOR = re.compile(r"// constructor:(.+)")
 
-DEFAULT_ARGS = "elementTag string, style css.StyleFor, children []Box"
+DEFAULT_ARGS = "elementTag string, style pr.Properties, children []Box"
 
 TEMPLATE = """func New{name}({args}) *{name} {{
     out := {name}{{
@@ -25,7 +25,8 @@ TEMPLATE_PARENT = """parent := New{parent}({args_no_type})
     out.{parent} = *parent"""
 
 TEMPLATE_ANONYMOUS = """func {name}AnonymousFrom(parent Box, {arg}) *{name} {{
-	return New{name}(parent.Box().elementTag, parent.Box().style.InheritFrom(), {arg_no_type})
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	return New{name}(parent.Box().elementTag, style, {arg_no_type})
 }}"""
 
 TEMPLATE_TYPE = """
@@ -109,7 +110,7 @@ with open(SOURCE) as f:
             code = TEMPLATE.format(name=name, args=args,
                                    args_no_type=args_no_type, parent=parent, init=init)
 
-            if name not in ("TextBox", "PageBox", "MarginBox", "LineBox"):
+            if name not in ("TextBox", "PageBox", "MarginBox", "InlineBox"):
                 full_code += code
 
             if name in ANONYMOUS_FROM:
@@ -124,7 +125,7 @@ with open(SOURCE) as f:
 
             code = TEMPLATE_ANONYMOUS.format(
                 name=name, arg=" ".join(parsed_args[-1]), arg_no_type=parsed_args[-1][0])
-            if name not in ("PageBox", "MarginBox"):
+            if name not in ("PageBox", "MarginBox", "LineBox"):
                 full_code += code
 
             full_code += TEMPLATE_COPY.format(name=name)+"\n"

@@ -1,15 +1,13 @@
-package structure2
+package structure
 
 import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"strings"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-
-	"github.com/benoitkugler/go-weasyprint/style/tree"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // Complete generated.go for special cases.
@@ -28,25 +26,25 @@ type BoxFields struct {
 	isListMarker         bool
 	transformationMatrix interface{}
 
-	bookmarkLabel string
+	bookmarkLabel pr.ContentProperties
 	stringSet     pr.StringSet
 
 	elementTag string
-	style      tree.StyleFor
+	style      pr.Properties
 
-	firstLetterStyle, firstLineStyle tree.StyleFor
+	firstLetterStyle, firstLineStyle pr.Properties
 
-	positionX, positionY float64
+	positionX, positionY float32
 
-	width, height float64
+	width, height float32
 
-	marginTop, marginBottom, marginLeft, marginRight float64
+	marginTop, marginBottom, marginLeft, marginRight float32
 
-	paddingTop, paddingBottom, paddingLeft, paddingRight float64
+	paddingTop, paddingBottom, paddingLeft, paddingRight float32
 
-	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float64
+	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float32
 
-	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius interface{}
+	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
 
 	viewportOverflow string
 
@@ -69,22 +67,21 @@ func (t typeTableBox) IsInstance(box Box) bool {
 
 func (t typeTextBox) AnonymousFrom(parent Box, children []Box) Box {
 	log.Fatal("Can't create anonymous box from text box !")
+	return nil
 }
 
 // http://stackoverflow.com/questions/16317534/
-var asciiToWide = map[rune]string{}
+var asciiToWide = map[rune]rune{}
 
 func init() {
 	for i := 33; i < 127; i++ {
-		asciiToWide[rune(i)] = string(i + 0xfee0)
+		asciiToWide[rune(i)] = rune(i + 0xfee0)
 	}
-	asciiToWide[0x20] = "\u3000"
-	asciiToWide[0x2D] = "\u2212"
+	asciiToWide[0x20] = '\u3000'
+	asciiToWide[0x2D] = '\u2212'
 }
 
-type point struct {
-	x, y float64
-}
+type point [2]float32
 
 type TBD struct{}
 
@@ -94,16 +91,19 @@ func (self BoxFields) String() string {
 
 // Translate changes the box’s position.
 // Also update the children’s positions accordingly.
-func (self *BoxFields) Translate(dx, dy float64, ignoreFloats bool) {
-	// Overridden in ParentBox to also translate children, if any.
+func (self *BoxFields) Translate(dx, dy float32, ignoreFloats bool) {
+	translate(self.children, self, dx, dy, ignoreFloats)
+}
+
+func translate(children []Box, box *BoxFields, dx, dy float32, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
-	self.positionX += dx
-	self.positionY += dy
-	for _, child := range self.AllChildren() {
-		if !(ignoreFloats && child.BaseBox().isFloated()) {
-			child.BaseBox().Translate(dx, dy, ignoreFloats)
+	box.positionX += dx
+	box.positionY += dy
+	for _, child := range children {
+		if !(ignoreFloats && child.Box().isFloated()) {
+			child.Translate(dx, dy, ignoreFloats)
 		}
 	}
 }
@@ -111,64 +111,64 @@ func (self *BoxFields) Translate(dx, dy float64, ignoreFloats bool) {
 // ---- Heights and widths -----
 
 // Width of the padding box.
-func (self BoxFields) paddingWidth() float64 {
+func (self BoxFields) paddingWidth() float32 {
 	return self.width + self.paddingLeft + self.paddingRight
 }
 
 // Height of the padding box.
-func (self BoxFields) paddingHeight() float64 {
+func (self BoxFields) paddingHeight() float32 {
 	return self.height + self.paddingTop + self.paddingBottom
 }
 
 // Width of the border box.
-func (self BoxFields) borderWidth() float64 {
+func (self BoxFields) borderWidth() float32 {
 	return self.paddingWidth() + self.borderLeftWidth + self.borderRightWidth
 }
 
 // Height of the border box.
-func (self BoxFields) borderHeight() float64 {
+func (self BoxFields) borderHeight() float32 {
 	return self.paddingHeight() + self.borderTopWidth + self.borderBottomWidth
 }
 
 // Width of the margin box (aka. outer box).
-func (self BoxFields) marginWidth() float64 {
+func (self BoxFields) marginWidth() float32 {
 	return self.borderWidth() + self.marginLeft + self.marginRight
 }
 
 // Height of the margin box (aka. outer box).
-func (self BoxFields) marginHeight() float64 {
+func (self BoxFields) marginHeight() float32 {
 	return self.borderHeight() + self.marginTop + self.marginBottom
 }
 
 // Corners positions
 
 // Absolute horizontal position of the content box.
-func (self BoxFields) contentBoxX() float64 {
+func (self BoxFields) contentBoxX() float32 {
 	return self.positionX + self.marginLeft + self.paddingLeft + self.borderLeftWidth
 }
 
 // Absolute vertical position of the content box.
-func (self BoxFields) contentBoxY() float64 {
+func (self BoxFields) contentBoxY() float32 {
 	return self.positionY + self.marginTop + self.paddingTop + self.borderTopWidth
 }
 
 // Absolute horizontal position of the padding box.
-func (self BoxFields) paddingBoxX() float64 {
+func (self BoxFields) paddingBoxX() float32 {
 	return self.positionX + self.marginLeft + self.borderLeftWidth
 }
 
 // Absolute vertical position of the padding box.
-func (self BoxFields) paddingBoxY() float64 {
+func (self BoxFields) paddingBoxY() float32 {
 	return self.positionY + self.marginTop + self.borderTopWidth
 }
 
 // Absolute horizontal position of the border box.
-func (self BoxFields) borderBoxX() float64 {
+func (self BoxFields) borderBoxX() float32 {
 	return self.positionX + self.marginLeft
 }
 
 // Absolute vertical position of the border box.
-func (self BoxFields) borderBoxY() float64 {
+func (self BoxFields) borderBoxY() float32 {
 	return self.positionY + self.marginTop
 }
 
@@ -176,32 +176,32 @@ func (self BoxFields) borderBoxY() float64 {
 // "Border area. That's the area that hit-testing is done on."
 // http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
 // TODO: manage the border radii, use outerBorderRadii instead
-func (self BoxFields) hitArea() (x float64, y float64, w float64, h float64) {
+func (self BoxFields) hitArea() (x float32, y float32, w float32, h float32) {
 	return self.borderBoxX(), self.borderBoxY(), self.borderWidth(), self.borderHeight()
 }
 
 type roundedBox struct {
-	x, y, width, height                        float64
+	x, y, width, height                        float32
 	topLeft, topRight, bottomRight, bottomLeft point
 }
 
 // Position, size and radii of a box inside the outer border box.
 //bt, br, bb, and bl are distances from the outer border box,
 //defining a rectangle to be rounded.
-func (self BoxFields) roundedBox(bt, br, bb, bl float64) roundedBox {
+func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
 	tlr := self.borderTopLeftRadius
 	trr := self.borderTopRightRadius
 	brr := self.borderBottomRightRadius
 	blr := self.borderBottomLeftRadius
 
-	tlrx := math.Max(0, tlr.x-bl)
-	tlry := math.Max(0, tlr.y-bt)
-	trrx := math.Max(0, trr.x-br)
-	trry := math.Max(0, trr.y-bt)
-	brrx := math.Max(0, brr.x-br)
-	brry := math.Max(0, brr.y-bb)
-	blrx := math.Max(0, blr.x-bl)
-	blry := math.Max(0, blr.y-bb)
+	tlrx := utils.Max(0, tlr[0]-bl)
+	tlry := utils.Max(0, tlr[1]-bt)
+	trrx := utils.Max(0, trr[0]-br)
+	trry := utils.Max(0, trr[1]-bt)
+	brrx := utils.Max(0, brr[0]-br)
+	brry := utils.Max(0, brr[1]-bb)
+	blrx := utils.Max(0, blr[0]-bl)
+	blry := utils.Max(0, blr[1]-bb)
 
 	x := self.borderBoxX() + bl
 	y := self.borderBoxY() + bt
@@ -216,24 +216,24 @@ func (self BoxFields) roundedBox(bt, br, bb, bl float64) roundedBox {
 		{height, tlry + blry},
 		{height, trry + brry},
 	}
-	ratio := 1.
+	var ratio float32 = 1.
 	for _, point := range points {
-		if point.y > 0 {
-			candidat := point.x / point.y
+		if point[1] > 0 {
+			candidat := point[0] / point[1]
 			if candidat < ratio {
 				ratio = candidat
 			}
 		}
 	}
 	return roundedBox{x: x, y: y, width: width, height: height,
-		topLeft:     point{x: tlrx * ratio, y: tlry * ratio},
-		topRight:    point{x: trrx * ratio, y: trry * ratio},
-		bottomRight: point{x: brrx * ratio, y: brry * ratio},
-		bottomLeft:  point{x: blrx * ratio, y: blry * ratio},
+		topLeft:     point{tlrx * ratio, tlry * ratio},
+		topRight:    point{trrx * ratio, trry * ratio},
+		bottomRight: point{brrx * ratio, brry * ratio},
+		bottomLeft:  point{blrx * ratio, blry * ratio},
 	}
 }
 
-func (self BoxFields) roundedBoxRatio(ratio float64) roundedBox {
+func (self BoxFields) roundedBoxRatio(ratio float32) roundedBox {
 	return self.roundedBox(
 		self.borderTopWidth*ratio,
 		self.borderRightWidth*ratio,
@@ -262,55 +262,68 @@ func (self BoxFields) roundedContentBox() roundedBox {
 		self.borderRightWidth+self.paddingRight,
 		self.borderBottomWidth+self.paddingBottom,
 		self.borderLeftWidth+self.paddingLeft)
-
 }
 
 // Positioning schemes
 
 // Return whether this box is floated.
 func (self BoxFields) isFloated() bool {
-	return self.style.Strings["float"] != "none"
+	return self.style.GetFloat() != "none"
 }
 
 // Return whether this box is in the absolute positioning scheme.
 func (self BoxFields) isAbsolutelyPositioned() bool {
-	pos := self.style.Strings["position"]
-	return pos == "absolute" || pos == "fixed"
+	pos := self.style.GetPosition()
+	return !pos.Bool && pos.String == "absolute" || pos.String == "fixed"
+}
+
+// Return whether this box is a running element.
+func (self BoxFields) isRunning() bool {
+	pos := self.style.GetPosition()
+	return pos.Bool && pos.String == "running()"
 }
 
 // Return whether this box is in normal flow.
 func (self BoxFields) isInNormalFlow() bool {
-	return !(self.isFloated() || self.isAbsolutelyPositioned())
+	return !(self.isFloated() || self.isAbsolutelyPositioned() || self.isRunning())
 }
 
 // Start and end page values for named pages
 
 // Return start and end page values.
-func (self BoxFields) pageValues() (int, int) {
-	p := self.style.Page.Page
+func (self BoxFields) pageValues() (pr.Page, pr.Page) {
+	p := self.style.GetPage()
 	return p, p
 }
 
 // Set to 0 the margin, padding and border of ``side``.
-func (self *BoxFields) resetSpacing(side tree.Side) {
-	self.style.Values[fmt.Sprintf("margin_%s", side)] = tree.ZeroPixels
-	self.style.Values[fmt.Sprintf("padding_%s", side)] = tree.ZeroPixels
-	self.style.Values[fmt.Sprintf("border_%s_width", side)] = tree.ZeroPixels
+func (self *BoxFields) resetSpacing(side string) {
+	self.style[fmt.Sprintf("margin_%s", side)] = pr.ZeroPixels.ToValue()
+	self.style[fmt.Sprintf("padding_%s", side)] = pr.ZeroPixels.ToValue()
+	self.style[fmt.Sprintf("border_%s_width", side)] = pr.FToV(0)
+
+	if side == "top" || side == "bottom" {
+		self.style[fmt.Sprintf("border_%s_left_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+		self.style[fmt.Sprintf("border_%s_right_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+	} else {
+		self.style[fmt.Sprintf("border_bottom_%s_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+		self.style[fmt.Sprintf("border_top_%s_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+	}
 
 	switch side {
-	case tree.Top:
+	case "top":
 		self.marginTop = 0
 		self.paddingTop = 0
 		self.borderTopWidth = 0
-	case tree.Right:
+	case "right":
 		self.marginRight = 0
 		self.paddingRight = 0
 		self.borderRightWidth = 0
-	case tree.Left:
+	case "left":
 		self.marginLeft = 0
 		self.paddingLeft = 0
 		self.borderLeftWidth = 0
-	case tree.Bottom:
+	case "bottom":
 		self.marginBottom = 0
 		self.paddingBottom = 0
 		self.borderBottomWidth = 0
@@ -318,83 +331,49 @@ func (self *BoxFields) resetSpacing(side tree.Side) {
 }
 
 func (self *BoxFields) removeDecoration(start, end bool) {
-	if start || end {
-		self.style = self.style.Copy()
-	}
-	ltr := self.style.Strings["direction"] == "ltr"
 	if start {
-		side := tree.Right
-		if ltr {
-			side = tree.Left
-		}
-		self.resetSpacing(side)
+		self.resetSpacing("top")
 	}
 	if end {
-		side := tree.Left
-		if ltr {
-			side = tree.Right
-		}
-		self.resetSpacing(side)
+		self.resetSpacing("bottom")
 	}
 }
 
-func (self BoxFields) AllChildren() []Box {
-	return self.children
+// Create a new equivalent box with given ``newChildren``.
+// isStart=true, isEnd=true
+func copyWithChildren(box Box, newChildren []Box, isStart, isEnd bool) Box {
+	newBox := box.Copy()
+	newBox.Box().children = newChildren
+	if box.Box().style.GetBoxDecorationBreak() == "slice" {
+		newBox.removeDecoration(!isStart, !isEnd)
+	}
+	return newBox
+}
+
+func deepCopy(box Box) Box {
+	result := box.Copy()
+	l := result.Box().children
+	for i, v := range l {
+		l[i] = deepCopy(v)
+	}
+	return result
 }
 
 // A flat generator for a box, its children and descendants."""
-func (self BoxFields) descendants() []Box {
-	return []Box{&self}
-}
-
-func (p *ParentBox) init(elementTag string, style tree.StyleFor, children []Box) {
-	p.Box.init(elementTag, style)
-	p.children = children
-}
-
-func (self ParentBox) IsParentBox() bool {
-	return true
-}
-
-func (self *ParentBox) removeDecoration(start, end bool) {
-	if start || end {
-		self.style = self.style.Copy()
-	}
-	if start {
-		self.resetSpacing(tree.Top)
-	}
-	if end {
-		self.resetSpacing(tree.Bottom)
-	}
-}
-
-// A flat generator for a box, its children and descendants."""
-func (self ParentBox) descendants() []Box {
-	out := []Box{&self}
-	for _, child := range self.children {
-		out = append(out, child.descendants()...)
+func descendants(box Box) []Box {
+	out := []Box{box}
+	for _, child := range box.Box().children {
+		out = append(out, descendants(child)...)
 	}
 	return out
 }
 
-// Create a new equivalent box with given ``newChildren``.
-func CopyWithChildren(box Box, newChildren []Box, isStart, isEnd bool) Box {
-	newBox := box.Copy()
-	newBox.BaseBox().children = newChildren
-	if !isStart {
-		newBox.BaseBox().outsideListMarker = nil
-	}
-	newBox.removeDecoration(!isStart, !isEnd)
-	return newBox
-}
-
 // Get the table wrapped by the box.
-// Warning, might be nil
-func (self ParentBox) getWrappedTable() (*TableBox, error) {
+func (self ParentBox) getWrappedTable() (TableBoxInstance, error) {
 	if self.isTableWrapper {
 		for _, child := range self.children {
-			if typedChild, ok := child.(*TableBox); ok {
-				return typedChild, nil
+			if asTable, ok := child.(TableBoxInstance); ok {
+				return asTable, nil
 			}
 		}
 		return nil, errors.New("Table wrapper without a table")
@@ -402,57 +381,72 @@ func (self ParentBox) getWrappedTable() (*TableBox, error) {
 	return nil, nil
 }
 
-func (self ParentBox) pageValues() (int, int) {
-	start, end := self.Box.pageValues()
+func (self ParentBox) pageValues() (pr.Page, pr.Page) {
+	start, end := self.Box().pageValues()
 	if len(self.children) > 0 {
 		startBox, endBox := self.children[0], self.children[len(self.children)-1]
-		childStart, _ := startBox.BaseBox().pageValues()
-		_, childEnd := endBox.BaseBox().pageValues()
-		if childStart > 0 {
+		childStart, _ := startBox.Box().pageValues()
+		_, childEnd := endBox.Box().pageValues()
+		if !childStart.IsNone() {
 			start = childStart
 		}
-		if childEnd > 0 {
+		if !childEnd.IsNone() {
 			end = childEnd
 		}
 	}
 	return start, end
 }
 
-func (self BlockBox) AllChildren() []Box {
-	if self.outsideListMarker != nil {
-		return append(self.children, self.outsideListMarker)
+func LineBoxAnonymousFrom(parent Box, children []Box) *LineBox {
+	parentBox := ParentBoxAnonymousFrom(parent, children)
+	out := LineBox{ParentBox: *parentBox, textOverflow: "clip"}
+	if parentBox.style.GetOverflow() != "visible" {
+		out.textOverflow = parentBox.style.GetTextOverflow()
 	}
-	return self.children
+	return &out
 }
 
 // func (self BlockBox) pageValues() (int, int) {
 // 	return self.BlockContainerBox.pageValues()
 // }
 
-func NewLineBox(elementTag string, style tree.StyleFor, children []Box) *LineBox {
-	if !style.Anonymous {
-		log.Fatal("style must be anonymous")
+func (self InlineLevelBox) removeDecoration(start, end bool) {
+	ltr := self.style.GetDirection() == "ltr"
+	if start {
+		side := "right"
+		if ltr {
+			side = "left"
+		}
+		self.resetSpacing(side)
 	}
-	var l LineBox
-	l.ParentBox.init(elementTag, style, children)
-	return &l
+	if end {
+		side := "left"
+		if ltr {
+			side = "right"
+		}
+		self.resetSpacing(side)
+	}
+}
+
+func NewInlineBox(elementTag string, style pr.Properties, children []Box) *InlineBox {
+	out := InlineBox{}
+	parent := NewInlineLevelBox(elementTag, style, children)
+	out.InlineLevelBox = *parent
+	out.ParentBox = ParentBox{BoxFields: parent.BoxFields}
+	return &out
 }
 
 // Return the (x, y, w, h) rectangle where the box is clickable.
-func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
-	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
+func (self InlineBox) hitArea() (x float32, y float32, w float32, h float32) {
+	return self.InlineLevelBox.borderBoxX(), self.InlineLevelBox.positionY, self.InlineLevelBox.borderWidth(), self.InlineLevelBox.marginHeight()
 }
 
-func NewTextBox(elementTag string, style tree.StyleFor, text string) *TextBox {
-	var self TextBox
-	if !style.Anonymous {
-		panic("style is not anonymous")
-	}
+func NewTextBox(elementTag string, style pr.Properties, text string) *TextBox {
 	if len(text) == 0 {
-		panic("empty text")
+		log.Fatalf("empty text")
 	}
-	self.Box.init(elementTag, style)
-	textTransform := style.Strings["text-transform"]
+	box := NewInlineLevelBox(elementTag, style, nil)
+	textTransform := style.GetTextTransform()
 	if textTransform != "none" {
 		switch textTransform {
 		case "uppercase":
@@ -463,19 +457,20 @@ func NewTextBox(elementTag string, style tree.StyleFor, text string) *TextBox {
 		case "capitalize":
 			text = strings.ToTitle(text)
 		case "full-width":
-			var chars []string
-			for _, u := range []rune(text) {
-				chars = append(chars, asciiToWide[u])
-			}
-			text = strings.Join(chars, "")
-		}
-
-		if style.Strings["hyphens"] == "none" {
-			text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
+			text = strings.Map(func(u rune) rune {
+				rep, in := asciiToWide[u]
+				if !in {
+					return -1
+				}
+				return rep
+			}, text)
 		}
 	}
-	self.text = text
-	return &self
+	if style.GetHyphens() == "none" {
+		text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
+	}
+	out := TextBox{InlineLevelBox: *box, text: text}
+	return &out
 }
 
 // Return a new TextBox identical to this one except for the text.
@@ -488,24 +483,24 @@ func (self TextBox) copyWithText(text string) TextBox {
 	return newBox
 }
 
+func (self *InlineBlockBox) Translate(dx, dy float32, ignoreFloats bool) {
+	self.AtomicInlineLevelBox.Translate(dx, dy, ignoreFloats)
+}
+
 // Definitions for the rules generating anonymous table boxes
 // http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 
-func (self TableBox) AllChildren() []Box {
-	return append(self.children, self.tableFields.columnGroups...)
-}
-
-func (self *TableBox) Translate(dx, dy float64, ignoreFloats bool) {
+func (self *TableBox) Translate(dx, dy float32, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
-	for index, position := range self.tableFields.columnPositions {
-		self.tableFields.columnPositions[index] = position + dx
+	for index, position := range self.columnPositions {
+		self.columnPositions[index] = position + dx
 	}
-	self.ParentBox.Translate(dx, dy, ignoreFloats)
+	translate(append(self.children, self.columnGroups...), self.Box(), dx, dy, ignoreFloats)
 }
 
-func (self TableBox) pageValues() (int, int) {
+func (self TableBox) pageValues() (pr.Page, pr.Page) {
 	return self.ParentBox.pageValues()
 }
 
@@ -536,21 +531,16 @@ func (self TableColumnGroupBox) IsProperChild(parent Box) bool {
 	}
 }
 
+type withCells interface {
+	getCells() []Box
+}
+
 // Return cells that originate in the group's columns.
-func (self TableColumnGroupBox) getCells() []Box {
+func (self *TableColumnGroupBox) getCells() []Box {
 	var out []Box
 	for _, column := range self.children {
-		switch child := column.(type) {
-		case *TableColumnGroupBox:
-			for _, cell := range child.getCells() {
-				out = append(out, cell)
-			}
-		case *TableColumnBox:
-			for _, cell := range child.getCells() {
-				out = append(out, cell)
-			}
-		default:
-			panic("Only Box with getCells() method allowed in children of TableColumnGroupBox")
+		for _, cell := range column.(withCells).getCells() {
+			out = append(out, cell)
 		}
 	}
 	return out
@@ -558,8 +548,8 @@ func (self TableColumnGroupBox) getCells() []Box {
 
 // Return cells that originate in the column.
 // May be overriden on instances.
-func (self TableColumnBox) getCells() []Box {
-	return nil
+func (self *TableColumnBox) getCells() []Box {
+	return []Box{}
 }
 
 func (self TableColumnBox) IsProperChild(parent Box) bool {
@@ -580,15 +570,25 @@ func (self TableCaptionBox) IsProperChild(parent Box) bool {
 	}
 }
 
+func TableCaptionBoxIsInstance(box Box) bool {
+	_, is := box.(*TableCaptionBox)
+	return is
+}
+
+func NewPageBox(pageType utils.PageElement, style pr.Properties) *PageBox {
+	parent := NewParentBox("", style, nil)
+	return &PageBox{ParentBox: *parent, pageType: pageType}
+}
+
 func (self PageBox) String() string {
 	return fmt.Sprintf("<PageBox %s>", self.pageType)
 }
 
-func (self MarginBox) String() string {
-	return fmt.Sprintf("<MarginBox %s>", self.atKeyword)
+func NewMarginBox(atKeyword string, style pr.Properties) *MarginBox {
+	b := NewBlockContainerBox("", style, nil)
+	return &MarginBox{BlockContainerBox: *b, atKeyword: atKeyword}
 }
 
-func TableCaptionBoxIsInstance(box Box) bool {
-	_, is := box.(*TableCaptionBox)
-	return is
+func (self MarginBox) String() string {
+	return fmt.Sprintf("<MarginBox %s>", self.atKeyword)
 }

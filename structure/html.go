@@ -8,14 +8,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/css"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
 
-type gifu = func(url string, mimeType string) css.ImageType
+type gifu = func(url string, mimeType string) pr.Image
 type HandlerFunction = func(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl string) []AllBox
 
 var (
@@ -62,7 +62,7 @@ func HandleElement(element *html.Node, box AllBox, getImageFromUri gifu, baseUrl
 //
 // That box is either block-level || inline-level, depending on what the
 // element should be.
-func makeReplacedBox(element *html.Node, box AllBox, image css.ImageType) AllBox {
+func makeReplacedBox(element *html.Node, box AllBox, image pr.Image) AllBox {
 	switch box.BaseBox().style.Strings["display"] {
 	case "block", "list-item", "table":
 		return NewBlockReplacedBox(element.Data, box.BaseBox().style, image)

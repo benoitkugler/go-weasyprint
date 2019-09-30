@@ -1,10 +1,8 @@
 package structure
 
-import (
-	"fmt"
-	"testing"
-)
+import "testing"
 
-func TestHexa(t *testing.T) {
-	fmt.Println(string(33 + 65248))
+func TestInheritance(t *testing.T) {
+	var p ParentBoxInstance = &ParentBox{}
+
 }

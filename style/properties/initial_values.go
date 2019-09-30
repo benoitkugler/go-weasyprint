@@ -74,10 +74,10 @@ var InitialValues = Properties{
 	"border_top_width":    FToV(3), // computed value for "medium"
 	"border_right_width":  FToV(3),
 
-	"border_bottom_left_radius":  Values{zeroPixelsValue, zeroPixelsValue},
-	"border_bottom_right_radius": Values{zeroPixelsValue, zeroPixelsValue},
-	"border_top_left_radius":     Values{zeroPixelsValue, zeroPixelsValue},
-	"border_top_right_radius":    Values{zeroPixelsValue, zeroPixelsValue},
+	"border_bottom_left_radius":  Point{ZeroPixels, ZeroPixels},
+	"border_bottom_right_radius": Point{ZeroPixels, ZeroPixels},
+	"border_top_left_radius":     Point{ZeroPixels, ZeroPixels},
+	"border_top_right_radius":    Point{ZeroPixels, ZeroPixels},
 
 	// // Color 3 (REC): https://www.w3.org/TR/css3-color/
 	"opacity": Float(1),

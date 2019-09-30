@@ -111,10 +111,12 @@ func (p Properties) Keys() []string {
 	return keys
 }
 
+// Copy return a shallow copy.
+// TODO: simplify CssProperty interface.
 func (p Properties) Copy() Properties {
 	out := make(Properties, len(p))
 	for name, v := range p {
-		out[name] = v.Copy()
+		out[name] = v
 	}
 	return out
 }

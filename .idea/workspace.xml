@@ -1,7 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="" />
+    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/structure/boxes.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/boxes.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure/boxes2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure/boxes_def.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure/boxes_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/boxes_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure/build.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure2/boxes.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure2/boxes_impl.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure2/boxes_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure2/generated.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/a_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/html.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/math.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/strings.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/tests.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/urls.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/webencodings_test.go" beforeDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

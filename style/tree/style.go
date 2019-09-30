@@ -170,7 +170,7 @@ func (self *StyleFor) setComputedStyles(element, parent element,
 	if !in {
 		cascaded = cascadedStyle{}
 	}
-	self.computedStyles[key] = computedFromCascaded(element, cascaded, parentStyle,
+	self.computedStyles[key] = ComputedFromCascaded(element, cascaded, parentStyle,
 		rootStyle, pseudoType, baseUrl, targetCollector)
 }
 
@@ -673,7 +673,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
+func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
 	if cascaded == nil && parentStyle != nil {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
