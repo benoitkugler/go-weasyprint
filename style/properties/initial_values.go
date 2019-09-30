@@ -97,7 +97,7 @@ var InitialValues = Properties{
 	"font_feature_settings":   SIntStrings{String: "normal"},
 	"font_kerning":            String("auto"),
 	"font_language_override":  String("normal"),
-	"font_size":               Value{Dimension: Dimension{Value: 16}}, // actually medium, but we define medium from this
+	"font_size":               FToV(16), // actually medium, but we define medium from this
 	"font_stretch":            String("normal"),
 	"font_style":              String("normal"),
 	"font_variant":            String("normal"),

@@ -1,7 +1,9 @@
 package tree
 
 import (
+	"fmt"
 	"log"
+	"math"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -339,185 +341,291 @@ func TestAnnotateDocument(t *testing.T) {
 	capt.AssertNoLogs(t)
 }
 
-//
-////@assertNoLogs
-//func TestPage(t *testing.T) {
-//capt := utils.CaptureLogs()
-//	document = FakeHTML(resourceFilename("doc1.html"))
-//	styleFor = getAllComputedStyles(
-//		document, userStylesheets=[CSS(string="""
-//	html { color: red }
-//	@page { margin: 10px }
-//	@page :right {
-//	color: blue;
-//	margin-bottom: 12pt;
-//	font-size: 20px;
-//	@top-left { width: 10em }
-//	@top-right { font-size: 10px}
-//}
-//	""")])
-//
-//	pageType = PageType(
-//		side="left", first=true, blank=false, index=0, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType)
-//	assert style["marginTop"] == (5, "px")
-//	assert style["marginLeft"] == (10, "px")
-//	assert style["marginBottom"] == (10, "px")
-//	assert style["color"] == (1, 0, 0, 1)  // red, inherited from html
-//
-//	pageType = PageType(
-//		side="right", first=true, blank=false, index=0, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType)
-//	assert style["marginTop"] == (5, "px")
-//	assert style["marginLeft"] == (10, "px")
-//	assert style["marginBottom"] == (16, "px")
-//	assert style["color"] == (0, 0, 1, 1)  // blue
-//
-//	pageType = PageType(
-//		side="left", first=false, blank=false, index=1, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType)
-//	assert style["marginTop"] == (10, "px")
-//	assert style["marginLeft"] == (10, "px")
-//	assert style["marginBottom"] == (10, "px")
-//	assert style["color"] == (1, 0, 0, 1)  // red, inherited from html
-//
-//	pageType = PageType(
-//		side="right", first=false, blank=false, index=1, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType)
-//	assert style["marginTop"] == (10, "px")
-//	assert style["marginLeft"] == (10, "px")
-//	assert style["marginBottom"] == (16, "px")
-//	assert style["color"] == (0, 0, 1, 1)  // blue
-//
-//	pageType = PageType(
-//		side="left", first=true, blank=false, index=0, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType, "@top-left")
-//	assert style is None
-//
-//	pageType = PageType(
-//		side="right", first=true, blank=false, index=0, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType, "@top-left")
-//	assert style["fontSize"] == 20  // inherited from @page
-//	assert style["width"] == (200, "px")
-//
-//	pageType = PageType(
-//		side="right", first=true, blank=false, index=0, name="")
-//	setPageTypeComputedStyles(pageType, document, styleFor)
-//	style = styleFor(pageType, "@top-right")
-//	assert style["fontSize"] == 10
-//
-//
-//	//@assertNoLogs
-//	@pytest.mark.parametrize("style, selectors", (
-//	capt := utils.CaptureLogs()
-//		("@page {}", [{
-//		"side": None, "blank": None, "first": None, "name": None,
-//		"index": None, "specificity": [0, 0, 0]}]),
-//("@page :left {}", [{
-//"side": "left", "blank": None, "first": None, "name": None,
-//"index": None, "specificity": [0, 0, 1]}]),
-//("@page:first:left {}", [{
-//"side": "left", "blank": None, "first": true, "name": None,
-//"index": None, "specificity": [0, 1, 1]}]),
-//("@page pagename {}", [{
-//"side": None, "blank": None, "first": None, "name": "pagename",
-//"index": None, "specificity": [1, 0, 0]}]),
-//("@page pagename:first:right:blank {}", [{
-//"side": "right", "blank": true, "first": true, "name": "pagename",
-//"index": None, "specificity": [1, 2, 1]}]),
-//("@page pagename, :first {}", [
-//{"side": None, "blank": None, "first": None, "name": "pagename",
-//"index": None, "specificity": [1, 0, 0]},
-//{"side": None, "blank": None, "first": true, "name": None,
-//"index": None, "specificity": [0, 1, 0]}]),
-//("@page :first:first {}", [{
-//"side": None, "blank": None, "first": true, "name": None,
-//"index": None, "specificity": [0, 2, 0]}]),
-//("@page :left:left {}", [{
-//"side": "left", "blank": None, "first": None, "name": None,
-//"index": None, "specificity": [0, 0, 2]}]),
-//("@page :nth(2) {}", [{
-//"side": None, "blank": None, "first": None, "name": None,
-//"index": (0, 2, None), "specificity": [0, 1, 0]}]),
-//("@page :nth(2n + 4) {}", [{
-//"side": None, "blank": None, "first": None, "name": None,
-//"index": (2, 4, None), "specificity": [0, 1, 0]}]),
-//("@page :nth(3n) {}", [{
-//"side": None, "blank": None, "first": None, "name": None,
-//"index": (3, 0, None), "specificity": [0, 1, 0]}]),
-//("@page :nth( n+2 ) {}", [{
-//"side": None, "blank": None, "first": None, "name": None,
-//"index": (1, 2, None), "specificity": [0, 1, 0]}]),
-//("@page :nth(even) {}", [{
-//"side": None, "blank": None, "first": None, "name": None,
-//"index": (2, 0, None), "specificity": [0, 1, 0]}]),
-//("@page pagename:nth(2) {}", [{
-//"side": None, "blank": None, "first": None, "name": "pagename",
-//"index": (0, 2, None), "specificity": [1, 1, 0]}]),
-//("@page page page {}", None),
-//("@page :left page {}", None),
-//("@page :left, {}", None),
-//("@page , {}", None),
-//("@page :left, test, {}", None),
-//("@page :wrong {}", None),
-//("@page :left:wrong {}", None),
-//("@page :left:right {}", None),
-//))
-//func TestPageSelectors(style, selectors):
-//atRule, = tinycss2.parseStylesheet(style)
-//assert parsePageSelectors(atRule) == selectors
-//
-//
-////@assertNoLogs
-//@pytest.mark.parametrize("source, messages", (
-//("" +capt := utils.CaptureLogs()
-//	":lipsum { margin: 2cm", ["WARNING: Invalid || unsupported selector"]),
-//("::lipsum { margin: 2cm", ["WARNING: Invalid || unsupported selector"]),
-//("foo { margin-color: red", ["WARNING: Ignored", "unknown property"]),
-//("foo { margin-top: red", ["WARNING: Ignored", "invalid value"]),
-//("@import "relative-uri.css"",
-//["ERROR: Relative URI reference without a base URI"]),
-//("@import "invalid-protocol://absolute-URL"",
-//["ERROR: Failed to load stylesheet at"]),
-//))
-//// Check that appropriate warnings are logged.
-//func TestWarnings(source, messages):
-//with captureLogs() as logs:
-//CSS(string=source)
-//assert len(logs) == 1, source
-//for message := range messages:
-//assert message := range logs[0]
-//
-//
-////@assertNoLogs
-//func TestWarningsStylesheet():
-//capt := utils.CaptureLogs()ht
-//ml = "<link rel=stylesheet href=invalid-protocol://absolute>"
-//with captureLogs() as logs:
-//FakeHTML(string=html).render()
-//assert len(logs) == 1
-//assert "ERROR: Failed to load stylesheet at" := range logs[0]
-//
-//
-////@assertNoLogs
-//@pytest.mark.parametrize("style", (
-//"<" +capt := utils.CaptureLogs()
-//	"style> html { color red; color: blue; color",
-//"<html style="color; color: blue; color red">",
-//))
-//func TestErrorRecovery(style):
-//with captureLogs() as logs:
-//document = FakeHTML(string=style)
-//page, = document.render().pages
-//html, = page.PageBox.children
-//assert html.style["color"] == (0, 0, 1, 1)  // blue
-//assert len(logs) == 2
+//@assertNoLogs
+func TestPage(t *testing.T) {
+	capt := utils.CaptureLogs()
+	document_, err := newHtml(InputFilename(resourceFilename("doc1.html")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := fakeHTML{HTML: *document_}
+	css, err := newCSS(InputString(`
+		html { color: red }
+		@page { margin: 10px }
+		@page :right {
+		color: blue;
+		margin-bottom: 12pt;
+		font-size: 20px;
+		@top-left { width: 10em }
+		@top-right { font-size: 10px}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil)
+
+	pageType := utils.PageElement{Side: "left", First: true, Blank: false, Index: 0, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style := styleFor.Get(pageType, "")
+	assertProp(t, style, "margin_top", pr.Dimension{Value: 5, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_bottom", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "color", pr.NewColor(1, 0, 0, 1)) // red, inherited from html
+
+	pageType = utils.PageElement{Side: "right", First: true, Blank: false, Index: 0, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style = styleFor.Get(pageType, "")
+	assertProp(t, style, "margin_top", pr.Dimension{Value: 5, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_bottom", pr.Dimension{Value: 16, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "color", pr.NewColor(0, 0, 1, 1)) // blue
+
+	pageType = utils.PageElement{Side: "left", First: false, Blank: false, Index: 1, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style = styleFor.Get(pageType, "")
+	assertProp(t, style, "margin_top", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_bottom", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "color", pr.NewColor(1, 0, 0, 1)) // red, inherited from html
+
+	pageType = utils.PageElement{Side: "right", First: false, Blank: false, Index: 1, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style = styleFor.Get(pageType, "")
+	assertProp(t, style, "margin_top", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "margin_bottom", pr.Dimension{Value: 16, Unit: pr.Px}.ToValue())
+	assertProp(t, style, "color", pr.NewColor(0, 0, 1, 1)) // blue
+
+	pageType = utils.PageElement{Side: "left", First: true, Blank: false, Index: 0, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style = styleFor.Get(pageType, "@top-left")
+	if style != nil {
+		t.Fatal("expected empty (nil) style")
+	}
+
+	pageType = utils.PageElement{Side: "right", First: true, Blank: false, Index: 0, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style = styleFor.Get(pageType, "@top-left")
+	assertProp(t, style, "font_size", pr.FToV(20)) // inherited from @page
+	assertProp(t, style, "width", pr.Dimension{Value: 200, Unit: pr.Px}.ToValue())
+
+	pageType = utils.PageElement{Side: "right", First: true, Blank: false, Index: 0, Name: ""}
+	styleFor.SetPageTypeComputedStyles(pageType, document)
+	style = styleFor.Get(pageType, "@top-right")
+	assertProp(t, style, "font_size", pr.FToV(10))
+	capt.AssertNoLogs(t)
+}
+
+type testPageSelector struct {
+	sel string
+	out []pageSelector
+}
+
+var tests = []testPageSelector{
+	{sel: "@page {}", out: []pageSelector{
+		{Specificity: cascadia.Specificity{0, 0, 0}},
+	}},
+	{sel: "@page :left {}", out: []pageSelector{
+		{Side: "left", Specificity: cascadia.Specificity{0, 0, 1}},
+	}},
+	{sel: "@page:first:left {}", out: []pageSelector{
+		{Side: "left", First: true, Specificity: cascadia.Specificity{0, 1, 1}},
+	}},
+	{sel: "@page pagename {}", out: []pageSelector{
+		{Name: "pagename", Specificity: cascadia.Specificity{1, 0, 0}},
+	}},
+	{sel: "@page pagename:first:right:blank {}", out: []pageSelector{
+		{Side: "right", Blank: true, First: true, Name: "pagename", Specificity: cascadia.Specificity{1, 2, 1}},
+	}},
+	{sel: "@page pagename, :first {}", out: []pageSelector{
+		{Name: "pagename", Specificity: cascadia.Specificity{1, 0, 0}},
+		{First: true, Specificity: cascadia.Specificity{0, 1, 0}},
+	}},
+	{sel: "@page :first:first {}", out: []pageSelector{
+		{First: true, Specificity: cascadia.Specificity{0, 2, 0}},
+	}},
+	{sel: "@page :left:left {}", out: []pageSelector{
+		{Side: "left", Specificity: cascadia.Specificity{0, 0, 2}},
+	}},
+	{sel: "@page :nth(2) {}", out: []pageSelector{
+		{Index: pageIndex{A: 0, B: 2}, Specificity: cascadia.Specificity{0, 1, 0}},
+	}},
+	{sel: "@page :nth(2n + 4) {}", out: []pageSelector{
+		{Index: pageIndex{A: 2, B: 4}, Specificity: cascadia.Specificity{0, 1, 0}},
+	}},
+	{sel: "@page :nth(3n) {}", out: []pageSelector{
+		{Index: pageIndex{A: 3, B: 0}, Specificity: cascadia.Specificity{0, 1, 0}},
+	}},
+	{sel: "@page :nth( n+2 ) {}", out: []pageSelector{
+		{Index: pageIndex{A: 1, B: 2}, Specificity: cascadia.Specificity{0, 1, 0}},
+	}},
+	{sel: "@page :nth(even) {}", out: []pageSelector{
+		{Index: pageIndex{A: 2, B: 0}, Specificity: cascadia.Specificity{0, 1, 0}},
+	}},
+	{sel: "@page pagename:nth(2) {}", out: []pageSelector{
+		{Name: "pagename", Index: pageIndex{A: 0, B: 2}, Specificity: cascadia.Specificity{1, 1, 0}},
+	}},
+	{sel: "@page page page {}"},
+	{sel: "@page :left page {}"},
+	{sel: "@page :left, {}"},
+	{sel: "@page , {}"},
+	{sel: "@page :left, test, {}"},
+	{sel: "@page :wrong {}"},
+	{sel: "@page :left:wrong {}"},
+	{sel: "@page :left:right {}"},
+}
+
+func TestPageSelectors(t *testing.T) {
+	capt := utils.CaptureLogs()
+	for _, te := range tests {
+		atRule_ := parser.ParseStylesheet2([]byte(te.sel), false, false)[0]
+		atRule, ok := atRule_.(parser.QualifiedRule)
+		if !ok {
+			atRule = atRule_.(parser.AtRule).QualifiedRule
+		}
+		res := parsePageSelectors(atRule)
+		if !reflect.DeepEqual(res, te.out) {
+			t.Fatalf("%s : expected %v got %v", te.sel, te.out, res)
+		}
+	}
+	capt.AssertNoLogs(t)
+}
+
+type testWarnings struct {
+	sel string
+	out []string
+}
+
+var testsWarnings = [6]testWarnings{
+	{sel: ":lipsum { margin: 2cm",
+		out: []string{"Invalid or unsupported selector"}},
+	{sel: "::lipsum { margin: 2cm",
+		out: []string{"Invalid or unsupported selector"}},
+	{sel: "foo { margin-color: red",
+		out: []string{"Ignored", "unknown property"}},
+	{sel: "foo { margin-top: red",
+		out: []string{"Ignored", "invalid value"}},
+	{sel: `@import "relative-uri.css"`,
+		out: []string{"Relative URI reference without a base URI"}},
+	{sel: `@import "invalid-protocol://absolute-URL"`,
+		out: []string{"Failed to load stylesheet at"}},
+}
+
+//@assertNoLogs
+// Check that appropriate warnings are logged.
+func TestWarnings(t *testing.T) {
+	for _, te := range testsWarnings {
+
+		capt := utils.CaptureLogs()
+		_, err := newCSS(InputString(te.sel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		logs := capt.Logs()
+		if len(logs) != 1 {
+			t.Fatalf("%s : expected exactly 1 log, got %d", te.sel, len(logs))
+		}
+		for _, message := range te.out {
+			if !strings.Contains(logs[0], message) {
+				t.Fatalf("log should contain %s, got %s", message, logs[0])
+			}
+		}
+	}
+}
+
+//@assertNoLogs
+func TestWarningsStylesheet(t *testing.T) {
+	ml := "<link rel=stylesheet href=invalid-protocol://absolute>"
+	capt := utils.CaptureLogs()
+	html, err := newHtml(InputString(ml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	GetAllComputedStyles(html, nil, false, nil, nil, nil)
+	logs := capt.Logs()
+	if len(logs) != 1 {
+		t.Fatalf("expected exactly 1 log, got %d", len(logs))
+	}
+	if !strings.Contains(logs[0], "Failed to load stylesheet at") {
+		t.Fatalf("log should contain 'Failed to load stylesheet at', got %s", logs[0])
+	}
+}
+
+type testFontSize struct {
+	parentCss, childCss   string
+	parentSize, childSize float32
+}
+
+var testsFs = []testFontSize{
+	{parentCss: "10px", parentSize: 10, childCss: "10px", childSize: 10},
+	{parentCss: "x-small", parentSize: 12, childCss: "xx-large", childSize: 32},
+	{parentCss: "x-large", parentSize: 24, childCss: "2em", childSize: 48},
+	{parentCss: "1em", parentSize: 16, childCss: "1em", childSize: 16},
+	{parentCss: "1em", parentSize: 16, childCss: "larger", childSize: 6. / 5 * 16},
+	{parentCss: "medium", parentSize: 16, childCss: "larger", childSize: 6. / 5 * 16},
+	{parentCss: "x-large", parentSize: 24, childCss: "larger", childSize: 32},
+	{parentCss: "xx-large", parentSize: 32, childCss: "larger", childSize: 1.2 * 32},
+	{parentCss: "1px", parentSize: 1, childCss: "larger", childSize: 3. / 5 * 16},
+	{parentCss: "28px", parentSize: 28, childCss: "larger", childSize: 32},
+	{parentCss: "100px", parentSize: 100, childCss: "larger", childSize: 120},
+	{parentCss: "xx-small", parentSize: 3. / 5 * 16, childCss: "larger", childSize: 12},
+	{parentCss: "1em", parentSize: 16, childCss: "smaller", childSize: 8. / 9 * 16},
+	{parentCss: "medium", parentSize: 16, childCss: "smaller", childSize: 8. / 9 * 16},
+	{parentCss: "x-large", parentSize: 24, childCss: "smaller", childSize: 6. / 5 * 16},
+	{parentCss: "xx-large", parentSize: 32, childCss: "smaller", childSize: 24},
+	{parentCss: "xx-small", parentSize: 3. / 5 * 16, childCss: "smaller", childSize: 0.8 * 3. / 5 * 16},
+	{parentCss: "1px", parentSize: 1, childCss: "smaller", childSize: 0.8},
+	{parentCss: "28px", parentSize: 28, childCss: "smaller", childSize: 24},
+	{parentCss: "100px", parentSize: 100, childCss: "smaller", childSize: 32},
+}
+
+func isClose(a, b float32) bool {
+	return math.Abs(math.Round(float64(a-b))) < 1e-5
+}
+
+func TestFontSize(t *testing.T) {
+	//@assertNoLogs
+	capt := utils.CaptureLogs()
+	html_, err := newHtml(InputString("<p>a<span>b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := fakeHTML{HTML: *html_}
+	for _, te := range testsFs {
+		css, err := newCSS(InputString(fmt.Sprintf("p{font-size:%s}span{font-size:%s}", te.parentCss, te.childCss)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil)
+		body := document.root.NodeChildren(true)[1]
+		p := body.NodeChildren(true)[0]
+		span := p.NodeChildren(true)[1]
+		if got := styleFor.Get(p, "").GetFontSize(); !isClose(got.Value, te.parentSize) {
+			t.Fatalf("parent: expected %v got %v", te.parentSize, got)
+		}
+		if got := styleFor.Get(span, "").GetFontSize(); !isClose(got.Value, te.childSize) {
+			t.Fatalf("child:expected %v got %v", te.childSize, got)
+		}
+	}
+	capt.AssertNoLogs(t)
+}
+
+//TODO: a déplacer dans la partie qui implémente render()
+
+//@assertNoLogs
+// @pytest.mark.parametrize("style", (
+// "<style> html { color red; color: blue; color",
+// "<html style="color; color: blue; color red">",
+// ))
+// func TestErrorRecovery(t *testing.T) {
+// capt := utils.CaptureLogs()
+// with captureLogs() as logs:
+// document = FakeHTML(string=style)
+// page, = document.render().pages
+// html, = page.PageBox.children
+// assert html.style["color"] == (0, 0, 1, 1)  // blue
+// assert len(logs) == 2
+
 //
 //
 ////@assertNoLogs
@@ -638,38 +746,3 @@ func TestAnnotateDocument(t *testing.T) {
 //	assert p.marginLeft == width
 //
 //
-//	//@assertNoLogs
-//	@pytest.mark.parametrize("parentCss, parentSize, childCss, childSize", (
-//	capt := utils.CaptureLogs()
-//		("10px", 10, "10px", 10),
-//		("x-small", 12, "xx-large", 32),
-//	("x-large", 24, "2em", 48),
-//	("1em", 16, "1em", 16),
-//	("1em", 16, "larger", 6 / 5 * 16),
-//	("medium", 16, "larger", 6 / 5 * 16),
-//	("x-large", 24, "larger", 32),
-//	("xx-large", 32, "larger", 1.2 * 32),
-//	("1px", 1, "larger", 3 / 5 * 16),
-//	("28px", 28, "larger", 32),
-//	("100px", 100, "larger", 120),
-//	("xx-small", 3 / 5 * 16, "larger", 12),
-//	("1em", 16, "smaller", 8 / 9 * 16),
-//	("medium", 16, "smaller", 8 / 9 * 16),
-//	("x-large", 24, "smaller", 6 / 5 * 16),
-//	("xx-large", 32, "smaller", 24),
-//	("xx-small", 3 / 5 * 16, "smaller", 0.8 * 3 / 5 * 16),
-//	("1px", 1, "smaller", 0.8),
-//	("28px", 28, "smaller", 24),
-//	("100px", 100, "smaller", 32),
-//))
-//	func TestFontSize(parentCss, parentSize, childCss, childSize):
-//	document = FakeHTML(string="<p>a<span>b")
-//	styleFor = getAllComputedStyles(document, userStylesheets=[CSS(
-//		string="p{font-size:%s}span{font-size:%s}" % (parentCss, childCss))])
-//
-//head, body = document.etreeElement
-//p, = body
-//span, = p
-//assert isclose(styleFor(p)["fontSize"], parentSize)
-//assert isclose(styleFor(span)["fontSize"], childSize)
-//}

@@ -244,3 +244,20 @@ func (m matcher) Match(element *html.Node) (out []matchResult) {
 	}
 	return
 }
+
+type pageIndex struct {
+	A, B  int
+	Group []parser.Token //TODO: handle groups
+}
+
+func (p pageIndex) IsNone() bool {
+	return p.A == 0 && p.B == 0 && p.Group == nil
+}
+
+type pageSelector struct {
+	Side         string
+	Blank, First bool
+	Name         string
+	Index        pageIndex
+	Specificity  cascadia.Specificity
+}

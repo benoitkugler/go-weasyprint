@@ -128,6 +128,8 @@ var (
 		"string_set":          stringSet,
 		"link":                link,
 	}
+
+	keywordsValues []float32
 )
 
 func init() {
@@ -157,6 +159,11 @@ func init() {
 		if !crible[k] {
 			ComputingOrder = append(ComputingOrder, k)
 		}
+	}
+
+	keywordsValues = make([]float32, len(pr.FontSizeKeywords))
+	for i, k := range pr.FontSizeKeywordsOrder {
+		keywordsValues[i] = pr.FontSizeKeywords[k]
 	}
 }
 
@@ -285,7 +292,6 @@ func compute(element element, pseudoType string, specified map[string]pr.Cascade
 			value = fn(computer, name, value)
 		}
 		// else: same as specified
-
 		computed[name] = value
 	}
 	computed.SetWeasySpecifiedDisplay(resolveds.GetDisplay())
@@ -411,7 +417,7 @@ func asPixels(v pr.Value, pixelsOnly bool) pr.Value {
 // passing a negative fontSize means null
 // Always returns a Value which is interpreted as float32 if Unit is zero.
 // pixelsOnly=false
-func length2(computer *computer, _ string, value pr.Value, fontSize float32, pixelsOnly bool) pr.Value {
+func length2(computer *computer, name string, value pr.Value, fontSize float32, pixelsOnly bool) pr.Value {
 	if value.String == "auto" || value.String == "content" {
 		return value
 	}
@@ -438,6 +444,7 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32, pix
 		case pr.Rem:
 			result = value.Value * computer.rootStyle.GetFontSize().Value
 		}
+
 	default:
 		// A percentage or "auto": no conversion needed.
 		return value
@@ -736,10 +743,6 @@ func fontSize(computer *computer, name string, _value pr.CssProperty) pr.CssProp
 		return pr.FToV(fs)
 	}
 
-	keywordsValues := make([]float32, len(pr.FontSizeKeywords))
-	for i, k := range pr.FontSizeKeywordsOrder {
-		keywordsValues[i] = pr.FontSizeKeywords[k]
-	}
 	parentFontSize := computer.parentStyle.GetFontSize().Value
 	if value.String == "larger" {
 		for _, keywordValue := range keywordsValues {
@@ -749,7 +752,7 @@ func fontSize(computer *computer, name string, _value pr.CssProperty) pr.CssProp
 		}
 		return pr.FToV(parentFontSize * 1.2)
 	} else if value.String == "smaller" {
-		for i := len(keywordsValues); i > 0; i -= 1 {
+		for i := len(keywordsValues) - 1; i >= 0; i -= 1 {
 			if keywordsValues[i] < parentFontSize {
 				return pr.FToV(keywordsValues[i])
 			}
@@ -758,8 +761,7 @@ func fontSize(computer *computer, name string, _value pr.CssProperty) pr.CssProp
 	} else if value.Unit == pr.Percentage {
 		return pr.FToV(value.Value * parentFontSize / 100.)
 	} else {
-		l := length2(computer, name, value, parentFontSize, true)
-		return l
+		return length2(computer, name, value, parentFontSize, true)
 	}
 }
 

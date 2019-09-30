@@ -6,8 +6,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/benoitkugler/cascadia"
-
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
@@ -19,28 +17,11 @@ var (
 	htmlSpaceSeparatedTokensRe = regexp.MustCompile(fmt.Sprintf("[^%s]+", htmlWhitespace))
 )
 
-type PageIndex struct {
-	A, B  int
-	Group interface{} //TODO: handle groups
-}
-
-func (p PageIndex) IsNone() bool {
-	return p.A == 0 && p.B == 0 && p.Group == nil
-}
-
 type PageElement struct {
 	Side         string
 	Blank, First bool
 	Name         string
 	Index        int
-}
-
-type PageSelector struct {
-	Side         string
-	Blank, First bool
-	Name         string
-	Index        PageIndex
-	Specificity  cascadia.Specificity
 }
 
 type ElementKey struct {

@@ -366,7 +366,7 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 			return out, err
 		}
 		if value.IsNone() {
-			return out, errors.New("invalid property (nil function return)")
+			return out, errors.New("invalid value (nil function return)")
 		}
 	}
 

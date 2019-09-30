@@ -145,12 +145,12 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 // Take the properties left by ``applyStyleRule`` on an element or
 // pseudo-element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
-func (self *StyleFor) setComputedStyles(element, parent,
+func (self *StyleFor) setComputedStyles(element, parent element,
 	root *utils.HTMLNode, pseudoType, baseUrl string, targetCollector *targetCollector) {
 
 	var parentStyle, rootStyle pr.Properties
 	if element == root && pseudoType == "" {
-		if parent != nil {
+		if node, ok := parent.(*utils.HTMLNode); parent != nil && (ok && node != nil) {
 			log.Fatal("parent should be nil here")
 		}
 		rootStyle = pr.Properties{
@@ -162,10 +162,10 @@ func (self *StyleFor) setComputedStyles(element, parent,
 		if parent == nil {
 			log.Fatal("parent shouldn't be nil here")
 		}
-		parentStyle = self.computedStyles[utils.ElementKey{Element: parent, PseudoType: ""}]
+		parentStyle = self.computedStyles[parent.ToKey("")]
 		rootStyle = self.computedStyles[utils.ElementKey{Element: root, PseudoType: ""}]
 	}
-	key := utils.ElementKey{Element: element, PseudoType: pseudoType}
+	key := element.ToKey(pseudoType)
 	cascaded, in := self.cascadedStyles[key]
 	if !in {
 		cascaded = cascadedStyle{}
@@ -200,7 +200,7 @@ func (s StyleFor) Get(element element, pseudoType string) pr.Properties {
 	return style
 }
 
-func (s StyleFor) addPageDeclaration(pageType_ utils.PageElement) {
+func (s StyleFor) addPageDeclarations(pageType_ utils.PageElement) {
 	for _, sh := range s.sheets {
 		// Add declarations for page elements
 		for _, pageR := range sh.sheet.pageRules {
@@ -233,7 +233,27 @@ func (s StyleFor) addPageDeclaration(pageType_ utils.PageElement) {
 	}
 }
 
-func pageTypeMatch(selectorPageType utils.PageSelector, pageType utils.PageElement) bool {
+// Set style for page types and pseudo-types matching ``pageType``.
+func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html_ htmlLike) {
+	html := html_.AsHTML()
+	styleFor.addPageDeclarations(pageType)
+
+	// Apply style for page
+	// @page inherits from the root element :
+	// http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
+	styleFor.setComputedStyles(pageType, html.root, html.root, "", html.baseUrl, nil)
+
+	// Apply style for page pseudo-elements (margin boxes)
+	for key := range styleFor.cascadedStyles {
+		// element, pseudoType = key
+		if key.PseudoType != "" && key.PageType == pageType {
+			// The pseudo-element inherits from the element.
+			styleFor.setComputedStyles(key.PageType, key.PageType, html.root, key.PseudoType, html.baseUrl, nil)
+		}
+	}
+}
+
+func pageTypeMatch(selectorPageType pageSelector, pageType utils.PageElement) bool {
 	if selectorPageType.Side != "" && selectorPageType.Side != pageType.Side {
 		return false
 	}
@@ -653,7 +673,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func computedFromCascaded(element *utils.HTMLNode, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
+func computedFromCascaded(element element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
 	if cascaded == nil && parentStyle != nil {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
@@ -783,19 +803,19 @@ type cascadedStyle = map[string]weigthedValue
 //     - "name" (page name string or ""), and
 //     - "specificity" (list of numbers).
 //     Return ``None` if something went wrong while parsing the rule.
-func parsePageSelectors(rule parser.QualifiedRule) (out []utils.PageSelector) {
+func parsePageSelectors(rule parser.QualifiedRule) (out []pageSelector) {
 	// See https://drafts.csswg.org/css-page-3/#syntax-page-selector
 
 	tokens := validation.RemoveWhitespace(*rule.Prelude)
 
 	// TODO: Specificity is probably wrong, should clean and test that.
 	if len(tokens) == 0 {
-		out = append(out, utils.PageSelector{})
+		out = append(out, pageSelector{})
 		return out
 	}
 
 	for len(tokens) > 0 {
-		var types_ utils.PageSelector
+		var types_ pageSelector
 
 		if ident, ok := tokens[0].(parser.IdentToken); ok {
 			tokens = tokens[1:]
@@ -811,9 +831,9 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []utils.PageSelector) {
 		}
 
 		for len(tokens) > 0 {
-			token := tokens[0]
+			token_ := tokens[0]
 			tokens = tokens[1:]
-			literal, ok := token.(parser.LiteralToken)
+			literal, ok := token_.(parser.LiteralToken)
 			if !ok {
 				return nil
 			}
@@ -876,7 +896,7 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []utils.PageSelector) {
 						}
 						return nil
 					}
-					types_.Index = utils.PageIndex{
+					types_.Index = pageIndex{
 						A:     nthValues[0],
 						B:     nthValues[1],
 						Group: group,
@@ -885,9 +905,8 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []utils.PageSelector) {
 					// https://github.com/w3c/csswg-drafts/issues/3524
 					types_.Specificity[1] += 1
 					continue
-				default:
-					return nil
 				}
+				return nil
 
 			} else if literal.Value == "," {
 				if len(tokens) > 0 && (types_.Specificity != cascadia.Specificity{}) {
@@ -897,10 +916,8 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []utils.PageSelector) {
 				}
 			}
 		}
-
 		out = append(out, types_)
 	}
-
 	return out
 }
 
@@ -918,7 +935,7 @@ func _isContentNone(rule Token) bool {
 type selectorPageRule struct {
 	specificity cascadia.Specificity
 	pseudoType  string
-	pageType    utils.PageSelector
+	pageType    pageSelector
 }
 
 type pageRule struct {
