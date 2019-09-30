@@ -183,10 +183,9 @@ func TestExpandShorthands(t *testing.T) {
 	if len(sels) != 1 {
 		t.Fatalf("expected ['li'] got %v", sels)
 	}
-	//TODO: update cascadia to support this
-	// if sels[0].String() != "li" {
-	// 	t.Errorf("expected 'li' got %s", sels[0].String())
-	// }
+	if sels[0].String() != "li" {
+		t.Errorf("expected 'li' got %s", sels[0].String())
+	}
 
 	m := (sheet.matcher)[0].declarations
 	if m[0].Name != "margin_bottom" {

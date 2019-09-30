@@ -959,7 +959,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 		case parser.QualifiedRule:
 			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*typedRule.Content, false, false))
 			if len(declarations) > 0 {
-				selector, err := cascadia.ParseGroup(parser.Serialize(*typedRule.Prelude))
+				selector, err := cascadia.ParseGroupWithPseudoElements(parser.Serialize(*typedRule.Prelude))
 				if err != nil {
 					log.Printf("Invalid or unsupported selector '%s', %s \n", parser.Serialize(*typedRule.Prelude), err)
 					continue
