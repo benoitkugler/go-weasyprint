@@ -69,10 +69,10 @@ var InitialValues = Properties{
 	"border_top_style":    String("none"),
 	"border_collapse":     String("separate"),
 	"border_spacing":      Point{Dimension{Unit: Scalar}, Dimension{Unit: Scalar}},
-	"border_bottom_width": Value{Dimension: Dimension{Value: 3}},
-	"border_left_width":   Value{Dimension: Dimension{Value: 3}},
-	"border_top_width":    Value{Dimension: Dimension{Value: 3}}, // computed value for "medium"
-	"border_right_width":  Value{Dimension: Dimension{Value: 3}},
+	"border_bottom_width": FToV(3),
+	"border_left_width":   FToV(3),
+	"border_top_width":    FToV(3), // computed value for "medium"
+	"border_right_width":  FToV(3),
 
 	"border_bottom_left_radius":  Values{zeroPixelsValue, zeroPixelsValue},
 	"border_bottom_right_radius": Values{zeroPixelsValue, zeroPixelsValue},

@@ -437,10 +437,10 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32, pix
 			result = value.Value * fontSize
 		case pr.Rem:
 			result = value.Value * computer.rootStyle.GetFontSize().Value
-		default:
-			// A percentage or "auto": no conversion needed.
-			return value
 		}
+	default:
+		// A percentage or "auto": no conversion needed.
+		return value
 	}
 	return asPixels(pr.Dimension{Value: result, Unit: pr.Px}.ToValue(), pixelsOnly)
 }
@@ -490,13 +490,15 @@ func backgroundSize(computer *computer, name string, _value pr.CssProperty) pr.C
 func borderWidth(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
 	style := computer.computed[strings.ReplaceAll(name, "width", "style")].(pr.String)
+
 	if style == "none" || style == "hidden" {
-		return pr.Dimension{Unit: pr.Scalar}.ToValue()
+		return pr.FToV(0)
 	}
 	if bw, in := BorderWidthKeywords[value.String]; in {
 		return pr.FToV(bw)
 	}
-	return length2(computer, name, value, -1, true)
+	d := length2(computer, name, value, -1, true)
+	return d
 }
 
 // Compute the ``column-width`` property.

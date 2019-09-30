@@ -50,7 +50,7 @@ type ElementKey struct {
 }
 
 func (e ElementKey) IsPageType() bool {
-	return e.Element != nil
+	return e.Element == nil
 }
 
 func (p PageElement) ToKey(pseudoType string) ElementKey {
