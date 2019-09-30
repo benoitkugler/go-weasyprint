@@ -7,7 +7,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/css"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
 // Complete generated.go for special cases.
@@ -27,12 +29,12 @@ type BoxFields struct {
 	transformationMatrix interface{}
 
 	bookmarkLabel string
-	stringSet     []css.NameValue
+	stringSet     pr.StringSet
 
 	elementTag string
-	style      css.StyleFor
+	style      tree.StyleFor
 
-	firstLetterStyle, firstLineStyle css.StyleFor
+	firstLetterStyle, firstLineStyle tree.StyleFor
 
 	positionX, positionY float64
 
@@ -290,25 +292,25 @@ func (self BoxFields) pageValues() (int, int) {
 }
 
 // Set to 0 the margin, padding and border of ``side``.
-func (self *BoxFields) resetSpacing(side css.Side) {
-	self.style.Values[fmt.Sprintf("margin_%s", side)] = css.ZeroPixels
-	self.style.Values[fmt.Sprintf("padding_%s", side)] = css.ZeroPixels
-	self.style.Values[fmt.Sprintf("border_%s_width", side)] = css.ZeroPixels
+func (self *BoxFields) resetSpacing(side tree.Side) {
+	self.style.Values[fmt.Sprintf("margin_%s", side)] = tree.ZeroPixels
+	self.style.Values[fmt.Sprintf("padding_%s", side)] = tree.ZeroPixels
+	self.style.Values[fmt.Sprintf("border_%s_width", side)] = tree.ZeroPixels
 
 	switch side {
-	case css.Top:
+	case tree.Top:
 		self.marginTop = 0
 		self.paddingTop = 0
 		self.borderTopWidth = 0
-	case css.Right:
+	case tree.Right:
 		self.marginRight = 0
 		self.paddingRight = 0
 		self.borderRightWidth = 0
-	case css.Left:
+	case tree.Left:
 		self.marginLeft = 0
 		self.paddingLeft = 0
 		self.borderLeftWidth = 0
-	case css.Bottom:
+	case tree.Bottom:
 		self.marginBottom = 0
 		self.paddingBottom = 0
 		self.borderBottomWidth = 0
@@ -321,16 +323,16 @@ func (self *BoxFields) removeDecoration(start, end bool) {
 	}
 	ltr := self.style.Strings["direction"] == "ltr"
 	if start {
-		side := css.Right
+		side := tree.Right
 		if ltr {
-			side = css.Left
+			side = tree.Left
 		}
 		self.resetSpacing(side)
 	}
 	if end {
-		side := css.Left
+		side := tree.Left
 		if ltr {
-			side = css.Right
+			side = tree.Right
 		}
 		self.resetSpacing(side)
 	}
@@ -345,7 +347,7 @@ func (self BoxFields) descendants() []Box {
 	return []Box{&self}
 }
 
-func (p *ParentBox) init(elementTag string, style css.StyleFor, children []Box) {
+func (p *ParentBox) init(elementTag string, style tree.StyleFor, children []Box) {
 	p.Box.init(elementTag, style)
 	p.children = children
 }
@@ -359,10 +361,10 @@ func (self *ParentBox) removeDecoration(start, end bool) {
 		self.style = self.style.Copy()
 	}
 	if start {
-		self.resetSpacing(css.Top)
+		self.resetSpacing(tree.Top)
 	}
 	if end {
-		self.resetSpacing(css.Bottom)
+		self.resetSpacing(tree.Bottom)
 	}
 }
 
@@ -427,7 +429,7 @@ func (self BlockBox) AllChildren() []Box {
 // 	return self.BlockContainerBox.pageValues()
 // }
 
-func NewLineBox(elementTag string, style css.StyleFor, children []Box) *LineBox {
+func NewLineBox(elementTag string, style tree.StyleFor, children []Box) *LineBox {
 	if !style.Anonymous {
 		log.Fatal("style must be anonymous")
 	}
@@ -441,7 +443,7 @@ func (self InlineBox) hitArea() (x float64, y float64, w float64, h float64) {
 	return self.borderBoxX(), self.positionY, self.borderWidth(), self.marginHeight()
 }
 
-func NewTextBox(elementTag string, style css.StyleFor, text string) *TextBox {
+func NewTextBox(elementTag string, style tree.StyleFor, text string) *TextBox {
 	var self TextBox
 	if !style.Anonymous {
 		panic("style is not anonymous")
