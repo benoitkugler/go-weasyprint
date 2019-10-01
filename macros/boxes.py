@@ -1,5 +1,6 @@
 import re
 import subprocess
+import inspect
 
 import source_box
 
@@ -11,9 +12,13 @@ RE_ATTRIBUTES = re.compile(r"^    (\S+) = (\S+)")
 RE_GO_FIELDS = re.compile(r"\t(\w+,? )+")
 
 
+def class_by_name(class_name):
+    return getattr(source_box, class_name)
+
+
 def expand_supers(class_name):
-    level = set(c.__name__ for c in getattr(
-        source_box, class_name).__bases__ if c.__name__ != "object")
+    level = set(c.__name__ for c in class_by_name(
+        class_name).__bases__ if c.__name__ != "object")
     out = set(level)
     for parent in level:
         out = out.union(expand_supers(parent))
@@ -35,7 +40,7 @@ def genere_concrete_type(class_name, new_fields) -> str:
     fs = "\n".join(to_camel_case(
         f[0]) + " " + infer_type(f[1]) + "// " + f[1] for f in new_fields)
 
-    if issubclass(getattr(source_box, class_name), source_box.TableBox):
+    if issubclass(class_by_name(class_name), source_box.TableBox):
         fs = "TableFields  \n" + fs
     return f"""
     type {class_name} struct {{
@@ -99,10 +104,10 @@ TYPES_RETURNS = {
 
 
 def has_subclass(class_name):
-    return len(getattr(source_box, class_name).__subclasses__()) > 0
+    return len(class_by_name(class_name).__subclasses__()) > 0
 
 
-def generate_method(name: str, class_name: str, args: list):
+def generate_own_method(name: str, class_name: str, args: list):
     comment = " ".join(arg for arg in args if "=" in arg)
     args_no_selfs = []
     args_no_types = []
@@ -115,25 +120,62 @@ def generate_method(name: str, class_name: str, args: list):
     args_no_self = ", ".join(args_no_selfs)
     args_no_type = ", ".join(args_no_types)
 
+    ret = TYPES_RETURNS.get(name, "")
+
     name = to_camel_case(name)
     need_in_subclass = has_subclass(class_name)
     header = ""
     if need_in_subclass:
         header_func = f"{class_name}{name[0].title() + name[1:]}"
-        header = f"func {header_func} (b *BoxFields, {args_no_self}) {{}}\n"
-        body = f"{header_func}(&b.BoxFields, {args_no_type})"
+        header = f"func {header_func} (b Instance{class_name}, {args_no_self})  {ret} {{}}\n"
+        body = f"{header_func}(b, {args_no_type})"
     else:
         body = "//TODO" + ":"
 
+    signature = f"{name} ({args_no_self}) {ret}"
+    has_return = ret != ""
     out = f"""
-    // {comment}    
-    func (b *{class_name}) {name} ({args_no_self}) {{
-        {body}
+    // {comment}
+    func (b *{class_name}) {signature} {{
+        {"return" if has_return else ""} {body}
     }}"""
 
     if need_in_subclass:
+        outer_methods[(class_name, name)] = (body, signature, has_return)
         return out, header
     return "", out
+
+
+def generate_inherited_methods(class_name: str) -> str:
+    cls = class_by_name(class_name)
+    out = ""
+    for name, func in inspect.getmembers(cls, inspect.isfunction):
+        owner = func.__qualname__.split(".")[0]
+        # already implemented by generate_own_methods
+        if owner == class_name or owner == "Box" or name == "__repr__":
+            continue
+
+        if name == "__init__":
+            init_fields = "\n".join(
+                f"out.{field} = {value}" for field, value in classes[class_name])
+            out += f"""
+            func New{class_name}(elementTag string, style pr.Properties, children []Box) {class_name} {{
+                fields := newBoxFields(elementTag, style, children)
+                out := {class_name}{{BoxFields: fields}}
+                {init_fields}
+                return out
+            }}
+            """
+            continue
+
+        call, sign, has_return = outer_methods[(owner, to_camel_case(name))]
+
+        out += f"""
+        func (b {class_name}) {sign} {{
+            { "return" if has_return else ""} {call}
+        }}
+        """
+    return out
 
 
 KNOW_FIELDS = set()
@@ -146,6 +188,7 @@ with open("structure/boxes_impl.go") as f:
 
 
 classes = {}
+outer_methods = {}
 
 with open("macros/source_box.py") as f:
     code = """
@@ -157,11 +200,20 @@ with open("macros/source_box.py") as f:
     class_name = ""
     for line in f.readlines():
         match = RE_METHOD.search(line)
-        if match and class_name != "Box" and match.group(1) not in ("__init__", "anonymous_from"):
-            args = match.group(2).split(", ")
-            out, header = generate_method(match.group(1), class_name, args)
-            code += out
-            headers += header
+        if match and class_name != "Box":
+            name = match.group(1)
+            if name not in ("__init__", "anonymous_from"):
+                args = match.group(2).split(", ")
+                out, header = generate_own_method(
+                    match.group(1), class_name, args)
+                code += out
+                headers += header
+            elif name == "__init__":
+                headers += f"""
+                func New{class_name}(elementTag string, style pr.Propreties) {class_name} {{
+                    // TODO:
+                }}
+                """
 
         match = RE_ATTRIBUTES.search(line)
         if match:
@@ -179,7 +231,7 @@ with open("macros/source_box.py") as f:
 
 for class_name, fields in classes.items():
     code += genere_concrete_type(class_name, fields)
-
+    code += generate_inherited_methods(class_name)
 
 with open(OUT, "w") as f:
     f.write(code)
