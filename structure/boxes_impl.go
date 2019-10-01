@@ -19,9 +19,11 @@ type BoxFields struct {
 	trailingCollapsibleSpace bool
 
 	// Default, may be overriden on instances.
-	isTableWrapper       bool
-	isForRootElement     bool
-	isColumn             bool
+	isTableWrapper   bool
+	isFlexItem       bool
+	isForRootElement bool
+	isColumn         bool
+
 	isAttachment         bool
 	isListMarker         bool
 	transformationMatrix interface{}
@@ -50,6 +52,20 @@ type BoxFields struct {
 
 	children          []Box
 	outsideListMarker Box
+}
+
+type TableFields struct {
+	properTableChild       bool
+	internalTableOrCaption bool
+	tabularContainer       bool
+	isHeader               bool
+	isFooter               bool
+
+	colspan int
+	rowspan int
+
+	columnGroups    []Box
+	columnPositions []float32
 }
 
 // BoxType enables passing type as value
