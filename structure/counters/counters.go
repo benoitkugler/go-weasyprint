@@ -272,7 +272,7 @@ func additive(symbols []valueSymbol, value int) (string, bool) {
 //or one of its fallback.
 //
 //The representation includes negative signs, but not the prefix and suffix.
-func format(value int, counterStyle string) string {
+func Format(value int, counterStyle string) string {
 	if counterStyle == "none" {
 		return ""
 	}
@@ -301,7 +301,7 @@ func format(value int, counterStyle string) string {
 //prefix and suffix.
 func FormatListMarker(value int, counterStyle string) string {
 	style := STYLES[counterStyle]
-	return style.prefix + format(value, counterStyle) + style.suffix
+	return style.prefix + Format(value, counterStyle) + style.suffix
 }
 
 // ----------------- Unused formatters -------------------------------------------

@@ -13,9 +13,11 @@
 // :license: BSD, see LICENSE for details.
 package layout
 
+import "github.com/benoitkugler/go-weasyprint/structure"
+
 // Lay out and yield the fixed boxes of ``pages``.
 func layoutFixedBoxes(context LayoutContext, pages []Page) {
-	var out []structure.AllBox
+	var out []structure.Box
 	for _, page := range pages {
 		for _, box := range page.fixedBoxes {
 			// Use an empty list as last argument because the fixed boxes in the
@@ -27,7 +29,7 @@ func layoutFixedBoxes(context LayoutContext, pages []Page) {
 }
 
 type Page struct {
-	fixedBoxes []structure.AllBox
+	fixedBoxes []structure.Box
 }
 
 type LayoutContext struct{}

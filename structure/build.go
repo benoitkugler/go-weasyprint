@@ -32,6 +32,11 @@ var (
 	}
 )
 
+type Context interface {
+	RunningElements() map[string]map[int]Box
+	CurrentPage() int
+}
+
 type stateShared struct {
 	quoteDepth    []int
 	counterValues tree.CounterValues
@@ -1247,6 +1252,40 @@ func setViewportOverflow(rootBox Box) Box {
 	return rootBox
 }
 
+// Collect missing counters.
+func collectMissingCounter(counterName string, counterValues []string, missingCounters *[]string) {
+	for _, s := range counterValues {
+		if s == counterName {
+			return
+		}
+	}
+	for _, s := range *missingCounters {
+		if s == counterName {
+			return
+		}
+	}
+    *missingCounters = append(*missingCounters, counterName)
+} 
+
+// Collect missing target counters.
+// 
+// The corresponding TargetLookupItem caches the target"s page based
+// counter values during pagination.
+func collectMissingTargetCounter(counterName string, lookupCounterValues map[string]bool,
+                                    anchorName string, missingTargetCounters map[string][]string) {
+                               
+    if ! lookupCounterValues[counterName] {
+		missingCounters := missingTargetCounters[anchorName]
+		for _, s := range missingCounters {
+			if counterName == s {
+				return
+			}
+		}
+		missingCounters =append(missingCounters, counterName)
+		missingTargetCounters[anchorName] = missingCounters
+	}
+}
+
 // Compute and return the boxes corresponding to the ``content_list``.
 //
 // ``parse_again`` is called to compute the ``content_list`` again when
@@ -1256,8 +1295,8 @@ func setViewportOverflow(rootBox Box) Box {
 // ``target_collector.check_pending_targets()`` after the first pass to do
 // required reparsing.
 func computeContentList(contentList pr.SContent, parentBox Box, counterValues tree.CounterValues,
-	cssToken string, parseAgain func(tree.CounterValues), targetCollector *tree.TargetCollector,
-	getImageFromUri gifu, quoteDepth []int, quoteStyle pr.Quotes, context, page, element interface{}) []Box {
+	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector,
+	getImageFromUri gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page, element interface{}) []Box {
 
 	// TODO: Some computation done here may be done in computed_values
     // instead. We currently miss at least style_for, counters and quotes
@@ -1268,13 +1307,13 @@ func computeContentList(contentList pr.SContent, parentBox Box, counterValues tr
 		texts []string
 	)
 
-    missingCounters = []
+    var missingCounters []string
     missingTargetCounters = {}
     inPageContext := context != nil && page != nil
 
     // Collect missing counters during build_formatting_structure.
     // Pointless to collect missing target counters in MarginBoxes.
-    needCollectMissing = targetCollector.collecting && ! inPageContext
+    needCollectMissing := targetCollector.collecting && ! inPageContext
 
     // TODO: remove attribute or set a default value in Box class
     if parentBox.Box().cachedCounterValues == nil {
@@ -1285,6 +1324,7 @@ func computeContentList(contentList pr.SContent, parentBox Box, counterValues tr
 	}
 
 	chunks := make([]string, len(contentList.Contents))
+mainLoop:
 	for i, content := range contentList.Contents {
 		switch content.Type {
 		case "string":
@@ -1305,30 +1345,169 @@ func computeContentList(contentList pr.SContent, parentBox Box, counterValues tr
 					texts = nil
 					boxlist = append(boxlist,InlineReplacedBoxAnonymousFrom(parentBox, image))
 			}
-		case "content":
-			addedText := textContentExtractors[content.String](box)
+		}
+		case "content()":
+			addedText := textContentExtractors[content.Content.(pr.String)](box)
 			// Simulate the step of white space processing
 			// (normally done during the layout)
 			addedText = strings.TrimSpace(addedText)
 			chunks[i] = addedText
-		case "counter":
-			cv, has := counterValues[content.String]
+		case "counter()":
+			counterName, counterStyle := content.AsCounter()
+			if needCollectMissing {
+				collectMissingCounter(couterName, counterValues, &missingCounters)
+			}
+			cv, has := counterValues[counterName]
 			if !has {
 				cv = []int{0}
 			}
 			counterValue := cv[len(cv)-1]
-			chunks[i] = format(counterValue, content.CounterStyle)
-		case "counters":
-			counterName, separator, counterStyle := content.String, content.Separator, content.CounterStyle
+			chunks[i] = counters.Format(counterValue, counterStyle)
+		case "counters()":
+			counterName, separator, counterStyle := content.AsCounters()
+			if needCollectMissing {
+				collectMissingCounter(couterName, counterValues, &missingCounters)
+			}
 			vs, has := counterValues[counterName]
 			if !has {
 				vs = []int{0}
 			}
 			cs := make([]string, len(vs))
 			for i, counterValue := range vs {
-				cs[i] = format(counterValue, counterStyle)
+				cs[i] = counters.Format(counterValue, counterStyle)
 			}
 			chunks[i] = strings.Join(cs, separator)
+		case "string()":
+			value := content.AsStrings()
+			if inPageContext {
+				texts[i] = context.getStringSetFor(page, value)
+			} else {
+				// string() is currently only valid in @page context
+                // See https://github.com/Kozea/WeasyPrint/issues/723
+               	log.Printf("'string(%s)' is only allowed in page margins", strings.Join(value, " "))
+			}
+			case "target-counter()" :
+				anchorToken, counterName, counterStyle := content.AsTargetCounter()
+				lookupTarget := targetCollector.LookupTarget(anchorToken, parentBox, cssToken, parseAgain)
+				if lookupTarget.IsUpToDate() {
+					targetValues := lookupTarget.TargetBox.Box().cachedCounterValues
+					if needCollectMissing {
+						collectMissingTargetCounter(counterName, targetValues,
+							targetCollector.AnchorNameFromToken(anchorToken),
+							missingTargetCounters)
+					} 
+					// Mixin target"s cached page counters.
+					// cachedPageCounterValues are empty during layout.
+					localCounters := lookupTarget.CachedPageCounterValues.copy()
+					localCounters.Update(targetValues)
+					vs, has := localCounters[counterName]
+					if !has {
+						vs = []int{0}
+					}
+					counterValue = vs[length(vs)-1]
+					texts[i] = counters.Format(counterValue, counterStyle)
+				} else {
+					texts = nil
+					break mainLoop
+				}
+			case "target-counters()" :
+				anchorToken, counterName, separator, counterStyle := content.AsTargetCounters()
+				lookupTarget := targetCollector.LookupTarget(
+					anchorToken, parentBox, cssToken, parseAgain)
+				if lookupTarget.IsUpToDate() {
+					if separator.Type != "string" {
+						break mainLoop
+					} 
+					separatorString := separator.Content.(pr.String)
+					targetValues := lookupTarget.TargetBox.Box().cachedCounterValues
+					if needCollectMissing {
+						collectMissingTargetCounter(
+							counterName, targetValues,
+							targetCollector.AnchorNameFromToken(anchorToken),
+							missingTargetCounters)
+					} 
+					// Mixin target"s cached page counters.
+					// cachedPageCounterValues are empty during layout.
+					localCounters := lookupTarget.CachedPageCounterValues.copy()
+					localCounters.Update(targetValues)
+					vs, has := localCounters[counterName]
+					if !has {
+						vs = []int{0}
+					}
+					tmps := make([]string, len(vs))
+					for _, counterValue := range vs {
+						tmps[j] = counters.Format(counterValue, counterStyle)
+					}
+					texts[i] = strings.Join(tmps, separatorString)
+				} else {
+					texts = nil
+					break mainLoop
+				}
+			case "target-text()" :
+				anchorToken, textStyle := content.AsTargetText()
+				lookupTarget := targetCollector.LookupTarget(
+					anchorToken, parentBox, cssToken, parseAgain)
+				if lookupTarget.IsUpToDate() {
+					targetBox := lookupTarget.TargetBox
+					// TODO: "before"- && "after"- content referring missing
+					// counters are not properly set.
+					text := textContentExtractors[textStyle](targetBox)
+					// Simulate the step of white space processing
+					// (normally done during the layout)
+					texts[i] = strings.TrimSpace(text)
+				} else {
+					texts = nil
+					break mainLoop
+				}
+			case "quote" :
+				if quoteDepth != nil &&	quoteStyle != nil{
+						value := content.AsQuote()
+					isOpen := value.Open
+				insert := value.Insert
+				if ! isOpen {
+					quoteDepth[0] = max(0, quoteDepth[0] - 1)
+				} 
+				if insert {
+					openQuotes, closeQuotes = quoteStyle
+					quotes := closeQuotes
+					 if isOpen {
+						quotes = openQuotes
+					}
+					texts[i] = quotes[min(quoteDepth[0], len(quotes) - 1)]
+				}
+				 if isOpen {
+					quoteDepth[0] += 1
+				}
+			}
+			case "element()" :
+				value := content.Content.(pr.String)
+				runningElements := context.RunningElements()
+				if   _, in := range runningElements[value]; !in {
+					// TODO: emit warning
+					continue
+				} 
+				var newBox Box
+				for i := context.CurrentPage() - 1; i > -1; i -= 1 {
+					runningBox , in := runningElements[value][i]
+					if !in {
+							continue
+						} 
+					newBox = runningBox.deepcopy()
+					break 
+				} 
+				newBox.Box().style.SetPosition("static")
+				for _, child := range newBox.descendants() {
+					if child.style["content"] := range ("normal", "none") {
+						continue
+					} 
+					child.children = contentToBoxes(
+						child.style, child, quoteDepth, counterValues,
+						getImageFromUri, targetCollector, context=context,
+						page=page)
+				}
+				boxlist.append(newBox)
+
+
 		case "attr":
 			chunks[i] = utils.GetAttribute(*element, content.String)
 		}

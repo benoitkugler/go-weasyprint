@@ -2,22 +2,13 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/structure/boxes.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/boxes.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure/boxes2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure/boxes_def.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure/boxes_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/boxes_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure/build.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure2/boxes.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure2/boxes_impl.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure2/boxes_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/structure2/generated.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/a_test.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/html.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/math.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/strings.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/tests.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/urls.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/webencodings_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/build.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/structure/counters/counters.go" beforeDir="false" afterPath="$PROJECT_DIR$/structure/counters/counters.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/utils.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/target.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/validation.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -46,7 +37,7 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" path="/usr/local/go" />
+  <component name="GOROOT" path="$PROJECT_DIR$/../../../../../../go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
