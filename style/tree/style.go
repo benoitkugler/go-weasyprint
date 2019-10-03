@@ -50,7 +50,7 @@ type StyleFor struct {
 	sheets         []sheet
 }
 
-func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *targetCollector) *StyleFor {
+func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *TargetCollector) *StyleFor {
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		cascadedStyles: cascadedStyles,
@@ -146,7 +146,7 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 // pseudo-element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
 func (self *StyleFor) setComputedStyles(element, parent element,
-	root *utils.HTMLNode, pseudoType, baseUrl string, targetCollector *targetCollector) {
+	root *utils.HTMLNode, pseudoType, baseUrl string, TargetCollector *TargetCollector) {
 
 	var parentStyle, rootStyle pr.Properties
 	if element == root && pseudoType == "" {
@@ -171,7 +171,7 @@ func (self *StyleFor) setComputedStyles(element, parent element,
 		cascaded = cascadedStyle{}
 	}
 	self.computedStyles[key] = ComputedFromCascaded(element, cascaded, parentStyle,
-		rootStyle, pseudoType, baseUrl, targetCollector)
+		rootStyle, pseudoType, baseUrl, TargetCollector)
 }
 
 func (s StyleFor) Get(element element, pseudoType string) pr.Properties {
@@ -673,7 +673,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *targetCollector) pr.Properties {
+func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
 	if cascaded == nil && parentStyle != nil {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
@@ -765,7 +765,7 @@ func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, 
 		specified["page"] = pr.ToC(val)
 	}
 
-	return compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, targetCollector)
+	return compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, TargetCollector)
 }
 
 // either a html node or a page type
@@ -1130,7 +1130,7 @@ type htmlLike interface {
 // presentationalHints=false
 func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules *[]pageRule, targetCollector *targetCollector) *StyleFor {
+	pageRules *[]pageRule, TargetCollector *TargetCollector) *StyleFor {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -1149,5 +1149,5 @@ func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	for _, sht := range userStylesheets {
 		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
-	return NewStyleFor(htmlElement, sheets, presentationalHints, targetCollector)
+	return NewStyleFor(htmlElement, sheets, presentationalHints, TargetCollector)
 }

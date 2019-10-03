@@ -416,6 +416,7 @@ class TextBox(InlineLevelBox):
 
     """
     justification_spacing = 0
+    text = ""
 
     # http://stackoverflow.com/questions/16317534/
     ascii_to_wide = dict((i, chr(i + 0xfee0)) for i in range(0x21, 0x7f))

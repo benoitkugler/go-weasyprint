@@ -13,8 +13,7 @@ const (
 // CssProperty is final form of a css input :
 // "var()", "attr()" and custom properties have been resolved.
 type CssProperty interface {
-	// Copy implements the deep copy of the property
-	Copy() CssProperty
+	isCssProperty()
 }
 
 // CascadedProperty may contain either a classic CSS property
@@ -112,7 +111,6 @@ func (p Properties) Keys() []string {
 }
 
 // Copy return a shallow copy.
-// TODO: simplify CssProperty interface.
 func (p Properties) Copy() Properties {
 	out := make(Properties, len(p))
 	for name, v := range p {

@@ -15,15 +15,12 @@ import (
 //:license: BSD, see LICENSE for details.
 
 type counterStyleDescriptor struct {
-	//negative [2]string
+	//negative [2]string // negative is constant
 
 	prefix   string
 	suffix   string
 	range_   [2]int
 	fallback string
-
-	//type_ string
-	//symbols TBD
 
 	formatter counterImplementation
 }
@@ -212,32 +209,6 @@ func repeating(symbols []string, value int) (string, bool) {
 
 }
 
-//// Implement the algorithm for `type: numeric`.
-//func numeric(symbols []string, value int) (string, bool) {
-//	if value == 0 {
-//		return symbols[0], true
-//
-//	}
-//	isNegative := value < 0
-//	var reversedParts []string
-//	value = abs(value)
-//	prefix, suffix := negative[0], negative[1]
-//	if isNegative {
-//		reversedParts = []string{suffix}
-//	}
-//	length := len(symbols)
-//	for value != 0 {
-//		reversedParts = append(reversedParts, symbols[value%length])
-//		value /= length
-//	}
-//	if isNegative {
-//		reversedParts = append(reversedParts, prefix)
-//
-//	}
-//	reverse(reversedParts)
-//	return strings.Join(reversedParts, ""), true
-//}
-
 // Implement the algorithm for `type: alphabetic`.
 func alphabetic(symbols []string, value int) (string, bool) {
 	if value <= 0 {
@@ -253,15 +224,6 @@ func alphabetic(symbols []string, value int) (string, bool) {
 	reverse(reversedParts)
 	return strings.Join(reversedParts, ""), true
 }
-
-//// Implement the algorithm for `type: symbolic`.
-//func symbolic(symbols []string, value int) (string, bool) {
-//	if value <= 0 {
-//		return "", false
-//	}
-//	length := len(symbols)
-//	return strings.Repeat(symbols[value%length], (value-1)/length), true
-//}
 
 // Implement the algorithm for `type: non-repeating`.
 func nonRepeating(symbols nonRepeatingSymbols, value int) (string, bool) {
@@ -337,7 +299,44 @@ func format(value int, counterStyle string) string {
 //
 //This is the same as :func:`format()`, but includes the counter’s
 //prefix and suffix.
-func formatListMarker(value int, counterStyle string) string {
+func FormatListMarker(value int, counterStyle string) string {
 	style := STYLES[counterStyle]
 	return style.prefix + format(value, counterStyle) + style.suffix
 }
+
+// ----------------- Unused formatters -------------------------------------------
+
+// // Implement the algorithm for `type: numeric`.
+// func numeric(symbols []string, value int) (string, bool) {
+// 	if value == 0 {
+// 		return symbols[0], true
+
+// 	}
+// 	isNegative := value < 0
+// 	var reversedParts []string
+// 	value = abs(value)
+// 	prefix, suffix := negative[0], negative[1]
+// 	if isNegative {
+// 		reversedParts = []string{suffix}
+// 	}
+// 	length := len(symbols)
+// 	for value != 0 {
+// 		reversedParts = append(reversedParts, symbols[value%length])
+// 		value /= length
+// 	}
+// 	if isNegative {
+// 		reversedParts = append(reversedParts, prefix)
+
+// 	}
+// 	reverse(reversedParts)
+// 	return strings.Join(reversedParts, ""), true
+// }
+
+//// Implement the algorithm for `type: symbolic`.
+//func symbolic(symbols []string, value int) (string, bool) {
+//	if value <= 0 {
+//		return "", false
+//	}
+//	length := len(symbols)
+//	return strings.Repeat(symbols[value%length], (value-1)/length), true
+//}

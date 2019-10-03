@@ -1,393 +1,460 @@
-// package structure
-
-// import (
-// 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-// 	"github.com/benoitkugler/go-weasyprint/utils"
-// )
-
-// //    Classes for all types of boxes in the CSS formatting structure / box model.
-// //
-// //    See http://www.w3.org/TR/CSS21/visuren.html
-// //
-// //    Names are the same as in CSS 2.1 with the exception of ``TextBox``. In
-// //    WeasyPrint, any text is in a ``TextBox``. What CSS calls anonymous
-// //    inline boxes are text boxes but not all text boxes are anonymous
-// //    inline boxes.
-// //
-// //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-// //
-// //    Abstract classes, should not be instantiated:
-// //
-// //    * Box
-// //    * BlockLevelBox
-// //    * InlineLevelBox
-// //    * BlockContainerBox
-// //    * ReplacedBox
-// //    * ParentBox
-// //    * AtomicInlineLevelBox
-// //
-// //    Concrete classes:
-// //
-// //    * PageBox
-// //    * BlockBox
-// //    * InlineBox
-// //    * InlineBlockBox
-// //    * BlockReplacedBox
-// //    * InlineReplacedBox
-// //    * TextBox
-// //    * LineBox
-// //    * Various table-related Box subclasses
-// //
-// //    All concrete box classes whose name contains "Inline" or "Block" have
-// //    one of the following "outside" behavior:
-// //
-// //    * Block-level (inherits from :class:`BlockLevelBox`)
-// //    * Inline-level (inherits from :class:`InlineLevelBox`)
-// //
-// //    and one of the following "inside" behavior:
-// //
-// //    * Block container (inherits from :class:`BlockContainerBox`)
-// //    * Inline content (InlineBox and :class:`TextBox`)
-// //    * Replaced content (inherits from :class:`ReplacedBox`)
-// //
-// //    ... with various combinations of both.
-// //
-// //    See respective docstrings for details.
-// //
-// //    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-// //    :license: BSD, see LICENSE for details.
-
-// // Box is the common interface grouping all possible boxes
-// // For commodity, we abreviate BoxInstance to Box.
-// type Box interface {
-// 	Box() *BoxFields
-// 	Copy() Box
-// 	removeDecoration(start, end bool)
-// 	Translate(float32, float32, bool)
-// }
-
-// // ParentBoxInstance represents ParentBox and its descendant
-// type ParentBoxInstance interface {
-// 	Box
-// 	isParentBoxInstance()
-// }
-
-// // BlockLevelBoxInstance represents BlockLevelBox and its descendant
-// type BlockLevelBoxInstance interface {
-// 	Box
-// 	isBlockLevelBoxInstance()
-// }
-
-// // BlockContainerBoxInstance represents BlockContainerBox and its descendant
-// type BlockContainerBoxInstance interface {
-// 	ParentBoxInstance
-// 	isBlockContainerBoxInstance()
-// }
-
-// // InlineLevelBoxInstance represents InlineLevelBox and its descendant
-// type InlineLevelBoxInstance interface {
-// 	Box
-// 	isInlineLevelBoxInstance()
-// }
-
-// // TableBoxInstance represents TableBox and its descendant
-// type TableBoxInstance interface {
-// 	BlockLevelBoxInstance
-// 	isParentBoxInstance()
-// 	isTableBoxInstance()
-// }
-
-// type FlexContainerBoxInstance interface {
-// 	ParentBoxInstance
-// 	isFlexContainerBoxInstance()
-// }
-
-// // ---------- Concrete types -------------------------------------
-
-// // ParentBox is a box that has children.
-// type ParentBox struct {
-// 	BoxFields
-// }
-
-// func (ParentBox) isParentBoxInstance() {}
-
-// func (b *ParentBox) Box() *BoxFields {
-// 	return &b.BoxFields
-// }
-
-// // BlockLevelBox is a box that participates in an block formatting context.
-// //An element with a ``display`` weight of ``block``, ``list-item`` or
-// //``table`` generates a block-level box.
-// type BlockLevelBox struct {
-// 	clearance interface{}
-// }
-
-// func (BlockLevelBox) isBlockLevelBoxInstance() {}
-
-// // BlockContainerBox is a box that contains only block-level boxes or only line boxes.
-// //
-// //A box that either contains only block-level boxes or establishes an inline
-// //formatting context and thus contains only line boxes.
-// //
-// //A non-replaced element with a ``display`` weight of ``block``,
-// //``list-item``, ``inline-block`` or 'table-cell' generates a block container
-// //box.
-// type BlockContainerBox struct {
-// 	ParentBox
-// }
-
-// func (BlockContainerBox) isBlockContainerBoxInstance() {}
-
-// // BlockBox is a block-level box that is also a block container.
-// //
-// //A non-replaced element with a ``display`` weight of ``block``, ``list-item``
-// //generates a block box.
-// type BlockBox struct {
-// 	BlockContainerBox
-// 	BlockLevelBox
-// }
-
-// // LineBox is a box that represents a line in an inline formatting context.
-// //
-// //Can only contain inline-level boxes.
-// //
-// //In early stages of building the box tree a single line box contains many
-// //consecutive inline boxes. Later, during layout phase, each line boxes will
-// //be split into multiple line boxes, one for each actual line.
-// type LineBox struct {
-// 	ParentBox
-
-// 	textOverflow pr.String // init:"clip"
-// }
-
-// // InlineLevelBox is a box that participates in an inline formatting context.
-// //
-// //An inline-level box that is not an inline box is said to be "atomic". Such
-// //boxes are inline blocks, replaced elements and inline tables.
-// //
-// //An element with a ``display`` weight of ``inline``, ``inline-table``, or
-// //``inline-block`` generates an inline-level box.
-// type InlineLevelBox struct {
-// 	BoxFields
-// }
-
-// func (InlineLevelBox) isInlineLevelBoxInstance() {}
-
-// func (b *InlineLevelBox) Box() *BoxFields {
-// 	return &b.BoxFields
-// }
-
-// // InlineBox is an inline box with inline children.
-// //
-// //A box that participates in an inline formatting context and whose content
-// //also participates in that inline formatting context.
-// //
-// //A non-replaced element with a ``display`` weight of ``inline`` generates an
-// //inline box.
-// type InlineBox struct {
-// 	InlineLevelBox
-// 	ParentBox
-// }
-
-// // TextBox is a box that contains only text and has no box children.
-// //
-// //Any text in the document ends up in a text box. What CSS calls "anonymous
-// //inline boxes" are also text boxes.
-// type TextBox struct {
-// 	InlineLevelBox
-
-// 	justificationSpacing int
-// 	text                 string
-
-// 	// constructor:elementTag string, style pr.Properties, text string
-// }
-
-// func (b *TextBox) Box() *BoxFields {
-// 	return &b.BoxFields
-// }
-
-// // AtomicInlineLevelBox is an atomic box in an inline formatting context.
-// // This inline-level box cannot be split for line breaks.
-// type AtomicInlineLevelBox struct {
-// 	InlineLevelBox
-// }
-
-// // InlineBlockBox is a box that is both inline-level and a block container.
-// // It behaves as inline on the outside and as a block on the inside.
-// // A non-replaced element with a 'display' weight of 'inline-block' generates
-// // an inline-block box.
-// type InlineBlockBox struct {
-// 	AtomicInlineLevelBox
-// 	BlockContainerBox
-// }
-
-// // ReplacedBox is a box whose content is replaced.
-// // For example, ``<img>`` are replaced: their content is rendered externally
-// // and is opaque from CSS’s point of view.
-// type ReplacedBox struct {
-// 	BoxFields
-
-// 	replacement pr.Image
-
-// 	// constructor:elementTag string, style pr.Properties, replacement pr.Image
-// }
-
-// func (b *ReplacedBox) Box() *BoxFields {
-// 	return &b.BoxFields
-// }
-
-// // BlockReplacedBox is a box that is both replaced and block-level.
-// // A replaced element with a ``display`` weight of ``block``, ``liste-item`` or
-// //``table`` generates a block-level replaced box.
-// type BlockReplacedBox struct {
-// 	ReplacedBox
-// 	BlockLevelBox
-
-// 	// constructor:elementTag string, style pr.Properties, replacement pr.Image
-// }
-
-// // InlineReplacedBox is a box that is both replaced and inline-level.
-// // A replaced element with a ``display`` weight of ``inline``,
-// //``inline-table``, or ``inline-block`` generates an inline-level replaced
-// //box.
-// type InlineReplacedBox struct {
-// 	ReplacedBox
-// 	AtomicInlineLevelBox
-
-// 	// constructor:elementTag string, style pr.Properties, replacement pr.Image
-// }
-
-// // TableBox is a box for elements with ``display: table``
-// type TableBox struct {
-// 	ParentBox
-// 	BlockLevelBox
-
-// 	//Definitions for the rules generating anonymous table boxes
-// 	//http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-// 	tabularContainer bool // init:true
-
-// 	columnGroups    []Box
-// 	columnPositions []float32
-// }
-
-// func (TableBox) isTableBoxInstance() {}
-
-// // InlineTableBox is a box for elements with ``display: inline-table``
-// type InlineTableBox struct {
-// 	TableBox
-// }
-
-// // TableRowGroupBox is a box for elements with ``display: table-row-group``
-// type TableRowGroupBox struct {
-// 	ParentBox
-
-// 	properTableChild       bool // init:true
-// 	internalTableOrCaption bool // init:true
-// 	tabularContainer       bool // init:true
-// 	//properParents = (TableBox, InlineTableBox)
-
-// 	// Default values. May be overriden on instances.
-// 	isHeader bool
-// 	isFooter bool
-// }
-
-// // TableRowBox is a box for elements with ``display: table-row``
-// type TableRowBox struct {
-// 	ParentBox
-
-// 	properTableChild       bool // init:true
-// 	internalTableOrCaption bool // init:true
-// 	tabularContainer       bool // init:true
-// 	//properParents = (TableBox, InlineTableBox, TableRowGroupBox)
-// }
-
-// // TableColumnGroupBox is a box for elements with ``display: table-column-group``
-// type TableColumnGroupBox struct {
-// 	ParentBox
-
-// 	properTableChild       bool // init:true
-// 	internalTableOrCaption bool // init:true
-// 	//properParents = (TableBox, InlineTableBox)
-
-// 	//Default weight. May be overriden on instances.
-// 	span int // init:1
-
-// 	//Columns groups never have margins or paddings
-// 	marginTop, marginBottom, marginLeft, marginRight     float64
-// 	paddingTop, paddingBottom, paddingLeft, paddingRight float64
-// }
-
-// // Not really a parent box, but pretending to be removes some corner cases.
-// // TableColumnBox is a box for elements with ``display: table-column``
-// type TableColumnBox struct {
-// 	ParentBox
-
-// 	properTableChild       bool // init:true
-// 	internalTableOrCaption bool // init:true
-// 	//properParents = (TableBox, InlineTableBox, TableColumnGroupBox)
-
-// 	//Default weight. May be overriden on instances.
-// 	span int // init:1
-
-// 	//Columns groups never have margins or paddings
-// 	marginTop, marginBottom, marginLeft, marginRight     float64
-// 	paddingTop, paddingBottom, paddingLeft, paddingRight float64
-// }
-
-// // TableCellBox is a box for elements with ``display: table-cell``
-// type TableCellBox struct {
-// 	BlockContainerBox
-
-// 	internalTableOrCaption bool // init:true
-// 	// Default values. May be overriden on instances.
-// 	colspan int // init:1
-// 	rowspan int // init:1
-// }
-
-// // TableCaptionBox is a box for elements with ``display: table-caption``
-// type TableCaptionBox struct {
-// 	BlockBox
-
-// 	properTableChild       bool // init:true
-// 	internalTableOrCaption bool // init:true
-// 	//properParents = (TableBox, InlineTableBox)
-// }
-
-// // PageBox is a box for a page
-// // Initially the whole document will be in the box for the root element.
-// //	During layout a new page box is created after every page break.
-// type PageBox struct {
-// 	ParentBox
-
-// 	pageType utils.PageElement
-// }
-
-// // MarginBox is a box in page margins, as defined in CSS3 Paged Media
-// type MarginBox struct {
-// 	BlockContainerBox
-
-// 	atKeyword string
-// }
-
-// // A box that contains only flex-items.
-// type FlexContainerBox struct {
-// 	ParentBox
-// }
-
-// func (FlexContainerBox) isFlexContainerBoxInstance() {}
-
-// // A box that is both block-level and a flex container.
-// //
-// // It behaves as block on the outside and as a flex container on the inside.
-// type FlexBox struct {
-// 	FlexContainerBox
-// 	BlockLevelBox
-// }
-
-// // A box that is both inline-level and a flex container.
-// //
-// // It behaves as inline on the outside and as a flex container on the inside.
-// type InlineFlexBox struct {
-// 	FlexContainerBox
-// 	InlineLevelBox
-// }
+package structure
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/benoitkugler/go-weasyprint/style/tree"
+
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/utils"
+)
+
+//    Classes for all types of boxes in the CSS formatting structure / box model.
+//
+//    See http://www.w3.org/TR/CSS21/visuren.html
+//
+//    Names are the same as in CSS 2.1 with the exception of ``TextBox``. In
+//    WeasyPrint, any text is in a ``TextBox``. What CSS calls anonymous
+//    inline boxes are text boxes but not all text boxes are anonymous
+//    inline boxes.
+//
+//    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
+//
+//    Abstract classes, should not be instantiated:
+//
+//    * Box
+//    * BlockLevelBox
+//    * InlineLevelBox
+//    * BlockContainerBox
+//    * ReplacedBox
+//    * ParentBox
+//    * AtomicInlineLevelBox
+//
+//    Concrete classes:
+//
+//    * PageBox
+//    * BlockBox
+//    * InlineBox
+//    * InlineBlockBox
+//    * BlockReplacedBox
+//    * InlineReplacedBox
+//    * TextBox
+//    * LineBox
+//    * Various table-related Box subclasses
+//
+//    All concrete box classes whose name contains "Inline" or "Block" have
+//    one of the following "outside" behavior:
+//
+//    * Block-level (inherits from :class:`BlockLevelBox`)
+//    * Inline-level (inherits from :class:`InlineLevelBox`)
+//
+//    and one of the following "inside" behavior:
+//
+//    * Block container (inherits from :class:`BlockContainerBox`)
+//    * Inline content (InlineBox and :class:`TextBox`)
+//    * Replaced content (inherits from :class:`ReplacedBox`)
+//
+//    ... with various combinations of both.
+//
+//    See respective docstrings for details.
+//
+//    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
+//    :license: BSD, see LICENSE for details.
+
+// http://stackoverflow.com/questions/16317534/
+var asciiToWide = map[rune]rune{}
+
+func init() {
+	for i := 33; i < 127; i++ {
+		asciiToWide[rune(i)] = rune(i + 0xfee0)
+	}
+	asciiToWide[0x20] = '\u3000'
+	asciiToWide[0x2D] = '\u2212'
+}
+
+type point [2]float32
+
+// Box is the common interface grouping all possible boxes
+type Box interface {
+	Box() *BoxFields
+	Copy() Box
+	String() string
+	allChildren() []Box
+	translate(box Box, dx float32, dy float32, ignoreFloats bool)
+	removeDecoration(box *BoxFields, isStart, isEnd bool)
+	pageValues() (pr.Page, pr.Page)
+}
+
+// BoxFields is an abstract base class for all boxes.
+type BoxFields struct {
+	// Keep track of removed collapsing spaces for wrap opportunities.
+	leadingCollapsibleSpace  bool
+	trailingCollapsibleSpace bool
+
+	// Default, may be overriden on instances.
+	isTableWrapper   bool
+	isFlexItem       bool
+	isForRootElement bool
+	isColumn         bool
+
+	isAttachment bool
+	// isListMarker         bool
+	transformationMatrix interface{}
+
+	bookmarkLabel pr.ContentProperties
+	stringSet     pr.StringSet
+
+	elementTag string
+	style      pr.Properties
+
+	firstLetterStyle, firstLineStyle pr.Properties
+
+	positionX, positionY float32
+
+	width, height float32
+
+	marginTop, marginBottom, marginLeft, marginRight float32
+
+	paddingTop, paddingBottom, paddingLeft, paddingRight float32
+
+	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float32
+
+	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
+
+	viewportOverflow string
+
+	children []Box
+	// outsideListMarker Box
+
+	cachedCounterValues tree.CounterValues
+}
+
+type TableFields struct {
+	properTableChild       bool
+	internalTableOrCaption bool
+	tabularContainer       bool
+	isHeader               bool
+	isFooter               bool
+
+	span    int
+	colspan int
+	rowspan int
+
+	columnGroups    []Box
+	columnPositions []float32
+}
+
+func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
+	return BoxFields{elementTag: elementTag, style: style, children: children}
+}
+
+// BoxType enables passing type as value
+type BoxType interface {
+	AnonymousFrom(parent Box, children []Box) Box
+
+	// Returns true if box is of type (or subtype) BoxType
+	IsInstance(box Box) bool
+}
+
+func (box *BoxFields) allChildren() []Box {
+	return box.children
+}
+
+func copyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box {
+	newBox := box.Copy()
+	newBox.Box().children = newChildren
+	if box.Box().style.GetBoxDecorationBreak() == "slice" {
+		newBox.removeDecoration(newBox.Box(), !isStart, !isEnd)
+	}
+	return newBox
+}
+
+func deepcopy(b Box) Box {
+	new := b.Copy()
+	newChildren := make([]Box, len(b.Box().children))
+	for i, c := range b.Box().children {
+		newChildren[i] = deepcopy(c)
+	}
+	new.Box().children = newChildren
+	return new
+}
+
+func descendants(b Box) []Box {
+	out := []Box{b}
+	for _, child := range b.Box().children {
+		out = append(out, descendants(child)...)
+	}
+	return out
+}
+
+func (b BoxFields) getWrappedTable() (InstanceTableBox, error) {
+	if b.isTableWrapper {
+		for _, child := range b.children {
+			if asTable, ok := child.(InstanceTableBox); ok {
+				return asTable, nil
+			}
+		}
+		return nil, errors.New("Table wrapper without a table")
+	}
+	return nil, nil
+}
+
+// Translate changes the box’s position.
+// Also update the children’s positions accordingly.
+func (BoxFields) translate(box Box, dx, dy float32, ignoreFloats bool) {
+	if dx == 0 && dy == 0 {
+		return
+	}
+	box.Box().positionX += dx
+	box.Box().positionY += dy
+	for _, child := range box.allChildren() {
+		if !(ignoreFloats && child.Box().isFloated()) {
+			child.translate(child, dx, dy, ignoreFloats)
+		}
+	}
+}
+
+// ---- Heights and widths -----
+
+// Width of the padding box.
+func (self BoxFields) paddingWidth() float32 {
+	return self.width + self.paddingLeft + self.paddingRight
+}
+
+// Height of the padding box.
+func (self BoxFields) paddingHeight() float32 {
+	return self.height + self.paddingTop + self.paddingBottom
+}
+
+// Width of the border box.
+func (self BoxFields) borderWidth() float32 {
+	return self.paddingWidth() + self.borderLeftWidth + self.borderRightWidth
+}
+
+// Height of the border box.
+func (self BoxFields) borderHeight() float32 {
+	return self.paddingHeight() + self.borderTopWidth + self.borderBottomWidth
+}
+
+// Width of the margin box (aka. outer box).
+func (self BoxFields) marginWidth() float32 {
+	return self.borderWidth() + self.marginLeft + self.marginRight
+}
+
+// Height of the margin box (aka. outer box).
+func (self BoxFields) marginHeight() float32 {
+	return self.borderHeight() + self.marginTop + self.marginBottom
+}
+
+// Corners positions
+
+// Absolute horizontal position of the content box.
+func (self BoxFields) contentBoxX() float32 {
+	return self.positionX + self.marginLeft + self.paddingLeft + self.borderLeftWidth
+}
+
+// Absolute vertical position of the content box.
+func (self BoxFields) contentBoxY() float32 {
+	return self.positionY + self.marginTop + self.paddingTop + self.borderTopWidth
+}
+
+// Absolute horizontal position of the padding box.
+func (self BoxFields) paddingBoxX() float32 {
+	return self.positionX + self.marginLeft + self.borderLeftWidth
+}
+
+// Absolute vertical position of the padding box.
+func (self BoxFields) paddingBoxY() float32 {
+	return self.positionY + self.marginTop + self.borderTopWidth
+}
+
+// Absolute horizontal position of the border box.
+func (self BoxFields) borderBoxX() float32 {
+	return self.positionX + self.marginLeft
+}
+
+// Absolute vertical position of the border box.
+func (self BoxFields) borderBoxY() float32 {
+	return self.positionY + self.marginTop
+}
+
+// Return the rectangle where the box is clickable."""
+// "Border area. That's the area that hit-testing is done on."
+// http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
+// TODO: manage the border radii, use outerBorderRadii instead
+func (self BoxFields) hitArea() (x float32, y float32, w float32, h float32) {
+	return self.borderBoxX(), self.borderBoxY(), self.borderWidth(), self.borderHeight()
+}
+
+type roundedBox struct {
+	x, y, width, height                        float32
+	topLeft, topRight, bottomRight, bottomLeft point
+}
+
+// Position, size and radii of a box inside the outer border box.
+//bt, br, bb, and bl are distances from the outer border box,
+//defining a rectangle to be rounded.
+func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
+	tlr := self.borderTopLeftRadius
+	trr := self.borderTopRightRadius
+	brr := self.borderBottomRightRadius
+	blr := self.borderBottomLeftRadius
+
+	tlrx := utils.Max(0, tlr[0]-bl)
+	tlry := utils.Max(0, tlr[1]-bt)
+	trrx := utils.Max(0, trr[0]-br)
+	trry := utils.Max(0, trr[1]-bt)
+	brrx := utils.Max(0, brr[0]-br)
+	brry := utils.Max(0, brr[1]-bb)
+	blrx := utils.Max(0, blr[0]-bl)
+	blry := utils.Max(0, blr[1]-bb)
+
+	x := self.borderBoxX() + bl
+	y := self.borderBoxY() + bt
+	width := self.borderWidth() - bl - br
+	height := self.borderHeight() - bt - bb
+
+	// Fix overlapping curves
+	//See http://www.w3.org/TR/css3-background/#corner-overlap
+	points := []point{
+		{width, tlrx + trrx},
+		{width, blrx + brrx},
+		{height, tlry + blry},
+		{height, trry + brry},
+	}
+	var ratio float32 = 1.
+	for _, point := range points {
+		if point[1] > 0 {
+			candidat := point[0] / point[1]
+			if candidat < ratio {
+				ratio = candidat
+			}
+		}
+	}
+	return roundedBox{x: x, y: y, width: width, height: height,
+		topLeft:     point{tlrx * ratio, tlry * ratio},
+		topRight:    point{trrx * ratio, trry * ratio},
+		bottomRight: point{brrx * ratio, brry * ratio},
+		bottomLeft:  point{blrx * ratio, blry * ratio},
+	}
+}
+
+func (self BoxFields) roundedBoxRatio(ratio float32) roundedBox {
+	return self.roundedBox(
+		self.borderTopWidth*ratio,
+		self.borderRightWidth*ratio,
+		self.borderBottomWidth*ratio,
+		self.borderLeftWidth*ratio)
+}
+
+// Return the position, size and radii of the rounded padding box.
+func (self BoxFields) roundedPaddingBox() roundedBox {
+	return self.roundedBox(
+		self.borderTopWidth,
+		self.borderRightWidth,
+		self.borderBottomWidth,
+		self.borderLeftWidth)
+}
+
+// Return the position, size and radii of the rounded border box.
+func (self BoxFields) roundedBorderBox() roundedBox {
+	return self.roundedBox(0, 0, 0, 0)
+}
+
+// Return the position, size and radii of the rounded content box.
+func (self BoxFields) roundedContentBox() roundedBox {
+	return self.roundedBox(
+		self.borderTopWidth+self.paddingTop,
+		self.borderRightWidth+self.paddingRight,
+		self.borderBottomWidth+self.paddingBottom,
+		self.borderLeftWidth+self.paddingLeft)
+}
+
+// Positioning schemes
+
+// Return whether this box is floated.
+func (self BoxFields) isFloated() bool {
+	return self.style.GetFloat() != "none"
+}
+
+// Return whether this box is in the absolute positioning scheme.
+func (self BoxFields) isAbsolutelyPositioned() bool {
+	pos := self.style.GetPosition()
+	return !pos.Bool && pos.String == "absolute" || pos.String == "fixed"
+}
+
+// Return whether this box is a running element.
+func (self BoxFields) isRunning() bool {
+	pos := self.style.GetPosition()
+	return pos.Bool && pos.String == "running()"
+}
+
+// Return whether this box is in normal flow.
+func (self BoxFields) isInNormalFlow() bool {
+	return !(self.isFloated() || self.isAbsolutelyPositioned() || self.isRunning())
+}
+
+// Start and end page values for named pages
+
+// Return start and end page values.
+func (b BoxFields) pageValues() (pr.Page, pr.Page) {
+	start := b.style.GetPage()
+	end := start
+	children := b.children
+	if len(children) > 0 {
+		startBox, endBox := children[0], children[len(children)-1]
+		childStart, _ := startBox.pageValues()
+		_, childEnd := endBox.pageValues()
+		if !childStart.IsNone() {
+			start = childStart
+		}
+		if !childEnd.IsNone() {
+			end = childEnd
+		}
+	}
+	return start, end
+}
+
+// Set to 0 the margin, padding and border of ``side``.
+func (self *BoxFields) resetSpacing(side string) {
+	self.style[fmt.Sprintf("margin_%s", side)] = pr.ZeroPixels.ToValue()
+	self.style[fmt.Sprintf("padding_%s", side)] = pr.ZeroPixels.ToValue()
+	self.style[fmt.Sprintf("border_%s_width", side)] = pr.FToV(0)
+
+	if side == "top" || side == "bottom" {
+		self.style[fmt.Sprintf("border_%s_left_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+		self.style[fmt.Sprintf("border_%s_right_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+	} else {
+		self.style[fmt.Sprintf("border_bottom_%s_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+		self.style[fmt.Sprintf("border_top_%s_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+	}
+
+	switch side {
+	case "top":
+		self.marginTop = 0
+		self.paddingTop = 0
+		self.borderTopWidth = 0
+	case "right":
+		self.marginRight = 0
+		self.paddingRight = 0
+		self.borderRightWidth = 0
+	case "left":
+		self.marginLeft = 0
+		self.paddingLeft = 0
+		self.borderLeftWidth = 0
+	case "bottom":
+		self.marginBottom = 0
+		self.paddingBottom = 0
+		self.borderBottomWidth = 0
+	}
+}
+
+func (BoxFields) removeDecoration(box *BoxFields, start, end bool) {
+	if start {
+		box.resetSpacing("top")
+	}
+	if end {
+		box.resetSpacing("bottom")
+	}
+}

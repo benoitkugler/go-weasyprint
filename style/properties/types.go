@@ -155,7 +155,7 @@ type SContentProps []SContentProp
 
 // guard for possible content properties
 type InnerContent interface {
-	copyAsInnerContent() InnerContent
+	isInnerContent()
 }
 
 type Unit uint8
@@ -180,7 +180,7 @@ type Quote struct {
 type Image interface {
 	// InnerContent
 	CssProperty
-	copyAsImage() Image
+	isImage()
 }
 
 type NoneImage struct{}

@@ -1,20 +1,9 @@
-// Set style for page types && pseudo-types matching ``pageType``.
-func setPageTypeComputedStyles(pageType, html, styleFor) {
-    styleFor.addPageDeclarations(pageType)
-} 
-    // Apply style for page
-    styleFor.setComputedStyles(
-        pageType,
-        // @page inherits from the root element {
-        } // http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
-        root=html.etreeElement, parent=html.etreeElement,
-        baseUrl=html.baseUrl)
-
-    // Apply style for page pseudo-elements (margin boxes)
-    for element, pseudoType := range styleFor.getCascadedStyles() {
-        if pseudoType && element == pageType {
-            styleFor.setComputedStyles(
-                element, pseudoType=pseudoType,
-                // The pseudo-element inherits from the element.
-                root=html.etreeElement, parent=element,
-                baseUrl=html.baseUrl)
+            image = getImageFromUri(uri)
+            if image is not None {
+                text = "".join(texts)
+                if text {
+                    boxlist.append(
+                        boxes.TextBox.anonymousFrom(parentBox, text))
+                } texts = []
+                boxlist.append(
+                    boxes.InlineReplacedBox.anonymousFrom(parentBox, image))

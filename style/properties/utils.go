@@ -57,22 +57,16 @@ func (s GradientSize) IsExplicit() bool {
 	return s.Keyword == ""
 }
 
-func (s AttrData) copy() AttrData {
-	out := s
-	s.Fallback = s.Fallback.Copy()
-	return out
-}
-
 // -------------- Images ------------------------
 
-func (i NoneImage) copyAsImage() Image      { return i }
-func (i UrlImage) copyAsImage() Image       { return i }
-func (i LinearGradient) copyAsImage() Image { return i.copy() }
-func (i RadialGradient) copyAsImage() Image { return i.copy() }
-func (i NoneImage) Copy() CssProperty       { return i.copyAsImage() }
-func (i UrlImage) Copy() CssProperty        { return i.copyAsImage() }
-func (i LinearGradient) Copy() CssProperty  { return i.copyAsImage() }
-func (i RadialGradient) Copy() CssProperty  { return i.copyAsImage() }
+func (i NoneImage) isCssProperty()      {}
+func (i UrlImage) isCssProperty()       {}
+func (i LinearGradient) isCssProperty() {}
+func (i RadialGradient) isCssProperty() {}
+func (i NoneImage) isImage()            {}
+func (i UrlImage) isImage()             {}
+func (i LinearGradient) isImage()       {}
+func (i RadialGradient) isImage()       {}
 
 // -------------------------- Content Property --------------------------
 // func (i NoneImage) copyAsInnerContent() InnerContent      { return i }
@@ -81,20 +75,20 @@ func (i RadialGradient) Copy() CssProperty  { return i.copyAsImage() }
 // func (i RadialGradient) copyAsInnerContent() InnerContent { return i.copy() }
 
 // contents,
-func (s String) copyAsInnerContent() InnerContent  { return s }
-func (s Strings) copyAsInnerContent() InnerContent { return s.copy() }
+func (s String) isInnerContent()  {}
+func (s Strings) isInnerContent() {}
 
 // target
-func (s SContentProps) copyAsInnerContent() InnerContent { return s.copy() }
+func (s SContentProps) isInnerContent() {}
 
 // url
-func (s NamedString) copyAsInnerContent() InnerContent { return s }
-func (s Dimension) copyAsInnerContent() InnerContent   { return s }
-func (s Float) copyAsInnerContent() InnerContent       { return s }
-func (s Int) copyAsInnerContent() InnerContent         { return s }
-func (s Color) copyAsInnerContent() InnerContent       { return s }
-func (s Quote) copyAsInnerContent() InnerContent       { return s }
-func (s AttrData) copyAsInnerContent() InnerContent    { return s.copy() }
+func (s NamedString) isInnerContent() {}
+func (s Dimension) isInnerContent()   {}
+func (s Float) isInnerContent()       {}
+func (s Int) isInnerContent()         {}
+func (s Color) isInnerContent()       {}
+func (s Quote) isInnerContent()       {}
+func (s AttrData) isInnerContent()    {}
 
 // ------------------------- Usefull for test ---------------------------
 
