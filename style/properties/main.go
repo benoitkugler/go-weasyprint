@@ -5,6 +5,8 @@
 //		ValidatedProperty (ComputedFromCascaded)-> CascadedPropery (Compute)-> CssProperty
 package properties
 
+import "github.com/benoitkugler/go-weasyprint/style/parser"
+
 const (
 	Inherit DefaultKind = iota + 1
 	Initial
@@ -117,4 +119,14 @@ func (p Properties) Copy() Properties {
 		out[name] = v
 	}
 	return out
+}
+
+// ResolveColor return the color for `key`, replacing
+// `currentColor` with p["color"]
+func (p Properties) ResolveColor(key string) Color {
+	value := p[key].(Color)
+	if value.Type == parser.ColorCurrentColor {
+		return p.GetColor()
+	}
+	return value
 }

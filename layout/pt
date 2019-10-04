@@ -1,14 +1,47 @@
-    if markerBoxes && len(box.children) == 1 {
-        // See https://www.w3.org/TR/css-lists-3/#list-style-position-outside
-        #
-        // "The size || contents of the marker box may affect the height of the
-        //  principal block box and/or the height of its first line box, && in
-        //  some cases may cause the creation of a new line box; this
-        //  interaction is also not defined."
-        #
-        // We decide here to add a zero-width space to have a minimum
-        // height. Adding text boxes is not the best idea, but it"s not a good
-        // moment to add an empty line box, && the specification lets us do
-        // almost what we want, so…
-        if style["listStylePosition"] == "outside" {
-            box.children.append(boxes.TextBox.anonymousFrom(box, "​"))
+// Remove && add boxes according to the flex model.
+//     Take && return a ``Box`` object.
+//     See http://www.w3.org/TR/css-flexbox-1/#flex-items
+//     
+func flexBoxes(box) {
+    if not isinstance(box, boxes.ParentBox) {
+        return box
+    }
+} 
+    // Do recursion.
+    children = [flexBoxes(child) for child := range box.children]
+    box.children = flexChildren(box, children)
+    return box
+
+
+func flexChildren(box, children) {
+    if isinstance(box, boxes.FlexContainerBox) {
+        flexChildren = []
+        for child := range children {
+            if not child.isAbsolutelyPositioned() {
+                child.isFlexItem = true
+            } if isinstance(child, boxes.TextBox) && not child.text.strip(" ") {
+                // TODO: ignore texts only containing "characters that can be
+                // affected by the white-space property"
+                // https://www.w3.org/TR/css-flexbox-1/#flex-items
+                continue
+            } if isinstance(child, boxes.InlineLevelBox) {
+                // TODO: Only create block boxes for text runs, not for other
+                // inline level boxes. This is false but currently needed
+                // because blockLevelWidth && blockLevelLayout are called
+                // := range layout.flex.
+                if isinstance(child, boxes.ParentBox) {
+                    anonymous = boxes.BlockBox.anonymousFrom(
+                        box, child.children)
+                    anonymous.style = child.style
+                } else {
+                    anonymous = boxes.BlockBox.anonymousFrom(box, [child])
+                } anonymous.isFlexItem = true
+                flexChildren.append(anonymous)
+            } else {
+                flexChildren.append(child)
+            }
+        } return flexChildren
+    } else {
+        return children
+    }
+} 

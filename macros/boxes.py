@@ -90,16 +90,13 @@ def genere_interface(class_name) -> str:
     type_methods = [f"is{class_name} ()"] + \
         [f'is{parent}()' for parent in parents if parent != "Box"]
 
-    normal_methods = []
+    # normal_methods = []
     # for owner, name, _ in expand_methods(class_name):
     #     if name != "__init__" and name != "__repr__" and owner != "Box" and not name in common_methods:
     #         _, sign, _ = outer_methods[(owner, to_camel_case(name))]
     #         normal_methods.append(sign)
 
-    if issubclass(class_by_name(class_name), source_box.TableBox):
-        normal_methods.append(" Table() *TableFields ")
-
-    s = "\n".join(type_methods) + "\n\n" + "\n".join(normal_methods)
+    s = "\n".join(type_methods)
 
     comment = format_comment(inspect.getdoc(class_by_name(class_name)))
 
@@ -120,10 +117,6 @@ def genere_interface(class_name) -> str:
     // Copy is a shallow copy
     func (b {class_name}) Copy() Box {{ return &b }}
     """
-    if issubclass(class_by_name(class_name), source_box.TableBox):
-        i += f"""
-        func (b *{class_name}) Table() *TableFields {{ return &b.TableFields }}
-        """
 
     if not class_name in ("MarginBox", "PageBox"):
         i += f"""

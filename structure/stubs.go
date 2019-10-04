@@ -82,9 +82,9 @@ type InstanceBlockContainerBox interface {
 // generates a block box.
 type InstanceBlockBox interface {
 	isBlockBox()
-	isBlockLevelBox()
 	isParentBox()
 	isBlockContainerBox()
+	isBlockLevelBox()
 }
 
 func (b *BlockBox) Box() *BoxFields { return &b.BoxFields }
@@ -160,8 +160,8 @@ type InstanceInlineLevelBox interface {
 // inline box.
 type InstanceInlineBox interface {
 	isInlineBox()
-	isInlineLevelBox()
 	isParentBox()
+	isInlineLevelBox()
 }
 
 func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
@@ -228,10 +228,10 @@ type InstanceAtomicInlineLevelBox interface {
 // an inline-block box.
 type InstanceInlineBlockBox interface {
 	isInlineBlockBox()
-	isInlineLevelBox()
-	isAtomicInlineLevelBox()
 	isParentBox()
 	isBlockContainerBox()
+	isAtomicInlineLevelBox()
+	isInlineLevelBox()
 }
 
 func (b *InlineBlockBox) Box() *BoxFields { return &b.BoxFields }
@@ -273,8 +273,8 @@ type InstanceReplacedBox interface {
 // ``table`` generates a block-level replaced box.
 type InstanceBlockReplacedBox interface {
 	isBlockReplacedBox()
-	isReplacedBox()
 	isBlockLevelBox()
+	isReplacedBox()
 }
 
 func (b *BlockReplacedBox) Box() *BoxFields { return &b.BoxFields }
@@ -299,9 +299,9 @@ func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *BlockRepla
 // box.
 type InstanceInlineReplacedBox interface {
 	isInlineReplacedBox()
+	isAtomicInlineLevelBox()
 	isReplacedBox()
 	isInlineLevelBox()
-	isAtomicInlineLevelBox()
 }
 
 func (b *InlineReplacedBox) Box() *BoxFields { return &b.BoxFields }
@@ -323,18 +323,14 @@ func InlineReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *InlineRep
 // Box for elements with ``display: table``
 type InstanceTableBox interface {
 	isTableBox()
-	isBlockLevelBox()
 	isParentBox()
-
-	Table() *TableFields
+	isBlockLevelBox()
 }
 
 func (b *TableBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
 func (b TableBox) Copy() Box { return &b }
-
-func (b *TableBox) Table() *TableFields { return &b.TableFields }
 
 func (b TableBox) String() string {
 	return fmt.Sprintf("<TableBox %s>", b.BoxFields.elementTag)
@@ -361,19 +357,15 @@ func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: inline-table``
 type InstanceInlineTableBox interface {
 	isInlineTableBox()
-	isBlockLevelBox()
 	isParentBox()
 	isTableBox()
-
-	Table() *TableFields
+	isBlockLevelBox()
 }
 
 func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
 func (b InlineTableBox) Copy() Box { return &b }
-
-func (b *InlineTableBox) Table() *TableFields { return &b.TableFields }
 
 func (b InlineTableBox) String() string {
 	return fmt.Sprintf("<InlineTableBox %s>", b.BoxFields.elementTag)
@@ -566,10 +558,10 @@ func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-caption``
 type InstanceTableCaptionBox interface {
 	isTableCaptionBox()
-	isBlockLevelBox()
 	isBlockBox()
 	isParentBox()
 	isBlockContainerBox()
+	isBlockLevelBox()
 }
 
 func (b *TableCaptionBox) Box() *BoxFields { return &b.BoxFields }
@@ -634,9 +626,9 @@ type InstanceFlexContainerBox interface {
 // It behaves as block on the outside and as a flex container on the inside.
 type InstanceFlexBox interface {
 	isFlexBox()
-	isBlockLevelBox()
-	isFlexContainerBox()
 	isParentBox()
+	isFlexContainerBox()
+	isBlockLevelBox()
 }
 
 func (b *FlexBox) Box() *BoxFields { return &b.BoxFields }
@@ -670,9 +662,9 @@ func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
 // It behaves as inline on the outside and as a flex container on the inside.
 type InstanceInlineFlexBox interface {
 	isInlineFlexBox()
-	isInlineLevelBox()
-	isFlexContainerBox()
 	isParentBox()
+	isFlexContainerBox()
+	isInlineLevelBox()
 }
 
 func (b *InlineFlexBox) Box() *BoxFields { return &b.BoxFields }

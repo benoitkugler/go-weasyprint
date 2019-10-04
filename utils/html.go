@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"unicode"
@@ -10,6 +11,7 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+// http://whatwg.org/C#space-character
 const htmlWhitespace = " \t\n\f\r"
 
 var (
@@ -212,4 +214,159 @@ func FindBaseUrl(htmlDocument *html.Node, fallbackBaseUrl string) string {
 		}
 	}
 	return fallbackBaseUrl
+}
+
+// Return whether the given element has a ``rel`` attribute with the
+// given link type (must be a lower-case string).
+func ElementHasLinkType(element *HTMLNode, linkType string) bool {
+	for _, token := range htmlSpaceSeparatedTokensRe.FindAllString(element.Get("rel"), -1) {
+		if AsciiLower(token) == linkType {
+			return true
+		}
+	}
+	return false
+}
+
+type HtmlMetadata struct {
+	title       string
+	description string
+	generator   string
+	keywords    []string
+	authors     []string
+	created     string
+	modified    string
+	attachments []Attachment
+}
+type Attachment struct {
+	Url, Title string
+}
+
+// Relevant specs:
+//     http://www.whatwg.org/html#the-title-element
+//     http://www.whatwg.org/html#standard-metadata-names
+//     http://wiki.whatwg.org/wiki/MetaExtensions
+//     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
+//
+func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) HtmlMetadata {
+	title := ""
+	description := ""
+	generator := ""
+	keywordsSet := map[string]bool{}
+	var authors []string
+	created := ""
+	modified := ""
+	var attachments []Attachment
+	iter := wrapperElement.Iter(atom.Title, atom.Meta, atom.Link)
+	for iter.HasNext() {
+		element := iter.Next()
+		switch element.DataAtom {
+		case atom.Title:
+			if title == "" {
+				title = element.GetChildText()
+			}
+		case atom.Meta:
+			name := AsciiLower(element.Get("name"))
+			content := element.Get("content")
+			switch name {
+			case "keywords":
+				for _, _keyword := range strings.Split(content, ",") {
+					keyword := stripWhitespace(_keyword)
+					keywordsSet[keyword] = true
+				}
+			case "author":
+				authors = append(authors, content)
+			case "description":
+				if description == "" {
+					description = content
+				}
+			case "generator":
+				if generator == "" {
+					generator = content
+				}
+			case "dcterms.created":
+				if created == "" {
+					created = parseW3cDate(name, content)
+				}
+			case "dcterms.modified":
+				if modified == "" {
+					modified = parseW3cDate(name, content)
+				}
+			}
+		case atom.Link:
+			if ElementHasLinkType(element, "attachment") {
+				url := element.GetUrlAttribute("href", baseUrl, false)
+				title := element.Get("title")
+				if url == "" {
+					log.Println("Missing href in <link rel='attachment'>")
+				} else {
+					attachments = append(attachments, Attachment{Url: url, Title: title})
+				}
+			}
+		}
+	}
+	keywords := make([]string, 0, len(keywordsSet))
+	for kw := range keywordsSet {
+		keywords = append(keywords, kw)
+	}
+	return HtmlMetadata{
+		title:       title,
+		description: description,
+		generator:   generator,
+		keywords:    keywords,
+		authors:     authors,
+		created:     created,
+		modified:    modified,
+		attachments: attachments,
+	}
+}
+
+// Use the HTML definition of "space character",
+//     not all Unicode Whitespace.
+//     http://www.whatwg.org/html#strip-leading-and-trailing-whitespace
+//     http://www.whatwg.org/html#space-character
+//
+func stripWhitespace(s string) string {
+	return strings.Trim(s, htmlWhitespace)
+}
+
+// YYYY (eg 1997)
+// YYYY-MM (eg 1997-07)
+// YYYY-MM-DD (eg 1997-07-16)
+// YYYY-MM-DDThh:mmTZD (eg 1997-07-16T19:20+01:00)
+// YYYY-MM-DDThh:mm:ssTZD (eg 1997-07-16T19:20:30+01:00)
+// YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
+var W3CDateRe = regexp.MustCompile(
+	`^` +
+		"[ \t\n\f\r]*" +
+		`(?P<year>\d\d\d\d)` +
+		`(?:` +
+		`-(?P<month>0\d|1[012])` +
+		`(?:` +
+		`-(?P<day>[012]\d|3[01])` +
+		`(?:` +
+		`T(?P<hour>[01]\d|2[0-3])` +
+		`:(?P<minute>[0-5]\d)` +
+		`(?:` +
+		`:(?P<second>[0-5]\d)` +
+		`(?:\.\d+)?` + // Second fraction, ignored
+		`)?` +
+		`(?:` +
+		`Z |` + //# UTC
+		`(?P<tzHour>[+-](?:[01]\d|2[0-3]))` +
+		`:(?P<tzMinute>[0-5]\d)` +
+		`)` +
+		`)?` +
+		`)?` +
+		`)?` +
+		"[ \t\n\f\r]*" +
+		`$`)
+
+// http://www.w3.org/TR/NOTE-datetime
+func parseW3cDate(metaName, s string) string {
+	if W3CDateRe.MatchString(s) {
+		return s
+	} else {
+		log.Printf("Invalid date in <meta name='%s'> %s \n", metaName, s)
+		return ""
+	}
 }

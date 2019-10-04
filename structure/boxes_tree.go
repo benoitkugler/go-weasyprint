@@ -83,7 +83,6 @@ type TableBox struct {
 	InstanceTableBox
 
 	BoxFields
-	TableFields
 }
 
 type InlineTableBox struct {
@@ -96,42 +95,36 @@ type TableRowGroupBox struct {
 	InstanceTableRowGroupBox
 
 	BoxFields
-	TableFields
 }
 
 type TableRowBox struct {
 	InstanceTableRowBox
 
 	BoxFields
-	TableFields
 }
 
 type TableColumnGroupBox struct {
 	InstanceTableColumnGroupBox
 
 	BoxFields
-	TableFields
 }
 
 type TableColumnBox struct {
 	InstanceTableColumnBox
 
 	BoxFields
-	TableFields
 }
 
 type TableCellBox struct {
 	InstanceTableCellBox
 
 	BoxFields
-	TableFields
 }
 
 type TableCaptionBox struct {
 	InstanceTableCaptionBox
 
 	BlockBox
-	TableFields
 }
 
 type PageBox struct {
@@ -161,19 +154,24 @@ type InlineFlexBox struct {
 	BoxFields
 }
 
+func IsParentBox(box Box) bool {
+	_, is := box.(InstanceParentBox)
+	return is
+}
+
 func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBox {
 	out := BlockBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }
 
-func LineBoxAnonymousFrom(parent Box, children []Box) LineBox {
+func LineBoxAnonymousFrom(parent Box, children []Box) *LineBox {
 	parentBox := parent.Box()
 	style := tree.ComputedFromCascaded(nil, nil, parentBox.style, nil, "", "", nil)
 	out := NewLineBox(parentBox.elementTag, style, children)
 	if parentBox.style.GetOverflow() != "visible" {
 		out.textOverflow = string(parentBox.style.GetTextOverflow())
 	}
-	return out
+	return &out
 }
 
 func NewLineBox(elementTag string, style pr.Properties, children []Box) LineBox {
@@ -292,18 +290,18 @@ func NewTableBox(elementTag string, style pr.Properties, children []Box) TableBo
 }
 
 func (b *TableBox) allChildren() []Box {
-	return append(b.Box().children, b.Table().columnGroups...)
+	return append(b.Box().children, b.columnGroups...)
 }
 
 func (b *TableBox) translate(box Box, dx float32, dy float32, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
-	table := b.Table()
+	table := b.Box()
 	for index, position := range table.columnPositions {
 		table.columnPositions[index] = position + dx
 	}
-	b.Box().translate(box, dx, dy, ignoreFloats)
+	table.translate(box, dx, dy, ignoreFloats)
 }
 
 func (b *TableBox) pageValues() (pr.Page, pr.Page) {

@@ -1,3 +1,6 @@
+// The formatting structure is a tree of boxes. It is either "before layout",
+// close to the element tree is it built from, or "after layout", with
+// line breaks and page breaks.
 package structure
 
 import (
@@ -99,7 +102,7 @@ type BoxFields struct {
 	isTableWrapper   bool
 	isFlexItem       bool
 	isForRootElement bool
-	isColumn         bool
+	// isColumn         bool
 
 	properTableChild       bool
 	internalTableOrCaption bool
@@ -107,7 +110,7 @@ type BoxFields struct {
 
 	isAttachment bool
 	// isListMarker         bool
-	transformationMatrix interface{}
+	// transformationMatrix interface{}
 
 	bookmarkLabel string
 
@@ -137,9 +140,7 @@ type BoxFields struct {
 
 	missingLink         tree.Box
 	cachedCounterValues tree.CounterValues
-}
 
-type TableFields struct {
 	isHeader bool
 	isFooter bool
 
@@ -147,8 +148,10 @@ type TableFields struct {
 	colspan int
 	rowspan int
 
-	columnGroups    []Box
-	columnPositions []float32
+	columnGroups        []Box
+	columnPositions     []float32
+	gridX               int
+	collapsedBorderGrid BorderGrids
 }
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
