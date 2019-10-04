@@ -58,8 +58,8 @@ func (h HTMLNode) Get(name string) string {
 	return ""
 }
 
-func (h *HTMLNode) Iter() HtmlIterator {
-	return NewHtmlIterator((*html.Node)(h))
+func (h *HTMLNode) Iter(tags ...atom.Atom) HtmlIterator {
+	return NewHtmlIterator((*html.Node)(h), tags...)
 }
 
 // ------------------------------------ html walk utilities ------------------------------------
@@ -134,6 +134,14 @@ func (element HTMLNode) NodeChildren(skipBlank bool) (children []*HTMLNode) {
 		child = child.NextSibling
 	}
 	return
+}
+
+// IsText returns true if the node is a non empty text node.
+func (element HTMLNode) IsText() (bool, string) {
+	if text := element.Data; element.Type == html.TextNode && text != "" {
+		return true, text
+	}
+	return false, ""
 }
 
 // GetChildText returns the text directly in the element, not descendants.

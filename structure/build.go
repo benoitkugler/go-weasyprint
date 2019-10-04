@@ -6,6 +6,10 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/benoitkugler/go-weasyprint/style/parser"
+
+	"github.com/benoitkugler/go-weasyprint/deprecated/css"
+
 	"github.com/benoitkugler/go-weasyprint/structure/counters"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -35,70 +39,51 @@ var (
 type Context interface {
 	RunningElements() map[string]map[int]Box
 	CurrentPage() int
+	GetStringSetFor(page *pr.Page, name string, keyword string) string
 }
 
 type stateShared struct {
 	quoteDepth    []int
 	counterValues tree.CounterValues
-	counterScopes [](map[string]bool)
+	counterScopes []pr.Set
 }
 
-// Maps values of the ``display`` CSS property to box types.
-func makeBox(elementTag string, style pr.Properties, content []Box) Box {
-	switch style.GetDisplay() {
-	case "block":
-		return NewBlockBox(elementTag, style, content)
-	case "list-item":
-		return NewBlockBox(elementTag, style, content)
-	case "inline":
-		return NewInlineBox(elementTag, style, content)
-	case "inline-block":
-		return NewInlineBlockBox(elementTag, style, content)
-	case "table":
-		return NewTableBox(elementTag, style, content)
-	case "inline-table":
-		return NewInlineTableBox(elementTag, style, content)
-	case "table-row":
-		return NewTableRowBox(elementTag, style, content)
-	case "table-row-group":
-		return NewTableRowGroupBox(elementTag, style, content)
-	case "table-header-group":
-		return NewTableRowGroupBox(elementTag, style, content)
-	case "table-footer-group":
-		return NewTableRowGroupBox(elementTag, style, content)
-	case "table-column":
-		return NewTableColumnBox(elementTag, style, content)
-	case "table-column-group":
-		return NewTableColumnGroupBox(elementTag, style, content)
-	case "table-cell":
-		return NewTableCellBox(elementTag, style, content)
-	case "table-caption":
-		return NewTableCaptionBox(elementTag, style, content)
+type gifu = func(url, forcedMimeType string) pr.Image
+
+type styleForI interface {
+	Get(element tree.Element, pseudoType string) pr.Properties
+}
+
+type rootStyleFor struct {
+	elementTree *utils.HTMLNode
+	tree.StyleFor
+}
+
+func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.Properties {
+	style := r.StyleFor.Get(element, pseudoType)
+	if len(style) > 0 {
+		if element == r.elementTree {
+			style.SetDisplay("block")
+		} else {
+			style.SetDisplay("none")
+		}
 	}
-	panic("display property not supported")
+	return style
 }
 
 // Build a formatting structure (box tree) from an element tree.
 func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri gifu, baseUrl string, targetCollector *tree.TargetCollector) Box {
-	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, nil)
+	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, targetCollector, nil)
 	var box Box
 	if len(boxList) > 0 {
 		box = boxList[0]
 	} else { //  No root element
-		rootStyleFor := func(element *utils.HTMLNode, pseudoType string) pr.Properties {
-			style := styleFor.Get(element, pseudoType)
-			if !style.IsZero() {
-				// TODO: we should check that the element has a parent instead.
-				if element.Data == "html" {
-					style.Strings["display"] = "block"
-				} else {
-					style.Strings["display"] = "none"
-				}
-			}
-			return style
-		}
-		box = elementToBox(elementTree, rootStyleFor, getImageFromUri, baseUrl, nil)[0]
+		rsf := rootStyleFor{elementTree: elementTree, StyleFor: styleFor}
+		box = elementToBox(elementTree, rsf, getImageFromUri, baseUrl, targetCollector, nil)[0]
 	}
+
+	targetCollector.CheckPendingTargets()
+
 	box.Box().isForRootElement = true
 	// If this is changed, maybe update layout.pages.makeMarginBoxes()
 	processWhitespace(box, false)
@@ -107,6 +92,48 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 	box = blockInInline(box)
 	box = setViewportOverflow(box)
 	return box
+}
+
+// Maps values of the ``display`` CSS property to box types.
+func makeBox(elementTag string, style pr.Properties, content []Box) Box {
+	switch style.GetDisplay() {
+	case "block", "list-item":
+		b := NewBlockBox(elementTag, style, content)
+		return &b
+	case "inline":
+		b := NewInlineBox(elementTag, style, content)
+		return &b
+	case "inline-block":
+		b := NewInlineBlockBox(elementTag, style, content)
+		return &b
+	case "table":
+		b := NewTableBox(elementTag, style, content)
+		return &b
+	case "inline-table":
+		b := NewInlineTableBox(elementTag, style, content)
+		return &b
+	case "table-row":
+		b := NewTableRowBox(elementTag, style, content)
+		return &b
+	case "table-row-group", "table-header-group", "table-footer-group":
+		b := NewTableRowGroupBox(elementTag, style, content)
+		return &b
+	case "table-column":
+		b := NewTableColumnBox(elementTag, style, content)
+		return &b
+	case "table-column-group":
+		b := NewTableColumnGroupBox(elementTag, style, content)
+		return &b
+	case "table-cell":
+		b := NewTableCellBox(elementTag, style, content)
+		return &b
+	case "table-caption":
+		b := NewTableCaptionBox(elementTag, style, content)
+		return &b
+	default:
+		log.Fatalf("display property %s not supported", style.GetDisplay())
+		return nil
+	}
 }
 
 // Convert an element and its children into a box with children.
@@ -130,7 +157,7 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 //
 //    ``TextBox``es are anonymous inline boxes:
 //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
-func elementToBox(element *utils.HTMLNode, styleFor tree.StyleFor,
+func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	getImageFromUri gifu, baseUrl string, targetCollector *tree.TargetCollector, state *stateShared) []Box {
 
 	if element.Type != html.TextNode && element.Type != html.ElementNode && element.Type != html.DocumentNode {
@@ -155,8 +182,8 @@ func elementToBox(element *utils.HTMLNode, styleFor tree.StyleFor,
 			// Shared mutable objects:
 			quoteDepth:    []int{0},             // single integer
 			counterValues: tree.CounterValues{}, // name -> stacked/scoped values
-			counterScopes: []map[string]bool{ //  element tree depths -> counter names
-				map[string]bool{},
+			counterScopes: []pr.Set{ //  element tree depths -> counter names
+				pr.Set{},
 			},
 		}
 	}
@@ -166,7 +193,7 @@ func elementToBox(element *utils.HTMLNode, styleFor tree.StyleFor,
 	updateCounters(state, style)
 	// If this element’s direct children create new scopes, the counter
 	// names will be in this new list
-	state.counterScopes = append(state.counterScopes, map[string]bool{})
+	state.counterScopes = append(state.counterScopes, pr.Set{})
 
 	box.Box().firstLetterStyle = styleFor.Get(element, "first-letter")
 	box.Box().firstLineStyle = styleFor.Get(element, "first-line")
@@ -181,35 +208,75 @@ func elementToBox(element *utils.HTMLNode, styleFor tree.StyleFor,
 	}
 
 	children = append(children, beforeAfterToBox(element, "before", state, styleFor, getImageFromUri, targetCollector)...)
-	if element.Type == html.TextNode {
-		children = append(children, TextBoxAnonymousFrom(box, element.Data))
+
+	// collect anchor's counter_values, maybe it's a target.
+	// to get the spec-conform counter_values we must do it here,
+	// after the ::before is parsed and before the ::after is
+	if anchor := style.GetAnchor(); !anchor.IsNone() {
+		targetCollector.StoreTarget(anchor.String, counterValues, box)
 	}
 
-	for _, childElement := range utils.NodeChildren(*element) {
-		children = append(children, elementToBox(childElement, styleFor, getImageFromUri, baseUrl, state)...)
-		// utils.HTMLNode as no notion of tail. Instead, text are converted in text nodes
+	if text := element.Data; element.Type == html.TextNode && text != "" {
+		children = append(children, TextBoxAnonymousFrom(box, text))
 	}
-	children = append(children, beforeAfterToBox(element, "after", state, styleFor, getImageFromUri)...)
+
+	for _, childElement := range element.NodeChildren(false) {
+		// utils.HTMLNode as no notion of tail. Instead, text are converted in text nodes
+		if ok, text := childElement.IsText(); ok && text != "" {
+			textBox := TextBoxAnonymousFrom(box, text)
+			if len(children) > 0 {
+				// TextBox is a leaf in inheritance tree, so we can type assert against the concrete type
+				// instead of using interfaces.
+				if ct, ok := children[len(children)-1].(*TextBox); ok {
+					ct.text += textBox.text
+				} else {
+					children = append(children, textBox)
+				}
+			} else {
+				children = append(children, textBox)
+			}
+		} else {
+			children = append(children, elementToBox(childElement, styleFor, getImageFromUri, baseUrl, targetCollector, state)...)
+		}
+	}
+	children = append(children, beforeAfterToBox(element, "after", state, styleFor, getImageFromUri, targetCollector)...)
 
 	// Scopes created by this element’s children stop here.
 	cs := state.counterScopes[len(state.counterScopes)-1]
 	state.counterScopes = state.counterScopes[:len(state.counterScopes)-2]
 	for name := range cs {
-		counterValues[name] = counterValues[name][:len(state.counterScopes)-2]
+		counterValues[name] = counterValues[name][:len(counterValues[name])-2]
 		if len(counterValues[name]) == 0 {
 			delete(counterValues, name)
 		}
 	}
 	box.Box().children = children
-	setContentLists(element, box, style, counterValues)
+	// calculate string-set and bookmark-label
+	setContentLists(element, box, style, counterValues, targetCollector)
+
+	if len(markerBoxes) > 0 && len(box.Box().children) == 1 {
+		// See https://www.w3.org/TR/css-lists-3/#list-style-position-outside
+		//
+		// "The size or contents of the marker box may affect the height of the
+		//  principal block box and/or the height of its first line box, and in
+		//  some cases may cause the creation of a new line box; this
+		//  interaction is also not defined."
+		//
+		// We decide here to add a zero-width space to have a minimum
+		// height. Adding text boxes is not the best idea, but it's not a good
+		// moment to add an empty line box, and the specification lets us do
+		// almost what we want, so…
+		if style.GetListStylePosition() == "outside" {
+			box.Box().children = append(box.Box().children, TextBoxAnonymousFrom(box, "​"))
+		}
+	}
 
 	// Specific handling for the element. (eg. replaced element)
-	return HandleElement(element, box, getImageFromUri, baseUrl)
-
+	return handleElement(element, box, getImageFromUri, baseUrl)
 }
 
 // Yield the box for ::before or ::after pseudo-element.
-func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *stateShared, styleFor tree.StyleFor,
+func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *stateShared, styleFor styleForI,
 	getImageFromUri gifu, targetCollector *tree.TargetCollector) []Box {
 
 	style := styleFor.Get(element, pseudoType)
@@ -246,18 +313,351 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *stateSh
 	return []Box{box}
 }
 
+// Yield the box for ::marker pseudo-element if there is one.
+// https://drafts.csswg.org/css-lists-3/#marker-pseudo
+func markerToBox(element *utils.HTMLNode, state *stateShared, parentStyle pr.Properties, styleFor styleForI,
+	getImageFromUri gifu, targetCollector *tree.TargetCollector) Box {
+	style := styleFor.Get(element, "marker")
+
+	// TODO: should be the computed value. When does the used value for
+	// `display` differ from the computer value? It's at least wrong for
+	// `content` where 'normal' computes as 'inhibit' for pseudo elements.
+
+	box := makeBox(element.Data+"::marker", style, nil)
+	children := &box.Box().children
+
+	if style.GetDisplay() == "none" {
+		return nil
+	}
+
+	image := style.GetListStyleImage()
+
+	if content := style.GetContent().String; content != "normal" && content != "inhibit" {
+		*children = append(*children, contentToBoxes(style, box, state.quoteDepth, state.counterValues,
+			getImageFromUri, targetCollector, nil, nil)...)
+	} else {
+		if imageUrl, ok := image.(pr.UrlImage); ok {
+			// image may be None here too, in case the image is not available.
+			image = getImageFromUri(string(imageUrl), "")
+			if image != nil {
+				markerBox := InlineReplacedBoxAnonymousFrom(box, image)
+				*children = append(*children, markerBox)
+			}
+		}
+		if len(*children) == 0 && style.GetListStyleType() != "none" {
+			counterValue_, has := state.counterValues["list-item"]
+			if !has {
+				counterValue_ = []int{0}
+			}
+			counterValue := counterValue_[len(counterValue_)-1]
+			// TODO: rtl numbered list has the dot on the left
+			markerText := counters.FormatListMarker(counterValue, string(style.GetListStyleType()))
+			markerBox := TextBoxAnonymousFrom(box, markerText)
+			markerBox.Box().style.SetWhiteSpace("pre-wrap")
+			*children = append(*children, markerBox)
+		}
+	}
+
+	if len(*children) == 0 {
+		return nil
+	}
+	var markerBox Box
+	if parentStyle.GetListStylePosition() == "outside" {
+		markerBox = BlockBoxAnonymousFrom(box, *children)
+		// We can safely edit everything that can't be changed by user style
+		// See https://drafts.csswg.org/css-pseudo-4/#marker-pseudo
+		markerBox.Box().style.SetPosition(pr.BoolString{String: "absolute"})
+		translateX := pr.Dimension{Value: 100, Unit: pr.Percentage}
+		if parentStyle.GetDirection() == "ltr" {
+			translateX = pr.Dimension{Value: -100, Unit: pr.Percentage}
+		}
+		translateY := pr.ZeroPixels
+		markerBox.Box().style.SetTransform(pr.Transforms{{String: "translate", Dimensions: pr.Dimensions{translateX, translateY}}})
+	} else {
+		markerBox = InlineBoxAnonymousFrom(box, *children)
+	}
+	return markerBox
+}
+
+// Collect missing counters.
+func collectMissingCounter(counterName string, counterValues tree.CounterValues, missingCounters pr.Set) {
+	for s := range counterValues {
+		if s == counterName {
+			return
+		}
+	}
+	for s := range missingCounters {
+		if s == counterName {
+			return
+		}
+	}
+	missingCounters.Add(counterName)
+}
+
+// Collect missing target counters.
+//
+// The corresponding TargetLookupItem caches the target"s page based
+// counter values during pagination.
+func collectMissingTargetCounter(counterName string, lookupCounterValues tree.CounterValues,
+	anchorName string, missingTargetCounters map[string]pr.Set) {
+
+	if _, in := lookupCounterValues[counterName]; !in {
+		missingCounters := missingTargetCounters[anchorName]
+		for s := range missingCounters {
+			if counterName == s {
+				return
+			}
+		}
+		missingCounters.Add(counterName)
+		missingTargetCounters[anchorName] = missingCounters
+	}
+}
+
+// Compute and return the boxes corresponding to the ``content_list``.
+//
+// ``parse_again`` is called to compute the ``content_list`` again when
+// ``target_collector.lookup_target()`` detected a pending target.
+//
+// ``build_formatting_structure`` calls
+// ``target_collector.check_pending_targets()`` after the first pass to do
+// required reparsing.
+func computeContentList(contentList pr.ContentProperties, parentBox Box, counterValues tree.CounterValues,
+	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector,
+	getImageFromUri gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page *pr.Page, element *utils.HTMLNode) []Box {
+
+	// TODO: Some computation done here may be done in computed_values
+	// instead. We currently miss at least style_for, counters and quotes
+	// context in computer. Some work will still need to be done here though,
+	// like box creation for URIs.
+	boxlist := []Box{}
+	var texts []string
+
+	missingCounters := pr.Set{}
+	missingTargetCounters := map[string]pr.Set{}
+	inPageContext := context != nil && page != nil
+
+	// Collect missing counters during build_formatting_structure.
+	// Pointless to collect missing target counters in MarginBoxes.
+	needCollectMissing := targetCollector.IsCollecting() && !inPageContext
+
+	// TODO: remove attribute or set a default value in Box class
+	if parentBox.Box().cachedCounterValues == nil {
+		// Store the counter_values in the parent_box to make them accessible
+		// in @page context. Obsoletes the parse_again function's deepcopy.
+		// TODO: Is propbably superfluous inPageContext.
+		parentBox.Box().cachedCounterValues = counterValues.Copy()
+	}
+
+	chunks := make([]string, len(contentList))
+mainLoop:
+	for i, content := range contentList {
+		switch content.Type {
+		case "string":
+			chunks[i] = content.AsString()
+		case "url":
+			if getImageFromUri != nil {
+				value := content.Content.(pr.NamedString)
+				if value.Name != "external" {
+					// Embedding internal references is impossible
+					continue
+				}
+				image := getImageFromUri(value.String, "")
+				if image != nil {
+					text := strings.Join(texts, "")
+					if text != "" {
+						boxlist = append(boxlist, TextBoxAnonymousFrom(parentBox, text))
+					}
+					texts = nil
+					boxlist = append(boxlist, InlineReplacedBoxAnonymousFrom(parentBox, image))
+				}
+			}
+		case "content()":
+			addedText := textContentExtractors[content.AsString()](parentBox)
+			// Simulate the step of white space processing
+			// (normally done during the layout)
+			addedText = strings.TrimSpace(addedText)
+			chunks[i] = addedText
+		case "counter()":
+			counterName, counterStyle := content.AsCounter()
+			if needCollectMissing {
+				collectMissingCounter(counterName, counterValues, missingCounters)
+			}
+			cv, has := counterValues[counterName]
+			if !has {
+				cv = []int{0}
+			}
+			counterValue := cv[len(cv)-1]
+			chunks[i] = counters.Format(counterValue, counterStyle)
+		case "counters()":
+			counterName, separator, counterStyle := content.AsCounters()
+			if needCollectMissing {
+				collectMissingCounter(counterName, counterValues, missingCounters)
+			}
+			vs, has := counterValues[counterName]
+			if !has {
+				vs = []int{0}
+			}
+			cs := make([]string, len(vs))
+			for i, counterValue := range vs {
+				cs[i] = counters.Format(counterValue, counterStyle)
+			}
+			chunks[i] = strings.Join(cs, separator)
+		case "string()":
+			value := content.AsStrings()
+			if inPageContext {
+				if len(value) == 1 {
+					value = append(value, "first")
+				}
+				texts[i] = context.GetStringSetFor(page, value[0], value[1])
+			} else {
+				// string() is currently only valid in @page context
+				// See https://github.com/Kozea/WeasyPrint/issues/723
+				log.Printf("'string(%s)' is only allowed in page margins", strings.Join(value, " "))
+			}
+		case "target-counter()":
+			anchorToken, counterName, counterStyle := content.AsTargetCounter()
+			lookupTarget := targetCollector.LookupTarget(anchorToken, parentBox, cssToken, parseAgain)
+			if lookupTarget.IsUpToDate() {
+				targetValues := lookupTarget.TargetBox.CachedCounterValues()
+				if needCollectMissing {
+					collectMissingTargetCounter(counterName, targetValues,
+						tree.AnchorNameFromToken(anchorToken),
+						missingTargetCounters)
+				}
+				// Mixin target"s cached page counters.
+				// cachedPageCounterValues are empty during layout.
+				localCounters := lookupTarget.CachedPageCounterValues.Copy()
+				localCounters.Update(targetValues)
+				vs, has := localCounters[counterName]
+				if !has {
+					vs = []int{0}
+				}
+				counterValue := vs[len(vs)-1]
+				texts[i] = counters.Format(counterValue, counterStyle)
+			} else {
+				texts = nil
+				break mainLoop
+			}
+		case "target-counters()":
+			anchorToken, counterName, separator, counterStyle := content.AsTargetCounters()
+			lookupTarget := targetCollector.LookupTarget(
+				anchorToken, parentBox, cssToken, parseAgain)
+			if lookupTarget.IsUpToDate() {
+				if separator.Type != "string" {
+					break mainLoop
+				}
+				separatorString := separator.AsString()
+				targetValues := lookupTarget.TargetBox.CachedCounterValues()
+				if needCollectMissing {
+					collectMissingTargetCounter(
+						counterName, targetValues,
+						tree.AnchorNameFromToken(anchorToken),
+						missingTargetCounters)
+				}
+				// Mixin target"s cached page counters.
+				// cachedPageCounterValues are empty during layout.
+				localCounters := lookupTarget.CachedPageCounterValues.Copy()
+				localCounters.Update(targetValues)
+				vs, has := localCounters[counterName]
+				if !has {
+					vs = []int{0}
+				}
+				tmps := make([]string, len(vs))
+				for j, counterValue := range vs {
+					tmps[j] = counters.Format(counterValue, counterStyle)
+				}
+				texts[i] = strings.Join(tmps, separatorString)
+			} else {
+				texts = nil
+				break mainLoop
+			}
+		case "target-text()":
+			anchorToken, textStyle := content.AsTargetText()
+			lookupTarget := targetCollector.LookupTarget(
+				anchorToken, parentBox, cssToken, parseAgain)
+			if lookupTarget.IsUpToDate() {
+				targetBox := lookupTarget.TargetBox
+				// TODO: "before"- && "after"- content referring missing
+				// counters are not properly set.
+				text := textContentExtractors[textStyle](targetBox.(Box))
+				// Simulate the step of white space processing
+				// (normally done during the layout)
+				texts[i] = strings.TrimSpace(text)
+			} else {
+				texts = nil
+				break mainLoop
+			}
+		case "quote":
+			if quoteDepth != nil && !quoteStyle.IsNone() {
+				value := content.AsQuote()
+				isOpen := value.Open
+				insert := value.Insert
+				if !isOpen {
+					quoteDepth[0] = utils.MaxInt(0, quoteDepth[0]-1)
+				}
+				if insert {
+					openQuotes, closeQuotes := quoteStyle.Open, quoteStyle.Close
+					quotes := closeQuotes
+					if isOpen {
+						quotes = openQuotes
+					}
+					texts[i] = quotes[utils.MinInt(quoteDepth[0], len(quotes)-1)]
+				}
+				if isOpen {
+					quoteDepth[0] += 1
+				}
+			}
+		case "element()":
+			value := content.AsString()
+			runningElements := context.RunningElements()
+			if _, in := runningElements[value]; !in {
+				// TODO: emit warning
+				continue
+			}
+			var newBox Box
+			for i := context.CurrentPage() - 1; i > -1; i -= 1 {
+				runningBox, in := runningElements[value][i]
+				if !in {
+					continue
+				}
+				newBox = deepcopy(runningBox)
+				break
+			}
+			newBox.Box().style.SetPosition(pr.BoolString{String: "static"})
+			for _, child := range descendants(newBox) {
+				if content := child.Box().style.GetContent(); content.String == "normal" || content.String == "none" {
+					continue
+				}
+				child.Box().children = contentToBoxes(
+					child.Box().style, child, quoteDepth, counterValues,
+					getImageFromUri, targetCollector, context, page)
+			}
+			boxlist = append(boxlist, newBox)
+		}
+	}
+	text := strings.Join(texts, "")
+	if text != "" {
+		boxlist = append(boxlist, TextBoxAnonymousFrom(parentBox, text))
+		// Only add CounterLookupItem if the content_list actually produced text
+		targetCollector.CollectMissingCounters(
+			parentBox, cssToken, parseAgain, missingCounters, missingTargetCounters)
+	}
+	if text != "" || len(boxlist) > 0 {
+		return boxlist
+	}
+	return nil
+}
+
 // Takes the value of a ``content`` property and yield boxes.
 func contentToBoxes(style pr.Properties, parentBox Box, quoteDepth []int, counterValues tree.CounterValues,
-	getImageFromUri gifu, targetCollector *tree.TargetCollector, context, page interface{}) []Box {
+	getImageFromUri gifu, targetCollector *tree.TargetCollector, context Context, page *pr.Page) []Box {
+	origQuoteDepth := make([]int, len(quoteDepth))
 
 	// Closure to parse the ``parentBoxes`` children all again.
 	parseAgain := func(mixinPagebasedCounters tree.CounterValues) {
 		// Neither alters the mixed-in nor the cached counter values, no
 		// need to deepcopy here
-		localCounters := tree.CounterValues{}
-		for k, v := range mixinPagebasedCounters {
-			localCounters[k] = v
-		}
+		localCounters := mixinPagebasedCounters.Copy()
 		for k, v := range parentBox.Box().cachedCounterValues {
 			localCounters[k] = v
 		}
@@ -283,84 +683,196 @@ func contentToBoxes(style pr.Properties, parentBox Box, quoteDepth []int, counte
 		return nil
 	}
 
-	origQuoteDepth := make([]int, len(quoteDepth))
 	for i, v := range quoteDepth {
 		origQuoteDepth[i] = v
 	}
-	cssToken = "content"
+	cssToken := "content"
 	boxList := computeContentList(
-		style.GetContent(), parentBox, counterValues, cssToken, parseAgain,
+		style.GetContent().Contents, parentBox, counterValues, cssToken, parseAgain,
 		targetCollector, getImageFromUri, quoteDepth, style.GetQuotes(),
 		context, page, nil)
 	return boxList
 }
 
-var (
-	reLineFeeds     = regexp.MustCompile(`\r\n?`)
-	reSpaceCollapse = regexp.MustCompile(`[\t ]*\n[\t ]*`)
-	reSpace         = regexp.MustCompile(` +`)
-)
+// Parse the content-list value of ``stringName`` for ``string-set``.
+func computeStringSet(element *utils.HTMLNode, box Box, stringName string, contentList pr.ContentProperties,
+	counterValues tree.CounterValues, targetCollector *tree.TargetCollector) {
 
-// First part of "The 'white-space' processing model".
-// See http://www.w3.org/TR/CSS21/text.html#white-space-model
-// http://dev.w3.org/csswg/css3-text/#white-space-rules
-func processWhitespace(_box Box, followingCollapsibleSpace bool) bool {
-	box, isTextBox := _box.(*TextBox)
-	if isTextBox {
-		text := box.text
-		if text == "" {
-			return followingCollapsibleSpace
+	// Closure to parse the string-set string value all again.
+	parseAgain := func(mixinPagebasedCounters tree.CounterValues) {
+		// Neither alters the mixed-in nor the cached counter values, no
+		// need to deepcopy here
+		localCounters := mixinPagebasedCounters.Copy()
+		for k, v := range box.Box().cachedCounterValues {
+			localCounters[k] = v
 		}
 
-		// Normalize line feeds
-		text = reLineFeeds.ReplaceAllString(text, "\n")
+		computeStringSet(element, box, stringName, contentList, localCounters, targetCollector)
+	}
 
-		styleWhiteSpace := box.style.Strings["white_space"]
-		newLineCollapse := styleWhiteSpace == "normal" || styleWhiteSpace == "nowrap"
-		spaceCollapse := styleWhiteSpace == "normal" || styleWhiteSpace == "nowrap" || styleWhiteSpace == "pre-line"
-
-		if spaceCollapse {
-			// \r characters were removed/converted earlier
-			text = reSpaceCollapse.ReplaceAllString(text, "\n")
-		}
-
-		if newLineCollapse {
-			// TODO: this should be language-specific
-			// Could also replace with a zero width space character (U+200B),
-			// or no character
-			// CSS3: http://www.w3.org/TR/css3-text/#line-break-transform
-			text = strings.ReplaceAll(text, "\n", " ")
-		}
-		if spaceCollapse {
-			text = strings.ReplaceAll(text, "\t", " ")
-			text = reSpace.ReplaceAllString(text, " ")
-			previousText := text
-			if followingCollapsibleSpace && strings.HasPrefix(text, " ") {
-				text = text[1:]
-				box.leadingCollapsibleSpace = true
+	cssToken := "string-set::" + stringName
+	boxList := computeContentList(contentList, box, counterValues, cssToken, parseAgain,
+		targetCollector, nil, nil, pr.Quotes{}, nil, nil, element)
+	if boxList != nil {
+		var builder strings.Builder
+		for _, box := range boxList {
+			if textBox, ok := box.(*TextBox); ok {
+				builder.WriteString(textBox.text)
 			}
-			followingCollapsibleSpace = strings.HasSuffix(previousText, " ")
+		}
+		string_ := builder.String()
+		// Avoid duplicates, care for parseAgain and missing counters, don"t
+		// change the pointer
+		newStringSet := make(pr.ContentProperties, len(box.Box().stringSet))
+		for i, stringSet := range box.Box().stringSet {
+			if stringSet.Type == stringName {
+				newStringSet = append(newStringSet, box.Box().stringSet[i+1:]...)
+				break
+			}
+			newStringSet = append(newStringSet, stringSet)
+		}
+		newStringSet = append(newStringSet, pr.ContentProperty{Type: stringName, Content: pr.String(string_)})
+		box.Box().stringSet = newStringSet
+	}
+}
+
+// Parses the content-list value for ``bookmark-label``.
+func computeBookmarkLabel(element *utils.HTMLNode, box Box, contentList pr.ContentProperties, counterValues tree.CounterValues,
+	targetCollector *tree.TargetCollector) {
+
+	// Closure to parse the bookmark-label all again..
+	parseAgain := func(mixinPagebasedCounters tree.CounterValues) {
+		// Neither alters the mixed-in nor the cached counter values, no
+		// need to deepcopy here
+		localCounters := mixinPagebasedCounters.Copy()
+		for k, v := range box.Box().cachedCounterValues {
+			localCounters[k] = v
+		}
+		computeBookmarkLabel(element, box, contentList, localCounters, targetCollector)
+	}
+
+	cssToken := "bookmark-label"
+	boxList := computeContentList(contentList, box, counterValues, cssToken, parseAgain, targetCollector,
+		nil, nil, pr.Quotes{}, nil, nil, element)
+
+	var builder strings.Builder
+	for _, box := range boxList {
+		if textBox, ok := box.(*TextBox); ok {
+			builder.WriteString(textBox.text)
+		}
+	}
+	box.Box().bookmarkLabel = builder.String()
+
+}
+
+// Set the content-lists values.
+// These content-lists are used in GCPM properties like ``string-set`` and
+// ``bookmark-label``.
+func setContentLists(element *utils.HTMLNode, box Box, style pr.Properties, counterValues tree.CounterValues,
+	targetCollector *tree.TargetCollector) {
+	if sss := style.GetStringSet(); sss.String != "none" {
+		for _, c := range sss.Contents {
+			stringName, stringValues := c.String, c.Contents
+			computeStringSet(element, box, stringName, stringValues, counterValues, targetCollector)
+		}
+	}
+	computeBookmarkLabel(element, box, style.GetBookmarkLabel(), counterValues, targetCollector)
+}
+
+// Handle the ``counter-*`` properties.
+func updateCounters(state *stateShared, style pr.Properties) {
+	_, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
+	siblingScopes := counterScopes[len(counterScopes)-1]
+
+	for _, nv := range style.GetCounterReset() {
+		if siblingScopes.Has(nv.String) {
+			delete(counterValues, nv.String)
 		} else {
-			followingCollapsibleSpace = false
+			siblingScopes.Add(nv.String)
 		}
-		box.text = text
-		return followingCollapsibleSpace
+		counterValues[nv.String] = append(counterValues[nv.String], nv.Int)
 	}
-	if _box.IsParentBox() {
-		for _, child := range _box.Box().children {
-			switch child.(type) {
-			case *TextBox, *InlineBox:
-				followingCollapsibleSpace = processWhitespace(
-					child, followingCollapsibleSpace)
-			default:
-				processWhitespace(child, false)
-				if child.Box().isInNormalFlow() {
-					followingCollapsibleSpace = false
-				}
+
+	// XXX Disabled for now, only exists in Lists3’s editor’s draft.
+	//    for name, value in style.counterSet:
+	//        values = counterValues.setdefault(name, [])
+	//        if not values:
+	//            assert name not in siblingScopes
+	//            siblingScopes.add(name)
+	//            values.append(0)
+	//        values[-1] = value
+
+	counterIncrement := style.GetCounterIncrement()
+	if counterIncrement.String == "auto" {
+		// "auto" is the initial value but is not valid in stylesheet:
+		// there was no counter-increment declaration for this element.
+		// (Or the winning value was "initial".)
+		// http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
+		if style.GetDisplay() == "list-item" {
+			counterIncrement = pr.SIntStrings{Values: pr.IntStrings{{String: "list-item", Int: 1}}}
+		} else {
+			counterIncrement = pr.SIntStrings{}
+		}
+	}
+	for _, ci := range counterIncrement.Values {
+		values := counterValues[ci.String]
+		if len(values) == 0 {
+			if siblingScopes.Has(ci.String) {
+				log.Fatal("ci.String shoud'nt be in siblingScopes")
 			}
+			siblingScopes.Add(ci.String)
+			values = append(values, 0)
+		}
+		values[len(values)-1] += ci.Int
+		counterValues[ci.String] = values
+	}
+}
+
+var reHasNonWhitespace = regexp.MustCompile("\\S")
+
+var hasNonWhitespaceDefault = func(text string) bool {
+	return reHasNonWhitespace.MatchString(text)
+}
+
+// Return true if ``box`` is a TextBox with only whitespace.
+func isWhitespace(box Box, hasNonWhitespace func(string) bool) bool {
+	if hasNonWhitespace == nil {
+		hasNonWhitespace = hasNonWhitespaceDefault
+	}
+	textBox, is := box.(*TextBox)
+	return is && !hasNonWhitespace(textBox.text)
+}
+
+//   Wrap consecutive children that do not pass ``test`` in a box of type
+// ``wrapperType``.
+// ``test`` defaults to children being of the same type as ``wrapperType``.
+func wrapImproper(box Box, children []Box, boxType BoxType, test func(Box) bool) []Box {
+	var out, improper []Box
+	if test == nil {
+		test = boxType.IsInstance
+	}
+	for _, child := range children {
+		if test(child) {
+			if len(improper) > 0 {
+				wrapper := boxType.AnonymousFrom(box, nil)
+				// Apply the rules again on the new wrapper
+				out = append(out, tableBoxesChildren(wrapper, improper))
+				improper = nil
+			}
+			out = append(out, child)
+		} else {
+			// Whitespace either fail the test or were removed earlier,
+			// so there is no need to take special care with the definition
+			// of "consecutive".
+			improper = append(improper, child)
 		}
 	}
-	return followingCollapsibleSpace
+	if len(improper) > 0 {
+		wrapper := boxType.AnonymousFrom(box, nil)
+		// Apply the rules again on the new wrapper
+		out = append(out, tableBoxesChildren(wrapper, improper))
+	}
+	return out
 }
 
 // Remove and add boxes according to the table model.
@@ -369,7 +881,7 @@ func processWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 //
 //See http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 func anonymousTableBoxes(box Box) Box {
-	if !box.IsParentBox() {
+	if _, isParentbox := box.(InstanceParentBox); !isParentbox {
 		return box
 	}
 
@@ -382,136 +894,16 @@ func anonymousTableBoxes(box Box) Box {
 	return tableBoxesChildren(box, children)
 }
 
-// Build the structure of lines inside blocks and return a new box tree.
-//
-//    Consecutive inline-level boxes in a block container box are wrapped into a
-//    line box, itself wrapped into an anonymous block box.
-//
-//    This line box will be broken into multiple lines later.
-//
-//    This is the first case in
-//    http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
-//
-//    Eg.::
-//
-//        BlockBox[
-//            TextBox["Some "],
-//            InlineBox[TextBox["text"]],
-//            BlockBox[
-//                TextBox["More text"],
-//            ]
-//        ]
-//
-//    is turned into::
-//
-//        BlockBox[
-//            AnonymousBlockBox[
-//                LineBox[
-//                    TextBox["Some "],
-//                    InlineBox[TextBox["text"]],
-//                ]
-//            ]
-//            BlockBox[
-//                LineBox[
-//                    TextBox["More text"],
-//                ]
-//            ]
-//        ]
-func inlineInBlock(box Box) Box {
-	if !box.IsParentBox() {
-		return box
-	}
-	baseBox := box.Box()
-	boxChildren := baseBox.children
-
-	if len(boxChildren) > 0 && baseBox.leadingCollapsibleSpace == false {
-		baseBox.leadingCollapsibleSpace = boxChildren[0].Box().leadingCollapsibleSpace
-	}
-
-	var children []Box
-	trailingCollapsibleSpace := false
-	for _, child := range boxChildren {
-		// Keep track of removed collapsing spaces for wrap opportunities, and
-		// remove empty text boxes.
-		// (They may have been emptied by processWhitespace().)
-
-		if trailingCollapsibleSpace {
-			child.Box().leadingCollapsibleSpace = true
-		}
-
-		textBox, isTextBox := child.(*TextBox)
-		if isTextBox && textBox.text == "" {
-			trailingCollapsibleSpace = child.Box().leadingCollapsibleSpace
-		} else {
-			trailingCollapsibleSpace = false
-			children = append(children, inlineInBlock(child))
-		}
-	}
-	if baseBox.trailingCollapsibleSpace == false {
-		baseBox.trailingCollapsibleSpace = trailingCollapsibleSpace
-	}
-
-	if !box.IsBlockContainerBox() {
-		baseBox.children = children
-		return box
-	}
-
-	var newLineChildren, newChildren []Box
-	for _, childBox := range children {
-		if _, isLineBox := childBox.(*LineBox); isLineBox {
-			panic("childBox can't be a LineBox")
-		}
-		if len(newLineChildren) > 0 && childBox.Box().isAbsolutelyPositioned() {
-			newLineChildren = append(newLineChildren, childBox)
-		} else if childBox.IsInlineLevelBox() || (len(newLineChildren) > 0 && childBox.Box().isFloated()) {
-			// Do not append white space at the start of a line :
-			// it would be removed during layout.
-			childTextBox, isTextBox := childBox.(*TextBox)
-			st := childBox.Box().style.Strings["white_space"]
-
-			// Sequence of white-space was collapsed to a single space by processWhitespace().
-			if len(newLineChildren) > 0 || !(isTextBox && childTextBox.text == " " && (st == "normal" || st == "nowrap" || st == "pre-line")) {
-				newLineChildren = append(newLineChildren, childBox)
-			}
-		} else {
-			if len(newLineChildren) > 0 {
-				// Inlines are consecutive no more: add this line box
-				// and create a new one.
-				lineBox := LineBoxAnonymousFrom(box, newLineChildren)
-				anonymous := BlockBoxAnonymousFrom(box, []Box{lineBox})
-				newChildren = append(newChildren, anonymous)
-				newLineChildren = nil
-			}
-			newChildren = append(newChildren, childBox)
-		}
-	}
-	if len(newLineChildren) > 0 {
-		// There were inlines at the end
-		lineBox := LineBoxAnonymousFrom(box, newLineChildren)
-		if len(newChildren) > 0 {
-			anonymous := BlockBoxAnonymousFrom(box, []Box{lineBox})
-			newChildren = append(newChildren, anonymous)
-		} else {
-			// Only inline-level children: one line box
-			newChildren = append(newChildren, lineBox)
-		}
-	}
-
-	baseBox.children = newChildren
-	return box
-}
-
 // Internal implementation of anonymousTableBoxes().
 func tableBoxesChildren(box Box, children []Box) Box {
-	switch typeBox := box.(type) {
-	case *TableColumnBox: // rule 1.1
+	if TypeTableColumnBox.IsInstance(box) { // rule 1.1
 		// Remove all children.
 		children = nil
-	case *TableColumnGroupBox: // rule 1.2
+	} else if TypeTableColumnGroupBox.IsInstance(box) { // rule 1.2
 		// Remove children other than table-column.
 		newChildren := make([]Box, 0, len(children))
 		for _, child := range children {
-			if _, is := child.(*TableColumnBox); is {
+			if TypeTableColumnBox.IsInstance(box) {
 				newChildren = append(newChildren, child)
 			}
 		}
@@ -520,15 +912,15 @@ func tableBoxesChildren(box Box, children []Box) Box {
 		// Rule XXX (not in the spec): column groups have at least
 		// one column child.
 		if len(children) == 0 {
-			for i := 0; i < typeBox.tableFields.span; i++ {
+			for i := 0; i < box.(*TableColumnGroupBox).TableFields.span; i++ {
 				children = append(children, TypeTableColumnBox.AnonymousFrom(box, nil))
 			}
 		}
 
 	}
-	tf := box.TableFields()
+
 	// rule 1.3
-	if tf != nil && tf.tabularContainer && len(children) >= 2 {
+	if box.Box().tabularContainer && len(children) >= 2 {
 		// TODO: Maybe only remove text if internal is also
 		//       a proper table descendant of box.
 		// This is what the spec says, but maybe not what browsers do:
@@ -536,15 +928,14 @@ func tableBoxesChildren(box Box, children []Box) Box {
 
 		// Last child
 		internal, text := children[len(children)-2], children[len(children)-1]
-		internalTableFields := internal.TableFields()
-		if internalTableFields != nil && internalTableFields.internalTableOrCaption && isWhitespace(text, nil) {
+
+		if internal.Box().internalTableOrCaption && isWhitespace(text, nil) {
 			children = children[:len(children)-2]
 		}
 		// First child
 		if len(children) >= 2 {
 			text, internal = children[0], children[1]
-			internalTableFields := internal.TableFields()
-			if internalTableFields.internalTableOrCaption && isWhitespace(text, nil) {
+			if internal.Box().internalTableOrCaption && isWhitespace(text, nil) {
 				children = children[1:]
 			}
 		}
@@ -557,20 +948,18 @@ func tableBoxesChildren(box Box, children []Box) Box {
 		// Ignore some whitespace: rule 1.4
 		if !(index != 0 && index != maxIndex) {
 			prevChild, nextChild := children[index-1], children[index+1]
-			prevChildTable, nextChildTable := prevChild.TableFields(), nextChild.TableFields()
-			if prevChildTable != nil && prevChildTable.internalTableOrCaption && nextChildTable != nil && nextChildTable.internalTableOrCaption && isWhitespace(child, nil) {
+			if prevChild != nil && prevChild.Box().internalTableOrCaption && nextChild != nil && nextChild.Box().internalTableOrCaption && isWhitespace(child, nil) {
 				newChildren = append(newChildren, child)
 			}
 		}
 	}
 	children = newChildren
 
-	if box.IsTableBox() {
+	if TypeTableBox.IsInstance(box) {
 		// Rule 2.1
 		children = wrapImproper(box, children, TypeTableRowBox,
 			func(child Box) bool {
-				tf := child.TableFields()
-				return tf != nil && tf.properTableChild
+				return child.Box().properTableChild
 			})
 	} else if TypeTableRowGroupBox.IsInstance(box) {
 		// Rule 2.2
@@ -582,25 +971,24 @@ func tableBoxesChildren(box Box, children []Box) Box {
 		children = wrapImproper(box, children, TypeTableCellBox, nil)
 	} else {
 		// Rule 3.1
-		children = wrapImproper(box, children, TypeTableCellBox, TypeTableCellBox.IsInstance)
+		children = wrapImproper(box, children, TypeTableCellBox, func(child Box) bool {
+			return !TypeTableCellBox.IsInstance(child)
+		})
 	}
 	// Rule 3.2
-	if InlineBoxIsInstance(box) {
+	if TypeInlineBox.IsInstance(box) {
 		children = wrapImproper(box, children, TypeInlineTableBox,
 			func(child Box) bool {
-				tf := child.TableFields()
-				return tf == nil || !tf.properTableChild
+				return !child.Box().properTableChild
 			})
 	} else {
 		// parentType = type(box)
 		children = wrapImproper(box, children, TypeTableBox,
 			func(child Box) bool {
-				tf := child.TableFields()
-				return (tf == nil || !tf.properTableChild ||
-					child.IsProperChild(box))
+				return (!child.Box().properTableChild || child.IsProperChild(box))
 			})
 	}
-	if box.IsTableBox() {
+	if TypeTableBox.IsInstance(box) {
 		return wrapTable(box, children)
 	} else {
 		box.Box().children = children
@@ -784,13 +1172,200 @@ func wrapTable(box Box, children []Box) Box {
 }
 
 var (
+	reLineFeeds     = regexp.MustCompile(`\r\n?`)
+	reSpaceCollapse = regexp.MustCompile(`[\t ]*\n[\t ]*`)
+	reSpace         = regexp.MustCompile(` +`)
+)
+
+// First part of "The 'white-space' processing model".
+// See http://www.w3.org/TR/CSS21/text.html#white-space-model
+// http://dev.w3.org/csswg/css3-text/#white-space-rules
+func processWhitespace(_box Box, followingCollapsibleSpace bool) bool {
+	box, isTextBox := _box.(*TextBox)
+	if isTextBox {
+		text := box.text
+		if text == "" {
+			return followingCollapsibleSpace
+		}
+
+		// Normalize line feeds
+		text = reLineFeeds.ReplaceAllString(text, "\n")
+
+		styleWhiteSpace := box.style.Strings["white_space"]
+		newLineCollapse := styleWhiteSpace == "normal" || styleWhiteSpace == "nowrap"
+		spaceCollapse := styleWhiteSpace == "normal" || styleWhiteSpace == "nowrap" || styleWhiteSpace == "pre-line"
+
+		if spaceCollapse {
+			// \r characters were removed/converted earlier
+			text = reSpaceCollapse.ReplaceAllString(text, "\n")
+		}
+
+		if newLineCollapse {
+			// TODO: this should be language-specific
+			// Could also replace with a zero width space character (U+200B),
+			// or no character
+			// CSS3: http://www.w3.org/TR/css3-text/#line-break-transform
+			text = strings.ReplaceAll(text, "\n", " ")
+		}
+		if spaceCollapse {
+			text = strings.ReplaceAll(text, "\t", " ")
+			text = reSpace.ReplaceAllString(text, " ")
+			previousText := text
+			if followingCollapsibleSpace && strings.HasPrefix(text, " ") {
+				text = text[1:]
+				box.leadingCollapsibleSpace = true
+			}
+			followingCollapsibleSpace = strings.HasSuffix(previousText, " ")
+		} else {
+			followingCollapsibleSpace = false
+		}
+		box.text = text
+		return followingCollapsibleSpace
+	}
+	if _box.IsParentBox() {
+		for _, child := range _box.Box().children {
+			switch child.(type) {
+			case *TextBox, *InlineBox:
+				followingCollapsibleSpace = processWhitespace(
+					child, followingCollapsibleSpace)
+			default:
+				processWhitespace(child, false)
+				if child.Box().isInNormalFlow() {
+					followingCollapsibleSpace = false
+				}
+			}
+		}
+	}
+	return followingCollapsibleSpace
+}
+
+// Build the structure of lines inside blocks and return a new box tree.
+//
+//    Consecutive inline-level boxes in a block container box are wrapped into a
+//    line box, itself wrapped into an anonymous block box.
+//
+//    This line box will be broken into multiple lines later.
+//
+//    This is the first case in
+//    http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+//
+//    Eg.::
+//
+//        BlockBox[
+//            TextBox["Some "],
+//            InlineBox[TextBox["text"]],
+//            BlockBox[
+//                TextBox["More text"],
+//            ]
+//        ]
+//
+//    is turned into::
+//
+//        BlockBox[
+//            AnonymousBlockBox[
+//                LineBox[
+//                    TextBox["Some "],
+//                    InlineBox[TextBox["text"]],
+//                ]
+//            ]
+//            BlockBox[
+//                LineBox[
+//                    TextBox["More text"],
+//                ]
+//            ]
+//        ]
+func inlineInBlock(box Box) Box {
+	if !box.IsParentBox() {
+		return box
+	}
+	baseBox := box.Box()
+	boxChildren := baseBox.children
+
+	if len(boxChildren) > 0 && baseBox.leadingCollapsibleSpace == false {
+		baseBox.leadingCollapsibleSpace = boxChildren[0].Box().leadingCollapsibleSpace
+	}
+
+	var children []Box
+	trailingCollapsibleSpace := false
+	for _, child := range boxChildren {
+		// Keep track of removed collapsing spaces for wrap opportunities, and
+		// remove empty text boxes.
+		// (They may have been emptied by processWhitespace().)
+
+		if trailingCollapsibleSpace {
+			child.Box().leadingCollapsibleSpace = true
+		}
+
+		textBox, isTextBox := child.(*TextBox)
+		if isTextBox && textBox.text == "" {
+			trailingCollapsibleSpace = child.Box().leadingCollapsibleSpace
+		} else {
+			trailingCollapsibleSpace = false
+			children = append(children, inlineInBlock(child))
+		}
+	}
+	if baseBox.trailingCollapsibleSpace == false {
+		baseBox.trailingCollapsibleSpace = trailingCollapsibleSpace
+	}
+
+	if !box.IsBlockContainerBox() {
+		baseBox.children = children
+		return box
+	}
+
+	var newLineChildren, newChildren []Box
+	for _, childBox := range children {
+		if _, isLineBox := childBox.(*LineBox); isLineBox {
+			panic("childBox can't be a LineBox")
+		}
+		if len(newLineChildren) > 0 && childBox.Box().isAbsolutelyPositioned() {
+			newLineChildren = append(newLineChildren, childBox)
+		} else if childBox.IsInlineLevelBox() || (len(newLineChildren) > 0 && childBox.Box().isFloated()) {
+			// Do not append white space at the start of a line :
+			// it would be removed during layout.
+			childTextBox, isTextBox := childBox.(*TextBox)
+			st := childBox.Box().style.Strings["white_space"]
+
+			// Sequence of white-space was collapsed to a single space by processWhitespace().
+			if len(newLineChildren) > 0 || !(isTextBox && childTextBox.text == " " && (st == "normal" || st == "nowrap" || st == "pre-line")) {
+				newLineChildren = append(newLineChildren, childBox)
+			}
+		} else {
+			if len(newLineChildren) > 0 {
+				// Inlines are consecutive no more: add this line box
+				// and create a new one.
+				lineBox := LineBoxAnonymousFrom(box, newLineChildren)
+				anonymous := BlockBoxAnonymousFrom(box, []Box{lineBox})
+				newChildren = append(newChildren, anonymous)
+				newLineChildren = nil
+			}
+			newChildren = append(newChildren, childBox)
+		}
+	}
+	if len(newLineChildren) > 0 {
+		// There were inlines at the end
+		lineBox := LineBoxAnonymousFrom(box, newLineChildren)
+		if len(newChildren) > 0 {
+			anonymous := BlockBoxAnonymousFrom(box, []Box{lineBox})
+			newChildren = append(newChildren, anonymous)
+		} else {
+			// Only inline-level children: one line box
+			newChildren = append(newChildren, lineBox)
+		}
+	}
+
+	baseBox.children = newChildren
+	return box
+}
+
+var (
 	styleScores = map[string]int{}
 	styleMap    = map[string]string{
 		"inset":  "ridge",
 		"outset": "groove",
 	}
 
-	Transparent = css.Color{}
+	transparent = parser.ParseColor2("transparent")
 )
 
 func init() {
@@ -812,7 +1387,11 @@ type border struct {
 	score Score
 	style string
 	width int
-	color css.Color
+	color pr.Color
+}
+
+type BorderGrids struct {
+	Vertical, Horizontal [][]border
 }
 
 // Resolve border conflicts for a table in the collapsing border model.
@@ -826,7 +1405,6 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 		return BorderGrids{}
 	}
 
-	transparent := Transparent
 	weakNullBorder := border{score: Score{0, 0, styleScores["none"]}, style: "none", width: 0, color: transparent}
 
 	verticalBorders, horizontalBorders := make([][]border, gridHeight), make([][]border, gridHeight+1)
@@ -1012,38 +1590,6 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 	setTransparentBorder(table, css.Right, maxVerticalWidth(gridWidth, 0, 1))
 
 	return BorderGrids{Vertical: verticalBorders, Horizontal: horizontalBorders}
-}
-
-//   Wrap consecutive children that do not pass ``test`` in a box of type
-// ``wrapperType``.
-// ``test`` defaults to children being of the same type as ``wrapperType``.
-func wrapImproper(box Box, children []Box, boxType BoxType, test func(Box) bool) []Box {
-	var out, improper []Box
-	if test == nil {
-		test = boxType.IsInstance
-	}
-	for _, child := range children {
-		if test(child) {
-			if len(improper) > 0 {
-				wrapper := boxType.AnonymousFrom(box, nil)
-				// Apply the rules again on the new wrapper
-				out = append(out, tableBoxesChildren(wrapper, improper))
-				improper = nil
-			}
-			out = append(out, child)
-		} else {
-			// Whitespace either fail the test or were removed earlier,
-			// so there is no need to take special care with the definition
-			// of "consecutive".
-			improper = append(improper, child)
-		}
-	}
-	if len(improper) > 0 {
-		wrapper := boxType.AnonymousFrom(box, nil)
-		// Apply the rules again on the new wrapper
-		out = append(out, tableBoxesChildren(wrapper, improper))
-	}
-	return out
 }
 
 // Build the structure of blocks inside lines.
@@ -1250,422 +1796,6 @@ func setViewportOverflow(rootBox Box) Box {
 	rootBox.Box().viewportOverflow = chosenBox.Box().style.Strings["overflow"]
 	chosenBox.Box().style.Strings["overflow"] = "visible"
 	return rootBox
-}
-
-// Collect missing counters.
-func collectMissingCounter(counterName string, counterValues []string, missingCounters *[]string) {
-	for _, s := range counterValues {
-		if s == counterName {
-			return
-		}
-	}
-	for _, s := range *missingCounters {
-		if s == counterName {
-			return
-		}
-	}
-    *missingCounters = append(*missingCounters, counterName)
-} 
-
-// Collect missing target counters.
-// 
-// The corresponding TargetLookupItem caches the target"s page based
-// counter values during pagination.
-func collectMissingTargetCounter(counterName string, lookupCounterValues map[string]bool,
-                                    anchorName string, missingTargetCounters map[string][]string) {
-                               
-    if ! lookupCounterValues[counterName] {
-		missingCounters := missingTargetCounters[anchorName]
-		for _, s := range missingCounters {
-			if counterName == s {
-				return
-			}
-		}
-		missingCounters =append(missingCounters, counterName)
-		missingTargetCounters[anchorName] = missingCounters
-	}
-}
-
-// Compute and return the boxes corresponding to the ``content_list``.
-//
-// ``parse_again`` is called to compute the ``content_list`` again when
-// ``target_collector.lookup_target()`` detected a pending target.
-//
-// ``build_formatting_structure`` calls
-// ``target_collector.check_pending_targets()`` after the first pass to do
-// required reparsing.
-func computeContentList(contentList pr.SContent, parentBox Box, counterValues tree.CounterValues,
-	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector,
-	getImageFromUri gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page, element interface{}) []Box {
-
-	// TODO: Some computation done here may be done in computed_values
-    // instead. We currently miss at least style_for, counters and quotes
-    // context in computer. Some work will still need to be done here though,
-    // like box creation for URIs.
-    var (
-		boxlist []Box
-		texts []string
-	)
-
-    var missingCounters []string
-    missingTargetCounters = {}
-    inPageContext := context != nil && page != nil
-
-    // Collect missing counters during build_formatting_structure.
-    // Pointless to collect missing target counters in MarginBoxes.
-    needCollectMissing := targetCollector.collecting && ! inPageContext
-
-    // TODO: remove attribute or set a default value in Box class
-    if parentBox.Box().cachedCounterValues == nil {
-        // Store the counter_values in the parent_box to make them accessible
-        // in @page context. Obsoletes the parse_again function's deepcopy.
-        // TODO: Is propbably superfluous inPageContext.
-		parentBox.Box().cachedCounterValues = counterValues.Copy()
-	}
-
-	chunks := make([]string, len(contentList.Contents))
-mainLoop:
-	for i, content := range contentList.Contents {
-		switch content.Type {
-		case "string":
-			chunks[i] = content.String
-		case "url":
-			if getImageFromUri != nil {
-				value := content.Content.(pr.NamedString)
-				if value.Name != "external"{
-					// Embedding internal references is impossible
-                	continue
-				}
-				image := getImageFromUri(value.String, "")
-				if image != nil {
-					text :=  strings.Join(texts, "")
-					if text != "" {
-						boxlist = append(boxlist,	TextBoxAnonymousFrom(parentBox, text))
-					}
-					texts = nil
-					boxlist = append(boxlist,InlineReplacedBoxAnonymousFrom(parentBox, image))
-			}
-		}
-		case "content()":
-			addedText := textContentExtractors[content.Content.(pr.String)](box)
-			// Simulate the step of white space processing
-			// (normally done during the layout)
-			addedText = strings.TrimSpace(addedText)
-			chunks[i] = addedText
-		case "counter()":
-			counterName, counterStyle := content.AsCounter()
-			if needCollectMissing {
-				collectMissingCounter(couterName, counterValues, &missingCounters)
-			}
-			cv, has := counterValues[counterName]
-			if !has {
-				cv = []int{0}
-			}
-			counterValue := cv[len(cv)-1]
-			chunks[i] = counters.Format(counterValue, counterStyle)
-		case "counters()":
-			counterName, separator, counterStyle := content.AsCounters()
-			if needCollectMissing {
-				collectMissingCounter(couterName, counterValues, &missingCounters)
-			}
-			vs, has := counterValues[counterName]
-			if !has {
-				vs = []int{0}
-			}
-			cs := make([]string, len(vs))
-			for i, counterValue := range vs {
-				cs[i] = counters.Format(counterValue, counterStyle)
-			}
-			chunks[i] = strings.Join(cs, separator)
-		case "string()":
-			value := content.AsStrings()
-			if inPageContext {
-				texts[i] = context.getStringSetFor(page, value)
-			} else {
-				// string() is currently only valid in @page context
-                // See https://github.com/Kozea/WeasyPrint/issues/723
-               	log.Printf("'string(%s)' is only allowed in page margins", strings.Join(value, " "))
-			}
-			case "target-counter()" :
-				anchorToken, counterName, counterStyle := content.AsTargetCounter()
-				lookupTarget := targetCollector.LookupTarget(anchorToken, parentBox, cssToken, parseAgain)
-				if lookupTarget.IsUpToDate() {
-					targetValues := lookupTarget.TargetBox.Box().cachedCounterValues
-					if needCollectMissing {
-						collectMissingTargetCounter(counterName, targetValues,
-							targetCollector.AnchorNameFromToken(anchorToken),
-							missingTargetCounters)
-					} 
-					// Mixin target"s cached page counters.
-					// cachedPageCounterValues are empty during layout.
-					localCounters := lookupTarget.CachedPageCounterValues.copy()
-					localCounters.Update(targetValues)
-					vs, has := localCounters[counterName]
-					if !has {
-						vs = []int{0}
-					}
-					counterValue = vs[length(vs)-1]
-					texts[i] = counters.Format(counterValue, counterStyle)
-				} else {
-					texts = nil
-					break mainLoop
-				}
-			case "target-counters()" :
-				anchorToken, counterName, separator, counterStyle := content.AsTargetCounters()
-				lookupTarget := targetCollector.LookupTarget(
-					anchorToken, parentBox, cssToken, parseAgain)
-				if lookupTarget.IsUpToDate() {
-					if separator.Type != "string" {
-						break mainLoop
-					} 
-					separatorString := separator.Content.(pr.String)
-					targetValues := lookupTarget.TargetBox.Box().cachedCounterValues
-					if needCollectMissing {
-						collectMissingTargetCounter(
-							counterName, targetValues,
-							targetCollector.AnchorNameFromToken(anchorToken),
-							missingTargetCounters)
-					} 
-					// Mixin target"s cached page counters.
-					// cachedPageCounterValues are empty during layout.
-					localCounters := lookupTarget.CachedPageCounterValues.copy()
-					localCounters.Update(targetValues)
-					vs, has := localCounters[counterName]
-					if !has {
-						vs = []int{0}
-					}
-					tmps := make([]string, len(vs))
-					for _, counterValue := range vs {
-						tmps[j] = counters.Format(counterValue, counterStyle)
-					}
-					texts[i] = strings.Join(tmps, separatorString)
-				} else {
-					texts = nil
-					break mainLoop
-				}
-			case "target-text()" :
-				anchorToken, textStyle := content.AsTargetText()
-				lookupTarget := targetCollector.LookupTarget(
-					anchorToken, parentBox, cssToken, parseAgain)
-				if lookupTarget.IsUpToDate() {
-					targetBox := lookupTarget.TargetBox
-					// TODO: "before"- && "after"- content referring missing
-					// counters are not properly set.
-					text := textContentExtractors[textStyle](targetBox)
-					// Simulate the step of white space processing
-					// (normally done during the layout)
-					texts[i] = strings.TrimSpace(text)
-				} else {
-					texts = nil
-					break mainLoop
-				}
-			case "quote" :
-				if quoteDepth != nil &&	quoteStyle != nil{
-						value := content.AsQuote()
-					isOpen := value.Open
-				insert := value.Insert
-				if ! isOpen {
-					quoteDepth[0] = max(0, quoteDepth[0] - 1)
-				} 
-				if insert {
-					openQuotes, closeQuotes = quoteStyle
-					quotes := closeQuotes
-					 if isOpen {
-						quotes = openQuotes
-					}
-					texts[i] = quotes[min(quoteDepth[0], len(quotes) - 1)]
-				}
-				 if isOpen {
-					quoteDepth[0] += 1
-				}
-			}
-			case "element()" :
-				value := content.Content.(pr.String)
-				runningElements := context.RunningElements()
-				if   _, in := range runningElements[value]; !in {
-					// TODO: emit warning
-					continue
-				} 
-				var newBox Box
-				for i := context.CurrentPage() - 1; i > -1; i -= 1 {
-					runningBox , in := runningElements[value][i]
-					if !in {
-							continue
-						} 
-					newBox = runningBox.deepcopy()
-					break 
-				} 
-				newBox.Box().style.SetPosition("static")
-				for _, child := range newBox.descendants() {
-					if child.style["content"] := range ("normal", "none") {
-						continue
-					} 
-					child.children = contentToBoxes(
-						child.style, child, quoteDepth, counterValues,
-						getImageFromUri, targetCollector, context=context,
-						page=page)
-				}
-				boxlist.append(newBox)
-
-
-		case "attr":
-			chunks[i] = utils.GetAttribute(*element, content.String)
-		}
-	}
-	return strings.Join(chunks, "")
-}
-
-// Set the content-lists by strings.
-// These content-lists are used in GCPM properties like ``string-set`` and
-// ``bookmark-label``.
-func setContentLists(element *utils.HTMLNode, box Box, style pr.Properties, counterValues tree.CounterValues) {
-	var stringSet []css.NameValue
-	if style.StringSet.String != "none" {
-		for _, c := range style.StringSet.Contents {
-			stringSet = append(stringSet, css.NameValue{
-				Name: c.Name, Value: computeContentListString(element, box, counterValues, c.Values),
-			})
-		}
-	}
-	box.Box().stringSet = stringSet
-
-	if style.ContentProperties.Name == "none" {
-		box.Box().bookmarkLabel = ""
-	} else {
-		box.Box().bookmarkLabel = computeContentListString(element, box, counterValues, style.ContentProperties.Values)
-	}
-
-}
-
-// Handle the ``counter-*`` properties.
-func updateCounters(state *stateShared, style pr.Properties) {
-	_, counterValues, counterScopes := state.quoteDepth, state.counterValues, state.counterScopes
-	siblingScopes := counterScopes[len(counterScopes)-1]
-
-	for _, nv := range style.CounterReset {
-		if siblingScopes[nv.Name] {
-			delete(counterValues, nv.Name)
-		} else {
-			siblingScopes[nv.Name] = true
-
-		}
-		counterValues[nv.Name] = append(counterValues[nv.Name], nv.Value)
-	}
-
-	// XXX Disabled for now, only exists in Lists3’s editor’s draft.
-	//    for name, value in style.counterSet:
-	//        values = counterValues.setdefault(name, [])
-	//        if not values:
-	//            assert name not in siblingScopes
-	//            siblingScopes.add(name)
-	//            values.append(0)
-	//        values[-1] = value
-
-	counterIncrement, cis := style.CounterIncrement, style.CounterIncrement.CI
-	if counterIncrement.String == "auto" {
-		// "auto" is the initial value but is not valid in stylesheet:
-		// there was no counter-increment declaration for this element.
-		// (Or the winning value was "initial".)
-		// http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
-		if style.Strings["display"] == "list-item" {
-			cis = []css.IntString{{Name: "list-item", Value: 1}}
-		} else {
-			cis = nil
-		}
-	}
-	for _, ci := range cis {
-		values := counterValues[ci.Name]
-		if len(values) == 0 {
-			if siblingScopes[ci.Name] {
-				log.Fatal("ci.Name shoud'nt be in siblingScopes")
-			}
-			siblingScopes[ci.Name] = true
-			values = append(values, 0)
-		}
-		values[len(values)-1] += ci.Value
-		counterValues[ci.Name] = values
-	}
-}
-
-// Yield the box for ::marker pseudo-element if there is one.
-// https://drafts.csswg.org/css-lists-3/#marker-pseudo
-func markerToBox(element *utils.HTMLNode, state *stateShared, parentStyle pr.Properties, styleFor tree.StyleFor,
-	getImageFromUri gifu, targetCollector *tree.TargetCollector) Box {
-	style := styleFor.Get(element, "marker")
-
-	// TODO: should be the computed value. When does the used value for
-	// `display` differ from the computer value? It's at least wrong for
-	// `content` where 'normal' computes as 'inhibit' for pseudo elements.
-
-	box := makeBox(element.Data+"::marker", style, nil)
-	children := &box.Box().children
-
-	if style.GetDisplay() == "none" {
-		return nil
-	}
-
-	image := style.GetListStyleImage()
-
-	if content := style.GetContent().String; content != "normal" && content != "inhibit" {
-		*children = append(*children, contentToBoxes(style, box, state.quoteDepth, state.counterValues,
-			getImageFromUri, targetCollector)...)
-	} else {
-		if imageUrl, ok := image.(pr.UrlImage); ok {
-			// image may be None here too, in case the image is not available.
-			image = getImageFromUri(string(imageUrl), "")
-			if image != nil {
-				markerBox := InlineReplacedBoxAnonymousFrom(box, image)
-				*children = append(*children, &markerBox)
-			}
-		}
-		if len(*children) == 0 && style.GetListStyleType() != "none" {
-			counterValue_, has := state.counterValues["list-item"]
-			if !has {
-				counterValue_ = []int{0}
-			}
-			counterValue := counterValue_[len(counterValue_)-1]
-			// TODO: rtl numbered list has the dot on the left
-			markerText := counters.FormatListMarker(counterValue, type_)
-			markerBox := TextBoxAnonymousFrom(box, markerText)
-			markerBox.Box().style.SetWhiteSpace("pre-wrap")
-			*children = append(*children, &markerBox)
-		}
-	}
-
-	if len(*children) == 0 {
-		return nil
-	}
-	var markerBox Box
-	if parentStyle.GetListStylePosition() == "outside" {
-		markerBox = &BlockBoxAnonymousFrom(box, *children)
-		// We can safely edit everything that can't be changed by user style
-		// See https://drafts.csswg.org/css-pseudo-4/#marker-pseudo
-		markerBox.Box().style.SetPosition(pr.BoolString{String: "absolute"})
-		translateX := pr.Dimension{Value: 100, Unit: pr.Percentage}
-		if parentStyle.GetDirection() == "ltr" {
-			translateX = pr.Dimension{Value: -100, Unit: pr.Percentage}
-		}
-		translateY := pr.ZeroPixels
-		markerBox.Box().style.SetTransform(pr.Transforms{{String: "translate", Dimensions: pr.Dimensions{translateX, translateY}}})
-	} else {
-		markerBox = &InlineBoxAnonymousFrom(box, *children)
-	}
-	return markerBox
-}
-
-var reHasNonWhitespace = regexp.MustCompile("\\S")
-
-var hasNonWhitespaceDefault = func(text string) bool {
-	return reHasNonWhitespace.MatchString(text)
-}
-
-// Return true if ``box`` is a TextBox with only whitespace.
-func isWhitespace(box Box, hasNonWhitespace func(string) bool) bool {
-	if hasNonWhitespace == nil {
-		hasNonWhitespace = hasNonWhitespaceDefault
-	}
-	textBox, is := box.(*TextBox)
-	return is && !hasNonWhitespace(textBox.text)
 }
 
 func boxText(box Box) string {

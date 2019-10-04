@@ -13,7 +13,9 @@
 // :license: BSD, see LICENSE for details.
 package layout
 
-import "github.com/benoitkugler/go-weasyprint/structure"
+import (
+	"github.com/benoitkugler/go-weasyprint/structure"
+)
 
 // Lay out and yield the fixed boxes of ``pages``.
 func layoutFixedBoxes(context LayoutContext, pages []Page) {

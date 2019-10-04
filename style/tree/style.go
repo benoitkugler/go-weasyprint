@@ -1,5 +1,5 @@
 // This module takes care of steps 3 and 4 of “CSS 2.1 processing model”:
-// Retrieve stylesheets associated with a document and annotate every element
+// Retrieve stylesheets associated with a document and annotate every Element
 // with a value for every CSS property.
 //
 // http://www.w3.org/TR/CSS21/intro.html#processing-model
@@ -39,7 +39,7 @@ var (
 
 type Token = parser.Token
 
-// StyleFor provides a convenience function `Get` to get the computed styles for an element.
+// StyleFor provides a convenience function `Get` to get the computed styles for an Element.
 type StyleFor struct {
 	//pr.Properties
 	//Anonymous      bool
@@ -61,7 +61,7 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 	logger.ProgressLogger.Printf("Step 3 - Applying CSS - %d sheet(s)\n", len(sheets))
 
 	for _, styleAttr := range findStyleAttributes(html.root, presentationalHints, html.baseUrl) {
-		// element, declarations, baseUrl = attributes
+		// Element, declarations, baseUrl = attributes
 		style, ok := cascadedStyles[styleAttr.element.ToKey("")]
 		if !ok {
 			style = cascadedStyle{}
@@ -117,19 +117,19 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 	}
 
 	// Then computed styles for pseudo elements, in any order.
-	// Pseudo-elements inherit from their associated element so they come
+	// Pseudo-elements inherit from their associated Element so they come
 	// last. Do them in a second pass as there is no easy way to iterate
-	// on the pseudo-elements for a given element with the current structure
-	// of cascadedStyles. (Keys are (element, pseudoType) tuples.)
+	// on the pseudo-elements for a given Element with the current structure
+	// of cascadedStyles. (Keys are (Element, pseudoType) tuples.)
 
 	// Only iterate on pseudo-elements that have cascaded styles. (Others
 	// might as well not exist.)
 	for key := range cascadedStyles {
-		// element, pseudoType
+		// Element, pseudoType
 		if key.PseudoType != "" && !key.IsPageType() {
 			out.setComputedStyles(key.Element, key.Element, html.root,
 				key.PseudoType, html.baseUrl, targetColllector)
-			// The pseudo-element inherits from the element.
+			// The pseudo-Element inherits from the Element.
 		}
 	}
 	// Clear the cascaded styles, we don't need them anymore. Keep the
@@ -140,12 +140,12 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 	return &out
 }
 
-// Set the computed values of styles to ``element``.
+// Set the computed values of styles to ``Element``.
 //
-// Take the properties left by ``applyStyleRule`` on an element or
-// pseudo-element and assign computed values with respect to the cascade,
+// Take the properties left by ``applyStyleRule`` on an Element or
+// pseudo-Element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
-func (self *StyleFor) setComputedStyles(element, parent element,
+func (self *StyleFor) setComputedStyles(element, parent Element,
 	root *utils.HTMLNode, pseudoType, baseUrl string, TargetCollector *TargetCollector) {
 
 	var parentStyle, rootStyle pr.Properties
@@ -154,7 +154,7 @@ func (self *StyleFor) setComputedStyles(element, parent element,
 			log.Fatal("parent should be nil here")
 		}
 		rootStyle = pr.Properties{
-			// When specified on the font-size property of the root element, the
+			// When specified on the font-size property of the root Element, the
 			// rem units refer to the property’s initial value.
 			"font_size": pr.InitialValues.GetFontSize(),
 		}
@@ -174,7 +174,7 @@ func (self *StyleFor) setComputedStyles(element, parent element,
 		rootStyle, pseudoType, baseUrl, TargetCollector)
 }
 
-func (s StyleFor) Get(element element, pseudoType string) pr.Properties {
+func (s StyleFor) Get(element Element, pseudoType string) pr.Properties {
 	style := s.computedStyles[element.ToKey(pseudoType)]
 	if style != nil {
 		display := string(style.GetDisplay())
@@ -239,15 +239,15 @@ func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, h
 	styleFor.addPageDeclarations(pageType)
 
 	// Apply style for page
-	// @page inherits from the root element :
+	// @page inherits from the root Element :
 	// http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
 	styleFor.setComputedStyles(pageType, html.root, html.root, "", html.baseUrl, nil)
 
 	// Apply style for page pseudo-elements (margin boxes)
 	for key := range styleFor.cascadedStyles {
-		// element, pseudoType = key
+		// Element, pseudoType = key
 		if key.PseudoType != "" && key.PageType == pageType {
-			// The pseudo-element inherits from the element.
+			// The pseudo-Element inherits from the Element.
 			styleFor.setComputedStyles(key.PageType, key.PageType, html.root, key.PseudoType, html.baseUrl, nil)
 		}
 	}
@@ -311,7 +311,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 		}
 		switch element.DataAtom {
 		case atom.Style:
-			// Content is text that is directly in the <style> element, not its
+			// Content is text that is directly in the <style> Element, not its
 			// descendants
 			content := element.GetChildText()
 			// ElementTree should give us either unicode or  ASCII-only
@@ -344,7 +344,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 	return out
 }
 
-// Yield ``specificity, (element, declaration, baseUrl)`` rules.
+// Yield ``specificity, (Element, declaration, baseUrl)`` rules.
 //     Rules from "style" attribute are returned with specificity
 //     ``(1, 0, 0)``.
 //     If ``presentationalHints`` is ``true``, rules from presentational hints
@@ -371,7 +371,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 		specificity = cascadia.Specificity{0, 0, 0}
 		switch element.DataAtom {
 		case atom.Body:
-			// TODO: we should check the container frame element
+			// TODO: we should check the container frame Element
 			for _, pp := range [4][2]string{{"height", "top"}, {"height", "bottom"}, {"width", "left"}, {"width", "right"}} {
 				part, position := pp[0], pp[1]
 				styleAttribute = ""
@@ -673,7 +673,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
+func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
 	if cascaded == nil && parentStyle != nil {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
@@ -734,7 +734,7 @@ func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, 
 		}
 
 		if keyword == pr.Inherit && parentStyle == nil {
-			// On the root element, "inherit" from initial values
+			// On the root Element, "inherit" from initial values
 			keyword = pr.Initial
 		}
 
@@ -754,9 +754,9 @@ func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, 
 	sp := specified["page"]
 	if sp.SpecialProperty == nil && sp.AsCss() != nil && sp.AsCss().(pr.Page).String == "auto" {
 		// The page property does not inherit. However, if the page value on
-		// an element is auto, then its used value is the value specified on
+		// an Element is auto, then its used value is the value specified on
 		// its nearest ancestor with a non-auto value. When specified on the
-		// root element, the used value for auto is the empty string.
+		// root Element, the used value for auto is the empty string.
 		val := pr.Page{Valid: true, String: ""}
 		if parentStyle != nil {
 			val = parentStyle.GetPage()
@@ -769,7 +769,7 @@ func ComputedFromCascaded(element element, cascaded cascadedStyle, parentStyle, 
 }
 
 // either a html node or a page type
-type element interface {
+type Element interface {
 	ToKey(pseudoType string) utils.ElementKey
 }
 
@@ -966,7 +966,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				for _, sel := range selector {
 					if _, in := pseudoElements[sel.PseudoElement()]; !in {
-						err = fmt.Errorf("Unsupported pseudo-element : %s", sel.PseudoElement())
+						err = fmt.Errorf("Unsupported pseudo-Element : %s", sel.PseudoElement())
 						break
 					}
 				}
@@ -1125,8 +1125,8 @@ type htmlLike interface {
 // Compute all the computed styles of all elements in ``html`` document.
 // Do everything from finding author stylesheets to parsing and applying them.
 //
-// Return a ``style_for`` function like object that takes an element and an optional
-// pseudo-element type, and return a style dict object.
+// Return a ``style_for`` function like object that takes an Element and an optional
+// pseudo-Element type, and return a style dict object.
 // presentationalHints=false
 func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,

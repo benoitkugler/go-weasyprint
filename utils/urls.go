@@ -30,6 +30,19 @@ func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) s
 	return out
 }
 
+func BasicUrlJoin(baseUrl, urls string) (string, error) {
+	parsedBase, err := url.Parse(baseUrl)
+	if err != nil {
+		return "", fmt.Errorf("Invalid base url : %s", baseUrl)
+	}
+	if path.Ext(parsedBase.Path) != "" {
+		parsedBase.Path = path.Join(path.Dir(parsedBase.Path), urls)
+	} else {
+		parsedBase.Path = path.Join(parsedBase.Path, urls)
+	}
+	return parsedBase.String(), nil
+}
+
 // defaut: allowRelative = false
 func SafeUrljoin(baseUrl, urls string, allowRelative bool) (string, error) {
 	parsed, err := url.Parse(urls)
@@ -39,16 +52,7 @@ func SafeUrljoin(baseUrl, urls string, allowRelative bool) (string, error) {
 	if parsed.IsAbs() {
 		return parsed.String(), nil
 	} else if baseUrl != "" {
-		parsedBase, err := url.Parse(baseUrl)
-		if err != nil {
-			return "", fmt.Errorf("Invalid base url : %s", baseUrl)
-		}
-		if path.Ext(parsedBase.Path) != "" {
-			parsedBase.Path = path.Join(path.Dir(parsedBase.Path), urls)
-		} else {
-			parsedBase.Path = path.Join(parsedBase.Path, urls)
-		}
-		return parsedBase.String(), nil
+		return BasicUrlJoin(baseUrl, urls)
 	} else if allowRelative {
 		return parsed.String(), nil
 	} else {

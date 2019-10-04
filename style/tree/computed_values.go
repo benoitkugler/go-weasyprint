@@ -208,17 +208,17 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 
 // Return a dict of computed value.
 
-// :param element: The HTML element these style apply to
+// :param Element: The HTML Element these style apply to
 // :param specified: a dict of specified value. Should contain
 // 			  value for all pr.
 // :param computed: a dict of already known computed value.
 // 			 Only contains some properties (or none).
 // :param parentStyle: a dict of computed value of the parent
-// 				 element (should contain value for all properties),
-// 				 or `zero if ``element`` is the root element.
+// 				 Element (should contain value for all properties),
+// 				 or `zero if ``Element`` is the root Element.
 // :param baseUrl: The base URL used to resolve relative URLs.
 // 		TargetCollector: A target collector used to get computed targets.
-func compute(element element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
+func compute(element Element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
 	rootStyle pr.Properties, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
 	if parentStyle == nil {
 		parentStyle = pr.InitialValues
@@ -304,7 +304,7 @@ type computer struct {
 	computed               pr.Properties
 	specified              map[string]pr.CascadedProperty
 	rootStyle, parentStyle pr.Properties
-	element                element
+	element                Element
 	baseUrl                string
 	TargetCollector        *TargetCollector
 }
@@ -527,8 +527,8 @@ func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.Content
 	// TODO: use real token parsing instead of casting with Python types
 
 	attrName, typeOrUnit, fallback := values.Name, values.TypeOrUnit, values.Fallback
-	// computer["element"] sometimes is None
-	// computer["element"] sometimes is a "PageType" object without .get()
+	// computer["Element"] sometimes is None
+	// computer["Element"] sometimes is a "PageType" object without .get()
 	node, ok := computer.element.(*utils.HTMLNode)
 	if !ok {
 		return
@@ -616,7 +616,7 @@ func contentList(computer *computer, values pr.ContentProperties) (pr.ContentPro
 			if err != nil {
 				return nil, err
 			}
-		case "counter()", "counters()", "content()", "element()", "string()":
+		case "counter()", "counters()", "content()", "Element()", "string()":
 			// Other values need layout context, their computed value cannot be
 			// better than their specified value yet.
 			// See build.computeContentList.

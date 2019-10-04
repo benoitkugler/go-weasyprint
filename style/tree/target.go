@@ -1,10 +1,8 @@
-package boxes
+package tree
 
 import (
 	"log"
 	"strings"
-
-	"github.com/benoitkugler/go-weasyprint/structure"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
@@ -23,7 +21,7 @@ type CounterValues map[string][]int
 type Box interface {
 	CachedCounterValues() CounterValues
 	SetCachedCounterValues(cv CounterValues)
-	MissingLink()
+	MissingLink() Box
 	SetMissingLink(b Box)
 }
 
@@ -68,7 +66,7 @@ func (c CounterValues) Equal(other CounterValues) bool {
 }
 
 type functionKey struct {
-	sourceBox structure.Box
+	sourceBox Box
 	cssToken  string
 }
 
@@ -85,7 +83,7 @@ type TargetLookupItem struct {
 	// Required by target-counter and target-counters to access the
 	// target's .cachedCounterValues.
 	// Needed for target-text via TEXTCONTENTEXTRACTORS.
-	TargetBox structure.Box
+	TargetBox Box
 
 	// Functions that have to been called to check pending targets.
 	// Keys are (sourceBox, cssToken).
@@ -217,7 +215,7 @@ func (tc TargetCollector) collectComputedTarget(anchorToken pr.ContentProperty) 
 // If it is already filled by a previous anchor-Element, the status is
 // "up-to-date". Otherwise, it is "pending", we must parse the whole
 // tree again.
-func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBox structure.Box, cssToken string, parseAgain ParseFunc) *TargetLookupItem {
+func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBox Box, cssToken string, parseAgain ParseFunc) *TargetLookupItem {
 	anchorName := AnchorNameFromToken(anchorToken)
 	item, in := tc.TargetLookupItems[anchorName]
 	if !in {
@@ -247,7 +245,7 @@ func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBo
 //
 // If there is a pending TargetLookupItem, it is updated. Only previously
 // collected anchors are stored.
-func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues CounterValues, targetBox structure.Box) {
+func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues CounterValues, targetBox Box) {
 	item := tc.TargetLookupItems[anchorName]
 	if item != nil && item.state == "pending" {
 		item.state = "up-to-date"
@@ -255,8 +253,8 @@ func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues Co
 		// Store the counterValues in the TargetBox like
 		// computeContentList does.
 		// TODO: remove attribute or set a default value in  Box type
-		if structure.Box().cachedCounterValues == nil {
-			structure.Box().cachedCounterValues = targetCounterValues.Copy()
+		if targetBox.CachedCounterValues() == nil {
+			targetBox.SetCachedCounterValues(targetCounterValues.Copy())
 		}
 	}
 }
@@ -267,7 +265,7 @@ func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues Co
 //
 // The ``missingLink`` attribute added to the parentBox is required to
 // connect the paginated boxes to their originating ``parentBox``.
-func (tc TargetCollector) CollectMissingCounters(parentBox structure.Box, cssToken string,
+func (tc TargetCollector) CollectMissingCounters(parentBox Box, cssToken string,
 	parseAgainFunction ParseFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) {
 
 	// No counter collection during pagination
@@ -278,8 +276,8 @@ func (tc TargetCollector) CollectMissingCounters(parentBox structure.Box, cssTok
 	// No need to add empty miss-lists
 	if len(missingCounters) > 0 || len(missingTargetCounters) > 0 {
 		// TODO: remove attribute or set a default value in Box type
-		if structure.Box().missingLink == nil {
-			structure.Box().missingLink = parentBox
+		if parentBox.MissingLink() == nil {
+			parentBox.SetMissingLink(parentBox)
 		}
 		counterLookupItem := NewCounterLookupItem(
 			parseAgainFunction, missingCounters,

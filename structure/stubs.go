@@ -83,8 +83,8 @@ type InstanceBlockContainerBox interface {
 type InstanceBlockBox interface {
 	isBlockBox()
 	isBlockLevelBox()
-	isBlockContainerBox()
 	isParentBox()
+	isBlockContainerBox()
 }
 
 func (b *BlockBox) Box() *BoxFields { return &b.BoxFields }
@@ -96,9 +96,10 @@ func (b BlockBox) String() string {
 	return fmt.Sprintf("<BlockBox %s>", b.BoxFields.elementTag)
 }
 
-func BlockBoxAnonymousFrom(parent Box, children []Box) BlockBox {
+func BlockBoxAnonymousFrom(parent Box, children []Box) *BlockBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewBlockBox(parent.Box().elementTag, style, children)
+	out := NewBlockBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -110,8 +111,7 @@ func (t typeBlockBox) IsInstance(box Box) bool {
 type typeBlockBox struct{}
 
 func (t typeBlockBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := BlockBoxAnonymousFrom(parent, children)
-	return &out
+	return BlockBoxAnonymousFrom(parent, children)
 }
 
 // A box that represents a line in an inline formatting context.
@@ -141,8 +141,7 @@ func (t typeLineBox) IsInstance(box Box) bool {
 type typeLineBox struct{}
 
 func (t typeLineBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := LineBoxAnonymousFrom(parent, children)
-	return &out
+	return LineBoxAnonymousFrom(parent, children)
 }
 
 // A box that participates in an inline formatting context.
@@ -174,9 +173,10 @@ func (b InlineBox) String() string {
 	return fmt.Sprintf("<InlineBox %s>", b.BoxFields.elementTag)
 }
 
-func InlineBoxAnonymousFrom(parent Box, children []Box) InlineBox {
+func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewInlineBox(parent.Box().elementTag, style, children)
+	out := NewInlineBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -188,8 +188,7 @@ func (t typeInlineBox) IsInstance(box Box) bool {
 type typeInlineBox struct{}
 
 func (t typeInlineBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := InlineBoxAnonymousFrom(parent, children)
-	return &out
+	return InlineBoxAnonymousFrom(parent, children)
 }
 
 // A box that contains only text and has no box children.
@@ -209,9 +208,10 @@ func (b TextBox) String() string {
 	return fmt.Sprintf("<TextBox %s>", b.BoxFields.elementTag)
 }
 
-func TextBoxAnonymousFrom(parent Box, text string) TextBox {
+func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTextBox(parent.Box().elementTag, style, text)
+	out := NewTextBox(parent.Box().elementTag, style, text)
+	return &out
 
 }
 
@@ -228,10 +228,10 @@ type InstanceAtomicInlineLevelBox interface {
 // an inline-block box.
 type InstanceInlineBlockBox interface {
 	isInlineBlockBox()
-	isAtomicInlineLevelBox()
-	isBlockContainerBox()
 	isInlineLevelBox()
+	isAtomicInlineLevelBox()
 	isParentBox()
+	isBlockContainerBox()
 }
 
 func (b *InlineBlockBox) Box() *BoxFields { return &b.BoxFields }
@@ -243,9 +243,10 @@ func (b InlineBlockBox) String() string {
 	return fmt.Sprintf("<InlineBlockBox %s>", b.BoxFields.elementTag)
 }
 
-func InlineBlockBoxAnonymousFrom(parent Box, children []Box) InlineBlockBox {
+func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewInlineBlockBox(parent.Box().elementTag, style, children)
+	out := NewInlineBlockBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -257,8 +258,7 @@ func (t typeInlineBlockBox) IsInstance(box Box) bool {
 type typeInlineBlockBox struct{}
 
 func (t typeInlineBlockBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := InlineBlockBoxAnonymousFrom(parent, children)
-	return &out
+	return InlineBlockBoxAnonymousFrom(parent, children)
 }
 
 // A box whose content is replaced.
@@ -286,9 +286,10 @@ func (b BlockReplacedBox) String() string {
 	return fmt.Sprintf("<BlockReplacedBox %s>", b.BoxFields.elementTag)
 }
 
-func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) BlockReplacedBox {
+func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *BlockReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewBlockReplacedBox(parent.Box().elementTag, style, replacement)
+	out := NewBlockReplacedBox(parent.Box().elementTag, style, replacement)
+	return &out
 
 }
 
@@ -299,8 +300,8 @@ func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) BlockReplac
 type InstanceInlineReplacedBox interface {
 	isInlineReplacedBox()
 	isReplacedBox()
-	isAtomicInlineLevelBox()
 	isInlineLevelBox()
+	isAtomicInlineLevelBox()
 }
 
 func (b *InlineReplacedBox) Box() *BoxFields { return &b.BoxFields }
@@ -312,9 +313,10 @@ func (b InlineReplacedBox) String() string {
 	return fmt.Sprintf("<InlineReplacedBox %s>", b.BoxFields.elementTag)
 }
 
-func InlineReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) InlineReplacedBox {
+func InlineReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *InlineReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewInlineReplacedBox(parent.Box().elementTag, style, replacement)
+	out := NewInlineReplacedBox(parent.Box().elementTag, style, replacement)
+	return &out
 
 }
 
@@ -338,9 +340,10 @@ func (b TableBox) String() string {
 	return fmt.Sprintf("<TableBox %s>", b.BoxFields.elementTag)
 }
 
-func TableBoxAnonymousFrom(parent Box, children []Box) TableBox {
+func TableBoxAnonymousFrom(parent Box, children []Box) *TableBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableBox(parent.Box().elementTag, style, children)
+	out := NewTableBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -352,16 +355,15 @@ func (t typeTableBox) IsInstance(box Box) bool {
 type typeTableBox struct{}
 
 func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableBoxAnonymousFrom(parent, children)
-	return &out
+	return TableBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: inline-table``
 type InstanceInlineTableBox interface {
 	isInlineTableBox()
 	isBlockLevelBox()
-	isTableBox()
 	isParentBox()
+	isTableBox()
 
 	Table() *TableFields
 }
@@ -377,9 +379,10 @@ func (b InlineTableBox) String() string {
 	return fmt.Sprintf("<InlineTableBox %s>", b.BoxFields.elementTag)
 }
 
-func InlineTableBoxAnonymousFrom(parent Box, children []Box) InlineTableBox {
+func InlineTableBoxAnonymousFrom(parent Box, children []Box) *InlineTableBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewInlineTableBox(parent.Box().elementTag, style, children)
+	out := NewInlineTableBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -391,8 +394,7 @@ func (t typeInlineTableBox) IsInstance(box Box) bool {
 type typeInlineTableBox struct{}
 
 func (t typeInlineTableBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := InlineTableBoxAnonymousFrom(parent, children)
-	return &out
+	return InlineTableBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: table-row-group``
@@ -410,9 +412,10 @@ func (b TableRowGroupBox) String() string {
 	return fmt.Sprintf("<TableRowGroupBox %s>", b.BoxFields.elementTag)
 }
 
-func TableRowGroupBoxAnonymousFrom(parent Box, children []Box) TableRowGroupBox {
+func TableRowGroupBoxAnonymousFrom(parent Box, children []Box) *TableRowGroupBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableRowGroupBox(parent.Box().elementTag, style, children)
+	out := NewTableRowGroupBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -424,8 +427,7 @@ func (t typeTableRowGroupBox) IsInstance(box Box) bool {
 type typeTableRowGroupBox struct{}
 
 func (t typeTableRowGroupBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableRowGroupBoxAnonymousFrom(parent, children)
-	return &out
+	return TableRowGroupBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: table-row``
@@ -443,9 +445,10 @@ func (b TableRowBox) String() string {
 	return fmt.Sprintf("<TableRowBox %s>", b.BoxFields.elementTag)
 }
 
-func TableRowBoxAnonymousFrom(parent Box, children []Box) TableRowBox {
+func TableRowBoxAnonymousFrom(parent Box, children []Box) *TableRowBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableRowBox(parent.Box().elementTag, style, children)
+	out := NewTableRowBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -457,8 +460,7 @@ func (t typeTableRowBox) IsInstance(box Box) bool {
 type typeTableRowBox struct{}
 
 func (t typeTableRowBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableRowBoxAnonymousFrom(parent, children)
-	return &out
+	return TableRowBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: table-column-group``
@@ -476,9 +478,10 @@ func (b TableColumnGroupBox) String() string {
 	return fmt.Sprintf("<TableColumnGroupBox %s>", b.BoxFields.elementTag)
 }
 
-func TableColumnGroupBoxAnonymousFrom(parent Box, children []Box) TableColumnGroupBox {
+func TableColumnGroupBoxAnonymousFrom(parent Box, children []Box) *TableColumnGroupBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableColumnGroupBox(parent.Box().elementTag, style, children)
+	out := NewTableColumnGroupBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -490,8 +493,7 @@ func (t typeTableColumnGroupBox) IsInstance(box Box) bool {
 type typeTableColumnGroupBox struct{}
 
 func (t typeTableColumnGroupBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableColumnGroupBoxAnonymousFrom(parent, children)
-	return &out
+	return TableColumnGroupBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: table-column``
@@ -509,9 +511,10 @@ func (b TableColumnBox) String() string {
 	return fmt.Sprintf("<TableColumnBox %s>", b.BoxFields.elementTag)
 }
 
-func TableColumnBoxAnonymousFrom(parent Box, children []Box) TableColumnBox {
+func TableColumnBoxAnonymousFrom(parent Box, children []Box) *TableColumnBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableColumnBox(parent.Box().elementTag, style, children)
+	out := NewTableColumnBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -523,15 +526,14 @@ func (t typeTableColumnBox) IsInstance(box Box) bool {
 type typeTableColumnBox struct{}
 
 func (t typeTableColumnBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableColumnBoxAnonymousFrom(parent, children)
-	return &out
+	return TableColumnBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: table-cell``
 type InstanceTableCellBox interface {
 	isTableCellBox()
-	isBlockContainerBox()
 	isParentBox()
+	isBlockContainerBox()
 }
 
 func (b *TableCellBox) Box() *BoxFields { return &b.BoxFields }
@@ -543,9 +545,10 @@ func (b TableCellBox) String() string {
 	return fmt.Sprintf("<TableCellBox %s>", b.BoxFields.elementTag)
 }
 
-func TableCellBoxAnonymousFrom(parent Box, children []Box) TableCellBox {
+func TableCellBoxAnonymousFrom(parent Box, children []Box) *TableCellBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableCellBox(parent.Box().elementTag, style, children)
+	out := NewTableCellBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -557,17 +560,16 @@ func (t typeTableCellBox) IsInstance(box Box) bool {
 type typeTableCellBox struct{}
 
 func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableCellBoxAnonymousFrom(parent, children)
-	return &out
+	return TableCellBoxAnonymousFrom(parent, children)
 }
 
 // Box for elements with ``display: table-caption``
 type InstanceTableCaptionBox interface {
 	isTableCaptionBox()
-	isBlockBox()
 	isBlockLevelBox()
-	isBlockContainerBox()
+	isBlockBox()
 	isParentBox()
+	isBlockContainerBox()
 }
 
 func (b *TableCaptionBox) Box() *BoxFields { return &b.BoxFields }
@@ -579,9 +581,10 @@ func (b TableCaptionBox) String() string {
 	return fmt.Sprintf("<TableCaptionBox %s>", b.BoxFields.elementTag)
 }
 
-func TableCaptionBoxAnonymousFrom(parent Box, children []Box) TableCaptionBox {
+func TableCaptionBoxAnonymousFrom(parent Box, children []Box) *TableCaptionBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewTableCaptionBox(parent.Box().elementTag, style, children)
+	out := NewTableCaptionBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -593,8 +596,7 @@ func (t typeTableCaptionBox) IsInstance(box Box) bool {
 type typeTableCaptionBox struct{}
 
 func (t typeTableCaptionBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := TableCaptionBoxAnonymousFrom(parent, children)
-	return &out
+	return TableCaptionBoxAnonymousFrom(parent, children)
 }
 
 // Box for a page.
@@ -613,8 +615,8 @@ func (b PageBox) Copy() Box { return &b }
 // Box in page margins, as defined in CSS3 Paged Media
 type InstanceMarginBox interface {
 	isMarginBox()
-	isBlockContainerBox()
 	isParentBox()
+	isBlockContainerBox()
 }
 
 func (b *MarginBox) Box() *BoxFields { return &b.BoxFields }
@@ -646,9 +648,10 @@ func (b FlexBox) String() string {
 	return fmt.Sprintf("<FlexBox %s>", b.BoxFields.elementTag)
 }
 
-func FlexBoxAnonymousFrom(parent Box, children []Box) FlexBox {
+func FlexBoxAnonymousFrom(parent Box, children []Box) *FlexBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewFlexBox(parent.Box().elementTag, style, children)
+	out := NewFlexBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -660,16 +663,15 @@ func (t typeFlexBox) IsInstance(box Box) bool {
 type typeFlexBox struct{}
 
 func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := FlexBoxAnonymousFrom(parent, children)
-	return &out
+	return FlexBoxAnonymousFrom(parent, children)
 }
 
 // A box that is both inline-level and a flex container.
 // It behaves as inline on the outside and as a flex container on the inside.
 type InstanceInlineFlexBox interface {
 	isInlineFlexBox()
-	isFlexContainerBox()
 	isInlineLevelBox()
+	isFlexContainerBox()
 	isParentBox()
 }
 
@@ -682,9 +684,10 @@ func (b InlineFlexBox) String() string {
 	return fmt.Sprintf("<InlineFlexBox %s>", b.BoxFields.elementTag)
 }
 
-func InlineFlexBoxAnonymousFrom(parent Box, children []Box) InlineFlexBox {
+func InlineFlexBoxAnonymousFrom(parent Box, children []Box) *InlineFlexBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-	return NewInlineFlexBox(parent.Box().elementTag, style, children)
+	out := NewInlineFlexBox(parent.Box().elementTag, style, children)
+	return &out
 
 }
 
@@ -696,8 +699,7 @@ func (t typeInlineFlexBox) IsInstance(box Box) bool {
 type typeInlineFlexBox struct{}
 
 func (t typeInlineFlexBox) AnonymousFrom(parent Box, children []Box) Box {
-	out := InlineFlexBoxAnonymousFrom(parent, children)
-	return &out
+	return InlineFlexBoxAnonymousFrom(parent, children)
 }
 
 var (

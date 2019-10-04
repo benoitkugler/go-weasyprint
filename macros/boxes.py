@@ -286,13 +286,14 @@ def generate_type_objects(class_name: str):
     body = "// TODO" + ":"
     if not own_anonymous_from:
         body = f"""style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
-            return New{class_name}(parent.Box().elementTag, style, {args[-1][0]})
+            out := New{class_name}(parent.Box().elementTag, style, {args[-1][0]})
+            return &out
             """
 
     out = ""
 
     fn = f"""
-        func {class_name}AnonymousFrom(parent Box, {args[-1][0] + " " + args[-1][1]}) {class_name} {{
+        func {class_name}AnonymousFrom(parent Box, {args[-1][0] + " " + args[-1][1]}) *{class_name} {{
             {body}
         }}
         """
@@ -312,8 +313,7 @@ def generate_type_objects(class_name: str):
         type type{class_name} struct{{}}
 
         func (t type{class_name}) AnonymousFrom(parent Box, children []Box) Box {{
-            out := {class_name}AnonymousFrom(parent, children)
-            return &out
+            return {class_name}AnonymousFrom(parent, children)
         }}
         """
         var_type = f"Type{class_name} BoxType = type{class_name}{{}}"

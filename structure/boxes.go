@@ -1,5 +1,17 @@
-//   Classes for all types of boxes in the CSS formatting structure / box model.
-//	 Only define base class and interface, completed in package structure.
+package structure
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/benoitkugler/go-weasyprint/style/tree"
+
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/utils"
+)
+
+//    Classes for all types of boxes in the CSS formatting structure / box model.
+//
 //    See http://www.w3.org/TR/CSS21/visuren.html
 //
 //    Names are the same as in CSS 2.1 with the exception of ``TextBox``. In
@@ -49,16 +61,6 @@
 //
 //    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
 //    :license: BSD, see LICENSE for details.
-package boxes
-
-import (
-	"errors"
-	"fmt"
-
-	"github.com/benoitkugler/go-weasyprint/structure"
-	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils"
-)
 
 // http://stackoverflow.com/questions/16317534/
 var asciiToWide = map[rune]rune{}
@@ -75,9 +77,12 @@ type point [2]float32
 
 // Box is the common interface grouping all possible boxes
 type Box interface {
+	tree.Box
+
 	Box() *BoxFields
 	Copy() Box
 	String() string
+	IsProperChild(Box) bool
 	allChildren() []Box
 	translate(box Box, dx float32, dy float32, ignoreFloats bool)
 	removeDecoration(box *BoxFields, isStart, isEnd bool)
@@ -96,13 +101,17 @@ type BoxFields struct {
 	isForRootElement bool
 	isColumn         bool
 
+	properTableChild       bool
+	internalTableOrCaption bool
+	tabularContainer       bool
+
 	isAttachment bool
 	// isListMarker         bool
 	transformationMatrix interface{}
 
 	bookmarkLabel string
 
-	stringSet pr.SContents
+	stringSet pr.ContentProperties
 
 	elementTag string
 	style      pr.Properties
@@ -126,16 +135,13 @@ type BoxFields struct {
 	children []Box
 	// outsideListMarker Box
 
-	missingLink         Box
-	cachedCounterValues CounterValues
+	missingLink         tree.Box
+	cachedCounterValues tree.CounterValues
 }
 
 type TableFields struct {
-	properTableChild       bool
-	internalTableOrCaption bool
-	tabularContainer       bool
-	isHeader               bool
-	isFooter               bool
+	isHeader bool
+	isFooter bool
 
 	span    int
 	colspan int
@@ -145,35 +151,8 @@ type TableFields struct {
 	columnPositions []float32
 }
 
-func NewBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
+func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
 	return BoxFields{elementTag: elementTag, style: style, children: children}
-}
-
-func CopyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box {
-	newBox := box.Copy()
-	newBox.Box().children = newChildren
-	if box.Box().style.GetBoxDecorationBreak() == "slice" {
-		newBox.removeDecoration(newBox.Box(), !isStart, !isEnd)
-	}
-	return newBox
-}
-
-func Deepcopy(b Box) Box {
-	new := b.Copy()
-	newChildren := make([]Box, len(b.Box().children))
-	for i, c := range b.Box().children {
-		newChildren[i] = Deepcopy(c)
-	}
-	new.Box().children = newChildren
-	return new
-}
-
-func Descendants(b Box) []Box {
-	out := []Box{b}
-	for _, child := range b.Box().children {
-		out = append(out, Descendants(child)...)
-	}
-	return out
 }
 
 // BoxType enables passing type as value
@@ -188,10 +167,59 @@ func (box *BoxFields) allChildren() []Box {
 	return box.children
 }
 
-func (b BoxFields) getWrappedTable() (structure.InstanceTableBox, error) {
+func (box *BoxFields) IsProperChild(b Box) bool {
+	return false
+}
+
+// ----------------------- needed by target ----------------------
+
+func (box *BoxFields) CachedCounterValues() tree.CounterValues {
+	return box.cachedCounterValues
+}
+
+func (box *BoxFields) SetCachedCounterValues(cv tree.CounterValues) {
+	box.cachedCounterValues = cv
+}
+
+func (box *BoxFields) MissingLink() tree.Box {
+	return box.missingLink
+}
+
+func (box *BoxFields) SetMissingLink(b tree.Box) {
+	box.missingLink = b
+}
+
+func copyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box {
+	newBox := box.Copy()
+	newBox.Box().children = newChildren
+	if box.Box().style.GetBoxDecorationBreak() == "slice" {
+		newBox.removeDecoration(newBox.Box(), !isStart, !isEnd)
+	}
+	return newBox
+}
+
+func deepcopy(b Box) Box {
+	new := b.Copy()
+	newChildren := make([]Box, len(b.Box().children))
+	for i, c := range b.Box().children {
+		newChildren[i] = deepcopy(c)
+	}
+	new.Box().children = newChildren
+	return new
+}
+
+func descendants(b Box) []Box {
+	out := []Box{b}
+	for _, child := range b.Box().children {
+		out = append(out, descendants(child)...)
+	}
+	return out
+}
+
+func (b BoxFields) getWrappedTable() (InstanceTableBox, error) {
 	if b.isTableWrapper {
 		for _, child := range b.children {
-			if asTable, ok := child.(structure.InstanceTableBox); ok {
+			if asTable, ok := child.(InstanceTableBox); ok {
 				return asTable, nil
 			}
 		}

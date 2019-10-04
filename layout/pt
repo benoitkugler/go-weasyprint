@@ -1,100 +1,14 @@
-        else if type_ == "target-counter()" {
-            anchorToken, counterName, counterStyle = value
-            lookupTarget = targetCollector.lookupTarget(
-                anchorToken, parentBox, cssToken, parseAgain)
-            if lookupTarget.state == "up-to-date" {
-                targetValues = lookupTarget.targetBox.cachedCounterValues
-                if needCollectMissing {
-                    CollectMissingTargetCounter(
-                        counterName, targetValues,
-                        targetCollector.anchorNameFromToken(anchorToken),
-                        missingTargetCounters)
-                } // Mixin target"s cached page counters.
-                // cachedPageCounterValues are empty during layout.
-                localCounters = (
-                    lookupTarget.cachedPageCounterValues.copy())
-                localCounters.update(targetValues)
-                counterValue = localCounters.get(counterName, [0])[-1]
-                texts.append(counters.format(counterValue, counterStyle))
-            } else {
-                texts = []
-                break
-            }
-        } else if type_ == "target-counters()" {
-            anchorToken, counterName, separator, counterStyle = value
-            lookupTarget = targetCollector.lookupTarget(
-                anchorToken, parentBox, cssToken, parseAgain)
-            if lookupTarget.state == "up-to-date" {
-                if separator[0] != "string" {
-                    break
-                } separatorString = separator[1]
-                targetValues = lookupTarget.targetBox.cachedCounterValues
-                if needCollectMissing {
-                    CollectMissingTargetCounter(
-                        counterName, targetValues,
-                        targetCollector.anchorNameFromToken(anchorToken),
-                        missingTargetCounters)
-                } // Mixin target"s cached page counters.
-                // cachedPageCounterValues are empty during layout.
-                localCounters = (
-                    lookupTarget.cachedPageCounterValues.copy())
-                localCounters.update(targetValues)
-                texts.append(separatorString.join(
-                    counters.format(counterValue, counterStyle)
-                    for counterValue := range localCounters.get(
-                        counterName, [0])))
-            } else {
-                texts = []
-                break
-            }
-        } else if type_ == "target-text()" {
-            anchorToken, textStyle = value
-            lookupTarget = targetCollector.lookupTarget(
-                anchorToken, parentBox, cssToken, parseAgain)
-            if lookupTarget.state == "up-to-date" {
-                targetBox = lookupTarget.targetBox
-                // TODO: "before"- && "after"- content referring missing
-                // counters are not properly set.
-                text = TEXTCONTENTEXTRACTORS[textStyle](targetBox)
-                // Simulate the step of white space processing
-                // (normally done during the layout)
-                texts.append(text.strip())
-            } else {
-                texts = []
-                break
-            }
-        } else if (type_ == "quote" and
-                quoteDepth is not None and
-                quoteStyle is not None) {
-                }
-            isOpen = "open" := range value
-            insert = not value.startswith("no-")
-            if not isOpen {
-                quoteDepth[0] = max(0, quoteDepth[0] - 1)
-            } if insert {
-                openQuotes, closeQuotes = quoteStyle
-                quotes = openQuotes if isOpen else closeQuotes
-                texts.append(quotes[min(quoteDepth[0], len(quotes) - 1)])
-            } if isOpen {
-                quoteDepth[0] += 1
-            }
-        else if type_ == "element()" {
-            if value.value not := range context.runningElements {
-                // TODO: emit warning
-                continue
-            } newBox = None
-            for i := range range(context.currentPage - 1, -1, -1) {
-                if i not := range context.runningElements[value.value] {
-                    continue
-                } runningBox = context.runningElements[value.value][i]
-                newBox = runningBox.deepcopy()
-                break
-            } newBox.style["position"] = "static"
-            for child := range newBox.descendants() {
-                if child.style["content"] := range ("normal", "none") {
-                    continue
-                } child.children = contentToBoxes(
-                    child.style, child, quoteDepth, counterValues,
-                    getImageFromUri, targetCollector, context=context,
-                    page=page)
-            } boxlist.append(newBox)
+    if markerBoxes && len(box.children) == 1 {
+        // See https://www.w3.org/TR/css-lists-3/#list-style-position-outside
+        #
+        // "The size || contents of the marker box may affect the height of the
+        //  principal block box and/or the height of its first line box, && in
+        //  some cases may cause the creation of a new line box; this
+        //  interaction is also not defined."
+        #
+        // We decide here to add a zero-width space to have a minimum
+        // height. Adding text boxes is not the best idea, but it"s not a good
+        // moment to add an empty line box, && the specification lets us do
+        // almost what we want, so…
+        if style["listStylePosition"] == "outside" {
+            box.children.append(boxes.TextBox.anonymousFrom(box, "​"))

@@ -147,3 +147,16 @@ func TestUrl(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPOINTER(t *testing.T) {
+	var a = struct {
+		i struct {
+			u int
+		}
+	}{
+		i: struct{ u int }{u: 9},
+	}
+	ta := a.i
+	ta.u += 10
+	t.Log(ta, a)
+}

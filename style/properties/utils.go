@@ -94,6 +94,10 @@ func (s Color) isInnerContent()       {}
 func (s Quote) isInnerContent()       {}
 func (s AttrData) isInnerContent()    {}
 
+func (c ContentProperty) AsString() (value string) {
+	return string(c.Content.(String))
+}
+
 func (c ContentProperty) AsCounter() (counterName, counterStyle string) {
 	value, _ := c.Content.(Strings)
 	if len(value) < 2 {
@@ -142,7 +146,7 @@ func (c ContentProperty) AsTargetText() (anchorToken ContentProperty, textStyle 
 	return value[0].ContentProperty, value[1].String
 }
 
-func (c ContentProperty) AsQuotes() Quote {
+func (c ContentProperty) AsQuote() Quote {
 	return c.Content.(Quote)
 }
 
