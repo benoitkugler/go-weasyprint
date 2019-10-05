@@ -1,14 +1,52 @@
-    if markerBoxes && len(box.children) == 1 {
-        // See https://www.w3.org/TR/css-lists-3/#list-style-position-outside
-        #
-        // "The size || contents of the marker box may affect the height of the
-        //  principal block box and/or the height of its first line box, && in
-        //  some cases may cause the creation of a new line box; this
-        //  interaction is also not defined."
-        #
-        // We decide here to add a zero-width space to have a minimum
-        // height. Adding text boxes is not the best idea, but it"s not a good
-        // moment to add an empty line box, && the specification lets us do
-        // almost what we want, so…
-        if style["listStylePosition"] == "outside" {
-            box.children.append(boxes.TextBox.anonymousFrom(box, "​"))
+"""
+    weasyprint.layout.minMax
+    -------------------------
+
+    :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+
+"""
+
+import functools
+
+
+// Decorate a function that sets the used width of a box to handle
+//     {min,max}-width.
+//     
+func handleMinMaxWidth(function) {
+    @functools.wraps(function)
+    def wrapper(box, *args) {
+        computedMargins = box.marginLeft, box.marginRight
+        result = function(box, *args)
+        if box.width > box.maxWidth {
+            box.width = box.maxWidth
+            box.marginLeft, box.marginRight = computedMargins
+            result = function(box, *args)
+        } if box.width < box.minWidth {
+            box.width = box.minWidth
+            box.marginLeft, box.marginRight = computedMargins
+            result = function(box, *args)
+        } return result
+    } wrapper.withoutMinMax = function
+    return wrapper
+} 
+
+// Decorate a function that sets the used height of a box to handle
+//     {min,max}-height.
+//     
+func handleMinMaxHeight(function) {
+    @functools.wraps(function)
+    def wrapper(box, *args) {
+        computedMargins = box.marginTop, box.marginBottom
+        result = function(box, *args)
+        if box.height > box.maxHeight {
+            box.height = box.maxHeight
+            box.marginTop, box.marginBottom = computedMargins
+            result = function(box, *args)
+        } if box.height < box.minHeight {
+            box.height = box.minHeight
+            box.marginTop, box.marginBottom = computedMargins
+            result = function(box, *args)
+        } return result
+    } wrapper.withoutMinMax = function
+    return wrapper
