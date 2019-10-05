@@ -63,7 +63,7 @@ type stateShared struct {
 	counterScopes []pr.Set
 }
 
-type gifu = func(url, forcedMimeType string) pr.Image
+type Gifu = func(url, forcedMimeType string) pr.Image
 
 type styleForI interface {
 	Get(element tree.Element, pseudoType string) pr.Properties
@@ -87,7 +87,7 @@ func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.Properties
 }
 
 // Build a formatting structure (box tree) from an element tree.
-func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri gifu, baseUrl string, targetCollector *tree.TargetCollector) Box {
+func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri Gifu, baseUrl string, targetCollector *tree.TargetCollector) Box {
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, targetCollector, nil)
 	var box Box
 	if len(boxList) > 0 {
@@ -173,7 +173,7 @@ func makeBox(elementTag string, style pr.Properties, content []Box) Box {
 //    ``TextBox``es are anonymous inline boxes:
 //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
 func elementToBox(element *utils.HTMLNode, styleFor styleForI,
-	getImageFromUri gifu, baseUrl string, targetCollector *tree.TargetCollector, state *stateShared) []Box {
+	getImageFromUri Gifu, baseUrl string, targetCollector *tree.TargetCollector, state *stateShared) []Box {
 
 	if element.Type != html.TextNode && element.Type != html.ElementNode && element.Type != html.DocumentNode {
 		// Here we ignore comments and XML processing instructions.
@@ -292,7 +292,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 
 // Yield the box for ::before or ::after pseudo-element.
 func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *stateShared, styleFor styleForI,
-	getImageFromUri gifu, targetCollector *tree.TargetCollector) []Box {
+	getImageFromUri Gifu, targetCollector *tree.TargetCollector) []Box {
 
 	style := styleFor.Get(element, pseudoType)
 	if pseudoType != "" && style == nil {
@@ -331,7 +331,7 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *stateSh
 // Yield the box for ::marker pseudo-element if there is one.
 // https://drafts.csswg.org/css-lists-3/#marker-pseudo
 func markerToBox(element *utils.HTMLNode, state *stateShared, parentStyle pr.Properties, styleFor styleForI,
-	getImageFromUri gifu, targetCollector *tree.TargetCollector) Box {
+	getImageFromUri Gifu, targetCollector *tree.TargetCollector) Box {
 	style := styleFor.Get(element, "marker")
 
 	// TODO: should be the computed value. When does the used value for
@@ -438,7 +438,7 @@ func collectMissingTargetCounter(counterName string, lookupCounterValues tree.Co
 // required reparsing.
 func computeContentList(contentList pr.ContentProperties, parentBox Box, counterValues tree.CounterValues,
 	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector,
-	getImageFromUri gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page *pr.Page, element *utils.HTMLNode) []Box {
+	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page *pr.Page, element *utils.HTMLNode) []Box {
 
 	// TODO: Some computation done here may be done in computed_values
 	// instead. We currently miss at least style_for, counters and quotes
@@ -665,7 +665,7 @@ mainLoop:
 
 // Takes the value of a ``content`` property and yield boxes.
 func contentToBoxes(style pr.Properties, parentBox Box, quoteDepth []int, counterValues tree.CounterValues,
-	getImageFromUri gifu, targetCollector *tree.TargetCollector, context Context, page *pr.Page) []Box {
+	getImageFromUri Gifu, targetCollector *tree.TargetCollector, context Context, page *pr.Page) []Box {
 	origQuoteDepth := make([]int, len(quoteDepth))
 
 	// Closure to parse the ``parentBoxes`` children all again.

@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-type handlerFunction = func(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl string) []Box
+type handlerFunction = func(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box
 
 var (
 	HtmlHandlers = map[string]handlerFunction{
@@ -27,7 +27,7 @@ var (
 )
 
 // HandleElement handle HTML elements that need special care.
-func handleElement(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl string) []Box {
+func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
 	handler, in := HtmlHandlers[box.Box().elementTag]
 	if in {
 		return handler(element, box, getImageFromUri, baseUrl)
@@ -60,7 +60,7 @@ func makeReplacedBox(element *utils.HTMLNode, box Box, image pr.Image) Box {
 
 // Handle ``<img>`` elements, return either an image || the alt-text.
 // See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
-func handleImg(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl string) []Box {
+func handleImg(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
 	src := element.GetUrlAttribute("src", baseUrl, false)
 	alt := element.Get("alt")
 	if src != "" {
@@ -85,7 +85,7 @@ func handleImg(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl s
 
 // Handle ``<embed>`` elements, return either an image || nothing.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
-func handleEmbed(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl string) []Box {
+func handleEmbed(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
 	src := element.GetUrlAttribute("src", baseUrl, false)
 	type_ := strings.TrimSpace(element.Get("type"))
 	if src != "" {
@@ -101,7 +101,7 @@ func handleEmbed(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl
 // Handle ``<object>`` elements, return either an image || the fallback
 // content.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
-func handleObject(element *utils.HTMLNode, box Box, getImageFromUri gifu, baseUrl string) []Box {
+func handleObject(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
 	data := element.GetUrlAttribute("data", baseUrl, false)
 	type_ := strings.TrimSpace(element.Get("type"))
 	if data != "" {
@@ -131,7 +131,7 @@ func integerAttribute(element utils.HTMLNode, name string, minimum int) (bool, i
 }
 
 // Handle the ``span`` attribute.
-func handleColgroup(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
+func handleColgroup(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 	if TypeTableColumnGroupBox.IsInstance(box) { // leaf
 		f := box.Box()
 
@@ -158,7 +158,7 @@ func handleColgroup(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
 }
 
 // Handle the ``span`` attribute.
-func handleCol(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
+func handleCol(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 	if TypeTableColumnBox.IsInstance(box) { // leaf
 		f := box.Box()
 
@@ -180,7 +180,7 @@ func handleCol(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
 }
 
 // Handle the ``colspan``, ``rowspan`` attributes.
-func handleTd(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
+func handleTd(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 	if TypeTableCellBox.IsInstance(box) {
 		// HTML 4.01 gives special meaning to colspan=0
 		// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
@@ -202,7 +202,7 @@ func handleTd(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
 }
 
 // Handle the ``rel`` attribute.
-func handleA(element *utils.HTMLNode, box Box, _ gifu, _ string) []Box {
+func handleA(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 	box.Box().isAttachment = utils.ElementHasLinkType(element, "attachment")
 	return []Box{box}
 }
