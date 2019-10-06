@@ -76,7 +76,7 @@ func init() {
 	asciiToWide[0x2D] = '\u2212'
 }
 
-type point [2]float32
+type Point [2]float32
 
 // Box is the common interface grouping all possible boxes
 type Box interface {
@@ -131,7 +131,7 @@ type BoxFields struct {
 
 	borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth float32
 
-	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius point
+	borderTopLeftRadius, borderTopRightRadius, borderBottomRightRadius, borderBottomLeftRadius Point
 
 	viewportOverflow string
 
@@ -320,7 +320,7 @@ func (self BoxFields) hitArea() (x float32, y float32, w float32, h float32) {
 
 type roundedBox struct {
 	x, y, width, height                        float32
-	topLeft, topRight, bottomRight, bottomLeft point
+	topLeft, topRight, bottomRight, bottomLeft Point
 }
 
 // Position, size and radii of a box inside the outer border box.
@@ -348,26 +348,26 @@ func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
 
 	// Fix overlapping curves
 	//See http://www.w3.org/TR/css3-background/#corner-overlap
-	points := []point{
+	Points := []Point{
 		{width, tlrx + trrx},
 		{width, blrx + brrx},
 		{height, tlry + blry},
 		{height, trry + brry},
 	}
 	var ratio float32 = 1.
-	for _, point := range points {
-		if point[1] > 0 {
-			candidat := point[0] / point[1]
+	for _, Point := range Points {
+		if Point[1] > 0 {
+			candidat := Point[0] / Point[1]
 			if candidat < ratio {
 				ratio = candidat
 			}
 		}
 	}
 	return roundedBox{x: x, y: y, width: width, height: height,
-		topLeft:     point{tlrx * ratio, tlry * ratio},
-		topRight:    point{trrx * ratio, trry * ratio},
-		bottomRight: point{brrx * ratio, brry * ratio},
-		bottomLeft:  point{blrx * ratio, blry * ratio},
+		topLeft:     Point{tlrx * ratio, tlry * ratio},
+		topRight:    Point{trrx * ratio, trry * ratio},
+		bottomRight: Point{brrx * ratio, brry * ratio},
+		bottomLeft:  Point{blrx * ratio, blry * ratio},
 	}
 }
 

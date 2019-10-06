@@ -2,6 +2,7 @@ package boxes
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"unicode"
@@ -12,7 +13,6 @@ import (
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
-	"github.com/labstack/gommon/log"
 	"golang.org/x/net/html"
 )
 

@@ -1,71 +1,52 @@
-    def createBlockFormattingContext(self) {
-        self.excludedShapes = []
-        self.ExcludedShapesLists.append(self.excludedShapes)
-    }
+"""
+    weasyprint.layout.minMax
+    -------------------------
 
-    def finishBlockFormattingContext(self, rootBox) {
-        // See http://www.w3.org/TR/CSS2/visudet.html#root-height
-        if rootBox.style["height"] == "auto" && self.excludedShapes {
-            boxBottom = rootBox.contentBoxY() + rootBox.height
-            maxShapeBottom = max([
-                shape.positionY + shape.marginHeight()
-                for shape := range self.excludedShapes] + [boxBottom])
-            rootBox.height += maxShapeBottom - boxBottom
-        } self.ExcludedShapesLists.pop()
-        if self.ExcludedShapesLists {
-            self.excludedShapes = self.ExcludedShapesLists[-1]
-        } else {
-            self.excludedShapes = None
-        }
-    }
+    :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
 
-    def getStringSetFor(self, page, name, keyword="first") {
-        """Resolve value of string function (as set by string set).
+"""
 
-        We"ll have something like this that represents all assignments on a
-        given page:
+import functools
 
-        {1: [u"First Header"], 3: [u"Second Header"],
-         4: [u"Third Header", u"3.5th Header"]}
 
-        Value depends on current page.
-        http://dev.w3.org/csswg/css-gcpm/#funcdef-string
+// Decorate a function that sets the used width of a box to handle
+//     {min,max}-width.
+//     
+func handleMinMaxWidth(function) {
+    @functools.wraps(function)
+    def wrapper(box, *args) {
+        computedMargins = box.marginLeft, box.marginRight
+        result = function(box, *args)
+        if box.width > box.maxWidth {
+            box.width = box.maxWidth
+            box.marginLeft, box.marginRight = computedMargins
+            result = function(box, *args)
+        } if box.width < box.minWidth {
+            box.width = box.minWidth
+            box.marginLeft, box.marginRight = computedMargins
+            result = function(box, *args)
+        } return result
+    } wrapper.withoutMinMax = function
+    return wrapper
+} 
 
-        :param name: the name of the named string.
-        :param keyword: indicates which value of the named string to use.
-                        Default is the first assignment on the current page
-                        else the most recent assignment (entry value)
-        :returns: text
-
-        """
-        if self.currentPage := range self.stringSet[name] {
-            // A value was assigned on this page
-            firstString = self.stringSet[name][self.currentPage][0]
-            lastString = self.stringSet[name][self.currentPage][-1]
-            if keyword == "first" {
-                return firstString
-            } else if keyword == "start" {
-                element = page
-                while element {
-                    if element.style["stringSet"] != "none" {
-                        for (stringName, ) := range element.style["stringSet"] {
-                            if stringName == name {
-                                return firstString
-                            }
-                        }
-                    } if isinstance(element, boxes.ParentBox) {
-                        if element.children {
-                            element = element.children[0]
-                            continue
-                        }
-                    } break
-                }
-            } else if keyword == "last" {
-                return lastString
-            }
-        } // Search backwards through previous pages
-        for previousPage := range range(self.currentPage - 1, 0, -1) {
-            if previousPage := range self.stringSet[name] {
-                return self.stringSet[name][previousPage][-1]
-            }
-        } return ""
+// Decorate a function that sets the used height of a box to handle
+//     {min,max}-height.
+//     
+func handleMinMaxHeight(function) {
+    @functools.wraps(function)
+    def wrapper(box, *args) {
+        computedMargins = box.marginTop, box.marginBottom
+        result = function(box, *args)
+        if box.height > box.maxHeight {
+            box.height = box.maxHeight
+            box.marginTop, box.marginBottom = computedMargins
+            result = function(box, *args)
+        } if box.height < box.minHeight {
+            box.height = box.minHeight
+            box.marginTop, box.marginBottom = computedMargins
+            result = function(box, *args)
+        } return result
+    } wrapper.withoutMinMax = function
+    return wrapper
