@@ -1,47 +1,71 @@
-// Remove && add boxes according to the flex model.
-//     Take && return a ``Box`` object.
-//     See http://www.w3.org/TR/css-flexbox-1/#flex-items
-//     
-func flexBoxes(box) {
-    if not isinstance(box, boxes.ParentBox) {
-        return box
+    def createBlockFormattingContext(self) {
+        self.excludedShapes = []
+        self.ExcludedShapesLists.append(self.excludedShapes)
     }
-} 
-    // Do recursion.
-    children = [flexBoxes(child) for child := range box.children]
-    box.children = flexChildren(box, children)
-    return box
 
+    def finishBlockFormattingContext(self, rootBox) {
+        // See http://www.w3.org/TR/CSS2/visudet.html#root-height
+        if rootBox.style["height"] == "auto" && self.excludedShapes {
+            boxBottom = rootBox.contentBoxY() + rootBox.height
+            maxShapeBottom = max([
+                shape.positionY + shape.marginHeight()
+                for shape := range self.excludedShapes] + [boxBottom])
+            rootBox.height += maxShapeBottom - boxBottom
+        } self.ExcludedShapesLists.pop()
+        if self.ExcludedShapesLists {
+            self.excludedShapes = self.ExcludedShapesLists[-1]
+        } else {
+            self.excludedShapes = None
+        }
+    }
 
-func flexChildren(box, children) {
-    if isinstance(box, boxes.FlexContainerBox) {
-        flexChildren = []
-        for child := range children {
-            if not child.isAbsolutelyPositioned() {
-                child.isFlexItem = true
-            } if isinstance(child, boxes.TextBox) && not child.text.strip(" ") {
-                // TODO: ignore texts only containing "characters that can be
-                // affected by the white-space property"
-                // https://www.w3.org/TR/css-flexbox-1/#flex-items
-                continue
-            } if isinstance(child, boxes.InlineLevelBox) {
-                // TODO: Only create block boxes for text runs, not for other
-                // inline level boxes. This is false but currently needed
-                // because blockLevelWidth && blockLevelLayout are called
-                // := range layout.flex.
-                if isinstance(child, boxes.ParentBox) {
-                    anonymous = boxes.BlockBox.anonymousFrom(
-                        box, child.children)
-                    anonymous.style = child.style
-                } else {
-                    anonymous = boxes.BlockBox.anonymousFrom(box, [child])
-                } anonymous.isFlexItem = true
-                flexChildren.append(anonymous)
-            } else {
-                flexChildren.append(child)
+    def getStringSetFor(self, page, name, keyword="first") {
+        """Resolve value of string function (as set by string set).
+
+        We"ll have something like this that represents all assignments on a
+        given page:
+
+        {1: [u"First Header"], 3: [u"Second Header"],
+         4: [u"Third Header", u"3.5th Header"]}
+
+        Value depends on current page.
+        http://dev.w3.org/csswg/css-gcpm/#funcdef-string
+
+        :param name: the name of the named string.
+        :param keyword: indicates which value of the named string to use.
+                        Default is the first assignment on the current page
+                        else the most recent assignment (entry value)
+        :returns: text
+
+        """
+        if self.currentPage := range self.stringSet[name] {
+            // A value was assigned on this page
+            firstString = self.stringSet[name][self.currentPage][0]
+            lastString = self.stringSet[name][self.currentPage][-1]
+            if keyword == "first" {
+                return firstString
+            } else if keyword == "start" {
+                element = page
+                while element {
+                    if element.style["stringSet"] != "none" {
+                        for (stringName, ) := range element.style["stringSet"] {
+                            if stringName == name {
+                                return firstString
+                            }
+                        }
+                    } if isinstance(element, boxes.ParentBox) {
+                        if element.children {
+                            element = element.children[0]
+                            continue
+                        }
+                    } break
+                }
+            } else if keyword == "last" {
+                return lastString
             }
-        } return flexChildren
-    } else {
-        return children
-    }
-} 
+        } // Search backwards through previous pages
+        for previousPage := range range(self.currentPage - 1, 0, -1) {
+            if previousPage := range self.stringSet[name] {
+                return self.stringSet[name][previousPage][-1]
+            }
+        } return ""

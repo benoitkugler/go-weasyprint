@@ -14,12 +14,14 @@
 package layout
 
 import (
-	"github.com/benoitkugler/go-weasyprint/structure"
+	"github.com/benoitkugler/go-weasyprint/boxes"
+	"github.com/benoitkugler/go-weasyprint/fonts"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
 // Lay out and yield the fixed boxes of ``pages``.
 func layoutFixedBoxes(context LayoutContext, pages []Page) {
-	var out []structure.Box
+	var out []boxes.Box
 	for _, page := range pages {
 		for _, box := range page.fixedBoxes {
 			// Use an empty list as last argument because the fixed boxes in the
@@ -31,7 +33,123 @@ func layoutFixedBoxes(context LayoutContext, pages []Page) {
 }
 
 type Page struct {
-	fixedBoxes []structure.Box
+	fixedBoxes []boxes.Box
 }
 
-type LayoutContext struct{}
+type LayoutContext struct {
+	enableHinting       bool
+	styleFor            tree.StyleFor
+	getImageFromUri     boxes.Gifu
+	fontConfig          *fonts.FontConfiguration
+	targetCollector     *tree.TargetCollector
+	excludedShapes      []shape
+	excludedShapesLists [][]shape
+	stringSet           map[string]map[string][]int
+	runningElements     map[string]int
+	currentPage         *pr.Page
+	forcedBreak         bool
+	strutLayouts        map[string]int
+	fontFeatures        map[string]int
+	tables              map[string]int
+	dictionaries        map[string]int
+}
+
+type shape struct {
+	positionY float32
+}
+
+func (s shape) marginHeight() float32 {}
+
+func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri boxes.Gifu,
+	fontConfig *fonts.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {
+	self := LayoutContext{}
+	self.enableHinting = enableHinting
+	self.styleFor = styleFor
+	self.getImageFromUri = getImageFromUri
+	self.fontConfig = fontConfig
+	self.targetCollector = targetCollector
+	self.runningElements = map[string]int{}
+	// Cache
+	self.strutLayouts = map[string]int{}
+	self.fontFeatures = map[string]int{}
+	self.tables = map[string]int{}
+	self.dictionaries = map[string]int{}
+	return &self
+}
+
+func (self *LayoutContext) createBlockFormattingContext() {
+	self.excludedShapes = nil
+	self.excludedShapesLists = append(self.excludedShapesLists, self.excludedShapes)
+}
+
+func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
+	// See http://www.w3.org/TR/CSS2/visudet.html#root-height
+	rootBox := rootBox_.Box()
+	if rootBox.style.GetHeight() == "auto" && self.excludedShapes {
+		boxBottom = rootBox.contentBoxY() + rootBox.height
+		maxShapeBottom := boxBottom 
+		for _, shape := range self.excludedShapes {
+			v := shape.positionY + shape.marginHeight()
+			if v > maxShapeBottom {
+				maxShapeBottom = v
+			}
+		}
+		rootBox.height += maxShapeBottom - boxBottom
+	} self.ExcludedShapesLists.pop()
+	if self.ExcludedShapesLists {
+		self.excludedShapes = self.ExcludedShapesLists[-1]
+	} else {
+		self.excludedShapes = None
+	}
+}
+
+func (self LayoutContext) getStringSetFor(page, name, keyword="first") {
+	"""Resolve value of string function (as set by string set).
+
+	We"ll have something like this that represents all assignments on a
+	given page:
+
+	{1: [u"First Header"], 3: [u"Second Header"],
+	 4: [u"Third Header", u"3.5th Header"]}
+
+	Value depends on current page.
+	http://dev.w3.org/csswg/css-gcpm/#funcdef-string
+
+	:param name: the name of the named string.
+	:param keyword: indicates which value of the named string to use.
+					Default is the first assignment on the current page
+					else the most recent assignment (entry value)
+	:returns: text
+
+	"""
+	if self.currentPage := range self.stringSet[name] {
+		// A value was assigned on this page
+		firstString = self.stringSet[name][self.currentPage][0]
+		lastString = self.stringSet[name][self.currentPage][-1]
+		if keyword == "first" {
+			return firstString
+		} else if keyword == "start" {
+			element = page
+			while element {
+				if element.style["stringSet"] != "none" {
+					for (stringName, ) := range element.style["stringSet"] {
+						if stringName == name {
+							return firstString
+						}
+					}
+				} if isinstance(element, boxes.ParentBox) {
+					if element.children {
+						element = element.children[0]
+						continue
+					}
+				} break
+			}
+		} else if keyword == "last" {
+			return lastString
+		}
+	} // Search backwards through previous pages
+	for previousPage := range range(self.currentPage - 1, 0, -1) {
+		if previousPage := range self.stringSet[name] {
+			return self.stringSet[name][previousPage][-1]
+		}
+	} return ""

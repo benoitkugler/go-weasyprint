@@ -7,7 +7,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/structure/counters"
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"

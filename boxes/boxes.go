@@ -1,7 +1,7 @@
 // The formatting structure is a tree of boxes. It is either "before layout",
 // close to the element tree is it built from, or "after layout", with
 // line breaks and page breaks.
-package structure
+package boxes
 
 import (
 	"errors"

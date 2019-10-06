@@ -1,4 +1,4 @@
-package structure
+package boxes
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
-	"github.com/benoitkugler/go-weasyprint/structure/counters"
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
