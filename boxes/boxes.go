@@ -141,12 +141,12 @@ type BoxFields struct {
 	isFooter bool
 
 	span    int
-	colspan int
-	rowspan int
+	Colspan int
+	Rowspan int
 
-	columnGroups        []Box
+	ColumnGroups        []Box
 	columnPositions     []float32
-	gridX               int
+	GridX               int
 	collapsedBorderGrid BorderGrids
 }
 
@@ -405,7 +405,7 @@ func (self BoxFields) isFloated() bool {
 }
 
 // Return whether this box is in the absolute positioning scheme.
-func (self BoxFields) isAbsolutelyPositioned() bool {
+func (self BoxFields) IsAbsolutelyPositioned() bool {
 	pos := self.Style.GetPosition()
 	return !pos.Bool && pos.String == "absolute" || pos.String == "fixed"
 }
@@ -418,7 +418,7 @@ func (self BoxFields) isRunning() bool {
 
 // Return whether this box is in normal flow.
 func (self BoxFields) isInNormalFlow() bool {
-	return !(self.isFloated() || self.isAbsolutelyPositioned() || self.isRunning())
+	return !(self.isFloated() || self.IsAbsolutelyPositioned() || self.isRunning())
 }
 
 // Start and end page values for named pages

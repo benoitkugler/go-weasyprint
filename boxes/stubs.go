@@ -59,11 +59,21 @@ type InstanceParentBox interface {
 	isParentBox()
 }
 
+func IsParentBox(box Box) bool {
+	_, is := box.(InstanceParentBox)
+	return is
+}
+
 // A box that participates in an block formatting context.
 // An element with a ``display`` value of ``block``, ``list-item`` or
 // ``table`` generates a block-level box.
 type InstanceBlockLevelBox interface {
 	isBlockLevelBox()
+}
+
+func IsBlockLevelBox(box Box) bool {
+	_, is := box.(InstanceBlockLevelBox)
+	return is
 }
 
 // A box that contains only block-level boxes or only line boxes.
@@ -75,6 +85,11 @@ type InstanceBlockLevelBox interface {
 type InstanceBlockContainerBox interface {
 	isBlockContainerBox()
 	isParentBox()
+}
+
+func IsBlockContainerBox(box Box) bool {
+	_, is := box.(InstanceBlockContainerBox)
+	return is
 }
 
 // A block-level box that is also a block container.
@@ -153,6 +168,11 @@ type InstanceInlineLevelBox interface {
 	isInlineLevelBox()
 }
 
+func IsInlineLevelBox(box Box) bool {
+	_, is := box.(InstanceInlineLevelBox)
+	return is
+}
+
 // An inline box with inline children.
 // A box that participates in an inline formatting context and whose content
 // also participates in that inline formatting context.
@@ -160,8 +180,8 @@ type InstanceInlineLevelBox interface {
 // inline box.
 type InstanceInlineBox interface {
 	isInlineBox()
-	isParentBox()
 	isInlineLevelBox()
+	isParentBox()
 }
 
 func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
@@ -222,16 +242,21 @@ type InstanceAtomicInlineLevelBox interface {
 	isInlineLevelBox()
 }
 
+func IsAtomicInlineLevelBox(box Box) bool {
+	_, is := box.(InstanceAtomicInlineLevelBox)
+	return is
+}
+
 // A box that is both inline-level and a block container.
 // It behaves as inline on the outside and as a block on the inside.
 // A non-replaced element with a 'display' value of 'inline-block' generates
 // an inline-block box.
 type InstanceInlineBlockBox interface {
 	isInlineBlockBox()
+	isInlineLevelBox()
+	isAtomicInlineLevelBox()
 	isParentBox()
 	isBlockContainerBox()
-	isAtomicInlineLevelBox()
-	isInlineLevelBox()
 }
 
 func (b *InlineBlockBox) Box() *BoxFields { return &b.BoxFields }
@@ -268,13 +293,18 @@ type InstanceReplacedBox interface {
 	isReplacedBox()
 }
 
+func IsReplacedBox(box Box) bool {
+	_, is := box.(InstanceReplacedBox)
+	return is
+}
+
 // A box that is both replaced and block-level.
 // A replaced element with a ``display`` value of ``block``, ``liste-item`` or
 // ``table`` generates a block-level replaced box.
 type InstanceBlockReplacedBox interface {
 	isBlockReplacedBox()
-	isBlockLevelBox()
 	isReplacedBox()
+	isBlockLevelBox()
 }
 
 func (b *BlockReplacedBox) Box() *BoxFields { return &b.BoxFields }
@@ -299,9 +329,9 @@ func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *BlockRepla
 // box.
 type InstanceInlineReplacedBox interface {
 	isInlineReplacedBox()
-	isAtomicInlineLevelBox()
-	isReplacedBox()
 	isInlineLevelBox()
+	isReplacedBox()
+	isAtomicInlineLevelBox()
 }
 
 func (b *InlineReplacedBox) Box() *BoxFields { return &b.BoxFields }
@@ -357,9 +387,9 @@ func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: inline-table``
 type InstanceInlineTableBox interface {
 	isInlineTableBox()
+	isBlockLevelBox()
 	isParentBox()
 	isTableBox()
-	isBlockLevelBox()
 }
 
 func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
@@ -622,6 +652,11 @@ type InstanceFlexContainerBox interface {
 	isParentBox()
 }
 
+func IsFlexContainerBox(box Box) bool {
+	_, is := box.(InstanceFlexContainerBox)
+	return is
+}
+
 // A box that is both block-level and a flex container.
 // It behaves as block on the outside and as a flex container on the inside.
 type InstanceFlexBox interface {
@@ -662,9 +697,9 @@ func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
 // It behaves as inline on the outside and as a flex container on the inside.
 type InstanceInlineFlexBox interface {
 	isInlineFlexBox()
+	isInlineLevelBox()
 	isParentBox()
 	isFlexContainerBox()
-	isInlineLevelBox()
 }
 
 func (b *InlineFlexBox) Box() *BoxFields { return &b.BoxFields }

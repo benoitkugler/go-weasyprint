@@ -1877,7 +1877,7 @@ func maxWidthHeight(tokens []Token, _ string) pr.CssProperty {
 		return pr.Value{Dimension: length}
 	}
 	if getKeyword(token) == "none" {
-		return pr.Value{Dimension: pr.Dimension{Value: float32(math.Inf(1.)), Unit: pr.Px}}
+		return pr.Value{Dimension: pr.Dimension{Value: pr.Inf, Unit: pr.Px}}
 	}
 	return nil
 }

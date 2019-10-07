@@ -2,9 +2,12 @@ package properties
 
 import (
 	"log"
+	"math"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 )
+
+var Inf = float32(math.Inf(+1))
 
 var Has = struct{}{}
 

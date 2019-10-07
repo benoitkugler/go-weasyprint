@@ -1,7 +1,6 @@
 package css
 
 import (
-	"math"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -78,8 +77,8 @@ var (
 		"margin_right":        zeroPixelsValue,
 		"margin_bottom":       zeroPixelsValue,
 		"margin_left":         zeroPixelsValue,
-		"max_height":          Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}}, // parsed value for "none}"
-		"max_width":           Value{Dimension: Dimension{Value: float32(math.Inf(+1)), Unit: Px}},
+		"max_height":          Value{Dimension: Dimension{Value: Inf, Unit: Px}}, // parsed value for "none}"
+		"max_width":           Value{Dimension: Dimension{Value: Inf, Unit: Px}},
 		"padding_top":         zeroPixelsValue,
 		"padding_right":       zeroPixelsValue,
 		"padding_bottom":      zeroPixelsValue,

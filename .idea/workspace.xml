@@ -8,10 +8,17 @@
       <change beforePath="$PROJECT_DIR$/boxes/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/build.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boxes/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/html.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boxes/stubs.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/stubs.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/css/properties.go" beforeDir="false" afterPath="$PROJECT_DIR$/deprecated/css/properties.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/absolute.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/absolute.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/layout.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/layout.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/min_max.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/min_max.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/percentages.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/percentages.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/preferred.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/preferred.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/macros/boxes.py" beforeDir="false" afterPath="$PROJECT_DIR$/macros/boxes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/initial_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/initial_values.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/utils.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/validation.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/math.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/math.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -40,7 +47,7 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" path="$PROJECT_DIR$/../../../../../../go" />
+  <component name="GOROOT" path="/usr/local/go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>

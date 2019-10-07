@@ -15,6 +15,7 @@ package layout
 
 import (
 	"github.com/benoitkugler/go-weasyprint/boxes"
+	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/fonts"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
@@ -50,7 +51,7 @@ type LayoutContext struct {
 	forcedBreak         bool
 	strutLayouts        map[string]int
 	fontFeatures        map[string]int
-	tables              map[string]int
+	tables              map[*bo.BoxFields]map[bool]tableContentWidths
 	dictionaries        map[string]int
 }
 

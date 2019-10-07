@@ -243,7 +243,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 				// TextBox is a leaf in inheritance tree, so we can type assert against the concrete type
 				// instead of using interfaces.
 				if ct, ok := children[len(children)-1].(*TextBox); ok {
-					ct.text += textBox.text
+					ct.Text += textBox.Text
 				} else {
 					children = append(children, textBox)
 				}
@@ -732,7 +732,7 @@ func computeStringSet(element *utils.HTMLNode, box Box, stringName string, conte
 		var builder strings.Builder
 		for _, box := range boxList {
 			if textBox, ok := box.(*TextBox); ok {
-				builder.WriteString(textBox.text)
+				builder.WriteString(textBox.Text)
 			}
 		}
 		string_ := builder.String()
@@ -773,7 +773,7 @@ func computeBookmarkLabel(element *utils.HTMLNode, box Box, contentList pr.Conte
 	var builder strings.Builder
 	for _, box := range boxList {
 		if textBox, ok := box.(*TextBox); ok {
-			builder.WriteString(textBox.text)
+			builder.WriteString(textBox.Text)
 		}
 	}
 	box.Box().bookmarkLabel = builder.String()
@@ -855,7 +855,7 @@ func isWhitespace(box Box, hasNonWhitespace func(string) bool) bool {
 		hasNonWhitespace = hasNonWhitespaceDefault
 	}
 	textBox, is := box.(*TextBox)
-	return is && !hasNonWhitespace(textBox.text)
+	return is && !hasNonWhitespace(textBox.Text)
 }
 
 //   Wrap consecutive children that do not pass ``test`` in a box of type
@@ -1052,12 +1052,12 @@ func wrapTable(box Box, children []Box) Box {
 	gridX := 0
 	for _, _group := range columnGroups {
 		group := _group.Box()
-		group.gridX = gridX
+		group.GridX = gridX
 		if len(group.Children) > 0 {
 			for _, column := range group.Children {
 				// There's no need to take care of group's span, as "span=x"
 				// already generates x TableColumnBox children
-				column.Box().gridX = gridX
+				column.Box().GridX = gridX
 				gridX += 1
 			}
 			group.span = len(group.Children)
@@ -1120,19 +1120,19 @@ func wrapTable(box Box, children []Box) Box {
 				for occupiedCellsInThisRow[gridX] {
 					gridX += 1
 				}
-				cell.gridX = gridX
-				newGridX := gridX + cell.colspan
+				cell.GridX = gridX
+				newGridX := gridX + cell.Colspan
 				// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
-				if cell.rowspan != 1 {
+				if cell.Rowspan != 1 {
 					maxRowspan := len(occupiedCellsByRow) + 1
 					var spannedRows []map[int]bool
-					if cell.rowspan == 0 {
+					if cell.Rowspan == 0 {
 						// All rows until the end of the group
 						spannedRows = occupiedCellsByRow
-						cell.rowspan = maxRowspan
+						cell.Rowspan = maxRowspan
 					} else {
-						cell.rowspan = utils.MinInt(cell.rowspan, maxRowspan)
-						spannedRows = occupiedCellsByRow[:cell.rowspan-1]
+						cell.Rowspan = utils.MinInt(cell.Rowspan, maxRowspan)
+						spannedRows = occupiedCellsByRow[:cell.Rowspan-1]
 					}
 					for _, occupiedCells := range spannedRows {
 						for i := gridX; i < newGridX; i++ {
@@ -1148,7 +1148,7 @@ func wrapTable(box Box, children []Box) Box {
 	}
 	table := copyWithChildren(box, rowGroups, true, true)
 	tableBox := table.Box()
-	tableBox.columnGroups = columnGroups
+	tableBox.ColumnGroups = columnGroups
 	if tableBox.Style.GetBorderCollapse() == "collapse" {
 		tableBox.collapsedBorderGrid = collapseTableBorders(table, gridWidth, gridHeight)
 	}
@@ -1264,18 +1264,18 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 			for _, _cell := range row.Box().Children {
 				cell := _cell.Box()
 				// No border inside of a cell with rowspan || colspan
-				for xx := cell.gridX + 1; xx < cell.gridX+cell.colspan; xx++ {
-					for yy := gridY; yy < gridY+cell.rowspan; yy++ {
+				for xx := cell.GridX + 1; xx < cell.GridX+cell.Colspan; xx++ {
+					for yy := gridY; yy < gridY+cell.Rowspan; yy++ {
 						verticalBorders[yy][xx] = strongNullBorder
 					}
 				}
-				for xx := cell.gridX; xx < cell.gridX+cell.colspan; xx++ {
-					for yy := gridY + 1; yy < gridY+cell.rowspan; yy++ {
+				for xx := cell.GridX; xx < cell.GridX+cell.Colspan; xx++ {
+					for yy := gridY + 1; yy < gridY+cell.Rowspan; yy++ {
 						horizontalBorders[yy][xx] = strongNullBorder
 					}
 				}
 				// The cell’s own borders
-				setBorders(_cell, cell.gridX, gridY, cell.colspan, cell.rowspan)
+				setBorders(_cell, cell.GridX, gridY, cell.Colspan, cell.Rowspan)
 			}
 			gridY += 1
 		}
@@ -1296,15 +1296,15 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 		gridY += rowspan
 	}
 
-	for _, columnGroup := range table.Box().columnGroups {
+	for _, columnGroup := range table.Box().ColumnGroups {
 		for _, column := range columnGroup.Box().Children {
-			setBorders(column, column.Box().gridX, 0, 1, gridHeight)
+			setBorders(column, column.Box().GridX, 0, 1, gridHeight)
 		}
 	}
 
-	for _, columnGroup := range table.Box().columnGroups {
+	for _, columnGroup := range table.Box().ColumnGroups {
 		tf := columnGroup.Box()
-		setBorders(columnGroup, tf.gridX, 0, tf.span, gridHeight)
+		setBorders(columnGroup, tf.GridX, 0, tf.span, gridHeight)
 	}
 
 	setBorders(table, 0, 0, gridWidth, gridHeight)
@@ -1355,16 +1355,16 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 			removeBorders(row)
 			for _, _cell := range row.Box().Children {
 				cell := _cell.Box()
-				setTransparentBorder(_cell, "top", maxHorizontalWidth(cell.gridX, gridY, cell.colspan))
-				setTransparentBorder(_cell, "bottom", maxHorizontalWidth(cell.gridX, gridY+cell.rowspan, cell.colspan))
-				setTransparentBorder(_cell, "left", maxVerticalWidth(cell.gridX, gridY, cell.rowspan))
-				setTransparentBorder(_cell, "right", maxVerticalWidth(cell.gridX+cell.colspan, gridY, cell.rowspan))
+				setTransparentBorder(_cell, "top", maxHorizontalWidth(cell.GridX, gridY, cell.Colspan))
+				setTransparentBorder(_cell, "bottom", maxHorizontalWidth(cell.GridX, gridY+cell.Rowspan, cell.Colspan))
+				setTransparentBorder(_cell, "left", maxVerticalWidth(cell.GridX, gridY, cell.Rowspan))
+				setTransparentBorder(_cell, "right", maxVerticalWidth(cell.GridX+cell.Colspan, gridY, cell.Rowspan))
 			}
 			gridY += 1
 		}
 	}
 
-	for _, columnGroup := range table.Box().columnGroups {
+	for _, columnGroup := range table.Box().ColumnGroups {
 		removeBorders(columnGroup)
 		for _, column := range columnGroup.Box().Children {
 			removeBorders(column)
@@ -1403,10 +1403,10 @@ func flexChildren(box Box, children []Box) []Box {
 	if _, isFlexCont := box.(InstanceFlexContainerBox); isFlexCont {
 		var flexChildren []Box
 		for _, child := range children {
-			if !child.Box().isAbsolutelyPositioned() {
+			if !child.Box().IsAbsolutelyPositioned() {
 				child.Box().isFlexItem = true
 			}
-			if textBox, ok := child.(*TextBox); ok && strings.Trim(textBox.text, " ") == "" {
+			if textBox, ok := child.(*TextBox); ok && strings.Trim(textBox.Text, " ") == "" {
 				// TODO: ignore texts only containing "characters that can be
 				// affected by the white-space property"
 				// https://www.w3.org/TR/css-flexbox-1/#flex-items
@@ -1447,7 +1447,7 @@ var (
 // http://dev.w3.org/csswg/css3-text/#white-space-rules
 func processWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 	if box, isTextBox := _box.(*TextBox); isTextBox {
-		text := box.text
+		text := box.Text
 		if text == "" {
 			return followingCollapsibleSpace
 		}
@@ -1483,7 +1483,7 @@ func processWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 		} else {
 			followingCollapsibleSpace = false
 		}
-		box.text = text
+		box.Text = text
 		return followingCollapsibleSpace
 	}
 	if IsParentBox(_box) {
@@ -1560,7 +1560,7 @@ func inlineInBlock(box Box) Box {
 			child.Box().leadingCollapsibleSpace = true
 		}
 
-		if textBox, isTextBox := child.(*TextBox); isTextBox && textBox.text == "" {
+		if textBox, isTextBox := child.(*TextBox); isTextBox && textBox.Text == "" {
 			trailingCollapsibleSpace = child.Box().leadingCollapsibleSpace
 		} else {
 			trailingCollapsibleSpace = false
@@ -1582,7 +1582,7 @@ func inlineInBlock(box Box) Box {
 			log.Fatalf("childBox can't be a LineBox")
 		}
 		_, isInlineLevel := childBox.(InstanceInlineLevelBox)
-		if len(newLineChildren) > 0 && childBox.Box().isAbsolutelyPositioned() {
+		if len(newLineChildren) > 0 && childBox.Box().IsAbsolutelyPositioned() {
 			newLineChildren = append(newLineChildren, childBox)
 		} else if isInlineLevel || (len(newLineChildren) > 0 && childBox.Box().isFloated()) {
 			// Do not append white space at the start of a line :
@@ -1590,7 +1590,7 @@ func inlineInBlock(box Box) Box {
 			childTextBox, isTextBox := childBox.(*TextBox)
 			st := childBox.Box().Style.GetWhiteSpace()
 			// Sequence of white-space was collapsed to a single space by processWhitespace().
-			if len(newLineChildren) > 0 || !(isTextBox && childTextBox.text == " " && (st == "normal" || st == "nowrap" || st == "pre-line")) {
+			if len(newLineChildren) > 0 || !(isTextBox && childTextBox.Text == " " && (st == "normal" || st == "nowrap" || st == "pre-line")) {
 				newLineChildren = append(newLineChildren, childBox)
 			}
 		} else {
@@ -1695,7 +1695,7 @@ func blockInInline(box Box) Box {
 			}
 
 			var (
-				stack          *sStack
+				stack          *SkipStack
 				newLine, block Box
 			)
 			for {
@@ -1733,9 +1733,9 @@ func blockInInline(box Box) Box {
 	return box
 }
 
-type sStack struct {
-	skip  int
-	stack *sStack
+type SkipStack struct {
+	Skip  int
+	Stack *SkipStack
 }
 
 // Find a block-level box in an inline formatting context.
@@ -1746,10 +1746,10 @@ type sStack struct {
 //     If no block-level box is found after the position marked by
 //     ``skipStack``, return ``(newBox, None, None)``
 //
-func innerBlockInInline(box Box, skipStack *sStack) (Box, Box, *sStack) {
+func innerBlockInInline(box Box, skipStack *SkipStack) (Box, Box, *SkipStack) {
 	var newChildren []Box
 	var blockLevelBox Box
-	var resumeAt *sStack
+	var resumeAt *SkipStack
 	changed := false
 
 	isStart := skipStack == nil
@@ -1757,8 +1757,8 @@ func innerBlockInInline(box Box, skipStack *sStack) (Box, Box, *sStack) {
 	if isStart {
 		skip = 0
 	} else {
-		skip = skipStack.skip
-		skipStack = skipStack.stack
+		skip = skipStack.Skip
+		skipStack = skipStack.Stack
 	}
 
 	hasBroken := false
@@ -1790,7 +1790,7 @@ func innerBlockInInline(box Box, skipStack *sStack) (Box, Box, *sStack) {
 		}
 
 		if blockLevelBox != nil {
-			resumeAt = &sStack{skip: index, stack: resumeAt}
+			resumeAt = &SkipStack{Skip: index, Stack: resumeAt}
 			box = copyWithChildren(box, newChildren, isStart, false)
 			hasBroken = true
 			break
@@ -1830,7 +1830,7 @@ func setViewportOverflow(rootBox Box) Box {
 
 func boxText(box Box) string {
 	if tBox, is := box.(*TextBox); is {
-		return tBox.text
+		return tBox.Text
 	}
 	var builder strings.Builder
 	if IsParentBox(box) {
@@ -1838,7 +1838,7 @@ func boxText(box Box) string {
 			et := child.Box().elementTag
 			if !strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
 				if tBox, is := child.(*TextBox); is {
-					builder.WriteString(tBox.text)
+					builder.WriteString(tBox.Text)
 				}
 			}
 		}

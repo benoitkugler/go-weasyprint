@@ -108,7 +108,7 @@ func resolvePercentages(box_ bo.Box, containingBlock bo.Point, mainFlexDirection
 			box.Height = height.Value
 		}
 		box.MinHeight = resolveOnePercentage(box.Style.GetMinHeight(), "min_height", 0, mainFlexDirection)
-		box.MaxHeight = resolveOnePercentage(box.Style.GetMaxHeight(), "max_height", float32(math.Inf(1)), mainFlexDirection)
+		box.MaxHeight = resolveOnePercentage(box.Style.GetMaxHeight(), "max_height", pr.Inf, mainFlexDirection)
 	} else {
 		box.Height = resolveOnePercentage(box.Style.GetHeight(), "height", cbHeight, "")
 		box.MinHeight = resolveOnePercentage(box.Style.GetMinHeight(), "min_height", cbHeight, mainFlexDirection)

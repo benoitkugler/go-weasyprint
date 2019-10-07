@@ -43,7 +43,7 @@ type TextBox struct {
 	BoxFields
 	InlineLevelBox
 
-	text string
+	Text string
 }
 
 type AtomicInlineLevelBox struct {
@@ -154,11 +154,6 @@ type InlineFlexBox struct {
 	BoxFields
 }
 
-func IsParentBox(box Box) bool {
-	_, is := box.(InstanceParentBox)
-	return is
-}
-
 func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBox {
 	out := BlockBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
@@ -236,7 +231,7 @@ func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
 		text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
 	}
 	box := newBoxFields(elementTag, style, nil)
-	out := TextBox{BoxFields: box, text: text}
+	out := TextBox{BoxFields: box, Text: text}
 	return out
 }
 
@@ -246,7 +241,7 @@ func (b TextBox) copyWithText(text string) TextBox {
 		log.Fatal("empty text")
 	}
 	newBox := b
-	newBox.text = text
+	newBox.Text = text
 	return newBox
 }
 
@@ -290,7 +285,7 @@ func NewTableBox(elementTag string, style pr.Properties, children []Box) TableBo
 }
 
 func (b *TableBox) allChildren() []Box {
-	return append(b.Box().Children, b.columnGroups...)
+	return append(b.Box().Children, b.ColumnGroups...)
 }
 
 func (b *TableBox) Translate(box Box, dx float32, dy float32, ignoreFloats bool) {
@@ -369,8 +364,8 @@ func (b *TableColumnBox) getCells() []Box {
 func NewTableCellBox(elementTag string, style pr.Properties, children []Box) TableCellBox {
 	out := TableCellBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.internalTableOrCaption = true
-	out.colspan = 1
-	out.rowspan = 1
+	out.Colspan = 1
+	out.Rowspan = 1
 	return out
 }
 

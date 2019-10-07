@@ -208,7 +208,7 @@ func absoluteBlock(context LayoutContext, box_ bo.Box, containingBlock block, fi
 		tableWrapperWidth(context, box, bo.Point{cbWidth, cbHeight})
 	}
 
-	newBox, _, _, _, _ := blockContainerLayout(context, box, math.Inf(+1), nil,
+	newBox, _, _, _, _ := blockContainerLayout(context, box, pr.Inf, nil,
 		false, absoluteBoxes, fixedBoxes, nil)
 
 	for _, childPlaceholder := range absoluteBoxes {

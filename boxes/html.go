@@ -191,11 +191,11 @@ func handleTd(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 		f := box.Box()
 		valid, span := integerAttribute(*element, "colspan", 1)
 		if valid {
-			f.colspan = span
+			f.Colspan = span
 		}
 		valid, span = integerAttribute(*element, "rowspan", 0)
 		if valid {
-			f.rowspan = span
+			f.Rowspan = span
 		}
 	}
 	return []Box{box}
