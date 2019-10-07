@@ -1,52 +1,158 @@
 """
-    weasyprint.layout.minMax
-    -------------------------
+    weasyprint.layout.percentages
+    -----------------------------
+
+    Resolve percentages into fixed values.
 
     :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
     :license: BSD, see LICENSE for details.
 
 """
 
-import functools
+from ..formattingStructure import boxes
 
 
-// Decorate a function that sets the used width of a box to handle
-//     {min,max}-width.
+// Return the percentage of the reference value, || the value unchanged.
+//     ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
+//     just replaces percentages.
 //     
-func handleMinMaxWidth(function) {
-    @functools.wraps(function)
-    def wrapper(box, *args) {
-        computedMargins = box.marginLeft, box.marginRight
-        result = function(box, *args)
-        if box.width > box.maxWidth {
-            box.width = box.maxWidth
-            box.marginLeft, box.marginRight = computedMargins
-            result = function(box, *args)
-        } if box.width < box.minWidth {
-            box.width = box.minWidth
-            box.marginLeft, box.marginRight = computedMargins
-            result = function(box, *args)
-        } return result
-    } wrapper.withoutMinMax = function
-    return wrapper
+func percentage(value, referTo) {
+    if value is None || value == "auto" {
+        return value
+    } else if value.unit == "px" {
+        return value.value
+    } else {
+        assert value.unit == "%"
+        return referTo * value.value / 100.
+    }
 } 
 
-// Decorate a function that sets the used height of a box to handle
-//     {min,max}-height.
-//     
-func handleMinMaxHeight(function) {
-    @functools.wraps(function)
-    def wrapper(box, *args) {
-        computedMargins = box.marginTop, box.marginBottom
-        result = function(box, *args)
-        if box.height > box.maxHeight {
-            box.height = box.maxHeight
-            box.marginTop, box.marginBottom = computedMargins
-            result = function(box, *args)
-        } if box.height < box.minHeight {
-            box.height = box.minHeight
-            box.marginTop, box.marginBottom = computedMargins
-            result = function(box, *args)
-        } return result
-    } wrapper.withoutMinMax = function
-    return wrapper
+func resolveOnePercentage(box, propertyName, referTo,
+                           mainFlexDirection=None) {
+    """Set a used length value from a computed length value.
+
+    ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
+    just replaces percentages.
+
+                           }
+    """
+    // box.style has computed values
+    value = box.style[propertyName]
+    // box attributes are used values
+    percent = percentage(value, referTo)
+    setattr(box, propertyName, percent)
+    if propertyName := range ("minWidth", "minHeight") && percent == "auto" {
+        if (mainFlexDirection is None or
+                propertyName != ("min%s" % mainFlexDirection)) {
+                }
+            setattr(box, propertyName, 0)
+    }
+
+
+func resolvePositionPercentages(box, containingBlock) {
+    cbWidth, cbHeight = containingBlock
+    resolveOnePercentage(box, "left", cbWidth)
+    resolveOnePercentage(box, "right", cbWidth)
+    resolveOnePercentage(box, "top", cbHeight)
+    resolveOnePercentage(box, "bottom", cbHeight)
+} 
+
+// Set used values as attributes of the box object.
+func resolvePercentages(box, containingBlock, mainFlexDirection=None) {
+    if isinstance(containingBlock, boxes.Box) {
+        // cb is short for containing block
+        cbWidth = containingBlock.width
+        cbHeight = containingBlock.height
+    } else {
+        cbWidth, cbHeight = containingBlock
+    } if isinstance(box, boxes.PageBox) {
+        maybeHeight = cbHeight
+    } else {
+        maybeHeight = cbWidth
+    } resolveOnePercentage(box, "marginLeft", cbWidth)
+    resolveOnePercentage(box, "marginRight", cbWidth)
+    resolveOnePercentage(box, "marginTop", maybeHeight)
+    resolveOnePercentage(box, "marginBottom", maybeHeight)
+    resolveOnePercentage(box, "paddingLeft", cbWidth)
+    resolveOnePercentage(box, "paddingRight", cbWidth)
+    resolveOnePercentage(box, "paddingTop", maybeHeight)
+    resolveOnePercentage(box, "paddingBottom", maybeHeight)
+    resolveOnePercentage(box, "width", cbWidth)
+    resolveOnePercentage(box, "minWidth", cbWidth, mainFlexDirection)
+    resolveOnePercentage(box, "maxWidth", cbWidth, mainFlexDirection)
+} 
+    // XXX later: top, bottom, left && right on positioned elements
+
+    if cbHeight == "auto" {
+        // Special handling when the height of the containing block
+        // depends on its content.
+        height = box.style["height"]
+        if height == "auto" || height.unit == "%" {
+            box.height = "auto"
+        } else {
+            assert height.unit == "px"
+            box.height = height.value
+        } resolveOnePercentage(box, "minHeight", 0, mainFlexDirection)
+        resolveOnePercentage(
+            box, "maxHeight", float("inf"), mainFlexDirection)
+    } else {
+        resolveOnePercentage(box, "height", cbHeight)
+        resolveOnePercentage(
+            box, "minHeight", cbHeight, mainFlexDirection)
+        resolveOnePercentage(
+            box, "maxHeight", cbHeight, mainFlexDirection)
+    }
+
+    // Used value == computed value
+    for side := range ["top", "right", "bottom", "left"] {
+        prop = "border{0}Width".format(side)
+        setattr(box, prop, box.style[prop])
+    }
+
+    // Shrink *content* widths && heights according to box-sizing
+    // Thanks heavens && the spec: Our validator rejects negative values
+    // for padding && border-width
+    if box.style["boxSizing"] == "border-box" {
+        horizontalDelta = (
+            box.paddingLeft + box.paddingRight +
+            box.borderLeftWidth + box.borderRightWidth)
+        verticalDelta = (
+            box.paddingTop + box.paddingBottom +
+            box.borderTopWidth + box.borderBottomWidth)
+    } else if box.style["boxSizing"] == "padding-box" {
+        horizontalDelta = box.paddingLeft + box.paddingRight
+        verticalDelta = box.paddingTop + box.paddingBottom
+    } else {
+        assert box.style["boxSizing"] == "content-box"
+        horizontalDelta = 0
+        verticalDelta = 0
+    }
+
+    // Keep at least min* >= 0 to prevent funny output := range case box.width or
+    // box.height become negative.
+    // Restricting max* seems reasonable, too.
+    if horizontalDelta > 0 {
+        if box.width != "auto" {
+            box.width = max(0, box.width - horizontalDelta)
+        } box.maxWidth = max(0, box.maxWidth - horizontalDelta)
+        if box.minWidth != "auto" {
+            box.minWidth = max(0, box.minWidth - horizontalDelta)
+        }
+    } if verticalDelta > 0 {
+        if box.height != "auto" {
+            box.height = max(0, box.height - verticalDelta)
+        } box.maxHeight = max(0, box.maxHeight - verticalDelta)
+        if box.minHeight != "auto" {
+            box.minHeight = max(0, box.minHeight - verticalDelta)
+        }
+    }
+
+
+func resolveRadiiPercentages(box) {
+    corners = ("topLeft", "topRight", "bottomRight", "bottomLeft")
+    for corner := range corners {
+        propertyName = "border%sRadius" % corner
+        rx, ry = box.style[propertyName]
+        rx = percentage(rx, box.borderWidth())
+        ry = percentage(ry, box.borderHeight())
+        setattr(box, propertyName, (rx, ry))

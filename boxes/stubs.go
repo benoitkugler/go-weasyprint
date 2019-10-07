@@ -97,7 +97,7 @@ func (b BlockBox) String() string {
 }
 
 func BlockBoxAnonymousFrom(parent Box, children []Box) *BlockBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewBlockBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -174,7 +174,7 @@ func (b InlineBox) String() string {
 }
 
 func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewInlineBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -209,7 +209,7 @@ func (b TextBox) String() string {
 }
 
 func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTextBox(parent.Box().elementTag, style, text)
 	return &out
 
@@ -244,7 +244,7 @@ func (b InlineBlockBox) String() string {
 }
 
 func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewInlineBlockBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -287,7 +287,7 @@ func (b BlockReplacedBox) String() string {
 }
 
 func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *BlockReplacedBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewBlockReplacedBox(parent.Box().elementTag, style, replacement)
 	return &out
 
@@ -314,7 +314,7 @@ func (b InlineReplacedBox) String() string {
 }
 
 func InlineReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *InlineReplacedBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewInlineReplacedBox(parent.Box().elementTag, style, replacement)
 	return &out
 
@@ -337,7 +337,7 @@ func (b TableBox) String() string {
 }
 
 func TableBoxAnonymousFrom(parent Box, children []Box) *TableBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -372,7 +372,7 @@ func (b InlineTableBox) String() string {
 }
 
 func InlineTableBoxAnonymousFrom(parent Box, children []Box) *InlineTableBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewInlineTableBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -405,7 +405,7 @@ func (b TableRowGroupBox) String() string {
 }
 
 func TableRowGroupBoxAnonymousFrom(parent Box, children []Box) *TableRowGroupBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableRowGroupBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -438,7 +438,7 @@ func (b TableRowBox) String() string {
 }
 
 func TableRowBoxAnonymousFrom(parent Box, children []Box) *TableRowBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableRowBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -471,7 +471,7 @@ func (b TableColumnGroupBox) String() string {
 }
 
 func TableColumnGroupBoxAnonymousFrom(parent Box, children []Box) *TableColumnGroupBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableColumnGroupBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -504,7 +504,7 @@ func (b TableColumnBox) String() string {
 }
 
 func TableColumnBoxAnonymousFrom(parent Box, children []Box) *TableColumnBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableColumnBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -538,7 +538,7 @@ func (b TableCellBox) String() string {
 }
 
 func TableCellBoxAnonymousFrom(parent Box, children []Box) *TableCellBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableCellBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -574,7 +574,7 @@ func (b TableCaptionBox) String() string {
 }
 
 func TableCaptionBoxAnonymousFrom(parent Box, children []Box) *TableCaptionBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewTableCaptionBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -641,7 +641,7 @@ func (b FlexBox) String() string {
 }
 
 func FlexBoxAnonymousFrom(parent Box, children []Box) *FlexBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewFlexBox(parent.Box().elementTag, style, children)
 	return &out
 
@@ -677,7 +677,7 @@ func (b InlineFlexBox) String() string {
 }
 
 func InlineFlexBoxAnonymousFrom(parent Box, children []Box) *InlineFlexBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewInlineFlexBox(parent.Box().elementTag, style, children)
 	return &out
 

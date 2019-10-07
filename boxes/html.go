@@ -42,13 +42,13 @@ func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseU
 // element should be.
 func makeReplacedBox(element *utils.HTMLNode, box Box, image pr.Image) Box {
 	var newBox Box
-	switch box.Box().style.GetDisplay() {
+	switch box.Box().Style.GetDisplay() {
 	case "block", "list-item", "table":
-		b := NewBlockReplacedBox(element.Data, box.Box().style, image)
+		b := NewBlockReplacedBox(element.Data, box.Box().Style, image)
 		newBox = &b
 	default:
 		// TODO: support images with "display: table-cell"?
-		b := NewInlineReplacedBox(element.Data, box.Box().style, image)
+		b := NewInlineReplacedBox(element.Data, box.Box().Style, image)
 		newBox = &b
 	}
 	// TODO: check other attributes that need to be copied
@@ -70,12 +70,12 @@ func handleImg(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl s
 		}
 		// Invalid image, use the alt-text.
 		if alt != "" {
-			box.Box().children = []Box{TextBoxAnonymousFrom(box, alt)}
+			box.Box().Children = []Box{TextBoxAnonymousFrom(box, alt)}
 			return []Box{box}
 		}
 	} else {
 		if alt != "" {
-			box.Box().children = []Box{TextBoxAnonymousFrom(box, alt)}
+			box.Box().Children = []Box{TextBoxAnonymousFrom(box, alt)}
 			return []Box{box}
 		}
 	}
@@ -151,7 +151,7 @@ func handleColgroup(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 			for i := range children {
 				children[i] = TableColumnBoxAnonymousFrom(box, nil)
 			}
-			box.Box().children = children
+			box.Box().Children = children
 		}
 	}
 	return []Box{box}

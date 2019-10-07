@@ -166,10 +166,10 @@ func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBo
 
 func LineBoxAnonymousFrom(parent Box, children []Box) *LineBox {
 	parentBox := parent.Box()
-	style := tree.ComputedFromCascaded(nil, nil, parentBox.style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil)
 	out := NewLineBox(parentBox.elementTag, style, children)
-	if parentBox.style.GetOverflow() != "visible" {
-		out.textOverflow = string(parentBox.style.GetTextOverflow())
+	if parentBox.Style.GetOverflow() != "visible" {
+		out.textOverflow = string(parentBox.Style.GetTextOverflow())
 	}
 	return &out
 }
@@ -181,7 +181,7 @@ func NewLineBox(elementTag string, style pr.Properties, children []Box) LineBox 
 }
 
 func (InlineLevelBox) removeDecoration(box *BoxFields, start, end bool) {
-	ltr := box.style.GetDirection() == "ltr"
+	ltr := box.Style.GetDirection() == "ltr"
 	if start {
 		side := "right"
 		if ltr {
@@ -205,7 +205,7 @@ func NewInlineBox(elementTag string, style pr.Properties, children []Box) Inline
 
 // Return the (x, y, w, h) rectangle where the box is clickable.
 func (b *InlineBox) hitArea() (x float32, y float32, w float32, h float32) {
-	return b.Box().borderBoxX(), b.Box().positionY, b.Box().borderWidth(), b.Box().marginHeight()
+	return b.Box().borderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().marginHeight()
 }
 
 func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
@@ -290,10 +290,10 @@ func NewTableBox(elementTag string, style pr.Properties, children []Box) TableBo
 }
 
 func (b *TableBox) allChildren() []Box {
-	return append(b.Box().children, b.columnGroups...)
+	return append(b.Box().Children, b.columnGroups...)
 }
 
-func (b *TableBox) translate(box Box, dx float32, dy float32, ignoreFloats bool) {
+func (b *TableBox) Translate(box Box, dx float32, dy float32, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
@@ -301,11 +301,11 @@ func (b *TableBox) translate(box Box, dx float32, dy float32, ignoreFloats bool)
 	for index, position := range table.columnPositions {
 		table.columnPositions[index] = position + dx
 	}
-	table.translate(box, dx, dy, ignoreFloats)
+	table.Translate(box, dx, dy, ignoreFloats)
 }
 
 func (b *TableBox) pageValues() (pr.Page, pr.Page) {
-	s := b.Box().style
+	s := b.Box().Style
 	return s.GetPage(), s.GetPage()
 }
 
@@ -344,7 +344,7 @@ type withCells interface {
 // Return cells that originate in the group's columns.
 func (b *TableColumnGroupBox) getCells() []Box {
 	var out []Box
-	for _, column := range b.Box().children {
+	for _, column := range b.Box().Children {
 		for _, cell := range column.(withCells).getCells() {
 			out = append(out, cell)
 		}

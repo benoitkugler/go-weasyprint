@@ -44,9 +44,9 @@ type LayoutContext struct {
 	targetCollector     *tree.TargetCollector
 	excludedShapes      []shape
 	excludedShapesLists [][]shape
-	stringSet           map[string]map[string][]int
+	stringSet           map[string]map[string][]string
 	runningElements     map[string]int
-	currentPage         *pr.Page
+	currentPage         int
 	forcedBreak         bool
 	strutLayouts        map[string]int
 	fontFeatures        map[string]int
@@ -87,7 +87,7 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	rootBox := rootBox_.Box()
 	if rootBox.style.GetHeight() == "auto" && self.excludedShapes {
 		boxBottom = rootBox.contentBoxY() + rootBox.height
-		maxShapeBottom := boxBottom 
+		maxShapeBottom := boxBottom
 		for _, shape := range self.excludedShapes {
 			v := shape.positionY + shape.marginHeight()
 			if v > maxShapeBottom {
@@ -95,7 +95,8 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 			}
 		}
 		rootBox.height += maxShapeBottom - boxBottom
-	} self.ExcludedShapesLists.pop()
+	}
+	self.ExcludedShapesLists.pop()
 	if self.ExcludedShapesLists {
 		self.excludedShapes = self.ExcludedShapesLists[-1]
 	} else {
@@ -103,53 +104,55 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	}
 }
 
-func (self LayoutContext) getStringSetFor(page, name, keyword="first") {
-	"""Resolve value of string function (as set by string set).
-
-	We"ll have something like this that represents all assignments on a
-	given page:
-
-	{1: [u"First Header"], 3: [u"Second Header"],
-	 4: [u"Third Header", u"3.5th Header"]}
-
-	Value depends on current page.
-	http://dev.w3.org/csswg/css-gcpm/#funcdef-string
-
-	:param name: the name of the named string.
-	:param keyword: indicates which value of the named string to use.
-					Default is the first assignment on the current page
-					else the most recent assignment (entry value)
-	:returns: text
-
-	"""
-	if self.currentPage := range self.stringSet[name] {
+// Resolve value of string function (as set by string set).
+// We"ll have something like this that represents all assignments on a
+// given page:
+//
+// {1: [u"First Header"], 3: [u"Second Header"],
+//  4: [u"Third Header", u"3.5th Header"]}
+//
+// Value depends on current page.
+// http://dev.w3.org/csswg/css-gcpm/#funcdef-string
+//
+// `keyword` indicates which value of the named string to use.
+// 	Default is the first assignment on the current page
+//  else the most recent assignment (entry value)
+// keyword="first"
+func (self LayoutContext) getStringSetFor(page boxes.Box, name, keyword string) string {
+	if currentS, in := self.stringSet[name][self.currentPage]; in {
 		// A value was assigned on this page
-		firstString = self.stringSet[name][self.currentPage][0]
-		lastString = self.stringSet[name][self.currentPage][-1]
-		if keyword == "first" {
+		firstString := currentS[0]
+		lastString := currentS[len(currentS)-1]
+		switch keyword {
+		case "first":
 			return firstString
-		} else if keyword == "start" {
-			element = page
-			while element {
-				if element.style["stringSet"] != "none" {
-					for (stringName, ) := range element.style["stringSet"] {
-						if stringName == name {
+		case "start":
+			element := page
+			for element != nil {
+				if element.Box().Style.GetStringSet().String != "none" {
+					for _, v := range element.Box().Style.GetStringSet().Contents {
+						if v.String == name {
 							return firstString
 						}
 					}
-				} if isinstance(element, boxes.ParentBox) {
-					if element.children {
-						element = element.children[0]
+				}
+				if boxes.IsParentBox(element) {
+					if len(element.Box().Children) > 0 {
+						element = element.Box().Children[0]
 						continue
 					}
-				} break
+				}
+				break
 			}
-		} else if keyword == "last" {
+		case "last":
 			return lastString
 		}
-	} // Search backwards through previous pages
-	for previousPage := range range(self.currentPage - 1, 0, -1) {
-		if previousPage := range self.stringSet[name] {
-			return self.stringSet[name][previousPage][-1]
+	}
+	// Search backwards through previous pages
+	for previousPage := self.currentPage - 1; previousPage > 0; previousPage -= 1 {
+		if currentS, in := self.stringSet[name][previousPage]; in {
+			return currentS[len(currentS)-1]
 		}
-	} return ""
+	}
+	return ""
+}
