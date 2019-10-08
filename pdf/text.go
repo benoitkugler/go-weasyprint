@@ -1,5 +1,9 @@
 package pdf
 
+import (
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+)
+
 type Splitted struct {
 	// ``layout``: a pango Layout with the first line
 
@@ -24,7 +28,8 @@ type Splitted struct {
 
 // Fit as much as possible in the available width for one line of text.
 // minimum=False
-func splitFirstLine(text, style, context, maxWidth, justificationSpacing,
+func SplitFirstLine(text string, style pr.Properties, context interface{}, maxWidth *float32, justificationSpacing float32,
 	minimum bool) Splitted {
-
+	// FIXME: a implémenter
+	return Splitted{}
 }

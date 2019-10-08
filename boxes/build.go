@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/benoitkugler/go-weasyprint/images"
+
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
@@ -63,7 +65,7 @@ type stateShared struct {
 	counterScopes []pr.Set
 }
 
-type Gifu = func(url, forcedMimeType string) pr.Image
+type Gifu = func(url, forcedMimeType string) images.Image
 
 type styleForI interface {
 	Get(element tree.Element, pseudoType string) pr.Properties
@@ -353,9 +355,9 @@ func markerToBox(element *utils.HTMLNode, state *stateShared, parentStyle pr.Pro
 	} else {
 		if imageUrl, ok := image.(pr.UrlImage); ok {
 			// image may be None here too, in case the image is not available.
-			image = getImageFromUri(string(imageUrl), "")
-			if image != nil {
-				markerBox := InlineReplacedBoxAnonymousFrom(box, image)
+			image_ := getImageFromUri(string(imageUrl), "")
+			if image_ != nil {
+				markerBox := InlineReplacedBoxAnonymousFrom(box, image_)
 				*children = append(*children, markerBox)
 			}
 		}
@@ -1404,7 +1406,7 @@ func flexChildren(box Box, children []Box) []Box {
 		var flexChildren []Box
 		for _, child := range children {
 			if !child.Box().IsAbsolutelyPositioned() {
-				child.Box().isFlexItem = true
+				child.Box().IsFlexItem = true
 			}
 			if textBox, ok := child.(*TextBox); ok && strings.Trim(textBox.Text, " ") == "" {
 				// TODO: ignore texts only containing "characters that can be
@@ -1424,7 +1426,7 @@ func flexChildren(box Box, children []Box) []Box {
 				} else {
 					anonymous = BlockBoxAnonymousFrom(box, []Box{child})
 				}
-				anonymous.isFlexItem = true
+				anonymous.IsFlexItem = true
 				flexChildren = append(flexChildren, anonymous)
 			} else {
 				flexChildren = append(flexChildren, child)

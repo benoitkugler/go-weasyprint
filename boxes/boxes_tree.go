@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/images"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -43,7 +44,8 @@ type TextBox struct {
 	BoxFields
 	InlineLevelBox
 
-	Text string
+	Text                 string
+	JustificationSpacing float32
 }
 
 type AtomicInlineLevelBox struct {
@@ -63,7 +65,7 @@ type ReplacedBox struct {
 	InstanceReplacedBox
 
 	BoxFields
-	replacement pr.Image
+	Replacement images.Image
 }
 
 type BlockReplacedBox struct {
@@ -200,7 +202,7 @@ func NewInlineBox(elementTag string, style pr.Properties, children []Box) Inline
 
 // Return the (x, y, w, h) rectangle where the box is clickable.
 func (b *InlineBox) hitArea() (x float32, y float32, w float32, h float32) {
-	return b.Box().borderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().marginHeight()
+	return b.Box().borderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().MarginHeight()
 }
 
 func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
@@ -236,13 +238,13 @@ func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
 }
 
 // Return a new TextBox identical to this one except for the text.
-func (b TextBox) copyWithText(text string) TextBox {
+func (b TextBox) CopyWithText(text string) *TextBox {
 	if len(text) == 0 {
 		log.Fatal("empty text")
 	}
 	newBox := b
 	newBox.Text = text
-	return newBox
+	return &newBox
 }
 
 func (u TextBox) removeDecoration(b *BoxFields, start, end bool) {
@@ -258,18 +260,35 @@ func (u InlineBox) removeDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.removeDecoration(b, start, end)
 }
 
-func NewReplacedBox(elementTag string, style pr.Properties, replacement pr.Image) ReplacedBox {
+func NewReplacedBox(elementTag string, style pr.Properties, replacement images.Image) ReplacedBox {
 	out := ReplacedBox{BoxFields: newBoxFields(elementTag, style, nil)}
-	out.replacement = replacement
+	out.Replacement = replacement
 	return out
 }
 
-func NewBlockReplacedBox(elementTag string, style pr.Properties, replacement pr.Image) BlockReplacedBox {
+type br interface {
+	InstanceReplacedBox
+	replaced() *ReplacedBox
+}
+
+func AsReplaced(box Box) (*ReplacedBox, bool) {
+	t, ok := box.(br)
+	if ok {
+		return t.replaced(), true
+	}
+	return nil, false
+}
+
+func (b *ReplacedBox) replaced() *ReplacedBox {
+	return b
+}
+
+func NewBlockReplacedBox(elementTag string, style pr.Properties, replacement images.Image) BlockReplacedBox {
 	out := BlockReplacedBox{ReplacedBox: NewReplacedBox(elementTag, style, replacement)}
 	return out
 }
 
-func NewInlineReplacedBox(elementTag string, style pr.Properties, replacement pr.Image) InlineReplacedBox {
+func NewInlineReplacedBox(elementTag string, style pr.Properties, replacement images.Image) InlineReplacedBox {
 	out := InlineReplacedBox{ReplacedBox: NewReplacedBox(elementTag, style, replacement)}
 	return out
 }

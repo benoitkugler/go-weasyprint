@@ -5,6 +5,8 @@ import (
 	"log"
 	"math"
 
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
@@ -194,81 +196,80 @@ func absoluteHeight(box_ bo.Box, context LayoutContext, containingBlock block) (
 	return translateBoxHeight, translateY
 }
 
-func absoluteBlock(context LayoutContext, box_ bo.Box, containingBlock block, fixedBoxes []bo.Box) bo.Box {
+func absoluteBlock(context *LayoutContext, box_ bo.Box, containingBlock block, fixedBoxes []bo.Box) bo.Box {
 	box := box_.Box()
 	_, _, cbWidth, cbHeight := containingBlock.unpack()
 
-	translateBoxWidth, translateX := absoluteWidth(box_, context, containingBlock)
-	translateBoxHeight, translateY := absoluteHeight(box_, context, containingBlock)
+	translateBoxWidth, translateX := absoluteWidth(box_, *context, containingBlock)
+	translateBoxHeight, translateY := absoluteHeight(box_, *context, containingBlock)
 
 	// This box is the containing block for absolute descendants.
-	var absoluteBoxes []bo.Box
+	var absoluteBoxes []*AbsolutePlaceholder
 
 	if box.IsTableWrapper {
-		tableWrapperWidth(context, box, bo.Point{cbWidth, cbHeight})
+		tableWrapperWidth(*context, box, bo.Point{cbWidth, cbHeight})
 	}
 
-	newBox, _, _, _, _ := blockContainerLayout(context, box, pr.Inf, nil,
-		false, absoluteBoxes, fixedBoxes, nil)
+	newBox := blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil).newBox
 
 	for _, childPlaceholder := range absoluteBoxes {
 		absoluteLayout(context, childPlaceholder, newBox, fixedBoxes)
 	}
 
 	if translateBoxWidth {
-		translateX -= newBox.Width
+		translateX -= newBox.Box().Width
 	}
 	if translateBoxHeight {
-		translateY -= newBox.Height
+		translateY -= newBox.Box().Height
 	}
 
-	newBox.translate(translateX, translateY)
+	newBox.Translate(newBox, translateX, translateY, false)
 
 	return newBox
 }
 
 // FIXME: waiting for weasyprint update
-// func absoluteFlex(context, box, containingBlockSizes, fixedBoxes,
-//                   containingBlock) {
-//                   }
-//     // Avoid a circular import
-//     from .flex import flexLayout
+func absoluteFlex(context *LayoutContext, box_ bo.Box, containingBlock block, fixedBoxes []bo.Box) bo.Box {
+	//     // Avoid a circular import
+	//     from .flex import flexLayout
 
-//     // TODO: this function is really close to absoluteBlock, we should have
-//     // only one function.
-//     // TODO: having containingBlockSizes && containingBlock is stupid.
-//     cbX, cbY, cbWidth, cbHeight = containingBlockSizes
+	//     // TODO: this function is really close to absoluteBlock, we should have
+	//     // only one function.
+	//     // TODO: having containingBlockSizes && containingBlock is stupid.
+	//     cbX, cbY, cbWidth, cbHeight = containingBlockSizes
 
-//     translateBoxWidth, translateX = absoluteWidth(
-//         box, context, containingBlockSizes)
-//     translateBoxHeight, translateY = absoluteHeight(
-//         box, context, containingBlockSizes)
+	//     translateBoxWidth, translateX = absoluteWidth(
+	//         box, context, containingBlockSizes)
+	//     translateBoxHeight, translateY = absoluteHeight(
+	//         box, context, containingBlockSizes)
 
-//     // This box is the containing block for absolute descendants.
-//     absoluteBoxes = []
+	//     // This box is the containing block for absolute descendants.
+	//     absoluteBoxes = []
 
-//     if box.isTableWrapper {
-//         tableWrapperWidth(context, box, (cbWidth, cbHeight))
-//     }
+	//     if box.isTableWrapper {
+	//         tableWrapperWidth(context, box, (cbWidth, cbHeight))
+	//     }
 
-//     newBox, _, _, _, _ = flexLayout(
-//         context, box, maxPositionY=float("inf"), skipStack=None,
-//         containingBlock=containingBlock, pageIsEmpty=false,
-//         absoluteBoxes=absoluteBoxes, fixedBoxes=fixedBoxes)
+	//     newBox, _, _, _, _ = flexLayout(
+	//         context, box, maxPositionY=float("inf"), skipStack=None,
+	//         containingBlock=containingBlock, pageIsEmpty=false,
+	//         absoluteBoxes=absoluteBoxes, fixedBoxes=fixedBoxes)
 
-//     for childPlaceholder := range absoluteBoxes {
-//         absoluteLayout(context, childPlaceholder, newBox, fixedBoxes)
-//     }
+	//     for childPlaceholder := range absoluteBoxes {
+	//         absoluteLayout(context, childPlaceholder, newBox, fixedBoxes)
+	//     }
 
-//     if translateBoxWidth {
-//         translateX -= newBox.Width
-//     } if translateBoxHeight {
-//         translateY -= newBox.Height
-//     }
+	//     if translateBoxWidth {
+	//         translateX -= newBox.Width
+	//     } if translateBoxHeight {
+	//         translateY -= newBox.Height
+	//     }
 
-//     newBox.translate(translateX, translateY)
+	//     newBox.translate(translateX, translateY)
 
-//     return newBox
+	// return newBox
+	return nil
+}
 
 // Set the width of absolute positioned ``box``.
 func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, containingBlock bo.Box, fixedBoxes []bo.Box) {
@@ -296,19 +297,18 @@ func absoluteBoxLayout(context *LayoutContext, box bo.Box, cb_ bo.Box, fixedBoxe
 		containingBlock.Height = cb.PaddingHeight()
 	}
 
-	resolvePercentages(box, bo.Point{containingBlock.Width, containingBlock.Height})
-	resolvePositionPercentages(box, bo.Point{containingBlock.Width, containingBlock.Height})
+	resolvePercentages(box, bo.Point{containingBlock.Width, containingBlock.Height}, "")
+	resolvePositionPercentages(box.Box(), bo.Point{containingBlock.Width, containingBlock.Height})
 
 	context.createBlockFormattingContext()
 	// Absolute tables are wrapped into block boxes
 	var newBox bo.Box
-	_, isFlexCont := box.(bo.FlexContainerBox)
-	if bo.TypeBlockBox.Isinstance(box) {
+	if bo.TypeBlockBox.IsInstance(box) {
 		newBox = absoluteBlock(context, box, containingBlock, fixedBoxes)
-	} else if isFlexCont {
-		newBox = absoluteFlex(context, box, containingBlock, fixedBoxes, cb)
+	} else if bo.IsFlexContainerBox(box) {
+		newBox = absoluteFlex(context, box, containingBlock, fixedBoxes)
 	} else {
-		if !bo.TypeBlockReplacedBox.Isinstance(box) {
+		if !bo.IsBlockReplacedBox(box) {
 			log.Fatalf("box should be a BlockReplaced, got %s", box)
 		}
 		newBox = absoluteReplaced(context, box, containingBlock)
@@ -321,22 +321,22 @@ func intDiv(a float32, b int) float32 {
 	return float32(int(math.Floor(float64(a))) / b)
 }
 
-func absoluteReplaced(context *LayoutContext, box_ bo.Box, containingBlock block) {
-	inlineReplacedBoxWidthHeight(box, containingBlock)
+func absoluteReplaced(context *LayoutContext, box_ bo.Box, containingBlock block) bo.Box {
+	inlineReplacedBoxWidthHeight(box_, containingBlock)
 	box := box_.Box()
 	cbX, cbY, cbWidth, cbHeight := containingBlock.unpack()
-	ltr := box.style.GetDirection() == "ltr"
+	ltr := box.Style.GetDirection() == "ltr"
 
 	// http://www.w3.org/TR/CSS21/visudet.html#abs-replaced-width
-	if box.left == Auto && box.right {
+	if box.Left == Auto && box.Right != 0 {
 		// static position:
 		if ltr {
-			box.left = box.PositionX - cbX
+			box.Left = box.PositionX - cbX
 		} else {
-			box.right = cbX + cbWidth - box.PositionX
+			box.Right = cbX + cbWidth - box.PositionX
 		}
 	}
-	if box.left == Auto || box.right == Auto {
+	if box.Left == Auto || box.Right == Auto {
 		if box.MarginLeft == Auto {
 			box.MarginLeft = 0
 		}
@@ -344,14 +344,14 @@ func absoluteReplaced(context *LayoutContext, box_ bo.Box, containingBlock block
 			box.MarginRight = 0
 		}
 		remaining := cbWidth - box.MarginWidth()
-		if box.left == Auto {
-			box.left = remaining - box.right
+		if box.Left == Auto {
+			box.Left = remaining - box.Right
 		}
-		if box.right == Auto {
-			box.right = remaining - box.left
+		if box.Right == Auto {
+			box.Right = remaining - box.Left
 		}
 	} else if Auto == box.MarginLeft || Auto == box.MarginRight {
-		remaining := cbWidth - (box.BorderWidth() + box.left + box.right)
+		remaining := cbWidth - (box.BorderWidth() + box.Left + box.Right)
 		if box.MarginLeft == Auto && box.MarginRight == Auto {
 			if remaining >= 0 {
 				box.MarginLeft = intDiv(remaining, 2)
@@ -371,9 +371,9 @@ func absoluteReplaced(context *LayoutContext, box_ bo.Box, containingBlock block
 	} else {
 		// Over-constrained
 		if ltr {
-			box.right = cbWidth - (box.MarginWidth() + box.left)
+			box.Right = cbWidth - (box.MarginWidth() + box.Left)
 		} else {
-			box.left = cbWidth - (box.MarginWidth() + box.right)
+			box.Left = cbWidth - (box.MarginWidth() + box.Right)
 		}
 	}
 
@@ -411,7 +411,7 @@ func absoluteReplaced(context *LayoutContext, box_ bo.Box, containingBlock block
 	}
 
 	// No children for replaced boxes, no need to .translate()
-	box.PositionX = cbX + box.left
+	box.PositionX = cbX + box.Left
 	box.PositionY = cbY + box.Top
 	return box_
 }

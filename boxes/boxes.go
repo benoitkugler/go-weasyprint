@@ -99,7 +99,7 @@ type BoxFields struct {
 
 	// Default, may be overriden on instances.
 	IsTableWrapper   bool
-	isFlexItem       bool
+	IsFlexItem       bool
 	isForRootElement bool
 	// isColumn         bool
 
@@ -264,12 +264,12 @@ func (self BoxFields) BorderHeight() float32 {
 }
 
 // Width of the margin box (aka. outer box).
-func (self BoxFields) marginWidth() float32 {
+func (self BoxFields) MarginWidth() float32 {
 	return self.BorderWidth() + self.MarginLeft + self.MarginRight
 }
 
 // Height of the margin box (aka. outer box).
-func (self BoxFields) marginHeight() float32 {
+func (self BoxFields) MarginHeight() float32 {
 	return self.BorderHeight() + self.MarginTop + self.MarginBottom
 }
 

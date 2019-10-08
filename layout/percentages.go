@@ -2,7 +2,6 @@ package layout
 
 import (
 	"log"
-	"math"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"

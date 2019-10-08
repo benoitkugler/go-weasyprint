@@ -40,9 +40,9 @@ DEFAULT_CONSTRUCTOR = [("elementTag", "string"),
                        ("style", "pr.Properties"), ("children", "[]Box")]
 SPECIALS_CONSTRUCTORS = {
     "TextBox": [("elementTag", "string"), ("style", "pr.Properties"), ("text", "string")],
-    "ReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "pr.Image")],
-    "BlockReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "pr.Image")],
-    "InlineReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "pr.Image")],
+    "ReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
+    "BlockReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
+    "InlineReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
     "PageBox": [("pageType", "pr.PageElement"), ("style", "pr.Properties")],
     "MarginBox": [("atKeyword", "string"), ("style", "pr.Properties")],
 }
@@ -315,7 +315,13 @@ def generate_type_objects(class_name: str):
         }}
         """
         var_type = f"Type{class_name} BoxType = type{class_name}{{}}"
-
+    else:
+        out += f"""
+        func Is{class_name}(box Box) bool {{
+        	_, is := box.(Instance{class_name})
+        	return is
+        }}
+        """
     return out, var_type, header
 
 

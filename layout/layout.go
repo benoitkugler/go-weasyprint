@@ -83,10 +83,10 @@ func (self *LayoutContext) createBlockFormattingContext() {
 	self.excludedShapesLists = append(self.excludedShapesLists, self.excludedShapes)
 }
 
-func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
+func (self *LayoutContext) finishBlockFormattingContext(rootBox_ bo.Box) {
 	// See http://www.w3.org/TR/CSS2/visudet.html#root-height
 	rootBox := rootBox_.Box()
-	if rootBox.style.GetHeight() == "auto" && self.excludedShapes {
+	if rootBox.Style.GetHeight().String == "auto" && len(self.excludedShapes) != 0 {
 		boxBottom = rootBox.contentBoxY() + rootBox.height
 		maxShapeBottom := boxBottom
 		for _, shape := range self.excludedShapes {

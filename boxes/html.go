@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/images"
+
 	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"golang.org/x/net/html/atom"
@@ -40,7 +41,7 @@ func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseU
 //
 // That box is either block-level || inline-level, depending on what the
 // element should be.
-func makeReplacedBox(element *utils.HTMLNode, box Box, image pr.Image) Box {
+func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 	var newBox Box
 	switch box.Box().Style.GetDisplay() {
 	case "block", "list-item", "table":

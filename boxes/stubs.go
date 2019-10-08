@@ -3,7 +3,7 @@ package boxes
 import (
 	"fmt"
 
-	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/images"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
@@ -98,8 +98,8 @@ func IsBlockContainerBox(box Box) bool {
 type InstanceBlockBox interface {
 	isBlockBox()
 	isParentBox()
-	isBlockContainerBox()
 	isBlockLevelBox()
+	isBlockContainerBox()
 }
 
 func (b *BlockBox) Box() *BoxFields { return &b.BoxFields }
@@ -180,8 +180,8 @@ func IsInlineLevelBox(box Box) bool {
 // inline box.
 type InstanceInlineBox interface {
 	isInlineBox()
-	isInlineLevelBox()
 	isParentBox()
+	isInlineLevelBox()
 }
 
 func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
@@ -235,6 +235,11 @@ func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
 
 }
 
+func IsTextBox(box Box) bool {
+	_, is := box.(InstanceTextBox)
+	return is
+}
+
 // An atomic box in an inline formatting context.
 // This inline-level box cannot be split for line breaks.
 type InstanceAtomicInlineLevelBox interface {
@@ -253,9 +258,9 @@ func IsAtomicInlineLevelBox(box Box) bool {
 // an inline-block box.
 type InstanceInlineBlockBox interface {
 	isInlineBlockBox()
-	isInlineLevelBox()
-	isAtomicInlineLevelBox()
 	isParentBox()
+	isAtomicInlineLevelBox()
+	isInlineLevelBox()
 	isBlockContainerBox()
 }
 
@@ -316,11 +321,16 @@ func (b BlockReplacedBox) String() string {
 	return fmt.Sprintf("<BlockReplacedBox %s>", b.BoxFields.elementTag)
 }
 
-func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *BlockReplacedBox {
+func BlockReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *BlockReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewBlockReplacedBox(parent.Box().elementTag, style, replacement)
 	return &out
 
+}
+
+func IsBlockReplacedBox(box Box) bool {
+	_, is := box.(InstanceBlockReplacedBox)
+	return is
 }
 
 // A box that is both replaced and inline-level.
@@ -329,9 +339,9 @@ func BlockReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *BlockRepla
 // box.
 type InstanceInlineReplacedBox interface {
 	isInlineReplacedBox()
-	isInlineLevelBox()
-	isReplacedBox()
 	isAtomicInlineLevelBox()
+	isReplacedBox()
+	isInlineLevelBox()
 }
 
 func (b *InlineReplacedBox) Box() *BoxFields { return &b.BoxFields }
@@ -343,11 +353,16 @@ func (b InlineReplacedBox) String() string {
 	return fmt.Sprintf("<InlineReplacedBox %s>", b.BoxFields.elementTag)
 }
 
-func InlineReplacedBoxAnonymousFrom(parent Box, replacement pr.Image) *InlineReplacedBox {
+func InlineReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *InlineReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
 	out := NewInlineReplacedBox(parent.Box().elementTag, style, replacement)
 	return &out
 
+}
+
+func IsInlineReplacedBox(box Box) bool {
+	_, is := box.(InstanceInlineReplacedBox)
+	return is
 }
 
 // Box for elements with ``display: table``
@@ -387,9 +402,9 @@ func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: inline-table``
 type InstanceInlineTableBox interface {
 	isInlineTableBox()
-	isBlockLevelBox()
 	isParentBox()
 	isTableBox()
+	isBlockLevelBox()
 }
 
 func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
@@ -588,10 +603,10 @@ func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-caption``
 type InstanceTableCaptionBox interface {
 	isTableCaptionBox()
-	isBlockBox()
 	isParentBox()
-	isBlockContainerBox()
 	isBlockLevelBox()
+	isBlockBox()
+	isBlockContainerBox()
 }
 
 func (b *TableCaptionBox) Box() *BoxFields { return &b.BoxFields }
@@ -634,6 +649,11 @@ func (b *PageBox) Box() *BoxFields { return &b.BoxFields }
 // Copy is a shallow copy
 func (b PageBox) Copy() Box { return &b }
 
+func IsPageBox(box Box) bool {
+	_, is := box.(InstancePageBox)
+	return is
+}
+
 // Box in page margins, as defined in CSS3 Paged Media
 type InstanceMarginBox interface {
 	isMarginBox()
@@ -645,6 +665,11 @@ func (b *MarginBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
 func (b MarginBox) Copy() Box { return &b }
+
+func IsMarginBox(box Box) bool {
+	_, is := box.(InstanceMarginBox)
+	return is
+}
 
 // A box that contains only flex-items.
 type InstanceFlexContainerBox interface {
@@ -662,8 +687,8 @@ func IsFlexContainerBox(box Box) bool {
 type InstanceFlexBox interface {
 	isFlexBox()
 	isParentBox()
-	isFlexContainerBox()
 	isBlockLevelBox()
+	isFlexContainerBox()
 }
 
 func (b *FlexBox) Box() *BoxFields { return &b.BoxFields }
@@ -697,9 +722,9 @@ func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
 // It behaves as inline on the outside and as a flex container on the inside.
 type InstanceInlineFlexBox interface {
 	isInlineFlexBox()
-	isInlineLevelBox()
 	isParentBox()
 	isFlexContainerBox()
+	isInlineLevelBox()
 }
 
 func (b *InlineFlexBox) Box() *BoxFields { return &b.BoxFields }
