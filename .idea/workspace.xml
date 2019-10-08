@@ -2,21 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/watcherTasks.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/watcherTasks.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/boxes.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/boxes_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes_test.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boxes/boxes_tree.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes_tree.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/build.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/html.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/stubs.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/stubs.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/absolute.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/absolute.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/layout.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/layout.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/percentages.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/percentages.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/inlines.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/inlines.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/preferred.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/preferred.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/tables.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/tables.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macros/boxes.py" beforeDir="false" afterPath="$PROJECT_DIR$/macros/boxes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pdf/text.go" beforeDir="false" afterPath="$PROJECT_DIR$/pdf/text.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

@@ -25,6 +25,7 @@ type LineBox struct {
 	InstanceLineBox
 	BoxFields
 	textOverflow string
+	TextIndent   float32
 }
 
 type InlineLevelBox struct {
