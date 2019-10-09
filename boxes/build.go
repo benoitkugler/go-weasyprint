@@ -28,6 +28,8 @@ import (
 //    :license: BSD, see LICENSE for details.
 
 var (
+	TableFirstLetter = []*unicode.RangeTable{unicode.Ps, unicode.Pe, unicode.Pi, unicode.Pf, unicode.Po}
+
 	textContentExtractors = map[string]func(Box) string{
 		"text":         boxText,
 		"before":       boxTextBefore,
@@ -1853,10 +1855,9 @@ func boxTextFirstLetter(box Box) string {
 	characterFound := false
 	firstLetter := ""
 	text := []rune(boxText(box))
-	tables := []*unicode.RangeTable{unicode.Ps, unicode.Pe, unicode.Pi, unicode.Pf, unicode.Po}
 	for len(text) > 0 {
 		nextLetter := text[0]
-		isPunc := unicode.In(nextLetter, tables...)
+		isPunc := unicode.In(nextLetter, TableFirstLetter...)
 		if !isPunc {
 			if characterFound {
 				break

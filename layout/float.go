@@ -1,41 +1,33 @@
-"""
-    weasyprint.float
-    ----------------
+package layout
 
-    Layout for floating boxes.
-
-    :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
-    :license: BSD, see LICENSE for details.
-
-"""
-
-from ..formattingStructure import boxes
-from .minMax import handleMinMaxWidth
-from .percentages import resolvePercentages, resolvePositionPercentages
-from .preferred import shrinkToFit
-from .tables import tableWrapperWidth
+import (
+	bo "github.com/benoitkugler/go-weasyprint/boxes"
+)
 
 
-@handleMinMaxWidth
-func floatWidth(box, context, containingBlock) {
+
+// Layout for floating boxes.
+
+var floatWidth = handleMinMaxWidth(floatWidth_)
+
+// @handleMinMaxWidth
+func floatWidth_(box Box, context LayoutContext, containingBlock block) (bool, float32) {
     // Check that box.width is auto even if the caller does it too, because
     // the handleMinMaxWidth decorator can change the value
-    if box.width == "auto" {
-        box.width = shrinkToFit(context, box, containingBlock.width)
-    }
+	if w := box.Box().Width; w.Auto() {
+        box.Box().Width = bo.MF(shrinkToFit(context, box, containingBlock.Width))
+	}
+	return false,0 
 } 
 
-// Set the width && position of floating ``box``.
-func floatLayout(context, box, containingBlock, absoluteBoxes, fixedBoxes) {
-    // Avoid circular imports
-    from .blocks import blockContainerLayout
-    from .flex import flexLayout
-    from .inlines import inlineReplacedBoxWidthHeight
-} 
-    cbWidth, cbHeight = (containingBlock.width, containingBlock.height)
-    resolvePercentages(box, (cbWidth, cbHeight))
+// Set the width and position of floating ``box``.
+func floatLayout(context LayoutContext, box, containingBlock_ Box, absoluteBoxes []AbsolutePlaceholder, 
+	fixedBoxes []Box) {
+		containingBlock := containingBlock_.Box()
+    cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
+    resolvePercentages(box, bo.Point{cbWidth, cbHeight}, "")
 
-    // TODO: This is only handled later := range blocks.blockContainerLayout
+    // TODO: This is only handled later in blocks.blockContainerLayout
     // http://www.w3.org/TR/CSS21/visudet.html#normal-block
     if cbHeight == "auto" {
         cbHeight = (
@@ -219,3 +211,4 @@ func avoidCollisions(context, box, containingBlock, outer=true) {
     }
 
     return positionX, positionY, availableWidth
+}

@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/pdf"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
@@ -22,8 +23,8 @@ type lineBoxe struct {
 // :param skipStack: ``None`` to start at the beginning of ``linebox``,
 // 				   or a ``resumeAt`` value to continue just after an
 // 				   already laid-out line.
-func iterLineBoxes(context LayoutContext, box *bo.LineBox, positionY, skipStack, containingBlock bo.Box,
-                    absoluteBoxes []AbsolutePlaceholder, fixedBoxes []bo.Box, firstLetterStyle) []lineBoxe {
+func iterLineBoxes(context LayoutContext, box *bo.LineBox, positionY, skipStack, containingBlock Box,
+                    absoluteBoxes []AbsolutePlaceholder, fixedBoxes []Box, firstLetterStyle pr.Properties) []lineBoxe {
     resolvePercentages(box, containingBlock)
     if skipStack == nil {
         // TODO: wrong, see https://github.com/Kozea/WeasyPrint/issues/679
@@ -67,14 +68,14 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY, skipS
 
     if len(context.excludedShapes) != 0 {
         // Width && height must be calculated to avoid floats
-        linebox.Width = inlineMinContentWidth( context, linebox, skipStack=skipStack, firstLine=true)
+        linebox.Width = MF(inlineMinContentWidth( context, linebox,true, skipStack, true, false))
         linebox.Height, _ = strutLayout(linebox.style, context)
     } else {
         // No float, width && height will be set by the lines
-		linebox.Width = 0
-		linebox.Height = 0
+		linebox.Width = MF(0)
+		linebox.Height = MF(0)
 	} 
-	positionX, positionY, availableWidth := avoidCollisions(context, linebox, containingBlock, outer=false)
+	positionX, positionY, availableWidth := avoidCollisions(context, linebox, containingBlock, false)
 
     candidateHeight := linebox.Height
 
@@ -83,33 +84,36 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY, skipS
 		excludedShapes[i] = v
 	}
 
+	var line *BoxFields
     for {
         linebox.PositionX = positionX
         linebox.PositionY = positionY
         maxX := positionX + availableWidth
         positionX += linebox.TextIndent
     
-        linePlaceholders = []
-        lineAbsolutes = []
-        lineFixed = []
-        waitingFloats = []
+        var (
+			linePlaceholders  []AbsolutePlaceholder
+        lineAbsolutes  []AbsolutePlaceholder
+        lineFixed  []Box
+		waitingFloats  []Box
+		)
 
-        (line, resumeAt, preservedLineBreak, firstLetter,
-         lastLetter, floatWidth) = splitInlineBox(
-             context, linebox, positionX, maxX, skipStack, containingBlock,
-             lineAbsolutes, lineFixed, linePlaceholders, waitingFloats,
-             lineChildren=[])
-        linebox.Width, linebox.Height = line.width, line.height
+		spi  := splitInlineBox(context, linebox, positionX, maxX, skipStack, containingBlock,
+			lineAbsolutes, lineFixed, linePlaceholders, waitingFloats,nil)
 
-        if isPhantomLinebox(line) && not preservedLineBreak {
-            line.height = 0
+		line, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidth := spi.NewBox, spi.resumeAt, spi.preservedLineBreak,
+			spi.firstLetter, spi.lastLetter, spi.floatWidths
+ 			 
+        linebox.Width, linebox.Height = line.Width, line.Height
+
+        if isPhantomLinebox(line) && !preservedLineBreak {
+            line.Height = bo.MF(0)
             break
         }
 
         removeLastWhitespace(context, line)
 
-        newPositionX, _, newAvailableWidth = avoidCollisions(
-            context, linebox, containingBlock, outer=false)
+        newPositionX, _, newAvailableWidth = avoidCollisions(context, linebox, containingBlock, outer=false)
         // TODO: handle rtl
         newAvailableWidth -= floatWidth["right"]
         alignmentAvailableWidth = (
@@ -181,7 +185,7 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY, skipS
 // Return the ``skipStack`` to start just after the remove spaces
 //     at the beginning of the line.
 //     See http://www.w3.org/TR/CSS21/text.html#white-space-model
-func skipFirstWhitespace(box bo.Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, continue_ bool){
+func skipFirstWhitespace(box Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, continue_ bool){
 	var (
 		index int 
 		nextSkipStack *bo.SkipStack
@@ -281,21 +285,20 @@ func removeLastWhitespace(context, box) {
 					 }
 
 // Create a box for the ::first-letter selector.
-func firstLetterToBox(box bo.Box, skipStack bo.SkipStack, firstLetterStyle pr.Properties) {
+func firstLetterToBox(box Box, skipStack *bo.SkipStack, firstLetterStyle pr.Properties) *bo.SkipStack {
     if len(firstLetterStyle) != 0 && len(box.Box().Children) != 0 {
         // Some properties must be ignored :in first-letter boxes.
         // https://drafts.csswg.org/selectors-3/#application-in-css
         // At least, position is ignored to avoid layout troubles.
         firstLetterStyle.SetPosition(pr.String("static"))
     }
-	tables := []*unicode.RangeTable{unicode.Ps, unicode.Pe, unicode.Pi, unicode.Pf, unicode.Po}
 
         firstLetter := ""
         child := box.Box().children[0]
         if textBox, ok := child.(*bo.TextBox); ok {
             letterStyle := tree.ComputedFromCascaded(cascaded={}, parentStyle=firstLetterStyle, element=None)
             if strings.HasSuffix(textBox.ElementTag, "::first-letter") {
-                letterBox := bo.NewInlineBox(textBox.ElementTag + "::first-letter", letterStyle, []bo.Box{child})
+                letterBox := bo.NewInlineBox(textBox.ElementTag + "::first-letter", letterStyle, []Box{child})
                 box.Box().Children[0] = letterBox
             } else if textBox.Text != "" {
 				text := []rune(textBox.Text)
@@ -310,7 +313,7 @@ func firstLetterToBox(box bo.Box, skipStack bo.SkipStack, firstLetterStyle pr.Pr
 				}
 				for len(text) != 0 {
 					nextLetter := text[0]
-						isPunc := unicode.In(nextLetter, tables...)
+						isPunc := unicode.In(nextLetter, bo.TableFirstLetter...)
 						if !isPunc {
 							if characterFound {
 								break
@@ -328,16 +331,16 @@ func firstLetterToBox(box bo.Box, skipStack bo.SkipStack, firstLetterStyle pr.Pr
 					if firstLetterStyle.GetFloat() == "none" {
                         letterBox := bo.NewInlineBox(textBox.ElementTag + "::first-letter", firstLetterStyle, nil)
                         textBox_ := bo.NewTextBox(textBox.ElementTag + "::first-letter", letterStyle, firstLetter)
-                        letterBox.Children = []bo.Box{&textBox_}
-                        textBox.Children = append([]bo.Box{&letterBox}, textBox.Children...)
+                        letterBox.Children = []Box{&textBox_}
+                        textBox.Children = append([]Box{&letterBox}, textBox.Children...)
                     } else {
                         letterBox := bo.NewBlockBox(textBox.ElementTag + "::first-letter", firstLetterStyle, nil)
                         letterBox.FirstLetterStyle = nil
                         lineBox := bo.NewLineBox(textBox.ElementTag + "::first-letter", firstLetterStyle, nil)
-                        letterBox.Children = []bo.Box{&lineBox}
+                        letterBox.Children = []Box{&lineBox}
                         textBox_ := bo.NewTextBox(textBox.ElementTag + "::first-letter", letterStyle, firstLetter)
-                        lineBox.Children = []bo.Box{&textBox_}
-                        textBox.Children = append([]bo.Box{&letterBox}, textBox.Children...)
+                        lineBox.Children = []Box{&textBox_}
+                        textBox.Children = append([]Box{&letterBox}, textBox.Children...)
 						} 
 					if skipStack  != nil && childSkipStack != nil {
                         skipStack = bo.SkipStack{Skip: skipStack.Skip, Stack: &bo.SkipStack{
@@ -348,39 +351,42 @@ func firstLetterToBox(box bo.Box, skipStack bo.SkipStack, firstLetterStyle pr.Pr
                 }
             }
         } else if bo.IsParentBox(child) {
-            if skipStack {
-                childSkipStack = skipStack[1]
+            if skipStack != nil {
+                childSkipStack = skipStack.Stack
             } else {
-                childSkipStack = None
-            } childSkipStack = firstLetterToBox(
-                child, childSkipStack, firstLetterStyle)
-            if skipStack {
-                skipStack = (skipStack[0], childSkipStack)
+                childSkipStack = nil
+			} 
+			childSkipStack = firstLetterToBox(child, childSkipStack, firstLetterStyle)
+            if skipStack != nil {
+                skipStack = &bo.SkipStack{Skip: skipStack.Skip,Stack: childSkipStack}
             }
         }
     return skipStack
 	}
 
-@handleMinMaxWidth
-// 
-//     Compute && set the used width for replaced boxes (inline- || block-level)
-//     
-func replacedBoxWidth(box, containingBlock) {
-    from .blocks import blockLevelWidth
-} 
-    intrinsicWidth, intrinsicHeight = box.replacement.getIntrinsicSize(
-        box.style["imageResolution"], box.style["fontSize"])
+var replacedBoxWidth = handleMinMaxWidth(replacedBoxWidth_)
 
-    // This algorithm simply follows the different points of the specification {
-    } // http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-width
-    if box.Height == "auto" && box.Width == "auto" {
-        if intrinsicWidth is not None {
+// @handleMinMaxWidth
+// 
+//     Compute and set the used width for replaced boxes (inline- or block-level)
+//     
+func replacedBoxWidth_(box_ Box , _ LayoutContext, containingBlock block) (bool, float32) {
+	box, ok := bo.AsReplaced(box)
+	if !ok {
+		log.Fatalf("expected ReplacedBox instance, got %s", box_)
+	}
+	intrinsicWidth, intrinsicHeight := box.Replacement.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+
+    // This algorithm simply follows the different points of the specification 
+    // http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-width
+    if box.Height == Auto && box.Width == Auto {
+        if intrinsicWidth != None {
             // Point #1
             box.Width = intrinsicWidth
-        } else if box.replacement.intrinsicRatio is not None {
-            if intrinsicHeight is not None {
+        } else if box.Replacement.IntrinsicRatio() != None {
+            if intrinsicHeight != None {
                 // Point #2 first part
-                box.Width = intrinsicHeight * box.replacement.intrinsicRatio
+                box.Width = intrinsicHeight * box.Replacement.IntrinsicRatio()
             } else {
                 // Point #3
                 blockLevelWidth(box, containingBlock)
@@ -388,47 +394,52 @@ func replacedBoxWidth(box, containingBlock) {
         }
     }
 
-    if box.Width == "auto" {
-        if box.replacement.intrinsicRatio is not None {
+    if box.Width == Auto {
+        if box.Replacement.IntrinsicRatio != None {
             // Point #2 second part
-            box.Width = box.Height * box.replacement.intrinsicRatio
-        } else if intrinsicWidth is not None {
+            box.Width = box.Height * box.Replacement.IntrinsicRatio()
+        } else if intrinsicWidth != None {
             // Point #4
             box.Width = intrinsicWidth
         } else {
             // Point #5
-            // It"s pretty useless to rely on device size to set width.
+            // It's pretty useless to rely on device size to set width.
             box.Width = 300
         }
-    }
+	}
+	return false, 0
+}
 
+var replacedBoxHeight = handleMinMaxHeight(replacedBoxHeight_)
 
-@handleMinMaxHeight
+// @handleMinMaxHeight
 // 
-//     Compute && set the used height for replaced boxes (inline- || block-level)
-//     
-func replacedBoxHeight(box) {
-    // http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-height
-    intrinsicWidth, intrinsicHeight = box.replacement.getIntrinsicSize(
-        box.style["imageResolution"], box.style["fontSize"])
-    intrinsicRatio = box.replacement.intrinsicRatio
-} 
-    // Test "auto" on the computed width, not the used width
-    if box.Height == "auto" && box.Width == "auto" {
+//     Compute and set the used height for replaced boxes (inline- or block-level)
+func replacedBoxHeight_(box_ Box, _ LayoutContext, _ block) (bool, float32) {
+	box, ok := bo.AsReplaced(box)
+	if !ok {
+		log.Fatalf("expected ReplacedBox instance, got %s", box_)
+	}
+
+	// http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-height
+    intrinsicWidth, intrinsicHeight := box.Replacement.GetIntrinsicSize(
+        box.Style.GetImageResolution(), box.Style.GetFontSize())
+    intrinsicRatio := box.Replacement.IntrinsicRatio()
+
+    // Test Auto on the computed width, not the used width
+    if box.Height == Auto && box.Width == Auto {
         box.Height = intrinsicHeight
-    } else if box.Height == "auto" && intrinsicRatio {
+    } else if box.Height == Auto && intrinsicRatio != 0 {
         box.Height = box.Width / intrinsicRatio
     }
 
-    if (box.Height == "auto" && box.Width == "auto" and
-            intrinsicHeight is not None) {
-            }
+    if box.Height == Auto && box.Width == Auto && intrinsicHeight != None {
         box.Height = intrinsicHeight
-    else if intrinsicRatio is not None && box.Height == "auto" {
+    } else if intrinsicRatio != None && box.Height == Auto {
         box.Height = box.Width / intrinsicRatio
-    } else if box.Height == "auto" && intrinsicHeight is not None {
+    } else if box.Height == Auto && intrinsicHeight != None {
         box.Height = intrinsicHeight
-    } else if box.Height == "auto" {
+    } else if box.Height == Auto {
         // It"s pretty useless to rely on device size to set width.
         box.Height = 150
     }
@@ -437,14 +448,14 @@ func replacedBoxHeight(box) {
 // Lay out an inline :class:`boxes.ReplacedBox` ``box``.
 func inlineReplacedBoxLayout(box, containingBlock) {
     for side := range ["top", "right", "bottom", "left"] {
-        if getattr(box, "margin" + side) == "auto" {
+        if getattr(box, "margin" + side) == Auto {
             setattr(box, "margin" + side, 0)
         }
 	} 
 	inlineReplacedBoxWidthHeight(box, containingBlock)
 } 
 
-func inlineReplacedBoxWidthHeight(box bo.Box, containingBlock block) {
+func inlineReplacedBoxWidthHeight(box Box, containingBlock block) {
 	if style := box.Box().Style; style.GetWidth().String == "auto" && style.GetHeight().String == "auto" {
 		replacedBoxWidth.withoutMinMax(box, containingBlock)
 		replacedBoxHeight.withoutMinMax(box)
@@ -600,22 +611,28 @@ func inlineBlockWidth(box, context, containingBlock) {
     }
 } 
 
-func splitInlineLevel(context, box, positionX, maxX, skipStack,
+type splitedInline struct {
+	newBox Box
+	resumeAt *int 
+	preservedLineBreak bool
+	firstLetter, lastLetter string
+	floatWidths [2]float32 // left, right
+}
+
+// Fit as much content as possible from an inline-level box in a width.
+// 
+// Return ``(newBox, resumeAt, preservedLineBreak, firstLetter,
+// lastLetter)``. ``resumeAt`` is ``None`` if all of the content
+// fits. Otherwise it can be passed as a ``skipStack`` parameter to resume
+// where we left off.
+// 
+// ``newBox`` is non-empty (unless the box is empty) and as big as possible
+// while being narrower than ``availableWidth``, if possible (may overflow
+// is no split is possible.)
+func splitInlineLevel(context LayoutContext, box Box, positionX, maxX, skipStack,
                        containingBlock, absoluteBoxes, fixedBoxes,
-                       linePlaceholders, waitingFloats, lineChildren) {
-    """Fit as much content as possible from an inline-level box := range a width.
+                       linePlaceholders, waitingFloats, lineChildren []Box) splitedInline {
 
-    Return ``(newBox, resumeAt, preservedLineBreak, firstLetter,
-    lastLetter)``. ``resumeAt`` is ``None`` if all of the content
-    fits. Otherwise it can be passed as a ``skipStack`` parameter to resume
-    where we left off.
-
-    ``newBox`` is non-empty (unless the box is empty) && as big as possible
-    while being narrower than ``availableWidth``, if possible (may overflow
-    is no split is possible.)
-
-                       }
-    """
     resolvePercentages(box, containingBlock)
     floatWidths = {"left": 0, "right": 0}
     if isinstance(box, boxes.TextBox) {
@@ -685,19 +702,19 @@ func splitInlineLevel(context, box, positionX, maxX, skipStack,
     return (
         newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter,
         floatWidths)
+	}
 
-
+// Same behavior as splitInlineLevel.
 func splitInlineBox(context, box, positionX, maxX, skipStack,
                      containingBlock, absoluteBoxes, fixedBoxes,
-                     linePlaceholders, waitingFloats, lineChildren) {
-                     }
-    """Same behavior as splitInlineLevel."""
+                     linePlaceholders, waitingFloats, lineChildren) splitedInline {
+                     
 
     // In some cases (shrink-to-fit result being the preferred width)
     // maxX is coming from Pango itself,
-    // but floating point errors have accumulated {
-    } //   width2 = (width + X) - X   // := range some cases, width2 < width
-    // Increase the value a bit to compensate && not introduce
+    // but floating point errors have accumulated:
+    //   width2 = (width + X) - X   // in some cases, width2 < width
+    // Increase the value a bit to compensate and not introduce
     // an unexpected line break. The 1e-9 value comes from PEP 485.
     maxX *= 1 + 1e-9
 
@@ -908,7 +925,7 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
                             // agree, we have to rely on the actual split to
                             // know whether the child was broken.
                             // https://github.com/Kozea/WeasyPrint/issues/614
-                            breakFound = childResumeAt is not None
+                            breakFound = childResumeAt != None
                             if childResumeAt == nil {
                                 // PangoLayout decided not to break the child
                                 childResumeAt = (0, None)
@@ -1349,39 +1366,52 @@ func addWordSpacing(context, box, justificationSpacing, xAdvance) {
 } 
 
 // http://www.w3.org/TR/CSS21/visuren.html#phantom-line-box
-func isPhantomLinebox(linebox) {
-    for child := range linebox.children {
-        if isinstance(child, boxes.InlineBox) {
-            if not isPhantomLinebox(child) {
+func isPhantomLinebox(linebox Box) bool {
+    for _,  child := range linebox.Box().Children {
+        if bo.TypeInlineBox.IsInstance(child) {
+            if ! isPhantomLinebox(child) {
                 return false
-            } for side := range ("top", "right", "bottom", "left") {
-                if (getattr(child.style["margin%s" % side], "value", None) or
-                        child.style["border%sWidth" % side] or
-                        child.style["padding%s" % side].value) {
-                        }
-                    return false
+			}
+			 for _, side := range ("top", "right", "bottom", "left") {
+				 m := child.Box().Style["margin_" + side].(pr.Value).Value
+				 b := child.Box().Style["border_" + side + "_width"].(pr.Value)
+				 p := child.Box().Style["padding_" + side].(pr.Value).Value
+                if m != 0 || !b.IsNone() || p != 0 {
+                        
+					return false
+				}
             }
-        } else if child.isInNormalFlow() {
+        } else if child.Box().IsInNormalFlow() {
             return false
         }
-    } return true
+	} 
+	return true
 } 
 
-func canBreakInside(box) {
-    // See https://www.w3.org/TR/css-text-3/#white-space-property
-    textWrap = box.style["whiteSpace"] := range ("normal", "pre-wrap", "pre-line")
-    if isinstance(box, boxes.AtomicInlineLevelBox) {
+func canBreakInside(box Box) bool {
+	// See https://www.w3.org/TR/css-text-3/#white-space-property
+	ws := box.Box().Style.GetWhitespace()
+    textWrap := ws == "normal" || ws == "pre-wrap" || ws == "pre-line"
+	textBox, isTextBox := box.(*bo.TextBox)
+	if bo.IsAtomicInlineLevelBox(box) {
         return false
-    } else if isinstance(box, boxes.TextBox) {
+    } else if isTextBox {
         if textWrap {
-            return canBreakText(box.text, box.style["lang"])
+            return pdf.CanBreakText(textBox.Text, string(box.Box().Style.GetLang()))
         } else {
             return false
         }
-    } else if isinstance(box, boxes.ParentBox) {
+    } else if bo.IsParentBox(box) {
         if textWrap {
-            return any(canBreakInside(child) for child := range box.children)
+			for _, child := range box.Box().Children {
+				if canBreakInside(child) {
+					return true
+				}
+			}
+			return false
         } else {
             return false
         }
-    } return false
+	} 
+	return false
+	}

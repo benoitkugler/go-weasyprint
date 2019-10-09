@@ -47,7 +47,7 @@ var (
 	// Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
 	// medium, and scaling factors given in CSS3 for others:
 	// http://www.w3.org/TR/css3-fonts/#font-size-prop
-	FontSizeKeywords = map[string]float32{ // medium is 16px, others are a ratio of medium
+	FontSizeKeywords = map[string]Float{ // medium is 16px, others are a ratio of medium
 		"xx-small": InitialValues.GetFontSize().Value * 3 / 5,
 		"x-small":  InitialValues.GetFontSize().Value * 3 / 4,
 		"small":    InitialValues.GetFontSize().Value * 8 / 9,

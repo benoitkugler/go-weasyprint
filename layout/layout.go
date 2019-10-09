@@ -14,15 +14,16 @@
 package layout
 
 import (
-	"github.com/benoitkugler/go-weasyprint/boxes"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/fonts"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
+type Box = bo.Box
+
 // Lay out and yield the fixed boxes of ``pages``.
 func layoutFixedBoxes(context LayoutContext, pages []Page) {
-	var out []boxes.Box
+	var out []Box
 	for _, page := range pages {
 		for _, box := range page.fixedBoxes {
 			// Use an empty list as last argument because the fixed boxes in the
@@ -34,13 +35,13 @@ func layoutFixedBoxes(context LayoutContext, pages []Page) {
 }
 
 type Page struct {
-	fixedBoxes []boxes.Box
+	fixedBoxes []Box
 }
 
 type LayoutContext struct {
 	enableHinting       bool
 	styleFor            tree.StyleFor
-	getImageFromUri     boxes.Gifu
+	getImageFromUri     bo.Gifu
 	fontConfig          *fonts.FontConfiguration
 	targetCollector     *tree.TargetCollector
 	excludedShapes      []shape
@@ -51,7 +52,7 @@ type LayoutContext struct {
 	forcedBreak         bool
 	strutLayouts        map[string]int
 	fontFeatures        map[string]int
-	tables              map[*bo.BoxFields]map[bool]tableContentWidths
+	tables              map[*BoxFields]map[bool]tableContentWidths
 	dictionaries        map[string]int
 }
 
@@ -61,7 +62,7 @@ type shape struct {
 
 func (s shape) marginHeight() float32 {}
 
-func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri boxes.Gifu,
+func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri bo.Gifu,
 	fontConfig *fonts.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {
 	self := LayoutContext{}
 	self.enableHinting = enableHinting
@@ -83,7 +84,7 @@ func (self *LayoutContext) createBlockFormattingContext() {
 	self.excludedShapesLists = append(self.excludedShapesLists, self.excludedShapes)
 }
 
-func (self *LayoutContext) finishBlockFormattingContext(rootBox_ bo.Box) {
+func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	// See http://www.w3.org/TR/CSS2/visudet.html#root-height
 	rootBox := rootBox_.Box()
 	if rootBox.Style.GetHeight().String == "auto" && len(self.excludedShapes) != 0 {
@@ -119,7 +120,7 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ bo.Box) {
 // 	Default is the first assignment on the current page
 //  else the most recent assignment (entry value)
 // keyword="first"
-func (self LayoutContext) getStringSetFor(page boxes.Box, name, keyword string) string {
+func (self LayoutContext) getStringSetFor(page Box, name, keyword string) string {
 	if currentS, in := self.stringSet[name][self.currentPage]; in {
 		// A value was assigned on this page
 		firstString := currentS[0]
@@ -137,7 +138,7 @@ func (self LayoutContext) getStringSetFor(page boxes.Box, name, keyword string) 
 						}
 					}
 				}
-				if boxes.IsParentBox(element) {
+				if bo.IsParentBox(element) {
 					if len(element.Box().Children) > 0 {
 						element = element.Box().Children[0]
 						continue

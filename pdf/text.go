@@ -33,3 +33,11 @@ func SplitFirstLine(text string, style pr.Properties, context interface{}, maxWi
 	// FIXME: a implémenter
 	return Splitted{}
 }
+
+func CanBreakText(text, lang string) bool {
+	if len(text) < 2 {
+		return false
+	}
+	// FIXME: à implémenter
+	return true
+}

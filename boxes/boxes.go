@@ -121,11 +121,11 @@ type BoxFields struct {
 	firstLetterStyle, firstLineStyle pr.Properties
 
 	PositionX, PositionY                                                 float32
-	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              float32
+	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
 	Top, Bottom, Left, Right                                             float32
 	MarginTop, MarginBottom, MarginLeft, MarginRight                     float32
 	PaddingTop, PaddingBottom, PaddingLeft, PaddingRight                 float32
-	BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth float32
+	BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth pr.MaybeFloat
 
 	BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius Point
 
@@ -245,12 +245,12 @@ func (BoxFields) Translate(box Box, dx, dy float32, ignoreFloats bool) {
 
 // Width of the padding box.
 func (self BoxFields) PaddingWidth() float32 {
-	return self.Width + self.PaddingLeft + self.PaddingRight
+	return self.Width.V() + self.PaddingLeft + self.PaddingRight
 }
 
 // Height of the padding box.
 func (self BoxFields) PaddingHeight() float32 {
-	return self.Height + self.PaddingTop + self.PaddingBottom
+	return self.Height.V() + self.PaddingTop + self.PaddingBottom
 }
 
 // Width of the border box.

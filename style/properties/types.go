@@ -163,7 +163,7 @@ type Unit uint8
 // Dimension without unit is interpreted as float
 type Dimension struct {
 	Unit  Unit
-	Value float32
+	Value Float
 }
 
 type BoolString struct {

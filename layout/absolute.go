@@ -12,16 +12,16 @@ import (
 
 // AbsolutePlaceholder is left where an absolutely-positioned box was taken out of the flow.
 type AbsolutePlaceholder struct {
-	bo.Box
+	Box
 	layoutDone bool
 }
 
-func NewAbsolutePlaceholder(box bo.Box) *AbsolutePlaceholder {
+func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
 	out := AbsolutePlaceholder{Box: box, layoutDone: false}
 	return &out
 }
 
-func (abs *AbsolutePlaceholder) setLaidOutBox(newBox bo.Box) {
+func (abs *AbsolutePlaceholder) setLaidOutBox(newBox Box) {
 	abs.Box = newBox
 	abs.layoutDone = true
 }
@@ -50,7 +50,7 @@ func (abs AbsolutePlaceholder) String() string {
 var absoluteWidth = handleMinMaxWidth(_absoluteWidth)
 
 // @handleMinMaxWidth
-func _absoluteWidth(box_ bo.Box, context LayoutContext, containingBlock block) (bool, float32) {
+func _absoluteWidth(box_ Box, context LayoutContext, containingBlock block) (bool, float32) {
 	// http://www.w3.org/TR/CSS2/visudet.html#abs-replaced-width
 	box := box_.Box()
 	// These names are waaay too long
@@ -127,7 +127,7 @@ func _absoluteWidth(box_ bo.Box, context LayoutContext, containingBlock block) (
 	return translateBoxWidth, translateX
 }
 
-func absoluteHeight(box_ bo.Box, context LayoutContext, containingBlock block) (bool, float32) {
+func absoluteHeight(box_ Box, context LayoutContext, containingBlock block) (bool, float32) {
 	box := box_.Box()
 	// These names are waaay too long
 	marginT := box.MarginTop
@@ -196,7 +196,7 @@ func absoluteHeight(box_ bo.Box, context LayoutContext, containingBlock block) (
 	return translateBoxHeight, translateY
 }
 
-func absoluteBlock(context *LayoutContext, box_ bo.Box, containingBlock block, fixedBoxes []bo.Box) bo.Box {
+func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixedBoxes []Box) Box {
 	box := box_.Box()
 	_, _, cbWidth, cbHeight := containingBlock.unpack()
 
@@ -229,7 +229,7 @@ func absoluteBlock(context *LayoutContext, box_ bo.Box, containingBlock block, f
 }
 
 // FIXME: waiting for weasyprint update
-func absoluteFlex(context *LayoutContext, box_ bo.Box, containingBlock block, fixedBoxes []bo.Box) bo.Box {
+func absoluteFlex(context *LayoutContext, box_ Box, containingBlock block, fixedBoxes []Box) Box {
 	//     // Avoid a circular import
 	//     from .flex import flexLayout
 
@@ -272,7 +272,7 @@ func absoluteFlex(context *LayoutContext, box_ bo.Box, containingBlock block, fi
 }
 
 // Set the width of absolute positioned ``box``.
-func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, containingBlock bo.Box, fixedBoxes []bo.Box) {
+func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, containingBlock Box, fixedBoxes []Box) {
 	if placeholder.layoutDone {
 		log.Fatalf("placeholder can't have its layout done.")
 	}
@@ -280,7 +280,7 @@ func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, co
 	placeholder.setLaidOutBox(absoluteBoxLayout(context, box, containingBlock, fixedBoxes))
 }
 
-func absoluteBoxLayout(context *LayoutContext, box bo.Box, cb_ bo.Box, fixedBoxes []bo.Box) bo.Box {
+func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes []Box) Box {
 	// TODO: handle inline boxes (point 10.1.4.1)
 	// http://www.w3.org/TR/CSS2/visudet.html#containing-block-details
 	var containingBlock block
@@ -302,7 +302,7 @@ func absoluteBoxLayout(context *LayoutContext, box bo.Box, cb_ bo.Box, fixedBoxe
 
 	context.createBlockFormattingContext()
 	// Absolute tables are wrapped into block boxes
-	var newBox bo.Box
+	var newBox Box
 	if bo.TypeBlockBox.IsInstance(box) {
 		newBox = absoluteBlock(context, box, containingBlock, fixedBoxes)
 	} else if bo.IsFlexContainerBox(box) {
@@ -321,7 +321,7 @@ func intDiv(a float32, b int) float32 {
 	return float32(int(math.Floor(float64(a))) / b)
 }
 
-func absoluteReplaced(context *LayoutContext, box_ bo.Box, containingBlock block) bo.Box {
+func absoluteReplaced(context *LayoutContext, box_ Box, containingBlock block) Box {
 	inlineReplacedBoxWidthHeight(box_, containingBlock)
 	box := box_.Box()
 	cbX, cbY, cbWidth, cbHeight := containingBlock.unpack()

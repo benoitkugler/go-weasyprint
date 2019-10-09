@@ -7,7 +7,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 )
 
-var Inf = float32(math.Inf(+1))
+var Inf = Float(math.Inf(+1))
 
 var Has = struct{}{}
 
@@ -46,7 +46,7 @@ func (d Dimension) ToValue() Value {
 	return Value{Dimension: d}
 }
 
-func FToD(f float32) Dimension { return Dimension{Value: f, Unit: Scalar} }
+func FToD(f float32) Dimension { return Dimension{Value: Float(f), Unit: Scalar} }
 func SToV(s string) Value      { return Value{String: s} }
 func FToV(f float32) Value     { return FToD(f).ToValue() }
 
