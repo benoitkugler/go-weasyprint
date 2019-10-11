@@ -74,7 +74,7 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY, skipS
     if len(context.excludedShapes) != 0 {
         // Width && height must be calculated to avoid floats
         linebox.Width = MF(inlineMinContentWidth( context, linebox,true, skipStack, true, false))
-        linebox.Height, _ = strutLayout(linebox.style, context)
+        linebox.Height, _ = strutLayout(linebox.Style, context)
     } else {
         // No float, width && height will be set by the lines
 		linebox.Width = MF(0)
@@ -256,7 +256,7 @@ func removeLastWhitespace(context, box) {
             return
         } box = box.children[-1]
     } if not (isinstance(box, boxes.TextBox) and
-            box.style["whiteSpace"] := range ("normal", "nowrap", "pre-line")) {
+            box.Style["whiteSpace"] := range ("normal", "nowrap", "pre-line")) {
             }
         return
     newText = box.text.rstrip(" ")
@@ -539,7 +539,7 @@ func atomicBox(context, box, positionX, skipStack, containingBlock,
     if isinstance(box, boxes.ReplacedBox) {
         box = box.copy()
         inlineReplacedBoxLayout(box, containingBlock)
-        box.baseline = box.marginHeight()
+        box.Baseline = box.marginHeight()
     } else if isinstance(box, boxes.InlineBlockBox) {
         if box.isTableWrapper {
             tableWrapperWidth(
@@ -581,7 +581,7 @@ func inlineBlockBoxLayout(context, box, positionX, skipStack,
         context, box, maxPositionY=float("inf"), skipStack=skipStack,
         pageIsEmpty=true, absoluteBoxes=absoluteBoxes,
         fixedBoxes=fixedBoxes)
-    box.baseline = inlineBlockBaseline(box)
+    box.Baseline = inlineBlockBaseline(box)
     return box
 
 
@@ -601,7 +601,7 @@ func inlineBlockBaseline(box) {
                 }
             }
         }
-    } else if box.style["overflow"] == "visible" {
+    } else if box.Style["overflow"] == "visible" {
         result = findInFlowBaseline(box, last=true)
         if result {
             return result
@@ -709,11 +709,21 @@ func splitInlineLevel(context LayoutContext, box Box, positionX, maxX, skipStack
         floatWidths)
 	}
 
+
+    type indexedPlaceholder struct {
+        index int 
+        placeholder *AbsolutePlaceholder
+    }
+
 // Same behavior as splitInlineLevel.
-func splitInlineBox(context, box, positionX, maxX, skipStack,
-                     containingBlock, absoluteBoxes, fixedBoxes,
-                     linePlaceholders, waitingFloats, lineChildren) splitedInline {
+func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack *bo.SkipStack,
+                     containingBlock block, absoluteBoxes, fixedBoxes,
+                     linePlaceholders []*AbsolutePlaceholder, waitingFloats, lineChildren) splitedInline {
                      
+    if !isLine(box_) {
+        log.Fatalf("expected Line or Inline Box, got %s", box_)
+    }
+    box := box_.Box()
 
     // In some cases (shrink-to-fit result being the preferred width)
     // maxX is coming from Pango itself,
@@ -723,52 +733,48 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
     // an unexpected line break. The 1e-9 value comes from PEP 485.
     maxX *= 1 + 1e-9
 
-    isStart = skipStack == nil
-    initialPositionX = positionX
-    initialSkipStack = skipStack
-    assert isinstance(box, (boxes.LineBox, boxes.InlineBox))
-    leftSpacing = (box.PaddingLeft + box.marginLeft +
-                    box.borderLeftWidth)
-    rightSpacing = (box.PaddingRight + box.marginRight +
-                     box.borderRightWidth)
-    contentBoxLeft = positionX
+    isStart := skipStack == nil
+    initialPositionX := positionX
+    initialSkipStack := skipStack
 
-    children = []
-    waitingChildren = []
-    preservedLineBreak = false
-    firstLetter = lastLetter = None
-    floatWidths = {"left": 0, "right": 0}
-    floatResumeAt = 0
+    leftSpacing := box.PaddingLeft + box.MarginLeft + box.BorderLeftWidth.V()
+    rightSpacing := box.PaddingRight + box.MarginRight + box.BorderRightWidth.V()
+    contentBoxLeft := positionX
 
-    if box.style["position"] == "relative" {
+    var children , waitingChildren []indexedPlaceholder 
+    preservedLineBreak /= false
+    var firstLetter, lastLetter string
+    floatWidths := map[string]float32{"left": 0, "right": 0}
+    var floatResumeAt float32
+
+    if box.Style.GetPosition().String == "relative" {
         absoluteBoxes = []
     }
 
-    if isStart {
-        skip = 0
-    } else {
-        skip, skipStack = skipStack
+     var   skip int 
+    if ! isStart {
+        skip, skipStack = skipStack.Skip, skipStack.Stack
     }
 
-    for i, child := range enumerate(box.children[skip:]) {
-        index = i + skip
-        child.positionY = box.PositionY
-        if child.isAbsolutelyPositioned() {
-            child.positionX = positionX
-            placeholder = AbsolutePlaceholder(child)
-            linePlaceholders.append(placeholder)
-            waitingChildren.append((index, placeholder))
-            if child.style["position"] == "absolute" {
-                absoluteBoxes.append(placeholder)
+    for i, child_ := range box.Children[skip:] {
+        index := i + skip
+        child := child_.Box()
+        child.PositionY = box.PositionY
+        if child.IsAbsolutelyPositioned() {
+            child.PositionX = positionX
+            placeholder := NewAbsolutePlaceholder(child)
+            linePlaceholders = append(linePlaceholders, placeholder)
+            waitingChildren = append(waitingChildren, indexedPlaceholder{index:index,placeholder: placeholder})
+            if child.Style.GetPosition().String == "absolute" {
+                absoluteBoxes = append(absoluteBoxes, placeholder)
             } else {
-                fixedBoxes.append(placeholder)
-            } continue
-        } else if child.isFloated() {
-            child.positionX = positionX
-            floatWidth = shrinkToFit(context, child, containingBlock.width)
-        }
-    }
-
+                fixedBoxes = append(fixedBoxes, placeholder)
+            } 
+            continue
+        } else if child.IsFloated() {
+            child.PositionX = positionX
+            floatWidth := shrinkToFit(context, child_, containingBlock.Width)
+        
             // To retrieve the real available space for floats, we must remove
             // the trailing whitespaces from the line
             nonFloatingChildren = [
@@ -791,9 +797,9 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
             }
 
                 // Translate previous line children
-                dx = max(child.marginWidth(), 0)
-                floatWidths[child.style["float"]] += dx
-                if child.style["float"] == "left" {
+                dx = max(child.MarginWidth(), 0)
+                floatWidths[child.Style["float"]] += dx
+                if child.Style["float"] == "left" {
                     if isinstance(box, boxes.LineBox) {
                         // The parent is the line, update the current position
                         // for the next child. When the parent is not the line
@@ -802,16 +808,16 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
                         // splitInlineLevel call).
                         positionX += dx
                     }
-                } else if child.style["float"] == "right" {
+                } else if child.Style["float"] == "right" {
                     // Update the maximum x position for the next children
                     maxX -= dx
                 } for _, oldChild := range lineChildren {
                     if not oldChild.isInNormalFlow() {
                         continue
-                    } if ((child.style["float"] == "left" and
-                            box.style["direction"] == "ltr") or
-                        (child.style["float"] == "right" and
-                            box.style["direction"] == "rtl")) {
+                    } if ((child.Style["float"] == "left" and
+                            box.Style["direction"] == "ltr") or
+                        (child.Style["float"] == "right" and
+                            box.Style["direction"] == "rtl")) {
                             }
                         oldChild.translate(dx=dx)
                 }
@@ -829,7 +835,7 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
         if lastChild && rightSpacing && resumeAt == nil {
             // TODO: we should take care of children added into absoluteBoxes,
             // fixedBoxes && other lists.
-            if box.style["direction"] == "rtl" {
+            if box.Style["direction"] == "rtl" {
                 availableWidth -= leftSpacing
             } else {
                 availableWidth -= rightSpacing
@@ -840,7 +846,7 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
                     linePlaceholders, childWaitingFloats, lineChildren))
         }
 
-        if box.style["direction"] == "rtl" {
+        if box.Style["direction"] == "rtl" {
             maxX -= newFloatWidths["left"]
         } else {
             maxX -= newFloatWidths["right"]
@@ -856,14 +862,14 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
             lastLetter = " "
         } else if lastLetter is false {
             lastLetter = " "  // no-break space
-        } else if box.style["whiteSpace"] := range ("pre", "nowrap") {
+        } else if box.Style["whiteSpace"] := range ("pre", "nowrap") {
             canBreak = false
         } if canBreak == nil {
             if None := range (lastLetter, first) {
                 canBreak = false
             } else {
                 canBreak = canBreakText(
-                    lastLetter + first, child.style["lang"])
+                    lastLetter + first, child.Style["lang"])
             }
         }
 
@@ -892,8 +898,8 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
                 not newChild.text.strip())
         }
 
-            marginWidth = newChild.marginWidth()
-            newPositionX = newChild.positionX + marginWidth
+            marginWidth = newChild.MarginWidth()
+            newPositionX = newChild.PositionX + marginWidth
 
             if newPositionX > maxX && not trailingWhitespace {
                 if waitingChildren {
@@ -915,10 +921,10 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
                             // decrease the actual size by 1 && render the
                             // waiting child again with this constraint. We may
                             // find a better way.
-                            maxX = child.positionX + child.marginWidth() - 1
+                            maxX = child.PositionX + child.MarginWidth() - 1
                             childNewChild, childResumeAt, _, _, _, _ = (
                                 splitInlineLevel(
-                                    context, child, child.positionX, maxX,
+                                    context, child, child.PositionX, maxX,
                                     None, box, absoluteBoxes, fixedBoxes,
                                     linePlaceholders, waitingFloats,
                                     lineChildren))
@@ -1006,18 +1012,18 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
         if inFlowChildren {
             newBox.Width = (
                 inFlowChildren[-1].positionX +
-                inFlowChildren[-1].marginWidth() -
+                inFlowChildren[-1].MarginWidth() -
                 newBox.PositionX)
         } else {
             newBox.Width = 0
         }
     } else {
         newBox.PositionX = initialPositionX
-        if box.style["boxDecorationBreak"] == "clone" {
+        if box.Style["boxDecorationBreak"] == "clone" {
             translationNeeded = true
         } else {
             translationNeeded = (
-                isStart if box.style["direction"] == "ltr" else isEnd)
+                isStart if box.Style["direction"] == "ltr" else isEnd)
         } if translationNeeded {
             for child := range newBox.children {
                 child.translate(dx=leftSpacing)
@@ -1026,14 +1032,14 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
         newBox.translate(dx=floatWidths["left"], ignoreFloats=true)
     }
 
-    lineHeight, newBox.baseline = strutLayout(box.style, context)
-    newBox.Height = box.style["fontSize"]
+    lineHeight, newBox.Baseline = strutLayout(box.Style, context)
+    newBox.Height = box.Style["fontSize"]
     halfLeading = (lineHeight - newBox.Height) / 2.
     // Set margins to the half leading but also compensate for borders and
     // paddings. We want marginHeight() == lineHeight
-    newBox.marginTop = (halfLeading - newBox.borderTopWidth -
+    newBox.MarginTop = (halfLeading - newBox.BorderTopWidth -
                           newBox.PaddingTop)
-    newBox.marginBottom = (halfLeading - newBox.borderBottomWidth -
+    newBox.MarginBottom = (halfLeading - newBox.BorderBottomWidth -
                              newBox.PaddingBottom)
 
     if newBox.style["position"] == "relative" {
@@ -1053,7 +1059,7 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
         floatWidths)
     }
 
-    
+
  // See http://unicode.org/reports/tr14/
 // \r is already handled by processWhitespace
 var lineBreaks = pr.NewSet("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
@@ -1074,7 +1080,7 @@ func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.May
     if fontSize == 0 || len(text) == 0 {
         return nil,nil, false
     } 
-    v := pdf.SplitFirstLine(text, box.style, context, availableWidth, box.justificationSpacing)
+    v := pdf.SplitFirstLine(text, box.Style, context, availableWidth, box.justificationSpacing)
     layout, length, resumeAt, width, height, baseline := v.Layout, v.Length, v.ResumeAt, v.Width, v.Height, v.Baseline
     if resumeAt != nil && *resumeAt == 0 {
         log.Fatalln("resumeAt should not be 0 here")
