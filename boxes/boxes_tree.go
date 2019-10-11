@@ -5,8 +5,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/pdf"
-
 	"github.com/benoitkugler/go-weasyprint/images"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -49,7 +47,7 @@ type TextBox struct {
 
 	Text                 string
 	JustificationSpacing float32
-	PangoLayout          pdf.Layout
+	// PangoLayout          pdf.Layout
 }
 
 type AtomicInlineLevelBox struct {
