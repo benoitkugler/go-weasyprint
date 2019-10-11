@@ -23,7 +23,7 @@ import (
 var (
 	// These are unspecified, other than 'thin' <='medium' <= 'thick'.
 	// Values are in pixels.
-	BorderWidthKeywords = map[string]float32{
+	BorderWidthKeywords = map[string]pr.Float{
 		"thin":   1,
 		"medium": 3,
 		"thick":  5,
@@ -129,7 +129,7 @@ var (
 		"link":                link,
 	}
 
-	keywordsValues []float32
+	keywordsValues []pr.Float
 )
 
 func init() {
@@ -161,7 +161,7 @@ func init() {
 		}
 	}
 
-	keywordsValues = make([]float32, len(pr.FontSizeKeywords))
+	keywordsValues = make([]pr.Float, len(pr.FontSizeKeywords))
 	for i, k := range pr.FontSizeKeywordsOrder {
 		keywordsValues[i] = pr.FontSizeKeywords[k]
 	}
@@ -417,7 +417,7 @@ func asPixels(v pr.Value, pixelsOnly bool) pr.Value {
 // passing a negative fontSize means null
 // Always returns a Value which is interpreted as float32 if Unit is zero.
 // pixelsOnly=false
-func length2(computer *computer, _ string, value pr.Value, fontSize float32, pixelsOnly bool) pr.Value {
+func length2(computer *computer, _ string, value pr.Value, fontSize pr.Float, pixelsOnly bool) pr.Value {
 	if value.String == "auto" || value.String == "content" {
 		return value
 	}
@@ -426,7 +426,7 @@ func length2(computer *computer, _ string, value pr.Value, fontSize float32, pix
 	}
 
 	unit := value.Unit
-	var result float32
+	var result pr.Float
 	switch unit {
 	case pr.Px:
 		return asPixels(value, pixelsOnly)
@@ -502,7 +502,7 @@ func borderWidth(computer *computer, name string, _value pr.CssProperty) pr.CssP
 		return pr.FToV(0)
 	}
 	if bw, in := BorderWidthKeywords[value.String]; in {
-		return pr.FToV(bw)
+		return bw.ToValue()
 	}
 	d := length2(computer, name, value, -1, true)
 	return d
@@ -575,7 +575,7 @@ func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.Content
 		if err != nil {
 			return out, err
 		}
-		prop = pr.Dimension{Value: float32(f), Unit: pr.Percentage}.ToValue()
+		prop = pr.Dimension{Value: pr.Float(f), Unit: pr.Percentage}.ToValue()
 		typeOrUnit = "length"
 	default:
 		unit, isUnit := validation.LENGTHUNITS[typeOrUnit]
@@ -585,14 +585,14 @@ func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.Content
 			if err != nil {
 				return out, err
 			}
-			prop = pr.Dimension{Value: float32(f), Unit: unit}.ToValue()
+			prop = pr.Dimension{Value: pr.Float(f), Unit: unit}.ToValue()
 			typeOrUnit = "length"
 		} else if isAngle {
 			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
 			if err != nil {
 				return out, err
 			}
-			prop = pr.Dimension{Value: float32(f), Unit: angle}.ToValue()
+			prop = pr.Dimension{Value: pr.Float(f), Unit: angle}.ToValue()
 			typeOrUnit = "angle"
 		}
 	}
@@ -740,26 +740,26 @@ func floating(computer *computer, _ string, _value pr.CssProperty) pr.CssPropert
 func fontSize(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
 	if fs, in := pr.FontSizeKeywords[value.String]; in {
-		return pr.FToV(fs)
+		return fs.ToValue()
 	}
 
 	parentFontSize := computer.parentStyle.GetFontSize().Value
 	if value.String == "larger" {
 		for _, keywordValue := range keywordsValues {
 			if keywordValue > parentFontSize {
-				return pr.FToV(keywordValue)
+				return keywordValue.ToValue()
 			}
 		}
-		return pr.FToV(parentFontSize * 1.2)
+		return (parentFontSize * 1.2).ToValue()
 	} else if value.String == "smaller" {
 		for i := len(keywordsValues) - 1; i >= 0; i -= 1 {
 			if keywordsValues[i] < parentFontSize {
-				return pr.FToV(keywordsValues[i])
+				return (keywordsValues[i]).ToValue()
 			}
 		}
-		return pr.FToV(parentFontSize * 0.8)
+		return (parentFontSize * 0.8).ToValue()
 	} else if value.Unit == pr.Percentage {
-		return pr.FToV(value.Value * parentFontSize / 100.)
+		return (value.Value * parentFontSize / 100.).ToValue()
 	} else {
 		return length2(computer, name, value, parentFontSize, true)
 	}
@@ -789,7 +789,7 @@ func fontWeight(computer *computer, _ string, _value pr.CssProperty) pr.CssPrope
 // Compute the ``line-height`` property.
 func lineHeight(computer *computer, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
-	var pixels float32
+	var pixels pr.Float
 	switch {
 	case value.String == "normal":
 		return value

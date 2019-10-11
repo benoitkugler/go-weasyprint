@@ -58,8 +58,8 @@ var (
 	// http://dev.w3.org/csswg/css-values/#resolution
 	RESOLUTIONTODPPX = map[string]float32{
 		"dppx": 1,
-		"dpi":  1 / pr.LengthsToPixels[pr.In],
-		"dpcm": 1 / pr.LengthsToPixels[pr.Cm],
+		"dpi":  float32(1 / pr.LengthsToPixels[pr.In]),
+		"dpcm": float32(1 / pr.LengthsToPixels[pr.Cm]),
 	}
 
 	couplesLigatures = [][]string{
@@ -467,12 +467,12 @@ func getLength(_token Token, negative, percentage bool) pr.Dimension {
 	switch token := _token.(type) {
 	case parser.PercentageToken:
 		if percentage && (negative || token.Value >= 0) {
-			return pr.Dimension{Value: token.Value, Unit: pr.Percentage}
+			return pr.Dimension{Value: pr.Float(token.Value), Unit: pr.Percentage}
 		}
 	case parser.DimensionToken:
 		unit, isKnown := LENGTHUNITS[string(token.Unit)]
 		if isKnown && (negative || token.Value >= 0) {
-			return pr.Dimension{Value: token.Value, Unit: unit}
+			return pr.Dimension{Value: pr.Float(token.Value), Unit: unit}
 		}
 	case parser.NumberToken:
 		if token.Value == 0 {
@@ -1783,11 +1783,11 @@ func lineHeight(tokens []Token, _ string) pr.CssProperty {
 	switch tt := token.(type) {
 	case parser.NumberToken:
 		if tt.Value >= 0 {
-			return pr.Value{Dimension: pr.Dimension{Value: tt.Value, Unit: pr.Scalar}}
+			return pr.Value{Dimension: pr.Dimension{Value: pr.Float(tt.Value), Unit: pr.Scalar}}
 		}
 	case parser.PercentageToken:
 		if tt.Value >= 0 {
-			return pr.Value{Dimension: pr.Dimension{Value: tt.Value, Unit: pr.Percentage}}
+			return pr.Value{Dimension: pr.Dimension{Value: pr.Float(tt.Value), Unit: pr.Percentage}}
 		}
 	case parser.DimensionToken:
 		if tt.Value >= 0 {

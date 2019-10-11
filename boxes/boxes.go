@@ -120,7 +120,7 @@ type BoxFields struct {
 
 	firstLetterStyle, firstLineStyle pr.Properties
 
-	PositionX, PositionY                                                 float32
+	PositionX, PositionY, Baseline                                       float32
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
 	Top, Bottom, Left, Right                                             float32
 	MarginTop, MarginBottom, MarginLeft, MarginRight                     float32
@@ -255,12 +255,12 @@ func (self BoxFields) PaddingHeight() float32 {
 
 // Width of the border box.
 func (self BoxFields) BorderWidth() float32 {
-	return self.PaddingWidth() + self.BorderLeftWidth + self.BorderRightWidth
+	return self.PaddingWidth() + self.BorderLeftWidth.V() + self.BorderRightWidth.V()
 }
 
-// Height of the border box.
+// Height of th.V()e border box.
 func (self BoxFields) BorderHeight() float32 {
-	return self.PaddingHeight() + self.BorderTopWidth + self.BorderBottomWidth
+	return self.PaddingHeight() + self.BorderTopWidth.V() + self.BorderBottomWidth.V()
 }
 
 // Width of the margin box (aka. outer box).
@@ -277,22 +277,22 @@ func (self BoxFields) MarginHeight() float32 {
 
 // Absolute horizontal position of the content box.
 func (self BoxFields) ContentBoxX() float32 {
-	return self.PositionX + self.MarginLeft + self.PaddingLeft + self.BorderLeftWidth
+	return self.PositionX + self.MarginLeft + self.PaddingLeft + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the content box.
 func (self BoxFields) ContentBoxY() float32 {
-	return self.PositionY + self.MarginTop + self.PaddingTop + self.BorderTopWidth
+	return self.PositionY + self.MarginTop + self.PaddingTop + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the padding box.
 func (self BoxFields) PaddingBoxX() float32 {
-	return self.PositionX + self.MarginLeft + self.BorderLeftWidth
+	return self.PositionX + self.MarginLeft + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the padding box.
 func (self BoxFields) PaddingBoxY() float32 {
-	return self.PositionY + self.MarginTop + self.BorderTopWidth
+	return self.PositionY + self.MarginTop + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the border box.
@@ -368,19 +368,19 @@ func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
 
 func (self BoxFields) roundedBoxRatio(ratio float32) roundedBox {
 	return self.roundedBox(
-		self.BorderTopWidth*ratio,
-		self.BorderRightWidth*ratio,
-		self.BorderBottomWidth*ratio,
-		self.BorderLeftWidth*ratio)
+		self.BorderTopWidth.V()*ratio,
+		self.BorderRightWidth.V()*ratio,
+		self.BorderBottomWidth.V()*ratio,
+		self.BorderLeftWidth.V()*ratio)
 }
 
 // Return the position, size and radii of the rounded padding box.
 func (self BoxFields) roundedPaddingBox() roundedBox {
 	return self.roundedBox(
-		self.BorderTopWidth,
-		self.BorderRightWidth,
-		self.BorderBottomWidth,
-		self.BorderLeftWidth)
+		self.BorderTopWidth.V(),
+		self.BorderRightWidth.V(),
+		self.BorderBottomWidth.V(),
+		self.BorderLeftWidth.V())
 }
 
 // Return the position, size and radii of the rounded border box.
@@ -391,10 +391,10 @@ func (self BoxFields) roundedBorderBox() roundedBox {
 // Return the position, size and radii of the rounded content box.
 func (self BoxFields) roundedContentBox() roundedBox {
 	return self.roundedBox(
-		self.BorderTopWidth+self.PaddingTop,
-		self.BorderRightWidth+self.PaddingRight,
-		self.BorderBottomWidth+self.PaddingBottom,
-		self.BorderLeftWidth+self.PaddingLeft)
+		self.BorderTopWidth.V()+self.PaddingTop,
+		self.BorderRightWidth.V()+self.PaddingRight,
+		self.BorderBottomWidth.V()+self.PaddingBottom,
+		self.BorderLeftWidth.V()+self.PaddingLeft)
 }
 
 // Positioning schemes
@@ -460,19 +460,19 @@ func (self *BoxFields) resetSpacing(side string) {
 	case "top":
 		self.MarginTop = 0
 		self.PaddingTop = 0
-		self.BorderTopWidth = 0
+		self.BorderTopWidth = pr.Float(0)
 	case "right":
 		self.MarginRight = 0
 		self.PaddingRight = 0
-		self.BorderRightWidth = 0
+		self.BorderRightWidth = pr.Float(0)
 	case "left":
 		self.MarginLeft = 0
 		self.PaddingLeft = 0
-		self.BorderLeftWidth = 0
+		self.BorderLeftWidth = pr.Float(0)
 	case "bottom":
 		self.MarginBottom = 0
 		self.PaddingBottom = 0
-		self.BorderBottomWidth = 0
+		self.BorderBottomWidth = pr.Float(0)
 	}
 }
 

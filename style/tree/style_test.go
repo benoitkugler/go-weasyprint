@@ -552,7 +552,7 @@ func TestWarningsStylesheet(t *testing.T) {
 
 type testFontSize struct {
 	parentCss, childCss   string
-	parentSize, childSize float32
+	parentSize, childSize pr.Float
 }
 
 var testsFs = []testFontSize{
@@ -578,7 +578,7 @@ var testsFs = []testFontSize{
 	{parentCss: "100px", parentSize: 100, childCss: "smaller", childSize: 32},
 }
 
-func isClose(a, b float32) bool {
+func isClose(a, b pr.Float) bool {
 	return math.Abs(math.Round(float64(a-b))) < 1e-5
 }
 

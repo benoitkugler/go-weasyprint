@@ -34,7 +34,7 @@ var (
 	CurrentColor = Color{Type: parser.ColorCurrentColor}
 	// How many CSS pixels is one <unit>?
 	// http://www.w3.org/TR/CSS21/syndata.html#length-units
-	LengthsToPixels = map[Unit]float32{
+	LengthsToPixels = map[Unit]Float{
 		Px: 1,
 		Pt: 1. / 0.75,
 		Pc: 16.,             // LengthsToPixels["pt"] * 12

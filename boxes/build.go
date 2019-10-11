@@ -1227,7 +1227,7 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 		color := boxStyle.ResolveColor(fmt.Sprintf("border_%s_color", side))
 
 		// http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
-		score := Score{0, width.Value, styleScores[style]}
+		score := Score{0, float32(width.Value), styleScores[style]}
 		if style == "hidden" {
 			score[0] = 1
 		}
@@ -1240,7 +1240,7 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 		previousScore := borderGrid[gridY][gridX].score
 		// Strict < so that the earlier call wins in case of a tie.
 		if previousScore.lower(score) {
-			borderGrid[gridY][gridX] = border{score: score, style: string(style), width: width.Value, color: color}
+			borderGrid[gridY][gridX] = border{score: score, style: string(style), width: float32(width.Value), color: color}
 		}
 	}
 

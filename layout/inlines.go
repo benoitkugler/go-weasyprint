@@ -8,6 +8,11 @@ import (
 
 //     Line breaking and layout for inline-level boxes.
 
+func isLine(box Box) bool {
+    return bo.TypeLineBox.IsInstance(box) || bo.TypeInlineBox.IsInstance(box)
+}
+
+
 type lineBoxe struct {
 	line *bo.LineBox
 	resumeAt *float32
@@ -216,7 +221,7 @@ func skipFirstWhitespace(box Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, co
 		return nil, false
     }
 
-    if bo.TypeLineBox.IsInstance(box) ||bo.TypeInlineBox.IsInstance(box) {
+    if isLine(box) {
 		children := box.Box().Children
 		if index == 0 && len(children) == 0{
             return nil, false
@@ -1046,6 +1051,12 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
     return (
         newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter,
         floatWidths)
+    }
+
+    
+ // See http://unicode.org/reports/tr14/
+// \r is already handled by processWhitespace
+var lineBreaks = pr.NewSet("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
 
 
 // Keep as much text as possible from a TextBox in a limited width.
@@ -1057,32 +1068,34 @@ func splitInlineBox(context, box, positionX, maxX, skipStack,
 // ``None`` if all of the text fits.
 //
 // Also break on preserved line breaks.
-func splitTextBox(context LayoutContext, box bo.TextBox, availableWidth float32, skip *int) (*bo.TextBox, *int, bool) {}  
+func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.MaybeFloat, skip int) (*bo.TextBox, *int, bool) {  
+    fontSize := box.Style.GetFontSize()
+    text := []rune(box.Text)[skip:]
+    if fontSize == 0 || len(text) == 0 {
+        return nil,nil, false
+    } 
+    v := pdf.SplitFirstLine(text, box.style, context, availableWidth, box.justificationSpacing)
+    layout, length, resumeAt, width, height, baseline := v.Layout, v.Length, v.ResumeAt, v.Width, v.Height, v.Baseline
+    if resumeAt != nil && *resumeAt == 0 {
+        log.Fatalln("resumeAt should not be 0 here")
+    }
 
-func splitTextBox(context, box, availableWidth, skip) {
-    assert isinstance(box, boxes.TextBox)
-    fontSize = box.style["fontSize"]
-    text = box.text[skip:]
-    if fontSize == 0 || not text {
-        return None, None, false
-    } layout, length, resumeAt, width, height, baseline = splitFirstLine(
-        text, box.style, context, availableWidth, box.justificationSpacing)
-    assert resumeAt != 0
-} 
-    // Convert ``length`` && ``resumeAt`` from UTF-8 indexes := range text
+    // Convert ``length`` && ``resumeAt`` from UTF-8 indexes in text
     // to Unicode indexes.
     // No need to encode what’s after resumeAt (if set) || length (if
     // resumeAt is not set). One code point is one || more byte, so
     // UTF-8 indexes are always bigger || equal to Unicode indexes.
-    newText = layout.text
-    encoded = text.encode("utf8")
-    if resumeAt is not None {
-        between = encoded[length:resumeAt].decode("utf8")
-        resumeAt = len(encoded[:resumeAt].decode("utf8"))
-    } length = len(encoded[:length].decode("utf8"))
+    newText := layout.Text
+    // encoded = text.encode("utf8")
+    var between string
+    if resumeAt != nil {
+        between = text[length:resumeAt]
+        resumeAt = &len([]rune(text[:resumeAt]))
+    } 
+    length := len([]rune(text[:length]))
 
     if length > 0 {
-        box = box.copyWithText(newText)
+        box = box.CopyWithText(newText)
         box.Width = width
         box.PangoLayout = layout
         // "The height of the content area should be based on the font,
@@ -1093,276 +1106,305 @@ func splitTextBox(context, box, availableWidth, skip) {
         // "only the "line-height" is used when calculating the height
         //  of the line box."
         // Set margins so that marginHeight() == lineHeight
-        lineHeight, _ = strutLayout(box.style, context)
-        halfLeading = (lineHeight - height) / 2.
-        box.marginTop = halfLeading
-        box.marginBottom = halfLeading
+        lineHeight, _ := StrutLayout(box.Style, context)
+        halfLeading := (lineHeight - height) / 2.
+        box.MarginTop = halfLeading
+        box.MarginBottom = halfLeading
         // form the top of the content box
-        box.baseline = baseline
+        box.Baseline = baseline
         // form the top of the margin box
-        box.baseline += box.marginTop
+        box.Baseline += box.MarginTop
     } else {
-        box = None
+        box = nil
     }
 
     if resumeAt == nil {
         preservedLineBreak = false
     } else {
-        preservedLineBreak = (length != resumeAt) && between.strip(" ")
+        preservedLineBreak = (length != resumeAt) && len(strings.Trim(between," "))  != 0 
         if preservedLineBreak {
-            // See http://unicode.org/reports/tr14/
-            // \r is already handled by processWhitespace
-            lineBreaks = ("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
-            assert between := range lineBreaks, (
-                "Got %r between two lines. "
-                "Expected nothing || a preserved line break" % (between,))
-        } resumeAt += skip
+            if !lineBreaks.Has(between) {
+                log.Fatalf("Got %s between two lines. Expected nothing or a preserved line break", between)
+            }
+        }
+        *resumeAt += skip
     }
 
     return box, resumeAt, preservedLineBreak
+}
 
+type boxMinMax struct {
+    box Box
+   max ,min  pr.MaybeFloat
+}
 
 // Handle ``vertical-align`` within an :class:`LineBox` (or of a
 //     non-align sub-tree).
 //     Place all boxes vertically assuming that the baseline of ``box``
 //     is at `y = 0`.
-//     Return ``(maxY, minY)``, the maximum && minimum vertical position
+//     Return ``(maxY, minY)``, the maximum and minimum vertical position
 //     of margin boxes.
-//     
-func lineBoxVerticality(box) {
-    topBottomSubtrees = []
-    maxY, minY = alignedSubtreeVerticality(
-        box, topBottomSubtrees, baselineY=0)
-    subtreesWithMinMax = [
-        (subtree, subMaxY, subMinY)
-        for subtree := range topBottomSubtrees
-        for subMaxY, subMinY := range [
-            (None, None) if subtree.isFloated()
-            else alignedSubtreeVerticality(
-                subtree, topBottomSubtrees, baselineY=0)
-        ]
-    ]
-} 
-    if subtreesWithMinMax {
-        subPositions = [
-            subMaxY - subMinY
-            for subtree, subMaxY, subMinY := range subtreesWithMinMax
-            if not subtree.isFloated()]
-        if subPositions {
-            highestSub = max(subPositions)
-            maxY = max(maxY, minY + highestSub)
+func lineBoxVerticality(box Box) {
+    var topBottomSubtrees []Box
+    maxY, minY := alignedSubtreeVerticality(box, &topBottomSubtrees, 0)
+    subtreesWithMinMax :=make([]boxMinMax, len(topBottomSubtrees))
+    for i, subtree := range topBottomSubtrees {
+        var subMaxY, subMinY pr.MaybeFloat
+        if !subtree.Box().IsFloated() {
+             subMaxY, subMinY =  alignedSubtreeVerticality(subtree, topBottomSubtrees, baselineY=0)
         }
+        subtreesWithMinMax[i] = boxMinMax{box:subtree, max:subMaxY, min; subMinY}
+    }
+ 
+    if len(subtreesWithMinMax) != 0{
+        var highestSub float32
+        for _, v := range subtreesWithMinMax {
+            if ! subtree.Box().IsFloated() {
+            m := v.max.V() - v.min.V()
+            if m > highestSub {
+                highestSub = m
+            }
+        }
+    }            
+            maxY = utils.Max(maxY.V(), minY.V() + highestSub)
     }
 
-    for subtree, subMaxY, subMinY := range subtreesWithMinMax {
-        if subtree.isFloated() {
-            dy = minY - subtree.positionY
-        } else if subtree.style["verticalAlign"] == "top" {
+    for _, v := range subtreesWithMinMax {
+        va := v.box.Box().Style.GetVerticalAlign()
+        var dy float32
+        if v.box.Box().IsFloated() {
+            dy = minY - v.Box.positionY
+        } else if va.String == "top" {
             dy = minY - subMinY
-        } else {
-            assert subtree.style["verticalAlign"] == "bottom"
+        } else if va.String == "bottom"{
             dy = maxY - subMaxY
-        } translateSubtree(subtree, dy)
-    } return maxY, minY
+             }else {
+                 log.Fatalf("expected top or bottom, got %v", va)
+        } 
+        translateSubtree(v.box, dy)
+    } 
+    return maxY, minY
+        }
 
-
-func translateSubtree(box, dy) {
-    if isinstance(box, boxes.InlineBox) {
-        box.PositionY += dy
-        if box.style["verticalAlign"] := range ("top", "bottom") {
-            for child := range box.children {
+func translateSubtree(box Box, dy float32) {
+    if bo.TypeInlineBox.IsInstance(box)  {
+        box.Box().PositionY += dy
+        if va :=  box.Box().Style.GetVerticalAlign(); va ==  "top" || va == "bottom" {
+            for  _, child := range box.Box().Children {
                 translateSubtree(child, dy)
             }
         }
     } else {
-        // Text || atomic boxes
-        box.translate(dy=dy)
+        // Text or atomic boxes
+        box.Translate(box, 0, dy)
     }
 } 
 
-func alignedSubtreeVerticality(box, topBottomSubtrees, baselineY) {
-    maxY, minY = inlineBoxVerticality(box, topBottomSubtrees, baselineY)
-    // Account for the line box itself {
-    } top = baselineY - box.baseline
-    bottom = top + box.marginHeight()
-    if minY == nil || top < minY {
+func alignedSubtreeVerticality(box Box, topBottomSubtrees *[]Box, baselineY float32) (maxY , minY pr.MaybeFloat) {
+    maxY, minY := inlineBoxVerticality(box, topBottomSubtrees, baselineY)
+    // Account for the line box itself :
+    top := baselineY - box.Baseline
+    bottom := top + box.MarginHeight()
+    if minY == nil || top < minY.V() {
         minY = top
-    } if maxY == nil || bottom > maxY {
+    }
+     if maxY == nil || bottom > maxY.V() {
         maxY = bottom
     }
-} 
-    return maxY, minY
 
+    return maxY, minY
+}
 
 // Handle ``vertical-align`` within an :class:`InlineBox`.
 //     Place all boxes vertically assuming that the baseline of ``box``
 //     is at `y = baselineY`.
-//     Return ``(maxY, minY)``, the maximum && minimum vertical position
-//     of margin boxes.
-//     
-func inlineBoxVerticality(box, topBottomSubtrees, baselineY) {
-    maxY = None
-    minY = None
-    if not isinstance(box, (boxes.LineBox, boxes.InlineBox)) {
+//     Return ``(maxY, minY)``, the maximum and minimum vertical position
+//     of margin boxes.  
+func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY float32) (maxY , minY pr.MaybeFloat) {
+    if !isLine(box_) {
         return maxY, minY
     }
-} 
-    for child := range box.children {
-        if not child.isInNormalFlow() {
-            if child.isFloated() {
-                topBottomSubtrees.append(child)
-            } continue
-        } verticalAlign = child.style["verticalAlign"]
-        if verticalAlign == "baseline" {
+    box := box_.Box()
+    for _, child_ := range box_.Box().Children {
+        child := child_.Box()
+        if ! child.IsInNormalFlow() {
+            if child.IsFloated() {
+                *topBottomSubtrees = append(*topBottomSubtrees,child)
+            } 
+            continue
+        } 
+        var childBaselineY float32
+        verticalAlign := child.Style.GetVerticalAlign()
+        switch verticalAlign.String {
+        case "baseline" :
             childBaselineY = baselineY
-        } else if verticalAlign == "middle" {
-            oneEx = box.style["fontSize"] * exRatio(box.style)
-            top = baselineY - (oneEx + child.marginHeight()) / 2.
-            childBaselineY = top + child.baseline
-        } else if verticalAlign == "text-top" {
+        case "middle" :
+            oneEx := box.Style.GetFontSize().Value * pdf.ExRatio(box.Style)
+            top = baselineY - (oneEx + child.MarginHeight()) / 2.
+            childBaselineY = top + child.Baseline
+        case "text-top" :
             // align top with the top of the parent’s content area
-            top = (baselineY - box.baseline + box.marginTop +
-                   box.borderTopWidth + box.PaddingTop)
-            childBaselineY = top + child.baseline
-        } else if verticalAlign == "text-bottom" {
+            top = (baselineY - box.Baseline + box.MarginTop +
+                   box.BorderTopWidth.V() + box.PaddingTop)
+            childBaselineY = top + child.Baseline
+        case "text-bottom" :
             // align bottom with the bottom of the parent’s content area
-            bottom = (baselineY - box.baseline + box.marginTop +
-                      box.borderTopWidth + box.PaddingTop + box.Height)
-            childBaselineY = bottom - child.marginHeight() + child.baseline
-        } else if verticalAlign := range ("top", "bottom") {
-            // TODO: actually implement vertical-align: top && bottom
+            bottom = (baselineY - box.Baseline + box.MarginTop +
+                      box.BorderTopWidth.V() + box.PaddingTop + box.Height)
+            childBaselineY = bottom - child.MarginHeight() + child.Baseline
+            case "top", "bottom" :
+            // TODO: actually implement vertical-align: top and bottom
             // Later, we will assume for this subtree that its baseline
             // is at y=0.
             childBaselineY = 0
-        } else {
+            default:
             // Numeric value: The child’s baseline is `verticalAlign` above
             // (lower y) the parent’s baseline.
-            childBaselineY = baselineY - verticalAlign
+            childBaselineY = baselineY - verticalAlign.Value
         }
-    }
+    
 
-        // the child’s `top` is `child.baseline` above (lower y) its baseline.
-        top = childBaselineY - child.baseline
-        if isinstance(child, (boxes.InlineBlockBox, boxes.InlineFlexBox)) {
+        // the child’s `top` is `child.Baseline` above (lower y) its baseline.
+        top := childBaselineY - child.Baseline
+        if bo.TypeInlineBlockBox.IsInstance(child_) || bo.TypeInlineFlexBox.IsInstance(child_)   {
             // This also includes table wrappers for inline tables.
-            child.translate(dy=top - child.positionY)
+            child_.Translate(child_, 0, top - child.PositionY)
         } else {
-            child.positionY = top
+            child.PositionY = top
             // grand-children for inline boxes are handled below
         }
 
-        if verticalAlign := range ("top", "bottom") {
+        if verticalAlign == "top" || verticalAlign ==  "bottom" {
             // top || bottom are special, they need to be handled in
             // a later pass.
-            topBottomSubtrees.append(child)
+            *topBottomSubtrees = append(*topBottomSubtrees,child)
             continue
         }
 
-        bottom = top + child.marginHeight()
+        bottom = top + child.MarginHeight()
         if minY == nil || top < minY {
-            minY = top
-        } if maxY == nil || bottom > maxY {
-            maxY = bottom
-        } if isinstance(child, boxes.InlineBox) {
-            childrenMaxY, childrenMinY = inlineBoxVerticality(
-                child, topBottomSubtrees, childBaselineY)
-            if childrenMinY is not None && childrenMinY < minY {
+            minY = p.Float(top)
+        } 
+        if maxY == nil || bottom > maxY {
+            maxY = p.Float(bottom)
+        } 
+        if bo.TypeInlineBox.IsInstance(child_)  {
+            childrenMaxY, childrenMinY := inlineBoxVerticality( child, topBottomSubtrees, childBaselineY)
+            if childrenMinY != nil && childrenMinY.V() < minY {
                 minY = childrenMinY
-            } if childrenMaxY is not None && childrenMaxY > maxY {
+            } 
+            if childrenMaxY != nil && childrenMaxY.V() > maxY {
                 maxY = childrenMaxY
             }
         }
+    }
     return maxY, minY
-
+    }
 
 // Return how much the line should be moved horizontally according to
 //     the `text-align` property.
-//     
-func textAlign(context, line, availableWidth, last) {
+func textAlign(context LayoutContext, line_ Box, availableWidth float32, last bool) float32 {
+    line := line_.Box()
+
     // "When the total width of the inline-level boxes on a line is less than
     // the width of the line box containing them, their horizontal distribution
     // within the line box is determined by the "text-align" property."
-    if line.width >= availableWidth {
+    if line.Width.V() >= availableWidth {
         return 0
     }
-} 
-    align = line.style["textAlign"]
-    spaceCollapse = line.style["whiteSpace"] := range (
-        "normal", "nowrap", "pre-line")
-    if align := range ("-weasy-start", "-weasy-end") {
-        if (align == "-weasy-start") ^ (line.style["direction"] == "rtl") {
+
+    align := line.Style.GetTextAlign()
+    ws := line.Style.GetWhitespace()
+    spaceCollapse = ws == "normal" || ws == "nowrap" || ws == "pre-line"
+    if align == "-weasy-start" || align ==  "-weasy-end" {
+        if (align == "-weasy-start") != (line.Style.GetDirection() == "rtl") { // xor
             align = "left"
         } else {
             align = "right"
         }
-    } if align == "justify" && last {
-        align = "right" if line.style["direction"] == "rtl" else "left"
-    } if align == "left" {
+    }
+     if align == "justify" && last {
+        align = "left"
+         if line.Style.GetDirection() == "rtl"  {
+             align =  "right"
+         }
+    }
+     if align == "left" {
         return 0
-    } offset = availableWidth - line.width
+    } 
+    offset := availableWidth - line.width
     if align == "justify" {
         if spaceCollapse {
             // Justification of texts where white space is not collapsing is
             // - forbidden by CSS 2, and
             // - not required by CSS 3 Text.
             justifyLine(context, line, offset)
-        } return 0
-    } if align == "center" {
+        } 
+        return 0
+    } 
+    if align == "center" {
         return offset / 2
-    } else {
-        assert align == "right"
+    } else if  align == "right" {
         return offset
+    } else {
+        log.Fatalf("align should be center or right, got %s", align)
+        return 0
     }
+}
 
-
-func justifyLine(context, line, extraWidth) {
+func justifyLine(context LayoutContext, line Box, extraWidth float32) {
     // TODO: We should use a better alorithm here, see
     // https://www.w3.org/TR/css-text-3/#justify-algos
-    nbSpaces = countSpaces(line)
+    nbSpaces := countSpaces(line)
     if nbSpaces == 0 {
         return
-    } addWordSpacing(context, line, extraWidth / nbSpaces, 0)
+    } 
+    addWordSpacing(context, line, extraWidth / float32(nbSpaces), 0)
 } 
 
-func countSpaces(box) {
-    if isinstance(box, boxes.TextBox) {
+func countSpaces(box Box) int {
+    if textBox, isTextBox := box_.(*bo.TextBox); isTextBox {
         // TODO: remove trailing spaces correctly
-        return box.text.count(" ")
-    } else if isinstance(box, (boxes.LineBox, boxes.InlineBox)) {
-        return sum(countSpaces(child) for child := range box.children)
+        return strings.Count(textBox.Text, " ")
+    } else if isLine(box) {
+        var sum int
+        for _, child := range box.Box().Children {
+            sum += countSpaces(child)
+        }
+        return sum
     } else {
         return 0
     }
 } 
 
-func addWordSpacing(context, box, justificationSpacing, xAdvance) {
-    if isinstance(box, boxes.TextBox) {
-        box.justificationSpacing = justificationSpacing
-        box.PositionX += xAdvance
-        nbSpaces = countSpaces(box)
+func addWordSpacing(context LayoutContext, box_ Box, justificationSpacing float32, xAdvance float32) float32 {
+    if textBox, isTextBox := box_.(*bo.TextBox); isTextBox  {
+        textBox.JustificationSpacing = justificationSpacing
+        textBox.PositionX += xAdvance
+        nbSpaces := countSpaces(box_)
         if nbSpaces > 0 {
-            layout = createLayout(
-                box.text, box.style, context, float("inf"),
-                box.justificationSpacing)
-            layout.deactivate()
-            extraSpace = justificationSpacing * nbSpaces
+            layout = createLayout(textBox.Text, textBox.Style, context, pr.Inf, textBox.JustificationSpacing)
+            layout.Deactivate()
+            extraSpace := justificationSpacing * nbSpaces
             xAdvance += extraSpace
-            box.Width += extraSpace
-            box.PangoLayout = layout
+            textBox.Width = textBox.Width.V() + extraSpace
+            textBox.PangoLayout = layout
         }
-    } else if isinstance(box, (boxes.LineBox, boxes.InlineBox)) {
+    } else if isLine(box_)  {
+        box := box_.Box()
         box.PositionX += xAdvance
-        previousXAdvance = xAdvance
-        for child := range box.children {
-            if child.isInNormalFlow() {
-                xAdvance = addWordSpacing(
-                    context, child, justificationSpacing, xAdvance)
+        previousXAdvance := xAdvance
+        for _, child := range box.Children {
+            if child.IsInNormalFlow() {
+                xAdvance = addWordSpacing(context, child, justificationSpacing, xAdvance)
             }
-        } box.Width += xAdvance - previousXAdvance
+        } 
+        box.Width = box.Width.V() + xAdvance - previousXAdvance
     } else {
         // Atomic inline-level box
-        box.translate(xAdvance, 0)
-    } return xAdvance
+        box.Translate(box, xAdvance, 0)
+    } 
+    return xAdvance
 } 
 
 // http://www.w3.org/TR/CSS21/visuren.html#phantom-line-box

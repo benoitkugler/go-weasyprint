@@ -38,7 +38,7 @@ func minContentWidth(context LayoutContext, box Box, outer bool) float32 {
 		return blockMinContentWidth(context, box, outer)
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box) {
 		return columnGroupContentWidth(context, *box.Box())
-	} else if bo.TypeInlineBox.IsInstance(box) || bo.TypeLineBox.IsInstance(box) {
+	} else if isLine(box) {
 		return inlineMinContentWidth(context, box, outer, nil, false, true)
 	} else if isReplaced {
 		return replacedMinContentWidth(*rep, outer)
@@ -63,7 +63,7 @@ func maxContentWidth(context LayoutContext, box Box, outer bool) float32 {
 		return blockMaxContentWidth(context, box, outer)
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box) {
 		return columnGroupContentWidth(context, *box.Box())
-	} else if bo.TypeInlineBox.IsInstance(box) || bo.TypeLineBox.IsInstance(box) {
+	} else if isLine(box) {
 		return inlineMaxContentWidth(context, box, outer, true)
 	} else if isReplaced {
 		return replacedMaxContentWidth(*rep, outer)
@@ -834,7 +834,7 @@ func flexMaxContentWidth(context LayoutContext, box BoxFields, outer bool) float
 
 // Return the size of the trailing whitespace of ``box``.
 func trailingWhitespaceSize(context LayoutContext, box Box) float32 {
-	for bo.TypeLineBox.IsInstance(box) || bo.TypeInlineBox.IsInstance(box) {
+	for isLine(box) {
 		ch := box.Box().Children
 		if len(ch) == 0 {
 			return 0

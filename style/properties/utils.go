@@ -49,6 +49,7 @@ func (d Dimension) ToValue() Value {
 func FToD(f float32) Dimension { return Dimension{Value: Float(f), Unit: Scalar} }
 func SToV(s string) Value      { return Value{String: s} }
 func FToV(f float32) Value     { return FToD(f).ToValue() }
+func (f Float) ToValue() Value { return FToV(float32(f)) }
 
 func NewColor(r, g, b, a float32) Color {
 	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}

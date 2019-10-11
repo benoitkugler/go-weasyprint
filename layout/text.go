@@ -1,11 +1,19 @@
-package pdf
+package layout
 
 import (
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
+type PangoLayout struct {
+	Text                 string
+	JustificationSpacing float32
+	Context              *LayoutContext
+	Style                pr.Properties
+}
+
 type Splitted struct {
-	// ``layout``: a pango Layout with the first line
+	// pango Layout with the first line
+	Layout PangoLayout
 
 	// length in UTF-8 bytes of the first line
 	Length int
@@ -40,4 +48,17 @@ func CanBreakText(text, lang string) bool {
 	}
 	// FIXME: à implémenter
 	return true
+}
+
+// Return a tuple of the used value of ``line-height`` and the baseline.
+// The baseline is given from the top edge of line height.
+func StrutLayout(style pr.Properties, context *LayoutContext) (float32, float32) {
+	// FIXME: à implémenter
+	return 0.5, 0.5
+}
+
+// Return the ratio 1ex/font_size, according to given style.
+func ExRatio(style pr.Properties) float32 {
+	// FIXME: à implémenter
+	return .5
 }
