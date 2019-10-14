@@ -1150,7 +1150,7 @@ func wrapTable(box Box, children []Box) Box {
 			gridHeight += len(groupChildren)
 		}
 	}
-	table := copyWithChildren(box, rowGroups, true, true)
+	table := CopyWithChildren(box, rowGroups, true, true)
 	tableBox := table.Box()
 	tableBox.ColumnGroups = columnGroups
 	if tableBox.Style.GetBorderCollapse() == "collapse" {
@@ -1404,7 +1404,7 @@ func flexBoxes(box Box) Box {
 }
 
 func flexChildren(box Box, children []Box) []Box {
-	if _, isFlexCont := box.(InstanceFlexContainerBox); isFlexCont {
+	if _, isFlexCont := box.(instanceFlexContainerBox); isFlexCont {
 		var flexChildren []Box
 		for _, child := range children {
 			if !child.Box().IsAbsolutelyPositioned() {
@@ -1416,7 +1416,7 @@ func flexChildren(box Box, children []Box) []Box {
 				// https://www.w3.org/TR/css-flexbox-1/#flex-items
 				continue
 			}
-			if _, ok := child.(InstanceInlineLevelBox); ok {
+			if _, ok := child.(instanceInlineLevelBox); ok {
 				// TODO: Only create block boxes for text runs, not for other
 				// inline level boxes. This is false but currently needed
 				// because blockLevelWidth and blockLevelLayout are called
@@ -1575,7 +1575,7 @@ func inlineInBlock(box Box) Box {
 		baseBox.trailingCollapsibleSpace = trailingCollapsibleSpace
 	}
 
-	if _, ok := box.(InstanceBlockContainerBox); !ok {
+	if !IsBlockContainerBox(box) {
 		baseBox.Children = children
 		return box
 	}
@@ -1585,10 +1585,9 @@ func inlineInBlock(box Box) Box {
 		if TypeLineBox.IsInstance(childBox) {
 			log.Fatalf("childBox can't be a LineBox")
 		}
-		_, isInlineLevel := childBox.(InstanceInlineLevelBox)
 		if len(newLineChildren) > 0 && childBox.Box().IsAbsolutelyPositioned() {
 			newLineChildren = append(newLineChildren, childBox)
-		} else if isInlineLevel || (len(newLineChildren) > 0 && childBox.Box().isFloated()) {
+		} else if IsInlineLevelBox(childBox) || (len(newLineChildren) > 0 && childBox.Box().isFloated()) {
 			// Do not append white space at the start of a line :
 			// it would be removed during layout.
 			childTextBox, isTextBox := childBox.(*TextBox)
@@ -1768,7 +1767,7 @@ func innerBlockInInline(box Box, skipStack *SkipStack) (Box, Box, *SkipStack) {
 	hasBroken := false
 	for i, child := range box.Box().Children[skip:] {
 		index := i + skip
-		if _, isBlockLevel := child.(InstanceBlockLevelBox); isBlockLevel && child.Box().isInNormalFlow() {
+		if IsBlockLevelBox(child) && child.Box().isInNormalFlow() {
 			if skipStack != nil {
 				log.Fatal("Should not skip here")
 			}
@@ -1795,14 +1794,14 @@ func innerBlockInInline(box Box, skipStack *SkipStack) (Box, Box, *SkipStack) {
 
 		if blockLevelBox != nil {
 			resumeAt = &SkipStack{Skip: index, Stack: resumeAt}
-			box = copyWithChildren(box, newChildren, isStart, false)
+			box = CopyWithChildren(box, newChildren, isStart, false)
 			hasBroken = true
 			break
 		}
 	}
 	if !hasBroken {
 		if changed || skip > 0 {
-			box = copyWithChildren(box, newChildren, isStart, true)
+			box = CopyWithChildren(box, newChildren, isStart, true)
 		}
 	}
 

@@ -10,12 +10,10 @@ import (
 
 // Resolve percentages into fixed values.
 
-type mfs [2]pr.MaybeFloat
-
 // Return the percentage of the reference value, or the value unchanged.
 // ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
 // just replaces percentages.
-func percentage(value pr.Value, referTo bo.MaybeFloat) bo.MaybeFloat {
+func percentage(value pr.Value, referTo pr.MaybeFloat) pr.MaybeFloat {
 	if value.IsNone() {
 		return nil
 	} else if value.String == "auto" {
@@ -33,7 +31,7 @@ func percentage(value pr.Value, referTo bo.MaybeFloat) bo.MaybeFloat {
 // Compute a used length value from a computed length value.
 //
 // the return value should be set on the box
-func resolveOnePercentage(value pr.Value, propertyName string, referTo bo.MaybeFloat, mainFlexDirection string) float32 {
+func resolveOnePercentage(value pr.Value, propertyName string, referTo pr.MaybeFloat, mainFlexDirection string) pr.MaybeFloat {
 	// box.style has computed values
 	// value := box.Style[propertyName]
 
@@ -42,13 +40,13 @@ func resolveOnePercentage(value pr.Value, propertyName string, referTo bo.MaybeF
 	// setattr(box, propertyName, percent)
 	if (propertyName == "minWidth" || propertyName == "minHeight") && percent.Auto() {
 		if mainFlexDirection == "" || propertyName != "min"+mainFlexDirection {
-			percent = 0
+			percent = pr.Float(0)
 		}
 	}
 	return percent
 }
 
-func resolvePositionPercentages(box *BoxFields, containingBlock mfs) {
+func resolvePositionPercentages(box *bo.BoxFields, containingBlock bo.MaybePoint) {
 	cbWidth, cbHeight := containingBlock[0], containingBlock[1]
 	box.Left = resolveOnePercentage(box.Style.GetLeft(), "left", cbWidth, "")
 	box.Right = resolveOnePercentage(box.Style.GetRight(), "right", cbWidth, "")
@@ -63,16 +61,16 @@ func resoudValue(v pr.Value) pr.MaybeFloat {
 	return v.Value
 }
 
+func resolvePercentages2(box, containingBlock Box, mainFlexDirection string) {
+	cb := containingBlock.Box()
+	resolvePercentages(box, bo.MaybePoint{cb.Width, cb.Height}, mainFlexDirection)
+}
+
 // Set used values as attributes of the box object.
-func resolvePercentages(box_ Box, containingBlock bo.Point, mainFlexDirection string) {
-	// if isinstance(containingBlock, boxes.Box) {
-	//     // cb is short for containing block
-	//     cbWidth = containingBlock.width
-	//     cbHeight = containingBlock.height
-	// }
+func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirection string) {
 	cbWidth, cbHeight := containingBlock[0], containingBlock[1]
 	maybeHeight := cbWidth
-	if _, is := box_.(bo.InstancePageBox); is {
+	if bo.IsPageBox(box_) {
 		maybeHeight = cbHeight
 	}
 	box := box_.Box()
@@ -157,13 +155,13 @@ func resolvePercentages(box_ Box, containingBlock bo.Point, mainFlexDirection st
 	}
 }
 
-func resoudRadius(box *BoxFields, v pr.Point) bo.Point {
+func resoudRadius(box *bo.BoxFields, v pr.Point) bo.MaybePoint {
 	rx := percentage(v[0].ToValue(), box.BorderWidth())
 	ry := percentage(v[1].ToValue(), box.BorderHeight())
-	return bo.Point{rx, ry}
+	return bo.MaybePoint{rx, ry}
 }
 
-func resolveRadiiPercentages(box *BoxFields) {
+func resolveRadiiPercentages(box *bo.BoxFields) {
 	box.BorderTopLeftRadius = resoudRadius(box, box.Style.GetBorderTopLeftRadius())
 	box.BorderTopRightRadius = resoudRadius(box, box.Style.GetBorderTopRightRadius())
 	box.BorderBottomRightRadius = resoudRadius(box, box.Style.GetBorderBottomRightRadius())

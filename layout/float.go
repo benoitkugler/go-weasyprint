@@ -1,6 +1,7 @@
 package layout
 
 import (
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
@@ -21,60 +22,60 @@ func floatWidth_(box Box, context LayoutContext, containingBlock block) (bool, f
 } 
 
 // Set the width and position of floating ``box``.
-func floatLayout(context LayoutContext, box, containingBlock_ Box, absoluteBoxes []AbsolutePlaceholder, 
-	fixedBoxes []Box) {
+func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes []AbsolutePlaceholder, 
+	fixedBoxes []Box) Box {
 		containingBlock := containingBlock_.Box()
     cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
-    resolvePercentages(box, bo.Point{cbWidth, cbHeight}, "")
+    resolvePercentages(box, bo.MaybePoint{cbWidth, cbHeight}, "")
 
     // TODO: This is only handled later in blocks.blockContainerLayout
     // http://www.w3.org/TR/CSS21/visudet.html#normal-block
-    if cbHeight == "auto" {
-        cbHeight = (
-            containingBlock.positionY - containingBlock.contentBoxY())
+    if cbHeight.Auto() {
+        cbHeight = pr.Float(containingBlock.PositionY - containingBlock.ContentBoxY())
+	}
+
+	box := box_.Box()
+    resolvePositionPercentages(box, bo.MaybePoint{cbWidth, cbHeight})
+
+    if box.MarginLeft.Auto() {
+        box.MarginLeft = pr.Float(0)
+	} 
+	if box.MarginRight.Auto() {
+        box.MarginRight = pr.Float(0)
+	} 
+	if box.MarginTop.Auto() {
+        box.MarginTop = pr.Float(0)
+	} 
+	if box.MarginBottom.Auto() {
+        box.MarginBottom = pr.Float(0)
     }
 
-    resolvePositionPercentages(box, (cbWidth, cbHeight))
-
-    if box.marginLeft == "auto" {
-        box.marginLeft = 0
-    } if box.marginRight == "auto" {
-        box.marginRight = 0
-    } if box.marginTop == "auto" {
-        box.marginTop = 0
-    } if box.marginBottom == "auto" {
-        box.marginBottom = 0
+    clearance := getClearance(context, box, 0)
+    if clearance != nil {
+        box.PositionY += clearance.V()
     }
 
-    clearance = getClearance(context, box)
-    if clearance is not None {
-        box.positionY += clearance
-    }
-
-    if isinstance(box, boxes.BlockReplacedBox) {
+    if bo.IsBlockReplacedBox(box_) {
         inlineReplacedBoxWidthHeight(box, containingBlock)
-    } else if box.width == "auto" {
-        floatWidth(box, context, containingBlock)
+    } else if box.Width.Auto() {
+        floatWidth(box_, context, block{Width: containingBlock.Width.V()})
     }
 
-    if box.isTableWrapper {
-        tableWrapperWidth(context, box, (cbWidth, cbHeight))
+    if box.IsTableWrapper {
+        tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
     }
 
-    if isinstance(box, boxes.BlockContainerBox) {
+    if bo.IsBlockContainerBox(box_) {
         context.createBlockFormattingContext()
-        box, _, _, _, _ = blockContainerLayout(
-            context, box, maxPositionY=float("inf"),
-            skipStack=None, pageIsEmpty=false,
-            absoluteBoxes=absoluteBoxes, fixedBoxes=fixedBoxes,
-            adjoiningMargins=None)
-        context.finishBlockFormattingContext(box)
-    } else if isinstance(box, boxes.FlexContainerBox) {
-        box, _, _, _, _ = flexLayout(
-            context, box, maxPositionY=float("inf"),
-            skipStack=None, containingBlock=containingBlock,
+        box = blockContainerLayout(context, box, pr.Inf,
+            nil, false, absoluteBoxes, fixedBoxes, nil).newBox
+        context.finishBlockFormattingContext(box_)
+    } else if bo.IsFlexContainerBox(box_) {
+        box = flexLayout(
+            context, box, pr.Inf,
+            nil, containingBlock=containingBlock,
             pageIsEmpty=false, absoluteBoxes=absoluteBoxes,
-            fixedBoxes=fixedBoxes)
+            fixedBoxes=fixedBoxes).newBox
     } else {
         assert isinstance(box, boxes.BlockReplacedBox)
     }
@@ -115,28 +116,32 @@ func findFloatPosition(context, box, containingBlock) {
     box.translate(positionX - box.positionX, positionY - box.positionY)
 
     return box
+	}
 
-
-// Return None if there is no clearance, otherwise the clearance value.
-func getClearance(context, box, collapsedMargin=0) {
-    clearance = None
-    hypotheticalPosition = box.positionY + collapsedMargin
+// Return nil if there is no clearance, otherwise the clearance value (as Float)
+// collapseMargin = 0
+func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin float32) (clearance pr.MaybeFloat) {
+    hypotheticalPosition := box.PositionY + collapsedMargin
     // Hypothetical position is the position of the top border edge
-    for excludedShape := range context.excludedShapes {
-        if box.style["clear"] := range (excludedShape.style["float"], "both") {
-            y, h = excludedShape.positionY, excludedShape.marginHeight()
+    for _, excludedShape := range context.excludedShapes {
+        if clear := box.Style.GetClear(); clear == excludedShape.Style.GetFloat() || clear == "both" {
+            y, h := excludedShape.positionY, excludedShape.marginHeight()
             if hypotheticalPosition < y + h {
-                clearance = max(
-                    (clearance || 0), y + h - hypotheticalPosition)
+				var safeClearance float32
+				if clearance != nil {
+					safeClearance = clearance.V()
+				}
+                clearance = pr.Float(utils.Max(safeClearance, y + h - hypotheticalPosition))
             }
         }
-    } return clearance
+	} 
+	return clearance
 } 
 
 func avoidCollisions(context, box, containingBlock, outer=true) {
     excludedShapes = context.excludedShapes
     positionY = box.positionY if outer else box.borderBoxY()
-} 
+
     boxWidth = box.marginWidth() if outer else box.borderWidth()
     boxHeight = box.marginHeight() if outer else box.borderHeight()
 

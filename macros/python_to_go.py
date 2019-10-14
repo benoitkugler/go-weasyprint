@@ -5,7 +5,7 @@ refunc = re.compile("^(def )")
 respace = re.compile(" *")
 path = sys.argv[1]
 indent_stack = []
-in_comment = False 
+in_comment = False
 with open(path) as f:
     s = ""
     for line in f.readlines():
@@ -14,7 +14,7 @@ with open(path) as f:
         for w in parts[1:]:
             if len(w) == 0:
                 newline += "_"
-            elif w[0] in (",", " ",";"):
+            elif w[0] in (",", " ", ";"):
                 newline += "_" + w
             else:
                 newline += w[0].upper() + w[1:]
@@ -28,13 +28,15 @@ with open(path) as f:
         newline = newline.replace("# ", "// ")
         newline = newline.replace(" elif ", " else if ")
         newline = newline.replace(" in ", " := range ")
+        newline = newline.replace("is not None", " != nil ")
+        newline = newline.replace("is None", " == nil ")
+        newline = newline.replace(" not ", " ! ")
         newline = refunc.sub("func ", newline)
 
         indent = len(respace.match(newline).group(0))
         if newline.strip() == '"""' or (
-            (newline.strip().startswith('"""') or newline.strip().startswith('r"""')) and not newline.strip().endswith('"""')):
+                (newline.strip().startswith('"""') or newline.strip().startswith('r"""')) and not newline.strip().endswith('"""')):
             in_comment = not in_comment
-        
 
         if (not in_comment) and indent_stack:
             while indent_stack and indent < indent_stack[-1]:
@@ -48,7 +50,7 @@ with open(path) as f:
         if (not in_comment) and newline.endswith(":\n"):
             newline = newline[:-2] + " {\n"
             indent_stack.append(indent)
-        
+
         s += newline
 
 lines = s.split("\n")
@@ -58,7 +60,7 @@ i = 0
 while i < len(lines):
     l = lines[i]
     if l.startswith("func "):
-        m =  re_comment.match(lines[i+1])
+        m = re_comment.match(lines[i+1])
         if m:
             c = m.group(2)
             out.append("// " + c)
@@ -73,7 +75,7 @@ while i < len(lines):
             if i+j < len(lines):
                 out.append("// " + lines[i+j].replace('"""', ''))
                 j += 1
-            i = i+j 
+            i = i+j
         else:
             i += 1
         out.append(l)

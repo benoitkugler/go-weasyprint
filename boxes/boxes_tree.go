@@ -12,36 +12,28 @@ import (
 )
 
 type BlockLevelBox struct {
-	clearance interface{}
+	clearance pr.MaybeFloat
 }
 
 type BlockBox struct {
-	InstanceBlockBox
-	BlockLevelBox
 	BoxFields
 }
 
 type LineBox struct {
-	InstanceLineBox
 	BoxFields
 	textOverflow string
 	TextIndent   float32
 }
 
 type InlineLevelBox struct {
-	InstanceInlineLevelBox
 }
 
 type InlineBox struct {
-	InstanceInlineBox
-
 	BoxFields
 	InlineLevelBox
 }
 
 type TextBox struct {
-	InstanceTextBox
-
 	BoxFields
 	InlineLevelBox
 
@@ -51,109 +43,75 @@ type TextBox struct {
 }
 
 type AtomicInlineLevelBox struct {
-	InstanceAtomicInlineLevelBox
-
 	InlineLevelBox
 }
 
 type InlineBlockBox struct {
-	InstanceBlockBox
-
 	BoxFields
 	AtomicInlineLevelBox
 }
 
 type ReplacedBox struct {
-	InstanceReplacedBox
-
 	BoxFields
 	Replacement images.Image
 }
 
 type BlockReplacedBox struct {
-	InstanceBlockReplacedBox
-
 	ReplacedBox
 }
 
 type InlineReplacedBox struct {
-	InstanceInlineReplacedBox
-
 	ReplacedBox
 	AtomicInlineLevelBox
 }
 
 type TableBox struct {
-	InstanceTableBox
-
 	BoxFields
 }
 
 type InlineTableBox struct {
-	InstanceInlineTableBox
-
 	TableBox
 }
 
 type TableRowGroupBox struct {
-	InstanceTableRowGroupBox
-
 	BoxFields
 }
 
 type TableRowBox struct {
-	InstanceTableRowBox
-
 	BoxFields
 }
 
 type TableColumnGroupBox struct {
-	InstanceTableColumnGroupBox
-
 	BoxFields
 }
 
 type TableColumnBox struct {
-	InstanceTableColumnBox
-
 	BoxFields
 }
 
 type TableCellBox struct {
-	InstanceTableCellBox
-
 	BoxFields
 }
 
 type TableCaptionBox struct {
-	InstanceTableCaptionBox
-
 	BlockBox
 }
 
 type PageBox struct {
-	InstancePageBox
-
 	BoxFields
 	pageType utils.PageElement
 }
 
 type MarginBox struct {
-	InstanceMarginBox
-
 	BoxFields
 	atKeyword string
 }
 
 type FlexBox struct {
-	InstanceFlexBox
-
 	BoxFields
 }
 
 type InlineFlexBox struct {
-	InstanceInlineFlexBox
-
 	InlineLevelBox
 	BoxFields
 }
@@ -268,20 +226,12 @@ func NewReplacedBox(elementTag string, style pr.Properties, replacement images.I
 	return out
 }
 
-type br interface {
-	InstanceReplacedBox
-	replaced() *ReplacedBox
+type InstanceReplacedBox interface {
+	instanceReplacedBox
+	Replaced() *ReplacedBox
 }
 
-func AsReplaced(box Box) (*ReplacedBox, bool) {
-	t, ok := box.(br)
-	if ok {
-		return t.replaced(), true
-	}
-	return nil, false
-}
-
-func (b *ReplacedBox) replaced() *ReplacedBox {
+func (b *ReplacedBox) Replaced() *ReplacedBox {
 	return b
 }
 

@@ -41,3 +41,13 @@ func (f special) Auto() bool {
 func (f special) V() float32 {
 	return -1
 }
+
+func MaybeFloatToValue(mf MaybeFloat) Value {
+	if mf == nil {
+		return Value{}
+	}
+	if mf.Auto() {
+		return SToV("auto")
+	}
+	return FToV(mf.V())
+}

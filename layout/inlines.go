@@ -179,7 +179,7 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY, skipS
         waitingFloat = floatLayout(
             context, waitingFloat, containingBlock, absoluteBoxes,
             fixedBoxes)
-        floatChildren.append(waitingFloat)
+        floatChildren = append(floatChildren, waitingFloat)
     } if floatChildren {
         line.children += tuple(floatChildren)
     }
@@ -251,7 +251,7 @@ func skipFirstWhitespace(box Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, co
 func removeLastWhitespace(context, box) {
     ancestors = []
     while isinstance(box, (boxes.LineBox, boxes.InlineBox)) {
-        ancestors.append(box)
+        ancestors = append(ancestors, box)
         if not box.children {
             return
         } box = box.children[-1]
@@ -718,7 +718,7 @@ func splitInlineLevel(context LayoutContext, box Box, positionX, maxX, skipStack
 // Same behavior as splitInlineLevel.
 func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack *bo.SkipStack,
                      containingBlock block, absoluteBoxes, fixedBoxes,
-                     linePlaceholders []*AbsolutePlaceholder, waitingFloats, lineChildren) splitedInline {
+                     linePlaceholders []*AbsolutePlaceholder, waitingFloats, lineChildren []Box) splitedInline {
                      
     if !isLine(box_) {
         log.Fatalf("expected Line or Inline Box, got %s", box_)
@@ -742,7 +742,7 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
     contentBoxLeft := positionX
 
     var children , waitingChildren []indexedPlaceholder 
-    preservedLineBreak /= false
+    preservedLineBreak := false
     var firstLetter, lastLetter string
     floatWidths := map[string]float32{"left": 0, "right": 0}
     var floatResumeAt float32
@@ -777,23 +777,23 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
         
             // To retrieve the real available space for floats, we must remove
             // the trailing whitespaces from the line
-            nonFloatingChildren = [
-                child_ for _, child_ := range (children + waitingChildren)
-                if not child.isFloated()]
-            if nonFloatingChildren {
-                floatWidth -= trailingWhitespaceSize(
-                    context, nonFloatingChildren[-1])
+			var nonFloatingChildren []Box
+			for _, v := range append(children, waitingChildren...) {
+				if ! v.placeholder.Box.Box().IsFloated() {
+					nonFloatingChildren = append(nonFloatingChildren, v.placeholder.Box)
+				}
+			}
+            if l := len(nonFloatingChildren); l != 0 {
+                floatWidth -= trailingWhitespaceSize(context, nonFloatingChildren[l-1])
             }
 
-            if floatWidth > maxX - positionX || waitingFloats {
-                // TODO: the absolute && fixed boxes := range the floats must be
-                // added here, && not := range iterLineBoxes
-                waitingFloats.append(child)
+            if floatWidth > maxX - positionX || len(waitingFloats) != 0{
+                // TODO: the absolute and fixed boxes in the floats must be
+                // added here, and not in iterLineBoxes
+                waitingFloats = append(waitingFloats, child)
             } else {
-                child = floatLayout(
-                    context, child, containingBlock, absoluteBoxes,
-                    fixedBoxes)
-                waitingChildren.append((index, child))
+                child = floatLayout(context, child, containingBlock, absoluteBoxes, fixedBoxes)
+                waitingChildren = append(waitingChildren, (index, child))
             }
 
                 // Translate previous line children
@@ -891,7 +891,7 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
             assert isinstance(child, boxes.TextBox)
         } else {
             if isinstance(box, boxes.LineBox) {
-                lineChildren.append((index, newChild))
+                lineChildren = append(lineChildren, (index, newChild))
             } // TODO: we should try to find a better condition here.
             trailingWhitespace = (
                 isinstance(newChild, boxes.TextBox) and
@@ -967,7 +967,7 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
                                     currentSkipStack)
                                 resume, currentResumeAt = (
                                     currentResumeAt)
-                                stack.append(skip + resume)
+                                stack = append(stack, skip + resume)
                                 if resume != 0 {
                                     break
                                 }
@@ -987,7 +987,7 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
                 }
 
             positionX = newPositionX
-            waitingChildren.append((index, newChild))
+            waitingChildren = append(waitingChildren, (index, newChild))
 
         waitingFloats.extend(childWaitingFloats)
         if resumeAt is not None {
@@ -1001,7 +1001,7 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
     }
 
     isEnd = resumeAt == nil
-    newBox = box.copyWithChildren(
+    newBox = box.CopyWithChildren(
         [boxChild for index, boxChild := range children],
         isStart=isStart, isEnd=isEnd)
     if isinstance(box, boxes.LineBox) {
@@ -1054,9 +1054,7 @@ func splitInlineBox(context LayoutContext, box_ Box, positionX, maxX, skipStack 
         }
     }
 
-    return (
-        newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter,
-        floatWidths)
+    return  newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter,floatWidths
     }
 
 
@@ -1150,7 +1148,7 @@ type boxMinMax struct {
 //     is at `y = 0`.
 //     Return ``(maxY, minY)``, the maximum and minimum vertical position
 //     of margin boxes.
-func lineBoxVerticality(box Box) {
+func lineBoxVerticality(box Box) (float32, float32) {
     var topBottomSubtrees []Box
     maxY, minY := alignedSubtreeVerticality(box, &topBottomSubtrees, 0)
     subtreesWithMinMax :=make([]boxMinMax, len(topBottomSubtrees))
@@ -1202,7 +1200,7 @@ func translateSubtree(box Box, dy float32) {
         }
     } else {
         // Text or atomic boxes
-        box.Translate(box, 0, dy)
+        box.Translate(box, 0, dy, true)
     }
 } 
 

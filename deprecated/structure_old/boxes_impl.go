@@ -17,7 +17,7 @@ import (
 
 // Create a new equivalent box with given ``newChildren``.
 // isStart=true, isEnd=true
-func copyWithChildren(box Box, newChildren []Box, isStart, isEnd bool) Box {
+func CopyWithChildren(box Box, newChildren []Box, isStart, isEnd bool) Box {
 	newBox := box.Copy()
 	newBox.Box().children = newChildren
 	if box.Box().style.GetBoxDecorationBreak() == "slice" {

@@ -654,7 +654,7 @@ func wrapTable(box, children) {
         } gridHeight += len(group.children)
     }
 
-    table = box.copyWithChildren(rowGroups)
+    table = box.CopyWithChildren(rowGroups)
     table.columnGroups = tuple(columnGroups)
     if table.style.borderCollapse == "collapse" {
         table.collapsedBorderGrid = collapseTableBorders(
@@ -1179,13 +1179,13 @@ func InnerBlockInInline(box, skipStack=None) {
             } newChildren.append(newChild)
         } if blockLevelBox is not None {
             resumeAt = (index, resumeAt)
-            box = box.copyWithChildren(
+            box = box.CopyWithChildren(
                 newChildren, isStart=isStart, isEnd=false)
             break
         }
     } else {
         if changed || skip {
-            box = box.copyWithChildren(
+            box = box.CopyWithChildren(
                 newChildren, isStart=isStart, isEnd=true)
         }
     }

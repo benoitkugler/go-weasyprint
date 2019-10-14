@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sort"
 	"strings"
 	"testing"
 	"unicode"
@@ -148,15 +149,32 @@ func TestUrl(t *testing.T) {
 	}
 }
 
+type i struct {
+	u int
+}
+
 func TestPOINTER(t *testing.T) {
 	var a = struct {
-		i struct {
-			u int
-		}
+		i
 	}{
-		i: struct{ u int }{u: 9},
+		i: i{u: 9},
 	}
 	ta := a.i
 	ta.u += 10
 	t.Log(ta, a)
+}
+
+func TestReference(t *testing.T) {
+	s := []i{{u: 4}, {u: 5}}
+	s[0].u = 78
+	fmt.Println(s)
+	v := s[0]
+	fmt.Printf("%p %p", &v, &s[0])
+}
+func TestSortOrder(t *testing.T) {
+	u := []int{1, 2, 8, 9, 4, 5, 7, 6, 1, 2, 8}
+	sort.Slice(u, func(i, j int) bool {
+		return u[i] < u[j]
+	})
+	fmt.Println(u)
 }

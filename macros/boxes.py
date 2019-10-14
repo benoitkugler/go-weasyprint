@@ -48,7 +48,7 @@ SPECIALS_CONSTRUCTORS = {
 }
 
 ABSTRACT_TYPES = {"BlockLevelBox", "InlineLevelBox", "BlockContainerBox",
-                  "ReplacedBox", "ParentBox", "AtomicInlineLevelBox", "FlexContainerBox"}
+                  "ParentBox", "AtomicInlineLevelBox", "FlexContainerBox"}
 
 
 def infer_type(value: str):
@@ -102,7 +102,7 @@ def genere_interface(class_name) -> str:
 
     i = f"""
         {comment} 
-        type Instance{class_name} interface {{
+        type instance{class_name} interface {{
             {s}
         }}
         """
@@ -110,7 +110,7 @@ def genere_interface(class_name) -> str:
     if class_name in ABSTRACT_TYPES:
         return i
 
-    # i += "\n".join(f"func({class_name}) {meth} {{}}" for meth in type_methods)
+    i += "\n".join(f"func({class_name}) {meth} {{}}" for meth in type_methods)
     i += f"""
     func (b *{class_name}) Box() *BoxFields {{ return &b.BoxFields }}
 
@@ -184,7 +184,7 @@ def has_subclass(class_name):
 #     header = ""
 #     if need_in_subclass:
 #         header_func = f"{class_name.lower()}{name[0].title() + name[1:]}"
-#         header = f"func {header_func} (b Instance{class_name}, {args_no_self})  {ret} {{}}\n"
+#         header = f"func {header_func} (b instance{class_name}, {args_no_self})  {ret} {{}}\n"
 #         body = f"{header_func}(b, {args_no_type})"
 #     else:
 #         body = "//TODO" + ":"
@@ -266,7 +266,7 @@ def generate_type_objects(class_name: str):
     if class_name in ABSTRACT_TYPES:
         return f"""
         func Is{class_name}(box Box) bool {{
-        	_, is := box.(Instance{class_name})
+        	_, is := box.(instance{class_name})
         	return is
         }}
         """, None, None
@@ -303,8 +303,8 @@ def generate_type_objects(class_name: str):
     var_type = None
     if is_normal:  # we cant include others for signature reason
         out += f"""
-        func (t type{class_name}) IsInstance(box Box) bool {{
-        	_, is := box.(Instance{class_name})
+        func (t type{class_name})IsInstance(box Box) bool {{
+        	_, is := box.(instance{class_name})
         	return is
         }}
     
@@ -318,7 +318,7 @@ def generate_type_objects(class_name: str):
     else:
         out += f"""
         func Is{class_name}(box Box) bool {{
-        	_, is := box.(Instance{class_name})
+        	_, is := box.(instance{class_name})
         	return is
         }}
         """

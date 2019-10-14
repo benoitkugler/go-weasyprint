@@ -77,6 +77,12 @@ func init() {
 
 type Point [2]float32
 
+type MaybePoint [2]pr.MaybeFloat
+
+func (mp MaybePoint) V() Point {
+	return Point{mp[0].V(), mp[1].V()}
+}
+
 // Box is the common interface grouping all possible boxes
 type Box interface {
 	tree.Box
@@ -122,12 +128,12 @@ type BoxFields struct {
 
 	PositionX, PositionY, Baseline                                       float32
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
-	Top, Bottom, Left, Right                                             float32
-	MarginTop, MarginBottom, MarginLeft, MarginRight                     float32
+	Top, Bottom, Left, Right                                             pr.MaybeFloat
+	MarginTop, MarginBottom, MarginLeft, MarginRight                     pr.MaybeFloat
 	PaddingTop, PaddingBottom, PaddingLeft, PaddingRight                 float32
 	BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth pr.MaybeFloat
 
-	BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius Point
+	BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius MaybePoint
 
 	viewportOverflow string
 
@@ -148,6 +154,11 @@ type BoxFields struct {
 	columnPositions     []float32
 	GridX               int
 	collapsedBorderGrid BorderGrids
+
+	FlexBasis                                                      pr.Value
+	FlexBaseSize, HypotheticalMainSize, TargetMainSize, Adjustment float32
+	FlexFactor, ScaledFlexShrinkFactor                             pr.Float
+	Frozen                                                         bool
 }
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
@@ -188,7 +199,8 @@ func (box *BoxFields) SetMissingLink(b tree.Box) {
 	box.missingLink = b
 }
 
-func copyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box {
+// isStart = isEnd = true
+func CopyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box {
 	newBox := box.Copy()
 	newBox.Box().Children = newChildren
 	if box.Box().Style.GetBoxDecorationBreak() == "slice" {
@@ -218,7 +230,7 @@ func descendants(b Box) []Box {
 func (b BoxFields) GetWrappedTable() Box {
 	if b.IsTableWrapper {
 		for _, child := range b.Children {
-			if _, ok := child.(InstanceTableBox); ok {
+			if _, ok := child.(instanceTableBox); ok {
 				return child
 			}
 		}
@@ -265,44 +277,44 @@ func (self BoxFields) BorderHeight() float32 {
 
 // Width of the margin box (aka. outer box).
 func (self BoxFields) MarginWidth() float32 {
-	return self.BorderWidth() + self.MarginLeft + self.MarginRight
+	return self.BorderWidth() + self.MarginLeft.V() + self.MarginRight.V()
 }
 
 // Height of the margin box (aka. outer box).
 func (self BoxFields) MarginHeight() float32 {
-	return self.BorderHeight() + self.MarginTop + self.MarginBottom
+	return self.BorderHeight() + self.MarginTop.V() + self.MarginBottom.V()
 }
 
 // Corners positions
 
 // Absolute horizontal position of the content box.
 func (self BoxFields) ContentBoxX() float32 {
-	return self.PositionX + self.MarginLeft + self.PaddingLeft + self.BorderLeftWidth.V()
+	return self.PositionX + self.MarginLeft.V() + self.PaddingLeft + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the content box.
 func (self BoxFields) ContentBoxY() float32 {
-	return self.PositionY + self.MarginTop + self.PaddingTop + self.BorderTopWidth.V()
+	return self.PositionY + self.MarginTop.V() + self.PaddingTop + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the padding box.
 func (self BoxFields) PaddingBoxX() float32 {
-	return self.PositionX + self.MarginLeft + self.BorderLeftWidth.V()
+	return self.PositionX + self.MarginLeft.V() + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the padding box.
 func (self BoxFields) PaddingBoxY() float32 {
-	return self.PositionY + self.MarginTop + self.BorderTopWidth.V()
+	return self.PositionY + self.MarginTop.V() + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the border box.
 func (self BoxFields) borderBoxX() float32 {
-	return self.PositionX + self.MarginLeft
+	return self.PositionX + self.MarginLeft.V()
 }
 
 // Absolute vertical position of the border box.
 func (self BoxFields) borderBoxY() float32 {
-	return self.PositionY + self.MarginTop
+	return self.PositionY + self.MarginTop.V()
 }
 
 // Return the rectangle where the box is clickable."""
@@ -322,10 +334,10 @@ type roundedBox struct {
 //bt, br, bb, and bl are distances from the outer border box,
 //defining a rectangle to be rounded.
 func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
-	tlr := self.BorderTopLeftRadius
-	trr := self.BorderTopRightRadius
-	brr := self.BorderBottomRightRadius
-	blr := self.BorderBottomLeftRadius
+	tlr := self.BorderTopLeftRadius.V()
+	trr := self.BorderTopRightRadius.V()
+	brr := self.BorderBottomRightRadius.V()
+	blr := self.BorderBottomLeftRadius.V()
 
 	tlrx := utils.Max(0, tlr[0]-bl)
 	tlry := utils.Max(0, tlr[1]-bt)
@@ -417,7 +429,7 @@ func (self BoxFields) isRunning() bool {
 }
 
 // Return whether this box is in normal flow.
-func (self BoxFields) isInNormalFlow() bool {
+func (self BoxFields) IsInNormalFlow() bool {
 	return !(self.isFloated() || self.IsAbsolutelyPositioned() || self.isRunning())
 }
 
@@ -458,19 +470,19 @@ func (self *BoxFields) resetSpacing(side string) {
 
 	switch side {
 	case "top":
-		self.MarginTop = 0
+		self.MarginTop = pr.Float(0)
 		self.PaddingTop = 0
 		self.BorderTopWidth = pr.Float(0)
 	case "right":
-		self.MarginRight = 0
+		self.MarginRight = pr.Float(0)
 		self.PaddingRight = 0
 		self.BorderRightWidth = pr.Float(0)
 	case "left":
-		self.MarginLeft = 0
+		self.MarginLeft = pr.Float(0)
 		self.PaddingLeft = 0
 		self.BorderLeftWidth = pr.Float(0)
 	case "bottom":
-		self.MarginBottom = 0
+		self.MarginBottom = pr.Float(0)
 		self.PaddingBottom = 0
 		self.BorderBottomWidth = pr.Float(0)
 	}

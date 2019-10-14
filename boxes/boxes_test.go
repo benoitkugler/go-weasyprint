@@ -12,7 +12,7 @@ func TestInheritance(t *testing.T) {
 }
 
 func TestReplaced(t *testing.T) {
-	var i br
+	var i InstanceReplacedBox
 	i = new(ReplacedBox)
 	fmt.Println(i)
 	i = new(BlockReplacedBox)
