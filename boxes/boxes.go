@@ -131,7 +131,7 @@ type BoxFields struct {
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
 	Top, Bottom, Left, Right                                             pr.MaybeFloat
 	MarginTop, MarginBottom, MarginLeft, MarginRight                     pr.MaybeFloat
-	PaddingTop, PaddingBottom, PaddingLeft, PaddingRight                 pr.Float
+	PaddingTop, PaddingBottom, PaddingLeft, PaddingRight                 pr.MaybeFloat
 	BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth pr.MaybeFloat
 
 	BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius MaybePoint

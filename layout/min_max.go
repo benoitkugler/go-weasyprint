@@ -1,10 +1,12 @@
 package layout
 
+import pr "github.com/benoitkugler/go-weasyprint/style/properties"
+
 type block struct {
-	X, Y, Width, Height float32
+	X, Y, Width, Height pr.Float
 }
 
-func (b block) unpack() (float32, float32, float32, float32) {
+func (b block) unpack() (pr.Float, pr.Float, pr.Float, pr.Float) {
 	return b.X, b.Y, b.Width, b.Height
 }
 
@@ -16,12 +18,12 @@ func handleMinMaxWidth(function funcMinMax) funcMinMax {
 	wrapper := func(box Box, context LayoutContext, containingBlock block) (bool, float32) {
 		computedMarginL, computedMarginR := box.Box().MarginLeft, box.Box().MarginRight
 		res1, res2 := function(box, context, containingBlock)
-		if box.Box().Width > box.Box().MaxWidth {
+		if box.Box().Width.V() > box.Box().MaxWidth.V() {
 			box.Box().Width = box.Box().MaxWidth
 			box.Box().MarginLeft, box.Box().MarginRight = computedMarginL, computedMarginR
 			res1, res2 = function(box, context, containingBlock)
 		}
-		if box.Box().Width < box.Box().MinWidth {
+		if box.Box().Width.V() < box.Box().MinWidth.V() {
 			box.Box().Width = box.Box().MinWidth
 			box.Box().MarginLeft, box.Box().MarginRight = computedMarginL, computedMarginR
 			res1, res2 = function(box, context, containingBlock)
@@ -38,12 +40,12 @@ func handleMinMaxHeight(function funcMinMax) funcMinMax {
 	wrapper := func(box Box, context LayoutContext, containingBlock block) (bool, float32) {
 		computedMarginT, computedMarginB := box.Box().MarginTop, box.Box().MarginBottom
 		res1, res2 := function(box, context, containingBlock)
-		if box.Box().Height > box.Box().MaxHeight {
+		if box.Box().Height.V() > box.Box().MaxHeight.V() {
 			box.Box().Height = box.Box().MaxHeight
 			box.Box().MarginTop, box.Box().MarginBottom = computedMarginT, computedMarginB
 			res1, res2 = function(box, context, containingBlock)
 		}
-		if box.Box().Height < box.Box().MinHeight {
+		if box.Box().Height.V() < box.Box().MinHeight.V() {
 			box.Box().Height = box.Box().MinHeight
 			box.Box().MarginTop, box.Box().MarginBottom = computedMarginT, computedMarginB
 			res1, res2 = function(box, context, containingBlock)

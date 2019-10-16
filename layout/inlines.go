@@ -20,35 +20,33 @@ func isLine(box Box) bool {
 }
 
 type lineBoxe struct {
+	// laid-out LineBox with as much content as possible that
+	// fits in the available width.
 	line     *bo.LineBox
-	resumeAt *float32
+	resumeAt *bo.SkipStack
 }
 
-// Return an iterator of ``(line, resumeAt)``.
-//
-// ``line`` is a laid-out LineBox with as much content as possible that
-// fits in the available width.
-//
-// :param box: a non-laid-out :class:`LineBox`
-// :param positionY: vertical top position of the line box on the page
-// :param skipStack: ``None`` to start at the beginning of ``linebox``,
-// 				   or a ``resumeAt`` value to continue just after an
-// 				   already laid-out line.
-func iterLineBoxes(context LayoutContext, box *bo.LineBox, positionY, skipStack, containingBlock Box,
-	absoluteBoxes []AbsolutePlaceholder, fixedBoxes []Box, firstLetterStyle pr.Properties) []lineBoxe {
-	resolvePercentages(box, containingBlock)
+// `box` is a non-laid-out `LineBox`
+// positionY is the vertical top position of the line box on the page
+// skipStack is ``None`` to start at the beginning of ``linebox``,
+// or a ``resumeAt`` value to continue just after an
+// already laid-out line.
+func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack, containingBlock block,
+	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) []lineBoxe {
+	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
 		// TODO: wrong, see https://github.com/Kozea/WeasyPrint/issues/679
-		box.TextIndent = resolveOnePercentage(box, "textIndent", containingBlock.width)
+		box.TextIndent = resolveOnePercentage(pr.MaybeFloatToValue(box.TextIndent), "textIndent", containingBlock.Width, "")
 	} else {
-		box.TextIndent = 0
+		box.TextIndent = pr.Float(0)
 	}
 	var out []lineBoxe
 	for {
-		line, resumeAt := getNextLinebox(context, box, positionY, skipStack, containingBlock,
+		tmp := getNextLinebox(context, box, positionY, skipStack, containingBlock,
 			absoluteBoxes, fixedBoxes, firstLetterStyle)
-		if line {
-			positionY = line.positionY + line.height
+		line, resumeAt := tmp.line, tmp.resumeAt
+		if line != nil {
+			positionY = line.Box().PositionY + line.Box().Height.V()
 		}
 		if line == nil {
 			return out
@@ -58,13 +56,13 @@ func iterLineBoxes(context LayoutContext, box *bo.LineBox, positionY, skipStack,
 			return out
 		}
 		skipStack = resumeAt
-		box.TextIndent = 0
-		firstLetterStyle = None
+		box.TextIndent = pr.Float(0)
+		firstLetterStyle = nil
 	}
 }
 
-func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY float32, skipStack *bo.SkipStack,
-	containingBlock block, absoluteBoxes, fixedBoxes []Box,
+func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack,
+	containingBlock block, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	firstLetterStyle pr.Properties) lineBoxe {
 
 	skipStack, cont := skipFirstWhitespace(linebox, skipStack)
@@ -78,12 +76,12 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY float3
 
 	if len(context.excludedShapes) != 0 {
 		// Width && height must be calculated to avoid floats
-		linebox.Width = MF(inlineMinContentWidth(context, linebox, true, skipStack, true, false))
-		linebox.Height, _ = strutLayout(linebox.Style, context)
+		linebox.Width = pr.Float(inlineMinContentWidth(*context, linebox, true, skipStack, true, false))
+		linebox.Height, _ = StrutLayout(linebox.Style, context)
 	} else {
 		// No float, width && height will be set by the lines
-		linebox.Width = MF(0)
-		linebox.Height = MF(0)
+		linebox.Width = pr.Float(0)
+		linebox.Height = pr.Float(0)
 	}
 	positionX, positionY, availableWidth := avoidCollisions(context, linebox, containingBlock, false)
 
@@ -94,7 +92,11 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY float3
 		excludedShapes[i] = v
 	}
 
-	var line *BoxFields
+	var (
+		line_                                      Box
+		linePlaceholders, lineAbsolutes, lineFixed []*AbsolutePlaceholder
+		waitingFloats                              []Box
+	)
 	for {
 		linebox.PositionX = positionX
 		linebox.PositionY = positionY
@@ -102,56 +104,52 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY float3
 		positionX += linebox.TextIndent
 
 		var (
-			linePlaceholders []AbsolutePlaceholder
-			lineAbsolutes    []AbsolutePlaceholder
-			lineFixed        []Box
-			waitingFloats    []Box
+			resumeAt           *bo.SkipStack
+			preservedLineBreak bool
+			floatWidths        widths
 		)
 
 		spi := splitInlineBox(context, linebox, positionX, maxX, skipStack, containingBlock,
 			lineAbsolutes, lineFixed, linePlaceholders, waitingFloats, nil)
 
-		line, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidth := spi.NewBox, spi.resumeAt, spi.preservedLineBreak,
-			spi.firstLetter, spi.lastLetter, spi.floatWidths
-
+		line_, resumeAt, preservedLineBreak, floatWidths = spi.newBox, spi.resumeAt, spi.preservedLineBreak, spi.floatWidths
+		line := line_.Box()
 		linebox.Width, linebox.Height = line.Width, line.Height
 
-		if isPhantomLinebox(line) && !preservedLineBreak {
-			line.Height = bo.MF(0)
+		if isPhantomLinebox(*line) && !preservedLineBreak {
+			line.Height = pr.Float(0)
 			break
 		}
 
-		removeLastWhitespace(context, line)
+		removeLastWhitespace(*context, line_)
 
-		newPositionX, _, newAvailableWidth = avoidCollisions(context, linebox, containingBlock, false)
+		newPositionX, _, newAvailableWidth := avoidCollisions(context, linebox, containingBlock, false)
 		// TODO: handle rtl
-		newAvailableWidth -= floatWidth["right"]
-		alignmentAvailableWidth = (newAvailableWidth + newPositionX - linebox.PositionX)
-		offsetX = textAlign(context, line, alignmentAvailableWidth, resumeAt == nil || preservedLineBreak)
+		newAvailableWidth -= floatWidths.right
+		alignmentAvailableWidth := newAvailableWidth + newPositionX - linebox.PositionX
+		offsetX := textAlign(*context, line_, alignmentAvailableWidth, resumeAt == nil || preservedLineBreak)
 
-		bottom, top = lineBoxVerticality(line)
-		if top == nil || bottom == nil {
-			log.Fatalf("expected non nil top and bottom, got %v, %v", top, bottom)
-		}
-		line.baseline = -top
-		line.positionY = top
-		line.height = bottom - top
-		offsetY = positionY - top
-		line.marginTop = 0
-		line.marginBottom = 0
+		bottom_, top_ := lineBoxVerticality(line_)
+		bottom, top := bottom_.(pr.Float), top_.(pr.Float)
+		line.Baseline = -top
+		line.PositionY = top
+		line.Height = bottom - top
+		offsetY := positionY - top
+		line.MarginTop = pr.Float(0)
+		line.MarginBottom = pr.Float(0)
 
-		line.translate(offsetX, offsetY)
+		line_.Translate(line_, offsetX, offsetY, false)
 		// Avoid floating point errors, as positionY - top + top != positionY
 		// Removing this line breaks the position == linebox.Position test below
 		// See https://github.com/Kozea/WeasyPrint/issues/583
-		line.positionY = positionY
+		line.PositionY = positionY
 
-		if line.height <= candidateHeight {
+		if line.Height.V() <= candidateHeight.V() {
 			break
 		}
-		candidateHeight = line.height
+		candidateHeight = line.Height
 
-		newExcludedShapes = context.excludedShapes
+		newExcludedShapes := context.excludedShapes
 		context.excludedShapes = excludedShapes
 		positionX, positionY, availableWidth = avoidCollisions(context, line, containingBlock, false)
 		if positionX == linebox.PositionX && positionY == linebox.PositionY {
@@ -159,35 +157,33 @@ func getNextLinebox(context LayoutContext, linebox *bo.LineBox, positionY float3
 			break
 		}
 	}
-	absoluteBoxes.extend(lineAbsolutes)
-	fixedBoxes.extend(lineFixed)
+	*absoluteBoxes = append(*absoluteBoxes, lineAbsolutes...)
+	*fixedBoxes = append(*fixedBoxes, lineFixed...)
 
-	for placeholder := range linePlaceholders {
-		if placeholder.style["WeasySpecifiedDisplay"].startswith("inline") {
+	line := line_.Box()
+	for _, placeholder_ := range linePlaceholders {
+		placeholder := placeholder_.Box
+		if strings.HasPrefix(string(placeholder.Box().Style.GetWeasySpecifiedDisplay()), "inline") {
 			// Inline-level static position :
-			placeholder.translate(0, positionY-placeholder.positionY)
+			placeholder.Translate(placeholder, 0, positionY-placeholder.Box().PositionY.V(), false)
 		} else {
 			// Block-level static position: at the start of the next line
-			placeholder.translate(
-				line.positionX-placeholder.positionX,
-				positionY+line.height-placeholder.positionY)
+			placeholder.Translate(placeholder, line.PositionX-placeholder.Box().PositionX.V(),
+				positionY+line.Height.V()-placeholder.Box().PositionY.V(), false)
 		}
 	}
 
 	var floatChildren []Box
-	waitingFloatsY = line.positionY + line.height
-	for waitingFloat := range waitingFloats {
-		waitingFloat.positionY = waitingFloatsY
-		waitingFloat = floatLayout(
-			context, waitingFloat, containingBlock, absoluteBoxes,
-			fixedBoxes)
-		floatChildren = append(floatChildren, waitingFloat)
+	waitingFloatsY := line.PositionY + line.Height.V()
+	for _, waitingFloat_ := range waitingFloats {
+		waitingFloat := waitingFloat_.Box()
+		waitingFloat.PositionY = waitingFloatsY
+		waitingFloat_ = floatLayout(context, waitingFloat_, containingBlock, absoluteBoxes, fixedBoxes)
+		floatChildren = append(floatChildren, waitingFloat_)
 	}
-	if floatChildren {
-		line.children += tuple(floatChildren)
-	}
+	line.Children = append(line.Children, floatChildren...)
 
-	return line, resumeAt
+	return lineBoxe{line: line, resumeAt: resumeAt}
 }
 
 // Return the ``skipStack`` to start just after the remove spaces
@@ -644,12 +640,16 @@ func inlineBlockWidth_(box_ Box, context LayoutContext, containingBlock block) (
 	return false, 0
 }
 
+type widths struct {
+	left, right float32
+}
+
 type splitedInline struct {
 	newBox                  Box
 	resumeAt                *bo.SkipStack
 	preservedLineBreak      bool
 	firstLetter, lastLetter string
-	floatWidths             [2]float32 // left, right
+	floatWidths             widths
 }
 
 // Fit as much content as possible from an inline-level box in a width.
@@ -806,8 +806,8 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			// the trailing whitespaces from the line
 			var nonFloatingChildren []Box
 			for _, v := range append(children, waitingChildren...) {
-				if !v.placeholder.Box.Box().IsFloated() {
-					nonFloatingChildren = append(nonFloatingChildren, v.placeholder.Box)
+				if !v.Placeholder.Box.Box().IsFloated() {
+					nonFloatingChildren = append(nonFloatingChildren, v.Placeholder.Box)
 				}
 			}
 			if l := len(nonFloatingChildren); l != 0 {
@@ -856,7 +856,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		var childWaitingFloats []Box
 		v := splitInlineLevel(context, child, positionX, availableWidth, skipStack,
 			containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
-		newChild, resumeAt, preserved, first, last, newFloatWidths := v.newBox, v.resumeAt, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
+		newChild, resumeAt, preserved, first, last, newFloatWidths := v.newBox, v.resumeAt, v.PreservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
 		if lastChild && rightSpacing != 0 && resumeAt == nil {
 			// TODO: we should take care of children added into absoluteBoxes,
 			// fixedBoxes and other lists.
@@ -867,7 +867,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			}
 			v := splitInlineLevel(context, child, positionX, availableWidth, skipStack,
 				containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
-			newChild, resumeAt, preserved, first, last, newFloatWidths := v.newBox, v.resumeAt, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
+			newChild, resumeAt, preserved, first, last, newFloatWidths := v.newBox, v.resumeAt, v.PreservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
 		}
 
 		if box.Style.GetDirection() == "rtl" {
@@ -938,7 +938,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 					for len(waitingChildrenCopy) != 0 {
 						var tmp indexedPlaceholder
 						tmp, waitingChildrenCopy = waitingChildrenCopy[len(waitingChildrenCopy)-1], waitingChildrenCopy[:len(waitingChildrenCopy)-1]
-						childIndex, child := tmp.index, tmp.placeholder
+						childIndex, child := tmp.index, tmp.Placeholder
 						// TODO: should we also accept relative children?
 						if child.Box().IsInNormalFlow() && canBreakInside(child) {
 							// We break the waiting child at its last possible
@@ -1033,7 +1033,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 	isEnd := resumeAt == nil
 	toCopy := make([]Box, len(children))
 	for i, boxChild := range children {
-		toCopy[i] = boxChild.placeholder.Box
+		toCopy[i] = boxChild.Placeholder.Box
 	}
 	newBox_ := bo.CopyWithChildren(box, toCopy, isStart, isEnd)
 	newBox := newBox_.Box()
@@ -1188,7 +1188,7 @@ type boxMinMax struct {
 //     is at `y = 0`.
 //     Return ``(maxY, minY)``, the maximum and minimum vertical position
 //     of margin boxes.
-func lineBoxVerticality(box Box) (float32, float32) {
+func lineBoxVerticality(box Box) (pr.MaybeFloat, pr.MaybeFloat) {
 	var topBottomSubtrees []Box
 	maxY, minY := alignedSubtreeVerticality(box, &topBottomSubtrees, 0)
 	subtreesWithMinMax := make([]boxMinMax, len(topBottomSubtrees))
@@ -1217,7 +1217,7 @@ func lineBoxVerticality(box Box) (float32, float32) {
 		va := v.box.Box().Style.GetVerticalAlign()
 		var dy float32
 		if v.box.Box().IsFloated() {
-			dy = minY - v.Box.positionY
+			dy = minY - v.Box.PositionY
 		} else if va.String == "top" {
 			dy = minY - subMinY
 		} else if va.String == "bottom" {
@@ -1345,8 +1345,8 @@ func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY float32)
 }
 
 // Return how much the line should be moved horizontally according to
-//     the `text-align` property.
-func textAlign(context LayoutContext, line_ Box, availableWidth float32, last bool) float32 {
+// the `text-align` property.
+func textAlign(context LayoutContext, line_ Box, availableWidth pr.Float, last bool) pr.Float {
 	line := line_.Box()
 
 	// "When the total width of the inline-level boxes on a line is less than
@@ -1357,8 +1357,8 @@ func textAlign(context LayoutContext, line_ Box, availableWidth float32, last bo
 	}
 
 	align := line.Style.GetTextAlign()
-	ws := line.Style.GetWhitespace()
-	spaceCollapse = ws == "normal" || ws == "nowrap" || ws == "pre-line"
+	ws := line.Style.GetWhiteSpace()
+	spaceCollapse := ws == "normal" || ws == "nowrap" || ws == "pre-line"
 	if align == "-weasy-start" || align == "-weasy-end" {
 		if (align == "-weasy-start") != (line.Style.GetDirection() == "rtl") { // xor
 			align = "left"
@@ -1375,13 +1375,13 @@ func textAlign(context LayoutContext, line_ Box, availableWidth float32, last bo
 	if align == "left" {
 		return 0
 	}
-	offset := availableWidth - line.width
+	offset := availableWidth - line.Width.V()
 	if align == "justify" {
 		if spaceCollapse {
 			// Justification of texts where white space is not collapsing is
 			// - forbidden by CSS 2, and
 			// - not required by CSS 3 Text.
-			justifyLine(context, line, offset)
+			justifyLine(context, line_, offset)
 		}
 		return 0
 	}
@@ -1395,14 +1395,14 @@ func textAlign(context LayoutContext, line_ Box, availableWidth float32, last bo
 	}
 }
 
-func justifyLine(context LayoutContext, line Box, extraWidth float32) {
+func justifyLine(context LayoutContext, line Box, extraWidth pr.Float) {
 	// TODO: We should use a better alorithm here, see
 	// https://www.w3.org/TR/css-text-3/#justify-algos
 	nbSpaces := countSpaces(line)
 	if nbSpaces == 0 {
 		return
 	}
-	addWordSpacing(context, line, extraWidth/float32(nbSpaces), 0)
+	addWordSpacing(context, line, extraWidth/pr.Float(nbSpaces), 0)
 }
 
 func countSpaces(box Box) int {
@@ -1420,13 +1420,13 @@ func countSpaces(box Box) int {
 	}
 }
 
-func addWordSpacing(context LayoutContext, box_ Box, justificationSpacing float32, xAdvance float32) float32 {
+func addWordSpacing(context LayoutContext, box_ Box, justificationSpacing, xAdvance pr.Float) pr.Float {
 	if textBox, isTextBox := box_.(*bo.TextBox); isTextBox {
 		textBox.JustificationSpacing = justificationSpacing
 		textBox.PositionX += xAdvance
-		nbSpaces := countSpaces(box_)
+		nbSpaces := pr.Float(countSpaces(box_))
 		if nbSpaces > 0 {
-			layout = createLayout(textBox.Text, textBox.Style, context, pr.Inf, textBox.JustificationSpacing)
+			layout := createLayout(textBox.Text, textBox.Style, context, pr.Inf, textBox.JustificationSpacing)
 			layout.Deactivate()
 			extraSpace := justificationSpacing * nbSpaces
 			xAdvance += extraSpace
@@ -1438,35 +1438,35 @@ func addWordSpacing(context LayoutContext, box_ Box, justificationSpacing float3
 		box.PositionX += xAdvance
 		previousXAdvance := xAdvance
 		for _, child := range box.Children {
-			if child.IsInNormalFlow() {
+			if child.Box().IsInNormalFlow() {
 				xAdvance = addWordSpacing(context, child, justificationSpacing, xAdvance)
 			}
 		}
 		box.Width = box.Width.V() + xAdvance - previousXAdvance
 	} else {
 		// Atomic inline-level box
-		box.Translate(box, xAdvance, 0)
+		box_.Translate(box_, xAdvance, 0, false)
 	}
 	return xAdvance
 }
 
 // http://www.w3.org/TR/CSS21/visuren.html#phantom-line-box
-func isPhantomLinebox(linebox Box) bool {
-	for _, child := range linebox.Box().Children {
-		if bo.TypeInlineBox.IsInstance(child) {
+func isPhantomLinebox(linebox bo.BoxFields) bool {
+	for _, child_ := range linebox.Children {
+		child := *child_.Box()
+		if bo.TypeInlineBox.IsInstance(child_) {
 			if !isPhantomLinebox(child) {
 				return false
 			}
 			for _, side := range [4]string{"top", "right", "bottom", "left"} {
-				m := child.Box().Style["margin_"+side].(pr.Value).Value
-				b := child.Box().Style["border_"+side+"_width"].(pr.Value)
-				p := child.Box().Style["padding_"+side].(pr.Value).Value
+				m := child.Style["margin_"+side].(pr.Value).Value
+				b := child.Style["border_"+side+"_width"].(pr.Value)
+				p := child.Style["padding_"+side].(pr.Value).Value
 				if m != 0 || !b.IsNone() || p != 0 {
-
 					return false
 				}
 			}
-		} else if child.Box().IsInNormalFlow() {
+		} else if child.IsInNormalFlow() {
 			return false
 		}
 	}

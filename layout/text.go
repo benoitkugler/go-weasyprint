@@ -52,7 +52,7 @@ func CanBreakText(text, lang string) bool {
 
 // Return a tuple of the used value of ``line-height`` and the baseline.
 // The baseline is given from the top edge of line height.
-func StrutLayout(style pr.Properties, context *LayoutContext) (float32, float32) {
+func StrutLayout(style pr.Properties, context *LayoutContext) (pr.Float, pr.Float) {
 	// FIXME: à implémenter
 	return 0.5, 0.5
 }

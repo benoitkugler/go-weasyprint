@@ -22,7 +22,7 @@ type BlockBox struct {
 type LineBox struct {
 	BoxFields
 	textOverflow string
-	TextIndent   float32
+	TextIndent   pr.MaybeFloat
 }
 
 type InlineLevelBox struct {
@@ -38,7 +38,7 @@ type TextBox struct {
 	InlineLevelBox
 
 	Text                 string
-	JustificationSpacing float32
+	JustificationSpacing pr.Float
 	// PangoLayout          pdf.Layout
 }
 
