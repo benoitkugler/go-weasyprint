@@ -75,7 +75,7 @@ func init() {
 	asciiToWide[0x2D] = '\u2212'
 }
 
-type Point [2]float32
+type Point [2]pr.Float
 
 type MaybePoint [2]pr.MaybeFloat
 
@@ -92,7 +92,7 @@ type Box interface {
 	String() string
 	IsProperChild(Box) bool
 	allChildren() []Box
-	Translate(box Box, dx float32, dy float32, ignoreFloats bool)
+	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
 	removeDecoration(box *BoxFields, isStart, isEnd bool)
 	pageValues() (pr.Page, pr.Page)
 }
@@ -126,11 +126,11 @@ type BoxFields struct {
 
 	firstLetterStyle, firstLineStyle pr.Properties
 
-	PositionX, PositionY, Baseline                                       float32
+	PositionX, PositionY, Baseline                                       pr.Float
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
 	Top, Bottom, Left, Right                                             pr.MaybeFloat
 	MarginTop, MarginBottom, MarginLeft, MarginRight                     pr.MaybeFloat
-	PaddingTop, PaddingBottom, PaddingLeft, PaddingRight                 float32
+	PaddingTop, PaddingBottom, PaddingLeft, PaddingRight                 pr.Float
 	BorderTopWidth, BorderRightWidth, BorderBottomWidth, BorderLeftWidth pr.MaybeFloat
 
 	BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius MaybePoint
@@ -156,7 +156,7 @@ type BoxFields struct {
 	collapsedBorderGrid BorderGrids
 
 	FlexBasis                                                      pr.Value
-	FlexBaseSize, HypotheticalMainSize, TargetMainSize, Adjustment float32
+	FlexBaseSize, TargetMainSize, Adjustment, HypotheticalMainSize pr.Float
 	FlexFactor, ScaledFlexShrinkFactor                             pr.Float
 	Frozen                                                         bool
 }
@@ -240,7 +240,7 @@ func (b BoxFields) GetWrappedTable() Box {
 
 // Translate changes the box’s position.
 // Also update the children’s positions accordingly.
-func (BoxFields) Translate(box Box, dx, dy float32, ignoreFloats bool) {
+func (BoxFields) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
@@ -256,64 +256,64 @@ func (BoxFields) Translate(box Box, dx, dy float32, ignoreFloats bool) {
 // ---- Heights and widths -----
 
 // Width of the padding box.
-func (self BoxFields) PaddingWidth() float32 {
+func (self BoxFields) PaddingWidth() pr.Float {
 	return self.Width.V() + self.PaddingLeft + self.PaddingRight
 }
 
 // Height of the padding box.
-func (self BoxFields) PaddingHeight() float32 {
+func (self BoxFields) PaddingHeight() pr.Float {
 	return self.Height.V() + self.PaddingTop + self.PaddingBottom
 }
 
 // Width of the border box.
-func (self BoxFields) BorderWidth() float32 {
+func (self BoxFields) BorderWidth() pr.Float {
 	return self.PaddingWidth() + self.BorderLeftWidth.V() + self.BorderRightWidth.V()
 }
 
 // Height of th.V()e border box.
-func (self BoxFields) BorderHeight() float32 {
+func (self BoxFields) BorderHeight() pr.Float {
 	return self.PaddingHeight() + self.BorderTopWidth.V() + self.BorderBottomWidth.V()
 }
 
 // Width of the margin box (aka. outer box).
-func (self BoxFields) MarginWidth() float32 {
+func (self BoxFields) MarginWidth() pr.Float {
 	return self.BorderWidth() + self.MarginLeft.V() + self.MarginRight.V()
 }
 
 // Height of the margin box (aka. outer box).
-func (self BoxFields) MarginHeight() float32 {
+func (self BoxFields) MarginHeight() pr.Float {
 	return self.BorderHeight() + self.MarginTop.V() + self.MarginBottom.V()
 }
 
 // Corners positions
 
 // Absolute horizontal position of the content box.
-func (self BoxFields) ContentBoxX() float32 {
+func (self BoxFields) ContentBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V() + self.PaddingLeft + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the content box.
-func (self BoxFields) ContentBoxY() float32 {
+func (self BoxFields) ContentBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V() + self.PaddingTop + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the padding box.
-func (self BoxFields) PaddingBoxX() float32 {
+func (self BoxFields) PaddingBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V() + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the padding box.
-func (self BoxFields) PaddingBoxY() float32 {
+func (self BoxFields) PaddingBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V() + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the border box.
-func (self BoxFields) borderBoxX() float32 {
+func (self BoxFields) borderBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V()
 }
 
 // Absolute vertical position of the border box.
-func (self BoxFields) borderBoxY() float32 {
+func (self BoxFields) borderBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V()
 }
 
@@ -321,32 +321,32 @@ func (self BoxFields) borderBoxY() float32 {
 // "Border area. That's the area that hit-testing is done on."
 // http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
 // TODO: manage the border radii, use outerBorderRadii instead
-func (self BoxFields) hitArea() (x float32, y float32, w float32, h float32) {
+func (self BoxFields) hitArea() (x, y, w, h pr.Float) {
 	return self.borderBoxX(), self.borderBoxY(), self.BorderWidth(), self.BorderHeight()
 }
 
 type roundedBox struct {
-	x, y, width, height                        float32
+	x, y, width, height                        pr.Float
 	topLeft, topRight, bottomRight, bottomLeft Point
 }
 
 // Position, size and radii of a box inside the outer border box.
 //bt, br, bb, and bl are distances from the outer border box,
 //defining a rectangle to be rounded.
-func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
+func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) roundedBox {
 	tlr := self.BorderTopLeftRadius.V()
 	trr := self.BorderTopRightRadius.V()
 	brr := self.BorderBottomRightRadius.V()
 	blr := self.BorderBottomLeftRadius.V()
 
-	tlrx := utils.Max(0, tlr[0]-bl)
-	tlry := utils.Max(0, tlr[1]-bt)
-	trrx := utils.Max(0, trr[0]-br)
-	trry := utils.Max(0, trr[1]-bt)
-	brrx := utils.Max(0, brr[0]-br)
-	brry := utils.Max(0, brr[1]-bb)
-	blrx := utils.Max(0, blr[0]-bl)
-	blry := utils.Max(0, blr[1]-bb)
+	tlrx := pr.Float(utils.Max(0, float32(tlr[0]-bl)))
+	tlry := pr.Float(utils.Max(0, float32(tlr[1]-bt)))
+	trrx := pr.Float(utils.Max(0, float32(trr[0]-br)))
+	trry := pr.Float(utils.Max(0, float32(trr[1]-bt)))
+	brrx := pr.Float(utils.Max(0, float32(brr[0]-br)))
+	brry := pr.Float(utils.Max(0, float32(brr[1]-bb)))
+	blrx := pr.Float(utils.Max(0, float32(blr[0]-bl)))
+	blry := pr.Float(utils.Max(0, float32(blr[1]-bb)))
 
 	x := self.borderBoxX() + bl
 	y := self.borderBoxY() + bt
@@ -361,7 +361,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
 		{height, tlry + blry},
 		{height, trry + brry},
 	}
-	var ratio float32 = 1.
+	var ratio pr.Float = 1.
 	for _, Point := range Points {
 		if Point[1] > 0 {
 			candidat := Point[0] / Point[1]
@@ -378,7 +378,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl float32) roundedBox {
 	}
 }
 
-func (self BoxFields) roundedBoxRatio(ratio float32) roundedBox {
+func (self BoxFields) roundedBoxRatio(ratio pr.Float) roundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V()*ratio,
 		self.BorderRightWidth.V()*ratio,

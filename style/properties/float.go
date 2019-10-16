@@ -10,7 +10,25 @@ const (
 
 type MaybeFloat interface {
 	Auto() bool
-	V() float32
+	V() Float
+}
+
+func (f Float) Auto() bool {
+	return false
+}
+
+func (f Float) V() Float {
+	return f
+}
+
+type special bool
+
+func (f special) Auto() bool {
+	return bool(f)
+}
+
+func (f special) V() Float {
+	return -1
 }
 
 // Return true except for 0 or None
@@ -24,24 +42,6 @@ func Is(m MaybeFloat) bool {
 	return false
 }
 
-func (f Float) Auto() bool {
-	return false
-}
-
-func (f Float) V() float32 {
-	return float32(f)
-}
-
-type special bool
-
-func (f special) Auto() bool {
-	return bool(f)
-}
-
-func (f special) V() float32 {
-	return -1
-}
-
 func MaybeFloatToValue(mf MaybeFloat) Value {
 	if mf == nil {
 		return Value{}
@@ -49,5 +49,19 @@ func MaybeFloatToValue(mf MaybeFloat) Value {
 	if mf.Auto() {
 		return SToV("auto")
 	}
-	return FToV(mf.V())
+	return mf.V().ToValue()
+}
+
+func Min(x, y Float) Float {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func Max(x, y Float) Float {
+	if x > y {
+		return x
+	}
+	return y
 }
