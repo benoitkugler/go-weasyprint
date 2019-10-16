@@ -92,6 +92,7 @@ type Box interface {
 	String() string
 	IsProperChild(Box) bool
 	allChildren() []Box
+	// ignoreFloats = false
 	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
 	removeDecoration(box *BoxFields, isStart, isEnd bool)
 	pageValues() (pr.Page, pr.Page)
@@ -100,8 +101,8 @@ type Box interface {
 // BoxFields is an abstract base class for all boxes.
 type BoxFields struct {
 	// Keep track of removed collapsing spaces for wrap opportunities.
-	leadingCollapsibleSpace  bool
-	trailingCollapsibleSpace bool
+	LeadingCollapsibleSpace  bool
+	TrailingCollapsibleSpace bool
 
 	// Default, may be overriden on instances.
 	IsTableWrapper   bool

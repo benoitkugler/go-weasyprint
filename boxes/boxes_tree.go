@@ -161,7 +161,7 @@ func NewInlineBox(elementTag string, style pr.Properties, children []Box) Inline
 }
 
 // Return the (x, y, w, h) rectangle where the box is clickable.
-func (b *InlineBox) hitArea() (x float32, y float32, w float32, h float32) {
+func (b *InlineBox) hitArea() (x, y, w, h pr.Float) {
 	return b.Box().borderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().MarginHeight()
 }
 
@@ -259,13 +259,13 @@ func (b *TableBox) allChildren() []Box {
 	return append(b.Box().Children, b.ColumnGroups...)
 }
 
-func (b *TableBox) Translate(box Box, dx float32, dy float32, ignoreFloats bool) {
+func (b *TableBox) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
 	table := b.Box()
 	for index, position := range table.columnPositions {
-		table.columnPositions[index] = position + dx
+		table.columnPositions[index] = position + float32(dx)
 	}
 	table.Translate(box, dx, dy, ignoreFloats)
 }

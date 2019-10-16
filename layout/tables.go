@@ -31,10 +31,10 @@ func reverseBoxes(in []Box) []Box {
 }
 
 // Return the absolute Y position for the first (or last) in-flow baseline
-// if any or nil
+// if any or nil. Can't return "auto".
 // last=false, baselineTypes=(boxes.LineBox,)
 func findInFlowBaseline(box Box, last bool, baselineTypes ...bo.BoxType) pr.MaybeFloat {
-	if baselineTypes == nil {
+	if len(baselineTypes) == 0 {
 		baselineTypes = []bo.BoxType{bo.TypeLineBox}
 	}
 	// TODO: synthetize baseline when needed
@@ -51,7 +51,7 @@ func findInFlowBaseline(box Box, last bool, baselineTypes ...bo.BoxType) pr.Mayb
 		}
 		for _, child := range children {
 			if child.Box().IsInNormalFlow() {
-				result := findInFlowBaseline(child, last, baselineTypes)
+				result := findInFlowBaseline(child, last, baselineTypes...)
 				if result != nil {
 					return result
 				}

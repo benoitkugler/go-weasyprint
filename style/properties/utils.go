@@ -51,6 +51,13 @@ func SToV(s string) Value      { return Value{String: s} }
 func FToV(f float32) Value     { return FToD(f).ToValue() }
 func (f Float) ToValue() Value { return FToV(float32(f)) }
 
+func (v Value) ToMaybeFloat() MaybeFloat {
+	if v.String == "auto" {
+		return Auto
+	}
+	return v.Value
+}
+
 func NewColor(r, g, b, a float32) Color {
 	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}
 }

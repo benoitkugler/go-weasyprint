@@ -12,13 +12,13 @@ import (
 
 // Layout for flex containers && flex-items.
 
-type oneFlex struct {
+type indexedBox struct {
 	index int
 	box   Box
 }
 
 type FlexLine struct {
-	line                     []oneFlex
+	line                     []indexedBox
 	crossSize, lowerBaseline pr.Float
 }
 
@@ -412,16 +412,16 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		if box.Style.GetFlexWrap() != "nowrap" && lineSize > axisSize.V() {
 			if len(line.line) != 0 {
 				flexLines = append(flexLines, line)
-				line = FlexLine{line: []oneFlex{{index: i, box: child_}}}
+				line = FlexLine{line: []indexedBox{{index: i, box: child_}}}
 				lineSize = child.HypotheticalMainSize
 			} else {
-				line.line = append(line.line, oneFlex{index: i, box: child_})
+				line.line = append(line.line, indexedBox{index: i, box: child_})
 				flexLines = append(flexLines, line)
 				line.line = nil
 				lineSize = 0
 			}
 		} else {
-			line.line = append(line.line, oneFlex{index: i, box: child_})
+			line.line = append(line.line, indexedBox{index: i, box: child_})
 		}
 	}
 	if len(line.line) != 0 {
@@ -645,7 +645,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				child.Width = pr.Float(minContentWidth(*context, child_, false))
 			}
 
-			newFlexLine.line = append(newFlexLine.line, oneFlex{index: v.index, box: child_})
+			newFlexLine.line = append(newFlexLine.line, indexedBox{index: v.index, box: child_})
 
 			// Skip stack is only for the first child
 			childSkipStack = nil
