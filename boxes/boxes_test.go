@@ -20,3 +20,17 @@ func TestReplaced(t *testing.T) {
 	i = new(InlineReplacedBox)
 	fmt.Println(i)
 }
+
+func TestBlockLevel(t *testing.T) {
+	var i InstanceBlockLevelBox
+	i = new(BlockLevelBox)
+	fmt.Println(i)
+	i = new(BlockBox)
+	fmt.Println(i)
+	i = new(BlockReplacedBox)
+	fmt.Println(i)
+	i = new(TableBox)
+	fmt.Println(i)
+	i = new(FlexBox)
+	fmt.Println(i)
+}

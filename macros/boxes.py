@@ -107,10 +107,12 @@ def genere_interface(class_name) -> str:
         }}
         """
 
+    if class_name == "BlockLevelBox" or class_name not in ABSTRACT_TYPES:
+        i += "\n".join(f"func({class_name}) {meth} {{}}" for meth in type_methods)
+
     if class_name in ABSTRACT_TYPES:
         return i
 
-    i += "\n".join(f"func({class_name}) {meth} {{}}" for meth in type_methods)
     i += f"""
     func (b *{class_name}) Box() *BoxFields {{ return &b.BoxFields }}
 

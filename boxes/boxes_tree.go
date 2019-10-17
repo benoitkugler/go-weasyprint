@@ -17,6 +17,7 @@ type BlockLevelBox struct {
 
 type BlockBox struct {
 	BoxFields
+	BlockLevelBox
 }
 
 type LineBox struct {
@@ -58,6 +59,7 @@ type ReplacedBox struct {
 
 type BlockReplacedBox struct {
 	ReplacedBox
+	BlockLevelBox
 }
 
 type InlineReplacedBox struct {
@@ -67,6 +69,7 @@ type InlineReplacedBox struct {
 
 type TableBox struct {
 	BoxFields
+	BlockLevelBox
 }
 
 type InlineTableBox struct {
@@ -109,11 +112,21 @@ type MarginBox struct {
 
 type FlexBox struct {
 	BoxFields
+	BlockLevelBox
 }
 
 type InlineFlexBox struct {
 	InlineLevelBox
 	BoxFields
+}
+
+type InstanceBlockLevelBox interface {
+	instanceBlockLevelBox
+	BlockLevel() *BlockLevelBox
+}
+
+func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
+	return b
 }
 
 func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBox {
