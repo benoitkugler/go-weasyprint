@@ -22,8 +22,8 @@ func floatWidth_(box Box, context LayoutContext, containingBlock block) (bool, f
 } 
 
 // Set the width and position of floating ``box``.
-func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes []AbsolutePlaceholder, 
-	fixedBoxes []Box) Box {
+func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes , 
+	fixedBoxes *[]AbsolutePlaceholder) AbsolutePlaceholder {
 		containingBlock := containingBlock_.Box()
     cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
     resolvePercentages(box, bo.MaybePoint{cbWidth, cbHeight}, "")
@@ -90,7 +90,7 @@ func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBox
 // Get the right position of the float ``box``.
 func findFloatPosition(context, box, containingBlock) {
     // See http://www.w3.org/TR/CSS2/visuren.html#float-position
-} 
+
     // Point 4 is already handled as box.positionY is set according to the
     // containing box top position, with collapsing margins handled
 

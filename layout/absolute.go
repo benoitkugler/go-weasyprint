@@ -14,6 +14,8 @@ import (
 type AbsolutePlaceholder struct {
 	Box
 	layoutDone bool
+	index      int
+	resumeAt   *bo.SkipStack
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {

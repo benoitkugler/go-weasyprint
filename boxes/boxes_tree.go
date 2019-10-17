@@ -227,7 +227,7 @@ func (b TextBox) CopyWithText(text string) *TextBox {
 	return &newBox
 }
 
-func (u TextBox) removeDecoration(b *BoxFields, start, end bool) {
+func (u TextBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.removeDecoration(b, start, end)
 }
 
@@ -236,7 +236,7 @@ func NewInlineBlockBox(elementTag string, style pr.Properties, children []Box) I
 	return out
 }
 
-func (u InlineBox) removeDecoration(b *BoxFields, start, end bool) {
+func (u InlineBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.removeDecoration(b, start, end)
 }
 
@@ -265,8 +265,8 @@ func NewInlineReplacedBox(elementTag string, style pr.Properties, replacement im
 	return out
 }
 
-func (u InlineReplacedBox) removeDecoration(b *BoxFields, start, end bool) {
-	u.ReplacedBox.removeDecoration(b, start, end)
+func (u InlineReplacedBox) RemoveDecoration(b *BoxFields, start, end bool) {
+	u.ReplacedBox.RemoveDecoration(b, start, end)
 }
 
 func NewTableBox(elementTag string, style pr.Properties, children []Box) TableBox {
@@ -290,7 +290,7 @@ func (b *TableBox) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	table.Translate(box, dx, dy, ignoreFloats)
 }
 
-func (b *TableBox) pageValues() (pr.Page, pr.Page) {
+func (b *TableBox) PageValues() (pr.Page, pr.Page) {
 	s := b.Box().Style
 	return s.GetPage(), s.GetPage()
 }
@@ -395,6 +395,6 @@ func NewInlineFlexBox(elementTag string, style pr.Properties, children []Box) In
 	return out
 }
 
-func (u InlineFlexBox) removeDecoration(b *BoxFields, start, end bool) {
-	u.BoxFields.removeDecoration(b, start, end)
+func (u InlineFlexBox) RemoveDecoration(b *BoxFields, start, end bool) {
+	u.BoxFields.RemoveDecoration(b, start, end)
 }

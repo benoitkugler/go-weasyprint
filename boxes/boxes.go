@@ -94,8 +94,8 @@ type Box interface {
 	allChildren() []Box
 	// ignoreFloats = false
 	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
-	removeDecoration(box *BoxFields, isStart, isEnd bool)
-	pageValues() (pr.Page, pr.Page)
+	RemoveDecoration(box *BoxFields, isStart, isEnd bool)
+	PageValues() (pr.Page, pr.Page)
 }
 
 // BoxType enables passing type as value
@@ -133,7 +133,7 @@ type BoxFields struct {
 	elementTag string
 	Style      pr.Properties
 
-	firstLetterStyle, firstLineStyle pr.Properties
+	FirstLetterStyle, firstLineStyle pr.Properties
 
 	PositionX, PositionY, Baseline                                       pr.Float
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
@@ -168,6 +168,9 @@ type BoxFields struct {
 	FlexBaseSize, TargetMainSize, Adjustment, HypotheticalMainSize pr.Float
 	FlexFactor, ScaledFlexShrinkFactor                             pr.Float
 	Frozen                                                         bool
+
+	// ResumeAt *SkipStack
+	// Index    int
 }
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
@@ -205,7 +208,7 @@ func CopyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box 
 	newBox := box.Copy()
 	newBox.Box().Children = newChildren
 	if box.Box().Style.GetBoxDecorationBreak() == "slice" {
-		newBox.removeDecoration(newBox.Box(), !isStart, !isEnd)
+		newBox.RemoveDecoration(newBox.Box(), !isStart, !isEnd)
 	}
 	return newBox
 }
@@ -248,7 +251,7 @@ func (BoxFields) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	box.Box().PositionX += dx
 	box.Box().PositionY += dy
 	for _, child := range box.allChildren() {
-		if !(ignoreFloats && child.Box().isFloated()) {
+		if !(ignoreFloats && child.Box().IsFloated()) {
 			child.Translate(child, dx, dy, ignoreFloats)
 		}
 	}
@@ -413,7 +416,7 @@ func (self BoxFields) roundedContentBox() roundedBox {
 // Positioning schemes
 
 // Return whether this box is floated.
-func (self BoxFields) isFloated() bool {
+func (self BoxFields) IsFloated() bool {
 	return self.Style.GetFloat() != "none"
 }
 
@@ -424,27 +427,27 @@ func (self BoxFields) IsAbsolutelyPositioned() bool {
 }
 
 // Return whether this box is a running element.
-func (self BoxFields) isRunning() bool {
+func (self BoxFields) IsRunning() bool {
 	pos := self.Style.GetPosition()
-	return pos.Bool && pos.String == "running()"
+	return pos.Bool
 }
 
 // Return whether this box is in normal flow.
 func (self BoxFields) IsInNormalFlow() bool {
-	return !(self.isFloated() || self.IsAbsolutelyPositioned() || self.isRunning())
+	return !(self.IsFloated() || self.IsAbsolutelyPositioned() || self.IsRunning())
 }
 
 // Start and end page values for named pages
 
 // Return start and end page values.
-func (b BoxFields) pageValues() (pr.Page, pr.Page) {
+func (b BoxFields) PageValues() (pr.Page, pr.Page) {
 	start := b.Style.GetPage()
 	end := start
 	children := b.Children
 	if len(children) > 0 {
 		startBox, endBox := children[0], children[len(children)-1]
-		childStart, _ := startBox.pageValues()
-		_, childEnd := endBox.pageValues()
+		childStart, _ := startBox.PageValues()
+		_, childEnd := endBox.PageValues()
 		if !childStart.IsNone() {
 			start = childStart
 		}
@@ -489,7 +492,7 @@ func (self *BoxFields) resetSpacing(side string) {
 	}
 }
 
-func (BoxFields) removeDecoration(box *BoxFields, start, end bool) {
+func (BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
 	if start {
 		box.resetSpacing("top")
 	}

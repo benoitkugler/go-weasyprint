@@ -22,8 +22,23 @@ func isLine(box Box) bool {
 type lineBoxe struct {
 	// laid-out LineBox with as much content as possible that
 	// fits in the available width.
-	line     *bo.LineBox
+	line     *AbsolutePlaceholder
 	resumeAt *bo.SkipStack
+}
+
+type lineBoxeIterator struct {
+	boxes []lineBoxe
+	index int
+}
+
+func (l lineBoxeIterator) Has() bool {
+	return l.index < len(l.boxes)
+}
+
+func (l *lineBoxeIterator) Next() lineBoxe {
+	b := l.boxes[l.index]
+	l.index += 1
+	return b
 }
 
 // `box` is a non-laid-out `LineBox`
@@ -32,7 +47,7 @@ type lineBoxe struct {
 // or a ``resumeAt`` value to continue just after an
 // already laid-out line.
 func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack, containingBlock block,
-	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) []lineBoxe {
+	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) lineBoxeIterator {
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
 		// TODO: wrong, see https://github.com/Kozea/WeasyPrint/issues/679

@@ -47,7 +47,7 @@ type LayoutContext struct {
 	excludedShapes      []shape
 	excludedShapesLists [][]shape
 	stringSet           map[string]map[string][]string
-	runningElements     map[string]int
+	runningElements     map[string]map[int]Box
 	currentPage         int
 	forcedBreak         bool
 	strutLayouts        map[string]int

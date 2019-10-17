@@ -7,7 +7,7 @@ import (
 
 func TestInheritance(t *testing.T) {
 	// u := NewInlineBox("", nil, nil)
-	// u.removeDecoration(nil, true, true)
+	// u.RemoveDecoration(nil, true, true)
 
 }
 
