@@ -10,16 +10,20 @@ import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
+// FIXME: must implement Box
 // AbsolutePlaceholder is left where an absolutely-positioned box was taken out of the flow.
 type AbsolutePlaceholder struct {
 	Box
 	layoutDone bool
 	index      int
 	resumeAt   *bo.SkipStack
+	// equals false for raw Box
+	// allow to merge Box and AbsolutePlaceholder
+	isProperAbsolutePlaceholder bool
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
-	out := AbsolutePlaceholder{Box: box, layoutDone: false}
+	out := AbsolutePlaceholder{Box: box, layoutDone: false, isProperAbsolutePlaceholder: true}
 	return &out
 }
 

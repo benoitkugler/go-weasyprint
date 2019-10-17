@@ -46,7 +46,7 @@ func (l *lineBoxeIterator) Next() lineBoxe {
 // skipStack is ``None`` to start at the beginning of ``linebox``,
 // or a ``resumeAt`` value to continue just after an
 // already laid-out line.
-func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack, containingBlock block,
+func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack, containingBlock Box,
 	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) lineBoxeIterator {
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
@@ -77,7 +77,7 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 }
 
 func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack,
-	containingBlock block, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
+	containingBlock Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	firstLetterStyle pr.Properties) lineBoxe {
 
 	skipStack, cont := skipFirstWhitespace(linebox, skipStack)
