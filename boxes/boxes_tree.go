@@ -122,6 +122,7 @@ type InlineFlexBox struct {
 
 type InstanceBlockLevelBox interface {
 	instanceBlockLevelBox
+	Box
 	BlockLevel() *BlockLevelBox
 }
 

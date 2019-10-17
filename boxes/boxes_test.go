@@ -23,8 +23,6 @@ func TestReplaced(t *testing.T) {
 
 func TestBlockLevel(t *testing.T) {
 	var i InstanceBlockLevelBox
-	i = new(BlockLevelBox)
-	fmt.Println(i)
 	i = new(BlockBox)
 	fmt.Println(i)
 	i = new(BlockReplacedBox)
