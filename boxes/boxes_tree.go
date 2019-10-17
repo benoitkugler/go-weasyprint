@@ -12,7 +12,7 @@ import (
 )
 
 type BlockLevelBox struct {
-	clearance pr.MaybeFloat
+	Clearance pr.MaybeFloat
 }
 
 type BlockBox struct {
@@ -130,12 +130,18 @@ func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
 	return b
 }
 
+type InstanceBlockBox interface {
+	instanceBlockBox
+	Box
+	BlockLevel() *BlockLevelBox
+}
+
 func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBox {
 	out := BlockBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }
 
-func LineBoxAnonymousFrom(parent Box, children []Box) *LineBox {
+func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 	parentBox := parent.Box()
 	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil)
 	out := NewLineBox(parentBox.elementTag, style, children)
@@ -176,7 +182,7 @@ func NewInlineBox(elementTag string, style pr.Properties, children []Box) Inline
 
 // Return the (x, y, w, h) rectangle where the box is clickable.
 func (b *InlineBox) hitArea() (x, y, w, h pr.Float) {
-	return b.Box().borderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().MarginHeight()
+	return b.Box().BorderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().MarginHeight()
 }
 
 func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {

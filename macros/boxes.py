@@ -307,7 +307,10 @@ def generate_type_objects(class_name: str):
         	_, is := box.(instance{class_name})
         	return is
         }}
-    
+
+        func (b *{class_name}) Type() BoxType {{
+            return Type{class_name}
+        }}
         type type{class_name} struct{{}}
 
         func (t type{class_name}) AnonymousFrom(parent Box, children []Box) Box {{

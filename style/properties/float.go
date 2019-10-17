@@ -1,5 +1,7 @@
 package properties
 
+import "math"
+
 // During layout, float numbers sometimes need special
 // values like "auto" or nil (None in Python).
 // This file define a float32-like type handling these cases.
@@ -64,4 +66,8 @@ func Max(x, y Float) Float {
 		return x
 	}
 	return y
+}
+
+func Floor(x Float) Float {
+	return Float(math.Floor(float64(x)))
 }

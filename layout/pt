@@ -1,18 +1,330 @@
-// 
-//     Return the absolute Y position for the first (or last) in-flow baseline
-//     if any, || None.
-//     
-func findInFlowBaseline(box, last=false, baselineTypes=(boxes.LineBox,)) {
-    // TODO: synthetize baseline when needed
-    // See https://www.w3.org/TR/css-align-3/#synthesize-baseline
-    if isinstance(box, baselineTypes) {
-        return box.positionY + box.baseline
-    } if isinstance(box, boxes.ParentBox) && ! isinstance(
-            box, boxes.TableCaptionBox) {
+"""
+    weasyprint.layout.columns
+    -------------------------
+
+    Layout for columns.
+
+    :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+
+"""
+
+from math import floor
+
+from .absolute import absoluteLayout
+from .percentages import resolvePercentages
+
+
+func columnsLayout(context, box, maxPositionY, skipStack, containingBlock,
+                   pageIsEmpty, absoluteBoxes, fixedBoxes,
+                   adjoiningMargins) {
+                   }
+    """Lay out a multi-column ``box``."""
+    // Avoid circular imports
+    from .blocks import (
+        blockBoxLayout, blockLevelLayout, blockLevelWidth,
+        collapseMargin)
+
+    // Implementation of the multi-column pseudo-algorithm {
+    } // https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
+    width = None
+    style = box.style
+    originalMaxPositionY = maxPositionY
+
+    if box.style["position"] == "relative" {
+        // New containing block, use a new absolute list
+        absoluteBoxes = []
+    }
+
+    box = box.copyWithChildren(box.children)
+    box.positionY += collapseMargin(adjoiningMargins) - box.marginTop
+
+    height = box.style["height"]
+    if height != "auto" && height.unit != "%" {
+        assert height.unit == "px"
+        knownHeight = true
+        maxPositionY = min(
+            maxPositionY, box.contentBoxY() + height.value)
+    } else {
+        knownHeight = false
+    }
+
+    // TODO: the available width can be unknown if the containing block needs
+    // the size of this block to know its own size.
+    blockLevelWidth(box, containingBlock)
+    availableWidth = box.width
+    if style["columnWidth"] == "auto" && style["columnCount"] != "auto" {
+        count = style["columnCount"]
+        width = max(
+            0, availableWidth - (count - 1) * style["columnGap"]) / count
+    } else if (style["columnWidth"] != "auto" and
+            style["columnCount"] == "auto") {
             }
-        children = reversed(box.children) if last else box.children
-        for child := range children {
-            if child.isInNormalFlow() {
-                result = findInFlowBaseline(child, last, baselineTypes)
-                if result is ! None {
-                    return result
+        count = max(1, int(floor(
+            (availableWidth + style["columnGap"]) /
+            (style["columnWidth"] + style["columnGap"]))))
+        width = (
+            (availableWidth + style["columnGap"]) / count -
+            style["columnGap"])
+    else {
+        count = min(style["columnCount"], int(floor(
+            (availableWidth + style["columnGap"]) /
+            (style["columnWidth"] + style["columnGap"]))))
+        width = (
+            (availableWidth + style["columnGap"]) / count -
+            style["columnGap"])
+    }
+
+    def createColumnBox(children) {
+        columnBox = box.anonymousFrom(box, children=children)
+        resolvePercentages(columnBox, containingBlock)
+        columnBox.isColumn = true
+        columnBox.width = width
+        columnBox.positionX = box.contentBoxX()
+        columnBox.positionY = box.contentBoxY()
+        return columnBox
+    }
+
+    // Handle column-span property.
+    // We want to get the following structure {
+    } // columnsAndBlocks = [
+    //     [columnChild1, columnChild2],
+    //     spanningBlock,
+    //     …
+    // ]
+    columnsAndBlocks = []
+    columnChildren = []
+    for child := range box.children {
+        if child.style["columnSpan"] == "all" {
+            if columnChildren {
+                columnsAndBlocks.append(columnChildren)
+            } columnsAndBlocks.append(child.copy())
+            columnChildren = []
+            continue
+        } columnChildren.append(child.copy())
+    } if columnChildren {
+        columnsAndBlocks.append(columnChildren)
+    }
+
+    if ! box.children {
+        nextPage = {"break": "any", "page": None}
+        skipStack = None
+    }
+
+    // Balance.
+    #
+    // The current algorithm starts from the ideal height (the total height
+    // divided by the number of columns). We then iterate until the last column
+    // is ! the highest one. At the end of each loop, we add the minimal
+    // height needed to make one direct child at the top of one column go to the
+    // end of the previous column.
+    #
+    // We rely on a real rendering for each loop, && with a stupid algorithm
+    // like this it can last minutes…
+
+    adjoiningMargins = []
+    currentPositionY = box.contentBoxY()
+    newChildren = []
+    for columnChildrenOrBlock := range columnsAndBlocks {
+        if ! isinstance(columnChildrenOrBlock, list) {
+            // We get a spanning block, we display it like other blocks.
+            block = columnChildrenOrBlock
+            resolvePercentages(block, containingBlock)
+            block.positionX = box.contentBoxX()
+            block.positionY = currentPositionY
+            newChild, _, _, adjoiningMargins, _ = blockLevelLayout(
+                context, block, originalMaxPositionY, skipStack,
+                containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes,
+                adjoiningMargins)
+            newChildren.append(newChild)
+            currentPositionY = (
+                newChild.borderHeight() + newChild.borderBoxY())
+            adjoiningMargins.append(newChild.marginBottom)
+            continue
+        }
+    }
+
+        excludedShapes = context.excludedShapes[:]
+
+        // We have a list of children that we have to balance between columns.
+        columnChildren = columnChildrenOrBlock
+
+        // Find the total height of the content
+        currentPositionY += collapseMargin(adjoiningMargins)
+        adjoiningMargins = []
+        columnBox = createColumnBox(columnChildren)
+        newChild, _, _, _, _ = blockBoxLayout(
+            context, columnBox, float("inf"), skipStack, containingBlock,
+            pageIsEmpty, [], [], [])
+        height = newChild.marginHeight()
+        if style["columnFill"] == "balance" {
+            height /= count
+        }
+
+        // Try to render columns until the content fits, increase the column
+        // height step by step.
+        columnSkipStack = skipStack
+        lostSpace = float("inf")
+        while true {
+            // Remove extra excluded shapes introduced during previous loop
+            newExcludedShapes = (
+                len(context.excludedShapes) - len(excludedShapes))
+            for i := range range(newExcludedShapes) {
+                context.excludedShapes.pop()
+            }
+        }
+
+            for i := range range(count) {
+                // Render the column
+                newBox, resumeAt, nextPage, _, _ = blockBoxLayout(
+                    context, columnBox, box.contentBoxY() + height,
+                    columnSkipStack, containingBlock, pageIsEmpty,
+                    [], [], [])
+                if newBox  == nil  {
+                    // We didn"t render anything. Give up && use the max
+                    // content height.
+                    height *= count
+                    continue
+                } columnSkipStack = resumeAt
+            }
+
+                inFlowChildren = [
+                    child for child := range newBox.children
+                    if child.isInNormalFlow()]
+
+                if inFlowChildren {
+                    // Get the empty space at the bottom of the column box
+                    emptySpace = height - (
+                        inFlowChildren[-1].positionY - box.contentBoxY() +
+                        inFlowChildren[-1].marginHeight())
+                }
+
+                    // Get the minimum size needed to render the next box
+                    nextBox, _, _, _, _ = blockBoxLayout(
+                        context, columnBox, box.contentBoxY(),
+                        columnSkipStack, containingBlock, true, [], [], [])
+                    for child := range nextBox.children {
+                        if child.isInNormalFlow() {
+                            nextBoxSize = child.marginHeight()
+                            break
+                        }
+                    }
+                else {
+                    emptySpace = nextBoxSize = 0
+                }
+
+                // Append the size needed to render the next box := range this
+                // column.
+                #
+                // The next box size may be smaller than the empty space, for
+                // example when the next box can"t be separated from its own
+                // next box. In this case we don"t try to find the real value
+                // && let the workaround below fix this for us.
+                #
+                // We also want to avoid very small values that may have been
+                // introduced by rounding errors. As the workaround below at
+                // least adds 1 pixel for each loop, we can ignore lost spaces
+                // lower than 1px.
+                if nextBoxSize - emptySpace > 1 {
+                    lostSpace = min(lostSpace, nextBoxSize - emptySpace)
+                }
+
+                // Stop if we already rendered the whole content
+                if resumeAt  == nil  {
+                    break
+                }
+
+            if columnSkipStack  == nil  {
+                // We rendered the whole content, stop
+                break
+            } else {
+                if lostSpace == float("inf") {
+                    // We didn"t find the extra size needed to render a child in
+                    // the previous column, increase height by the minimal
+                    // value.
+                    height += 1
+                } else {
+                    // Increase the columns heights && render them once again
+                    height += lostSpace
+                } columnSkipStack = skipStack
+            }
+
+        // TODO: check box.style["max"]-height
+        maxPositionY = min(maxPositionY, box.contentBoxY() + height)
+
+        // Replace the current box children with columns
+        i = 0
+        maxColumnHeight = 0
+        columns = []
+        while true {
+            if i == count - 1 {
+                maxPositionY = originalMaxPositionY
+            } columnBox = createColumnBox(columnChildren)
+            columnBox.positionY = currentPositionY
+            if style["direction"] == "rtl" {
+                columnBox.positionX += (
+                    box.width - (i + 1) * width - i * style["columnGap"])
+            } else {
+                columnBox.positionX += i * (width + style["columnGap"])
+            } newChild, columnSkipStack, columnNextPage, _, _ = (
+                blockBoxLayout(
+                    context, columnBox, maxPositionY, skipStack,
+                    containingBlock, pageIsEmpty, absoluteBoxes,
+                    fixedBoxes, None))
+            if newChild  == nil  {
+                break
+            } nextPage = columnNextPage
+            skipStack = columnSkipStack
+            columns.append(newChild)
+            maxColumnHeight = max(
+                maxColumnHeight, newChild.marginHeight())
+            if skipStack  == nil  {
+                break
+            } i += 1
+            if i == count && ! knownHeight {
+                // [If] a declaration that constrains the column height
+                // (e.g., using height || max-height). In this case,
+                // additional column boxes are created := range the inline
+                // direction.
+                break
+            }
+        }
+
+        currentPositionY += maxColumnHeight
+        for column := range columns {
+            column.height = maxColumnHeight
+            newChildren.append(column)
+        }
+
+    if box.children && ! newChildren {
+        // The box has children but none can be drawn, let"s skip the whole box
+        return None, (0, None), {"break": "any", "page": None}, [], false
+    }
+
+    // Set the height of box && the columns
+    box.children = newChildren
+    currentPositionY += collapseMargin(adjoiningMargins)
+    if box.height == "auto" {
+        box.height = currentPositionY - box.positionY
+        heightDifference = 0
+    } else {
+        heightDifference = box.height - (currentPositionY - box.positionY)
+    } if box.minHeight != "auto" && box.minHeight > box.height {
+        heightDifference += box.minHeight - box.height
+        box.height = box.minHeight
+    } for child := range newChildren[::-1] {
+        if child.isColumn {
+            child.height += heightDifference
+        } else {
+            break
+        }
+    }
+
+    if box.style["position"] == "relative" {
+        // New containing block, resolve the layout of the absolute descendants
+        for absoluteBox := range absoluteBoxes {
+            absoluteLayout(context, absoluteBox, box, fixedBoxes)
+        }
+    }
+
+    return box, skipStack, nextPage, [], false

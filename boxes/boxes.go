@@ -98,6 +98,14 @@ type Box interface {
 	pageValues() (pr.Page, pr.Page)
 }
 
+// BoxType enables passing type as value
+type BoxType interface {
+	// Returns true if box is of type (or subtype) BoxType
+	IsInstance(box Box) bool
+
+	AnonymousFrom(parent Box, children []Box) Box
+}
+
 // BoxFields is an abstract base class for all boxes.
 type BoxFields struct {
 	// Keep track of removed collapsing spaces for wrap opportunities.
@@ -108,7 +116,7 @@ type BoxFields struct {
 	IsTableWrapper   bool
 	IsFlexItem       bool
 	isForRootElement bool
-	// isColumn         bool
+	IsColumn         bool
 
 	properTableChild       bool
 	internalTableOrCaption bool
@@ -164,14 +172,6 @@ type BoxFields struct {
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
 	return BoxFields{elementTag: elementTag, Style: style, Children: children}
-}
-
-// BoxType enables passing type as value
-type BoxType interface {
-	AnonymousFrom(parent Box, children []Box) Box
-
-	// Returns true if box is of type (or subtype) BoxType
-	IsInstance(box Box) bool
 }
 
 func (box *BoxFields) allChildren() []Box {
@@ -309,12 +309,12 @@ func (self BoxFields) PaddingBoxY() pr.Float {
 }
 
 // Absolute horizontal position of the border box.
-func (self BoxFields) borderBoxX() pr.Float {
+func (self BoxFields) BorderBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V()
 }
 
 // Absolute vertical position of the border box.
-func (self BoxFields) borderBoxY() pr.Float {
+func (self BoxFields) BorderBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V()
 }
 

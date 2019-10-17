@@ -97,14 +97,14 @@ func IsBlockContainerBox(box Box) bool {
 // generates a block box.
 type instanceBlockBox interface {
 	isBlockBox()
-	isParentBox()
 	isBlockContainerBox()
+	isParentBox()
 	isBlockLevelBox()
 }
 
 func (BlockBox) isBlockBox()          {}
-func (BlockBox) isParentBox()         {}
 func (BlockBox) isBlockContainerBox() {}
+func (BlockBox) isParentBox()         {}
 func (BlockBox) isBlockLevelBox()     {}
 func (b *BlockBox) Box() *BoxFields   { return &b.BoxFields }
 
@@ -125,6 +125,10 @@ func BlockBoxAnonymousFrom(parent Box, children []Box) *BlockBox {
 func (t typeBlockBox) IsInstance(box Box) bool {
 	_, is := box.(instanceBlockBox)
 	return is
+}
+
+func (b *BlockBox) Type() BoxType {
+	return TypeBlockBox
 }
 
 type typeBlockBox struct{}
@@ -159,6 +163,10 @@ func (t typeLineBox) IsInstance(box Box) bool {
 	return is
 }
 
+func (b *LineBox) Type() BoxType {
+	return TypeLineBox
+}
+
 type typeLineBox struct{}
 
 func (t typeLineBox) AnonymousFrom(parent Box, children []Box) Box {
@@ -186,13 +194,13 @@ func IsInlineLevelBox(box Box) bool {
 // inline box.
 type instanceInlineBox interface {
 	isInlineBox()
-	isParentBox()
 	isInlineLevelBox()
+	isParentBox()
 }
 
 func (InlineBox) isInlineBox()       {}
-func (InlineBox) isParentBox()       {}
 func (InlineBox) isInlineLevelBox()  {}
+func (InlineBox) isParentBox()       {}
 func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -212,6 +220,10 @@ func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
 func (t typeInlineBox) IsInstance(box Box) bool {
 	_, is := box.(instanceInlineBox)
 	return is
+}
+
+func (b *InlineBox) Type() BoxType {
+	return TypeInlineBox
 }
 
 type typeInlineBox struct{}
@@ -269,17 +281,17 @@ func IsAtomicInlineLevelBox(box Box) bool {
 // an inline-block box.
 type instanceInlineBlockBox interface {
 	isInlineBlockBox()
-	isAtomicInlineLevelBox()
-	isParentBox()
 	isBlockContainerBox()
 	isInlineLevelBox()
+	isParentBox()
+	isAtomicInlineLevelBox()
 }
 
 func (InlineBlockBox) isInlineBlockBox()       {}
-func (InlineBlockBox) isAtomicInlineLevelBox() {}
-func (InlineBlockBox) isParentBox()            {}
 func (InlineBlockBox) isBlockContainerBox()    {}
 func (InlineBlockBox) isInlineLevelBox()       {}
+func (InlineBlockBox) isParentBox()            {}
+func (InlineBlockBox) isAtomicInlineLevelBox() {}
 func (b *InlineBlockBox) Box() *BoxFields      { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -299,6 +311,10 @@ func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
 func (t typeInlineBlockBox) IsInstance(box Box) bool {
 	_, is := box.(instanceInlineBlockBox)
 	return is
+}
+
+func (b *InlineBlockBox) Type() BoxType {
+	return TypeInlineBlockBox
 }
 
 type typeInlineBlockBox struct{}
@@ -375,15 +391,15 @@ func IsBlockReplacedBox(box Box) bool {
 // box.
 type instanceInlineReplacedBox interface {
 	isInlineReplacedBox()
+	isInlineLevelBox()
 	isAtomicInlineLevelBox()
 	isReplacedBox()
-	isInlineLevelBox()
 }
 
 func (InlineReplacedBox) isInlineReplacedBox()    {}
+func (InlineReplacedBox) isInlineLevelBox()       {}
 func (InlineReplacedBox) isAtomicInlineLevelBox() {}
 func (InlineReplacedBox) isReplacedBox()          {}
-func (InlineReplacedBox) isInlineLevelBox()       {}
 func (b *InlineReplacedBox) Box() *BoxFields      { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -408,13 +424,13 @@ func IsInlineReplacedBox(box Box) bool {
 // Box for elements with ``display: table``
 type instanceTableBox interface {
 	isTableBox()
-	isBlockLevelBox()
 	isParentBox()
+	isBlockLevelBox()
 }
 
 func (TableBox) isTableBox()        {}
-func (TableBox) isBlockLevelBox()   {}
 func (TableBox) isParentBox()       {}
+func (TableBox) isBlockLevelBox()   {}
 func (b *TableBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -436,6 +452,10 @@ func (t typeTableBox) IsInstance(box Box) bool {
 	return is
 }
 
+func (b *TableBox) Type() BoxType {
+	return TypeTableBox
+}
+
 type typeTableBox struct{}
 
 func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
@@ -445,15 +465,15 @@ func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: inline-table``
 type instanceInlineTableBox interface {
 	isInlineTableBox()
+	isParentBox()
 	isTableBox()
 	isBlockLevelBox()
-	isParentBox()
 }
 
 func (InlineTableBox) isInlineTableBox()  {}
+func (InlineTableBox) isParentBox()       {}
 func (InlineTableBox) isTableBox()        {}
 func (InlineTableBox) isBlockLevelBox()   {}
-func (InlineTableBox) isParentBox()       {}
 func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -473,6 +493,10 @@ func InlineTableBoxAnonymousFrom(parent Box, children []Box) *InlineTableBox {
 func (t typeInlineTableBox) IsInstance(box Box) bool {
 	_, is := box.(instanceInlineTableBox)
 	return is
+}
+
+func (b *InlineTableBox) Type() BoxType {
+	return TypeInlineTableBox
 }
 
 type typeInlineTableBox struct{}
@@ -510,6 +534,10 @@ func (t typeTableRowGroupBox) IsInstance(box Box) bool {
 	return is
 }
 
+func (b *TableRowGroupBox) Type() BoxType {
+	return TypeTableRowGroupBox
+}
+
 type typeTableRowGroupBox struct{}
 
 func (t typeTableRowGroupBox) AnonymousFrom(parent Box, children []Box) Box {
@@ -543,6 +571,10 @@ func TableRowBoxAnonymousFrom(parent Box, children []Box) *TableRowBox {
 func (t typeTableRowBox) IsInstance(box Box) bool {
 	_, is := box.(instanceTableRowBox)
 	return is
+}
+
+func (b *TableRowBox) Type() BoxType {
+	return TypeTableRowBox
 }
 
 type typeTableRowBox struct{}
@@ -580,6 +612,10 @@ func (t typeTableColumnGroupBox) IsInstance(box Box) bool {
 	return is
 }
 
+func (b *TableColumnGroupBox) Type() BoxType {
+	return TypeTableColumnGroupBox
+}
+
 type typeTableColumnGroupBox struct{}
 
 func (t typeTableColumnGroupBox) AnonymousFrom(parent Box, children []Box) Box {
@@ -613,6 +649,10 @@ func TableColumnBoxAnonymousFrom(parent Box, children []Box) *TableColumnBox {
 func (t typeTableColumnBox) IsInstance(box Box) bool {
 	_, is := box.(instanceTableColumnBox)
 	return is
+}
+
+func (b *TableColumnBox) Type() BoxType {
+	return TypeTableColumnBox
 }
 
 type typeTableColumnBox struct{}
@@ -652,6 +692,10 @@ func (t typeTableCellBox) IsInstance(box Box) bool {
 	return is
 }
 
+func (b *TableCellBox) Type() BoxType {
+	return TypeTableCellBox
+}
+
 type typeTableCellBox struct{}
 
 func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
@@ -661,16 +705,16 @@ func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-caption``
 type instanceTableCaptionBox interface {
 	isTableCaptionBox()
-	isBlockBox()
-	isParentBox()
 	isBlockContainerBox()
+	isParentBox()
+	isBlockBox()
 	isBlockLevelBox()
 }
 
 func (TableCaptionBox) isTableCaptionBox()   {}
-func (TableCaptionBox) isBlockBox()          {}
-func (TableCaptionBox) isParentBox()         {}
 func (TableCaptionBox) isBlockContainerBox() {}
+func (TableCaptionBox) isParentBox()         {}
+func (TableCaptionBox) isBlockBox()          {}
 func (TableCaptionBox) isBlockLevelBox()     {}
 func (b *TableCaptionBox) Box() *BoxFields   { return &b.BoxFields }
 
@@ -691,6 +735,10 @@ func TableCaptionBoxAnonymousFrom(parent Box, children []Box) *TableCaptionBox {
 func (t typeTableCaptionBox) IsInstance(box Box) bool {
 	_, is := box.(instanceTableCaptionBox)
 	return is
+}
+
+func (b *TableCaptionBox) Type() BoxType {
+	return TypeTableCaptionBox
 }
 
 type typeTableCaptionBox struct{}
@@ -754,15 +802,15 @@ func IsFlexContainerBox(box Box) bool {
 // It behaves as block on the outside and as a flex container on the inside.
 type instanceFlexBox interface {
 	isFlexBox()
+	isFlexContainerBox()
 	isParentBox()
 	isBlockLevelBox()
-	isFlexContainerBox()
 }
 
 func (FlexBox) isFlexBox()          {}
+func (FlexBox) isFlexContainerBox() {}
 func (FlexBox) isParentBox()        {}
 func (FlexBox) isBlockLevelBox()    {}
-func (FlexBox) isFlexContainerBox() {}
 func (b *FlexBox) Box() *BoxFields  { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -784,6 +832,10 @@ func (t typeFlexBox) IsInstance(box Box) bool {
 	return is
 }
 
+func (b *FlexBox) Type() BoxType {
+	return TypeFlexBox
+}
+
 type typeFlexBox struct{}
 
 func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
@@ -794,15 +846,15 @@ func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
 // It behaves as inline on the outside and as a flex container on the inside.
 type instanceInlineFlexBox interface {
 	isInlineFlexBox()
-	isParentBox()
 	isFlexContainerBox()
 	isInlineLevelBox()
+	isParentBox()
 }
 
 func (InlineFlexBox) isInlineFlexBox()    {}
-func (InlineFlexBox) isParentBox()        {}
 func (InlineFlexBox) isFlexContainerBox() {}
 func (InlineFlexBox) isInlineLevelBox()   {}
+func (InlineFlexBox) isParentBox()        {}
 func (b *InlineFlexBox) Box() *BoxFields  { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -822,6 +874,10 @@ func InlineFlexBoxAnonymousFrom(parent Box, children []Box) *InlineFlexBox {
 func (t typeInlineFlexBox) IsInstance(box Box) bool {
 	_, is := box.(instanceInlineFlexBox)
 	return is
+}
+
+func (b *InlineFlexBox) Type() BoxType {
+	return TypeInlineFlexBox
 }
 
 type typeInlineFlexBox struct{}
