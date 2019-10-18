@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boxes/boxes.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/boxes/boxes_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes_test.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boxes/boxes_tree.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes_tree.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/blocks.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/blocks.go" afterDir="false" />
     </list>
