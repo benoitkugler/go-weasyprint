@@ -1,370 +1,414 @@
-"""
-    weasyprint.layout.pages
-    -----------------------
+package layout
 
-    Layout for pages && CSS3 margin boxes.
+import (
+	bo "github.com/benoitkugler/go-weasyprint/boxes"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+)
 
-    :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
-    :license: BSD, see LICENSE for details.
+// Layout for pages and CSS3 margin boxes.
 
-"""
+type contentSizer interface {
+	minContentSize() pr.Float
+	maxContentSize() pr.Float
+}
 
-import copy
+type orientedBox interface {
+	baseBox() *OrientedBox
+	restoreBoxAttributes() 
+}
 
-from ..css import PageType, computedFromCascaded
-from ..formattingStructure import boxes, build
-from ..logger import PROGRESSLOGGER
-from .absolute import absoluteLayout
-from .blocks import blockContainerLayout, blockLevelLayout
-from .minMax import handleMinMaxHeight, handleMinMaxWidth
-from .percentages import resolvePercentages
-from .preferred import maxContentWidth, minContentWidth
+type OrientedBox struct {
+	context LayoutContext
+	box *bo.MarginBox 
+	paddingPlusBorder pr.Float
+	marginA, marginB, inner pr.MaybeFloat
 
+	// abstract, must be implemented by subclasses
+	contentSizer
+}
 
-class OrientedBox(object) {
-    @property
-    def sugar(self) {
-        return self.paddingPlusBorder + self.marginA + self.marginB
-    }
-} 
-    @property
-    def outer(self) {
-        return self.sugar + self.inner
-    }
-
-    @property
-    def outerMinContentSize(self) {
-        return self.sugar + (
-            self.minContentSize if self.inner == "auto" else self.inner)
+func (o *OrientedBox) baseBox() *OrientedBox {
+	return o
+}
+    
+    func (o OrientedBox) sugar() pr.Float {
+        return o.paddingPlusBorder + o.marginA + o.marginB
     }
 
-    @property
-    def outerMaxContentSize(self) {
-        return self.sugar + (
-            self.maxContentSize if self.inner == "auto" else self.inner)
+    
+    func (o OrientedBox) outer() pr.Float {
+        return o.sugar + o.inner.V()
     }
 
-    def shrinkToFit(self, available) {
-        self.inner = min(
-            max(self.minContentSize, available), self.maxContentSize)
+    
+    func (o OrientedBox) outerMinContentSize() pr.Float {
+		 if o.inner.Auto() {
+			return o.sugar  + o.minContentSize()
+		}
+		return o.sugar  + o.inner.V()
+    }
+
+    
+    func (o OrientedBox) outerMaxContentSize() pr.Float {
+		 if o.inner.Auto() {
+			return o.sugar  + o.maxContentSize()
+		}
+		return o.sugar  + o.inner.V()
+    }
+
+    func (o *OrientedBox) shrinkToFit(available pr.Float) {
+        o.inner = pr.Min( pr.Max(o.minContentSize(), available), o.maxContentSize())
     }
 
 
-class VerticalBox(OrientedBox) {
-    def _Init_(self, context, box) {
+type VerticalBox struct {
+	OrientedBox
+}
+    func NewVerticalBox(context LayoutContext, box *bo.MarginBox) *VerticalBox {
+		self := new(VerticalBox)
         self.context = context
-        self.box = box
+		self.box = box
         // Inner dimension: that of the content area, as opposed to the
         // outer dimension: that of the margin area.
-        self.inner = box.height
-        self.marginA = box.marginTop
-        self.marginB = box.marginBottom
-        self.paddingPlusBorder = (
-            box.paddingTop + box.paddingBottom +
-            box.borderTopWidth + box.borderBottomWidth)
+        self.inner = box.Height
+        self.marginA = box.MarginTop.V()
+        self.marginB = box.MarginBottom.V()
+        self.paddingPlusBorder = box.PaddingTop.V() + box.PaddingBottom.V() +
+			box.BorderTopWidth.V() + box.BorderBottomWidth.V()
+			self.OrientedBox.contentSizer = self
+			return self
     }
-} 
-    def restoreBoxAttributes(self) {
-        box = self.box
-        box.height = self.inner
-        box.marginTop = self.marginA
-        box.marginBottom = self.marginB
+
+    func (self *VerticalBox	) restoreBoxAttributes() {
+        box := self.box.Box()
+        box.Height = self.inner
+        box.MarginTop = self.marginA
+        box.MarginBottom = self.marginB
     }
 
     // TODO: Define what are the min-content && max-content heights
-    @property
-    def minContentSize(self) {
+    func (self *VerticalBox	) minContentSize() pr.Float{
         return 0
     }
 
-    @property
-    def maxContentSize(self) {
+    func (self *VerticalBox	) maxContentSize() pr.Float {
         return 1e6
     }
 
 
-class HorizontalBox(OrientedBox) {
-    def _Init_(self, context, box) {
-        self.context = context
-        self.box = box
-        self.inner = box.width
-        self.marginA = box.marginLeft
-        self.marginB = box.marginRight
-        self.paddingPlusBorder = (
-            box.paddingLeft + box.paddingRight +
-            box.borderLeftWidth + box.borderRightWidth)
-        self.MinContentSize = None
-        self.MaxContentSize = None
-    }
-} 
-    def restoreBoxAttributes(self) {
-        box = self.box
-        box.width = self.inner
-        box.marginLeft = self.marginA
-        box.marginRight = self.marginB
+type HorizontalBox struct {
+	OrientedBox
+	_minContentSize , _maxContentSize pr.MaybeFloat
+}
+
+    func NewHorizontalBox(context LayoutContext, box *bo.MarginBox) *HorizontalBox {
+		self := new(HorizontalBox)
+		self.context = context
+		self.box = box 
+        self.inner = box.Width
+        self.marginA = box.MarginLeft.V()
+        self.marginB = box.MarginRight.V()
+        self.paddingPlusBorder =  box.PaddingLeft.V() + box.PaddingRight.V() +
+			box.BorderLeftWidth.V() + box.BorderRightWidth.V()
+			self.OrientedBox.contentSizer = self
     }
 
-    @property
-    def minContentSize(self) {
-        if self.MinContentSize  == nil  {
-            self.MinContentSize = minContentWidth(
-                self.context, self.box, outer=false)
-        } return self.MinContentSize
+    func (self *HorizontalBox	) restoreBoxAttributes() {
+        box := self.box.Box()
+        box.Width = self.inner
+        box.MarginLeft = self.marginA
+        box.MarginRight = self.marginB
     }
 
-    @property
-    def maxContentSize(self) {
-        if self.MaxContentSize  == nil  {
-            self.MaxContentSize = maxContentWidth(
-                self.context, self.box, outer=false)
-        } return self.MaxContentSize
+    func (self *HorizontalBox	) minContentSize() pr.Float {
+        if self._minContentSize  == nil  {
+            self._minContentSize =pr.Float(minContentWidth( self.context, self.box, false))
+		} 
+		return self._minContentSize.V()
     }
 
+    func (self *HorizontalBox	) maxContentSize() pr.Float {
+        if self._maxContentSize  == nil  {
+            self._maxContentSize =pr.Float(maxContentWidth(self.context, self.box, false))
+		} 
+		return self._maxContentSize.V()
+    }
 
-// 
-//     Compute && set a margin box fixed dimension on ``box``, as described in:
+func countAuto(values ...pr.MaybeFloat) int {
+	out := 0
+	for _, v := range values {
+		if v != nil && v.Auto() {
+			out += 1
+		}
+	}
+	return out
+}
+
+//     Compute and set a margin box fixed dimension on ``box``, as described in:
 //     http://dev.w3.org/csswg/css3-page/#margin-constraints
 //     :param box:
 //         The margin box to work on
 //     :param outer:
 //         The target outer dimension (value of a page margin)
 //     :param vertical:
-//         true to set height, margin-top && margin-bottom; false for width,
-//         margin-left && margin-right
+//         true to set height, margin-top and margin-bottom; false for width,
+//         margin-left and margin-right
 //     :param topOrLeft:
-//         true if the margin box := range if the top half (for vertical==true) or
+//         true if the margin box in if the top half (for vertical==true) or
 //         left half (for vertical==false) of the page.
 //         This determines which margin should be "auto" if the values are
 //         over-constrained. (Rule 3 of the algorithm.)
-//     
-func computeFixedDimension(context, box, outer, vertical, topOrLeft) {
-    box = (VerticalBox if vertical else HorizontalBox)(context, box)
-} 
+func computeFixedDimension(context LayoutContext, box_ * bo.MarginBox, outer pr.Float, vertical, topOrLeft bool) {
+	var boxOriented orientedBox
+	if vertical {
+		boxOriented = NewVerticalBox(context, box_)
+	} else {
+		boxOriented = NewHorizontalBox(context, box_)
+	}
+	box := boxOriented.baseBox()
+
     // Rule 2
-    total = box.paddingPlusBorder + sum(
-        value for value := range [box.marginA, box.marginB, box.inner]
-        if value != "auto")
+    total := box.paddingPlusBorder 
+    for _, value := range [3]pr.MaybeFloat{box.marginA, box.marginB, box.inner} {
+        if !value.Auto() {
+			total += value.V()
+		}
+	}
     if total > outer {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        } if box.inner == "auto" {
-            // XXX this is ! := range the spec, but without it box.inner
+        if box.marginA.Auto() {
+            box.marginA = pr.Float(0)
+		} 
+		if box.marginB.Auto() {
+            box.marginB = pr.Float(0)
+		}
+		 if box.inner.Auto() {
+            // XXX this is not in the spec, but without it box.inner
             // would end up with a negative value.
             // Instead, this will trigger rule 3 below.
             // http://lists.w3.org/Archives/Public/www-style/2012Jul/0006.html
-            box.inner = 0
+            box.inner = pr.Float(0)
         }
-    } // Rule 3
-    if "auto" ! := range [box.marginA, box.marginB, box.inner] {
+	} 
+	// Rule 3
+    if  countAuto(box.marginA, box.marginB, box.inner) == 0 {
         // Over-constrained
         if topOrLeft {
-            box.marginA = "auto"
+            box.marginA = pr.Auto
         } else {
-            box.marginB = "auto"
+            box.marginB = pr.Auto
         }
-    } // Rule 4
-    if [box.marginA, box.marginB, box.inner].count("auto") == 1 {
-        if box.inner == "auto" {
-            box.inner = (outer - box.paddingPlusBorder -
-                         box.marginA - box.marginB)
-        } else if box.marginA == "auto" {
-            box.marginA = (outer - box.paddingPlusBorder -
-                            box.marginB - box.inner)
-        } else if box.marginB == "auto" {
-            box.marginB = (outer - box.paddingPlusBorder -
-                            box.marginA - box.inner)
+	} 
+	// Rule 4
+    if countAuto(box.marginA, box.marginB, box.inner) == 1 {
+        if box.inner.Auto() {
+            box.inner = outer - box.paddingPlusBorder - box.marginA.V() - box.marginB.V()
+        } else if box.marginA.Auto() {
+            box.marginA = outer - box.paddingPlusBorder -  box.marginB.V() - box.inner.V()
+        } else if box.marginB.Auto() {
+            box.marginB = outer - box.paddingPlusBorder -  box.marginA.V() - box.inner.V()
         }
-    } // Rule 5
-    if box.inner == "auto" {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        } box.inner = (outer - box.paddingPlusBorder -
-                     box.marginA - box.marginB)
-    } // Rule 6
-    if box.marginA == "auto" && box.marginB == "auto" {
-        box.marginA = box.marginB = (
-            outer - box.paddingPlusBorder - box.inner) / 2
+	} 
+	// Rule 5
+    if box.inner.Auto() {
+        if box.marginA.Auto() {
+            box.marginA = pr.Float(0)
+		} 
+		if box.marginB.Auto() {
+            box.marginB = pr.Float(0)
+		} 
+		box.inner = outer - box.paddingPlusBorder - box.marginA.V() - box.marginB.V()
+	} 
+	// Rule 6
+    if box.marginA.Auto() && box.marginB.Auto() {
+		v := (  outer - box.PaddingPlusBorder - box.inner.V()) / 2
+		box.marginA = v
+		 box.marginB = v
+    }
+	if countAuto(box.marginA, box.marginB, box.inner) > 0 {
+		log.Fatalf("unexpected auto value in %v", box)
+	}
+
+    boxOriented.restoreBoxAttributes()
+}
+
+
+
+// Compute and set a margin box fixed dimension on ``box``, as described in:
+// http://dev.w3.org/csswg/css3-page/#margin-dimension
+// :param sideBoxes: Three boxes on a same side (as opposed to a corner.)
+//     A list of:
+//     - A @*-left or @*-top margin box
+//     - A @*-center or @*-middle margin box
+//     - A @*-right or @*-bottom margin box
+// :param vertical:
+//     true to set height, margin-top and margin-bottom; false for width,
+//     margin-left and margin-right
+// :param outerSum:
+//     The target total outer dimension (max box width or height)
+func computeVariableDimension(context LayoutContext, sideBoxes_ [3]*bo.MarginBox, vertical bool, outerSum pr.Float) {
+	var sideBoxes [3]orientedBox
+	for i, box_ := range sideBoxes_ {
+		if vertical {
+			sideBoxes[i] = NewVerticalBox(context, box_)
+		} else {
+			sideBoxes[i] = NewHorizontalBox(context, box_)
+		}
+	}
+    boxA, boxB, boxC := sideBoxes[0].baseBox(), sideBoxes[1].baseBox(), sideBoxes[2].baseBox()
+
+	for _, box_ := range sideBoxes {
+		box := box_.baseBox()
+        if box.marginA.Auto() {
+            box.marginA = pr.Float(0)
+		} 
+		if box.marginB.Auto() {
+            box.marginB = pr.Float(0)
+        }
     }
 
-    assert "auto" ! := range [box.marginA, box.marginB, box.inner]
-
-    box.restoreBoxAttributes()
-
-
-// 
-//     Compute && set a margin box fixed dimension on ``box``, as described in:
-//     http://dev.w3.org/csswg/css3-page/#margin-dimension
-//     :param sideBoxes: Three boxes on a same side (as opposed to a corner.)
-//         A list of:
-//         - A @*-left || @*-top margin box
-//         - A @*-center || @*-middle margin box
-//         - A @*-right || @*-bottom margin box
-//     :param vertical:
-//         true to set height, margin-top && margin-bottom; false for width,
-//         margin-left && margin-right
-//     :param outerSum:
-//         The target total outer dimension (max box width || height)
-//     
-func computeVariableDimension(context, sideBoxes, vertical, outerSum) {
-    boxClass = VerticalBox if vertical else HorizontalBox
-    sideBoxes = [boxClass(context, box) for box := range sideBoxes]
-    boxA, boxB, boxC = sideBoxes
-} 
-    for box := range sideBoxes {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        }
-    }
-
-    if boxB.box.isGenerated {
-        if boxB.inner == "auto" {
-            acMaxContentSize = 2 * max(
-                boxA.outerMaxContentSize, boxC.outerMaxContentSize)
-            if outerSum >= (
-                    boxB.outerMaxContentSize + acMaxContentSize) {
-                    }
-                boxB.inner = boxB.maxContentSize
-            else {
-                acMinContentSize = 2 * max(
-                    boxA.outerMinContentSize,
-                    boxC.outerMinContentSize)
-                boxB.inner = boxB.minContentSize
-                available = outerSum - boxB.outer - acMinContentSize
+    if boxB.box.Box().IsGenerated {
+        if boxB.inner.Auto() {
+            acMaxContentSize := 2 * pr.Max(boxA.outerMaxContentSize(), boxC.outerMaxContentSize())
+            if outerSum >= (boxB.outerMaxContentSize() + acMaxContentSize) {
+                boxB.inner = boxB.maxContentSize()
+            } else {
+                acMinContentSize := 2 * pr.Max(  boxA.outerMinContentSize(), boxC.outerMinContentSize())
+                boxB.inner = boxB.minContentSize()
+                available := outerSum - boxB.outer() - acMinContentSize
                 if available > 0 {
-                    weightAc = acMaxContentSize - acMinContentSize
-                    weightB = (
-                        boxB.maxContentSize - boxB.minContentSize)
-                    weightSum = weightAc + weightB
-                    // By definition of maxContentSize && minContentSize,
-                    // weights can ! be negative. weightSum == 0 implies that
+                    weightAc := acMaxContentSize - acMinContentSize
+                    weightB := boxB.maxContentSize() - boxB.minContentSize()
+                    weightSum := weightAc + weightB
+                    // By definition of maxContentSize and minContentSize,
+                    // weights can not be negative. weightSum == 0 implies that
                     // maxContentSize == minContentSize for each box, in
-                    // which case the sum can ! be both <= && > outerSum
+                    // which case the sum can not be both <= and > outerSum
                     // Therefore, one of the last two "if" statements would not
                     // have lead us here.
-                    assert weightSum > 0
-                    boxB.inner += available * weightB / weightSum
+                    if weightSum <= 0 {
+						log.Fatalf("weightSum must be > 0, got %f", weightSum)
+					}
+                    boxB.inner = boxB.inner.V() + available * weightB / weightSum
                 }
             }
-        } if boxA.inner == "auto" {
-            boxA.shrinkToFit((outerSum - boxB.outer) / 2 - boxA.sugar)
-        } if boxC.inner == "auto" {
-            boxC.shrinkToFit((outerSum - boxB.outer) / 2 - boxC.sugar)
+		} 
+		if boxA.inner.Auto() {
+            boxA.shrinkToFit((outerSum - boxB.outer()) / 2 - boxA.sugar())
+		} 
+		if boxC.inner.Auto() {
+            boxC.shrinkToFit((outerSum - boxB.outer()) / 2 - boxC.sugar())
         }
     } else {
         // Non-generated boxes get zero for every box-model property
-        assert boxB.inner == 0
-        if boxA.inner == boxC.inner == "auto" {
-            if outerSum >= (
-                    boxA.outerMaxContentSize +
-                    boxC.outerMaxContentSize) {
-                    }
-                boxA.inner = boxA.maxContentSize
-                boxC.inner = boxC.maxContentSize
-            else {
-                boxA.inner = boxA.minContentSize
-                boxC.inner = boxC.minContentSize
-                available = outerSum - boxA.outer - boxC.outer
+        if boxB.inner.V() != 0 {
+			log.Fatalf("expected boxB.inner == 0, got %v", boxB.inner)
+		}
+        if boxA.inner.Auto() && boxC.inner.Auto() {
+            if outerSum >= (boxA.outerMaxContentSize() + boxC.outerMaxContentSize()) {  
+                boxA.inner = boxA.maxContentSize()
+                boxC.inner = boxC.maxContentSize()
+            }else {
+                boxA.inner = boxA.minContentSize()
+                boxC.inner = boxC.minContentSize()
+                available := outerSum - boxA.outer() - boxC.outer()
                 if available > 0 {
-                    weightA = (
-                        boxA.maxContentSize - boxA.minContentSize)
-                    weightC = (
-                        boxC.maxContentSize - boxC.minContentSize)
-                    weightSum = weightA + weightC
-                    // By definition of maxContentSize && minContentSize,
+                    weightA := boxA.maxContentSize() - boxA.minContentSize()
+                    weightC := boxC.maxContentSize() - boxC.minContentSize()
+                    weightSum := weightA + weightC
+                    // By definition of maxContentSize and minContentSize,
                     // weights can ! be negative. weightSum == 0 implies that
                     // maxContentSize == minContentSize for each box, in
-                    // which case the sum can ! be both <= && > outerSum
+                    // which case the sum can ! be both <= and > outerSum
                     // Therefore, one of the last two "if" statements would not
                     // have lead us here.
-                    assert weightSum > 0
-                    boxA.inner += available * weightA / weightSum
-                    boxC.inner += available * weightC / weightSum
+					if weightSum <= 0 {
+						log.Fatalf("weightSum must be > 0, got %f", weightSum)
+					}                    
+					boxA.inner = boxA.inner.V() + available * weightA / weightSum
+                    boxC.inner = boxC.inner.V() + available * weightC / weightSum
                 }
             }
-        } else if boxA.inner == "auto" {
-            boxA.shrinkToFit(outerSum - boxC.outer - boxA.sugar)
-        } else if boxC.inner == "auto" {
-            boxC.shrinkToFit(outerSum - boxA.outer - boxC.sugar)
+        } else if boxA.inner.Auto() {
+            boxA.shrinkToFit(outerSum - boxC.outer.V()	 - boxA.sugar())
+        } else if boxC.inner.Auto() {
+            boxC.shrinkToFit(outerSum - boxA.outer.V()	 - boxC.sugar())
         }
     }
 
-    // And, we’re done!
-    assert "auto" ! := range [box.inner for box := range sideBoxes]
-    // Set the actual attributes back.
-    for box := range sideBoxes {
+	// And, we’re done!
+	if countAuto(boxA.inner, boxB.inner, boxC.inner) > 0 {
+		log.Fatalln("unexpected auto value")
+	}
+
+	// Set the actual attributes back.
+    for _, box := range sideBoxes {
         box.restoreBoxAttributes()
     }
+}
 
-
-// Drop "pages" counter from style := range @page && @margin context.
-//     Ensure `counter-increment: page` for @page context if ! otherwise
-//     manipulated by the style.
-//     
-func StandardizePageBasedCounters(style, pseudoType) {
-    pageCounterTouched = false
-    // XXX "counter-set` ! yet supported
-    for propname := range ("counterReset", "counterIncrement") {
-        if style[propname] == "auto" {
-            style[propname] = ()
+// Drop "pages" counter from style in @page and @margin context.
+// Ensure `counter-increment: page` for @page context if not otherwise
+// manipulated by the style.
+func standardizePageBasedCounters(style pr.Properties, pseudoType string) {
+	pageCounterTouched := false
+    // XXX "counter-set` not yet supported
+    for _, propname := range [2]string{"counter_reset", "counter_increment"} {
+		prop := style[propname].(pr.SIntStrings)
+		if prop.String == "auto" {
+            style[propname] = pr.SIntStrings{Values: pr.IntStrings{}}
             continue
-        } justifiedValues = []
-        for name, value := range style[propname] {
-            if name == "page" {
+		} 
+		var justifiedValues pr.IntStrings
+        for _, v := range prop.Values {
+            if v.String == "page" {
                 pageCounterTouched = true
-            } if name != "pages" {
-                justifiedValues.append((name, value))
+			} 
+			if v.String != "pages" {
+                justifiedValues = append(justifiedValues, v)
             }
-        } style[propname] = tuple(justifiedValues)
+		}
+		 style[propname] = pr.SIntStrings{Values: justifiedValues}
     }
-} 
-    if pseudoType  == nil  && ! pageCounterTouched {
-        style["counterIncrement"] = (
-            ("page", 1),) + style["counterIncrement"]
-    }
+
+    if pseudoType  == ""  && ! pageCounterTouched {
+		current := style.GetCounterIncrement()
+		newInc := append(pr.IntStrings{{String: "page", Int: 1}},  current.Values...)
+		style.SetCounterIncrement(pr.SIntStrings{Values: newInc})
+	}
+}
 
 
 // Yield laid-out margin boxes for this page.
 //     ``state`` is the actual, up-to-date page-state from
 //     ``context.pageMaker[context.currentPage]``.
-//     
-func makeMarginBoxes(context, page, state) {
+func makeMarginBoxes(context LayoutContext, page *bo.PageBox, state bo.StateShared) {
     // This is a closure only to make calls shorter
-    def makeBox(atKeyword, containingBlock) {
-        """Return a margin box with resolved percentages.
-
-        The margin box may still have "auto" values.
-
-        Return ``None`` if this margin box should ! be generated.
-
-        :param atKeyword: which margin box to return, eg. "@top-left"
-        :param containingBlock: as expected by :func:`resolvePercentages`.
-
-        """
-        style = context.styleFor(page.pageType, atKeyword)
+	
+	// Return a margin box with resolved percentages.
+	// The margin box may still have "auto" values.
+	// Return ``None`` if this margin box should not be generated.
+	// :param atKeyword: which margin box to return, eg. "@top-left"
+	// :param containingBlock: as expected by :func:`resolvePercentages`.
+    makeBox := func(atKeyword string, containingBlock block) Box {
+        style := context.styleFor.Get(page.pageType, atKeyword)
         if style  == nil  {
-            // doesn"t affect counters
-            style = computedFromCascaded(
-                element=None, cascaded={}, parentStyle=page.style)
-        } StandardizePageBasedCounters(style, atKeyword)
-        box = boxes.MarginBox(atKeyword, style)
-        // Empty boxes should ! be generated, but they may be needed for
+            // doesn't affect counters
+            style = tree.ComputedFromCascaded(nil, nil, page.style)
+		} 
+		standardizePageBasedCounters(style, atKeyword)
+        box := &bo.NewMarginBox(atKeyword, style)
+        // Empty boxes should not be generated, but they may be needed for
         // the layout of their neighbors.
-        // TODO: should be the computed value.
-        box.isGenerated = style["content"] ! := range (
-            "normal", "inhibit", "none")
+		// TODO: should be the computed value.
+		ct := style.GetContent().String
+        box.IsGenerated = !(ct ==  "normal" || ct == "inhibit" || ct == "none")
         // TODO: get actual counter values at the time of the last page break
-        if box.isGenerated {
-            // @margins mustn"t manipulate page-context counters
-            marginState = copy.deepcopy(state)
-            quoteDepth, counterValues, counterScopes = marginState
+        if box.IsGenerated {
+            // @margins mustn't manipulate page-context counters
+            marginState := state.Copy()
+            // quoteDepth, counterValues, counterScopes = marginState
             // TODO: check this, probably useless
-            counterScopes.append(set())
+            marginState.counterScopes.append(set())
             build.updateCounters(marginState, box.style)
             box.children = build.contentToBoxes(
                 box.style, box, quoteDepth, counterValues,
@@ -375,9 +419,10 @@ func makeMarginBoxes(context, page, state) {
             box = build.flexBoxes(box)
             box = build.inlineInBlock(box)
             box = build.blockInInline(box)
-        } resolvePercentages(box, containingBlock)
+		} 
+		resolvePercentages(box, containingBlock)
         if ! box.isGenerated {
-            box.width = box.height = 0
+            box.Width = box.Height = 0
             for side := range ("top", "right", "bottom", "left") {
                 box.ResetSpacing(side)
             }
@@ -425,13 +470,13 @@ func makeMarginBoxes(context, page, state) {
         for box, offset := range zip(sideBoxes, [0, 0.5, 1]) {
             if ! box.isGenerated {
                 continue
-            } box.positionX = positionX
-            box.positionY = positionY
+            } box.PositionX = positionX
+            box.PositionY = positionY
             if vertical {
-                box.positionY += offset * (
+                box.PositionY += offset * (
                     variableOuter - box.marginHeight())
             } else {
-                box.positionX += offset * (
+                box.PositionX += offset * (
                     variableOuter - box.marginWidth())
             } computeFixedDimension(
                 context, box, fixedOuter, ! vertical,
@@ -452,8 +497,8 @@ func makeMarginBoxes(context, page, state) {
         box = makeBox(atKeyword, (cbWidth, cbHeight))
         if ! box.isGenerated {
             continue
-        } box.positionX = positionX
-        box.positionY = positionY
+        } box.PositionX = positionX
+        box.PositionY = positionY
         computeFixedDimension(
             context, box, cbHeight, true, "top" := range atKeyword)
         computeFixedDimension(
@@ -484,7 +529,7 @@ func marginBoxContentLayout(context, page, box) {
         // assert top == box.contentBoxY()
         bottom = lastChild.positionY + lastChild.marginHeight()
         contentHeight = bottom - top
-        offset = box.height - contentHeight
+        offset = box.Height - contentHeight
         if verticalAlign == "middle" {
             offset /= 2
         } for child := range box.children {
@@ -505,7 +550,7 @@ func marginBoxContentLayout(context, page, box) {
 //     http://www.w3.org/TR/CSS21/visudet.html#blockwidth
 //     
 func pageWidthOrHeight(box, containingBlockSize) {
-    remaining = containingBlockSize - box.paddingPlusBorder
+    remaining = containingBlockSize - box.PaddingPlusBorder
     if box.inner == "auto" {
         if box.marginA == "auto" {
             box.marginA = 0
@@ -561,9 +606,9 @@ func makePage(context, rootBox, pageType, resumeAt, pageNumber,
     pageWidth(page, context, cbWidth)
     pageHeight(page, context, cbHeight)
 
-    rootBox.positionX = page.contentBoxX()
-    rootBox.positionY = page.contentBoxY()
-    pageContentBottom = rootBox.positionY + page.height
+    rootBox.PositionX = page.contentBoxX()
+    rootBox.PositionY = page.contentBoxY()
+    pageContentBottom = rootBox.PositionY + page.height
     initialContainingBlock = page
 
     if pageType.blank {

@@ -102,12 +102,13 @@ type TableCaptionBox struct {
 
 type PageBox struct {
 	BoxFields
-	pageType utils.PageElement
+	PageType utils.PageElement
 }
 
 type MarginBox struct {
 	BoxFields
-	atKeyword string
+	atKeyword   string
+	IsGenerated bool
 }
 
 type FlexBox struct {
@@ -369,11 +370,11 @@ func NewTableCaptionBox(elementTag string, style pr.Properties, children []Box) 
 
 func NewPageBox(pageType utils.PageElement, style pr.Properties) PageBox {
 	fields := newBoxFields("", style, nil)
-	return PageBox{BoxFields: fields, pageType: pageType}
+	return PageBox{BoxFields: fields, PageType: pageType}
 }
 
 func (b *PageBox) String() string {
-	return fmt.Sprintf("<PageBox %v>", b.pageType)
+	return fmt.Sprintf("<PageBox %v>", b.PageType)
 }
 
 func NewMarginBox(atKeyword string, style pr.Properties) MarginBox {

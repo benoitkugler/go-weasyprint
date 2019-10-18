@@ -22,7 +22,8 @@ func (s Set) Has(key string) bool {
 	return in
 }
 
-func (s Set) copy() Set {
+// Copy returns a deepcopy.
+func (s Set) Copy() Set {
 	out := make(Set, len(s))
 	for k, v := range s {
 		out[k] = v
