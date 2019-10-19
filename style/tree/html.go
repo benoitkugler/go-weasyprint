@@ -12,13 +12,13 @@ import (
 
 //Represents an HTML document parsed by net/html.
 type HTML struct {
-	root       *utils.HTMLNode
+	Root       *utils.HTMLNode
 	mediaType  string
 	urlFetcher utils.UrlFetcher
-	baseUrl    string
+	BaseUrl    string
 }
 
-// `baseUrl` is the base used to resolve relative URLs
+// `BaseUrl` is the base used to resolve relative URLs
 // (e.g. in ``<img src="../foo.png">``). If not provided, try to use
 // the input filename, URL, or ``name`` attribute of :term:`file objects
 //        <file object>`.
@@ -43,9 +43,9 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 	}
 	var out HTML
 	// html.Parse wraps the <html> tag
-	out.root = (*utils.HTMLNode)(root.FirstChild)
-	out.root.Parent = nil
-	out.baseUrl = utils.FindBaseUrl(root, result.baseUrl)
+	out.Root = (*utils.HTMLNode)(root.FirstChild)
+	out.Root.Parent = nil
+	out.BaseUrl = utils.FindBaseUrl(root, result.baseUrl)
 	out.urlFetcher = urlFetcher
 	out.mediaType = mediaType
 	return &out, nil

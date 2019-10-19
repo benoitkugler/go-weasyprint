@@ -17,6 +17,12 @@ func (s Set) Add(key string) {
 	s[key] = Has
 }
 
+func (s Set) Extend(keys []string) {
+	for _, key := range keys {
+		s[key] = Has
+	}
+}
+
 func (s Set) Has(key string) bool {
 	_, in := s[key]
 	return in

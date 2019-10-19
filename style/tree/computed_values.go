@@ -215,8 +215,8 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 // 			 Only contains some properties (or none).
 // :param parentStyle: a dict of computed value of the parent
 // 				 Element (should contain value for all properties),
-// 				 or `zero if ``Element`` is the root Element.
-// :param baseUrl: The base URL used to resolve relative URLs.
+// 				 or `zero if ``Element`` is the Root Element.
+// :param BaseUrl: The base URL used to resolve relative URLs.
 // 		TargetCollector: A target collector used to get computed targets.
 func compute(element Element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
 	rootStyle pr.Properties, baseUrl string, TargetCollector *TargetCollector) pr.Properties {

@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
 
 	"github.com/benoitkugler/go-weasyprint/boxes"
@@ -17,7 +18,7 @@ type page struct {
 
 type blockLayout struct {
 	newBox            bo.InstanceBlockLevelBox
-	resumeAt          *bo.SkipStack
+	resumeAt          *tree.SkipStack
 	nextPage          page
 	adjoiningMargins  []pr.Float
 	collapsingThrough bool
@@ -28,7 +29,7 @@ type blockLayout struct {
 // `maxPositionY` is the absolute vertical position (as in
 // ``someBox.PositionY``) of the bottom of the
 // content box of the current page area.
-func blockLevelLayout(context LayoutContext, box_ bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *bo.SkipStack,
+func blockLevelLayout(context LayoutContext, box_ bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock Box, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes []*AbsolutePlaceholder, adjoiningMargins []pr.Float) blockLayout {
 
@@ -70,7 +71,7 @@ func blockLevelLayout(context LayoutContext, box_ bo.InstanceBlockLevelBox, maxP
 }
 
 // Call the layout function corresponding to the ``box`` type.
-func blockLevelLayoutSwitch(context LayoutContext, box bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *bo.SkipStack,
+func blockLevelLayoutSwitch(context LayoutContext, box bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock Box, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes, adjoiningMargins []Box) blockLayout {
 
@@ -275,7 +276,7 @@ type ChildrenBlockLevel interface {
 }
 
 // Set the ``box`` height.
-func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPositionY pr.Float, skipStack *bo.SkipStack,
+func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) blockLayout {
 	box := box_.Box()
 	// TODO: boxes.FlexBox is allowed here because flexLayout calls
@@ -328,7 +329,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 
 	var newChildren []*AbsolutePlaceholder
 	nextPage := page{break_: "any"}
-	var resumeAt *bo.SkipStack
+	var resumeAt *tree.SkipStack
 	var lastInFlowChild *AbsolutePlaceholder
 
 	skip := 0
@@ -380,7 +381,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 							break
 						}
 					}
-					resumeAt = &bo.SkipStack{Skip: index}
+					resumeAt = &tree.SkipStack{Skip: index}
 					outerHasBroken = true
 					break
 				}
@@ -454,7 +455,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 						newChildren = newChildren[:needed-1]
 					}
 					// Page break here, resume before this line
-					resumeAt = &bo.SkipStack{Skip: index, Stack: skipStack}
+					resumeAt = &tree.SkipStack{Skip: index, Stack: skipStack}
 					isPageBreak = true
 					break
 
@@ -476,7 +477,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 			}
 
 			if len(newChildren) != 0 {
-				resumeAt = &bo.SkipStack{Skip: index, Stack: newChildren[len(newChildren)-1].resumeAt}
+				resumeAt = &tree.SkipStack{Skip: index, Stack: newChildren[len(newChildren)-1].resumeAt}
 			}
 			if isPageBreak {
 				outerHasBroken = true
@@ -505,7 +506,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 					pageBreak == "recto" || pageBreak == "verso" {
 					pageName, _ := child.PageValues()
 					nextPage = page{break_: pageBreak, page: pageName}
-					resumeAt = &bo.SkipStack{Skip: index}
+					resumeAt = &tree.SkipStack{Skip: index}
 					outerHasBroken = true
 					break
 				}
@@ -639,7 +640,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 					newChildren = nil
 				}
 				if len(newChildren) != 0 {
-					resumeAt = &bo.SkipStack{Skip: index}
+					resumeAt = &tree.SkipStack{Skip: index}
 					outerHasBroken = true
 					break
 				} else {
@@ -653,7 +654,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 			// TODO: back-track somehow when all lines fit but not borders
 			newChildren = append(newChildren, &newChildPlace)
 			if resumeAt != nil {
-				resumeAt = &bo.SkipStack{Skip: index, Stack: resumeAt}
+				resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
 				outerHasBroken = true
 				break
 			}
@@ -870,7 +871,7 @@ func absPlaToBox(children []*AbsolutePlaceholder) []Box {
 // we need to find an earlier page break opportunity inside `children`.
 // Absolute or fixed placeholders removed from children should also be
 // removed from `absoluteBoxes` or `fixedBoxes`.
-func findEarlierPageBreak(children []*AbsolutePlaceholder, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []*AbsolutePlaceholder, resumeAt *bo.SkipStack) {
+func findEarlierPageBreak(children []*AbsolutePlaceholder, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []*AbsolutePlaceholder, resumeAt *tree.SkipStack) {
 	if len(children) != 0 && !children[0].isProperAbsolutePlaceholder && bo.TypeLineBox.IsInstance(children[0].Box) {
 		// Normally `orphans` && `widows` apply to the block container, but
 		// line boxes inherit them.
@@ -881,7 +882,7 @@ func findEarlierPageBreak(children []*AbsolutePlaceholder, absoluteBoxes, fixedB
 			return nil, nil
 		}
 		newChildren := children[:index]
-		resumeAt := &bo.SkipStack{Skip: 0, Stack: newChildren[len(newChildren)-1].resumeAt}
+		resumeAt := &tree.SkipStack{Skip: 0, Stack: newChildren[len(newChildren)-1].resumeAt}
 		asBox := absPlaToBox(children[index:])
 		removePlaceholders(asBox, absoluteBoxes, fixedBoxes)
 		return newChildren, resumeAt
@@ -902,7 +903,7 @@ func findEarlierPageBreak(children []*AbsolutePlaceholder, absoluteBoxes, fixedB
 				index += 1 // break after child
 				newChildren = children[:index]
 				// Get the index in the original parent
-				resumeAt = &bo.SkipStack{Skip: children[index].Box().Index}
+				resumeAt = &tree.SkipStack{Skip: children[index].Box().Index}
 				hasBroken = true
 				break
 			}
@@ -916,7 +917,7 @@ func findEarlierPageBreak(children []*AbsolutePlaceholder, absoluteBoxes, fixedB
 					newChild := bo.CopyWithChildren(child_, newGrandChildren, true, true)
 					newChildren = append(children[:index], newChild)
 					// Index in the original parent
-					resumeAt = &bo.SkipStack{Skip: newChild.Box().Index, Stack: resumeAt}
+					resumeAt = &tree.SkipStack{Skip: newChild.Box().Index, Stack: resumeAt}
 					index += 1 // Remove placeholders after child
 					hasBroken = true
 					break

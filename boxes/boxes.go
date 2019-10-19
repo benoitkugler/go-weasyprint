@@ -144,7 +144,7 @@ type BoxFields struct {
 
 	BorderTopLeftRadius, BorderTopRightRadius, BorderBottomRightRadius, BorderBottomLeftRadius MaybePoint
 
-	viewportOverflow string
+	ViewportOverflow string
 
 	Children []Box
 	// outsideListMarker Box
@@ -459,7 +459,7 @@ func (b BoxFields) PageValues() (pr.Page, pr.Page) {
 }
 
 // Set to 0 the margin, padding and border of ``side``.
-func (self *BoxFields) resetSpacing(side string) {
+func (self *BoxFields) ResetSpacing(side string) {
 	self.Style[fmt.Sprintf("margin_%s", side)] = pr.ZeroPixels.ToValue()
 	self.Style[fmt.Sprintf("padding_%s", side)] = pr.ZeroPixels.ToValue()
 	self.Style[fmt.Sprintf("border_%s_width", side)] = pr.FToV(0)
@@ -494,9 +494,9 @@ func (self *BoxFields) resetSpacing(side string) {
 
 func (BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
 	if start {
-		box.resetSpacing("top")
+		box.ResetSpacing("top")
 	}
 	if end {
-		box.resetSpacing("bottom")
+		box.ResetSpacing("bottom")
 	}
 }

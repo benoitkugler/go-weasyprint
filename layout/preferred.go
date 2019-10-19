@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
 	"math"
 	"strings"
@@ -194,7 +195,7 @@ func blockMaxContentWidth(context LayoutContext, box Box, outer bool) float32 {
 // ``firstLine`` is ``true``, only the first line minimum width is
 // calculated.
 // outer=true, skipStack=None, firstLine=false, isLineStart=false
-func inlineMinContentWidth(context LayoutContext, box_ Box, outer bool, skipStack *bo.SkipStack,
+func inlineMinContentWidth(context LayoutContext, box_ Box, outer bool, skipStack *tree.SkipStack,
 	firstLine, isLineStart bool) float32 {
 	box := *box_.Box()
 	widths := inlineLineWidths(context, box, outer, isLineStart, true, skipStack, firstLine)
@@ -262,7 +263,7 @@ func tableCellMaxContentWidth(context LayoutContext, box Box, outer bool) float3
 
 // firstLine=false
 func inlineLineWidths(context LayoutContext, box BoxFields, outer, isLineStart,
-	minimum bool, skipStack *bo.SkipStack, firstLine bool) []float32 {
+	minimum bool, skipStack *tree.SkipStack, firstLine bool) []float32 {
 	var (
 		textIndent, currentLine float32
 		skip                    int

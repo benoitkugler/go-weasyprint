@@ -102,7 +102,8 @@ type TableCaptionBox struct {
 
 type PageBox struct {
 	BoxFields
-	PageType utils.PageElement
+	PageType   utils.PageElement
+	FixedBoxes []Box
 }
 
 type MarginBox struct {
@@ -165,14 +166,14 @@ func (InlineLevelBox) removeDecoration(box *BoxFields, start, end bool) {
 		if ltr {
 			side = "left"
 		}
-		box.resetSpacing(side)
+		box.ResetSpacing(side)
 	}
 	if end {
 		side := "left"
 		if ltr {
 			side = "right"
 		}
-		box.resetSpacing(side)
+		box.ResetSpacing(side)
 	}
 }
 

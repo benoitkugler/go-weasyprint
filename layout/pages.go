@@ -3,6 +3,7 @@ package layout
 import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
 // Layout for pages and CSS3 margin boxes.
@@ -379,9 +380,9 @@ func standardizePageBasedCounters(style pr.Properties, pseudoType string) {
 
 
 // Yield laid-out margin boxes for this page.
-//     ``state`` is the actual, up-to-date page-state from
-//     ``context.pageMaker[context.currentPage]``.
-func makeMarginBoxes(context LayoutContext, page *bo.PageBox, state bo.StateShared) {
+// ``state`` is the actual, up-to-date page-state from
+// ``context.pageMaker[context.currentPage]``.
+func makeMarginBoxes(context LayoutContext, page *bo.PageBox, state bo.StateShared) []Box {
     // This is a closure only to make calls shorter
 	
 	// Return a margin box with resolved percentages.
@@ -389,7 +390,7 @@ func makeMarginBoxes(context LayoutContext, page *bo.PageBox, state bo.StateShar
 	// Return ``None`` if this margin box should not be generated.
 	// :param atKeyword: which margin box to return, eg. "@top-left"
 	// :param containingBlock: as expected by :func:`resolvePercentages`.
-    makeBox := func(atKeyword string, containingBlock block) Box {
+    makeBox := func(atKeyword string, containingBlock pr.MaybePoint) *bo.MarginBox {
         style := context.styleFor.Get(page.pageType, atKeyword)
         if style  == nil  {
             // doesn't affect counters
@@ -408,398 +409,424 @@ func makeMarginBoxes(context LayoutContext, page *bo.PageBox, state bo.StateShar
             marginState := state.Copy()
             // quoteDepth, counterValues, counterScopes = marginState
             // TODO: check this, probably useless
-            marginState.counterScopes.append(set())
-            build.updateCounters(marginState, box.style)
-            box.children = build.contentToBoxes(
-                box.style, box, quoteDepth, counterValues,
+            marginState.CounterScopes = append(marginState.CounterScopes, pr.NewSet())
+            bo.UpdateCounters(&marginState, box.Style)
+            box.Children = bo.ContentToBoxes(
+                box.Style, box, marginState.QuoteDepth, marginState.CounterValues,
                 context.getImageFromUri, context.targetCollector, context,
                 page)
-            build.processWhitespace(box)
-            box = build.anonymousTableBoxes(box)
-            box = build.flexBoxes(box)
-            box = build.inlineInBlock(box)
-            box = build.blockInInline(box)
+            bo.ProcessWhitespace(box, false)
+            box = bo.AnonymousTableBoxes(box)
+            box = bo.FlexBoxes(box)
+            box = bo.IlineInBlock(box)
+			box = bo.BlockInInline(box)
+			return box.(*bo.MarginBox)
 		} 
-		resolvePercentages(box, containingBlock)
-        if ! box.isGenerated {
-            box.Width = box.Height = 0
-            for side := range ("top", "right", "bottom", "left") {
-                box.ResetSpacing(side)
+		resolvePercentages(box, containingBlock, "")
+		boxF := box.Box()
+        if !BoxF.IsGenerated {
+			BoxF.Width = pr.Float(0)
+			BoxF.Height = pr.Float(0)
+            for side := range [4]string{"top", "right", "bottom", "left"} {
+                BoxF.ResetSpacing(side)
             }
-        } return box
+		} 
+		return box
     }
-} 
-    marginTop = page.marginTop
-    marginBottom = page.marginBottom
-    marginLeft = page.marginLeft
-    marginRight = page.marginRight
-    maxBoxWidth = page.borderWidth()
-    maxBoxHeight = page.borderHeight()
+
+    marginTop := page.MarginTop.V()
+    marginBottom := page.MarginBottom
+    marginLeft := page.MarginLeft.V()
+    marginRight := page.MarginRight
+    maxBoxWidth := page.BorderWidth()
+    maxBoxHeight := page.BorderHeight()
 
     // bottom right corner of the border box
-    pageEndX = marginLeft + maxBoxWidth
-    pageEndY = marginTop + maxBoxHeight
+    pageEndX := marginLeft + maxBoxWidth
+    pageEndY := marginTop + maxBoxHeight
 
     // Margin box dimensions, described in
     // http://dev.w3.org/csswg/css3-page/#margin-box-dimensions
-    generatedBoxes = []
-
-    for prefix, vertical, containingBlock, positionX, positionY := range [
-        ("top", false, (maxBoxWidth, marginTop),
-            marginLeft, 0),
-        ("bottom", false, (maxBoxWidth, marginBottom),
-            marginLeft, pageEndY),
-        ("left", true, (marginLeft, maxBoxHeight),
-            0, marginTop),
-        ("right", true, (marginRight, maxBoxHeight),
-            pageEndX, marginTop),
-    ] {
-        if vertical {
-            suffixes = ["top", "middle", "bottom"]
-            fixedOuter, variableOuter = containingBlock
-        } else {
-            suffixes = ["left", "center", "right"]
-            variableOuter, fixedOuter = containingBlock
-        } sideBoxes = [makeBox("@%s-%s" % (prefix, suffix), containingBlock)
-                      for suffix := range suffixes]
-        if ! any(box.isGenerated for box := range sideBoxes) {
+    var generatedBoxes []*bo.MarginBox
+	prefixs := [4]string{"top","bottom","left","right"}
+	verticals := [4]bool{false,		false,		true,		true}
+	containingBlocks := [4]pr.MaybePoint{
+		{maxBoxWidth, marginTop},
+			{maxBoxWidth, marginBottom},
+			{marginLeft, maxBoxHeight},
+			{marginRight, maxBoxHeight},
+	}
+	positionXs := [4]pr.Float{  marginLeft,		marginLeft,		 0,		pageEndX}
+	positionYs := [4]pr.Float{0,		pageEndY,		marginTop,		marginTop}
+	
+    for i := range prefixes {
+		prefix, vertical, containingBlock, positionX, positionY := prefixs[i], verticals[i], containingBlocks[i], positionXs[i], positionYs[i]
+		
+		suffixes := [3]string{"left", "center", "right"}
+		variableOuter, fixedOuter := containingBlock[0], containingBlock[1]
+		if vertical {
+            suffixes = [3]string{"top", "middle", "bottom"}
+            fixedOuter, variableOuter = containingBlock[0], containingBlock[1]
+        } 
+		var sideBoxes [3]*bo.MarginBox
+		anyIsGenerated := false
+		for i, suffix := range suffixes {
+			sideBoxes[i] = makeBox(fmt.Sprintf("@%s-%s",prefix, suffix), containingBlock)
+			if sideBoxes[i].IsGenerated {
+				anyIsGenerated =true
+			}
+		}
+	
+        if ! anyIsGenerated {
             continue
-        } // We need the three boxes together for the variable dimension {
-        } computeVariableDimension(
-            context, sideBoxes, vertical, variableOuter)
-        for box, offset := range zip(sideBoxes, [0, 0.5, 1]) {
-            if ! box.isGenerated {
+		} 
+		// We need the three boxes together for the variable dimension:
+		computeVariableDimension(context, sideBoxes, vertical, variableOuter.V())
+		offsets := []pr.Float{0, 0.5, 1}
+        for i := range sideBoxes {
+			box, offset := sideBoxes[i], offsets[i]
+            if ! box.IsGenerated {
                 continue
-            } box.PositionX = positionX
+			} 
+			box.PositionX = positionX
             box.PositionY = positionY
             if vertical {
-                box.PositionY += offset * (
-                    variableOuter - box.marginHeight())
+                box.PositionY += offset * (variableOuter - box.MarginHeight())
             } else {
-                box.PositionX += offset * (
-                    variableOuter - box.marginWidth())
-            } computeFixedDimension(
-                context, box, fixedOuter, ! vertical,
-                prefix := range ["top", "left"])
-            generatedBoxes.append(box)
+                box.PositionX += offset * (  - box.MarginWidth())
+			} 
+			computeFixedDimension( context, box, fixedOuter, ! vertical, prefix == "top" || prefix == "left")
+            generatedBoxes = append(generatedBoxes, box)
         }
     }
 
+	atKeywords := [4]string{"@top-left-corner","@top-right-corner","@bottom-left-corner","@bottom-right-corner"}
+	cbWidths := [4]pr.MaybeFloat{ marginLeft,		marginRight,		marginLeft,		marginRight	}
+	cbHeights := [4]pr.MaybeFloat{ marginTop,marginTop,marginBottom,marginBottom	}
+	positionXs = [4]pr.Float{0,pageEndX,		0,		pageEndX}
+	positionYs = [4]pr.Float{0,0,		pageEndY,		pageEndY}
     // Corner boxes
-
-    for atKeyword, cbWidth, cbHeight, positionX, positionY := range [
-        ("@top-left-corner", marginLeft, marginTop, 0, 0),
-        ("@top-right-corner", marginRight, marginTop, pageEndX, 0),
-        ("@bottom-left-corner", marginLeft, marginBottom, 0, pageEndY),
-        ("@bottom-right-corner", marginRight, marginBottom,
-            pageEndX, pageEndY),
-    ] {
-        box = makeBox(atKeyword, (cbWidth, cbHeight))
-        if ! box.isGenerated {
+    for i := range atKeywords {
+		atKeyword, cbWidth, cbHeight, positionX, positionY := atKeywords[i], cbWidths[i], cbHeights[i], positionXs[i], positionYs[i]
+        box := makeBox(atKeyword, bo.MaybePoint{cbWidth, cbHeight})
+        if ! box.IsGenerated {
             continue
-        } box.PositionX = positionX
+		} 
+		box.PositionX = positionX
         box.PositionY = positionY
-        computeFixedDimension(
-            context, box, cbHeight, true, "top" := range atKeyword)
-        computeFixedDimension(
-            context, box, cbWidth, false, "left" := range atKeyword)
-        generatedBoxes.append(box)
+        computeFixedDimension( context, box, cbHeight, true,  strings.Contains(atKeyword,"top") )
+        computeFixedDimension( context, box, cbWidth, false,  strings.Contains(atKeyword,"left") )
+        generatedBoxes = append(generatedBoxes, box)
     }
 
-    for box := range generatedBoxes {
-        yield marginBoxContentLayout(context, page, box)
-    }
+	out := make([]Box, len(generatedBoxes))
+    for i, box := range generatedBoxes {
+        out[i] = marginBoxContentLayout(context, page, box)
+	}
+	return out
+}
 
 
 // Layout a margin box’s content once the box has dimensions.
-func marginBoxContentLayout(context, page, box) {
-    box, resumeAt, nextPage, _, _ = blockContainerLayout(
-        context, box,
-        maxPositionY=float("inf"), skipStack=None,
-        pageIsEmpty=true, absoluteBoxes=[], fixedBoxes=[])
-    assert resumeAt  == nil 
-} 
-    verticalAlign = box.style["verticalAlign"]
+func marginBoxContentLayout(context LayoutContext, page *bo.PageBox, Mbox *bo.MarginBox) Box {
+	tmp := blockContainerLayout(context, Mbox,  pr.Inf, nil, true, 
+		new([]*AbsolutePlaceholder),new([]*AbsolutePlaceholder),nil)
+		
+    if tmp.resumeAt  != nil {
+		log.Fatalf("resumeAt should be nil, got %v", tmp.resumeAt)
+	}	
+	box := tmp.newBox.Box()
+    verticalAlign := box.Style.GetVerticalAlign()
     // Every other value is read as "top", ie. no change.
-    if verticalAlign := range ("middle", "bottom") && box.children {
-        firstChild = box.children[0]
-        lastChild = box.children[-1]
-        top = firstChild.positionY
+    if L := len(box.Children); (verticalAlign.String == "middle" || verticalAlign.String == "bottom") && L != 0 {
+        firstChild := box.Children[0]
+        lastChild := box.Children[L-1].Box()
+        top := firstChild.Box().PositionY
         // Not always exact because floating point errors
         // assert top == box.contentBoxY()
-        bottom = lastChild.positionY + lastChild.marginHeight()
-        contentHeight = bottom - top
-        offset = box.Height - contentHeight
-        if verticalAlign == "middle" {
+        bottom := lastChild.PositionY + lastChild.MarginHeight()
+        contentHeight := bottom - top
+        offset := box.Height.V() - contentHeight
+        if verticalAlign.String == "middle" {
             offset /= 2
-        } for child := range box.children {
-            child.translate(0, offset)
+		} 
+		for _, child := range box.Children {
+            child.Translate(child, 0, offset, false)
         }
-    } return box
+	}
+	return tmp.newBox
+}
 
 
-// Take a :class:`OrientedBox` object && set either width, margin-left
-//     && margin-right; || height, margin-top && margin-bottom.
-//     "The width && horizontal margins of the page box are then calculated
-//      exactly as for a non-replaced block element := range normal flow. The height
-//      && vertical margins of the page box are calculated analogously (instead
-//      of using the block height formulas). In both cases if the values are
-//      over-constrained, instead of ignoring any margins, the containing block
-//      is resized to coincide with the margin edges of the page box."
-//     http://dev.w3.org/csswg/css3-page/#page-box-page-rule
-//     http://www.w3.org/TR/CSS21/visudet.html#blockwidth
-//     
-func pageWidthOrHeight(box, containingBlockSize) {
-    remaining = containingBlockSize - box.PaddingPlusBorder
-    if box.inner == "auto" {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        } box.inner = remaining - box.marginA - box.marginB
-    } else if box.marginA == box.marginB == "auto" {
-        box.marginA = box.marginB = (remaining - box.inner) / 2
-    } else if box.marginA == "auto" {
-        box.marginA = remaining - box.inner - box.marginB
-    } else if box.marginB == "auto" {
-        box.marginB = remaining - box.inner - box.marginA
-    } box.restoreBoxAttributes()
+// Take a :class:`OrientedBox` object and set either width, margin-left
+// and margin-right; or height, margin-top and margin-bottom.
+// "The width and horizontal margins of the page box are then calculated
+//  exactly as for a non-replaced block element := range normal flow. The height
+//  and vertical margins of the page box are calculated analogously (instead
+//  of using the block height formulas). In both cases if the values are
+//  over-constrained, instead of ignoring any margins, the containing block
+//  is resized to coincide with the margin edges of the page box."
+// http://dev.w3.org/csswg/css3-page/#page-box-page-rule
+// http://www.w3.org/TR/CSS21/visudet.html#blockwidth
+func pageWidthOrHeight(box_ orientedBox, containingBlockSize pr.Float) {
+	box := box_.baseBox()
+	remaining := containingBlockSize - box.paddingPlusBorder
+    if box.inner.Auto() {
+        if box.marginA.Auto() {
+            box.marginA = pr.Float(0)
+		} 
+		if box.marginB.Auto() {
+            box.marginB = pr.Float(0)
+		}
+		 box.inner = remaining - box.marginA.V()- box.marginB.V()
+    } else if box.marginA.Auto() && box.marginB.Auto() {
+		box.marginA = (remaining - box.inner.Auto()) / 2
+		box.marginB = box.marginA
+    } else if box.marginA.Auto() {
+        box.marginA = remaining - box.inner.V() - box.marginB.V()
+    } else if box.marginB.Auto() {
+        box.marginB = remaining - box.inner.V() - box.marginA.V()
+	}
+	box_.restoreBoxAttributes()
 } 
 
-@handleMinMaxWidth
-func pageWidth(box, context, containingBlockWidth) {
-    pageWidthOrHeight(HorizontalBox(context, box), containingBlockWidth)
+var (
+	pageWidth = handleMinMaxWidth(pageWidth_)
+	pageHeight = handleMinMaxHeight(pageHeight_)
+)
+
+// @handleMinMaxWidth
+func pageWidth_(box Box, context LayoutContext, containingBlockWidth block) (bool, float32) {
+	pageWidthOrHeight(NewHorizontalBox(context, box.(*bo.MarginBox)), containingBlockWidth)
+	return false, 0
+	} 
+	
+	// @handleMinMaxHeight
+	func pageHeight_(box Box, context LayoutContext, containingBlockHeight block) (bool, float32) {
+		pageWidthOrHeight(NewVerticalBox(context, box.(*bo.MarginBox)), containingBlockHeight)
+		return false, 0
 } 
 
-@handleMinMaxHeight
-func pageHeight(box, context, containingBlockHeight) {
-    pageWidthOrHeight(VerticalBox(context, box), containingBlockHeight)
-} 
+// Take just enough content from the beginning to fill one page.
+//
+// Return ``(page, finished)``. ``page`` is a laid out PageBox object
+// and ``resumeAt`` indicates where in the document to start the next page,
+// or is ``None`` if this was the last page.
+//
+// :param pageNumber: integer, start at 1 for the first page
+// :param resumeAt: as returned by ``makePage()`` for the previous page,
+// 	or ``None`` for the first page.
+func makePage(context *LayoutContext, rootBox Box, pageType utils.PageElement , resumeAt *tree.SkipStack,
+	pageNumber int, pageState *bo.StateShared) (*bo.PageBox ,*tree.SkipStack, page) {
+    style := context.styleFor.Get(pageType, "")
 
-func makePage(context, rootBox, pageType, resumeAt, pageNumber,
-              pageState) {
-    """Take just enough content from the beginning to fill one page.
+    // Propagated from the root or <body>.
+    style.SetOverflow(pr.String(rootBox.Box().viewportOverflow)) 
+    page := &bo.NewPageBox(pageType, style)
 
-    Return ``(page, finished)``. ``page`` is a laid out PageBox object
-    && ``resumeAt`` indicates where := range the document to start the next page,
-    || is ``None`` if this was the last page.
+    deviceSize_ := page.Style.GetSize()
+    cbWidth, cbHeight = deviceSize_[0], deviceSize_[1] 
+    resolvePercentages(page, bo.MaybePoint{cbWidth, cbHeight}, "")
 
-    :param pageNumber: integer, start at 1 for the first page
-    :param resumeAt: as returned by ``makePage()`` for the previous page,
-                      || ``None`` for the first page.
-
-              }
-    """
-    style = context.styleFor(pageType)
-
-    // Propagated from the root || <body>.
-    style["overflow"] = rootBox.viewportOverflow
-    page = boxes.PageBox(pageType, style)
-
-    deviceSize = page.style["size"]
-
-    resolvePercentages(page, deviceSize)
-
-    page.positionX = 0
-    page.positionY = 0
-    cbWidth, cbHeight = deviceSize
+    page.PositionX = 0
+    page.PositionY = 0
     pageWidth(page, context, cbWidth)
     pageHeight(page, context, cbHeight)
 
-    rootBox.PositionX = page.contentBoxX()
-    rootBox.PositionY = page.contentBoxY()
-    pageContentBottom = rootBox.PositionY + page.height
-    initialContainingBlock = page
+    rootBox.Box().PositionX = page.ContentBoxX()
+    rootBox.Box().PositionY = page.ContentBoxY()
+    pageContentBottom := rootBox.Box().PositionY + page.Height.V()
+    initialContainingBlock := page
 
+	var previousResumeAt *tree.SkipStack
     if pageType.blank {
         previousResumeAt = resumeAt
-        rootBox = rootBox.copyWithChildren([])
+        rootBox = bo.CopyWithChildren(rootBox, nil, true, true)
     }
 
     // TODO: handle cases where the root element is something else.
     // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-    assert isinstance(rootBox, (boxes.BlockBox, boxes.FlexContainerBox))
+    if !(bo.TypeBlockBox.IsInstance(rootBox) || bo.IsFlexContainerBox(rootBox)) {
+		log.Fatalf("expected Block or FlexContainer, got %s", rootBox)
+	}
     context.createBlockFormattingContext()
     context.currentPage = pageNumber
-    pageIsEmpty = true
-    adjoiningMargins = []
-    positionedBoxes = []  // Mixed absolute && fixed
-    rootBox, resumeAt, nextPage, _, _ = blockLevelLayout(
-        context, rootBox, pageContentBottom, resumeAt,
-        initialContainingBlock, pageIsEmpty, positionedBoxes,
-        positionedBoxes, adjoiningMargins)
-    assert rootBox
+    pageIsEmpty := true
+    var adjoiningMargins []pr.Float
+    var positionedBoxes []*AbsolutePlaceholder  // Mixed absolute && fixed
+    tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
+		initialContainingBlock, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins)
+		rootBox, resumeAt = tmp.newBox, tmp.resumeAt
+    if rootBox == nil {
+		log.Fatalln("expected newBox got nil")
+	}
 
-    page.fixedBoxes = [
-        placeholder.Box for placeholder := range positionedBoxes
-        if placeholder.Box.style["position"] == "fixed"]
-    for absoluteBox := range positionedBoxes {
+    for _, placeholder := range positionedBoxes {
+        if placeholder.Box.Box().Style.GetPosition() == "fixed" {
+			page.FixedBoxes  = append(page.FixedBoxes , placeholder.Box)
+		}
+	}
+    for _, absoluteBox := range positionedBoxes {
         absoluteLayout(context, absoluteBox, page, positionedBoxes)
-    } context.finishBlockFormattingContext(rootBox)
+	} 
+	context.finishBlockFormattingContext(rootBox)
 
-    page.children = [rootBox]
-    descendants = page.descendants()
+    page.Children = []Box{rootBox}
+    descendants := page.Descendants()
 
     // Update page counter values
-    StandardizePageBasedCounters(style, None)
-    build.updateCounters(pageState, style)
-    pageCounterValues = pageState[1]
-    // pageCounterValues will be cached := range the pageMaker
+    standardizePageBasedCounters(style, "")
+    bo.UpdateCounters(pageState, style)
+    pageCounterValues := pageState.CounterValues
+    // pageCounterValues will be cached in the pageMaker
 
-    targetCollector = context.targetCollector
-    pageMaker = context.pageMaker
+    targetCollector := context.targetCollector
+    pageMaker := context.pageMaker
 
-    // remakeState tells the makeAllPages-loop := range layoutDocument()
-    // whether && what to re-make.
-    remakeState = pageMaker[pageNumber - 1][-1]
+    // remakeState tells the makeAllPages-loop in layoutDocument()
+	// whether and what to re-make.
+    remakeState := pageMaker[pageNumber - 1].remakeState
 
-    // Evaluate && cache page values only once (for the first LineBox)
+    // Evaluate and cache page values only once (for the first LineBox)
     // otherwise we suffer endless loops when the target/pseudo-element
     // spans across multiple pages
-    cachedAnchors = []
-    cachedLookups = []
-    for (_, _, _, _, xRemakeState) := range pageMaker[:pageNumber - 1] {
-        cachedAnchors.extend(xRemakeState.get("anchors", []))
-        cachedLookups.extend(xRemakeState.get("contentLookups", []))
+	cachedAnchors := pr.NewSet()
+    cachedLookups := map[*tree.CounterLookupItem]bool{}
+	
+    for _ , v := range pageMaker[:pageNumber - 1] {
+		cachedAnchors.Extend(v.RemakeState.Anchors)
+		for _, u := range v.RemakeState.ContentLookups {
+			cachedLookups[u] = true
+		}
     }
 
-    for child := range descendants {
-        // Cache target"s page counters
-        anchor = child.style["anchor"]
-        if anchor && anchor ! := range cachedAnchors {
-            remakeState["anchors"].append(anchor)
-            cachedAnchors.append(anchor)
+    for _,  child := range descendants {
+        // Cache target's page counters
+        anchor := child.Box().Style.GetAnchor()
+        if anchor != "" && !cachedAnchors.Has(anchor) {
+            remakeState.Anchors = append(remakeState.Anchors, anchor)
+            cachedAnchors.Add(anchor)
             // Re-make of affected targeting boxes is inclusive
-            targetCollector.cacheTargetPageCounters(
-                anchor, pageCounterValues, pageNumber - 1, pageMaker)
+            targetCollector.CacheTargetPageCounters(anchor, pageCounterValues, pageNumber - 1, pageMaker)
         }
-    }
-
-        // string-set && bookmark-labels don"t create boxes, only `content`
+    
+        // string-set and bookmark-labels don't create boxes, only `content`
         // requires another call to makePage. There is maximum one "content"
         // item per box.
-        // TODO: remove attribute || set a default value := range Box class
-        if hasattr(child, "missingLink") {
-            // A CounterLookupItem exists for the css-token "content"
-            counterLookup = targetCollector.counterLookupItems.get(
-                (child.missingLink, "content"))
-        } else {
-            counterLookup = None
-        }
+        // TODO: remove attribute or set a default value in Box class
+		var counterLookup *tree.CounterLookupItem
+		if missingLink := child.MissingLink(); missingLink != nil {
+			// A CounterLookupItem exists for the css-token "content"
+			key := tree.NewFunctionKey(missingLink, "content")
+            counterLookup = targetCollector.CounterLookupItems[key]
+        } 
 
         // Resolve missing (page based) counters
         if counterLookup  != nil  {
-            callParseAgain = false
-        }
-
+            callParseAgain := false
+    
             // Prevent endless loops
-            counterLookupId = id(counterLookup)
-            refreshMissingCounters = counterLookupId ! := range cachedLookups
+            refreshMissingCounters := ! cachedLookups[counterLookup]
             if refreshMissingCounters {
-                remakeState["contentLookups"].append(counterLookupId)
-                cachedLookups.append(counterLookupId)
+                remakeState.ContentLookups = append(remakeState.ContentLookups, counterLookup)
+                cachedLookups = append(cachedLookups, counterLookup)
                 counterLookup.pageMakerIndex = pageNumber - 1
             }
 
             // Step 1: page based back-references
             // Marked as pending by targetCollector.cacheTargetPageCounters
-            if counterLookup.pending {
-                if (pageCounterValues !=
-                        counterLookup.cachedPageCounterValues) {
-                        }
-                    counterLookup.cachedPageCounterValues = copy.deepcopy(
-                        pageCounterValues)
-                counterLookup.pending = false
+            if counterLookup.Pending {
+                if ! pageCounterValues.Equal(counterLookup.CachedPageCounterValues) {
+					counterLookup.CachedPageCounterValues =  pageCounterValues.Copy()
+				}
+                counterLookup.Pending = false
                 callParseAgain = true
             }
 
             // Step 2: local counters
             // If the box mixed-in page counters changed, update the content
             // && cache the new values.
-            missingCounters = counterLookup.missingCounters
-            if missingCounters {
-                if "pages" := range missingCounters {
-                    remakeState["pagesWanted"] = true
-                } if refreshMissingCounters && pageCounterValues != \
-                        counterLookup.cachedPageCounterValues {
-                        }
-                    counterLookup.cachedPageCounterValues = \
-                        copy.deepcopy(pageCounterValues)
+            missingCounters := counterLookup.MissingCounters
+            if len(missingCounters) != 0 {
+                if missingCounters.Has("pages") {
+                    remakeState.PagesWanted = true
+				} 
+				if refreshMissingCounters && !pageCounterValues.Equal(counterLookup.CachedPageCounterValues) {
+                    counterLookup.CachedPageCounterValues = pageCounterValues.Copy()
                     for counterName := range missingCounters {
-                        counterValue = pageCounterValues.get(
-                            counterName, None)
+                        counterValue := pageCounterValues[counterName]
                         if counterValue  != nil  {
                             callParseAgain = true
                             // no need to loop them all
                             break
                         }
-                    }
+					}
+				}
             }
 
             // Step 3: targeted counters
-            targetMissing = counterLookup.missingTargetCounters
-            for anchorName, missedCounters := range targetMissing.items() {
-                if "pages" ! := range missedCounters {
+            targetMissing := counterLookup.MissingTargetCounters
+            for anchorName, missedCounters := range targetMissing {
+                if !missedCounters.Has("pages") {
                     continue
-                } // Adjust "pagesWanted"
-                item = targetCollector.targetLookupItems.get(
-                    anchorName, None)
-                pageMakerIndex = item.pageMakerIndex
-                if pageMakerIndex >= 0 && anchorName := range cachedAnchors {
-                    pageMaker[pageMakerIndex][-1]["pagesWanted"] = true
-                } // "contentChanged" is triggered in
+				} 
+				// Adjust "pagesWanted"
+                item := targetCollector.TargetLookupItems[anchorName]
+                pageMakerIndex := item.PageMakerIndex
+                if pageMakerIndex >= 0 && cachedAnchors.Has(anchorName) {
+                    pageMaker[pageMakerIndex].RemakeState.PagesWanted = true
+				} 
+				// "contentChanged" is triggered in
                 // targets.cacheTargetPageCounters()
             }
 
             if callParseAgain {
-                remakeState["contentChanged"] = true
-                counterLookup.parseAgain(pageCounterValues)
-            }
+                remakeState.ContentChanged = true
+                counterLookup.ParseAgain(pageCounterValues)
+			}
+		}
+	}
 
     if pageType.blank {
         resumeAt = previousResumeAt
     }
 
-    return page, resumeAt, nextPage
+    return page, resumeAt, tmp.nextPage
+	}
 
+// Set style for page types and pseudo-types matching ``pageType``.
+func setPageTypeComputedStyles(pageType utils.PageElement, html tree.Html, styleFor tree.StyleFor) {
+    styleFor.AddPageDeclarations(pageType)
 
-// Set style for page types && pseudo-types matching ``pageType``.
-func setPageTypeComputedStyles(pageType, html, styleFor) {
-    styleFor.addPageDeclarations(pageType)
-} 
     // Apply style for page
-    styleFor.setComputedStyles(
-        pageType,
-        // @page inherits from the root element {
-        } // http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
-        root=html.etreeElement, parent=html.etreeElement,
-        baseUrl=html.baseUrl)
+    styleFor.SetComputedStyles( pageType,
+        // @page inherits from the root element :
+        // http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
+        html.Root, html.Root, "", html.BaseUrl, nil)
 
     // Apply style for page pseudo-elements (margin boxes)
-    for element, pseudoType := range styleFor.getCascadedStyles() {
-        if pseudoType && element == pageType {
-            styleFor.setComputedStyles(
-                element, pseudoType=pseudoType,
+    for key := range styleFor.CascadedStyles {
+        if key.PseudoType != "" && key.PageType == pageType {
+            styleFor.SetComputedStyles(
+                key.PageType, key.PageType,
                 // The pseudo-element inherits from the element.
-                root=html.etreeElement, parent=element,
-                baseUrl=html.baseUrl)
+                html.Root, pseudoType, html.BaseUrl, nil)
         }
     }
-
+}
 
 // Return one laid out page without margin boxes.
-//     Start with the initial values from ``context.pageMaker[index]``.
-//     The resulting values / initial values for the next page are stored in
-//     the ``pageMaker``.
-//     As the function"s name suggests: the plan is ! to make all pages
-//     repeatedly when a missing counter was resolved, but rather re-make the
-//     single page where the ``contentChanged`` happened.
-//     
-func remakePage(index, context, rootBox, html) {
-    pageMaker = context.pageMaker
-    (initialResumeAt, initialNextPage, rightPage, initialPageState,
-     remakeState) = pageMaker[index]
-} 
+// Start with the initial values from ``context.pageMaker[index]``.
+// The resulting values / initial values for the next page are stored in
+// the ``pageMaker``.
+// As the function"s name suggests: the plan is ! to make all pages
+// repeatedly when a missing counter was resolved, but rather re-make the
+// single page where the ``contentChanged`` happened.
+func remakePage(index int, context LayoutContext, rootBox Box, html tree.Html) {
+    pageMaker := context.pageMaker
+    tmp := pageMaker[index]
+	// initialResumeAt, initialNextPage, rightPage, initialPageState,remakeState := tmp
+
     // PageType for current page, values for pageMaker[index + 1].
     // Don"t modify actual pageMaker[index] values!
     // TODO: should we store (and reuse) pageType := range the pageMaker?
@@ -814,11 +841,13 @@ func remakePage(index, context, rootBox, html) {
         nextPageSide = "right" if directionLtr ^ breakVerso else "left"
     } else {
         nextPageSide = None
-    } blank = ((nextPageSide == "left" && rightPage) or
+	}
+	 blank = ((nextPageSide == "left" && rightPage) or
              (nextPageSide == "right" && ! rightPage))
     if blank {
         nextPageName = ""
-    } side = "right" if rightPage else "left"
+	} 
+	side = "right" if rightPage else "left"
     pageType = PageType(side, blank, first, index, name=nextPageName)
     setPageTypeComputedStyles(pageType, html, context.styleFor)
 
@@ -834,7 +863,8 @@ func remakePage(index, context, rootBox, html) {
     assert nextPage
     if blank {
         nextPage["page"] = initialNextPage["page"]
-    } rightPage = ! rightPage
+	} 
+	rightPage = ! rightPage
 
     // Check whether we need to append || update the next pageMaker item
     if index + 1 >= len(pageMaker) {
@@ -873,38 +903,35 @@ func remakePage(index, context, rootBox, html) {
         }
     }
 
-    return page, resumeAt
+	return page, resumeAt
+}
 
 
 // Return a list of laid out pages without margin boxes.
-//     Re-make pages only if necessary.
-//     
-func makeAllPages(context, rootBox, html, pages) {
-    i = 0
-    while true {
-        remakeState = context.pageMaker[i][-1]
-        if (len(pages) == 0 or
-                remakeState["contentChanged"] or
-                remakeState["pagesWanted"]) {
-                }
-            PROGRESSLOGGER.info("Step 5 - Creating layout - Page %i", i + 1)
+// Re-make pages only if necessary.
+func makeAllPages(context LayoutContext, rootBox Box, html tree.Html, pages []*bo.PageBox) []*bo.PageBox {
+	var out []*bo.PageBox
+	i := 0
+    for {
+		remakeState := context.pageMaker[i].RemakeState
+		var resumeAt *tree.SkipStack
+        if (len(pages) == 0 || remakeState.ContentChanged || remakeState.PagesWanted) {
+            logger.ProgressLogger.Printf("Step 5 - Creating layout - Page %d", i + 1)
             // Reset remakeState
-            remakeState["contentChanged"] = false
-            remakeState["pagesWanted"] = false
-            remakeState["anchors"] = []
-            remakeState["contentLookups"] = []
+            context.pageMaker[i].RemakeState = tree.RemakeState{}
             page, resumeAt = remakePage(i, context, rootBox, html)
-            yield page
-        else {
-            PROGRESSLOGGER.info(
-                "Step 5 - Creating layout - Page %i (up-to-date)", i + 1)
-            resumeAt = context.pageMaker[i + 1][0]
-            yield pages[i]
+            out = append(out, page)
+        } else {
+            logger.ProgressLogger.Printf("Step 5 - Creating layout - Page %d (up-to-date)", i + 1)
+            resumeAt = context.pageMaker[i + 1].NextResumeAt
+            out = append(out, pages[i])
         }
-    }
-} 
+
         i += 1
         if resumeAt  == nil  {
             // Throw away obsolete pages
             context.pageMaker = context.pageMaker[:i + 1]
-            return
+			return out
+		}
+	}
+}

@@ -140,7 +140,7 @@ type source struct {
 }
 
 // Check that only one input is not None, and return it with the
-// normalized ``baseUrl``.
+// normalized ``BaseUrl``.
 // checkCssMimeType=false
 // source may have nil content
 func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetcher,
