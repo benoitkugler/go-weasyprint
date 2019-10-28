@@ -32,3 +32,12 @@ func TestBlockLevel(t *testing.T) {
 	i = new(FlexBox)
 	fmt.Println(i)
 }
+
+func TestTable(t *testing.T) {
+	var i InstanceTableBox
+	i = new(TableBox)
+	fmt.Println(i)
+	i = new(InlineTableBox)
+	fmt.Println(i)
+
+}

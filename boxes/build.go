@@ -999,8 +999,8 @@ func tableBoxesChildren(box Box, children []Box) Box {
 				return (!child.Box().properTableChild || child.IsProperChild(box))
 			})
 	}
-	if TypeTableBox.IsInstance(box) {
-		return wrapTable(box, children)
+	if tableBox, ok := box.(InstanceTableBox); ok {
+		return wrapTable(tableBox, children)
 	} else {
 		box.Box().Children = children
 		return box
@@ -1015,7 +1015,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 // http://www.w3.org/TR/CSS21/tables.html#table-layout
 //
 // wrapTable will panic if box's children are not table boxes
-func wrapTable(box Box, children []Box) Box {
+func wrapTable(box InstanceTableBox, children []Box) Box {
 	// Group table children by type
 	var columns, rows, allCaptions []Box
 	byType := func(child Box) *[]Box {
@@ -1143,8 +1143,8 @@ func wrapTable(box Box, children []Box) Box {
 			gridHeight += len(groupChildren)
 		}
 	}
-	table := CopyWithChildren(box, rowGroups, true, true)
-	tableBox := table.Box()
+	table := CopyWithChildren(box, rowGroups, true, true).(InstanceTableBox)
+	tableBox := table.Table()
 	tableBox.ColumnGroups = columnGroups
 	if tableBox.Style.GetBorderCollapse() == "collapse" {
 		tableBox.collapsedBorderGrid = collapseTableBorders(table, gridWidth, gridHeight)
@@ -1192,7 +1192,7 @@ type BorderGrids struct {
 //     column group, column, row group, row, && cell boxes; && return
 //     a data structure for the resolved collapsed border grid.
 //
-func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
+func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) BorderGrids {
 	if gridWidth == 0 || gridHeight == 0 {
 		// Don’t bother with empty tables
 		return BorderGrids{}
@@ -1293,13 +1293,13 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 		gridY += rowspan
 	}
 
-	for _, columnGroup := range table.Box().ColumnGroups {
+	for _, columnGroup := range table.Table().ColumnGroups {
 		for _, column := range columnGroup.Box().Children {
 			setBorders(column, column.Box().GridX, 0, 1, gridHeight)
 		}
 	}
 
-	for _, columnGroup := range table.Box().ColumnGroups {
+	for _, columnGroup := range table.Table().ColumnGroups {
 		tf := columnGroup.Box()
 		setBorders(columnGroup, tf.GridX, 0, tf.span, gridHeight)
 	}
@@ -1361,7 +1361,7 @@ func collapseTableBorders(table Box, gridWidth, gridHeight int) BorderGrids {
 		}
 	}
 
-	for _, columnGroup := range table.Box().ColumnGroups {
+	for _, columnGroup := range table.Table().ColumnGroups {
 		removeBorders(columnGroup)
 		for _, column := range columnGroup.Box().Children {
 			removeBorders(column)

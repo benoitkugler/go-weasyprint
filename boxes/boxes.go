@@ -159,7 +159,6 @@ type BoxFields struct {
 	Colspan int
 	Rowspan int
 
-	ColumnGroups        []Box
 	columnPositions     []float32
 	GridX               int
 	collapsedBorderGrid BorderGrids
@@ -168,9 +167,6 @@ type BoxFields struct {
 	FlexBaseSize, TargetMainSize, Adjustment, HypotheticalMainSize pr.Float
 	FlexFactor, ScaledFlexShrinkFactor                             pr.Float
 	Frozen                                                         bool
-
-	// ResumeAt *SkipStack
-	// Index    int
 }
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
