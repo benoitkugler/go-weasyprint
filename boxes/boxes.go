@@ -231,11 +231,11 @@ func descendants(b Box) []Box {
 	return out
 }
 
-func (b BoxFields) GetWrappedTable() Box {
+func (b BoxFields) GetWrappedTable() InstanceTableBox {
 	if b.IsTableWrapper {
 		for _, child := range b.Children {
-			if _, ok := child.(instanceTableBox); ok {
-				return child
+			if asTable, ok := child.(InstanceTableBox); ok {
+				return asTable
 			}
 		}
 	}

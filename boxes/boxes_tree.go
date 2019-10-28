@@ -70,6 +70,8 @@ type InlineReplacedBox struct {
 type TableBox struct {
 	BoxFields
 	BlockLevelBox
+
+	columnWidths []pr.Float
 }
 
 type InlineTableBox struct {
@@ -271,6 +273,12 @@ func (u InlineReplacedBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.ReplacedBox.RemoveDecoration(b, start, end)
 }
 
+type InstanceTableBox interface {
+	instanceTableBox
+	Box
+	ColumnWidths() *[]pr.Float
+}
+
 func NewTableBox(elementTag string, style pr.Properties, children []Box) TableBox {
 	out := TableBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.tabularContainer = true
@@ -295,6 +303,10 @@ func (b *TableBox) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 func (b *TableBox) PageValues() (pr.Page, pr.Page) {
 	s := b.Box().Style
 	return s.GetPage(), s.GetPage()
+}
+
+func (b *TableBox) ColumnWidths() *[]pr.Float {
+	return &b.columnWidths
 }
 
 func NewInlineTableBox(elementTag string, style pr.Properties, children []Box) InlineTableBox {
