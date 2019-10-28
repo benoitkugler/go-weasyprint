@@ -44,6 +44,7 @@ type LayoutContext struct {
 	getImageFromUri     bo.Gifu
 	fontConfig          *fonts.FontConfiguration
 	targetCollector     *tree.TargetCollector
+	pageMaker           []tree.PageMaker
 	excludedShapes      []shape
 	excludedShapesLists [][]shape
 	stringSet           map[string]map[string][]string
@@ -52,7 +53,7 @@ type LayoutContext struct {
 	forcedBreak         bool
 	strutLayouts        map[string]int
 	fontFeatures        map[string]int
-	tables              map[*BoxFields]map[bool]tableContentWidths
+	tables              map[*bo.BoxFields]map[bool]tableContentWidths
 	dictionaries        map[string]int
 }
 

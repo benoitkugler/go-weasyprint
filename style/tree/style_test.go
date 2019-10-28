@@ -135,7 +135,7 @@ func TestFindStylesheets(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := fakeHTML{HTML: *html_}
-	sheets := findStylesheets(html.root, "print", utils.DefaultUrlFetcher, html.baseUrl, nil, nil)
+	sheets := findStylesheets(html.Root, "print", utils.DefaultUrlFetcher, html.BaseUrl, nil, nil)
 
 	if len(sheets) != 2 {
 		t.Errorf("expected 2 sheets, got %d", len(sheets))
@@ -255,7 +255,7 @@ func TestAnnotateDocument(t *testing.T) {
 
 	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil)
 	// Element objects behave as lists of their children
-	body := document.root.NodeChildren(true)[1]
+	body := document.Root.NodeChildren(true)[1]
 	children := body.NodeChildren(true)
 	h1_, p_, ul_, div_ := children[0], children[1], children[2], children[3]
 	li0_ := ul_.NodeChildren(true)[0]
@@ -325,7 +325,7 @@ func TestAnnotateDocument(t *testing.T) {
 	assertProp(t, a, "border_top_color", pr.CurrentColor)
 
 	assertProp(t, div, "font_size", pr.FToV(40))                                    // 2 * 20px)
-	assertProp(t, span1, "width", pr.Dimension{Value: 160, Unit: pr.Px}.ToValue())  // 10 * 16px (root default is 16px))
+	assertProp(t, span1, "width", pr.Dimension{Value: 160, Unit: pr.Px}.ToValue())  // 10 * 16px (Root default is 16px))
 	assertProp(t, span1, "height", pr.Dimension{Value: 400, Unit: pr.Px}.ToValue()) // 10 * (2 * 20px))
 	assertProp(t, span2, "font_size", pr.FToV(32))
 
@@ -596,7 +596,7 @@ func TestFontSize(t *testing.T) {
 			t.Fatal(err)
 		}
 		styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil)
-		body := document.root.NodeChildren(true)[1]
+		body := document.Root.NodeChildren(true)[1]
 		p := body.NodeChildren(true)[0]
 		span := p.NodeChildren(true)[1]
 		if got := styleFor.Get(p, "").GetFontSize(); !isClose(got.Value, te.parentSize) {
@@ -735,7 +735,7 @@ func TestFontSize(t *testing.T) {
 //	// ("1.5ex", 12),
 //))
 //	func TestUnits(value, width):
-//	document = FakeHTML(baseUrl=BASEURL, string="""
+//	document = FakeHTML(BaseUrl=BASEURL, string="""
 //	<style>@font-face { src: url(AHEM___.TTF); font-family: ahem }</style>
 //	<body style="font: 10px ahem"><p style="margin-left: %s"></p>""" % value)
 //	page, = document.render().pages

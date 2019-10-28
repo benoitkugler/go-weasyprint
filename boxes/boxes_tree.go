@@ -104,12 +104,14 @@ type TableCaptionBox struct {
 
 type PageBox struct {
 	BoxFields
-	pageType utils.PageElement
+	PageType   utils.PageElement
+	FixedBoxes []Box
 }
 
 type MarginBox struct {
 	BoxFields
-	atKeyword string
+	atKeyword   string
+	IsGenerated bool
 }
 
 type FlexBox struct {
@@ -166,14 +168,14 @@ func (InlineLevelBox) removeDecoration(box *BoxFields, start, end bool) {
 		if ltr {
 			side = "left"
 		}
-		box.resetSpacing(side)
+		box.ResetSpacing(side)
 	}
 	if end {
 		side := "left"
 		if ltr {
 			side = "right"
 		}
-		box.resetSpacing(side)
+		box.ResetSpacing(side)
 	}
 }
 
@@ -381,11 +383,11 @@ func NewTableCaptionBox(elementTag string, style pr.Properties, children []Box) 
 
 func NewPageBox(pageType utils.PageElement, style pr.Properties) PageBox {
 	fields := newBoxFields("", style, nil)
-	return PageBox{BoxFields: fields, pageType: pageType}
+	return PageBox{BoxFields: fields, PageType: pageType}
 }
 
 func (b *PageBox) String() string {
-	return fmt.Sprintf("<PageBox %v>", b.pageType)
+	return fmt.Sprintf("<PageBox %v>", b.PageType)
 }
 
 func NewMarginBox(atKeyword string, style pr.Properties) MarginBox {

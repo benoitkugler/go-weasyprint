@@ -2,6 +2,7 @@ package layout
 
 import (
 	"fmt"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
 	"math"
 
@@ -10,16 +11,20 @@ import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
+// FIXME: must implement Box
 // AbsolutePlaceholder is left where an absolutely-positioned box was taken out of the flow.
 type AbsolutePlaceholder struct {
 	Box
 	layoutDone bool
 	index      int
-	resumeAt   *bo.SkipStack
+	resumeAt   *tree.SkipStack
+	// equals false for raw Box
+	// allow to merge Box and AbsolutePlaceholder
+	isProperAbsolutePlaceholder bool
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
-	out := AbsolutePlaceholder{Box: box, layoutDone: false}
+	out := AbsolutePlaceholder{Box: box, layoutDone: false, isProperAbsolutePlaceholder: true}
 	return &out
 }
 
@@ -274,7 +279,7 @@ func absoluteFlex(context *LayoutContext, box_ Box, containingBlock block, fixed
 }
 
 // Set the width of absolute positioned ``box``.
-func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, containingBlock Box, fixedBoxes []Box) {
+func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, containingBlock Box, fixedBoxes []*AbsolutePlaceholder) {
 	if placeholder.layoutDone {
 		log.Fatalf("placeholder can't have its layout done.")
 	}
@@ -282,7 +287,7 @@ func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, co
 	placeholder.setLaidOutBox(absoluteBoxLayout(context, box, containingBlock, fixedBoxes))
 }
 
-func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes []Box) Box {
+func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes []*AbsolutePlaceholder) Box {
 	// TODO: handle inline boxes (point 10.1.4.1)
 	// http://www.w3.org/TR/CSS2/visudet.html#containing-block-details
 	var containingBlock block

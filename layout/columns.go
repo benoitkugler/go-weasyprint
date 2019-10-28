@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -21,7 +22,7 @@ type boxOrList struct {
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Float, skipStack *bo.SkipStack, containingBlock Box,
+func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock Box,
 	pageIsEmpty bool, absoluteBoxes []*AbsolutePlaceholder, fixedBoxes []Box, adjoiningMargins []pr.Float) blockLayout {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
@@ -296,7 +297,7 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 
 	if len(box.Children) != 0 && len(newChildren) == 0 {
 		// The box has children but none can be drawn, let's skip the whole box
-		return blockLayout{resumeAt: &bo.SkipStack{Skip: 0}, nextPage: page{break_: "any", page: nil}}
+		return blockLayout{resumeAt: &tree.SkipStack{Skip: 0}, nextPage: page{break_: "any", page: nil}}
 	}
 
 	// Set the height of box and the columns

@@ -23,7 +23,7 @@ type lineBoxe struct {
 	// laid-out LineBox with as much content as possible that
 	// fits in the available width.
 	line     *AbsolutePlaceholder
-	resumeAt *bo.SkipStack
+	resumeAt *tree.SkipStack
 }
 
 type lineBoxeIterator struct {
@@ -46,7 +46,7 @@ func (l *lineBoxeIterator) Next() lineBoxe {
 // skipStack is ``None`` to start at the beginning of ``linebox``,
 // or a ``resumeAt`` value to continue just after an
 // already laid-out line.
-func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack, containingBlock block,
+func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack, containingBlock Box,
 	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) lineBoxeIterator {
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
@@ -76,8 +76,8 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 	}
 }
 
-func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *bo.SkipStack,
-	containingBlock block, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
+func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack,
+	containingBlock Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	firstLetterStyle pr.Properties) lineBoxe {
 
 	skipStack, cont := skipFirstWhitespace(linebox, skipStack)
@@ -119,7 +119,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 		positionX += linebox.TextIndent
 
 		var (
-			resumeAt           *bo.SkipStack
+			resumeAt           *tree.SkipStack
 			preservedLineBreak bool
 			floatWidths        widths
 		)
@@ -204,10 +204,10 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 // Return the ``skipStack`` to start just after the remove spaces
 //     at the beginning of the line.
 //     See http://www.w3.org/TR/CSS21/text.html#white-space-model
-func skipFirstWhitespace(box Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, continue_ bool) {
+func skipFirstWhitespace(box Box, skipStack *tree.SkipStack) (ss *tree.SkipStack, continue_ bool) {
 	var (
 		index         int
-		nextSkipStack *bo.SkipStack
+		nextSkipStack *tree.SkipStack
 	)
 	if skipStack != nil {
 		index, nextSkipStack = skipStack.Skip, skipStack.Stack
@@ -230,7 +230,7 @@ func skipFirstWhitespace(box Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, co
 			}
 		}
 		if index != 0 {
-			return &bo.SkipStack{Skip: index}, false
+			return &tree.SkipStack{Skip: index}, false
 		}
 		return nil, false
 	}
@@ -249,7 +249,7 @@ func skipFirstWhitespace(box Box, skipStack *bo.SkipStack) (ss *bo.SkipStack, co
 			result = skipFirstWhitespace(children[index], nil)
 		}
 		if index != 0 || result != nil {
-			return &bo.SkipStack{Skip: index, Stack: result}, false
+			return &tree.SkipStack{Skip: index, Stack: result}, false
 		}
 		return nil, false
 	}
@@ -309,7 +309,7 @@ func removeLastWhitespace(context LayoutContext, box Box) {
 }
 
 // Create a box for the ::first-letter selector.
-func firstLetterToBox(box Box, skipStack *bo.SkipStack, firstLetterStyle pr.Properties) *bo.SkipStack {
+func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.Properties) *tree.SkipStack {
 	if len(firstLetterStyle) != 0 && len(box.Box().Children) != 0 {
 		// Some properties must be ignored :in first-letter boxes.
 		// https://drafts.csswg.org/selectors-3/#application-in-css
@@ -367,7 +367,7 @@ func firstLetterToBox(box Box, skipStack *bo.SkipStack, firstLetterStyle pr.Prop
 					textBox.Children = append([]Box{&letterBox}, textBox.Children...)
 				}
 				if skipStack != nil && childSkipStack != nil {
-					skipStack = bo.SkipStack{Skip: skipStack.Skip, Stack: &bo.SkipStack{
+					skipStack = tree.SkipStack{Skip: skipStack.Skip, Stack: &tree.SkipStack{
 						Skip:  childSkipStack.Skip + 1,
 						Stack: childSkipStack,
 					}}
@@ -382,7 +382,7 @@ func firstLetterToBox(box Box, skipStack *bo.SkipStack, firstLetterStyle pr.Prop
 		}
 		childSkipStack = firstLetterToBox(child, childSkipStack, firstLetterStyle)
 		if skipStack != nil {
-			skipStack = &bo.SkipStack{Skip: skipStack.Skip, Stack: childSkipStack}
+			skipStack = &tree.SkipStack{Skip: skipStack.Skip, Stack: childSkipStack}
 		}
 	}
 	return skipStack
@@ -573,7 +573,7 @@ func minMaxAutoReplaced(box *bo.BoxFields) {
 }
 
 // Compute the width and the height of the atomic ``box``.
-func atomicBox(context LayoutContext, box Box, positionX float32, skipStack *bo.SkipStack, containingBlock block,
+func atomicBox(context LayoutContext, box Box, positionX float32, skipStack *tree.SkipStack, containingBlock block,
 	absoluteBoxes, fixedBoxes []Box) Box {
 
 	if _, ok := box.(bo.InstanceReplacedBox); ok {
@@ -592,7 +592,7 @@ func atomicBox(context LayoutContext, box Box, positionX float32, skipStack *bo.
 	return box
 }
 
-func inlineBlockBoxLayout(context LayoutContext, box_ Box, positionX float32, skipStack *bo.SkipStack,
+func inlineBlockBoxLayout(context LayoutContext, box_ Box, positionX float32, skipStack *tree.SkipStack,
 	containingBlock block, absoluteBoxes, fixedBoxes []Box) Box {
 
 	resolvePercentages(box_, containingBlock, "")
@@ -661,7 +661,7 @@ type widths struct {
 
 type splitedInline struct {
 	newBox                  Box
-	resumeAt                *bo.SkipStack
+	resumeAt                *tree.SkipStack
 	preservedLineBreak      bool
 	firstLetter, lastLetter string
 	floatWidths             widths
@@ -677,7 +677,7 @@ type splitedInline struct {
 // ``newBox`` is non-empty (unless the box is empty) and as big as possible
 // while being narrower than ``availableWidth``, if possible (may overflow
 // is no split is possible.)
-func splitInlineLevel(context LayoutContext, box Box, positionX pr.Float, maxX, skipStack *bo.SkipStack,
+func splitInlineLevel(context LayoutContext, box Box, positionX pr.Float, maxX, skipStack *tree.SkipStack,
 	containingBlock block, absoluteBoxes, fixedBoxes,
 	linePlaceholders, waitingFloats, lineChildren []Box) splitedInline {
 
@@ -696,9 +696,9 @@ func splitInlineLevel(context LayoutContext, box Box, positionX pr.Float, maxX, 
 
 		newBox, skip, preservedLineBreak := splitTextBox(context, textBox, maxX-positionX, skip)
 
-		var resumeAt *bo.SkipStack
+		var resumeAt *tree.SkipStack
 		if skip != nil {
-			resumeAt = &bo.SkipStack{Skip: skip}
+			resumeAt = &tree.SkipStack{Skip: skip}
 		}
 		if text := []rune(textBox.Text); len(text) != 0 {
 			firstLetter = text[0]
@@ -757,7 +757,7 @@ type indexedPlaceholder struct {
 }
 
 // Same behavior as splitInlineLevel.
-func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, skipStack *bo.SkipStack,
+func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, skipStack *tree.SkipStack,
 	containingBlock block, absoluteBoxes, fixedBoxes,
 	linePlaceholders []*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
 
@@ -974,7 +974,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 							breakFound = childResumeAt != nil
 							if childResumeAt == nil {
 								// PangoLayout decided not to break the child
-								childResumeAt = &bo.SkipStack{Skip: 0}
+								childResumeAt = &tree.SkipStack{Skip: 0}
 							}
 							// TODO: use this when Pango is always 1.40.13+
 							// breakFound = true
@@ -998,7 +998,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 							// resumeAt + initialSkipStack
 							// but adding skip stacks is a bit complicated
 							currentSkipStack := initialSkipStack
-							currentResumeAt := bo.SkipStack{Skip: childIndex, Stack: childResumeAt}
+							currentResumeAt := tree.SkipStack{Skip: childIndex, Stack: childResumeAt}
 							var stack []int
 							for currentSkipStack != nil && currentResumeAt != nil {
 								skip, currentSkipStack = currentSkipStack.Skip, currentSkipStack.Stack
@@ -1011,7 +1011,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 							resumeAt = currentResumeAt
 							for len(stack) != 0 {
 								index, stack = stack[len(stack)-1], stack[:len(stack)-1]
-								resumeAt = &bo.SkipStack{Skip: index, Stack: resumeAt}
+								resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
 							}
 							break
 						}
@@ -1023,7 +1023,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 				if l := len(children); l != 0 {
 					// Too wide, can't break waiting children and the inline is
 					// non-empty: put child entirely on the next line.
-					resumeAt = &bo.SkipStack{Skip: children[l-1].index + 1}
+					resumeAt = &tree.SkipStack{Skip: children[l-1].index + 1}
 					childWaitingFloats = nil
 					break
 				}
@@ -1035,7 +1035,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		waitingFloats = append(waitingFloats, childWaitingFloats...)
 		if resumeAt != nil {
 			children = append(children, waitingChildren...)
-			resumeAt = &bo.SkipStack{Skip: index, Stack: resumeAt}
+			resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
 			hasBrokenLoop = true
 			break
 		}
@@ -1100,7 +1100,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 
 	if resumeAt != nil {
 		if resumeAt.Skip < floatResumeAt {
-			resumeAt = &bo.SkipStack{Skip: floatResumeAt}
+			resumeAt = &tree.SkipStack{Skip: floatResumeAt}
 		}
 	}
 

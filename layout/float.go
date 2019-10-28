@@ -23,7 +23,7 @@ func floatWidth_(box Box, context LayoutContext, containingBlock block) (bool, f
 
 // Set the width and position of floating ``box``.
 func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes , 
-	fixedBoxes *[]AbsolutePlaceholder) AbsolutePlaceholder {
+	fixedBoxes *[]*AbsolutePlaceholder) Box {
 		containingBlock := containingBlock_.Box()
     cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
     resolvePercentages(box, bo.MaybePoint{cbWidth, cbHeight}, "")
@@ -71,11 +71,8 @@ func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBox
             nil, false, absoluteBoxes, fixedBoxes, nil).newBox
         context.finishBlockFormattingContext(box_)
     } else if bo.IsFlexContainerBox(box_) {
-        box = flexLayout(
-            context, box, pr.Inf,
-            nil, containingBlock=containingBlock,
-            pageIsEmpty=false, absoluteBoxes=absoluteBoxes,
-            fixedBoxes=fixedBoxes).newBox
+        box = flexLayout(context, box_, pr.Inf, nil, containingBlock_,
+            false, absoluteBoxes, fixedBoxes).newBox
     } else {
         assert isinstance(box, boxes.BlockReplacedBox)
     }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"path"
 	"sort"
 	"strings"
@@ -177,4 +178,10 @@ func TestSortOrder(t *testing.T) {
 		return u[i] < u[j]
 	})
 	fmt.Println(u)
+}
+
+func TestInf(t *testing.T) {
+	u := float32(math.Inf(1))
+	fmt.Println(u, -u, -u < 0)
+
 }

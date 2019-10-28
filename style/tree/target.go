@@ -10,13 +10,30 @@ import (
 // Handle target-counter, target-counters && target-text.
 //
 // The TargetCollector is a structure providing required targets"
-// counterValues && stuff needed to build pending targets later,
+// counterValues && stuff needed to build Pending targets later,
 // when the layout of all targetted anchors has been done.
 //
 // :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
 
-type CounterValues map[string][]int
+type RemakeState struct {
+	Anchors                     []string
+	ContentLookups              []*CounterLookupItem
+	ContentChanged, PagesWanted bool
+}
+
+type SkipStack struct {
+	Skip  int
+	Stack *SkipStack
+}
+
+type PageMaker struct {
+	InitialResumeAt  *SkipStack
+	InitialNextPage  int
+	RightPage        int
+	InitialPageState int
+	RemakeState      RemakeState
+}
 
 type Box interface {
 	CachedCounterValues() CounterValues
@@ -24,6 +41,8 @@ type Box interface {
 	MissingLink() Box
 	SetMissingLink(b Box)
 }
+
+type CounterValues map[string][]int
 
 // Copy performs a deep copy of c
 func (c CounterValues) Copy() CounterValues {
@@ -70,11 +89,15 @@ type functionKey struct {
 	cssToken  string
 }
 
+func NewFunctionKey(sourceBox Box, cssToken string) functionKey {
+	return functionKey{cssToken: cssToken, sourceBox: sourceBox}
+}
+
 type funcStore = map[functionKey]ParseFunc
 
 type ParseFunc = func(CounterValues)
 
-// Item controlling pending targets and page based target counters.
+// Item controlling Pending targets and page based target counters.
 //
 // Collected in the TargetCollector"s ``items``.
 type TargetLookupItem struct {
@@ -85,12 +108,12 @@ type TargetLookupItem struct {
 	// Needed for target-text via TEXTCONTENTEXTRACTORS.
 	TargetBox Box
 
-	// Functions that have to been called to check pending targets.
+	// Functions that have to been called to check Pending targets.
 	// Keys are (sourceBox, cssToken).
 	parseAgainFunctions funcStore
 
 	// Anchor position during pagination (pageNumber - 1)
-	pageMakerIndex int
+	PageMakerIndex int
 
 	// TargetBox's pageCounters during pagination
 	CachedPageCounterValues CounterValues
@@ -98,7 +121,7 @@ type TargetLookupItem struct {
 
 func NewTargetLookupItem(state string) *TargetLookupItem {
 	if state == "" {
-		state = "pending"
+		state = "Pending"
 	}
 	return &TargetLookupItem{state: state, parseAgainFunctions: funcStore{}, CachedPageCounterValues: CounterValues{}}
 }
@@ -114,32 +137,32 @@ type optionnalInt struct {
 
 // Item controlling page based counters.
 //
-// Collected in the TargetCollector's ``counterLookupItems``.
-type counterLookupItem struct {
-	// Function that have to been called to check pending counter.
-	parseAgain ParseFunc
+// Collected in the TargetCollector's ``CounterLookupItems``.
+type CounterLookupItem struct {
+	// Function that have to been called to check Pending counter.
+	ParseAgain ParseFunc
 
 	// Missing counters and target counters
-	missingCounters       pr.Set
-	missingTargetCounters map[string]pr.Set
+	MissingCounters       pr.Set
+	MissingTargetCounters map[string]pr.Set
 
 	// Box position during pagination (pageNumber - 1)
 	pageMakerIndex optionnalInt
 
 	// Marker for remakePage
-	pending bool
+	Pending bool
 
 	// Targeting box's pageCounters during pagination
-	cachedPageCounterValues CounterValues
+	CachedPageCounterValues CounterValues
 }
 
-func NewCounterLookupItem(parseAgain ParseFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) *counterLookupItem {
-	return &counterLookupItem{
-		parseAgain:              parseAgain,
-		missingCounters:         missingCounters,
-		missingTargetCounters:   missingTargetCounters,
+func NewCounterLookupItem(parseAgain ParseFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) *CounterLookupItem {
+	return &CounterLookupItem{
+		ParseAgain:              parseAgain,
+		MissingCounters:         missingCounters,
+		MissingTargetCounters:   missingTargetCounters,
 		pageMakerIndex:          optionnalInt{none: true},
-		cachedPageCounterValues: CounterValues{},
+		CachedPageCounterValues: CounterValues{},
 	}
 }
 
@@ -147,7 +170,7 @@ func NewCounterLookupItem(parseAgain ParseFunc, missingCounters pr.Set, missingT
 type TargetCollector struct {
 	// Lookup items for targets and page counters
 	TargetLookupItems  map[string]*TargetLookupItem
-	counterLookupItems map[functionKey]*counterLookupItem
+	CounterLookupItems map[functionKey]*CounterLookupItem
 
 	// When collecting is true, computeContentList() collects missing
 	// page counters in CounterLookupItems. Otherwise, it mixes in the
@@ -157,7 +180,7 @@ type TargetCollector struct {
 
 	// hadPendingTargets is set to true when a target is needed but has
 	// not been seen yet. CheckPendingTargets then uses this information
-	// to call the needed parseAgain functions.
+	// to call the needed ParseAgain functions.
 	hadPendingTargets bool
 
 	// List of anchors that have already been seen during parsing.
@@ -167,7 +190,7 @@ type TargetCollector struct {
 func NewTargetCollector() TargetCollector {
 	return TargetCollector{
 		TargetLookupItems:  map[string]*TargetLookupItem{},
-		counterLookupItems: map[functionKey]*counterLookupItem{},
+		CounterLookupItems: map[functionKey]*CounterLookupItem{},
 		collecting:         true,
 	}
 }
@@ -213,7 +236,7 @@ func (tc TargetCollector) collectComputedTarget(anchorToken pr.ContentProperty) 
 // Get a TargetLookupItem corresponding to ``anchorToken``.
 //
 // If it is already filled by a previous anchor-Element, the status is
-// "up-to-date". Otherwise, it is "pending", we must parse the whole
+// "up-to-date". Otherwise, it is "Pending", we must parse the whole
 // tree again.
 func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBox Box, cssToken string, parseAgain ParseFunc) *TargetLookupItem {
 	anchorName := AnchorNameFromToken(anchorToken)
@@ -222,7 +245,7 @@ func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBo
 		item = NewTargetLookupItem("undefined")
 	}
 
-	if item.state == "pending" {
+	if item.state == "Pending" {
 		if tc.existingAnchors.Has(anchorName) {
 			tc.hadPendingTargets = true
 			key := functionKey{sourceBox: sourceBox, cssToken: cssToken}
@@ -243,11 +266,11 @@ func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBo
 
 // Store a target called ``anchorName``.
 //
-// If there is a pending TargetLookupItem, it is updated. Only previously
+// If there is a Pending TargetLookupItem, it is updated. Only previously
 // collected anchors are stored.
 func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues CounterValues, targetBox Box) {
 	item := tc.TargetLookupItems[anchorName]
-	if item != nil && item.state == "pending" {
+	if item != nil && item.state == "Pending" {
 		item.state = "up-to-date"
 		item.TargetBox = targetBox
 		// Store the counterValues in the TargetBox like
@@ -261,7 +284,7 @@ func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues Co
 
 // Collect missing (probably page-based) counters during formatting.
 //
-// The ``missingCounters`` are re-used during pagination.
+// The ``MissingCounters`` are re-used during pagination.
 //
 // The ``missingLink`` attribute added to the parentBox is required to
 // connect the paginated boxes to their originating ``parentBox``.
@@ -283,14 +306,14 @@ func (tc TargetCollector) CollectMissingCounters(parentBox Box, cssToken string,
 			parseAgainFunction, missingCounters,
 			missingTargetCounters)
 		key := functionKey{sourceBox: parentBox, cssToken: cssToken}
-		if _, in := tc.counterLookupItems[key]; !in {
-			tc.counterLookupItems[key] = counterLookupItem
+		if _, in := tc.CounterLookupItems[key]; !in {
+			tc.CounterLookupItems[key] = counterLookupItem
 		}
 
 	}
 }
 
-// Check pending targets if needed.
+// Check Pending targets if needed.
 func (tc *TargetCollector) CheckPendingTargets() {
 	if tc.hadPendingTargets {
 		for _, item := range tc.TargetLookupItems {
@@ -304,11 +327,11 @@ func (tc *TargetCollector) CheckPendingTargets() {
 	tc.collecting = false
 }
 
-// Store target's current ``pageMakerIndex`` and page counter values.
+// Store target's current ``PageMakerIndex`` and page counter values.
 //
 // Eventually update associated targeting boxes.
-func (tc TargetCollector) cacheTargetPageCounters(anchorName string, pageCounterValues CounterValues, pageMakerIndex int,
-	pageMaker [][]map[string]bool) {
+func (tc TargetCollector) CacheTargetPageCounters(anchorName string, pageCounterValues CounterValues, pageMakerIndex int,
+	pageMaker []PageMaker) {
 
 	// Only store page counters when paginating
 	if tc.collecting {
@@ -317,7 +340,7 @@ func (tc TargetCollector) cacheTargetPageCounters(anchorName string, pageCounter
 
 	item := tc.TargetLookupItems[anchorName]
 	if item != nil && item.state == "up-to-date" {
-		item.pageMakerIndex = pageMakerIndex
+		item.PageMakerIndex = pageMakerIndex
 		if !item.CachedPageCounterValues.Equal(pageCounterValues) {
 			item.CachedPageCounterValues = pageCounterValues.Copy()
 		}
@@ -325,7 +348,7 @@ func (tc TargetCollector) cacheTargetPageCounters(anchorName string, pageCounter
 
 	// Spread the news: update boxes affected by a change in the
 	// anchor"s page counter values.
-	for key, item := range tc.counterLookupItems {
+	for key, item := range tc.CounterLookupItems {
 		// (_, cssToken) = key
 		// Only update items that need counters in their content
 		if key.cssToken != "content" {
@@ -333,14 +356,14 @@ func (tc TargetCollector) cacheTargetPageCounters(anchorName string, pageCounter
 		}
 
 		// Don"t update if item has no missing target counter
-		missingCounters := item.missingTargetCounters[anchorName]
+		missingCounters := item.MissingTargetCounters[anchorName]
 		if missingCounters == nil {
 			continue
 		}
 
 		// Pending marker for remakePage
 		if item.pageMakerIndex.none || item.pageMakerIndex.int >= len(pageMaker) {
-			item.pending = true
+			item.Pending = true
 			continue
 		}
 
@@ -349,10 +372,8 @@ func (tc TargetCollector) cacheTargetPageCounters(anchorName string, pageCounter
 		// brake.
 		for counterName := range missingCounters {
 			if _, in := pageCounterValues[counterName]; in {
-				l := pageMaker[item.pageMakerIndex.int]
-				remakeState := l[len(l)-1]
-				remakeState["content_changed"] = true
-				item.parseAgain(item.cachedPageCounterValues)
+				pageMaker[item.pageMakerIndex.int].RemakeState.ContentChanged = true
+				item.ParseAgain(item.CachedPageCounterValues)
 				break
 			}
 		}

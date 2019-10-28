@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
 	"math"
 	"sort"
@@ -107,11 +108,11 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 	}
 }
 
-func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *bo.SkipStack, containingBlock Box,
+func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock Box,
 	pageIsEmpty bool, absoluteBoxes []*AbsolutePlaceholder, fixedBoxes []Box) blockLayout {
 
 	context.createBlockFormattingContext()
-	var resumeAt *bo.SkipStack
+	var resumeAt *tree.SkipStack
 	box := box_.Box()
 	// Step 1 is done in formattingStructure.Boxes
 	// Step 2
@@ -384,7 +385,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				childHeight := child.HypotheticalMainSize + child.BorderTopWidth.V() + child.BorderBottomWidth.V() +
 					child.PaddingTop + child.PaddingBottom
 				if getAttr(box, axis, "").Auto() && childHeight+box.Height.V() > availableMainSpace {
-					resumeAt = &bo.SkipStack{Skip: i}
+					resumeAt = &tree.SkipStack{Skip: i}
 					children = children[:i+1]
 					break
 				}
@@ -1113,7 +1114,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					pageIsEmpty, absoluteBoxes, fixedBoxes, nil)[:2]
 				if newChild == nil {
 					if resumeAt != nil && resumeAt.Skip != 0 {
-						resumeAt = &bo.SkipStack{Skip: resumeAt.Skip + i - 1}
+						resumeAt = &tree.SkipStack{Skip: resumeAt.Skip + i - 1}
 					}
 				} else {
 					box.Children = append(children, newChild)
@@ -1125,7 +1126,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 						if resumeAt != nil {
 							firstLevelSkip += resumeAt.Skip
 						}
-						resumeAt = &bo.SkipStack{Skip: firstLevelSkip + i, Stack: childResumeAt}
+						resumeAt = &tree.SkipStack{Skip: firstLevelSkip + i, Stack: childResumeAt}
 					}
 				}
 				if resumeAt != nil {

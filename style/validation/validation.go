@@ -1230,11 +1230,11 @@ func counterIncrement(tokens []Token, _ string) (pr.CssProperty, error) {
 // //@validator()
 // ``counter-reset`` property validation.
 func counterReset(tokens []Token, _ string) (pr.CssProperty, error) {
-	iss, err := counter(tokens, 0)
-	if err != nil || iss == nil {
+	ci, err := counter(tokens, 0)
+	if err != nil || ci == nil {
 		return nil, err
 	}
-	return pr.IntStrings(iss), err
+	return pr.SIntStrings{Values: ci}, err
 }
 
 // ``counter-increment`` && ``counter-reset`` properties validation.
