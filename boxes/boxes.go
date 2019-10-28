@@ -223,10 +223,10 @@ func deepcopy(b Box) Box {
 	return new
 }
 
-func descendants(b Box) []Box {
+func Descendants(b Box) []Box {
 	out := []Box{b}
 	for _, child := range b.Box().Children {
-		out = append(out, descendants(child)...)
+		out = append(out, Descendants(child)...)
 	}
 	return out
 }

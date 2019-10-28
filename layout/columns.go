@@ -106,9 +106,9 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 		columnsAndBlocks = append(columnsAndBlocks, boxOrList{list: columnChildren})
 	}
 
-	var nextPage page
+	var nextPage tree.PageBreak
 	if len(box.Children) == 0 {
-		nextPage = page{break_: "any", page: nil}
+		nextPage = tree.PageBreak{Break: "any", Page: nil}
 		skipStack = nil
 	}
 
@@ -297,7 +297,7 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 
 	if len(box.Children) != 0 && len(newChildren) == 0 {
 		// The box has children but none can be drawn, let's skip the whole box
-		return blockLayout{resumeAt: &tree.SkipStack{Skip: 0}, nextPage: page{break_: "any", page: nil}}
+		return blockLayout{resumeAt: &tree.SkipStack{Skip: 0}, nextPage: tree.PageBreak{Break: "any", Page: nil}}
 	}
 
 	// Set the height of box and the columns

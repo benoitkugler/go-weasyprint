@@ -190,7 +190,7 @@ var InitialValues = Properties{
 	"text_overflow": String("clip"),
 
 	// Proprietary
-	"anchor": NamedString{}, // computed value of "none"
+	"anchor": String(""),    // computed value of "none"
 	"link":   NamedString{}, // computed value of "none"
 	"lang":   NamedString{}, // computed value of "none"
 

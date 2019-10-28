@@ -39,6 +39,18 @@ func (s Set) Copy() Set {
 
 func (s Set) IsNone() bool { return s == nil }
 
+func (s Set) Equal(other Set) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	for i := range s {
+		if _, in := other[i]; !in {
+			return false
+		}
+	}
+	return true
+}
+
 func NewSet(values ...string) Set {
 	s := make(Set, len(values))
 	for _, v := range values {

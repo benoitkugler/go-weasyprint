@@ -381,18 +381,20 @@ func NewTableCaptionBox(elementTag string, style pr.Properties, children []Box) 
 	return out
 }
 
-func NewPageBox(pageType utils.PageElement, style pr.Properties) PageBox {
+func NewPageBox(pageType utils.PageElement, style pr.Properties) *PageBox {
 	fields := newBoxFields("", style, nil)
-	return PageBox{BoxFields: fields, PageType: pageType}
+	out := PageBox{BoxFields: fields, PageType: pageType}
+	return &out
 }
 
 func (b *PageBox) String() string {
 	return fmt.Sprintf("<PageBox %v>", b.PageType)
 }
 
-func NewMarginBox(atKeyword string, style pr.Properties) MarginBox {
+func NewMarginBox(atKeyword string, style pr.Properties) *MarginBox {
 	fields := newBoxFields("", style, nil)
-	return MarginBox{BoxFields: fields, atKeyword: atKeyword}
+	out := MarginBox{BoxFields: fields, atKeyword: atKeyword}
+	return &out
 }
 
 func (b *MarginBox) String() string {

@@ -1017,10 +1017,10 @@ func (s Properties) SetTextOverflow(v String) {
 	s["text_overflow"] = v
 }
 
-func (s Properties) GetAnchor() NamedString {
-	return s["anchor"].(NamedString)
+func (s Properties) GetAnchor() String {
+	return s["anchor"].(String)
 }
-func (s Properties) SetAnchor(v NamedString) {
+func (s Properties) SetAnchor(v String) {
 	s["anchor"] = v
 }
 

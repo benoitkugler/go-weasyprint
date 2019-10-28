@@ -45,6 +45,7 @@ type LayoutContext struct {
 	fontConfig          *fonts.FontConfiguration
 	targetCollector     *tree.TargetCollector
 	pageMaker           []tree.PageMaker
+	marginClearance     bool
 	excludedShapes      []shape
 	excludedShapesLists [][]shape
 	stringSet           map[string]map[string][]string
@@ -71,13 +72,21 @@ func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUr
 	self.getImageFromUri = getImageFromUri
 	self.fontConfig = fontConfig
 	self.targetCollector = targetCollector
-	self.runningElements = map[string]int{}
+	self.runningElements = map[string]map[int]Box{}
 	// Cache
 	self.strutLayouts = map[string]int{}
 	self.fontFeatures = map[string]int{}
 	self.tables = map[string]int{}
 	self.dictionaries = map[string]int{}
 	return &self
+}
+
+func (self LayoutContext) RunningElements() map[string]map[int]Box {
+	return self.runningElements
+}
+
+func (self LayoutContext) CurrentPage() int {
+	return self.currentPage
 }
 
 func (self *LayoutContext) createBlockFormattingContext() {
@@ -121,7 +130,7 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 // 	Default is the first assignment on the current page
 //  else the most recent assignment (entry value)
 // keyword="first"
-func (self LayoutContext) getStringSetFor(page Box, name, keyword string) string {
+func (self LayoutContext) GetStringSetFor(page Box, name, keyword string) string {
 	if currentS, in := self.stringSet[name][self.currentPage]; in {
 		// A value was assigned on this page
 		firstString := currentS[0]

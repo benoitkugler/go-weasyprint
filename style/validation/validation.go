@@ -206,7 +206,6 @@ var (
 		"overflow-wrap":              overflowWrap,
 		"image-rendering":            imageRendering,
 		"size":                       size,
-		"anchor":                     anchor,
 		"tab-size":                   tabSize,
 		"hyphens":                    hyphens,
 		"hyphenate-character":        hyphenateCharacter,
@@ -312,10 +311,12 @@ type ValidatedProperty struct {
 	Important bool
 }
 
-// Validate validate one property. initial, inherit, var() and custom properties have already been filtered out
+// Validate validate one property.
 func Validate(name string, tokens []Token, baseUrl string) (out pr.ValidatedProperty, err error) {
 	if name == "color" { // special case for inherit
 		return color(tokens, ""), nil
+	} else if name == "anchor" {
+		return anchor(tokens, "").ToV(), nil
 	}
 	var value pr.CssProperty
 	if function := validators[name]; function != nil {
@@ -2362,23 +2363,23 @@ func size(tokens []Token, _ string) pr.CssProperty {
 //@validator(proprietary=true)
 //@singleToken
 // Validation for ``anchor``.
-func anchor(tokens []Token, _ string) pr.CssProperty {
+func anchor(tokens []Token, _ string) (out pr.CascadedProperty) {
 	if len(tokens) != 1 {
-		return nil
+		return
 	}
 	token := tokens[0]
 	if getKeyword(token) == "none" {
-		return pr.NamedString{Name: "none"}
+		return pr.ToC(pr.String("none"))
 	}
 	name, args := parseFunction(token)
 	if name != "" {
 		if len(args) == 1 {
 			if ident, ok := args[0].(parser.IdentToken); ok && name == "attr" {
-				return pr.NamedString{Name: "attr()", String: string(ident.Value)}
+				return pr.CascadedProperty{SpecialProperty: pr.AttrData{Name: string(ident.Value)}}
 			}
 		}
 	}
-	return nil
+	return
 }
 
 //@validator(proprietary=true, wantsBaseUrl=true)

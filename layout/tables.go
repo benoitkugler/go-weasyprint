@@ -16,22 +16,6 @@ func reverseBoxes(in []Box) []Box {
 	return out
 }
 
-// """
-//     weasyprint.layout.tables
-//     ------------------------
-
-//     Layout for tables && internal table boxes.
-
-//     :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
-//     :license: BSD, see LICENSE for details.
-
-// """
-
-// from ..formattingStructure import boxes
-// from ..logger import LOGGER
-// from .percentages import resolveOnePercentage, resolvePercentages
-// from .preferred import maxContentWidth, tableAndColumnsPreferredWidths
-
 // func tableLayout(context, table, maxPositionY, skipStack, containingBlock,
 //                  pageIsEmpty, absoluteBoxes, fixedBoxes) {
 //                  }
@@ -567,102 +551,102 @@ func addTopPadding(box *bo.BoxFields, extraPadding pr.Float) {
 	}
 }
 
-// // Run the fixed table layout && return a list of column widths
-// //     http://www.w3.org/TR/CSS21/tables.html#fixed-table-layout
-// //
-// func fixedTableLayout(box) {
-//     table = box.getWrappedTable()
-//     assert table.Width != "auto"
-// }
-//     allColumns = [column for columnGroup := range table.columnGroups
-//                    for column := range columnGroup.children]
-//     if table.children && table.children[0].children {
-//         firstRowgroup = table.children[0]
-//         firstRowCells = firstRowgroup.children[0].children
-//     } else {
-//         firstRowCells = []
-//     } numColumns = max(
-//         len(allColumns),
-//         sum(cell.colspan for cell := range firstRowCells)
-//     )
-//     // ``None`` means ! know yet.
-//     columnWidths = [None] * numColumns
+// Run the fixed table layout && return a list of column widths
+//     http://www.w3.org/TR/CSS21/tables.html#fixed-table-layout
+//
+func fixedTableLayout(box) {
+    table = box.getWrappedTable()
+    assert table.Width != "auto"
+}
+    allColumns = [column for columnGroup := range table.columnGroups
+                   for column := range columnGroup.children]
+    if table.children && table.children[0].children {
+        firstRowgroup = table.children[0]
+        firstRowCells = firstRowgroup.children[0].children
+    } else {
+        firstRowCells = []
+    } numColumns = max(
+        len(allColumns),
+        sum(cell.colspan for cell := range firstRowCells)
+    )
+    // ``None`` means ! know yet.
+    columnWidths = [None] * numColumns
 
-//     // `width` on column boxes
-//     for i, column := range enumerate(allColumns) {
-//         resolveOnePercentage(column, "width", table.Width)
-//         if column.width != "auto" {
-//             columnWidths[i] = column.width
-//         }
-//     }
+    // `width` on column boxes
+    for i, column := range enumerate(allColumns) {
+        resolveOnePercentage(column, "width", table.Width)
+        if column.width != "auto" {
+            columnWidths[i] = column.width
+        }
+    }
 
-//     if table.Style.GetBorderCollapse() == "separate" {
-//         borderSpacingX, _ = table.Style["borderSpacing"]
-//     } else {
-//         borderSpacingX = 0
-//     }
+    if table.Style.GetBorderCollapse() == "separate" {
+        borderSpacingX, _ = table.Style["borderSpacing"]
+    } else {
+        borderSpacingX = 0
+    }
 
-//     // `width` on cells of the first row.
-//     i = 0
-//     for cell := range firstRowCells {
-//         resolvePercentages(cell, table)
-//         if cell.width != "auto" {
-//             width = cell.borderWidth()
-//             width -= borderSpacingX * (cell.colspan - 1)
-//             // In the general case, this width affects several columns (through
-//             // colspan) some of which already have a width. Subtract these
-//             // known widths && divide among remaining columns.
-//             columnsWithoutWidth = []  // && occupied by this cell
-//             for j := range range(i, i + cell.colspan) {
-//                 if columnWidths[j]  == nil  {
-//                     columnsWithoutWidth.append(j)
-//                 } else {
-//                     width -= columnWidths[j]
-//                 }
-//             } if columnsWithoutWidth {
-//                 widthPerColumn = width / len(columnsWithoutWidth)
-//                 for j := range columnsWithoutWidth {
-//                     columnWidths[j] = widthPerColumn
-//                 }
-//             } del width
-//         } i += cell.colspan
-//     } del i
+    // `width` on cells of the first row.
+    i = 0
+    for cell := range firstRowCells {
+        resolvePercentages(cell, table)
+        if cell.width != "auto" {
+            width = cell.borderWidth()
+            width -= borderSpacingX * (cell.colspan - 1)
+            // In the general case, this width affects several columns (through
+            // colspan) some of which already have a width. Subtract these
+            // known widths && divide among remaining columns.
+            columnsWithoutWidth = []  // && occupied by this cell
+            for j := range range(i, i + cell.colspan) {
+                if columnWidths[j]  == nil  {
+                    columnsWithoutWidth.append(j)
+                } else {
+                    width -= columnWidths[j]
+                }
+            } if columnsWithoutWidth {
+                widthPerColumn = width / len(columnsWithoutWidth)
+                for j := range columnsWithoutWidth {
+                    columnWidths[j] = widthPerColumn
+                }
+            } del width
+        } i += cell.colspan
+    } del i
 
-//     // Distribute the remaining space equally on columns that do ! have
-//     // a width yet.
-//     allBorderSpacing = borderSpacingX * (numColumns + 1)
-//     minTableWidth = (sum(w for w := range columnWidths if w  != nil ) +
-//                        allBorderSpacing)
-//     columnsWithoutWidth = [i for i, w := range enumerate(columnWidths)
-//                              if w  == nil ]
-//     if columnsWithoutWidth && table.Width >= minTableWidth {
-//         remainingWidth = table.Width - minTableWidth
-//         widthPerColumn = remainingWidth / len(columnsWithoutWidth)
-//         for i := range columnsWithoutWidth {
-//             columnWidths[i] = widthPerColumn
-//         }
-//     } else {
-//         // XXX this is bad, but we were given a broken table to work with...
-//         for i := range columnsWithoutWidth {
-//             columnWidths[i] = 0
-//         }
-//     }
+    // Distribute the remaining space equally on columns that do ! have
+    // a width yet.
+    allBorderSpacing = borderSpacingX * (numColumns + 1)
+    minTableWidth = (sum(w for w := range columnWidths if w  != nil ) +
+                       allBorderSpacing)
+    columnsWithoutWidth = [i for i, w := range enumerate(columnWidths)
+                             if w  == nil ]
+    if columnsWithoutWidth && table.Width >= minTableWidth {
+        remainingWidth = table.Width - minTableWidth
+        widthPerColumn = remainingWidth / len(columnsWithoutWidth)
+        for i := range columnsWithoutWidth {
+            columnWidths[i] = widthPerColumn
+        }
+    } else {
+        // XXX this is bad, but we were given a broken table to work with...
+        for i := range columnsWithoutWidth {
+            columnWidths[i] = 0
+        }
+    }
 
-//     // If the sum is less than the table width,
-//     // distribute the remaining space equally
-//     extraWidth = table.Width - sum(columnWidths) - allBorderSpacing
-//     if extraWidth <= 0 {
-//         // substract a negative: widen the table
-//         table.Width -= extraWidth
-//     } else if numColumns {
-//         extraPerColumn = extraWidth / numColumns
-//         columnWidths = [w + extraPerColumn for w := range columnWidths]
-//     }
+    // If the sum is less than the table width,
+    // distribute the remaining space equally
+    extraWidth = table.Width - sum(columnWidths) - allBorderSpacing
+    if extraWidth <= 0 {
+        // substract a negative: widen the table
+        table.Width -= extraWidth
+    } else if numColumns {
+        extraPerColumn = extraWidth / numColumns
+        columnWidths = [w + extraPerColumn for w := range columnWidths]
+    }
 
-//     // Now we have table.Width == sum(columnWidths) + allBorderSpacing
-//     // with possible floating point rounding errors.
-//     // (unless there is zero column)
-//     table.columnWidths = columnWidths
+    // Now we have table.Width == sum(columnWidths) + allBorderSpacing
+    // with possible floating point rounding errors.
+    // (unless there is zero column)
+    table.columnWidths = columnWidths
 
 func sum(l []pr.Float) pr.Float {
 	var out pr.Float

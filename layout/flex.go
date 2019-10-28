@@ -1181,7 +1181,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	return blockLayout{
 		newBox:            box_,
 		resumeAt:          resumeAt,
-		nextPage:          page{break_: "any", page: nil},
+		nextPage:          tree.PageBreak{Break: "any", Page: nil},
 		adjoiningMargins:  nil,
 		collapsingThrough: false,
 	}

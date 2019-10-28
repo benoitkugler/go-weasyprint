@@ -58,24 +58,7 @@ func init() {
 type Context interface {
 	RunningElements() map[string]map[int]Box
 	CurrentPage() int
-	GetStringSetFor(page *pr.Page, name string, keyword string) string
-}
-
-type StateShared struct {
-	QuoteDepth    []int
-	CounterValues tree.CounterValues
-	CounterScopes []pr.Set
-}
-
-// Copy returns a deep copy.
-func (s StateShared) Copy() StateShared {
-	out := s
-	out.QuoteDepth = append([]int{}, s.QuoteDepth...)
-	out.CounterValues = s.CounterValues.Copy()
-	for i, v := range s.CounterScopes {
-		out.CounterScopes[i] = v.Copy()
-	}
-	return out
+	GetStringSetFor(page Box, name string, keyword string) string
 }
 
 type Gifu = func(url, forcedMimeType string) images.Image
@@ -188,7 +171,7 @@ func makeBox(elementTag string, style pr.Properties, content []Box) Box {
 //    ``TextBox``es are anonymous inline boxes:
 //    See http://www.w3.org/TR/CSS21/visuren.html#anonymous
 func elementToBox(element *utils.HTMLNode, styleFor styleForI,
-	getImageFromUri Gifu, baseUrl string, targetCollector *tree.TargetCollector, state *StateShared) []Box {
+	getImageFromUri Gifu, baseUrl string, targetCollector *tree.TargetCollector, state *tree.PageState) []Box {
 
 	if element.Type != html.TextNode && element.Type != html.ElementNode && element.Type != html.DocumentNode {
 		// Here we ignore comments and XML processing instructions.
@@ -208,7 +191,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 
 	if state == nil {
 		// use a list to have a shared mutable object
-		state = &StateShared{
+		state = &tree.PageState{
 			// Shared mutable objects:
 			QuoteDepth:    []int{0},             // single integer
 			CounterValues: tree.CounterValues{}, // name -> stacked/scoped values
@@ -242,8 +225,8 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	// collect anchor's counter_values, maybe it's a target.
 	// to get the spec-conform counter_values we must do it here,
 	// after the ::before is parsed and before the ::after is
-	if anchor := style.GetAnchor(); !anchor.IsNone() {
-		targetCollector.StoreTarget(anchor.String, counterValues, box)
+	if anchor := string(style.GetAnchor()); anchor != "" {
+		targetCollector.StoreTarget(anchor, counterValues, box)
 	}
 
 	if text := element.Data; element.Type == html.TextNode && text != "" {
@@ -306,7 +289,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 }
 
 // Yield the box for ::before or ::after pseudo-element.
-func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *StateShared, styleFor styleForI,
+func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.PageState, styleFor styleForI,
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector) []Box {
 
 	style := styleFor.Get(element, pseudoType)
@@ -345,7 +328,7 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *StateSh
 
 // Yield the box for ::marker pseudo-element if there is one.
 // https://drafts.csswg.org/css-lists-3/#marker-pseudo
-func markerToBox(element *utils.HTMLNode, state *StateShared, parentStyle pr.Properties, styleFor styleForI,
+func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.Properties, styleFor styleForI,
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector) Box {
 	style := styleFor.Get(element, "marker")
 
@@ -453,7 +436,7 @@ func collectMissingTargetCounter(counterName string, lookupCounterValues tree.Co
 // required reparsing.
 func computeContentList(contentList pr.ContentProperties, parentBox Box, counterValues tree.CounterValues,
 	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector,
-	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page *pr.Page, element *utils.HTMLNode) []Box {
+	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page Box, element *utils.HTMLNode) []Box {
 
 	// TODO: Some computation done here may be done in computed_values
 	// instead. We currently miss at least style_for, counters and quotes
@@ -653,7 +636,7 @@ mainLoop:
 				break
 			}
 			newBox.Box().Style.SetPosition(pr.BoolString{String: "static"})
-			for _, child := range descendants(newBox) {
+			for _, child := range Descendants(newBox) {
 				if content := child.Box().Style.GetContent(); content.String == "normal" || content.String == "none" {
 					continue
 				}
@@ -679,7 +662,7 @@ mainLoop:
 
 // Takes the value of a ``content`` property and yield boxes.
 func ContentToBoxes(style pr.Properties, parentBox Box, quoteDepth []int, counterValues tree.CounterValues,
-	getImageFromUri Gifu, targetCollector *tree.TargetCollector, context Context, page *pr.Page) []Box {
+	getImageFromUri Gifu, targetCollector *tree.TargetCollector, context Context, page Box) []Box {
 	origQuoteDepth := make([]int, len(quoteDepth))
 
 	// Closure to parse the ``parentBoxes`` children all again.
@@ -809,7 +792,7 @@ func setContentLists(element *utils.HTMLNode, box Box, style pr.Properties, coun
 }
 
 // Handle the ``counter-*`` properties.
-func UpdateCounters(state *StateShared, style pr.Properties) {
+func UpdateCounters(state *tree.PageState, style pr.Properties) {
 	_, counterValues, counterScopes := state.QuoteDepth, state.CounterValues, state.CounterScopes
 	siblingScopes := counterScopes[len(counterScopes)-1]
 
@@ -1843,7 +1826,7 @@ func boxText(box Box) string {
 	}
 	var builder strings.Builder
 	if IsParentBox(box) {
-		for _, child := range descendants(box) {
+		for _, child := range Descendants(box) {
 			et := child.Box().elementTag
 			if !strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
 				if tBox, is := child.(*TextBox); is {
@@ -1878,7 +1861,7 @@ func boxTextFirstLetter(box Box) string {
 func boxTextBefore(box Box) string {
 	var builder strings.Builder
 	if IsParentBox(box) {
-		for _, child := range descendants(box) {
+		for _, child := range Descendants(box) {
 			et := child.Box().elementTag
 			if strings.HasSuffix(et, "::before") && !IsParentBox(child) {
 				builder.WriteString(boxText(child))
@@ -1891,7 +1874,7 @@ func boxTextBefore(box Box) string {
 func boxTextAfter(box Box) string {
 	var builder strings.Builder
 	if IsParentBox(box) {
-		for _, child := range descendants(box) {
+		for _, child := range Descendants(box) {
 			et := child.Box().elementTag
 			if strings.HasSuffix(et, "::after") && !IsParentBox(child) {
 				builder.WriteString(boxText(child))

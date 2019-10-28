@@ -79,8 +79,9 @@ func (v VarData) IsNone() bool {
 func (v VarData) isSpecialProperty()        {}
 func (v CustomProperty) isSpecialProperty() {}
 
-// AttrData is actually only supported inside other properties.
-// func (v AttrData) isSpecialProperty()       {}
+// AttrData is actually only supported inside other properties,
+// and for anchor.
+func (v AttrData) isSpecialProperty() {}
 
 // ---------- Convenience constructor -------------------------------
 // Note than a CssProperty can naturally be seen as a CascadedProperty, but not the other way around.

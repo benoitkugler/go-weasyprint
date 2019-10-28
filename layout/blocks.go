@@ -1,8 +1,9 @@
 package layout
 
 import (
-	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
+
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	"github.com/benoitkugler/go-weasyprint/boxes"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -11,15 +12,10 @@ import (
 
 // Page breaking and layout for block-level and block-container boxes.
 
-type page struct {
-	break_ string
-	page   pr.Page
-}
-
 type blockLayout struct {
 	newBox            bo.InstanceBlockLevelBox
 	resumeAt          *tree.SkipStack
-	nextPage          page
+	nextPage          tree.PageBreak
 	adjoiningMargins  []pr.Float
 	collapsingThrough bool
 }
@@ -86,7 +82,7 @@ func blockLevelLayoutSwitch(context LayoutContext, box bo.InstanceBlockLevelBox,
 		// Don't collide with floats
 		// http://www.w3.org/TR/CSS21/visuren.html#floats
 		box.PositionX, box.PositionY, _ = avoidCollisions(context, box, containingBlock, false)
-		nextPage := page{break_: "any", page: nil}
+		nextPage := tree.PageBreak{Break: "any", Page: nil}
 		return blockLayout{
 			box: box, resumeAt: nil, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false,
 		}
@@ -276,7 +272,7 @@ type ChildrenBlockLevel interface {
 }
 
 // Set the ``box`` height.
-func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) blockLayout {
 	box := box_.Box()
 	// TODO: boxes.FlexBox is allowed here because flexLayout calls
@@ -328,7 +324,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 	}
 
 	var newChildren []*AbsolutePlaceholder
-	nextPage := page{break_: "any"}
+	nextPage := tree.PageBreak{Break: "any"}
 	var resumeAt *tree.SkipStack
 	var lastInFlowChild *AbsolutePlaceholder
 
@@ -339,7 +335,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 		firstLetterStyle = nil
 	}
 	outerHasBroken := false
-	for i, child_ := range box_.Children()[skip:] {
+	for i, child_ := range box.Children[skip:] {
 		index := i + skip
 		child := child_.Box()
 		child.PositionX = positionX
@@ -432,7 +428,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 						// Reached the bottom of the page before we had
 						// enough lines for orphans, cancel the whole box.
 						page_, _ := child_.PageValues()
-						return blockLayout{nextPage: page{break_: "any", page: page_}}
+						return blockLayout{nextPage: tree.PageBreak{Break: "any", Page: page_}}
 					}
 					// How many lines we need on the next page to satisfy widows
 					// -1 for the current line.
@@ -448,7 +444,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 					if needed > overOrphans && !pageIsEmpty {
 						// Total number of lines < orphans + widows
 						page_, _ := child.PageValues()
-						return blockLayout{nextPage: page{break_: "any", page: page_}}
+						return blockLayout{nextPage: tree.PageBreak{Break: "any", Page: page_}}
 					}
 					if needed != 0 && needed <= overOrphans {
 						// Remove lines to keep them for the next page
@@ -505,7 +501,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 					pageBreak == "page" || pageBreak == "left" || pageBreak == "right" ||
 					pageBreak == "recto" || pageBreak == "verso" {
 					pageName, _ := child.PageValues()
-					nextPage = page{break_: pageBreak, page: pageName}
+					nextPage = tree.PageBreak{Break: pageBreak, Page: pageName}
 					resumeAt = &tree.SkipStack{Skip: index}
 					outerHasBroken = true
 					break
@@ -562,7 +558,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 			if len(child.FirstLetterStyle) == 0 {
 				child.FirstLetterStyle = firstLetterStyle
 			}
-			tmp := blockLevelLayout(*context, child_, maxPositionY, skipStack,
+			tmp := blockLevelLayout(*context, child_.(bo.InstanceBlockLevelBox), maxPositionY, skipStack,
 				newContainingBlock, pageIsEmptyWithNoChildren, *absoluteBoxes, *fixedBoxes, adjoiningMargins)
 			resumeAt, nextPage = tmp.resumeAt, tmp.nextPage
 			newChild_, nextAdjoiningMargins, collapsingThrough := tmp.newBox, tmp.adjoiningMargins, tmp.collapsingThrough
@@ -620,7 +616,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 							// cancel the block and try to find a break
 							// in the parent.
 							page_, _ := child.PageValues()
-							return blockLayout{nextPage: page{break_: "any", page: page_}}
+							return blockLayout{nextPage: tree.PageBreak{Break: "any", Page: page_}}
 						}
 						// else : ignore this "avoid" and break anyway.
 					}
@@ -647,7 +643,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 					// This was the first child of this box, cancel the box
 					// completly
 					page_, _ := child.PageValues()
-					return blockLayout{nextPage: page{break_: "any", page: page_}}
+					return blockLayout{nextPage: tree.PageBreak{Break: "any", Page: page_}}
 				}
 			}
 			// Bottom borders may overflow here
@@ -665,7 +661,7 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 	}
 
 	if bi := box.Style.GetBreakInside(); resumeAt != nil && (bi == "avoid" || bi == "avoid-page") && !pageIsEmpty {
-		return blockLayout{nextPage: page{break_: "any"}}
+		return blockLayout{nextPage: tree.PageBreak{Break: "any"}}
 	}
 
 	if collapsingWithChildren {
@@ -753,8 +749,8 @@ func blockContainerLayout(context *LayoutContext, box_ ChildrenBlockLevel, maxPo
 		}
 	}
 
-	if nextPage.page.IsNone() {
-		_, nextPage.page = newBox.PageValues()
+	if nextPage.Page.IsNone() {
+		_, nextPage.Page = newBox.PageValues()
 	}
 
 	return blockLayout{newBox: newBox, resumeAt: resumeAt, nextPage: nextPage,
