@@ -33,10 +33,10 @@ func blockLevelLayout(context LayoutContext, box_ bo.InstanceBlockLevelBox, maxP
 	if !bo.TypeTableBox.IsInstance(box_) {
 		resolvePercentages2(box_, containingBlock, "")
 
-		if box.MarginTop== pr.Auto {
+		if box.MarginTop == pr.Auto {
 			box.MarginTop = pr.Float(0)
 		}
-		if box.MarginBottom== pr.Auto {
+		if box.MarginBottom == pr.Auto {
 			box.MarginBottom = pr.Float(0)
 		}
 
@@ -517,7 +517,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 					// [child.MarginTop]
 					oldCollapsedMargin := collapseMargin(adjoiningMargins)
 					var childMarginTop pr.Float
-					if !child.MarginTop== pr.Auto {
+					if !child.MarginTop == pr.Auto {
 						childMarginTop = child.MarginTop.V()
 					}
 					newCollapsedMargin := collapseMargin(append(adjoiningMargins, childMarginTop))
@@ -679,7 +679,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	if lastInFlowChild == nil {
 		collapsedMargin := collapseMargin(adjoiningMargins)
 		// top && bottom margin of this box
-		if (box.Height== pr.Auto || box.Height == pr.Float(0)) &&
+		if (box.Height == pr.Auto || box.Height == pr.Float(0)) &&
 			getClearance(context, box, collapsedMargin) == nil &&
 			box.MinHeight == pr.Float(0) && box.BorderTopWidth == pr.Float(0) && box.PaddingTop == pr.Float(0) &&
 			box.BorderBottomWidth == pr.Float(0) && box.PaddingBottom == pr.Float(0) {
@@ -690,7 +690,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 		}
 	} else {
 		// bottom margin of the last child && bottom margin of this box ...
-		if !box.Height== pr.Auto {
+		if !box.Height == pr.Auto {
 			// not adjoining. (positionY is not used afterwards.)
 			adjoiningMargins = nil
 		}
@@ -707,7 +707,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	// TODO: See corner cases in
 	// http://www.w3.org/TR/CSS21/visudet.html#normal-block
 	// TODO: See float.floatLayout
-	if newBox.Height== pr.Auto {
+	if newBox.Height == pr.Auto {
 		if len(context.excludedShapes) != 0 && newBox.Style.GetOverflow() != "visible" {
 			maxFloatPositionY := -pr.Inf
 			for _, floatBox := range context.excludedShapes {
@@ -867,7 +867,7 @@ func absPlaToBox(children []*AbsolutePlaceholder) []Box {
 // we need to find an earlier page break opportunity inside `children`.
 // Absolute or fixed placeholders removed from children should also be
 // removed from `absoluteBoxes` or `fixedBoxes`.
-func findEarlierPageBreak(children []*AbsolutePlaceholder, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []*AbsolutePlaceholder, resumeAt *tree.SkipStack) {
+func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []Box, resumeAt *tree.SkipStack) {
 	if len(children) != 0 && !children[0].isProperAbsolutePlaceholder && bo.TypeLineBox.IsInstance(children[0].Box) {
 		// Normally `orphans` && `widows` apply to the block container, but
 		// line boxes inherit them.

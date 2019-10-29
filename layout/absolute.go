@@ -2,19 +2,21 @@ package layout
 
 import (
 	"fmt"
-	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
 	"math"
+
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
-// FIXME: must implement Box
+type _Box = bo.Box
+
 // AbsolutePlaceholder is left where an absolutely-positioned box was taken out of the flow.
 type AbsolutePlaceholder struct {
-	Box
+	_Box
 	layoutDone bool
 	index      int
 	resumeAt   *tree.SkipStack
@@ -24,30 +26,32 @@ type AbsolutePlaceholder struct {
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
-	out := AbsolutePlaceholder{Box: box, layoutDone: false, isProperAbsolutePlaceholder: true}
+	out := AbsolutePlaceholder{_Box: box, layoutDone: false, isProperAbsolutePlaceholder: true}
 	return &out
 }
 
 func (abs *AbsolutePlaceholder) setLaidOutBox(newBox Box) {
-	abs.Box = newBox
+	abs._Box = newBox
 	abs.layoutDone = true
 }
 
-func (abs *AbsolutePlaceholder) translate(dx, dy float32, ignoreFloats bool) {
+func (abs *AbsolutePlaceholder) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
 	if abs.layoutDone {
-		abs.Box.Translate(abs.Box, dx, dy, ignoreFloats)
+		abs._Box.Translate(box, dx, dy, ignoreFloats)
 	} else {
 		// Descendants do not have a position yet.
-		abs.Box.Box().PositionX += dx
-		abs.Box.Box().PositionY += dy
+		abs._Box.Box().PositionX += dx
+		abs._Box.Box().PositionY += dy
 	}
 }
 
-func (abs AbsolutePlaceholder) copy() AbsolutePlaceholder {
-	return AbsolutePlaceholder{Box: abs.Box.Copy(), layoutDone: abs.layoutDone}
+func (abs AbsolutePlaceholder) Copy() Box {
+	out := abs
+	out._Box = abs._Box.Copy()
+	return &out
 }
 
 func (abs AbsolutePlaceholder) String() string {

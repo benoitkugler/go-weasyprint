@@ -361,9 +361,9 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 					previousGroup := newTableChildren[L-1]
 					pageBreak := blockLevelPageBreak(previousGroup, group_)
 					if pageBreak == "avoid" {
-						earlierPageBreak = findEarlierPageBreak(newTableChildren, absoluteBoxes, fixedBoxes)
-						if earlierPageBreak != nil {
-							newTableChildren, resumeAt = earlierPageBreak
+						v1, v2 := findEarlierPageBreak(newTableChildren, absoluteBoxes, fixedBoxes)
+						if v1 != nil && v2 != nil {
+							newTableChildren, resumeAt = v1, v2
 							break
 						}
 					}
