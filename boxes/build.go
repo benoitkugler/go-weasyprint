@@ -1147,7 +1147,7 @@ func wrapTable(box InstanceTableBox, children []Box) Box {
 	tableBox := table.Table()
 	tableBox.ColumnGroups = columnGroups
 	if tableBox.Style.GetBorderCollapse() == "collapse" {
-		tableBox.collapsedBorderGrid = collapseTableBorders(table, gridWidth, gridHeight)
+		tableBox.CollapsedBorderGrid = collapseTableBorders(table, gridWidth, gridHeight)
 	}
 	var wrapperTypeAF func(Box, []Box) Box
 	if TypeInlineTableBox.IsInstance(box) {
@@ -1179,7 +1179,7 @@ func (s Score) lower(other Score) bool {
 type border struct {
 	score Score
 	style string
-	width float32
+	Width float32
 	color pr.Color
 }
 
@@ -1198,7 +1198,7 @@ func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) Bor
 		return BorderGrids{}
 	}
 
-	weakNullBorder := border{score: Score{0, 0, styleScores["none"]}, style: "none", width: 0, color: transparent}
+	weakNullBorder := border{score: Score{0, 0, styleScores["none"]}, style: "none", Width: 0, color: transparent}
 
 	verticalBorders, horizontalBorders := make([][]border, gridHeight), make([][]border, gridHeight+1)
 	for y := 0; y < gridHeight+1; y++ {
@@ -1233,7 +1233,7 @@ func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) Bor
 		previousScore := borderGrid[gridY][gridX].score
 		// Strict < so that the earlier call wins in case of a tie.
 		if previousScore.lower(score) {
-			borderGrid[gridY][gridX] = border{score: score, style: string(style), width: float32(width.Value), color: color}
+			borderGrid[gridY][gridX] = border{score: score, style: string(style), Width: float32(width.Value), color: color}
 		}
 	}
 
@@ -1253,7 +1253,7 @@ func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) Bor
 	// "A style set on a cell wins over one on a row, which wins over a
 	//  row group, column, column group and, lastly, table"
 	// See http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
-	strongNullBorder := border{score: Score{1, 0, styleScores["hidden"]}, style: "hidden", width: 0, color: transparent}
+	strongNullBorder := border{score: Score{1, 0, styleScores["hidden"]}, style: "hidden", Width: 0, color: transparent}
 
 	gridY := 0
 	for _, rowGroup := range table.Box().Children {
@@ -1326,7 +1326,7 @@ func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) Bor
 	maxVerticalWidth := func(x, y, h int) float32 {
 		var max float32
 		for _, gridRow := range verticalBorders[y : y+h] {
-			width := gridRow[x].width
+			width := gridRow[x].Width
 			if width > max {
 				max = width
 			}
@@ -1337,7 +1337,7 @@ func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) Bor
 	maxHorizontalWidth := func(x, y, w int) float32 {
 		var max float32
 		for _, _s := range horizontalBorders[y][x : x+w] {
-			width := _s.width
+			width := _s.Width
 			if width > max {
 				max = width
 			}

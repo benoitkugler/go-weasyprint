@@ -71,8 +71,9 @@ type TableBox struct {
 	BoxFields
 	BlockLevelBox
 
-	ColumnWidths []pr.Float
-	ColumnGroups []Box
+	ColumnWidths, ColumnPositions []pr.Float
+	ColumnGroups                  []Box
+	CollapsedBorderGrid           BorderGrids
 }
 
 type InlineTableBox struct {
@@ -299,11 +300,10 @@ func (b *TableBox) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	if dx == 0 && dy == 0 {
 		return
 	}
-	table := b.Box()
-	for index, position := range table.columnPositions {
-		table.columnPositions[index] = position + float32(dx)
+	for index, position := range b.ColumnPositions {
+		b.ColumnPositions[index] = position + dx
 	}
-	table.Translate(box, dx, dy, ignoreFloats)
+	b.BoxFields.Translate(box, dx, dy, ignoreFloats)
 }
 
 func (b *TableBox) PageValues() (pr.Page, pr.Page) {

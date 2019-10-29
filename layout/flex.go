@@ -122,24 +122,24 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	}
 
 	var marginLeft pr.Float
-	if !box.MarginLeft.Auto() {
+	if !box.MarginLeft== pr.Auto {
 		marginLeft = box.MarginLeft.V()
 	}
 	var marginRight pr.Float
-	if !box.MarginRight.Auto() {
+	if !box.MarginRight== pr.Auto {
 		marginRight = box.MarginRight.V()
 	}
 	var marginTop pr.Float
-	if !box.MarginTop.Auto() {
+	if !box.MarginTop== pr.Auto {
 		marginTop = box.MarginTop.V()
 	}
 	var marginBottom pr.Float
-	if !box.MarginBottom.Auto() {
+	if !box.MarginBottom== pr.Auto {
 		marginBottom = box.MarginBottom.V()
 	}
 	var availableMainSpace pr.Float
 	boxAxis := getAttr(box, axis, "")
-	if !boxAxis.Auto() {
+	if !boxAxis== pr.Auto {
 		availableMainSpace = boxAxis.V()
 	} else {
 		if axis == "width" {
@@ -147,7 +147,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				box.PaddingLeft - box.PaddingRight - box.BorderLeftWidth.V() - box.BorderRightWidth.V()
 		} else {
 			mainSpace := maxPositionY - box.PositionY
-			if he := containingBlock.Box().Height; !he.Auto() {
+			if he := containingBlock.Box().Height; !he== pr.Auto {
 				// if hasattr(containingBlock.Height, "unit") {
 				//     assert containingBlock.Height.unit == "px"
 				//     mainSpace = min(mainSpace, containingBlock.Height.value)
@@ -159,12 +159,12 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	}
 	var availableCrossSpace pr.Float
 	boxCross := getAttr(box, cross, "")
-	if !boxCross.Auto() {
+	if !boxCross== pr.Auto {
 		availableCrossSpace = boxCross.V()
 	} else {
 		if cross == "height" {
 			mainSpace := maxPositionY - box.ContentBoxY()
-			if he := containingBlock.Box().Height; !he.Auto() {
+			if he := containingBlock.Box().Height; !he== pr.Auto {
 				mainSpace = pr.Min(mainSpace, he.V())
 			}
 			availableCrossSpace = mainSpace - marginTop - marginBottom -
@@ -182,19 +182,19 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	resolvePercentages2(parentBox_, containingBlock, "")
 	// TODO: removing auto margins is OK for this step, but margins should be
 	// calculated later.
-	if parentBox.MarginTop.Auto() {
+	if parentBox.MarginTop== pr.Auto {
 		box.MarginTop = pr.Float(0)
 		parentBox.MarginTop = pr.Float(0)
 	}
-	if parentBox.MarginBottom.Auto() {
+	if parentBox.MarginBottom== pr.Auto {
 		box.MarginBottom = pr.Float(0)
 		parentBox.MarginBottom = pr.Float(0)
 	}
-	if parentBox.MarginLeft.Auto() {
+	if parentBox.MarginLeft== pr.Auto {
 		box.MarginLeft = pr.Float(0)
 		parentBox.MarginLeft = pr.Float(0)
 	}
-	if parentBox.MarginRight.Auto() {
+	if parentBox.MarginRight== pr.Auto {
 		box.MarginRight = pr.Float(0)
 		parentBox.MarginRight = pr.Float(0)
 	}
@@ -231,9 +231,9 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		resolvePercentages2(child_, containingBlock, mainFlexDirection)
 		child.PositionX = parentBox.ContentBoxX()
 		child.PositionY = parentBox.ContentBoxY()
-		if child.MinWidth.Auto() {
+		if child.MinWidth== pr.Auto {
 			specifiedSize := pr.Inf
-			if !child.Width.Auto() {
+			if !child.Width== pr.Auto {
 				specifiedSize = child.Width.V()
 			}
 			newChild := child_.Copy()
@@ -246,10 +246,10 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			newChild.Box().Style.SetMaxWidth(pr.Dimension{Value: pr.Inf, Unit: pr.Px}.ToValue())
 			contentSize := pr.Float(minContentWidth(*context, newChild, false))
 			child.MinWidth = pr.Min(specifiedSize, contentSize)
-		} else if child.MinHeight.Auto() {
+		} else if child.MinHeight== pr.Auto {
 			// TODO: find a way to get min-content-height
 			specifiedSize := pr.Inf
-			if !child.Height.Auto() {
+			if !child.Height== pr.Auto {
 				specifiedSize = child.Height.V()
 			}
 			newChild := child_.Copy()
@@ -289,19 +289,19 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			} else {
 				if axis == "width" {
 					flexBasis_ := child.BorderWidth()
-					if !child.MarginLeft.Auto() {
+					if !child.MarginLeft== pr.Auto {
 						flexBasis_ += child.MarginLeft.V()
 					}
-					if !child.MarginRight.Auto() {
+					if !child.MarginRight== pr.Auto {
 						flexBasis_ += child.MarginRight.V()
 					}
 					flexBasis = flexBasis_.ToValue()
 				} else {
 					flexBasis_ := child.BorderHeight()
-					if !child.MarginTop.Auto() {
+					if !child.MarginTop== pr.Auto {
 						flexBasis_ += child.MarginTop.V()
 					}
-					if !child.MarginBottom.Auto() {
+					if !child.MarginBottom== pr.Auto {
 						flexBasis_ += child.MarginBottom.V()
 					}
 					flexBasis = flexBasis_.ToValue()
@@ -384,7 +384,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				}
 				childHeight := child.HypotheticalMainSize + child.BorderTopWidth.V() + child.BorderBottomWidth.V() +
 					child.PaddingTop + child.PaddingBottom
-				if getAttr(box, axis, "").Auto() && childHeight+box.Height.V() > availableMainSpace {
+				if getAttr(box, axis, "")== pr.Auto && childHeight+box.Height.V() > availableMainSpace {
 					resumeAt = &tree.SkipStack{Skip: i}
 					children = children[:i+1]
 					break
@@ -585,19 +585,19 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			if axis == "width" {
 				child.Width = child.TargetMainSize - child.PaddingLeft - child.PaddingRight -
 					child.BorderLeftWidth.V() - child.BorderRightWidth.V()
-				if !child.MarginLeft.Auto() {
+				if !child.MarginLeft== pr.Auto {
 					child.Width = child.Width.V() - child.MarginLeft.V()
 				}
-				if !child.MarginRight.Auto() {
+				if !child.MarginRight== pr.Auto {
 					child.Width = child.Width.V() - child.MarginRight.V()
 				}
 			} else {
 				child.Height = child.TargetMainSize - child.PaddingTop - child.PaddingBottom -
 					child.BorderTopWidth.V() - child.BorderTopWidth.V()
-				if !child.MarginLeft.Auto() {
+				if !child.MarginLeft== pr.Auto {
 					child.Height = child.Height.V() - child.MarginLeft.V()
 				}
-				if !child.MarginRight.Auto() {
+				if !child.MarginRight== pr.Auto {
 					child.Height = child.Height.V() - child.MarginRight.V()
 				}
 			}
@@ -616,10 +616,10 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			child := child_.Box()
 			// TODO: Find another way than calling blockLevelLayoutSwitch to
 			// get baseline and child.Height
-			if child.MarginTop.Auto() {
+			if child.MarginTop== pr.Auto {
 				child.MarginTop = pr.Float(0)
 			}
-			if child.MarginBottom.Auto() {
+			if child.MarginBottom== pr.Auto {
 				child.MarginBottom = pr.Float(0)
 			}
 			childCopy := child_.Copy()
@@ -659,7 +659,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 
 	// Step 8
 	crossSize := getAttr(box, cross, "")
-	if len(flexLines) == 1 && !crossSize.Auto() {
+	if len(flexLines) == 1 && !crossSize== pr.Auto {
 		flexLines[0].crossSize = crossSize.V()
 	} else {
 		for index, line := range flexLines {
@@ -668,7 +668,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				child := v.box.Box()
 				alignSelf := child.Style.GetAlignSelf()
 				if strings.HasPrefix(string(box.Style.GetFlexDirection()), "row") && alignSelf == "baseline" &&
-					!child.MarginTop.Auto() && !child.MarginBottom.Auto() {
+					!child.MarginTop== pr.Auto && !child.MarginBottom== pr.Auto {
 					collectedItems = append(collectedItems, child)
 				} else {
 					notCollectedItems = append(notCollectedItems, child)
@@ -688,18 +688,18 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					var childCrossSize pr.Float
 					if cross == "height" {
 						childCrossSize = child.BorderHeight()
-						if !child.MarginTop.Auto() {
+						if !child.MarginTop== pr.Auto {
 							childCrossSize += child.MarginTop.V()
 						}
-						if !child.MarginBottom.Auto() {
+						if !child.MarginBottom== pr.Auto {
 							childCrossSize += child.MarginBottom.V()
 						}
 					} else {
 						childCrossSize = child.BorderWidth()
-						if !child.MarginLeft.Auto() {
+						if !child.MarginLeft== pr.Auto {
 							childCrossSize += child.MarginLeft.V()
 						}
-						if !child.MarginRight.Auto() {
+						if !child.MarginRight== pr.Auto {
 							childCrossSize += child.MarginRight.V()
 						}
 					}
@@ -714,11 +714,11 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	if len(flexLines) == 1 {
 		line := flexLines[0]
 		minCrossSize := getAttr(box, cross, "min")
-		if minCrossSize.Auto() {
+		if minCrossSize== pr.Auto {
 			minCrossSize = -pr.Inf
 		}
 		maxCrossSize := getAttr(box, cross, "max")
-		if maxCrossSize.Auto() {
+		if maxCrossSize== pr.Auto {
 			maxCrossSize = pr.Inf
 		}
 		line.crossSize = pr.Max(minCrossSize.V(), pr.Min(line.crossSize, maxCrossSize.V()))
@@ -765,7 +765,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			if alignSelf == "stretch" && getCross(child, cross).String == "auto" {
 				crossMargins := getCrossMargins(child, cross)
 				if getCross(child, cross).String == "auto" {
-					if !(crossMargins[0].Auto() || crossMargins[1].Auto()) {
+					if !(crossMargins[0]== pr.Auto || crossMargins[1]== pr.Auto) {
 						crossSize := line.crossSize
 						if cross == "height" {
 							crossSize -= child.MarginTop.V() + child.MarginBottom.V() +
@@ -810,10 +810,10 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			for _, v := range line.line {
 				child := v.box.Box()
 				freeSpace -= child.BorderWidth()
-				if !child.MarginLeft.Auto() {
+				if !child.MarginLeft== pr.Auto {
 					freeSpace -= child.MarginLeft.V()
 				}
-				if !child.MarginRight.Auto() {
+				if !child.MarginRight== pr.Auto {
 					freeSpace -= child.MarginRight.V()
 				}
 			}
@@ -822,10 +822,10 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			for _, v := range line.line {
 				child := v.box.Box()
 				freeSpace -= child.BorderHeight()
-				if !child.MarginTop.Auto() {
+				if !child.MarginTop== pr.Auto {
 					freeSpace -= child.MarginTop.V()
 				}
-				if !child.MarginBottom.Auto() {
+				if !child.MarginBottom== pr.Auto {
 					freeSpace -= child.MarginBottom.V()
 				}
 			}
@@ -835,17 +835,17 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		for _, v := range line.line {
 			child := v.box.Box()
 			if axis == "width" {
-				if child.MarginLeft.Auto() {
+				if child.MarginLeft== pr.Auto {
 					margins += 1
 				}
-				if child.MarginRight.Auto() {
+				if child.MarginRight== pr.Auto {
 					margins += 1
 				}
 			} else {
-				if child.MarginTop.Auto() {
+				if child.MarginTop== pr.Auto {
 					margins += 1
 				}
-				if child.MarginBottom.Auto() {
+				if child.MarginBottom== pr.Auto {
 					margins += 1
 				}
 			}
@@ -855,17 +855,17 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			for _, v := range line.line {
 				child := v.box.Box()
 				if axis == "width" {
-					if child.MarginLeft.Auto() {
+					if child.MarginLeft== pr.Auto {
 						child.MarginLeft = freeSpace
 					}
-					if child.MarginRight.Auto() {
+					if child.MarginRight== pr.Auto {
 						child.MarginRight = freeSpace
 					}
 				} else {
-					if child.MarginTop.Auto() {
+					if child.MarginTop== pr.Auto {
 						child.MarginTop = freeSpace
 					}
-					if child.MarginBottom.Auto() {
+					if child.MarginBottom== pr.Auto {
 						child.MarginBottom = freeSpace
 					}
 				}
@@ -934,56 +934,56 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			child := v.box.Box()
 			crossMargins := getCrossMargins(child, cross)
 			var autoMargins pr.Float
-			if crossMargins[0].Auto() {
+			if crossMargins[0]== pr.Auto {
 				autoMargins += 1
 			}
-			if crossMargins[1].Auto() {
+			if crossMargins[1]== pr.Auto {
 				autoMargins += 1
 			}
 			if autoMargins != 0 {
 				extraCross := line.crossSize
 				if cross == "height" {
 					extraCross -= child.BorderHeight()
-					if !child.MarginTop.Auto() {
+					if !child.MarginTop== pr.Auto {
 						extraCross -= child.MarginTop.V()
 					}
-					if !child.MarginBottom.Auto() {
+					if !child.MarginBottom== pr.Auto {
 						extraCross -= child.MarginBottom.V()
 					}
 				} else {
 					extraCross -= child.BorderWidth()
-					if !child.MarginLeft.Auto() {
+					if !child.MarginLeft== pr.Auto {
 						extraCross -= child.MarginLeft.V()
 					}
-					if !child.MarginRight.Auto() {
+					if !child.MarginRight== pr.Auto {
 						extraCross -= child.MarginRight.V()
 					}
 				}
 				if extraCross > 0 {
 					extraCross /= autoMargins
 					if cross == "height" {
-						if child.MarginTop.Auto() {
+						if child.MarginTop== pr.Auto {
 							child.MarginTop = extraCross
 						}
-						if child.MarginBottom.Auto() {
+						if child.MarginBottom== pr.Auto {
 							child.MarginBottom = extraCross
 						}
 					} else {
-						if child.MarginLeft.Auto() {
+						if child.MarginLeft== pr.Auto {
 							child.MarginLeft = extraCross
 						}
-						if child.MarginRight.Auto() {
+						if child.MarginRight== pr.Auto {
 							child.MarginRight = extraCross
 						}
 					}
 				} else {
 					if cross == "height" {
-						if child.MarginTop.Auto() {
+						if child.MarginTop== pr.Auto {
 							child.MarginTop = pr.Float(0)
 						}
 						child.MarginBottom = extraCross
 					} else {
-						if child.MarginLeft.Auto() {
+						if child.MarginLeft== pr.Auto {
 							child.MarginLeft = pr.Float(0)
 						}
 						child.MarginRight = extraCross
@@ -1144,7 +1144,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 
 	// Set box height
 	// TODO: this is probably useless because of step #15
-	if axis == "width" && box.Height.Auto() {
+	if axis == "width" && box.Height== pr.Auto {
 		if len(flexLines) != 0 {
 			box.Height = sumCross(flexLines)
 		} else {

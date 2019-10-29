@@ -470,16 +470,16 @@ func replacedBoxHeight_(box_ Box, _ LayoutContext, _ block) (bool, float32) {
 }
 
 func resolveMarginAuto(box *bo.BoxFields) {
-	if box.MarginTop.Auto() {
+	if box.MarginTop== pr.Auto {
 		box.MarginTop = pr.Float(0)
 	}
-	if box.MarginRight.Auto() {
+	if box.MarginRight== pr.Auto {
 		box.MarginRight = pr.Float(0)
 	}
-	if box.MarginBottom.Auto() {
+	if box.MarginBottom== pr.Auto {
 		box.MarginBottom = pr.Float(0)
 	}
-	if box.MarginLeft.Auto() {
+	if box.MarginLeft== pr.Auto {
 		box.MarginLeft = pr.Float(0)
 	}
 }
@@ -598,17 +598,17 @@ func inlineBlockBoxLayout(context LayoutContext, box_ Box, positionX float32, sk
 	resolvePercentages(box_, containingBlock, "")
 	box := box_.Box()
 	// http://www.w3.org/TR/CSS21/visudet.html#inlineblock-width
-	if box.MarginLeft.Auto() {
+	if box.MarginLeft== pr.Auto {
 		box.MarginLeft = 0
 	}
-	if box.MarginRight.Auto() {
+	if box.MarginRight== pr.Auto {
 		box.MarginRight = 0
 	}
 	// http://www.w3.org/TR/CSS21/visudet.html#block-root-margin
-	if box.MarginTop.Auto() {
+	if box.MarginTop== pr.Auto {
 		box.MarginTop = 0
 	}
-	if box.MarginBottom.Auto() {
+	if box.MarginBottom== pr.Auto {
 		box.MarginBottom = 0
 	}
 
@@ -649,7 +649,7 @@ var inlineBlockWidth = handleMinMaxWidth(inlineBlockWidth_)
 
 // @handleMinMaxWidth
 func inlineBlockWidth_(box_ Box, context LayoutContext, containingBlock block) (bool, float32) {
-	if box := box_.Box(); box.Width.Auto() {
+	if box := box_.Box(); box.Width== pr.Auto {
 		box.Width = pr.Float(shrinkToFit(context, box, containingBlock.Width))
 	}
 	return false, 0
@@ -712,10 +712,10 @@ func splitInlineLevel(context LayoutContext, box Box, positionX pr.Float, maxX, 
 			lastLetter = -1
 		}
 	} else if bo.TypeInlineBox.IsInstance(box) {
-		if box.MarginLeft.Auto() {
+		if box.MarginLeft== pr.Auto {
 			box.MarginLeft = 0
 		}
-		if box.MarginRight.Auto() {
+		if box.MarginRight== pr.Auto {
 			box.MarginRight = 0
 		}
 		newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidths := splitInlineBox(context, box, positionX, maxX, skipStack, containingBlock,

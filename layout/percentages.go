@@ -37,7 +37,7 @@ func resolveOnePercentage(value pr.Value, propertyName string, referTo pr.Float,
 	// box attributes are used values
 	percent := percentage(value, referTo)
 	// setattr(box, propertyName, percent)
-	if (propertyName == "minWidth" || propertyName == "minHeight") && percent.Auto() {
+	if (propertyName == "minWidth" || propertyName == "minHeight") && percent== pr.Auto {
 		if mainFlexDirection == "" || propertyName != "min"+mainFlexDirection {
 			percent = pr.Float(0)
 		}
@@ -80,7 +80,7 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 
 	// XXX later: top, bottom, left && right on positioned elements
 
-	if cbHeight.Auto() {
+	if cbHeight== pr.Auto {
 		// Special handling when the height of the containing block
 		// depends on its content.
 		height := box.Style.GetHeight()
@@ -128,20 +128,20 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 	// box.Height become negative.
 	// Restricting max* seems reasonable, too.
 	if horizontalDelta > 0 {
-		if !box.Width.Auto() {
+		if !box.Width== pr.Auto {
 			box.Width = pr.Max(0, box.Width.V()-horizontalDelta)
 		}
 		box.MaxWidth = pr.Max(0, box.MaxWidth.V()-horizontalDelta)
-		if !box.MinWidth.Auto() {
+		if !box.MinWidth== pr.Auto {
 			box.MinWidth = pr.Max(0, box.MinWidth.V()-horizontalDelta)
 		}
 	}
 	if verticalDelta > 0 {
-		if !box.Height.Auto() {
+		if !box.Height== pr.Auto {
 			box.Height = pr.Max(0, box.Height.V()-verticalDelta)
 		}
 		box.MaxHeight = pr.Max(0, box.MaxHeight.V()-verticalDelta)
-		if !box.MinHeight.Auto() {
+		if !box.MinHeight== pr.Auto {
 			box.MinHeight = pr.Max(0, box.MinHeight.V()-verticalDelta)
 		}
 	}

@@ -155,13 +155,14 @@ type BoxFields struct {
 	isHeader bool
 	isFooter bool
 
-	span    int
-	Colspan int
-	Rowspan int
+	ComputedHeight, ContentHeight pr.MaybeFloat
+	VerticalAlign                 string
+	Empty                         bool
+	span                          int
+	Colspan                       int
+	Rowspan                       int
 
-	columnPositions     []float32
-	GridX               int
-	collapsedBorderGrid BorderGrids
+	GridX int
 
 	FlexBasis                                                      pr.Value
 	FlexBaseSize, TargetMainSize, Adjustment, HypotheticalMainSize pr.Float

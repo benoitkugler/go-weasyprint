@@ -304,13 +304,13 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 	box.Children = newChildren
 	currentPositionY += collapseMargin(adjoiningMargins)
 	var heightDifference pr.Float
-	if box.Height.Auto() {
+	if box.Height== pr.Auto {
 		box.Height = currentPositionY - box.PositionY
 		heightDifference = 0
 	} else {
 		heightDifference = box.Height.V() - (currentPositionY - box.PositionY)
 	}
-	if !box.MinHeight.Auto() && box.MinHeight.V() > box.Height.V() {
+	if !box.MinHeight== pr.Auto && box.MinHeight.V() > box.Height.V() {
 		heightDifference += box.MinHeight.V() - box.Height.V()
 		box.Height = box.MinHeight
 	}

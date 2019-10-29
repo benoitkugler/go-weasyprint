@@ -21,525 +21,549 @@ func reverseBoxes(in []Box) []Box {
 }
 
 // Layout for a table box.
-func tableLayout(context *LayoutContext, table bo.InstanceTableBox, maxPositionY pr.Float, skipStack tree.SkipStack,
-	containingBlock, pageIsEmpty bool, absoluteBoxes, fixedBoxes []*AbsolutePlaceholder) {
-	//     columnWidths = table.columnWidths
+func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
+	containingBlock, pageIsEmpty bool, absoluteBoxes, fixedBoxes []*AbsolutePlaceholder) blockLayout {
+		table := table_.Table()
+		columnWidths := table.ColumnWidths
 
-	//     if table.Style.GetBorderCollapse() == "separate" {
-	//         borderSpacingX, borderSpacingY = table.Style["borderSpacing"]
-	//     } else {
-	//         borderSpacingX = 0
-	//         borderSpacingY = 0
-	//     }
+		var borderSpacingX, borderSpacingY pr.Float
+	    if table.Style.GetBorderCollapse() == "separate" {
+			tmp := table.Style.GetBorderSpacing()
+			borderSpacingX, borderSpacingY = tmp[0], tmp[1]
+	    } 
 
-	//     // TODO: reverse this for direction: rtl
-	//     columnPositions = table.columnPositions = []
-	//     positionX = table.contentBoxX()
-	//     rowsX = positionX + borderSpacingX
-	//     for width := range columnWidths {
-	//         positionX += borderSpacingX
-	//         columnPositions.append(positionX)
-	//         positionX += width
-	//     } rowsWidth = positionX - rowsX
+	    // TODO: reverse this for direction: rtl
+		var columnPositions []pr.Float
+		table.ColumnPositions = nil
+	    positionX := table.ContentBoxX()
+	    rowsX := positionX + borderSpacingX
+	    for _, width := range columnWidths {
+	        positionX += borderSpacingX
+	        columnPositions = append(columnPositions, positionX)
+	        positionX += width
+		} 
+		rowsWidth := positionX - rowsX
 
-	//     if table.Style.GetBorderCollapse() == "collapse" {
-	//         if skipStack {
-	//             skippedGroups, groupSkipStack = skipStack
-	//             if groupSkipStack {
-	//                 skippedRows, _ = groupSkipStack
-	//             } else {
-	//                 skippedRows = 0
-	//             } for group := range table.children[:skippedGroups] {
-	//                 skippedRows += len(group.children)
-	//             }
-	//         } else {
-	//             skippedRows = 0
-	//         } _, horizontalBorders = table.collapsedBorderGrid
-	//         if horizontalBorders {
-	//             table.BorderTopWidth = max(
-	//                 width for _, (_, width, )
-	//                 := range horizontalBorders[skippedRows]) / 2
-	//         }
-	//     }
+	    if table.Style.GetBorderCollapse() == "collapse" {
+			skippedRows := 0
+	        if skipStack != nil {
+	            skippedGroups, groupSkipStack := skipStack.Skip, skipStack.Stack
+				skippedRows = 0
+	            if groupSkipStack != nil {
+	                skippedRows = groupSkipStack.Skip
+	            } 
+								for _, group := range table.Children[:skippedGroups] {
+	                skippedRows += len(group.Box().Children)
+	            }
+	        } 
+			horizontalBorders := table.CollapsedBorderGrid.Horizontal
+	        if len(horizontalBorders) != 0 {
+				var max float32
+				for _, tmp := range horizontalBorders[skippedRows] {
+					if tmp.Width > max { 
+						max = tmp.Width
+					}
+				}
+				table.BorderTopWidth = pr.Float(max /  2)
+	        }
+	    }
 
-	//     // Make this a sub-function so that many local variables like rowsX
-	//     // don"t need to be passed as parameters.
-	//     def groupLayout(group, positionY, maxPositionY,
-	//                      pageIsEmpty, skipStack) {
-	//                      }
-	//         resumeAt = None
-	//         nextPage = {"break": "any", "page": None}
-	//         originalPageIsEmpty = pageIsEmpty
-	//         resolvePercentages(group, containingBlock=table)
-	//         group.positionX = rowsX
-	//         group.positionY = positionY
-	//         group.width = rowsWidth
-	//         newGroupChildren = []
-	//         // For each rows, cells for which this is the last row (with rowspan)
-	//         endingCellsByRow = [[] for row := range group.children]
+	    // Make this a sub-function so that many local variables like rowsX
+	    // don't need to be passed as parameters.
+	    groupLayout := func(group_ Box, positionY, maxPositionY pr.Float,pageIsEmpty bool, skipStack *tree.SkipStack) {
+	        var resumeAt *tree.SkipStack
+	        nextPage := tree.PageBreak{Break: "any",Page: ""}
+	        originalPageIsEmpty := pageIsEmpty
+			resolvePercentages2(group_, table_,"")
+			group := group_.Box()
+	        group.PositionX = rowsX
+	        group.PositionY = positionY
+	        group.Width = rowsWidth
+	        var newGroupChildren []Box
+	        // For each rows, cells for which this is the last row (with rowspan)
+	        endingCellsByRow := make([][]Box, len(group.Children))
 
-	//         isGroupStart = skipStack  == nil
-	//         if isGroupStart {
-	//             skip = 0
-	//         } else {
-	//             skip, skipStack = skipStack
-	//             assert ! skipStack  // No breaks inside rows for now
-	//         } for i, row := range enumerate(group.children[skip:]) {
-	//             indexRow = i + skip
-	//             row.index = indexRow
-	//         }
+	        isGroupStart := skipStack  == nil
+			skip := 0
+	        if !isGroupStart  {
+	            skip, skipStack = skipStack.Skip, skipStack.Stack
+	            if skipStack != nil {// No breaks inside rows for now
+					log.Fatalf("expected empty skipStack here, got %v", skipStack)
+				}  
+			} 
+			for i, row_ := range group.Children[skip:] {
+				row := row_.Box()
+				indexRow := i + skip
+	            row_.index = indexRow
+	        
+	            if newGroupChildren {
+	                pageBreak := blockLevelPageBreak( newGroupChildren[len(newGroupChildren)-1], row)
+	                if pageBreak == "page"|| pageBreak ==  "recto"|| pageBreak ==  "verso"|| pageBreak ==  "left"|| pageBreak ==  "right" {
+	                    nextPage.Break = pageBreak
+	                    resumeAt = &tree.SkipStack{Skip:indexRow}
+	                    break
+	                }
+	            }
 
-	//             if newGroupChildren {
-	//                 pageBreak = blockLevelPageBreak(
-	//                     newGroupChildren[-1], row)
-	//                 if pageBreak := range ("page", "recto", "verso", "left", "right") {
-	//                     nextPage["break"] = pageBreak
-	//                     resumeAt = (indexRow, None)
-	//                     break
-	//                 }
-	//             }
+	            resolvePercentages2(row, table_, "")
+	            row.PositionX = rowsX
+	            row.PositionY = positionY
+	            row.Width = rowsWidth
+	            // Place cells at the top of the row and layout their content
+	            var newRowChildren []Box
+	            for cellIndex, cell_ := range row.Children {
+					cell := cell_.Box()
+	                spannedWidths := columnWidths[cell.GridX:][:cell.Colspan]
+	                // In the fixed layout the grid width is set by cells in
+	                // the first row and column elements.
+	                // This may be less than the previous value of cell.colspan
+	                // if that would bring the cell beyond the grid width.
+	                cell.Colspan = len(spannedWidths)
+	                if cell.Colspan == 0 {
+	                    // The cell is entierly beyond the grid width, remove it
+	                    // entierly. Subsequent cells in the same row have greater
+	                    // gridX, so they are beyond too.
+	                    ignoredCells := row.Children[cellIndex:]
+	                    log.Printf("This table row has more columns than the table, ignored %d cells: %v",
+	                                   len(ignoredCells), ignoredCells)
+	                    break
+					} 
+					resolvePercentages2(cell_, table, "")
+	                cell.PositionX = columnPositions[cell.gridX]
+	                cell.PositionY = row.PositionY
+	                cell.MarginTop = pr.Float(0)
+	                cell.MarginLeft = pr.Float(0)
+	                cell.Width = pr.Float(0)
+	                bordersPlusPadding := cell.BorderWidth()  // with width==0
+	                // TODO: we should remove the number of columns with no
+					// originating cells to cell.colspan, see testLayoutTableAuto49
+					cell.Width = borderSpacingX * (cell.colspan - 1) -  bordersPlusPadding
+					for _, sw := range spannedWidths {
+						cell.Width += sw
+					}
+	                // The computed height is a minimum
+	                cell.ComputedHeight = cell.Height
+	                cell.Height = pr.Auto	
+	                cell = blockContainerLayout(context, cell, pr.Inf, nil, true, absoluteBoxes, fixedBoxes, nil).newBox
+					any := false
+					for _, child := range cell.Children {
+						if child.isFloated() || child.isInNormalFlow() {
+							any = true 
+							break
+						}
+					}
+	                cell.Empty = !any
+	                    
+	                cell.ContentHeight = cell.Height
+	                if cell.ComputedHeight != pr.Auto {
+	                    cell.Height = pr.Max(cell.Height.V(), cell.ComputedHeight.V())
+					} 
+					newRowChildren = append(newRowChildren, cell)
+	            }
 
-	//             resolvePercentages(row, containingBlock=table)
-	//             row.positionX = rowsX
-	//             row.positionY = positionY
-	//             row.width = rowsWidth
-	//             // Place cells at the top of the row && layout their content
-	//             newRowChildren = []
-	//             for cell := range row.children {
-	//                 spannedWidths = columnWidths[cell.gridX:][:cell.colspan]
-	//                 // In the fixed layout the grid width is set by cells in
-	//                 // the first row && column elements.
-	//                 // This may be less than the previous value of cell.colspan
-	//                 // if that would bring the cell beyond the grid width.
-	//                 cell.colspan = len(spannedWidths)
-	//                 if cell.colspan == 0 {
-	//                     // The cell is entierly beyond the grid width, remove it
-	//                     // entierly. Subsequent cells := range the same row have greater
-	//                     // gridX, so they are beyond too.
-	//                     cellIndex = row.children.index(cell)
-	//                     ignoredCells = row.children[cellIndex:]
-	//                     LOGGER.warning("This table row has more columns than "
-	//                                    "the table, ignored %i cells: %r",
-	//                                    len(ignoredCells), ignoredCells)
-	//                     break
-	//                 } resolvePercentages(cell, containingBlock=table)
-	//                 cell.positionX = columnPositions[cell.gridX]
-	//                 cell.positionY = row.positionY
-	//                 cell.marginTop = 0
-	//                 cell.marginLeft = 0
-	//                 cell.width = 0
-	//                 bordersPlusPadding = cell.borderWidth()  // with width==0
-	//                 // TODO: we should remove the number of columns with no
-	//                 // originating cells to cell.colspan, see
-	//                 // testLayoutTableAuto49
-	//                 cell.width = (
-	//                     sum(spannedWidths) +
-	//                     borderSpacingX * (cell.colspan - 1) -
-	//                     bordersPlusPadding)
-	//                 // The computed height is a minimum
-	//                 cell.computedHeight = cell.height
-	//                 cell.height = "auto"
-	//                 cell, _, _, _, _ = blockContainerLayout(
-	//                     context, cell,
-	//                     maxPositionY=float("inf"),
-	//                     skipStack=None,
-	//                     pageIsEmpty=true,
-	//                     absoluteBoxes=absoluteBoxes,
-	//                     fixedBoxes=fixedBoxes)
-	//                 cell.empty = ! any(
-	//                     child.isFloated() || child.isInNormalFlow()
-	//                     for child := range cell.children)
-	//                 cell.contentHeight = cell.height
-	//                 if cell.computedHeight != "auto" {
-	//                     cell.height = max(cell.height, cell.computedHeight)
-	//                 } newRowChildren.append(cell)
-	//             }
+	            row = bo.CopyWithChildren(row_, newRowChildren, true, true)
 
-	//             row = row.copyWithChildren(newRowChildren)
+	            // Table height algorithm
+	            // http://www.w3.org/TR/CSS21/tables.html#height-layout
 
-	//             // Table height algorithm
-	//             // http://www.w3.org/TR/CSS21/tables.html#height-layout
+	            // cells with vertical-align: baseline
+	            var baselineCells []Box
+	            for _, cell_ := range row.Children {
+					cell := cell_.Box()
+	                verticalAlign := cell.Style.GetVerticalAlign()
+	                if verticalAlign.String == "top" || verticalAlign.String ==  "middle" || verticalAlign.String ==  "bottom" {
+	                    cell.VerticalAlign = verticalAlign.String
+	                } else {
+	                    // Assume "baseline" for any other value
+	                    cell.VerticalAlign = "baseline"
+	                    cell.Baseline = cellBaseline(cell)
+	                    baselineCells = append(baselineCells, cell)
+	                }
+				} 
+				if len(baselineCells) != 0 {
+					for _, cell := range baselineCells {
+						if bs:= cell.Box().Baseline; bs > row.Baseline {
+							row.Baseline = bs
+						}
+					}
+	                for _, cell := range baselineCells {
+	                    extra := row.Baseline - cell.Box().Baseline
+	                    if cell.Box().Baseline != row.Baseline && extra != 0 {
+	                        addTopPadding(cell, extra)
+	                    }
+	                }
+	            }
 
-	//             // cells with vertical-align: baseline
-	//             baselineCells = []
-	//             for cell := range row.children {
-	//                 verticalAlign = cell.style["verticalAlign"]
-	//                 if verticalAlign := range ("top", "middle", "bottom") {
-	//                     cell.verticalAlign = verticalAlign
-	//                 } else {
-	//                     // Assume "baseline" for any other value
-	//                     cell.verticalAlign = "baseline"
-	//                     cell.baseline = cellBaseline(cell)
-	//                     baselineCells.append(cell)
-	//                 }
-	//             } if baselineCells {
-	//                 row.baseline = max(cell.baseline for cell := range baselineCells)
-	//                 for cell := range baselineCells {
-	//                     extra = row.baseline - cell.baseline
-	//                     if cell.baseline != row.baseline && extra {
-	//                         addTopPadding(cell, extra)
-	//                     }
-	//                 }
-	//             }
+	            // row height
+	            for _, cell := range row.Children {
+	                endingCellsByRow[cell.Box().Rowspan - 1] = append(endingCellsByRow[cell.Box().Rowspan - 1], cell)
+				} 
+				endingCells := endingCellsByRow[0]
+				endingCellsByRow = endingCellsByRow[1:]
+				var rowBottomY pr.Float
+				if len(endingCells) != 0 {  // in this row
+	                if row.Height == pr.Auto {
+						for _, cell := range endingCells {
+													if v := cell.Box().PositionY + cell.Box().BorderHeight(); v > rowBottomY {
+								rowBottomY = v
+							}
+						}
+	                    row.Height = pr.Max(rowBottomY - row.PositionY, 0)
+	                } else {
+						var m pr.Float
+						for _, rowCell := range endingCells {
+							if v := rowCell.Box().Height; v > m {
+								m = v
+							}
+						}
+	                    row.Height = pr.Max(row.Height, m)
+	                    rowBottomY = row.PositionY + row.Height
+	                }
+	            } else {
+	                rowBottomY = row.positionY
+	                row.Height = 0
+	            }
 
-	//             // row height
-	//             for cell := range row.children {
-	//                 endingCellsByRow[cell.rowspan - 1].append(cell)
-	//             } endingCells = endingCellsByRow.pop(0)
-	//             if endingCells:  // := range this row
-	//                 if row.height == "auto" {
-	//                     rowBottomY = max(
-	//                         cell.positionY + cell.borderHeight()
-	//                         for cell := range endingCells)
-	//                     row.height = max(rowBottomY - row.positionY, 0)
-	//                 } else {
-	//                     row.height = max(row.height, max(
-	//                         rowCell.height for rowCell := range endingCells))
-	//                     rowBottomY = cell.positionY + row.height
-	//                 }
-	//             else {
-	//                 rowBottomY = row.positionY
-	//                 row.height = 0
-	//             }
+	            if len(baselineCells) != 0 {
+	                row.Baseline = rowBottomY
+	            }
 
-	//             if ! baselineCells {
-	//                 row.baseline = rowBottomY
-	//             }
+	            // Add extra padding to make the cells the same height as the row
+	            // and honor vertical-align
+	            for _, cell_ := range endingCells {
+					cell := cell_.Box()
+	                cellBottomY := cell.PositionY + cell.BorderHeight()
+	                extra := rowBottomY - cellBottomY
+	                if extra != 0 {
+	                    if cell.VerticalAlign == "bottom" {
+	                        addTopPadding(cell, extra)
+	                    } else if cell.VerticalAlign == "middle" {
+	                        extra /= 2.
+	                        addTopPadding(cell, extra)
+	                        cell.PaddingBottom += extra
+	                    } else {
+	                        cell.PaddingBottom += extra
+	                    }
+					} 
+					if cell.ComputedHeight != "auto" {
+	                    var verticalAlignShift pr.Float
+	                    if cell.VerticalAlign == "middle" {
+	                        verticalAlignShift = ( cell.ComputedHeight - cell.ContentHeight) / 2
+	                    } else if cell.VerticalAlign == "bottom" {
+	                        verticalAlignShift = cell.ComputedHeight - cell.ContentHeight
+						} 
+						if verticalAlignShift > 0 {
+	                        for _, child := range cell.Children {
+	                            child.Translate(child,0 ,verticalAlignShift, false)
+	                        }
+	                    }
+	                }
+	            }
 
-	//             // Add extra padding to make the cells the same height as the row
-	//             // && honor vertical-align
-	//             for cell := range endingCells {
-	//                 cellBottomY = cell.positionY + cell.borderHeight()
-	//                 extra = rowBottomY - cellBottomY
-	//                 if extra {
-	//                     if cell.verticalAlign == "bottom" {
-	//                         addTopPadding(cell, extra)
-	//                     } else if cell.verticalAlign == "middle" {
-	//                         extra /= 2.
-	//                         addTopPadding(cell, extra)
-	//                         cell.paddingBottom += extra
-	//                     } else {
-	//                         cell.paddingBottom += extra
-	//                     }
-	//                 } if cell.computedHeight != "auto" {
-	//                     verticalAlignShift = 0
-	//                     if cell.verticalAlign == "middle" {
-	//                         verticalAlignShift = (
-	//                             cell.computedHeight - cell.contentHeight) / 2
-	//                     } else if cell.verticalAlign == "bottom" {
-	//                         verticalAlignShift = (
-	//                             cell.computedHeight - cell.contentHeight)
-	//                     } if verticalAlignShift > 0 {
-	//                         for child := range cell.children {
-	//                             child.translate(dy=verticalAlignShift)
-	//                         }
-	//                     }
-	//                 }
-	//             }
+	            nextPositionY := row.PositionY + row.Height.V() + borderSpacingY
+	            // Break if this row overflows the page, unless there is no
+	            // other content on the page.
+	            if nextPositionY > maxPositionY && ! pageIsEmpty {
+	                if len(newGroupChildren) != 0 {
+	                    previousRow := newGroupChildren[len(newGroupChildren)-1]
+	                    pageBreak := blockLevelPageBreak(previousRow, row)
+	                    if pageBreak == "avoid" {
+	                        newGroupChildren, resumeAt = findEarlierPageBreak( newGroupChildren, absoluteBoxes, fixedBoxes)
+	                        if newGroupChildren != nil || resumeAt != nil {
+	                            break
+	                        }
+	                    } else {
+	                        resumeAt = &tree.SkipStack{Skip:indexRow}
+	                        break
+	                    }
+					} 
+					if originalPageIsEmpty {
+	                    resumeAt = &tree.SkipStack{Skip:indexRow}
+	                } else {
+	                    return nil, nil, nextPage
+					} 
+					break
+	            }
 
-	//             nextPositionY = row.positionY + row.height + borderSpacingY
-	//             // Break if this row overflows the page, unless there is no
-	//             // other content on the page.
-	//             if nextPositionY > maxPositionY && ! pageIsEmpty {
-	//                 if newGroupChildren {
-	//                     previousRow = newGroupChildren[-1]
-	//                     pageBreak = blockLevelPageBreak(previousRow, row)
-	//                     if pageBreak == "avoid" {
-	//                         earlierPageBreak = findEarlierPageBreak(
-	//                             newGroupChildren, absoluteBoxes, fixedBoxes)
-	//                         if earlierPageBreak {
-	//                             newGroupChildren, resumeAt = earlierPageBreak
-	//                             break
-	//                         }
-	//                     } else {
-	//                         resumeAt = (indexRow, None)
-	//                         break
-	//                     }
-	//                 } if originalPageIsEmpty {
-	//                     resumeAt = (indexRow, None)
-	//                 } else {
-	//                     return None, None, nextPage
-	//                 } break
-	//             }
+	            positionY = nextPositionY
+	            newGroupChildren = append(newGroupChildren, row)
+	            pageIsEmpty = false
+			}
 
-	//             positionY = nextPositionY
-	//             newGroupChildren.append(row)
-	//             pageIsEmpty = false
+	        // Do not keep the row group if we made a page break
+	        // before any of its rows or with "avoid"
+	        if bi := group.Style.GetBreakInside(); resumeAt != nil && ! originalPageIsEmpty && (
+	                bi == "avoid" || bi ==  "avoid-page" || len(newGroupChildren) == 0 ) {
+				return nil, nil, nextPage
+					}
 
-	//         // Do ! keep the row group if we made a page break
-	//         // before any of its rows || with "avoid"
-	//         if resumeAt && ! originalPageIsEmpty && (
-	//                 group.style["breakInside"] := range ("avoid", "avoid-page") or
-	//                 ! newGroupChildren) {
-	//                 }
-	//             return None, None, nextPage
+	        group_ = bo.CopyWithChildren(group_,  newGroupChildren, isGroupStart, resumeAt  == nil )
+			group = group_.Box()
+	        // Set missing baselines in a second loop because of rowspan
+	        for _, row_ := range group.Children {
+				row := row_.Box()
+	            if row.Baseline  == nil  {
+	                if len(row.Children) != 0 {
+	                    // lowest bottom content edge
+	                    row.Baseline = max(
+	                        cell.contentBoxY() + cell.height
+	                        for cell := range row.children) - row.positionY
+	                } else {
+	                    row.Baseline = 0
+	                }
+	            }
+			} 
+			group.height = positionY - group.positionY
+	        if group.children {
+	            // The last border spacing is outside of the group.
+	            group.height -= borderSpacingY
+	        }
 
-	//         group = group.copyWithChildren(
-	//             newGroupChildren,
-	//             isStart=isGroupStart, isEnd=resumeAt  == nil )
+	        return group, resumeAt, nextPage
+		}
 
-	//         // Set missing baselines := range a second loop because of rowspan
-	//         for row := range group.children {
-	//             if row.baseline  == nil  {
-	//                 if row.children {
-	//                     // lowest bottom content edge
-	//                     row.baseline = max(
-	//                         cell.contentBoxY() + cell.height
-	//                         for cell := range row.children) - row.positionY
-	//                 } else {
-	//                     row.baseline = 0
-	//                 }
-	//             }
-	//         } group.height = positionY - group.positionY
-	//         if group.children {
-	//             // The last border spacing is outside of the group.
-	//             group.height -= borderSpacingY
-	//         }
+	    bodyGroupsLayout := func(skipStack, positionY, maxPositionY, pageIsEmpty) {        
+	        if skipStack  == nil  {
+	            skip = 0
+	        } else {
+	            skip, skipStack = skipStack
+			} 
+			newTableChildren = []
+	        resumeAt = None
+	        nextPage = {"break": "any", "page": None}
 
-	//         return group, resumeAt, nextPage
+	        for i, group := range enumerate(table.children[skip:]) {
+	            indexGroup = i + skip
+	            group.index = indexGroup
 
-	//     def bodyGroupsLayout(skipStack, positionY, maxPositionY,
-	//                            pageIsEmpty) {
-	//                            }
-	//         if skipStack  == nil  {
-	//             skip = 0
-	//         } else {
-	//             skip, skipStack = skipStack
-	//         } newTableChildren = []
-	//         resumeAt = None
-	//         nextPage = {"break": "any", "page": None}
 
-	//         for i, group := range enumerate(table.children[skip:]) {
-	//             indexGroup = i + skip
-	//             group.index = indexGroup
-	//         }
+	            if group.isHeader || group.isFooter {
+	                continue
+	            }
 
-	//             if group.isHeader || group.isFooter {
-	//                 continue
-	//             }
+	            if newTableChildren {
+	                pageBreak = blockLevelPageBreak(
+	                    newTableChildren[-1], group)
+	                if pageBreak := range ("page", "recto", "verso", "left", "right") {
+	                    nextPage["break"] = pageBreak
+	                    resumeAt = (indexGroup, None)
+	                    break
+	                }
+	            }
 
-	//             if newTableChildren {
-	//                 pageBreak = blockLevelPageBreak(
-	//                     newTableChildren[-1], group)
-	//                 if pageBreak := range ("page", "recto", "verso", "left", "right") {
-	//                     nextPage["break"] = pageBreak
-	//                     resumeAt = (indexGroup, None)
-	//                     break
-	//                 }
-	//             }
+	            newGroup, resumeAt, nextPage = groupLayout(
+	                group, positionY, maxPositionY, pageIsEmpty, skipStack)
+	            skipStack = None
 
-	//             newGroup, resumeAt, nextPage = groupLayout(
-	//                 group, positionY, maxPositionY, pageIsEmpty, skipStack)
-	//             skipStack = None
+	            if newGroup  == nil  {
+	                if newTableChildren {
+	                    previousGroup = newTableChildren[-1]
+	                    pageBreak = blockLevelPageBreak(previousGroup, group)
+	                    if pageBreak == "avoid" {
+	                        earlierPageBreak = findEarlierPageBreak(
+	                            newTableChildren, absoluteBoxes, fixedBoxes)
+	                        if earlierPageBreak  != nil  {
+	                            newTableChildren, resumeAt = earlierPageBreak
+	                            break
+	                        }
+	                    } resumeAt = (indexGroup, None)
+	                } else {
+	                    return None, None, nextPage, positionY
+	                } break
+	            }
 
-	//             if newGroup  == nil  {
-	//                 if newTableChildren {
-	//                     previousGroup = newTableChildren[-1]
-	//                     pageBreak = blockLevelPageBreak(previousGroup, group)
-	//                     if pageBreak == "avoid" {
-	//                         earlierPageBreak = findEarlierPageBreak(
-	//                             newTableChildren, absoluteBoxes, fixedBoxes)
-	//                         if earlierPageBreak  != nil  {
-	//                             newTableChildren, resumeAt = earlierPageBreak
-	//                             break
-	//                         }
-	//                     } resumeAt = (indexGroup, None)
-	//                 } else {
-	//                     return None, None, nextPage, positionY
-	//                 } break
-	//             }
+	            newTableChildren.append(newGroup)
+	            positionY += newGroup.height + borderSpacingY
+	            pageIsEmpty = false
 
-	//             newTableChildren.append(newGroup)
-	//             positionY += newGroup.height + borderSpacingY
-	//             pageIsEmpty = false
+	            if resumeAt {
+	                resumeAt = (indexGroup, resumeAt)
+	                break
+	            }
 
-	//             if resumeAt {
-	//                 resumeAt = (indexGroup, resumeAt)
-	//                 break
-	//             }
+	        return newTableChildren, resumeAt, nextPage, positionY
+			}
 
-	//         return newTableChildren, resumeAt, nextPage, positionY
+	    // Layout for row groups, rows && cells
+	    positionY = table.contentBoxY() + borderSpacingY
+	    initialPositionY = positionY
 
-	//     // Layout for row groups, rows && cells
-	//     positionY = table.contentBoxY() + borderSpacingY
-	//     initialPositionY = positionY
+	    allGroupsLayout := func() {
+	        if table.children && table.children[0].isHeader {
+	            header = table.children[0]
+	            header, resumeAt, nextPage = groupLayout(
+	                header, positionY, maxPositionY,
+	                skipStack=None, pageIsEmpty=false)
+	            if header && ! resumeAt {
+	                headerHeight = header.height + borderSpacingY
+	            } else:  // Header too big for the page
+	                header = None
+	        } else {
+	            header = None
+	        }
+	    
+	        if table.children && table.children[-1].isFooter {
+	            footer = table.children[-1]
+	            footer, resumeAt, nextPage = groupLayout(
+	                footer, positionY, maxPositionY,
+	                skipStack=None, pageIsEmpty=false)
+	            if footer && ! resumeAt {
+	                footerHeight = footer.height + borderSpacingY
+	            } else:  // Footer too big for the page
+	                footer = None
+	        } else {
+	            footer = None
+	        }
 
-	//     def allGroupsLayout() {
-	//         if table.children && table.children[0].isHeader {
-	//             header = table.children[0]
-	//             header, resumeAt, nextPage = groupLayout(
-	//                 header, positionY, maxPositionY,
-	//                 skipStack=None, pageIsEmpty=false)
-	//             if header && ! resumeAt {
-	//                 headerHeight = header.height + borderSpacingY
-	//             } else:  // Header too big for the page
-	//                 header = None
-	//         } else {
-	//             header = None
-	//         }
-	//     }
+	        // Don"t remove headers && footers if breaks are avoided := range line groups
+	        skip = skipStack[0] if skipStack else 0
+	        avoidBreaks = false
+	        for group := range table.children[skip:] {
+	            if ! group.isHeader && ! group.isFooter {
+	                avoidBreaks = (
+	                    group.style["breakInside"] := range ("avoid", "avoid-page"))
+	                break
+	            }
+	        }
 
-	//         if table.children && table.children[-1].isFooter {
-	//             footer = table.children[-1]
-	//             footer, resumeAt, nextPage = groupLayout(
-	//                 footer, positionY, maxPositionY,
-	//                 skipStack=None, pageIsEmpty=false)
-	//             if footer && ! resumeAt {
-	//                 footerHeight = footer.height + borderSpacingY
-	//             } else:  // Footer too big for the page
-	//                 footer = None
-	//         } else {
-	//             footer = None
-	//         }
+	        if header && footer {
+	            // Try with both the header && footer
+	            newTableChildren, resumeAt, nextPage, endPositionY = (
+	                bodyGroupsLayout(
+	                    skipStack,
+	                    positionY=positionY + headerHeight,
+	                    maxPositionY=maxPositionY - footerHeight,
+	                    pageIsEmpty=avoidBreaks))
+	            if newTableChildren || ! pageIsEmpty {
+	                footer.translate(dy=endPositionY - footer.positionY)
+	                endPositionY += footerHeight
+	                return (header, newTableChildren, footer,
+	                        endPositionY, resumeAt, nextPage)
+	            } else {
+	                // We could ! fit any content, drop the footer
+	                footer = None
+	            }
+	        }
 
-	//         // Don"t remove headers && footers if breaks are avoided := range line groups
-	//         skip = skipStack[0] if skipStack else 0
-	//         avoidBreaks = false
-	//         for group := range table.children[skip:] {
-	//             if ! group.isHeader && ! group.isFooter {
-	//                 avoidBreaks = (
-	//                     group.style["breakInside"] := range ("avoid", "avoid-page"))
-	//                 break
-	//             }
-	//         }
+	        if header && ! footer {
+	            // Try with just the header
+	            newTableChildren, resumeAt, nextPage, endPositionY = (
+	                bodyGroupsLayout(
+	                    skipStack,
+	                    positionY=positionY + headerHeight,
+	                    maxPositionY=maxPositionY,
+	                    pageIsEmpty=avoidBreaks))
+	            if newTableChildren || ! pageIsEmpty {
+	                return (header, newTableChildren, footer,
+	                        endPositionY, resumeAt, nextPage)
+	            } else {
+	                // We could ! fit any content, drop the header
+	                header = None
+	            }
+	        }
 
-	//         if header && footer {
-	//             // Try with both the header && footer
-	//             newTableChildren, resumeAt, nextPage, endPositionY = (
-	//                 bodyGroupsLayout(
-	//                     skipStack,
-	//                     positionY=positionY + headerHeight,
-	//                     maxPositionY=maxPositionY - footerHeight,
-	//                     pageIsEmpty=avoidBreaks))
-	//             if newTableChildren || ! pageIsEmpty {
-	//                 footer.translate(dy=endPositionY - footer.positionY)
-	//                 endPositionY += footerHeight
-	//                 return (header, newTableChildren, footer,
-	//                         endPositionY, resumeAt, nextPage)
-	//             } else {
-	//                 // We could ! fit any content, drop the footer
-	//                 footer = None
-	//             }
-	//         }
+	        if footer && ! header {
+	            // Try with just the footer
+	            newTableChildren, resumeAt, nextPage, endPositionY = (
+	                bodyGroupsLayout(
+	                    skipStack,
+	                    positionY=positionY,
+	                    maxPositionY=maxPositionY - footerHeight,
+	                    pageIsEmpty=avoidBreaks))
+	            if newTableChildren || ! pageIsEmpty {
+	                footer.translate(dy=endPositionY - footer.positionY)
+	                endPositionY += footerHeight
+	                return (header, newTableChildren, footer,
+	                        endPositionY, resumeAt, nextPage)
+	            } else {
+	                // We could ! fit any content, drop the footer
+	                footer = None
+	            }
+	        }
 
-	//         if header && ! footer {
-	//             // Try with just the header
-	//             newTableChildren, resumeAt, nextPage, endPositionY = (
-	//                 bodyGroupsLayout(
-	//                     skipStack,
-	//                     positionY=positionY + headerHeight,
-	//                     maxPositionY=maxPositionY,
-	//                     pageIsEmpty=avoidBreaks))
-	//             if newTableChildren || ! pageIsEmpty {
-	//                 return (header, newTableChildren, footer,
-	//                         endPositionY, resumeAt, nextPage)
-	//             } else {
-	//                 // We could ! fit any content, drop the header
-	//                 header = None
-	//             }
-	//         }
+	        assert ! (header || footer)
+	        newTableChildren, resumeAt, nextPage, endPositionY = (
+	            bodyGroupsLayout(
+	                skipStack, positionY, maxPositionY, pageIsEmpty))
+	        return (
+	            header, newTableChildren, footer, endPositionY, resumeAt,
+	            nextPage)
+			}
 
-	//         if footer && ! header {
-	//             // Try with just the footer
-	//             newTableChildren, resumeAt, nextPage, endPositionY = (
-	//                 bodyGroupsLayout(
-	//                     skipStack,
-	//                     positionY=positionY,
-	//                     maxPositionY=maxPositionY - footerHeight,
-	//                     pageIsEmpty=avoidBreaks))
-	//             if newTableChildren || ! pageIsEmpty {
-	//                 footer.translate(dy=endPositionY - footer.positionY)
-	//                 endPositionY += footerHeight
-	//                 return (header, newTableChildren, footer,
-	//                         endPositionY, resumeAt, nextPage)
-	//             } else {
-	//                 // We could ! fit any content, drop the footer
-	//                 footer = None
-	//             }
-	//         }
+	    // Closure getting the column cells.
+	    getColumnCells := func(table, column) {
+	        return lambda: [
+	            cell
+	            for rowGroup := range table.children
+	            for row := range rowGroup.children
+	            for cell := range row.children
+	            if cell.gridX == column.gridX]
+	    }
 
-	//         assert ! (header || footer)
-	//         newTableChildren, resumeAt, nextPage, endPositionY = (
-	//             bodyGroupsLayout(
-	//                 skipStack, positionY, maxPositionY, pageIsEmpty))
-	//         return (
-	//             header, newTableChildren, footer, endPositionY, resumeAt,
-	//             nextPage)
+	    header, newTableChildren, footer, positionY, resumeAt, nextPage = allGroupsLayout()
 
-	//     def getColumnCells(table, column) {
-	//         """Closure getting the column cells."""
-	//         return lambda: [
-	//             cell
-	//             for rowGroup := range table.children
-	//             for row := range rowGroup.children
-	//             for cell := range row.children
-	//             if cell.gridX == column.gridX]
-	//     }
+	    if newTableChildren  == nil  {
+	        assert resumeAt  == nil
+	        table = None
+	        adjoiningMargins = []
+	        collapsingThrough = false
+	        return (table, resumeAt, nextPage, adjoiningMargins, collapsingThrough)
+	    }
 
-	//     header, newTableChildren, footer, positionY, resumeAt, nextPage = \
-	//         allGroupsLayout()
+	    table = table.copyWithChildren(
+	        ([header] if header  != nil  else []) +
+	        newTableChildren +
+	        ([footer] if footer  != nil  else []),
+	        isStart=skipStack  == nil , isEnd=resumeAt  == nil )
+	    if table.Style.GetBorderCollapse() == "collapse" {
+	        table.skippedRows = skippedRows
+	    }
 
-	//     if newTableChildren  == nil  {
-	//         assert resumeAt  == nil
-	//         table = None
-	//         adjoiningMargins = []
-	//         collapsingThrough = false
-	//         return (
-	//             table, resumeAt, nextPage, adjoiningMargins, collapsingThrough)
-	//     }
+	    // If the height property has a bigger value, just add blank space
+	    // below the last row group.
+	    table.height = max(
+	        table.height if table.height != "auto" else 0,
+	        positionY - table.contentBoxY())
 
-	//     table = table.copyWithChildren(
-	//         ([header] if header  != nil  else []) +
-	//         newTableChildren +
-	//         ([footer] if footer  != nil  else []),
-	//         isStart=skipStack  == nil , isEnd=resumeAt  == nil )
-	//     if table.Style.GetBorderCollapse() == "collapse" {
-	//         table.skippedRows = skippedRows
-	//     }
+	    // Layout for column groups && columns
+	    columnsHeight = positionY - initialPositionY
+	    if table.children {
+	        // The last border spacing is below the columns.
+	        columnsHeight -= borderSpacingY
+		} 
+		for group := range table.columnGroups {
+	        for column := range group.children {
+	            resolvePercentages(column, containingBlock=table)
+	            if column.gridX < len(columnPositions) {
+	                column.positionX = columnPositions[column.gridX]
+	                column.positionY = initialPositionY
+	                column.width = columnWidths[column.gridX]
+	                column.height = columnsHeight
+	            } else {
+	                // Ignore extra empty columns
+	                column.positionX = 0
+	                column.positionY = 0
+	                column.width = 0
+	                column.height = 0
+	            } resolvePercentages(group, containingBlock=table)
+	            column.getCells = getColumnCells(table, column)
+			} 
+			first = group.children[0]
+	        last = group.children[-1]
+	        group.positionX = first.positionX
+	        group.positionY = initialPositionY
+	        group.width = last.positionX + last.width - first.positionX
+	        group.height = columnsHeight
+	    }
 
-	//     // If the height property has a bigger value, just add blank space
-	//     // below the last row group.
-	//     table.height = max(
-	//         table.height if table.height != "auto" else 0,
-	//         positionY - table.contentBoxY())
-
-	//     // Layout for column groups && columns
-	//     columnsHeight = positionY - initialPositionY
-	//     if table.children {
-	//         // The last border spacing is below the columns.
-	//         columnsHeight -= borderSpacingY
-	//     } for group := range table.columnGroups {
-	//         for column := range group.children {
-	//             resolvePercentages(column, containingBlock=table)
-	//             if column.gridX < len(columnPositions) {
-	//                 column.positionX = columnPositions[column.gridX]
-	//                 column.positionY = initialPositionY
-	//                 column.width = columnWidths[column.gridX]
-	//                 column.height = columnsHeight
-	//             } else {
-	//                 // Ignore extra empty columns
-	//                 column.positionX = 0
-	//                 column.positionY = 0
-	//                 column.width = 0
-	//                 column.height = 0
-	//             } resolvePercentages(group, containingBlock=table)
-	//             column.getCells = getColumnCells(table, column)
-	//         } first = group.children[0]
-	//         last = group.children[-1]
-	//         group.positionX = first.positionX
-	//         group.positionY = initialPositionY
-	//         group.width = last.positionX + last.width - first.positionX
-	//         group.height = columnsHeight
-	//     }
-
-	//     if resumeAt && ! pageIsEmpty && (
-	//             table.Style["breakInside"] := range ("avoid", "avoid-page")) {
-	//             }
-	//         table = None
-	//         resumeAt = None
-	//     adjoiningMargins = []
-	//     collapsingThrough = false
-	//     return table, resumeAt, nextPage, adjoiningMargins, collapsingThrough
+	    if resumeAt && ! pageIsEmpty && (
+	            table.Style["breakInside"] := range ("avoid", "avoid-page")) {
+	            }
+	        table = None
+	        resumeAt = None
+	    adjoiningMargins = []
+	    collapsingThrough = false
+	    return table, resumeAt, nextPage, adjoiningMargins, collapsingThrough
 }
 
 // Increase the top padding of a box. This also translates the children.
@@ -554,7 +578,7 @@ func addTopPadding(box *bo.BoxFields, extraPadding pr.Float) {
 // http://www.w3.org/TR/CSS21/tables.html#fixed-table-layout
 func fixedTableLayout(box *bo.BoxFields) {
 	table := box.GetWrappedTable().Table()
-	if table.Width.Auto() {
+	if table.Width== pr.Auto {
 		log.Fatalf("table width can't be auto here")
 	}
 	var allColumns []Box
@@ -581,7 +605,7 @@ func fixedTableLayout(box *bo.BoxFields) {
 	for i, column_ := range allColumns {
 		column := column_.Box()
 		column.Width = resolveOnePercentage(pr.MaybeFloatToValue(column.Width), "width", table.Width.V(), "")
-		if !column.Width.Auto() {
+		if !column.Width== pr.Auto {
 			columnWidths[i] = column.Width
 		}
 	}
@@ -596,7 +620,7 @@ func fixedTableLayout(box *bo.BoxFields) {
 	for _, cell_ := range firstRowCells {
 		cell := cell_.Box()
 		resolvePercentages2(cell_, table, "")
-		if !cell.Width.Auto() {
+		if !cell.Width== pr.Auto {
 			width := cell.BorderWidth()
 			width -= borderSpacingX * pr.Float(cell.Colspan-1)
 			// In the general case, this width affects several columns (through
@@ -684,10 +708,10 @@ func autoTableLayout(context LayoutContext, box bo.BoxFields, containingBlock bo
 	table := table_.Table()
 	tmp := tableAndColumnsPreferredWidths(context, box, false)
 	var margins pr.Float
-	if !box.MarginLeft.Auto() {
+	if !box.MarginLeft== pr.Auto {
 		margins += box.MarginLeft.V()
 	}
-	if !box.MarginRight.Auto() {
+	if !box.MarginRight== pr.Auto {
 		margins += box.MarginRight.V()
 	}
 	paddings := table.PaddingLeft.V() + table.PaddingRight.V()
@@ -699,7 +723,7 @@ func autoTableLayout(context LayoutContext, box bo.BoxFields, containingBlock bo
 		availableWidth -= table.BorderLeftWidth.V() + table.BorderRightWidth.V()
 	}
 
-	if table.Width.Auto() {
+	if table.Width== pr.Auto {
 		if availableWidth <= tmp.tableMinContentWidth {
 			table.Width = tmp.tableMinContentWidth
 		} else if availableWidth < tmp.tableMaxContentWidth {
@@ -819,7 +843,7 @@ func tableWrapperWidth(context LayoutContext, wrapper *bo.BoxFields, containingB
 	table := wrapper.GetWrappedTable()
 	resolvePercentages(table, containingBlock, "")
 
-	if table.Box().Style.GetTableLayout() == "fixed" && !table.Box().Width.Auto() {
+	if table.Box().Style.GetTableLayout() == "fixed" && !table.Box().Width== pr.Auto {
 		fixedTableLayout(wrapper)
 	} else {
 		autoTableLayout(context, *wrapper, containingBlock.V())

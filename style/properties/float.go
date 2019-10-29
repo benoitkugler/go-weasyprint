@@ -11,12 +11,7 @@ const (
 )
 
 type MaybeFloat interface {
-	Auto() bool
 	V() Float
-}
-
-func (f Float) Auto() bool {
-	return false
 }
 
 func (f Float) V() Float {
@@ -25,12 +20,8 @@ func (f Float) V() Float {
 
 type special bool
 
-func (f special) Auto() bool {
-	return bool(f)
-}
-
 func (f special) V() Float {
-	return -1
+	return 0
 }
 
 // Return true except for 0 or None
@@ -48,7 +39,7 @@ func MaybeFloatToValue(mf MaybeFloat) Value {
 	if mf == nil {
 		return Value{}
 	}
-	if mf.Auto() {
+	if mf == Auto {
 		return SToV("auto")
 	}
 	return mf.V().ToValue()
