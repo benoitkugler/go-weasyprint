@@ -54,7 +54,7 @@ type LayoutContext struct {
 	forcedBreak         bool
 	strutLayouts        map[string]int
 	fontFeatures        map[string]int
-	tables              map[*bo.BoxFields]map[bool]tableContentWidths
+	tables              map[*bo.TableBox]map[bool]tableContentWidths
 	dictionaries        map[string]int
 }
 

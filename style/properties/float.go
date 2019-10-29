@@ -62,3 +62,13 @@ func Max(x, y Float) Float {
 func Floor(x Float) Float {
 	return Float(math.Floor(float64(x)))
 }
+
+func Maxs(values []Float) Float {
+	var max Float
+	for _, w := range values {
+		if w > max {
+			max = w
+		}
+	}
+	return max
+}

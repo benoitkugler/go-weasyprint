@@ -69,7 +69,7 @@ func blockLevelLayout(context LayoutContext, box_ bo.InstanceBlockLevelBox, maxP
 // Call the layout function corresponding to the ``box`` type.
 func blockLevelLayoutSwitch(context LayoutContext, box bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock Box, pageIsEmpty bool, absoluteBoxes,
-	fixedBoxes, adjoiningMargins []Box) blockLayout {
+	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) blockLayout {
 
 	if bo.TypeTableBox.IsInstance(box) {
 		return tableLayout(context, box, maxPositionY, skipStack, containingBlock,
@@ -122,7 +122,8 @@ func blockLevelLayoutSwitch(context LayoutContext, box bo.InstanceBlockLevelBox,
 //     else if box.IsTableWrapper {
 //         tableWrapperWidth(
 //             context, box, (containingBlock.width, containingBlock.height))
-//     } blockLevelWidth(box, containingBlock)
+//     }
+//		blockLevelWidth(box, containingBlock)
 
 //     newBox, resumeAt, nextPage, adjoiningMargins, collapsingThrough = \
 //         blockContainerLayout(
@@ -162,64 +163,79 @@ func blockLevelLayoutSwitch(context LayoutContext, box bo.InstanceBlockLevelBox,
 // }
 //     return box
 
+var blockLevelWidth = handleMinMaxWidth(blockLevelWidth_)
+
 // @handleMinMaxWidth
-// // Set the ``box`` width.
-// func blockLevelWidth(box, containingBlock) {
-//     // "cb" stands for "containing block"
-//     cbWidth = containingBlock.width
-// }
-//     // http://www.w3.org/TR/CSS21/visudet.html#blockwidth
+// Set the ``box`` width.
+func blockLevelWidth_(box_ Box, _ *LayoutContext, containingBlock block) (bool, pr.Float) {
+	box := box_.Box()
+	// "cb" stands for "containing block"
+	cbWidth := containingBlock.Width
 
-//     // These names are waaay too long
-//     marginL = box.MarginLeft
-//     marginR = box.MarginRight
-//     paddingL = box.PaddingLeft
-//     paddingR = box.PaddingRight
-//     borderL = box.BorderLeftWidth
-//     borderR = box.BorderRightWidth
-//     width = box.width
+	// http://www.w3.org/TR/CSS21/visudet.html#blockwidth
 
-//     // Only margin-left, margin-right && width can be "auto".
-//     // We want:  width of containing block ==
-//     //               margin-left + border-left-width + padding-left + width
-//     //               + padding-right + border-right-width + margin-right
+	// These names are waaay too long
+	marginL := box.MarginLeft
+	marginR := box.MarginRight
+	width := box.Width
+	paddingL := box.PaddingLeft.V()
+	paddingR := box.PaddingRight.V()
+	borderL := box.BorderLeftWidth.V()
+	borderR := box.BorderRightWidth.V()
 
-//     paddingsPlusBorders = paddingL + paddingR + borderL + borderR
-//     if box.width != "auto" {
-//         total = paddingsPlusBorders + width
-//         if marginL != "auto" {
-//             total += marginL
-//         } if marginR != "auto" {
-//             total += marginR
-//         } if total > cbWidth {
-//             if marginL == "auto" {
-//                 marginL = box.MarginLeft = 0
-//             } if marginR == "auto" {
-//                 marginR = box.MarginRight = 0
-//             }
-//         }
-//     } if width != "auto" && marginL != "auto" && marginR != "auto" {
-//         // The equation is over-constrained.
-//         if containingBlock.style["direction"] == "rtl" && ! box.IsColumn {
-//             box.PositionX += (
-//                 cbWidth - paddingsPlusBorders - width - marginR - marginL)
-//         } // Do nothing := range ltr.
-//     } if width == "auto" {
-//         if marginL == "auto" {
-//             marginL = box.MarginLeft = 0
-//         } if marginR == "auto" {
-//             marginR = box.MarginRight = 0
-//         } width = box.width = cbWidth - (
-//             paddingsPlusBorders + marginL + marginR)
-//     } marginSum = cbWidth - paddingsPlusBorders - width
-//     if marginL == "auto" && marginR == "auto" {
-//         box.MarginLeft = marginSum / 2.
-//         box.MarginRight = marginSum / 2.
-//     } else if marginL == "auto" && marginR != "auto" {
-//         box.MarginLeft = marginSum - marginR
-//     } else if marginL != "auto" && marginR == "auto" {
-//         box.MarginRight = marginSum - marginL
-//     }
+	// Only margin-left, margin-right and width can be "auto".
+	// We want:  width of containing block ==
+	//               margin-left + border-left-width + padding-left + width
+	//               + padding-right + border-right-width + margin-right
+
+	paddingsPlusBorders := paddingL + paddingR + borderL + borderR
+	if width != pr.Auto {
+		total := paddingsPlusBorders + width.V()
+		if marginL != pr.Auto {
+			total += marginL.V()
+		}
+		if marginR != pr.Auto {
+			total += marginR.V()
+		}
+		if total > cbWidth {
+			if marginL == pr.Auto {
+				marginL = pr.Float(0)
+				box.MarginLeft = pr.Float(0)
+			}
+			if marginR == pr.Auto {
+				marginR = pr.Float(0)
+				box.MarginRight = pr.Float(0)
+			}
+		}
+	}
+	if width != pr.Auto && marginL != pr.Auto && marginR != pr.Auto {
+		// The equation is over-constrained.
+		if containingBlock.style["direction"] == "rtl" && !box.IsColumn {
+			box.PositionX += (cbWidth - paddingsPlusBorders - width - marginR - marginL)
+		} // Do nothing := range ltr.
+	}
+	if width == pr.Auto {
+		if marginL == pr.Auto {
+			marginL = 0
+			box.MarginLeft = 0
+		}
+		if marginR == pr.Auto {
+			marginR = 0
+			box.MarginRight = 0
+		}
+		width = cbWidth - (paddingsPlusBorders + marginL + marginR)
+		box.Width = width
+	}
+	marginSum = cbWidth - paddingsPlusBorders - width
+	if marginL == pr.Auto && marginR == pr.Auto {
+		box.MarginLeft = marginSum / 2.
+		box.MarginRight = marginSum / 2.
+	} else if marginL == pr.Auto && marginR != pr.Auto {
+		box.MarginLeft = marginSum - marginR
+	} else if marginL != pr.Auto && marginR == pr.Auto {
+		box.MarginRight = marginSum - marginL
+	}
+}
 
 // // Translate the ``box`` if it is relatively positioned.
 // func relativePositioning(box, containingBlock) {
@@ -729,7 +745,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	}
 
 	for _, child := range newBox.Children {
-		relativePositioning(child, bo.MaybePoint{newBox.width, newBox.Height})
+		relativePositioning(child, bo.MaybePoint{newBox.Width, newBox.Height})
 	}
 
 	if !bo.TypeBlockBox.IsInstance(newBox) {

@@ -27,13 +27,3 @@ func MaxInt(x, y int) int {
 	}
 	return y
 }
-
-func Maxs(values []float32) float32 {
-	var max float32
-	for _, w := range values {
-		if w > max {
-			max = w
-		}
-	}
-	return max
-}

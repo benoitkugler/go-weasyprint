@@ -25,7 +25,7 @@ type orientedBox interface {
 }
 
 type OrientedBox struct {
-	context                 LayoutContext
+	context                 *LayoutContext
 	box                     *bo.MarginBox
 	paddingPlusBorder       pr.Float
 	marginA, marginB, inner pr.MaybeFloat
@@ -67,7 +67,7 @@ type VerticalBox struct {
 	OrientedBox
 }
 
-func NewVerticalBox(context LayoutContext, box *bo.MarginBox) *VerticalBox {
+func NewVerticalBox(context *LayoutContext, box *bo.MarginBox) *VerticalBox {
 	self := new(VerticalBox)
 	self.context = context
 	self.box = box
@@ -103,7 +103,7 @@ type HorizontalBox struct {
 	_minContentSize, _maxContentSize pr.MaybeFloat
 }
 
-func NewHorizontalBox(context LayoutContext, box *bo.MarginBox) *HorizontalBox {
+func NewHorizontalBox(context *LayoutContext, box *bo.MarginBox) *HorizontalBox {
 	self := new(HorizontalBox)
 	self.context = context
 	self.box = box
@@ -161,7 +161,7 @@ func countAuto(values ...pr.MaybeFloat) int {
 //         left half (for vertical==false) of the page.
 //         This determines which margin should be "auto" if the values are
 //         over-constrained. (Rule 3 of the algorithm.)
-func computeFixedDimension(context LayoutContext, box_ *bo.MarginBox, outer pr.Float, vertical, topOrLeft bool) {
+func computeFixedDimension(context *LayoutContext, box_ *bo.MarginBox, outer pr.Float, vertical, topOrLeft bool) {
 	var boxOriented orientedBox
 	if vertical {
 		boxOriented = NewVerticalBox(context, box_)
@@ -246,7 +246,7 @@ func computeFixedDimension(context LayoutContext, box_ *bo.MarginBox, outer pr.F
 //     margin-left and margin-right
 // :param outerSum:
 //     The target total outer dimension (max box width or height)
-func computeVariableDimension(context LayoutContext, sideBoxes_ [3]*bo.MarginBox, vertical bool, outerSum pr.Float) {
+func computeVariableDimension(context *LayoutContext, sideBoxes_ [3]*bo.MarginBox, vertical bool, outerSum pr.Float) {
 	var sideBoxes [3]orientedBox
 	for i, box_ := range sideBoxes_ {
 		if vertical {
@@ -480,7 +480,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			continue
 		}
 		// We need the three boxes together for the variable dimension:
-		computeVariableDimension(*context, sideBoxes, vertical, variableOuter.V())
+		computeVariableDimension(context, sideBoxes, vertical, variableOuter.V())
 		offsets := []pr.Float{0, 0.5, 1}
 		for i := range sideBoxes {
 			box, offset := sideBoxes[i], offsets[i]
@@ -494,7 +494,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			} else {
 				box.PositionX += offset * (-box.MarginWidth())
 			}
-			computeFixedDimension(*context, box, fixedOuter.V(), !vertical, prefix == "top" || prefix == "left")
+			computeFixedDimension(context, box, fixedOuter.V(), !vertical, prefix == "top" || prefix == "left")
 			generatedBoxes = append(generatedBoxes, box)
 		}
 	}
@@ -513,8 +513,8 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 		}
 		box.PositionX = positionX
 		box.PositionY = positionY
-		computeFixedDimension(*context, box, cbHeight.V(), true, strings.Contains(atKeyword, "top"))
-		computeFixedDimension(*context, box, cbWidth.V(), false, strings.Contains(atKeyword, "left"))
+		computeFixedDimension(context, box, cbHeight.V(), true, strings.Contains(atKeyword, "top"))
+		computeFixedDimension(context, box, cbWidth.V(), false, strings.Contains(atKeyword, "left"))
 		generatedBoxes = append(generatedBoxes, box)
 	}
 
@@ -593,13 +593,13 @@ var (
 )
 
 // @handleMinMaxWidth
-func pageWidth_(box Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
+func pageWidth_(box Box, context *LayoutContext, containingBlock block) (bool, pr.Float) {
 	pageWidthOrHeight(NewHorizontalBox(context, box.(*bo.MarginBox)), containingBlock.Width)
 	return false, 0
 }
 
 // @handleMinMaxHeight
-func pageHeight_(box Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
+func pageHeight_(box Box, context *LayoutContext, containingBlock block) (bool, pr.Float) {
 	pageWidthOrHeight(NewVerticalBox(context, box.(*bo.MarginBox)), containingBlock.Height)
 	return false, 0
 }
@@ -627,8 +627,8 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 
 	page.PositionX = 0
 	page.PositionY = 0
-	pageWidth(page, *context, block{Width: cbWidth})
-	pageHeight(page, *context, block{Height: cbHeight})
+	pageWidth(page, context, block{Width: cbWidth})
+	pageHeight(page, context, block{Height: cbHeight})
 
 	rootBox.Box().PositionX = page.ContentBoxX()
 	rootBox.Box().PositionY = page.ContentBoxY()

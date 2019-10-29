@@ -25,18 +25,18 @@ type Splitted struct {
 	ResumeAt *int
 
 	// width in pixels of the first line
-	Width float32
+	Width pr.Float
 
 	// height in pixels of the first line
-	Height float32
+	Height pr.Float
 
 	// baseline in pixels of the first line
-	Baseline float32
+	Baseline pr.Float
 }
 
 // Fit as much as possible in the available width for one line of text.
 // minimum=False
-func SplitFirstLine(text string, style pr.Properties, context interface{}, maxWidth *float32, justificationSpacing float32,
+func SplitFirstLine(text string, style pr.Properties, context LayoutContext, maxWidth *pr.Float, justificationSpacing pr.Float,
 	minimum bool) Splitted {
 	// FIXME: a implémenter
 	return Splitted{}

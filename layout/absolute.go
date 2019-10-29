@@ -61,7 +61,7 @@ func (abs AbsolutePlaceholder) String() string {
 var absoluteWidth = handleMinMaxWidth(_absoluteWidth)
 
 // @handleMinMaxWidth
-func _absoluteWidth(box_ Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
+func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock block) (bool, pr.Float) {
 	// http://www.w3.org/TR/CSS2/visudet.html#abs-replaced-width
 	box := box_.Box()
 	// These names are waaay too long
@@ -211,14 +211,14 @@ func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixe
 	box := box_.Box()
 	_, _, cbWidth, cbHeight := containingBlock.unpack()
 
-	translateBoxWidth, translateX := absoluteWidth(box_, *context, containingBlock)
+	translateBoxWidth, translateX := absoluteWidth(box_, context, containingBlock)
 	translateBoxHeight, translateY := absoluteHeight(box_, *context, containingBlock)
 
 	// This box is the containing block for absolute descendants.
 	var absoluteBoxes []*AbsolutePlaceholder
 
 	if box.IsTableWrapper {
-		tableWrapperWidth(*context, box, bo.MaybePoint{cbWidth, cbHeight})
+		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
 	newBox := blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil).newBox

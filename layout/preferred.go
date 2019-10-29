@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
-	"github.com/benoitkugler/go-weasyprint/pdf"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // Preferred and minimum preferred width, aka. max-content and min-content
@@ -20,27 +21,27 @@ import (
 // *Warning:* both availableOuterWidth and the return value are
 // for width of the *content area*, not margin area.
 // http://www.w3.org/TR/CSS21/visudet.html#float-width
-func shrinkToFit(context LayoutContext, box Box, availableWidth pr.Float) pr.Float {
+func shrinkToFit(context *LayoutContext, box Box, availableWidth pr.Float) pr.Float {
 	return pr.Min(pr.Max(minContentWidth(context, box, false), availableWidth), maxContentWidth(context, box, false))
 }
 
 // Return the min-content width for ``box``.
 // This is the width by breaking at every line-break opportunity.
 // outer=true
-func minContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
-	rep, isReplaced := bo.AsReplaced(box)
+func minContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
+	rep, isReplaced := box.(bo.InstanceReplacedBox)
 	if box.Box().IsTableWrapper {
-		return tableAndColumnsPreferredWidths(context, box, outer).tableMinContentWidth
+		return tableAndColumnsPreferredWidths(context, *box.Box(), outer).tableMinContentWidth
 	} else if bo.TypeTableCellBox.IsInstance(box) {
 		return tableCellMinContentWidth(context, box, outer)
 	} else if bo.IsBlockContainerBox(box) || bo.TypeTableColumnBox.IsInstance(box) || bo.TypeFlexBox.IsInstance(box) {
 		return blockMinContentWidth(context, box, outer)
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box) {
-		return columnGroupContentWidth(context, *box.Box())
+		return columnGroupContentWidth(*context, *box.Box())
 	} else if isLine(box) {
 		return inlineMinContentWidth(context, box, outer, nil, false, true)
 	} else if isReplaced {
-		return replacedMinContentWidth(*rep, outer)
+		return replacedMinContentWidth(*rep.Replaced(), outer)
 	} else if bo.IsFlexContainerBox(box) {
 		return flexMinContentWidth(context, *box.Box(), outer)
 	} else {
@@ -52,20 +53,20 @@ func minContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
 // Return the max-content width for ``box``.
 // This is the width by only breaking at forced line breaks.
 // outer=true
-func maxContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
-	rep, isReplaced := bo.AsReplaced(box)
+func maxContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
+	rep, isReplaced := box.(bo.InstanceReplacedBox)
 	if box.Box().IsTableWrapper {
-		return tableAndColumnsPreferredWidths(context, box, outer).tableMaxContentWidth
+		return tableAndColumnsPreferredWidths(context, *box.Box(), outer).tableMaxContentWidth
 	} else if bo.TypeTableCellBox.IsInstance(box) {
 		return tableCellMaxContentWidth(context, box, outer)
 	} else if bo.IsBlockContainerBox(box) || bo.TypeTableColumnBox.IsInstance(box) || bo.TypeFlexBox.IsInstance(box) {
 		return blockMaxContentWidth(context, box, outer)
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box) {
-		return columnGroupContentWidth(context, *box.Box())
+		return columnGroupContentWidth(*context, *box.Box())
 	} else if isLine(box) {
 		return inlineMaxContentWidth(context, box, outer, true)
 	} else if isReplaced {
-		return replacedMaxContentWidth(*rep, outer)
+		return replacedMaxContentWidth(*rep.Replaced(), outer)
 	} else if bo.IsFlexContainerBox(box) {
 		return flexMaxContentWidth(context, *box.Box(), outer)
 	} else {
@@ -74,10 +75,10 @@ func maxContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
 	}
 }
 
-type fnBlock = func(LayoutContext, Box, bool) pr.Float
+type fnBlock = func(*LayoutContext, Box, bool) pr.Float
 
 // Helper to create ``block*ContentWidth.``
-func blockContentWidth(context LayoutContext, box BoxFields, function fnBlock, outer bool) pr.Float {
+func blockContentWidth(context *LayoutContext, box bo.BoxFields, function fnBlock, outer bool) pr.Float {
 	width := box.Style.GetWidth()
 	var widthValue pr.Float
 	if width.String == "auto" || width.Unit == pr.Percentage {
@@ -104,7 +105,7 @@ func blockContentWidth(context LayoutContext, box BoxFields, function fnBlock, o
 }
 
 // Get box width from given width and box min- and max-widths.
-func minMax(box BoxFields, width pr.Float) pr.Float {
+func minMax(box bo.BoxFields, width pr.Float) pr.Float {
 	minWidth := box.Style.GetMinWidth()
 	maxWidth := box.Style.GetMaxWidth()
 	var resMin, resMax pr.Float
@@ -123,7 +124,7 @@ func minMax(box BoxFields, width pr.Float) pr.Float {
 
 // Add box paddings, borders and margins to ``width``.
 // left=true, right=true
-func marginWidth(box BoxFields, width pr.Float, left, right bool) pr.Float {
+func marginWidth(box bo.BoxFields, width pr.Float, left, right bool) pr.Float {
 	var percentages pr.Float
 	var cases []string
 	if left {
@@ -165,7 +166,7 @@ func marginWidth(box BoxFields, width pr.Float, left, right bool) pr.Float {
 //     If ``outer`` is set to ``true``, return margin width, else return content
 //     width.
 // left=true, right=true
-func adjust(box BoxFields, outer bool, width pr.Float, left, right bool) pr.Float {
+func adjust(box bo.BoxFields, outer bool, width pr.Float, left, right bool) pr.Float {
 	fixed := minMax(box, width)
 
 	if outer {
@@ -177,13 +178,13 @@ func adjust(box BoxFields, outer bool, width pr.Float, left, right bool) pr.Floa
 
 // Return the min-content width for a ``BlockBox``.
 // outer=true
-func blockMinContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
+func blockMinContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
 	return blockContentWidth(context, *box.Box(), minContentWidth, outer)
 }
 
 // Return the max-content width for a ``BlockBox``.
 // outer=true
-func blockMaxContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
+func blockMaxContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
 	return blockContentWidth(context, *box.Box(), maxContentWidth, outer)
 }
 
@@ -193,7 +194,7 @@ func blockMaxContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
 // ``firstLine`` is ``true``, only the first line minimum width is
 // calculated.
 // outer=true, skipStack=None, firstLine=false, isLineStart=false
-func inlineMinContentWidth(context LayoutContext, box_ Box, outer bool, skipStack *bo.SkipStack,
+func inlineMinContentWidth(context *LayoutContext, box_ Box, outer bool, skipStack *tree.SkipStack,
 	firstLine, isLineStart bool) pr.Float {
 	box := *box_.Box()
 	widths := inlineLineWidths(context, box, outer, isLineStart, true, skipStack, firstLine)
@@ -208,7 +209,7 @@ func inlineMinContentWidth(context LayoutContext, box_ Box, outer bool, skipStac
 
 // Return the max-content width for an ``InlineBox``.
 // outer=true, isLineStart=false
-func inlineMaxContentWidth(context LayoutContext, box_ Box, outer, isLineStart bool) pr.Float {
+func inlineMaxContentWidth(context *LayoutContext, box_ Box, outer, isLineStart bool) pr.Float {
 	box := *box_.Box()
 
 	widths := inlineLineWidths(context, box, outer, isLineStart, false, nil, false)
@@ -217,7 +218,7 @@ func inlineMaxContentWidth(context LayoutContext, box_ Box, outer, isLineStart b
 }
 
 // Return the *-content width for a ``TableColumnGroupBox``.
-func columnGroupContentWidth(context LayoutContext, box BoxFields) pr.Float {
+func columnGroupContentWidth(context LayoutContext, box bo.BoxFields) pr.Float {
 	width := box.Style.GetWidth()
 	var width_ pr.Float
 	if width.String == "auto" || width.Unit == pr.Percentage {
@@ -232,7 +233,7 @@ func columnGroupContentWidth(context LayoutContext, box BoxFields) pr.Float {
 }
 
 // Return the min-content width for a ``TableCellBox``.
-func tableCellMinContentWidth(context LayoutContext, box_ Box, outer bool) pr.Float {
+func tableCellMinContentWidth(context *LayoutContext, box_ Box, outer bool) pr.Float {
 	box := box_.Box()
 	var maxChildrenWidths pr.Float
 	for _, child := range box.Children {
@@ -255,13 +256,13 @@ func tableCellMinContentWidth(context LayoutContext, box_ Box, outer bool) pr.Fl
 }
 
 // Return the max-content width for a ``TableCellBox``.
-func tableCellMaxContentWidth(context LayoutContext, box Box, outer bool) pr.Float {
+func tableCellMaxContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
 	return pr.Max(tableCellMinContentWidth(context, box, outer), blockMaxContentWidth(context, box, outer))
 }
 
 // firstLine=false
-func inlineLineWidths(context LayoutContext, box BoxFields, outer, isLineStart,
-	minimum bool, skipStack *bo.SkipStack, firstLine bool) []pr.Float {
+func inlineLineWidths(context *LayoutContext, box bo.BoxFields, outer, isLineStart,
+	minimum bool, skipStack *tree.SkipStack, firstLine bool) []pr.Float {
 	var (
 		textIndent, currentLine pr.Float
 		skip                    int
@@ -322,7 +323,7 @@ func inlineLineWidths(context LayoutContext, box BoxFields, outer, isLineStart,
 				newResumeAt := new(int)
 				for newResumeAt != nil {
 					resumeAt += *newResumeAt
-					tmp := pdf.SplitFirstLine(childText[resumeAt:], textBox.Style, context,
+					tmp := SplitFirstLine(childText[resumeAt:], textBox.Style, *context,
 						maxWidth, textBox.JustificationSpacing, true)
 					newResumeAt = tmp.ResumeAt
 					lines = append(lines, tmp.Width)
@@ -369,7 +370,7 @@ func inlineLineWidths(context LayoutContext, box BoxFields, outer, isLineStart,
 
 // Return the percentage contribution of a cell, column or column group.
 // http://dbaron.org/css/intrinsic/#pct-contrib
-func percentageContribution(box BoxFields) pr.Float {
+func percentageContribution(box bo.BoxFields) pr.Float {
 	var minWidth, width pr.Float
 	maxWidth := pr.Inf
 	miw, maw, w := box.Style.GetMinWidth(), box.Style.GetMaxWidth(), box.Style.GetWidth()
@@ -399,9 +400,9 @@ type tableContentWidths struct {
 // Return content widths for the auto layout table and its columns.
 // http://dbaron.org/css/intrinsic/
 // outer = true
-func tableAndColumnsPreferredWidths(context LayoutContext, box bo.BoxFields, outer bool) tableContentWidths {
+func tableAndColumnsPreferredWidths(context *LayoutContext, box bo.BoxFields, outer bool) tableContentWidths {
 	table_ := box.GetWrappedTable()
-	table := table_.Box()
+	table := table_.Table()
 
 	if result := context.tables[table]; result != nil {
 		return result[outer]
@@ -413,8 +414,8 @@ func tableAndColumnsPreferredWidths(context LayoutContext, box bo.BoxFields, out
 	for _, rowGroup := range table.Children {
 		for _, row := range rowGroup.Box().Children {
 			for _, cell := range row.Box().Children {
-				gridWidth = pr.MaxInt(cell.Box().GridX+cell.Box().Colspan, gridWidth)
-				gridHeight = pr.MaxInt(rowNumber+cell.Box().Rowspan, gridHeight)
+				gridWidth = utils.MaxInt(cell.Box().GridX+cell.Box().Colspan, gridWidth)
+				gridHeight = utils.MaxInt(rowNumber+cell.Box().Rowspan, gridHeight)
 			}
 			rowNumber += 1
 		}
@@ -461,8 +462,8 @@ func tableAndColumnsPreferredWidths(context LayoutContext, box bo.BoxFields, out
 		table.Children = nil
 		minWidth := blockMinContentWidth(context, table_, false)
 		maxWidth := blockMaxContentWidth(context, table_, false)
-		outerMinWidth := adjust(*table, true, blockMinContentWidth(context, table_, true), true, true)
-		outerMaxWidth := adjust(*table, true, blockMaxContentWidth(context, table_, true), true, true)
+		outerMinWidth := adjust(table.BoxFields, true, blockMinContentWidth(context, table_, true), true, true)
+		outerMaxWidth := adjust(table.BoxFields, true, blockMaxContentWidth(context, table_, true), true, true)
 		context.tables[table] = map[bool]tableContentWidths{
 			false: tableContentWidths{
 				tableMinContentWidth:         minWidth,
@@ -699,10 +700,10 @@ outerLoop:
 		tableMaxWidth = wid.Value
 	}
 
-	tableMinContentWidth = pr.Max(tableMinContentWidth, adjust(*table, false, tableMinWidth, true, true))
-	tableMaxContentWidth = pr.Max(tableMaxContentWidth, adjust(*table, false, tableMaxWidth, true, true))
-	tableOuterMinContentWidth := marginWidth(*table, marginWidth(*table, tableMinContentWidth, true, true), true, true)
-	tableOuterMaxContentWidth := marginWidth(*table, marginWidth(*table, tableMaxContentWidth, true, true), true, true)
+	tableMinContentWidth = pr.Max(tableMinContentWidth, adjust(table.BoxFields, false, tableMinWidth, true, true))
+	tableMaxContentWidth = pr.Max(tableMaxContentWidth, adjust(table.BoxFields, false, tableMaxWidth, true, true))
+	tableOuterMinContentWidth := marginWidth(table.BoxFields, marginWidth(table.BoxFields, tableMinContentWidth, true, true), true, true)
+	tableOuterMaxContentWidth := marginWidth(table.BoxFields, marginWidth(table.BoxFields, tableMaxContentWidth, true, true), true, true)
 
 	result := tableContentWidths{
 		columnMinContentWidths:       minContentWidths,
@@ -730,11 +731,14 @@ outerLoop:
 // outer=true
 func replacedMinContentWidth(box bo.ReplacedBox, outer bool) pr.Float {
 	width := box.Style.GetWidth()
-	var h, w pr.Float
+	var (
+		h pr.MaybeFloat
+		w pr.Float
+	)
 	if width.String == "auto" {
 		height := box.Style.GetHeight()
 		if height.String == "auto" || height.Unit == pr.Percentage {
-			h = Auto
+			h = pr.Auto
 		} else if height.Unit == pr.Px {
 			h = height.Value
 		} else {
@@ -742,11 +746,11 @@ func replacedMinContentWidth(box bo.ReplacedBox, outer bool) pr.Float {
 		}
 		if mw := box.Style.GetMaxWidth(); mw.String != "auto" && mw.Unit == pr.Percentage {
 			// See https://drafts.csswg.org/css-sizing/#intrinsic-contribution
-			w = 0
+			w = pr.Float(0)
 		} else {
 			image := box.Replacement
 			iwidth, iheight := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
-			w, _ = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(), Auto, h, 300, 150)
+			w, _ = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(), pr.Auto, h, 300, 150)
 		}
 	} else if width.Unit == pr.Percentage {
 		// See https://drafts.csswg.org/css-sizing/#intrinsic-contribution
@@ -762,11 +766,14 @@ func replacedMinContentWidth(box bo.ReplacedBox, outer bool) pr.Float {
 // Return the max-content width for an ``InlineReplacedBox``.
 func replacedMaxContentWidth(box bo.ReplacedBox, outer bool) pr.Float {
 	width := box.Style.GetWidth()
-	var h, w pr.Float
+	var (
+		h pr.MaybeFloat
+		w pr.Float
+	)
 	if width.String == "auto" {
 		height := box.Style.GetHeight()
 		if height.String == "auto" || height.Unit == pr.Percentage {
-			h = Auto
+			h = pr.Auto
 		} else if height.Unit == pr.Px {
 			h = height.Value
 		} else {
@@ -775,7 +782,7 @@ func replacedMaxContentWidth(box bo.ReplacedBox, outer bool) pr.Float {
 
 		image := box.Replacement
 		iwidth, iheight := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
-		w, _ = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(), Auto, h, 300, 150)
+		w, _ = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(), pr.Auto, h, 300, 150)
 
 	} else if width.Unit == pr.Percentage {
 		// See https://drafts.csswg.org/css-sizing/#intrinsic-contribution
@@ -790,7 +797,7 @@ func replacedMaxContentWidth(box bo.ReplacedBox, outer bool) pr.Float {
 
 // Return the min-content width for an ``FlexContainerBox``.
 // outer=true
-func flexMinContentWidth(context LayoutContext, box BoxFields, outer bool) pr.Float {
+func flexMinContentWidth(context *LayoutContext, box bo.BoxFields, outer bool) pr.Float {
 	// TODO: use real values, see
 	// https://www.w3.org/TR/css-flexbox-1/#intrinsic-sizes
 	var sum, max pr.Float
@@ -811,7 +818,7 @@ func flexMinContentWidth(context LayoutContext, box BoxFields, outer bool) pr.Fl
 }
 
 // Return the max-content width for an ``FlexContainerBox``.
-func flexMaxContentWidth(context LayoutContext, box BoxFields, outer bool) pr.Float {
+func flexMaxContentWidth(context *LayoutContext, box bo.BoxFields, outer bool) pr.Float {
 	// TODO: use real values, see
 	// https://www.w3.org/TR/css-flexbox-1/#intrinsic-sizes
 	var sum, max pr.Float
@@ -832,7 +839,7 @@ func flexMaxContentWidth(context LayoutContext, box BoxFields, outer bool) pr.Fl
 }
 
 // Return the size of the trailing whitespace of ``box``.
-func trailingWhitespaceSize(context LayoutContext, box Box) pr.Float {
+func trailingWhitespaceSize(context *LayoutContext, box Box) pr.Float {
 	for isLine(box) {
 		ch := box.Box().Children
 		if len(ch) == 0 {
@@ -857,19 +864,19 @@ func trailingWhitespaceSize(context LayoutContext, box Box) pr.Float {
 		)
 		for resume != nil {
 			oldResume = resume
-			oldBox, resume, _ = splitTextBox(context, *textBox, None, resume)
+			oldBox, resume, _ = splitTextBox(context, textBox, nil, *resume)
 		}
 		if oldBox == nil {
 			log.Fatalln("oldBox can't be nil")
 		}
 		strippedBox := textBox.CopyWithText(strippedText)
-		strippedBox, resume, _ = splitTextBox(context, *strippedBox, None, oldResume)
+		strippedBox, resume, _ = splitTextBox(context, strippedBox, nil, *oldResume)
 		if strippedBox == nil || resume != nil {
 			log.Fatalln("invalid strippedBox or resume")
 		}
-		return oldBox.Box().Width - strippedBox.Box().Width
+		return oldBox.Box().Width.V() - strippedBox.Box().Width.V()
 	} else {
-		spli := pdf.SplitFirstLine(textBox.Text, textBox.Style, context, nil, textBox.JustificationSpacing, false)
+		spli := SplitFirstLine(textBox.Text, textBox.Style, *context, nil, textBox.JustificationSpacing, false)
 		return spli.Width
 	}
 }
