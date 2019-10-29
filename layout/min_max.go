@@ -10,12 +10,12 @@ func (b block) unpack() (pr.Float, pr.Float, pr.Float, pr.Float) {
 	return b.X, b.Y, b.Width, b.Height
 }
 
-type funcMinMax = func(box Box, context LayoutContext, containingBlock block) (bool, float32)
+type funcMinMax = func(box Box, context LayoutContext, containingBlock block) (bool, pr.Float)
 
 // Decorate a function that sets the used width of a box to handle
 // {min,max}-width.
 func handleMinMaxWidth(function funcMinMax) funcMinMax {
-	wrapper := func(box Box, context LayoutContext, containingBlock block) (bool, float32) {
+	wrapper := func(box Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
 		computedMarginL, computedMarginR := box.Box().MarginLeft, box.Box().MarginRight
 		res1, res2 := function(box, context, containingBlock)
 		if box.Box().Width.V() > box.Box().MaxWidth.V() {
@@ -37,7 +37,7 @@ func handleMinMaxWidth(function funcMinMax) funcMinMax {
 // Decorate a function that sets the used height of a box to handle
 // {min,max}-height.
 func handleMinMaxHeight(function funcMinMax) funcMinMax {
-	wrapper := func(box Box, context LayoutContext, containingBlock block) (bool, float32) {
+	wrapper := func(box Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
 		computedMarginT, computedMarginB := box.Box().MarginTop, box.Box().MarginBottom
 		res1, res2 := function(box, context, containingBlock)
 		if box.Box().Height.V() > box.Box().MaxHeight.V() {

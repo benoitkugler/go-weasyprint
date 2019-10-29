@@ -46,14 +46,14 @@ func (o OrientedBox) outer() pr.Float {
 }
 
 func (o OrientedBox) outerMinContentSize() pr.Float {
-	if o.inner== pr.Auto {
+	if o.inner == pr.Auto {
 		return o.sugar() + o.minContentSize()
 	}
 	return o.sugar() + o.inner.V()
 }
 
 func (o OrientedBox) outerMaxContentSize() pr.Float {
-	if o.inner== pr.Auto {
+	if o.inner == pr.Auto {
 		return o.sugar() + o.maxContentSize()
 	}
 	return o.sugar() + o.inner.V()
@@ -140,7 +140,7 @@ func (self *HorizontalBox) maxContentSize() pr.Float {
 func countAuto(values ...pr.MaybeFloat) int {
 	out := 0
 	for _, v := range values {
-		if v != nil && v== pr.Auto {
+		if v != nil && v == pr.Auto {
 			out += 1
 		}
 	}
@@ -173,18 +173,18 @@ func computeFixedDimension(context LayoutContext, box_ *bo.MarginBox, outer pr.F
 	// Rule 2
 	total := box.paddingPlusBorder
 	for _, value := range [3]pr.MaybeFloat{box.marginA, box.marginB, box.inner} {
-		if !value== pr.Auto {
+		if value != pr.Auto {
 			total += value.V()
 		}
 	}
 	if total > outer {
-		if box.marginA== pr.Auto {
+		if box.marginA == pr.Auto {
 			box.marginA = pr.Float(0)
 		}
-		if box.marginB== pr.Auto {
+		if box.marginB == pr.Auto {
 			box.marginB = pr.Float(0)
 		}
-		if box.inner== pr.Auto {
+		if box.inner == pr.Auto {
 			// XXX this is not in the spec, but without it box.inner
 			// would end up with a negative value.
 			// Instead, this will trigger rule 3 below.
@@ -203,26 +203,26 @@ func computeFixedDimension(context LayoutContext, box_ *bo.MarginBox, outer pr.F
 	}
 	// Rule 4
 	if countAuto(box.marginA, box.marginB, box.inner) == 1 {
-		if box.inner== pr.Auto {
+		if box.inner == pr.Auto {
 			box.inner = outer - box.paddingPlusBorder - box.marginA.V() - box.marginB.V()
-		} else if box.marginA== pr.Auto {
+		} else if box.marginA == pr.Auto {
 			box.marginA = outer - box.paddingPlusBorder - box.marginB.V() - box.inner.V()
-		} else if box.marginB== pr.Auto {
+		} else if box.marginB == pr.Auto {
 			box.marginB = outer - box.paddingPlusBorder - box.marginA.V() - box.inner.V()
 		}
 	}
 	// Rule 5
-	if box.inner== pr.Auto {
-		if box.marginA== pr.Auto {
+	if box.inner == pr.Auto {
+		if box.marginA == pr.Auto {
 			box.marginA = pr.Float(0)
 		}
-		if box.marginB== pr.Auto {
+		if box.marginB == pr.Auto {
 			box.marginB = pr.Float(0)
 		}
 		box.inner = outer - box.paddingPlusBorder - box.marginA.V() - box.marginB.V()
 	}
 	// Rule 6
-	if box.marginA== pr.Auto && box.marginB== pr.Auto {
+	if box.marginA == pr.Auto && box.marginB == pr.Auto {
 		v := (outer - box.paddingPlusBorder - box.inner.V()) / 2
 		box.marginA = v
 		box.marginB = v
@@ -259,16 +259,16 @@ func computeVariableDimension(context LayoutContext, sideBoxes_ [3]*bo.MarginBox
 
 	for _, box_ := range sideBoxes {
 		box := box_.baseBox()
-		if box.marginA== pr.Auto {
+		if box.marginA == pr.Auto {
 			box.marginA = pr.Float(0)
 		}
-		if box.marginB== pr.Auto {
+		if box.marginB == pr.Auto {
 			box.marginB = pr.Float(0)
 		}
 	}
 
 	if boxB.box.IsGenerated {
-		if boxB.inner== pr.Auto {
+		if boxB.inner == pr.Auto {
 			acMaxContentSize := 2 * pr.Max(boxA.outerMaxContentSize(), boxC.outerMaxContentSize())
 			if outerSum >= (boxB.outerMaxContentSize() + acMaxContentSize) {
 				boxB.inner = boxB.maxContentSize()
@@ -293,10 +293,10 @@ func computeVariableDimension(context LayoutContext, sideBoxes_ [3]*bo.MarginBox
 				}
 			}
 		}
-		if boxA.inner== pr.Auto {
+		if boxA.inner == pr.Auto {
 			boxA.shrinkToFit((outerSum-boxB.outer())/2 - boxA.sugar())
 		}
-		if boxC.inner== pr.Auto {
+		if boxC.inner == pr.Auto {
 			boxC.shrinkToFit((outerSum-boxB.outer())/2 - boxC.sugar())
 		}
 	} else {
@@ -304,7 +304,7 @@ func computeVariableDimension(context LayoutContext, sideBoxes_ [3]*bo.MarginBox
 		if boxB.inner.V() != 0 {
 			log.Fatalf("expected boxB.inner == 0, got %v", boxB.inner)
 		}
-		if boxA.inner== pr.Auto && boxC.inner== pr.Auto {
+		if boxA.inner == pr.Auto && boxC.inner == pr.Auto {
 			if outerSum >= (boxA.outerMaxContentSize() + boxC.outerMaxContentSize()) {
 				boxA.inner = boxA.maxContentSize()
 				boxC.inner = boxC.maxContentSize()
@@ -329,9 +329,9 @@ func computeVariableDimension(context LayoutContext, sideBoxes_ [3]*bo.MarginBox
 					boxC.inner = boxC.inner.V() + available*weightC/weightSum
 				}
 			}
-		} else if boxA.inner== pr.Auto {
+		} else if boxA.inner == pr.Auto {
 			boxA.shrinkToFit(outerSum - boxC.outer() - boxA.sugar())
-		} else if boxC.inner== pr.Auto {
+		} else if boxC.inner == pr.Auto {
 			boxC.shrinkToFit(outerSum - boxA.outer() - boxC.sugar())
 		}
 	}
@@ -568,20 +568,20 @@ func marginBoxContentLayout(context *LayoutContext, page *bo.PageBox, mBox *bo.M
 func pageWidthOrHeight(box_ orientedBox, containingBlockSize pr.Float) {
 	box := box_.baseBox()
 	remaining := containingBlockSize - box.paddingPlusBorder
-	if box.inner== pr.Auto {
-		if box.marginA== pr.Auto {
+	if box.inner == pr.Auto {
+		if box.marginA == pr.Auto {
 			box.marginA = pr.Float(0)
 		}
-		if box.marginB== pr.Auto {
+		if box.marginB == pr.Auto {
 			box.marginB = pr.Float(0)
 		}
 		box.inner = remaining - box.marginA.V() - box.marginB.V()
-	} else if box.marginA== pr.Auto && box.marginB== pr.Auto {
+	} else if box.marginA == pr.Auto && box.marginB == pr.Auto {
 		box.marginA = (remaining - box.inner.V()) / 2
 		box.marginB = box.marginA
-	} else if box.marginA== pr.Auto {
+	} else if box.marginA == pr.Auto {
 		box.marginA = remaining - box.inner.V() - box.marginB.V()
-	} else if box.marginB== pr.Auto {
+	} else if box.marginB == pr.Auto {
 		box.marginB = remaining - box.inner.V() - box.marginA.V()
 	}
 	box_.restoreBoxAttributes()
@@ -593,13 +593,13 @@ var (
 )
 
 // @handleMinMaxWidth
-func pageWidth_(box Box, context LayoutContext, containingBlock block) (bool, float32) {
+func pageWidth_(box Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
 	pageWidthOrHeight(NewHorizontalBox(context, box.(*bo.MarginBox)), containingBlock.Width)
 	return false, 0
 }
 
 // @handleMinMaxHeight
-func pageHeight_(box Box, context LayoutContext, containingBlock block) (bool, float32) {
+func pageHeight_(box Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
 	pageWidthOrHeight(NewVerticalBox(context, box.(*bo.MarginBox)), containingBlock.Height)
 	return false, 0
 }
@@ -659,12 +659,12 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 	}
 
 	for _, placeholder := range positionedBoxes {
-		if placeholder.Box.Box().Style.GetPosition().String == "fixed" {
-			page.FixedBoxes = append(page.FixedBoxes, placeholder.Box)
+		if placeholder.Box().Style.GetPosition().String == "fixed" {
+			page.FixedBoxes = append(page.FixedBoxes, placeholder)
 		}
 	}
 	for _, absoluteBox := range positionedBoxes {
-		absoluteLayout(context, absoluteBox, page, positionedBoxes)
+		absoluteLayout(context, absoluteBox, page, &positionedBoxes)
 	}
 	context.finishBlockFormattingContext(rootBox)
 
