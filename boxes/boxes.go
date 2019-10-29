@@ -135,7 +135,7 @@ type BoxFields struct {
 
 	FirstLetterStyle, firstLineStyle pr.Properties
 
-	PositionX, PositionY, Baseline                                       pr.Float
+	PositionX, PositionY                                                 pr.Float
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
 	Top, Bottom, Left, Right                                             pr.MaybeFloat
 	MarginTop, MarginBottom, MarginLeft, MarginRight                     pr.MaybeFloat
@@ -152,9 +152,9 @@ type BoxFields struct {
 	missingLink         tree.Box
 	cachedCounterValues tree.CounterValues
 
-	isHeader bool
-	isFooter bool
+	IsHeader, IsFooter bool
 
+	Baseline                      pr.MaybeFloat
 	ComputedHeight, ContentHeight pr.MaybeFloat
 	VerticalAlign                 string
 	Empty                         bool
@@ -163,11 +163,14 @@ type BoxFields struct {
 	Rowspan                       int
 
 	GridX int
+	Index int
 
 	FlexBasis                                                      pr.Value
 	FlexBaseSize, TargetMainSize, Adjustment, HypotheticalMainSize pr.Float
 	FlexFactor, ScaledFlexShrinkFactor                             pr.Float
 	Frozen                                                         bool
+
+	GetCells func() []Box // closure which may have default implementation or be set
 }
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {

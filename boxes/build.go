@@ -1075,10 +1075,10 @@ func wrapTable(box InstanceTableBox, children []Box) Box {
 		group := _group.Box()
 		display := group.Style.GetDisplay()
 		if display == "table-header-group" && header == nil {
-			group.isHeader = true
+			group.IsHeader = true
 			header = _group
 		} else if display == "table-footer-group" && footer == nil {
-			group.isFooter = true
+			group.IsFooter = true
 			footer = _group
 		} else {
 			bodyRowGroups = append(bodyRowGroups, _group)

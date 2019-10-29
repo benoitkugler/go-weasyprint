@@ -74,6 +74,7 @@ type TableBox struct {
 	ColumnWidths, ColumnPositions []pr.Float
 	ColumnGroups                  []Box
 	CollapsedBorderGrid           BorderGrids
+	SkippedRows                   int
 }
 
 type InlineTableBox struct {
@@ -321,8 +322,8 @@ func NewTableRowGroupBox(elementTag string, style pr.Properties, children []Box)
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.tabularContainer = true
-	out.isHeader = true
-	out.isFooter = true
+	out.IsHeader = true
+	out.IsFooter = true
 	return out
 }
 
@@ -336,18 +337,15 @@ func NewTableColumnGroupBox(elementTag string, style pr.Properties, children []B
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.span = 1
+	out.GetCells = out.defaultGetCells
 	return out
 }
 
-type withCells interface {
-	getCells() []Box
-}
-
 // Return cells that originate in the group's columns.
-func (b *TableColumnGroupBox) getCells() []Box {
+func (b *TableColumnGroupBox) defaultGetCells() []Box {
 	var out []Box
 	for _, column := range b.Box().Children {
-		for _, cell := range column.(withCells).getCells() {
+		for _, cell := range column.Box().GetCells() {
 			out = append(out, cell)
 		}
 	}
@@ -359,12 +357,13 @@ func NewTableColumnBox(elementTag string, style pr.Properties, children []Box) T
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.span = 1
+	out.GetCells = out.defaultGetCells
 	return out
 }
 
 // Return cells that originate in the column.
 // May be overriden on instances.
-func (b *TableColumnBox) getCells() []Box {
+func (b *TableColumnBox) defaultGetCells() []Box {
 	return []Box{}
 }
 
