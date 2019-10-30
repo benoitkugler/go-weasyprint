@@ -72,3 +72,13 @@ func Maxs(values []Float) Float {
 	}
 	return max
 }
+
+func Mins(values []Float) Float {
+	var min Float
+	for _, w := range values {
+		if w < min {
+			min = w
+		}
+	}
+	return min
+}

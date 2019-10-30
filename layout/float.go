@@ -1,218 +1,226 @@
 package layout
 
 import (
-	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"log"
+
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
-
-
 
 // Layout for floating boxes.
 
 var floatWidth = handleMinMaxWidth(floatWidth_)
 
 // @handleMinMaxWidth
-func floatWidth_(box Box, context LayoutContext, containingBlock block) (bool, float32) {
-    // Check that box.width is auto even if the caller does it too, because
-    // the handleMinMaxWidth decorator can change the value
-	if w := box.Box().Width; w== pr.Auto {
-        box.Box().Width = bo.MF(shrinkToFit(context, box, containingBlock.Width))
+// containingBlock must be block
+func floatWidth_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+	// Check that box.width is auto even if the caller does it too, because
+	// the handleMinMaxWidth decorator can change the value
+	if w := box.Box().Width; w == pr.Auto {
+		box.Box().Width = shrinkToFit(context, box, containingBlock.(block).Width)
 	}
-	return false,0 
-} 
+	return false, 0
+}
 
 // Set the width and position of floating ``box``.
-func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes , 
+func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder) Box {
-		containingBlock := containingBlock_.Box()
-    cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
-    resolvePercentages(box, bo.MaybePoint{cbWidth, cbHeight}, "")
+	containingBlock := containingBlock_.Box()
+	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
+	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
 
-    // TODO: This is only handled later in blocks.blockContainerLayout
-    // http://www.w3.org/TR/CSS21/visudet.html#normal-block
-    if cbHeight== pr.Auto {
-        cbHeight = pr.Float(containingBlock.PositionY - containingBlock.ContentBoxY())
+	// TODO: This is only handled later in blocks.blockContainerLayout
+	// http://www.w3.org/TR/CSS21/visudet.html#normal-block
+	if cbHeight == pr.Auto {
+		cbHeight = pr.Float(containingBlock.PositionY - containingBlock.ContentBoxY())
 	}
 
 	box := box_.Box()
-    resolvePositionPercentages(box, bo.MaybePoint{cbWidth, cbHeight})
+	resolvePositionPercentages(box, bo.Point{cbWidth.V(), cbHeight.V()})
 
-    if box.MarginLeft== pr.Auto {
-        box.MarginLeft = pr.Float(0)
-	} 
-	if box.MarginRight== pr.Auto {
-        box.MarginRight = pr.Float(0)
-	} 
-	if box.MarginTop== pr.Auto {
-        box.MarginTop = pr.Float(0)
-	} 
-	if box.MarginBottom== pr.Auto {
-        box.MarginBottom = pr.Float(0)
-    }
+	if box.MarginLeft == pr.Auto {
+		box.MarginLeft = pr.Float(0)
+	}
+	if box.MarginRight == pr.Auto {
+		box.MarginRight = pr.Float(0)
+	}
+	if box.MarginTop == pr.Auto {
+		box.MarginTop = pr.Float(0)
+	}
+	if box.MarginBottom == pr.Auto {
+		box.MarginBottom = pr.Float(0)
+	}
 
-    clearance := getClearance(context, box, 0)
-    if clearance != nil {
-        box.PositionY += clearance.V()
-    }
+	clearance := getClearance(*context, *box, 0)
+	if clearance != nil {
+		box.PositionY += clearance.V()
+	}
 
-    if bo.IsBlockReplacedBox(box_) {
-        inlineReplacedBoxWidthHeight(box, containingBlock)
-    } else if box.Width== pr.Auto {
-        floatWidth(box_, context, block{Width: containingBlock.Width.V()})
-    }
+	if bo.IsBlockReplacedBox(box_) {
+		inlineReplacedBoxWidthHeight(box_, *containingBlock)
+	} else if box.Width == pr.Auto {
+		floatWidth(box_, context, block{Width: containingBlock.Width.V()})
+	}
 
-    if box.IsTableWrapper {
-        tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
-    }
+	if box.IsTableWrapper {
+		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
+	}
 
-    if bo.IsBlockContainerBox(box_) {
-        context.createBlockFormattingContext()
-        box = blockContainerLayout(context, box, pr.Inf,
-            nil, false, absoluteBoxes, fixedBoxes, nil).newBox
-        context.finishBlockFormattingContext(box_)
-    } else if bo.IsFlexContainerBox(box_) {
-        box = flexLayout(context, box_, pr.Inf, nil, containingBlock_,
-            false, absoluteBoxes, fixedBoxes).newBox
-    } else if !bo.IsBlockReplacedBox(box) {
-        log.Fatalf("expected BlockReplaced , got %s", box)
-    }
+	if bo.IsBlockContainerBox(box_) {
+		context.createBlockFormattingContext()
+		box_, _ = blockContainerLayout(context, box_, pr.Inf,
+			nil, false, absoluteBoxes, fixedBoxes, nil)
+		context.finishBlockFormattingContext(box_)
+	} else if bo.IsFlexContainerBox(box_) {
+		box_, _ = flexLayout(context, box_, pr.Inf, nil, *containingBlock,
+			false, absoluteBoxes, fixedBoxes)
+	} else if !bo.IsBlockReplacedBox(box_) {
+		log.Fatalf("expected BlockReplaced , got %s", box)
+	}
 
-    box = findFloatPosition(context, box, containingBlock)
+	box_ = findFloatPosition(*context, box_, *containingBlock)
 
-    context.excludedShapes.append(box)
+	context.excludedShapes = append(context.excludedShapes, *box_.Box())
 
-    return box
+	return box_
 }
 
-
 // Get the right position of the float ``box``.
-func findFloatPosition(context, box, containingBlock) {
-    // See http://www.w3.org/TR/CSS2/visuren.html#float-position
+func findFloatPosition(context LayoutContext, box_ Box, containingBlock bo.BoxFields) Box {
+	box := box_.Box()
+	// See http://www.w3.org/TR/CSS2/visuren.html#float-position
 
-    // Point 4 is already handled as box.positionY is set according to the
-    // containing box top position, with collapsing margins handled
+	// Point 4 is already handled as box.positionY is set according to the
+	// containing box top position, with collapsing margins handled
 
-    // Points 5 && 6, box.positionY is set to the highest positionY possible
-    if context.excludedShapes {
-        highestY = context.excludedShapes[-1].positionY
-        if box.positionY < highestY {
-            box.translate(0, highestY - box.positionY)
-        }
-    }
-
-    // Points 1 && 2
-    positionX, positionY, availableWidth = avoidCollisions(
-        context, box, containingBlock)
-
-    // Point 9
-    // positionY is set now, let"s define positionX
-    // for float: left elements, it"s already done!
-    if box.style["float"] == "right" {
-        positionX += availableWidth - box.marginWidth()
-    }
-
-    box.translate(positionX - box.positionX, positionY - box.positionY)
-
-    return box
+	// Points 5 && 6, box.positionY is set to the highest positionY possible
+	if L := len(context.excludedShapes); L != 0 {
+		highestY := context.excludedShapes[L-1].PositionY
+		if box.PositionY < highestY {
+			box_.Translate(box_, 0, highestY-box.PositionY, false)
+		}
 	}
+
+	// Points 1 && 2
+	positionX, positionY, availableWidth := avoidCollisions(context, box_, containingBlock, true)
+
+	// Point 9
+	// positionY is set now, let's define positionX
+	// for float: left elements, it's already done!
+	if box.Style.GetFloat() == "right" {
+		positionX += availableWidth - box.MarginWidth()
+	}
+
+	box_.Translate(box_, positionX-box.PositionX, positionY-box.PositionY, false)
+
+	return box_
+}
 
 // Return nil if there is no clearance, otherwise the clearance value (as Float)
 // collapseMargin = 0
 func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
-    hypotheticalPosition := box.PositionY + collapsedMargin
-    // Hypothetical position is the position of the top border edge
-    for _, excludedShape := range context.excludedShapes {
-        if clear := box.Style.GetClear(); clear == excludedShape.Style.GetFloat() || clear == "both" {
-            y, h := excludedShape.positionY, excludedShape.marginHeight()
-            if hypotheticalPosition < y + h {
-				var safeClearance float32
+	hypotheticalPosition := box.PositionY + collapsedMargin
+	// Hypothetical position is the position of the top border edge
+	for _, excludedShape := range context.excludedShapes {
+		if clear := box.Style.GetClear(); clear == excludedShape.Style.GetFloat() || clear == "both" {
+			y, h := excludedShape.PositionY, excludedShape.MarginHeight()
+			if hypotheticalPosition < y+h {
+				var safeClearance pr.Float
 				if clearance != nil {
 					safeClearance = clearance.V()
 				}
-                clearance = pr.Float(utils.Max(safeClearance, y + h - hypotheticalPosition))
-            }
-        }
-	} 
+				clearance = pr.Float(pr.Max(safeClearance, y+h-hypotheticalPosition))
+			}
+		}
+	}
 	return clearance
-} 
+}
 
 // outer=true
-func avoidCollisions(context LayoutContext, box Box, containingBlock bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
-    excludedShapes = context.excludedShapes
-    positionY = box.positionY if outer else box.borderBoxY()
+func avoidCollisions(context LayoutContext, box_ Box, containingBlock bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
+	excludedShapes := context.excludedShapes
+	box := box_.Box()
+	positionY := box.BorderBoxY()
+	boxWidth := box.BorderWidth()
+	boxHeight := box.BorderHeight()
+	if outer {
+		positionY = box.PositionY
+		boxWidth = box.MarginWidth()
+		boxHeight = box.MarginHeight()
+	}
 
-    boxWidth = box.marginWidth() if outer else box.borderWidth()
-    boxHeight = box.marginHeight() if outer else box.borderHeight()
+	if box.BorderHeight() == 0 && box.IsFloated() {
+		return 0, 0, containingBlock.Width.V()
+	}
+	var maxLeftBound, maxRightBound pr.Float
+	for {
+		var collidingShapes []bo.BoxFields
+		for _, shape := range excludedShapes {
+			// Assign locals to avoid slow attribute lookups.
+			shapePositionY := shape.PositionY
+			shapeMarginHeight := shape.MarginHeight()
+			if (shapePositionY < positionY && positionY < shapePositionY+shapeMarginHeight) ||
+				(shapePositionY < positionY+boxHeight && positionY+boxHeight < shapePositionY+shapeMarginHeight) ||
+				(shapePositionY >= positionY && shapePositionY+shapeMarginHeight <= positionY+boxHeight) {
+				collidingShapes = append(collidingShapes, shape)
+			}
+		}
+		var leftBounds, rightBounds []pr.Float
+		for _, shape := range collidingShapes {
+			if shape.Style.GetFloat() == "left" {
+				leftBounds = append(leftBounds, shape.PositionX+shape.MarginWidth())
+			}
+			if shape.Style.GetFloat() == "right" {
+				rightBounds = append(rightBounds, shape.PositionX)
+			}
 
-    if box.borderHeight() == 0 && box.isFloated() {
-        return 0, 0, containingBlock.width
-    }
+		}
 
-    while true {
-        collidingShapes = []
-        for shape := range excludedShapes {
-            // Assign locals to avoid slow attribute lookups.
-            shapePositionY = shape.positionY
-            shapeMarginHeight = shape.marginHeight()
-            if ((shapePositionY < positionY <
-                 shapePositionY + shapeMarginHeight) or
-                (shapePositionY < positionY + boxHeight <
-                 shapePositionY + shapeMarginHeight) or
-                (shapePositionY >= positionY and
-                 shapePositionY + shapeMarginHeight <=
-                 positionY + boxHeight)) {
-                 }
-                collidingShapes.append(shape)
-        } leftBounds = [
-            shape.positionX + shape.marginWidth()
-            for shape := range collidingShapes
-            if shape.style["float"] == "left"]
-        rightBounds = [
-            shape.positionX
-            for shape := range collidingShapes
-            if shape.style["float"] == "right"]
-    }
+		// Set the default maximum bounds
+		maxLeftBound = containingBlock.ContentBoxX()
+		maxRightBound = containingBlock.ContentBoxX() + containingBlock.Width.V()
 
-        // Set the default maximum bounds
-        maxLeftBound = containingBlock.contentBoxX()
-        maxRightBound = \
-            containingBlock.contentBoxX() + containingBlock.width
+		if !outer {
+			maxLeftBound += box.MarginLeft.V()
+			maxRightBound -= box.MarginRight.V()
+		}
 
-        if not outer {
-            maxLeftBound += box.marginLeft
-            maxRightBound -= box.marginRight
-        }
+		// Set the real maximum bounds according to sibling float elements
+		if len(leftBounds) != 0 || len(rightBounds) != 0 {
+			if len(leftBounds) != 0 {
+				maxLeftBound = pr.Max(pr.Maxs(leftBounds), maxLeftBound)
+			}
+			if len(rightBounds) != 0 {
+				maxRightBound = pr.Min(pr.Mins(rightBounds), maxRightBound)
+			}
 
-        // Set the real maximum bounds according to sibling float elements
-        if leftBounds || rightBounds {
-            if leftBounds {
-                maxLeftBound = max(max(leftBounds), maxLeftBound)
-            } if rightBounds {
-                maxRightBound = min(min(rightBounds), maxRightBound)
-            }
-        }
+			// Points 3, 7 && 8
+			if boxWidth > maxRightBound-maxLeftBound {
+				// The box does not fit here
+				var min pr.Float
+				for _, shape := range collidingShapes {
+					if v := shape.PositionY + shape.MarginHeight(); v < min {
+						min = v
+					}
+				}
+				newPositonY := min
 
-            // Points 3, 7 && 8
-            if boxWidth > maxRightBound - maxLeftBound {
-                // The box does not fit here
-                newPositonY = min(
-                    shape.positionY + shape.marginHeight()
-                    for shape := range collidingShapes)
-                if newPositonY > positionY {
-                    // We can find a solution with a higher positionY
-                    positionY = newPositonY
-                    continue
-                } // No solution, we must put the box here
-            }
-        break
+				if newPositonY > positionY {
+					// We can find a solution with a higher positionY
+					positionY = newPositonY
+					continue
+				} // No solution, we must put the box here
+			}
+		}
+		break
+	}
+	positionX := maxLeftBound
+	availableWidth := maxRightBound - maxLeftBound
 
-    positionX = maxLeftBound
-    availableWidth = maxRightBound - maxLeftBound
+	if !outer {
+		positionX -= box.MarginLeft.V()
+		positionY -= box.MarginTop.V()
+	}
 
-    if not outer {
-        positionX -= box.marginLeft
-        positionY -= box.marginTop
-    }
-
-    return positionX, positionY, availableWidth
+	return positionX, positionY, availableWidth
 }

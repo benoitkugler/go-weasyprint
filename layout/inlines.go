@@ -489,7 +489,7 @@ func inlineReplacedBoxLayout(box_ Box, containingBlock block) {
 	inlineReplacedBoxWidthHeight(box, containingBlock)
 }
 
-func inlineReplacedBoxWidthHeight(box Box, containingBlock block) {
+func inlineReplacedBoxWidthHeight(box Box, containingBlock bo.BoxFields) {
 	if style := box.Box().Style; style.GetWidth().String == "auto" && style.GetHeight().String == "auto" {
 		replacedBoxWidth.withoutMinMax(box, containingBlock)
 		replacedBoxHeight.withoutMinMax(box)
