@@ -11,18 +11,9 @@ import (
 
 // Layout for tables and internal table boxes.
 
-func reverseBoxes(in []Box) []Box {
-	N := len(in)
-	out := make([]Box, N)
-	for i, v := range in {
-		out[N-1-i] = v
-	}
-	return out
-}
-
 // Layout for a table box.
 func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
-	containingBlock, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) blockLayout {
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.InstanceBlockLevelBox, blockLayout) {
 	table := table_.Table()
 	columnWidths := table.ColumnWidths
 
@@ -72,9 +63,9 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 	// don't need to be passed as parameters.
 	groupLayout := func(group_ Box, positionY, maxPositionY pr.Float, pageIsEmpty bool, skipStack *tree.SkipStack) (Box, *tree.SkipStack, tree.PageBreak) {
 		var resumeAt *tree.SkipStack
-		nextPage := tree.PageBreak{Break: "any", Page: ""}
+		nextPage := tree.PageBreak{Break: "any"}
 		originalPageIsEmpty := pageIsEmpty
-		resolvePercentages2(group_, table_, "")
+		resolvePercentages2(group_, table.BoxFields, "")
 		group := group_.Box()
 		group.PositionX = rowsX
 		group.PositionY = positionY
@@ -105,7 +96,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 				}
 			}
 
-			resolvePercentages2(row_, table_, "")
+			resolvePercentages2(row_, table.BoxFields, "")
 			row.PositionX = rowsX
 			row.PositionY = positionY
 			row.Width = rowsWidth
@@ -128,7 +119,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 						len(ignoredCells), ignoredCells)
 					break
 				}
-				resolvePercentages2(cell_, table, "")
+				resolvePercentages2(cell_, table.BoxFields, "")
 				cell.PositionX = columnPositions[cell.GridX]
 				cell.PositionY = row.PositionY
 				cell.MarginTop = pr.Float(0)
@@ -144,7 +135,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 				// The computed height is a minimum
 				cell.ComputedHeight = cell.Height
 				cell.Height = pr.Auto
-				cell_ = blockContainerLayout(context, cell_, pr.Inf, nil, true, absoluteBoxes, fixedBoxes, nil).newBox
+				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, true, absoluteBoxes, fixedBoxes, nil)
 				cell = cell_.Box()
 				any := false
 				for _, child := range cell.Children {
@@ -333,7 +324,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		}
 		var newTableChildren []Box
 		var resumeAt *tree.SkipStack
-		nextPage := tree.PageBreak{Break: "any", Page: ""}
+		nextPage := tree.PageBreak{Break: "any"}
 
 		for i, group_ := range table.Children[skip:] {
 			group := group_.Box()
@@ -506,7 +497,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		if resumeAt != nil {
 			log.Fatalf("resumeAt should be nil, got %v", resumeAt)
 		}
-		return blockLayout{newBox: nil, resumeAt: resumeAt, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
+		return nil, blockLayout{resumeAt: resumeAt, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
 	}
 
 	var newChildren []Box
@@ -541,7 +532,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		group := group_.Box()
 		for _, column_ := range group.Children {
 			column := column_.Box()
-			resolvePercentages2(column_, table, "")
+			resolvePercentages2(column_, table.BoxFields, "")
 			if column.GridX < len(columnPositions) {
 				column.PositionX = columnPositions[column.GridX]
 				column.PositionY = initialPositionY
@@ -554,7 +545,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 				column.Width = pr.Float(0)
 				column.Height = pr.Float(0)
 			}
-			resolvePercentages2(group_, table_, "")
+			resolvePercentages2(group_, table.BoxFields, "")
 			column.GetCells = getColumnCells(table, column)
 		}
 		first := group.Children[0].Box()
@@ -569,7 +560,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		table_ = nil
 		resumeAt = nil
 	}
-	return blockLayout{newBox: table, resumeAt: resumeAt, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
+	return table, blockLayout{resumeAt: resumeAt, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
 }
 
 // Increase the top padding of a box. This also translates the children.
@@ -625,7 +616,7 @@ func fixedTableLayout(box *bo.BoxFields) {
 	i := 0
 	for _, cell_ := range firstRowCells {
 		cell := cell_.Box()
-		resolvePercentages2(cell_, table, "")
+		resolvePercentages2(cell_, table.BoxFields, "")
 		if cell.Width != pr.Auto {
 			width := cell.BorderWidth()
 			width -= borderSpacingX * pr.Float(cell.Colspan-1)

@@ -46,8 +46,8 @@ type LayoutContext struct {
 	targetCollector     *tree.TargetCollector
 	pageMaker           []tree.PageMaker
 	marginClearance     bool
-	excludedShapes      []shape
-	excludedShapesLists [][]shape
+	excludedShapes      []bo.BoxFields
+	excludedShapesLists [][]bo.BoxFields
 	stringSet           map[string]map[string][]string
 	runningElements     map[string]map[int]Box
 	currentPage         int
@@ -57,12 +57,6 @@ type LayoutContext struct {
 	tables              map[*bo.TableBox]map[bool]tableContentWidths
 	dictionaries        map[string]int
 }
-
-type shape struct {
-	positionY float32
-}
-
-func (s shape) marginHeight() float32 {}
 
 func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri bo.Gifu,
 	fontConfig *fonts.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {

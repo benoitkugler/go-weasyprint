@@ -29,7 +29,7 @@ var (
 
 // HandleElement handle HTML elements that need special care.
 func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
-	handler, in := HtmlHandlers[box.Box().elementTag]
+	handler, in := HtmlHandlers[box.Box().ElementTag]
 	if in {
 		return handler(element, box, getImageFromUri, baseUrl)
 	} else {

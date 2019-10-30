@@ -1,19 +1,15 @@
 package layout
 
 import (
-	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"log"
+
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
 // Layout for columns.
-
-type boxWithType interface {
-	bo.InstanceBlockBox
-	Type() bo.BoxType
-}
 
 // if box is nil, then represents a list
 type boxOrList struct {
@@ -22,8 +18,8 @@ type boxOrList struct {
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock Box,
-	pageIsEmpty bool, absoluteBoxes []*AbsolutePlaceholder, fixedBoxes []Box, adjoiningMargins []pr.Float) blockLayout {
+func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock bo.BoxFields,
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.InstanceBlockLevelBox, blockLayout) {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
 	style := box_.Box().Style
@@ -34,9 +30,9 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 		absoluteBoxes = nil
 	}
 
-	box_ = bo.CopyWithChildren(box_, box_.Box().Children, true, true).(boxWithType) // CopyWithChildren preserves the concrete type of box_
+	box_ = bo.CopyWithChildren(box_, box_.Box().Children, true, true).(bo.InstanceBlockBox) // CopyWithChildren preserves the concrete type of box_
 	box := box_.Box()
-	box.PositionY += collapseMargin(adjoiningMargins) - box.MarginTop
+	box.PositionY += collapseMargin(adjoiningMargins) - box.MarginTop.V()
 
 	height_ := box.Style.GetHeight()
 	knownHeight := false
@@ -49,7 +45,7 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 	}
 	// TODO: the available width can be unknown if the containing block needs
 	// the size of this block to know its own size.
-	blockLevelWidth(box, containingBlock)
+	blockLevelWidth(box_, nil, containingBlock)
 	availableWidth := box.Width.V()
 	var (
 		count_, width pr.Float
@@ -108,7 +104,7 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 
 	var nextPage tree.PageBreak
 	if len(box.Children) == 0 {
-		nextPage = tree.PageBreak{Break: "any", Page: nil}
+		nextPage = tree.PageBreak{Break: "any"}
 		skipStack = nil
 	}
 
@@ -132,16 +128,16 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 			resolvePercentages2(block, containingBlock, "")
 			block.Box().PositionX = box.ContentBoxX()
 			block.Box().PositionY = currentPositionY
-			tmp := blockLevelLayout(*context, block, originalMaxPositionY, skipStack,
+			newChild, tmp := blockLevelLayout(context, block, originalMaxPositionY, skipStack,
 				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins)
-			newChild, adjoiningMargins := tmp.newBox, tmp.adjoiningMargins
+			adjoiningMargins := tmp.adjoiningMargins
 			newChildren = append(newChildren, newChild)
 			currentPositionY = newChild.Box().BorderHeight() + newChild.Box().BorderBoxY()
 			adjoiningMargins = append(adjoiningMargins, newChild.Box().MarginBottom.V())
 			continue
 		}
 
-		excludedShapes := append([]shape{}, context.excludedShapes...)
+		excludedShapes := append([]bo.BoxFields{}, context.excludedShapes...)
 
 		// We have a list of children that we have to balance between columns.
 		columnChildren := columnChildrenOrBlock.list
@@ -150,8 +146,8 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 		currentPositionY += collapseMargin(adjoiningMargins)
 		adjoiningMargins = nil
 		columnBox := createColumnBox(columnChildren)
-		newChild := blockBoxLayout(*context, columnBox, pr.Inf, skipStack, containingBlock,
-			pageIsEmpty, nil, nil, nil).newBox
+		newChild, _ := blockBoxLayout(context, columnBox, pr.Inf, skipStack, containingBlock,
+			pageIsEmpty, new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil)
 		height := newChild.Box().MarginHeight()
 		if style.GetColumnFill() == "balance" {
 			height /= count_
@@ -167,9 +163,9 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 
 			for i := 0; i < count; i += 1 {
 				// Render the column
-				tmp := blockBoxLayout(*context, columnBox, box.ContentBoxY()+height,
+				newBox, tmp := blockBoxLayout(context, columnBox, box.ContentBoxY()+height,
 					columnSkipStack, containingBlock, pageIsEmpty, nil, nil, nil)
-				newBox, resumeAt := tmp.newBox, tmp.resumeAt
+				resumeAt := tmp.resumeAt
 				nextPage = tmp.nextPage
 				if newBox == nil {
 					// We didn"t render anything. Give up and use the max
@@ -192,8 +188,8 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 					emptySpace = height - (lastInFlowChildren.PositionY - box.ContentBoxY() + lastInFlowChildren.MarginHeight())
 
 					// Get the minimum size needed to render the next box
-					nextBox := blockBoxLayout(*context, columnBox, box.ContentBoxY(),
-						columnSkipStack, containingBlock, true, nil, nil, nil).newBox
+					nextBox, _ := blockBoxLayout(context, columnBox, box.ContentBoxY(),
+						columnSkipStack, containingBlock, true, nil, nil, nil)
 					for _, child := range nextBox.Box().Children {
 						if child.Box().IsInNormalFlow() {
 							nextBoxSize = child.Box().MarginHeight()
@@ -263,10 +259,9 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 			} else {
 				columnBox.Box().PositionX += i_ * (width + style.GetColumnGap().Value)
 			}
-			tmp := blockBoxLayout(*context, columnBox, maxPositionY, skipStack,
-				containingBlock, pageIsEmpty, absoluteBoxes,
-				fixedBoxes, nil)
-			newChild, columnSkipStack = tmp.newBox, tmp.resumeAt
+			newChild, tmp := blockBoxLayout(context, columnBox, maxPositionY, skipStack,
+				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
+			columnSkipStack = tmp.resumeAt
 			columnNextPage := tmp.nextPage
 			if newChild == nil {
 				break
@@ -297,24 +292,24 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 
 	if len(box.Children) != 0 && len(newChildren) == 0 {
 		// The box has children but none can be drawn, let's skip the whole box
-		return blockLayout{resumeAt: &tree.SkipStack{Skip: 0}, nextPage: tree.PageBreak{Break: "any", Page: nil}}
+		return nil, blockLayout{resumeAt: &tree.SkipStack{Skip: 0}, nextPage: tree.PageBreak{Break: "any"}}
 	}
 
 	// Set the height of box and the columns
 	box.Children = newChildren
 	currentPositionY += collapseMargin(adjoiningMargins)
 	var heightDifference pr.Float
-	if box.Height== pr.Auto {
+	if box.Height == pr.Auto {
 		box.Height = currentPositionY - box.PositionY
 		heightDifference = 0
 	} else {
 		heightDifference = box.Height.V() - (currentPositionY - box.PositionY)
 	}
-	if !box.MinHeight== pr.Auto && box.MinHeight.V() > box.Height.V() {
+	if box.MinHeight != pr.Auto && box.MinHeight.V() > box.Height.V() {
 		heightDifference += box.MinHeight.V() - box.Height.V()
 		box.Height = box.MinHeight
 	}
-	for _, child := range reversed(newChildren) {
+	for _, child := range reverseBoxes(newChildren) {
 		if child.Box().IsColumn {
 			child.Box().Height = child.Box().Height.V() + heightDifference
 		} else {
@@ -324,10 +319,10 @@ func columnsLayout(context *LayoutContext, box_ boxWithType, maxPositionY pr.Flo
 
 	if box.Style.GetPosition().String == "relative" {
 		// New containing block, resolve the layout of the absolute descendants
-		for _, absoluteBox := range absoluteBoxes {
+		for _, absoluteBox := range *absoluteBoxes {
 			absoluteLayout(context, absoluteBox, box_, fixedBoxes)
 		}
 	}
 
-	return blockLayout{newBox: box_, resumeAt: skipStack, nextPage: nextPage}
+	return box_, blockLayout{resumeAt: skipStack, nextPage: nextPage}
 }

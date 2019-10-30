@@ -73,8 +73,8 @@ func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBox
     } else if bo.IsFlexContainerBox(box_) {
         box = flexLayout(context, box_, pr.Inf, nil, containingBlock_,
             false, absoluteBoxes, fixedBoxes).newBox
-    } else {
-        assert isinstance(box, boxes.BlockReplacedBox)
+    } else if !bo.IsBlockReplacedBox(box) {
+        log.Fatalf("expected BlockReplaced , got %s", box)
     }
 
     box = findFloatPosition(context, box, containingBlock)
@@ -82,6 +82,7 @@ func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBox
     context.excludedShapes.append(box)
 
     return box
+}
 
 
 // Get the right position of the float ``box``.
@@ -117,7 +118,7 @@ func findFloatPosition(context, box, containingBlock) {
 
 // Return nil if there is no clearance, otherwise the clearance value (as Float)
 // collapseMargin = 0
-func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin float32) (clearance pr.MaybeFloat) {
+func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
     hypotheticalPosition := box.PositionY + collapsedMargin
     // Hypothetical position is the position of the top border edge
     for _, excludedShape := range context.excludedShapes {
@@ -135,7 +136,8 @@ func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin float
 	return clearance
 } 
 
-func avoidCollisions(context, box, containingBlock, outer=true) {
+// outer=true
+func avoidCollisions(context LayoutContext, box Box, containingBlock bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
     excludedShapes = context.excludedShapes
     positionY = box.positionY if outer else box.borderBoxY()
 

@@ -527,13 +527,13 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 
 // Layout a margin box’s content once the box has dimensions.
 func marginBoxContentLayout(context *LayoutContext, page *bo.PageBox, mBox *bo.MarginBox) Box {
-	tmp := blockContainerLayout(context, mBox, pr.Inf, nil, true,
+	newBox_, tmp := blockContainerLayout(context, mBox, pr.Inf, nil, true,
 		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil)
 
 	if tmp.resumeAt != nil {
 		log.Fatalf("resumeAt should be nil, got %v", tmp.resumeAt)
 	}
-	box := tmp.newBox.Box()
+	box := newBox_.Box()
 	verticalAlign := box.Style.GetVerticalAlign()
 	// Every other value is read as "top", ie. no change.
 	if L := len(box.Children); (verticalAlign.String == "middle" || verticalAlign.String == "bottom") && L != 0 {
@@ -552,7 +552,7 @@ func marginBoxContentLayout(context *LayoutContext, page *bo.PageBox, mBox *bo.M
 			child.Translate(child, 0, offset, false)
 		}
 	}
-	return tmp.newBox
+	return newBox_
 }
 
 // Take a :class:`OrientedBox` object and set either width, margin-left
@@ -593,14 +593,16 @@ var (
 )
 
 // @handleMinMaxWidth
-func pageWidth_(box Box, context *LayoutContext, containingBlock block) (bool, pr.Float) {
-	pageWidthOrHeight(NewHorizontalBox(context, box.(*bo.MarginBox)), containingBlock.Width)
+// containingBlock must be block
+func pageWidth_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+	pageWidthOrHeight(NewHorizontalBox(context, box.(*bo.MarginBox)), containingBlock.(block).Width)
 	return false, 0
 }
 
 // @handleMinMaxHeight
-func pageHeight_(box Box, context *LayoutContext, containingBlock block) (bool, pr.Float) {
-	pageWidthOrHeight(NewVerticalBox(context, box.(*bo.MarginBox)), containingBlock.Height)
+// containingBlock must be block
+func pageHeight_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+	pageWidthOrHeight(NewVerticalBox(context, box.(*bo.MarginBox)), containingBlock.(block).Height)
 	return false, 0
 }
 
@@ -651,9 +653,9 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 	pageIsEmpty := true
 	var adjoiningMargins []pr.Float
 	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute && fixed
-	tmp := blockLevelLayout(*context, rootBox, pageContentBottom, resumeAt,
-		initialContainingBlock, pageIsEmpty, positionedBoxes, positionedBoxes, adjoiningMargins)
-	rootBox, resumeAt = tmp.newBox, tmp.resumeAt
+	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
+		initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins)
+	resumeAt = tmp.resumeAt
 	if rootBox == nil {
 		log.Fatalln("expected newBox got nil")
 	}
@@ -828,7 +830,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 	// Don"t modify actual pageMaker[index] values!
 	// TODO: should we store (and reuse) pageType := range the pageMaker?
 	pageState := tmp.InitialPageState.Copy()
-	nextPageName := tmp.InitialNextPage.Page
+	nextPageName := tmp.InitialNextPage.Page.String
 	first := index == 0
 	var nextPageSide string
 	switch tmp.InitialNextPage.Break {
@@ -853,7 +855,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 	pageType := utils.PageElement{Side: side, Blank: blank, First: first, Index: index, Name: nextPageName}
 	setPageTypeComputedStyles(pageType, html, context.styleFor)
 
-	context.forcedBreak = tmp.InitialNextPage.Break != "any" || tmp.InitialNextPage.Page != ""
+	context.forcedBreak = tmp.InitialNextPage.Break != "any" || tmp.InitialNextPage.Page.String != ""
 	context.marginClearance = false
 
 	// makePage wants a pageNumber of index + 1

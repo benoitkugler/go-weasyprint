@@ -5,6 +5,7 @@ package boxes
 
 import (
 	"fmt"
+	"github.com/benoitkugler/go-weasyprint/images"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 
@@ -91,7 +92,7 @@ type Box interface {
 	Copy() Box
 	String() string
 	IsProperChild(Box) bool
-	allChildren() []Box
+	AllChildren() []Box
 	// ignoreFloats = false
 	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
 	RemoveDecoration(box *BoxFields, isStart, isEnd bool)
@@ -104,6 +105,38 @@ type BoxType interface {
 	IsInstance(box Box) bool
 
 	AnonymousFrom(parent Box, children []Box) Box
+}
+
+type Background struct {
+	Color          pr.Color
+	Layers         []BackgroundLayer
+	ImageRendering pr.String
+}
+
+type Area struct {
+	String string
+	Rect [4]pr.Float
+}
+
+type Position struct {
+	String string
+	Point MaybePoint
+}
+
+type Repeat struct {
+	 String string
+	 Reps [2]string
+}
+
+type BackgroundLayer struct {
+	Image           images.Image
+	Size            pr.Size
+	Position        Position
+	Repeat           Repeat
+	Unbounded       bool
+	PaintingArea    Area
+	PositioningArea Area
+	ClippedBoxes    []RoundedBox
 }
 
 // BoxFields is an abstract base class for all boxes.
@@ -130,7 +163,7 @@ type BoxFields struct {
 
 	stringSet pr.ContentProperties
 
-	elementTag string
+	ElementTag string
 	Style      pr.Properties
 
 	FirstLetterStyle, firstLineStyle pr.Properties
@@ -171,19 +204,25 @@ type BoxFields struct {
 	Frozen                                                         bool
 
 	GetCells func() []Box // closure which may have default implementation or be set
+
+	ResumeAt *tree.SkipStack
+
+	Background *Background
 }
 
 func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
-	return BoxFields{elementTag: elementTag, Style: style, Children: children}
+	return BoxFields{ElementTag: elementTag, Style: style, Children: children}
 }
 
-func (box *BoxFields) allChildren() []Box {
+func (box *BoxFields) AllChildren() []Box {
 	return box.Children
 }
 
 func (box *BoxFields) IsProperChild(b Box) bool {
 	return false
 }
+
+func (box BoxFields) IsContainingBlock() {}
 
 // ----------------------- needed by target ----------------------
 
@@ -250,7 +289,7 @@ func (BoxFields) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 	}
 	box.Box().PositionX += dx
 	box.Box().PositionY += dy
-	for _, child := range box.allChildren() {
+	for _, child := range box.AllChildren() {
 		if !(ignoreFloats && child.Box().IsFloated()) {
 			child.Translate(child, dx, dy, ignoreFloats)
 		}
@@ -329,7 +368,7 @@ func (self BoxFields) hitArea() (x, y, w, h pr.Float) {
 	return self.BorderBoxX(), self.BorderBoxY(), self.BorderWidth(), self.BorderHeight()
 }
 
-type roundedBox struct {
+type RoundedBox struct {
 	x, y, width, height                        pr.Float
 	topLeft, topRight, bottomRight, bottomLeft Point
 }
@@ -337,7 +376,7 @@ type roundedBox struct {
 // Position, size and radii of a box inside the outer border box.
 //bt, br, bb, and bl are distances from the outer border box,
 //defining a rectangle to be rounded.
-func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) roundedBox {
+func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	tlr := self.BorderTopLeftRadius.V()
 	trr := self.BorderTopRightRadius.V()
 	brr := self.BorderBottomRightRadius.V()
@@ -374,7 +413,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) roundedBox {
 			}
 		}
 	}
-	return roundedBox{x: x, y: y, width: width, height: height,
+	return RoundedBox{x: x, y: y, width: width, height: height,
 		topLeft:     Point{tlrx * ratio, tlry * ratio},
 		topRight:    Point{trrx * ratio, trry * ratio},
 		bottomRight: Point{brrx * ratio, brry * ratio},
@@ -382,7 +421,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) roundedBox {
 	}
 }
 
-func (self BoxFields) roundedBoxRatio(ratio pr.Float) roundedBox {
+func (self BoxFields) roundedBoxRatio(ratio pr.Float) RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V()*ratio,
 		self.BorderRightWidth.V()*ratio,
@@ -391,7 +430,7 @@ func (self BoxFields) roundedBoxRatio(ratio pr.Float) roundedBox {
 }
 
 // Return the position, size and radii of the rounded padding box.
-func (self BoxFields) roundedPaddingBox() roundedBox {
+func (self BoxFields) RoundedPaddingBox() RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V(),
 		self.BorderRightWidth.V(),
@@ -400,12 +439,12 @@ func (self BoxFields) roundedPaddingBox() roundedBox {
 }
 
 // Return the position, size and radii of the rounded border box.
-func (self BoxFields) roundedBorderBox() roundedBox {
+func (self BoxFields) RoundedBorderBox() RoundedBox {
 	return self.roundedBox(0, 0, 0, 0)
 }
 
 // Return the position, size and radii of the rounded content box.
-func (self BoxFields) roundedContentBox() roundedBox {
+func (self BoxFields) RoundedContentBox() RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V()+self.PaddingTop.V(),
 		self.BorderRightWidth.V()+self.PaddingRight.V(),

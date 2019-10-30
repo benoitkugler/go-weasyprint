@@ -109,8 +109,8 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 	}
 }
 
-func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock Box,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) blockLayout {
+func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock bo.BoxFields,
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.InstanceBlockLevelBox, blockLayout) {
 
 	context.createBlockFormattingContext()
 	var resumeAt *tree.SkipStack
@@ -144,11 +144,11 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		availableMainSpace = boxAxis.V()
 	} else {
 		if axis == "width" {
-			availableMainSpace = containingBlock.Box().Width.V() - marginLeft - marginRight -
+			availableMainSpace = containingBlock.Width.V() - marginLeft - marginRight -
 				box.PaddingLeft.V() - box.PaddingRight.V() - box.BorderLeftWidth.V() - box.BorderRightWidth.V()
 		} else {
 			mainSpace := maxPositionY - box.PositionY
-			if he := containingBlock.Box().Height; he != pr.Auto {
+			if he := containingBlock.Height; he != pr.Auto {
 				// if hasattr(containingBlock.Height, "unit") {
 				//     assert containingBlock.Height.unit == "px"
 				//     mainSpace = min(mainSpace, containingBlock.Height.value)
@@ -165,13 +165,13 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	} else {
 		if cross == "height" {
 			mainSpace := maxPositionY - box.ContentBoxY()
-			if he := containingBlock.Box().Height; he != pr.Auto {
+			if he := containingBlock.Height; he != pr.Auto {
 				mainSpace = pr.Min(mainSpace, he.V())
 			}
 			availableCrossSpace = mainSpace - marginTop - marginBottom -
 				box.PaddingTop.V() - box.PaddingBottom.V() - box.BorderTopWidth.V() - box.BorderBottomWidth.V()
 		} else {
-			availableCrossSpace = containingBlock.Box().Width.V() - marginLeft - marginRight -
+			availableCrossSpace = containingBlock.Width.V() - marginLeft - marginRight -
 				box.PaddingLeft.V() - box.PaddingRight.V() - box.BorderLeftWidth.V() - box.BorderRightWidth.V()
 		}
 	}

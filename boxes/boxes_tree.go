@@ -109,6 +109,7 @@ type PageBox struct {
 	BoxFields
 	PageType   utils.PageElement
 	FixedBoxes []Box
+	CanvasBackground *Background
 }
 
 type MarginBox struct {
@@ -140,6 +141,7 @@ func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
 type InstanceBlockBox interface {
 	instanceBlockBox
 	Box
+	Type() BoxType
 	BlockLevel() *BlockLevelBox
 }
 
@@ -151,7 +153,7 @@ func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBo
 func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 	parentBox := parent.Box()
 	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil)
-	out := NewLineBox(parentBox.elementTag, style, children)
+	out := NewLineBox(parentBox.ElementTag, style, children)
 	if parentBox.Style.GetOverflow() != "visible" {
 		out.textOverflow = string(parentBox.Style.GetTextOverflow())
 	}
@@ -255,6 +257,7 @@ func NewReplacedBox(elementTag string, style pr.Properties, replacement images.I
 
 type InstanceReplacedBox interface {
 	instanceReplacedBox
+	Box
 	Replaced() *ReplacedBox
 }
 
@@ -293,7 +296,7 @@ func (b *TableBox) Table() *TableBox {
 	return b
 }
 
-func (b *TableBox) allChildren() []Box {
+func (b *TableBox) AllChildren() []Box {
 	return append(b.Box().Children, b.ColumnGroups...)
 }
 

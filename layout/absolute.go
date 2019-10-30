@@ -5,8 +5,6 @@ import (
 	"log"
 	"math"
 
-	"github.com/benoitkugler/go-weasyprint/style/tree"
-
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -19,14 +17,10 @@ type AbsolutePlaceholder struct {
 	_Box
 	layoutDone bool
 	index      int
-	resumeAt   *tree.SkipStack
-	// equals false for raw Box
-	// allow to merge Box and AbsolutePlaceholder
-	isProperAbsolutePlaceholder bool
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
-	out := AbsolutePlaceholder{_Box: box, layoutDone: false, isProperAbsolutePlaceholder: true}
+	out := AbsolutePlaceholder{_Box: box, layoutDone: false}
 	return &out
 }
 
@@ -58,10 +52,27 @@ func (abs AbsolutePlaceholder) String() string {
 	return fmt.Sprintf("<Placeholder %s>", abs.Box)
 }
 
+func ToBoxes(children []*AbsolutePlaceholder) []Box {
+	asBox := make([]Box, len(children))
+	for i, v := range children {
+		asBox[i] = v
+	}
+	return asBox
+}
+
+func fromBoxes(children []Box) []*AbsolutePlaceholder {
+	asPlac := make([]*AbsolutePlaceholder, len(children))
+	for i, v := range children {
+		asPlac[i] = v.(*AbsolutePlaceholder)
+	}
+	return asPlac
+}
+
 var absoluteWidth = handleMinMaxWidth(_absoluteWidth)
 
 // @handleMinMaxWidth
-func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock block) (bool, pr.Float) {
+// containingBlock must be block
+func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	// http://www.w3.org/TR/CSS2/visudet.html#abs-replaced-width
 	box := box_.Box()
 	// These names are waaay too long
@@ -75,7 +86,8 @@ func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock block) (bo
 	left := box.Left
 	right := box.Right
 
-	cbX, _, cbWidth, _ := containingBlock.unpack()
+	cb_ := containingBlock.(block)
+	cbX, cbWidth := cb_.X, cb_.Width
 
 	// TODO: handle bidi
 	paddingPlusBordersX := paddingL.V() + paddingR.V() + borderL.V() + borderR.V()
@@ -151,7 +163,7 @@ func absoluteHeight(box_ Box, context LayoutContext, containingBlock block) (boo
 	top := box.Top
 	bottom := box.Bottom
 
-	_, cbY, _, cbHeight := containingBlock.unpack()
+	cbY, cbHeight := containingBlock.Y, containingBlock.Height
 
 	// http://www.w3.org/TR/CSS2/visudet.html#abs-non-replaced-height
 
@@ -209,7 +221,7 @@ func absoluteHeight(box_ Box, context LayoutContext, containingBlock block) (boo
 
 func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
 	box := box_.Box()
-	_, _, cbWidth, cbHeight := containingBlock.unpack()
+	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 
 	translateBoxWidth, translateX := absoluteWidth(box_, context, containingBlock)
 	translateBoxHeight, translateY := absoluteHeight(box_, *context, containingBlock)
@@ -221,7 +233,7 @@ func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixe
 		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
-	newBox := blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil).newBox
+	newBox, _ := blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil)
 
 	for _, childPlaceholder := range absoluteBoxes {
 		absoluteLayout(context, childPlaceholder, newBox, fixedBoxes)
@@ -335,7 +347,7 @@ func intDiv(a pr.Float, b int) pr.Float {
 func absoluteReplaced(context *LayoutContext, box_ Box, containingBlock block) Box {
 	inlineReplacedBoxWidthHeight(box_, containingBlock)
 	box := box_.Box()
-	cbX, cbY, cbWidth, cbHeight := containingBlock.unpack()
+	cbX, cbY, cbWidth, cbHeight := containingBlock.X, containingBlock.Y, containingBlock.Width, containingBlock.Height
 	ltr := box.Style.GetDirection() == "ltr"
 
 	// http://www.w3.org/TR/CSS21/visudet.html#abs-replaced-width

@@ -391,11 +391,10 @@ func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.Pr
 var replacedBoxWidth = handleMinMaxWidth(replacedBoxWidth_)
 
 // @handleMinMaxWidth
-//
-//     Compute and set the used width for replaced boxes (inline- or block-level)
-//
-func replacedBoxWidth_(box_ Box, _ LayoutContext, containingBlock block) (bool, float32) {
-	box, ok := bo.AsReplaced(box)
+// Compute and set the used width for replaced boxes (inline- or block-level)
+// containingBlock must be block
+func replacedBoxWidth_(box_ Box, _ *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+	box, ok := box_.(bo.InstanceReplacedBox)
 	if !ok {
 		log.Fatalf("expected ReplacedBox instance, got %s", box_)
 	}
@@ -439,8 +438,8 @@ var replacedBoxHeight = handleMinMaxHeight(replacedBoxHeight_)
 // @handleMinMaxHeight
 //
 //     Compute and set the used height for replaced boxes (inline- or block-level)
-func replacedBoxHeight_(box_ Box, _ LayoutContext, _ block) (bool, float32) {
-	box, ok := box.(bo.InstanceReplacedBox)
+func replacedBoxHeight_(box_ Box, _ *LayoutContext, _ containingBlock) (bool, pr.Float) {
+	box, ok := box_.(bo.InstanceReplacedBox)
 	if !ok {
 		log.Fatalf("expected ReplacedBox instance, got %s", box_)
 	}
@@ -470,16 +469,16 @@ func replacedBoxHeight_(box_ Box, _ LayoutContext, _ block) (bool, float32) {
 }
 
 func resolveMarginAuto(box *bo.BoxFields) {
-	if box.MarginTop== pr.Auto {
+	if box.MarginTop == pr.Auto {
 		box.MarginTop = pr.Float(0)
 	}
-	if box.MarginRight== pr.Auto {
+	if box.MarginRight == pr.Auto {
 		box.MarginRight = pr.Float(0)
 	}
-	if box.MarginBottom== pr.Auto {
+	if box.MarginBottom == pr.Auto {
 		box.MarginBottom = pr.Float(0)
 	}
-	if box.MarginLeft== pr.Auto {
+	if box.MarginLeft == pr.Auto {
 		box.MarginLeft = pr.Float(0)
 	}
 }
@@ -598,17 +597,17 @@ func inlineBlockBoxLayout(context LayoutContext, box_ Box, positionX float32, sk
 	resolvePercentages(box_, containingBlock, "")
 	box := box_.Box()
 	// http://www.w3.org/TR/CSS21/visudet.html#inlineblock-width
-	if box.MarginLeft== pr.Auto {
+	if box.MarginLeft == pr.Auto {
 		box.MarginLeft = 0
 	}
-	if box.MarginRight== pr.Auto {
+	if box.MarginRight == pr.Auto {
 		box.MarginRight = 0
 	}
 	// http://www.w3.org/TR/CSS21/visudet.html#block-root-margin
-	if box.MarginTop== pr.Auto {
+	if box.MarginTop == pr.Auto {
 		box.MarginTop = 0
 	}
-	if box.MarginBottom== pr.Auto {
+	if box.MarginBottom == pr.Auto {
 		box.MarginBottom = 0
 	}
 
@@ -649,7 +648,7 @@ var inlineBlockWidth = handleMinMaxWidth(inlineBlockWidth_)
 
 // @handleMinMaxWidth
 func inlineBlockWidth_(box_ Box, context LayoutContext, containingBlock block) (bool, float32) {
-	if box := box_.Box(); box.Width== pr.Auto {
+	if box := box_.Box(); box.Width == pr.Auto {
 		box.Width = pr.Float(shrinkToFit(context, box, containingBlock.Width))
 	}
 	return false, 0
@@ -712,10 +711,10 @@ func splitInlineLevel(context LayoutContext, box Box, positionX pr.Float, maxX, 
 			lastLetter = -1
 		}
 	} else if bo.TypeInlineBox.IsInstance(box) {
-		if box.MarginLeft== pr.Auto {
+		if box.MarginLeft == pr.Auto {
 			box.MarginLeft = 0
 		}
-		if box.MarginRight== pr.Auto {
+		if box.MarginRight == pr.Auto {
 			box.MarginRight = 0
 		}
 		newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidths := splitInlineBox(context, box, positionX, maxX, skipStack, containingBlock,

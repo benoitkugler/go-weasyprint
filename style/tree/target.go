@@ -37,7 +37,7 @@ func (s PageState) Equal(other PageState) bool
 
 type PageBreak struct {
 	Break string
-	Page  string
+	Page  pr.Page
 }
 
 type PageMaker struct {

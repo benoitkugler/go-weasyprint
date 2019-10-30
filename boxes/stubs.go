@@ -112,12 +112,12 @@ func (b *BlockBox) Box() *BoxFields   { return &b.BoxFields }
 func (b BlockBox) Copy() Box { return &b }
 
 func (b BlockBox) String() string {
-	return fmt.Sprintf("<BlockBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<BlockBox %s>", b.BoxFields.ElementTag)
 }
 
 func BlockBoxAnonymousFrom(parent Box, children []Box) *BlockBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewBlockBox(parent.Box().elementTag, style, children)
+	out := NewBlockBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -155,7 +155,7 @@ func (b *LineBox) Box() *BoxFields { return &b.BoxFields }
 func (b LineBox) Copy() Box { return &b }
 
 func (b LineBox) String() string {
-	return fmt.Sprintf("<LineBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<LineBox %s>", b.BoxFields.ElementTag)
 }
 
 func (t typeLineBox) IsInstance(box Box) bool {
@@ -207,12 +207,12 @@ func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
 func (b InlineBox) Copy() Box { return &b }
 
 func (b InlineBox) String() string {
-	return fmt.Sprintf("<InlineBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<InlineBox %s>", b.BoxFields.ElementTag)
 }
 
 func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewInlineBox(parent.Box().elementTag, style, children)
+	out := NewInlineBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -248,12 +248,12 @@ func (b *TextBox) Box() *BoxFields { return &b.BoxFields }
 func (b TextBox) Copy() Box { return &b }
 
 func (b TextBox) String() string {
-	return fmt.Sprintf("<TextBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TextBox %s>", b.BoxFields.ElementTag)
 }
 
 func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTextBox(parent.Box().elementTag, style, text)
+	out := NewTextBox(parent.Box().ElementTag, style, text)
 	return &out
 
 }
@@ -298,12 +298,12 @@ func (b *InlineBlockBox) Box() *BoxFields      { return &b.BoxFields }
 func (b InlineBlockBox) Copy() Box { return &b }
 
 func (b InlineBlockBox) String() string {
-	return fmt.Sprintf("<InlineBlockBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<InlineBlockBox %s>", b.BoxFields.ElementTag)
 }
 
 func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewInlineBlockBox(parent.Box().elementTag, style, children)
+	out := NewInlineBlockBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -337,12 +337,12 @@ func (b *ReplacedBox) Box() *BoxFields { return &b.BoxFields }
 func (b ReplacedBox) Copy() Box { return &b }
 
 func (b ReplacedBox) String() string {
-	return fmt.Sprintf("<ReplacedBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<ReplacedBox %s>", b.BoxFields.ElementTag)
 }
 
 func ReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *ReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewReplacedBox(parent.Box().elementTag, style, replacement)
+	out := NewReplacedBox(parent.Box().ElementTag, style, replacement)
 	return &out
 
 }
@@ -370,12 +370,12 @@ func (b *BlockReplacedBox) Box() *BoxFields  { return &b.BoxFields }
 func (b BlockReplacedBox) Copy() Box { return &b }
 
 func (b BlockReplacedBox) String() string {
-	return fmt.Sprintf("<BlockReplacedBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<BlockReplacedBox %s>", b.BoxFields.ElementTag)
 }
 
 func BlockReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *BlockReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewBlockReplacedBox(parent.Box().elementTag, style, replacement)
+	out := NewBlockReplacedBox(parent.Box().ElementTag, style, replacement)
 	return &out
 
 }
@@ -406,12 +406,12 @@ func (b *InlineReplacedBox) Box() *BoxFields      { return &b.BoxFields }
 func (b InlineReplacedBox) Copy() Box { return &b }
 
 func (b InlineReplacedBox) String() string {
-	return fmt.Sprintf("<InlineReplacedBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<InlineReplacedBox %s>", b.BoxFields.ElementTag)
 }
 
 func InlineReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *InlineReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewInlineReplacedBox(parent.Box().elementTag, style, replacement)
+	out := NewInlineReplacedBox(parent.Box().ElementTag, style, replacement)
 	return &out
 
 }
@@ -437,12 +437,12 @@ func (b *TableBox) Box() *BoxFields { return &b.BoxFields }
 func (b TableBox) Copy() Box { return &b }
 
 func (b TableBox) String() string {
-	return fmt.Sprintf("<TableBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableBoxAnonymousFrom(parent Box, children []Box) *TableBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableBox(parent.Box().elementTag, style, children)
+	out := NewTableBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -480,12 +480,12 @@ func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
 func (b InlineTableBox) Copy() Box { return &b }
 
 func (b InlineTableBox) String() string {
-	return fmt.Sprintf("<InlineTableBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<InlineTableBox %s>", b.BoxFields.ElementTag)
 }
 
 func InlineTableBoxAnonymousFrom(parent Box, children []Box) *InlineTableBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewInlineTableBox(parent.Box().elementTag, style, children)
+	out := NewInlineTableBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -519,12 +519,12 @@ func (b *TableRowGroupBox) Box() *BoxFields  { return &b.BoxFields }
 func (b TableRowGroupBox) Copy() Box { return &b }
 
 func (b TableRowGroupBox) String() string {
-	return fmt.Sprintf("<TableRowGroupBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableRowGroupBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableRowGroupBoxAnonymousFrom(parent Box, children []Box) *TableRowGroupBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableRowGroupBox(parent.Box().elementTag, style, children)
+	out := NewTableRowGroupBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -558,12 +558,12 @@ func (b *TableRowBox) Box() *BoxFields { return &b.BoxFields }
 func (b TableRowBox) Copy() Box { return &b }
 
 func (b TableRowBox) String() string {
-	return fmt.Sprintf("<TableRowBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableRowBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableRowBoxAnonymousFrom(parent Box, children []Box) *TableRowBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableRowBox(parent.Box().elementTag, style, children)
+	out := NewTableRowBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -597,12 +597,12 @@ func (b *TableColumnGroupBox) Box() *BoxFields     { return &b.BoxFields }
 func (b TableColumnGroupBox) Copy() Box { return &b }
 
 func (b TableColumnGroupBox) String() string {
-	return fmt.Sprintf("<TableColumnGroupBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableColumnGroupBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableColumnGroupBoxAnonymousFrom(parent Box, children []Box) *TableColumnGroupBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableColumnGroupBox(parent.Box().elementTag, style, children)
+	out := NewTableColumnGroupBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -636,12 +636,12 @@ func (b *TableColumnBox) Box() *BoxFields { return &b.BoxFields }
 func (b TableColumnBox) Copy() Box { return &b }
 
 func (b TableColumnBox) String() string {
-	return fmt.Sprintf("<TableColumnBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableColumnBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableColumnBoxAnonymousFrom(parent Box, children []Box) *TableColumnBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableColumnBox(parent.Box().elementTag, style, children)
+	out := NewTableColumnBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -677,12 +677,12 @@ func (b *TableCellBox) Box() *BoxFields   { return &b.BoxFields }
 func (b TableCellBox) Copy() Box { return &b }
 
 func (b TableCellBox) String() string {
-	return fmt.Sprintf("<TableCellBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableCellBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableCellBoxAnonymousFrom(parent Box, children []Box) *TableCellBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableCellBox(parent.Box().elementTag, style, children)
+	out := NewTableCellBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -722,12 +722,12 @@ func (b *TableCaptionBox) Box() *BoxFields   { return &b.BoxFields }
 func (b TableCaptionBox) Copy() Box { return &b }
 
 func (b TableCaptionBox) String() string {
-	return fmt.Sprintf("<TableCaptionBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<TableCaptionBox %s>", b.BoxFields.ElementTag)
 }
 
 func TableCaptionBoxAnonymousFrom(parent Box, children []Box) *TableCaptionBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewTableCaptionBox(parent.Box().elementTag, style, children)
+	out := NewTableCaptionBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -817,12 +817,12 @@ func (b *FlexBox) Box() *BoxFields  { return &b.BoxFields }
 func (b FlexBox) Copy() Box { return &b }
 
 func (b FlexBox) String() string {
-	return fmt.Sprintf("<FlexBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<FlexBox %s>", b.BoxFields.ElementTag)
 }
 
 func FlexBoxAnonymousFrom(parent Box, children []Box) *FlexBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewFlexBox(parent.Box().elementTag, style, children)
+	out := NewFlexBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }
@@ -861,12 +861,12 @@ func (b *InlineFlexBox) Box() *BoxFields  { return &b.BoxFields }
 func (b InlineFlexBox) Copy() Box { return &b }
 
 func (b InlineFlexBox) String() string {
-	return fmt.Sprintf("<InlineFlexBox %s>", b.BoxFields.elementTag)
+	return fmt.Sprintf("<InlineFlexBox %s>", b.BoxFields.ElementTag)
 }
 
 func InlineFlexBoxAnonymousFrom(parent Box, children []Box) *InlineFlexBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-	out := NewInlineFlexBox(parent.Box().elementTag, style, children)
+	out := NewInlineFlexBox(parent.Box().ElementTag, style, children)
 	return &out
 
 }

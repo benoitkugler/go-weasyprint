@@ -124,6 +124,7 @@ func (p Properties) Copy() Properties {
 
 // ResolveColor return the color for `key`, replacing
 // `currentColor` with p["color"]
+// replace Python getColor function
 func (p Properties) ResolveColor(key string) Color {
 	value := p[key].(Color)
 	if value.Type == parser.ColorCurrentColor {

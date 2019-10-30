@@ -6,6 +6,6 @@ import (
 
 type Image interface {
 	isImage()
-	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height float32)
-	IntrinsicRatio() float32
+	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
+	IntrinsicRatio() pr.MaybeFloat
 }

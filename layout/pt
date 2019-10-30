@@ -1,1828 +1,259 @@
 """
-<<<<<<< HEAD
-    weasyprint.layout.tables
-    ------------------------
-
-    Layout for tables && internal table boxes.
-=======
-    weasyprint.layout.pages
-    -----------------------
-
-    Layout for pages && CSS3 margin boxes.
->>>>>>> e9d1ab7f99dc44d32597db0f9e5b76d3f5d89b89
+    weasyprint.backgrounds
+    ----------------------
 
     :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
     :license: BSD, see LICENSE for details.
 
 """
 
-<<<<<<< HEAD
+from collections import namedtuple
+from itertools import cycle
+
 from ..formattingStructure import boxes
-from ..logger import LOGGER
-from .percentages import resolveOnePercentage, resolvePercentages
-from .preferred import maxContentWidth, tableAndColumnsPreferredWidths
+from . import replaced
+from .percentages import percentage, resolveRadiiPercentages
 
+Background = namedtuple("Background", "color, layers, imageRendering")
+BackgroundLayer = namedtuple(
+    "BackgroundLayer",
+    "image, size, position, repeat, unbounded, "
+    "paintingArea, positioningArea, clippedBoxes")
 
-func tableLayout(context, table, maxPositionY, skipStack, containingBlock,
-                 pageIsEmpty, absoluteBoxes, fixedBoxes) {
-                 }
-    """Layout for a table box."""
-    // Avoid a circular import
-    from .blocks import (
-        blockContainerLayout, blockLevelPageBreak,
-        findEarlierPageBreak)
 
-    columnWidths = table.columnWidths
-
-    if table.style["borderCollapse"] == "separate" {
-        borderSpacingX, borderSpacingY = table.style["borderSpacing"]
-    } else {
-        borderSpacingX = 0
-        borderSpacingY = 0
-    }
-
-    // TODO: reverse this for direction: rtl
-    columnPositions = table.columnPositions = []
-    positionX = table.contentBoxX()
-    rowsX = positionX + borderSpacingX
-    for width := range columnWidths {
-        positionX += borderSpacingX
-        columnPositions.append(positionX)
-        positionX += width
-    } rowsWidth = positionX - rowsX
-
-    if table.style["borderCollapse"] == "collapse" {
-        if skipStack {
-            skippedGroups, groupSkipStack = skipStack
-            if groupSkipStack {
-                skippedRows, _ = groupSkipStack
-            } else {
-                skippedRows = 0
-            } for group := range table.children[:skippedGroups] {
-                skippedRows += len(group.children)
-            }
-        } else {
-            skippedRows = 0
-        } _, horizontalBorders = table.collapsedBorderGrid
-        if horizontalBorders {
-            table.borderTopWidth = max(
-                width for _, (_, width, )
-                := range horizontalBorders[skippedRows]) / 2
-        }
-    }
-
-    // Make this a sub-function so that many local variables like rowsX
-    // don"t need to be passed as parameters.
-    def groupLayout(group, positionY, maxPositionY,
-                     pageIsEmpty, skipStack) {
-                     }
-        resumeAt = None
-        nextPage = {"break": "any", "page": None}
-        originalPageIsEmpty = pageIsEmpty
-        resolvePercentages(group, containingBlock=table)
-        group.positionX = rowsX
-        group.positionY = positionY
-        group.width = rowsWidth
-        newGroupChildren = []
-        // For each rows, cells for which this is the last row (with rowspan)
-        endingCellsByRow = [[] for row := range group.children]
-
-        isGroupStart = skipStack  == nil 
-        if isGroupStart {
-            skip = 0
-        } else {
-            skip, skipStack = skipStack
-            assert ! skipStack  // No breaks inside rows for now
-        } for i, row := range enumerate(group.children[skip:]) {
-            indexRow = i + skip
-            row.index = indexRow
-=======
-import copy
-
-from ..css import PageType, computedFromCascaded
-from ..formattingStructure import boxes, build
-from ..logger import PROGRESSLOGGER
-from .absolute import absoluteLayout
-from .blocks import blockContainerLayout, blockLevelLayout
-from .minMax import handleMinMaxHeight, handleMinMaxWidth
-from .percentages import resolvePercentages
-from .preferred import maxContentWidth, minContentWidth
-
-
-class OrientedBox(object) {
-    @property
-    def sugar(self) {
-        return self.paddingPlusBorder + self.marginA + self.marginB
-    }
-} 
-    @property
-    def outer(self) {
-        return self.sugar + self.inner
-    }
-
-    @property
-    def outerMinContentSize(self) {
-        return self.sugar + (
-            self.minContentSize if self.inner == "auto" else self.inner)
-    }
-
-    @property
-    def outerMaxContentSize(self) {
-        return self.sugar + (
-            self.maxContentSize if self.inner == "auto" else self.inner)
-    }
-
-    def shrinkToFit(self, available) {
-        self.inner = min(
-            max(self.minContentSize, available), self.maxContentSize)
-    }
-
-
-class VerticalBox(OrientedBox) {
-    def _Init_(self, context, box) {
-        self.context = context
-        self.box = box
-        // Inner dimension: that of the content area, as opposed to the
-        // outer dimension: that of the margin area.
-        self.inner = box.height
-        self.marginA = box.marginTop
-        self.marginB = box.marginBottom
-        self.paddingPlusBorder = (
-            box.paddingTop + box.paddingBottom +
-            box.borderTopWidth + box.borderBottomWidth)
-    }
-} 
-    def restoreBoxAttributes(self) {
-        box = self.box
-        box.height = self.inner
-        box.marginTop = self.marginA
-        box.marginBottom = self.marginB
-    }
-
-    // TODO: Define what are the min-content && max-content heights
-    @property
-    def minContentSize(self) {
-        return 0
-    }
-
-    @property
-    def maxContentSize(self) {
-        return 1e6
-    }
-
-
-class HorizontalBox(OrientedBox) {
-    def _Init_(self, context, box) {
-        self.context = context
-        self.box = box
-        self.inner = box.width
-        self.marginA = box.marginLeft
-        self.marginB = box.marginRight
-        self.paddingPlusBorder = (
-            box.paddingLeft + box.paddingRight +
-            box.borderLeftWidth + box.borderRightWidth)
-        self.MinContentSize = None
-        self.MaxContentSize = None
-    }
-} 
-    def restoreBoxAttributes(self) {
-        box = self.box
-        box.width = self.inner
-        box.marginLeft = self.marginA
-        box.marginRight = self.marginB
-    }
-
-    @property
-    def minContentSize(self) {
-        if self.MinContentSize  == nil  {
-            self.MinContentSize = minContentWidth(
-                self.context, self.box, outer=false)
-        } return self.MinContentSize
-    }
-
-    @property
-    def maxContentSize(self) {
-        if self.MaxContentSize  == nil  {
-            self.MaxContentSize = maxContentWidth(
-                self.context, self.box, outer=false)
-        } return self.MaxContentSize
-    }
-
-
-// 
-//     Compute && set a margin box fixed dimension on ``box``, as described in:
-//     http://dev.w3.org/csswg/css3-page/#margin-constraints
-//     :param box:
-//         The margin box to work on
-//     :param outer:
-//         The target outer dimension (value of a page margin)
-//     :param vertical:
-//         true to set height, margin-top && margin-bottom; false for width,
-//         margin-left && margin-right
-//     :param topOrLeft:
-//         true if the margin box := range if the top half (for vertical==true) or
-//         left half (for vertical==false) of the page.
-//         This determines which margin should be "auto" if the values are
-//         over-constrained. (Rule 3 of the algorithm.)
-//     
-func computeFixedDimension(context, box, outer, vertical, topOrLeft) {
-    box = (VerticalBox if vertical else HorizontalBox)(context, box)
-} 
-    // Rule 2
-    total = box.paddingPlusBorder + sum(
-        value for value := range [box.marginA, box.marginB, box.inner]
-        if value != "auto")
-    if total > outer {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        } if box.inner == "auto" {
-            // XXX this is ! := range the spec, but without it box.inner
-            // would end up with a negative value.
-            // Instead, this will trigger rule 3 below.
-            // http://lists.w3.org/Archives/Public/www-style/2012Jul/0006.html
-            box.inner = 0
-        }
-    } // Rule 3
-    if "auto" ! := range [box.marginA, box.marginB, box.inner] {
-        // Over-constrained
-        if topOrLeft {
-            box.marginA = "auto"
-        } else {
-            box.marginB = "auto"
-        }
-    } // Rule 4
-    if [box.marginA, box.marginB, box.inner].count("auto") == 1 {
-        if box.inner == "auto" {
-            box.inner = (outer - box.paddingPlusBorder -
-                         box.marginA - box.marginB)
-        } else if box.marginA == "auto" {
-            box.marginA = (outer - box.paddingPlusBorder -
-                            box.marginB - box.inner)
-        } else if box.marginB == "auto" {
-            box.marginB = (outer - box.paddingPlusBorder -
-                            box.marginA - box.inner)
-        }
-    } // Rule 5
-    if box.inner == "auto" {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        } box.inner = (outer - box.paddingPlusBorder -
-                     box.marginA - box.marginB)
-    } // Rule 6
-    if box.marginA == "auto" && box.marginB == "auto" {
-        box.marginA = box.marginB = (
-            outer - box.paddingPlusBorder - box.inner) / 2
-    }
-
-    assert "auto" ! := range [box.marginA, box.marginB, box.inner]
-
-    box.restoreBoxAttributes()
-
-
-// 
-//     Compute && set a margin box fixed dimension on ``box``, as described in:
-//     http://dev.w3.org/csswg/css3-page/#margin-dimension
-//     :param sideBoxes: Three boxes on a same side (as opposed to a corner.)
-//         A list of:
-//         - A @*-left || @*-top margin box
-//         - A @*-center || @*-middle margin box
-//         - A @*-right || @*-bottom margin box
-//     :param vertical:
-//         true to set height, margin-top && margin-bottom; false for width,
-//         margin-left && margin-right
-//     :param outerSum:
-//         The target total outer dimension (max box width || height)
-//     
-func computeVariableDimension(context, sideBoxes, vertical, outerSum) {
-    boxClass = VerticalBox if vertical else HorizontalBox
-    sideBoxes = [boxClass(context, box) for box := range sideBoxes]
-    boxA, boxB, boxC = sideBoxes
-} 
-    for box := range sideBoxes {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        }
-    }
-
-    if boxB.box.isGenerated {
-        if boxB.inner == "auto" {
-            acMaxContentSize = 2 * max(
-                boxA.outerMaxContentSize, boxC.outerMaxContentSize)
-            if outerSum >= (
-                    boxB.outerMaxContentSize + acMaxContentSize) {
-                    }
-                boxB.inner = boxB.maxContentSize
-            else {
-                acMinContentSize = 2 * max(
-                    boxA.outerMinContentSize,
-                    boxC.outerMinContentSize)
-                boxB.inner = boxB.minContentSize
-                available = outerSum - boxB.outer - acMinContentSize
-                if available > 0 {
-                    weightAc = acMaxContentSize - acMinContentSize
-                    weightB = (
-                        boxB.maxContentSize - boxB.minContentSize)
-                    weightSum = weightAc + weightB
-                    // By definition of maxContentSize && minContentSize,
-                    // weights can ! be negative. weightSum == 0 implies that
-                    // maxContentSize == minContentSize for each box, in
-                    // which case the sum can ! be both <= && > outerSum
-                    // Therefore, one of the last two "if" statements would not
-                    // have lead us here.
-                    assert weightSum > 0
-                    boxB.inner += available * weightB / weightSum
-                }
-            }
-        } if boxA.inner == "auto" {
-            boxA.shrinkToFit((outerSum - boxB.outer) / 2 - boxA.sugar)
-        } if boxC.inner == "auto" {
-            boxC.shrinkToFit((outerSum - boxB.outer) / 2 - boxC.sugar)
-        }
-    } else {
-        // Non-generated boxes get zero for every box-model property
-        assert boxB.inner == 0
-        if boxA.inner == boxC.inner == "auto" {
-            if outerSum >= (
-                    boxA.outerMaxContentSize +
-                    boxC.outerMaxContentSize) {
-                    }
-                boxA.inner = boxA.maxContentSize
-                boxC.inner = boxC.maxContentSize
-            else {
-                boxA.inner = boxA.minContentSize
-                boxC.inner = boxC.minContentSize
-                available = outerSum - boxA.outer - boxC.outer
-                if available > 0 {
-                    weightA = (
-                        boxA.maxContentSize - boxA.minContentSize)
-                    weightC = (
-                        boxC.maxContentSize - boxC.minContentSize)
-                    weightSum = weightA + weightC
-                    // By definition of maxContentSize && minContentSize,
-                    // weights can ! be negative. weightSum == 0 implies that
-                    // maxContentSize == minContentSize for each box, in
-                    // which case the sum can ! be both <= && > outerSum
-                    // Therefore, one of the last two "if" statements would not
-                    // have lead us here.
-                    assert weightSum > 0
-                    boxA.inner += available * weightA / weightSum
-                    boxC.inner += available * weightC / weightSum
-                }
-            }
-        } else if boxA.inner == "auto" {
-            boxA.shrinkToFit(outerSum - boxC.outer - boxA.sugar)
-        } else if boxC.inner == "auto" {
-            boxC.shrinkToFit(outerSum - boxA.outer - boxC.sugar)
-        }
-    }
-
-    // And, we’re done!
-    assert "auto" ! := range [box.inner for box := range sideBoxes]
-    // Set the actual attributes back.
-    for box := range sideBoxes {
-        box.restoreBoxAttributes()
-    }
-
-
-// Drop "pages" counter from style := range @page && @margin context.
-//     Ensure `counter-increment: page` for @page context if ! otherwise
-//     manipulated by the style.
-//     
-func StandardizePageBasedCounters(style, pseudoType) {
-    pageCounterTouched = false
-    // XXX "counter-set` ! yet supported
-    for propname := range ("counterReset", "counterIncrement") {
-        if style[propname] == "auto" {
-            style[propname] = ()
-            continue
-        } justifiedValues = []
-        for name, value := range style[propname] {
-            if name == "page" {
-                pageCounterTouched = true
-            } if name != "pages" {
-                justifiedValues.append((name, value))
-            }
-        } style[propname] = tuple(justifiedValues)
-    }
-} 
-    if pseudoType  == nil  && ! pageCounterTouched {
-        style["counterIncrement"] = (
-            ("page", 1),) + style["counterIncrement"]
-    }
-
-
-// Yield laid-out margin boxes for this page.
-//     ``state`` is the actual, up-to-date page-state from
-//     ``context.pageMaker[context.currentPage]``.
-//     
-func makeMarginBoxes(context, page, state) {
-    // This is a closure only to make calls shorter
-    def makeBox(atKeyword, containingBlock) {
-        """Return a margin box with resolved percentages.
-
-        The margin box may still have "auto" values.
-
-        Return ``None`` if this margin box should ! be generated.
-
-        :param atKeyword: which margin box to return, eg. "@top-left"
-        :param containingBlock: as expected by :func:`resolvePercentages`.
-
-        """
-        style = context.styleFor(page.pageType, atKeyword)
-        if style  == nil  {
-            // doesn"t affect counters
-            style = computedFromCascaded(
-                element=None, cascaded={}, parentStyle=page.style)
-        } StandardizePageBasedCounters(style, atKeyword)
-        box = boxes.MarginBox(atKeyword, style)
-        // Empty boxes should ! be generated, but they may be needed for
-        // the layout of their neighbors.
-        // TODO: should be the computed value.
-        box.isGenerated = style["content"] ! := range (
-            "normal", "inhibit", "none")
-        // TODO: get actual counter values at the time of the last page break
-        if box.isGenerated {
-            // @margins mustn"t manipulate page-context counters
-            marginState = copy.deepcopy(state)
-            quoteDepth, counterValues, counterScopes = marginState
-            // TODO: check this, probably useless
-            counterScopes.append(set())
-            build.updateCounters(marginState, box.style)
-            box.children = build.contentToBoxes(
-                box.style, box, quoteDepth, counterValues,
-                context.getImageFromUri, context.targetCollector, context,
-                page)
-            build.processWhitespace(box)
-            box = build.anonymousTableBoxes(box)
-            box = build.flexBoxes(box)
-            box = build.inlineInBlock(box)
-            box = build.blockInInline(box)
-        } resolvePercentages(box, containingBlock)
-        if ! box.isGenerated {
-            box.width = box.height = 0
-            for side := range ("top", "right", "bottom", "left") {
-                box.ResetSpacing(side)
-            }
-        } return box
-    }
-} 
-    marginTop = page.marginTop
-    marginBottom = page.marginBottom
-    marginLeft = page.marginLeft
-    marginRight = page.marginRight
-    maxBoxWidth = page.borderWidth()
-    maxBoxHeight = page.borderHeight()
-
-    // bottom right corner of the border box
-    pageEndX = marginLeft + maxBoxWidth
-    pageEndY = marginTop + maxBoxHeight
-
-    // Margin box dimensions, described in
-    // http://dev.w3.org/csswg/css3-page/#margin-box-dimensions
-    generatedBoxes = []
-
-    for prefix, vertical, containingBlock, positionX, positionY := range [
-        ("top", false, (maxBoxWidth, marginTop),
-            marginLeft, 0),
-        ("bottom", false, (maxBoxWidth, marginBottom),
-            marginLeft, pageEndY),
-        ("left", true, (marginLeft, maxBoxHeight),
-            0, marginTop),
-        ("right", true, (marginRight, maxBoxHeight),
-            pageEndX, marginTop),
-    ] {
-        if vertical {
-            suffixes = ["top", "middle", "bottom"]
-            fixedOuter, variableOuter = containingBlock
-        } else {
-            suffixes = ["left", "center", "right"]
-            variableOuter, fixedOuter = containingBlock
-        } sideBoxes = [makeBox("@%s-%s" % (prefix, suffix), containingBlock)
-                      for suffix := range suffixes]
-        if ! any(box.isGenerated for box := range sideBoxes) {
-            continue
-        } // We need the three boxes together for the variable dimension {
-        } computeVariableDimension(
-            context, sideBoxes, vertical, variableOuter)
-        for box, offset := range zip(sideBoxes, [0, 0.5, 1]) {
-            if ! box.isGenerated {
-                continue
-            } box.positionX = positionX
-            box.positionY = positionY
-            if vertical {
-                box.positionY += offset * (
-                    variableOuter - box.marginHeight())
-            } else {
-                box.positionX += offset * (
-                    variableOuter - box.marginWidth())
-            } computeFixedDimension(
-                context, box, fixedOuter, ! vertical,
-                prefix := range ["top", "left"])
-            generatedBoxes.append(box)
-        }
-    }
-
-    // Corner boxes
-
-    for atKeyword, cbWidth, cbHeight, positionX, positionY := range [
-        ("@top-left-corner", marginLeft, marginTop, 0, 0),
-        ("@top-right-corner", marginRight, marginTop, pageEndX, 0),
-        ("@bottom-left-corner", marginLeft, marginBottom, 0, pageEndY),
-        ("@bottom-right-corner", marginRight, marginBottom,
-            pageEndX, pageEndY),
-    ] {
-        box = makeBox(atKeyword, (cbWidth, cbHeight))
-        if ! box.isGenerated {
-            continue
-        } box.positionX = positionX
-        box.positionY = positionY
-        computeFixedDimension(
-            context, box, cbHeight, true, "top" := range atKeyword)
-        computeFixedDimension(
-            context, box, cbWidth, false, "left" := range atKeyword)
-        generatedBoxes.append(box)
-    }
-
-    for box := range generatedBoxes {
-        yield marginBoxContentLayout(context, page, box)
-    }
-
-
-// Layout a margin box’s content once the box has dimensions.
-func marginBoxContentLayout(context, page, box) {
-    box, resumeAt, nextPage, _, _ = blockContainerLayout(
-        context, box,
-        maxPositionY=float("inf"), skipStack=None,
-        pageIsEmpty=true, absoluteBoxes=[], fixedBoxes=[])
-    assert resumeAt  == nil 
-} 
-    verticalAlign = box.style["verticalAlign"]
-    // Every other value is read as "top", ie. no change.
-    if verticalAlign := range ("middle", "bottom") && box.children {
-        firstChild = box.children[0]
-        lastChild = box.children[-1]
-        top = firstChild.positionY
-        // Not always exact because floating point errors
-        // assert top == box.contentBoxY()
-        bottom = lastChild.positionY + lastChild.marginHeight()
-        contentHeight = bottom - top
-        offset = box.height - contentHeight
-        if verticalAlign == "middle" {
-            offset /= 2
-        } for child := range box.children {
-            child.translate(0, offset)
-        }
-    } return box
-
-
-// Take a :class:`OrientedBox` object && set either width, margin-left
-//     && margin-right; || height, margin-top && margin-bottom.
-//     "The width && horizontal margins of the page box are then calculated
-//      exactly as for a non-replaced block element := range normal flow. The height
-//      && vertical margins of the page box are calculated analogously (instead
-//      of using the block height formulas). In both cases if the values are
-//      over-constrained, instead of ignoring any margins, the containing block
-//      is resized to coincide with the margin edges of the page box."
-//     http://dev.w3.org/csswg/css3-page/#page-box-page-rule
-//     http://www.w3.org/TR/CSS21/visudet.html#blockwidth
-//     
-func pageWidthOrHeight(box, containingBlockSize) {
-    remaining = containingBlockSize - box.paddingPlusBorder
-    if box.inner == "auto" {
-        if box.marginA == "auto" {
-            box.marginA = 0
-        } if box.marginB == "auto" {
-            box.marginB = 0
-        } box.inner = remaining - box.marginA - box.marginB
-    } else if box.marginA == box.marginB == "auto" {
-        box.marginA = box.marginB = (remaining - box.inner) / 2
-    } else if box.marginA == "auto" {
-        box.marginA = remaining - box.inner - box.marginB
-    } else if box.marginB == "auto" {
-        box.marginB = remaining - box.inner - box.marginA
-    } box.restoreBoxAttributes()
-} 
-
-@handleMinMaxWidth
-func pageWidth(box, context, containingBlockWidth) {
-    pageWidthOrHeight(HorizontalBox(context, box), containingBlockWidth)
-} 
-
-@handleMinMaxHeight
-func pageHeight(box, context, containingBlockHeight) {
-    pageWidthOrHeight(VerticalBox(context, box), containingBlockHeight)
-} 
-
-func makePage(context, rootBox, pageType, resumeAt, pageNumber,
-              pageState) {
-    """Take just enough content from the beginning to fill one page.
-
-    Return ``(page, finished)``. ``page`` is a laid out PageBox object
-    && ``resumeAt`` indicates where := range the document to start the next page,
-    || is ``None`` if this was the last page.
-
-    :param pageNumber: integer, start at 1 for the first page
-    :param resumeAt: as returned by ``makePage()`` for the previous page,
-                      || ``None`` for the first page.
-
-              }
-    """
-    style = context.styleFor(pageType)
-
-    // Propagated from the root || <body>.
-    style["overflow"] = rootBox.viewportOverflow
-    page = boxes.PageBox(pageType, style)
-
-    deviceSize = page.style["size"]
-
-    resolvePercentages(page, deviceSize)
-
-    page.positionX = 0
-    page.positionY = 0
-    cbWidth, cbHeight = deviceSize
-    pageWidth(page, context, cbWidth)
-    pageHeight(page, context, cbHeight)
-
-    rootBox.positionX = page.contentBoxX()
-    rootBox.positionY = page.contentBoxY()
-    pageContentBottom = rootBox.positionY + page.height
-    initialContainingBlock = page
-
-    if pageType.blank {
-        previousResumeAt = resumeAt
-        rootBox = rootBox.copyWithChildren([])
-    }
-
-    // TODO: handle cases where the root element is something else.
-    // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-    assert isinstance(rootBox, (boxes.BlockBox, boxes.FlexContainerBox))
-    context.createBlockFormattingContext()
-    context.currentPage = pageNumber
-    pageIsEmpty = true
-    adjoiningMargins = []
-    positionedBoxes = []  // Mixed absolute && fixed
-    rootBox, resumeAt, nextPage, _, _ = blockLevelLayout(
-        context, rootBox, pageContentBottom, resumeAt,
-        initialContainingBlock, pageIsEmpty, positionedBoxes,
-        positionedBoxes, adjoiningMargins)
-    assert rootBox
-
-    page.fixedBoxes = [
-        placeholder.Box for placeholder := range positionedBoxes
-        if placeholder.Box.style["position"] == "fixed"]
-    for absoluteBox := range positionedBoxes {
-        absoluteLayout(context, absoluteBox, page, positionedBoxes)
-    } context.finishBlockFormattingContext(rootBox)
-
-    page.children = [rootBox]
-    descendants = page.descendants()
-
-    // Update page counter values
-    StandardizePageBasedCounters(style, None)
-    build.updateCounters(pageState, style)
-    pageCounterValues = pageState[1]
-    // pageCounterValues will be cached := range the pageMaker
-
-    targetCollector = context.targetCollector
-    pageMaker = context.pageMaker
-
-    // remakeState tells the makeAllPages-loop := range layoutDocument()
-    // whether && what to re-make.
-    remakeState = pageMaker[pageNumber - 1][-1]
-
-    // Evaluate && cache page values only once (for the first LineBox)
-    // otherwise we suffer endless loops when the target/pseudo-element
-    // spans across multiple pages
-    cachedAnchors = []
-    cachedLookups = []
-    for (_, _, _, _, xRemakeState) := range pageMaker[:pageNumber - 1] {
-        cachedAnchors.extend(xRemakeState.get("anchors", []))
-        cachedLookups.extend(xRemakeState.get("contentLookups", []))
-    }
-
-    for child := range descendants {
-        // Cache target"s page counters
-        anchor = child.style["anchor"]
-        if anchor && anchor ! := range cachedAnchors {
-            remakeState["anchors"].append(anchor)
-            cachedAnchors.append(anchor)
-            // Re-make of affected targeting boxes is inclusive
-            targetCollector.cacheTargetPageCounters(
-                anchor, pageCounterValues, pageNumber - 1, pageMaker)
->>>>>>> e9d1ab7f99dc44d32597db0f9e5b76d3f5d89b89
-        }
-
-<<<<<<< HEAD
-            if newGroupChildren {
-                pageBreak = blockLevelPageBreak(
-                    newGroupChildren[-1], row)
-                if pageBreak := range ("page", "recto", "verso", "left", "right") {
-                    nextPage["break"] = pageBreak
-                    resumeAt = (indexRow, None)
-                    break
-                }
-            }
-
-            resolvePercentages(row, containingBlock=table)
-            row.positionX = rowsX
-            row.positionY = positionY
-            row.width = rowsWidth
-            // Place cells at the top of the row && layout their content
-            newRowChildren = []
-            for cell := range row.children {
-                spannedWidths = columnWidths[cell.gridX:][:cell.colspan]
-                // In the fixed layout the grid width is set by cells in
-                // the first row && column elements.
-                // This may be less than the previous value of cell.colspan
-                // if that would bring the cell beyond the grid width.
-                cell.colspan = len(spannedWidths)
-                if cell.colspan == 0 {
-                    // The cell is entierly beyond the grid width, remove it
-                    // entierly. Subsequent cells := range the same row have greater
-                    // gridX, so they are beyond too.
-                    cellIndex = row.children.index(cell)
-                    ignoredCells = row.children[cellIndex:]
-                    LOGGER.warning("This table row has more columns than "
-                                   "the table, ignored %i cells: %r",
-                                   len(ignoredCells), ignoredCells)
-                    break
-                } resolvePercentages(cell, containingBlock=table)
-                cell.positionX = columnPositions[cell.gridX]
-                cell.positionY = row.positionY
-                cell.marginTop = 0
-                cell.marginLeft = 0
-                cell.width = 0
-                bordersPlusPadding = cell.borderWidth()  // with width==0
-                // TODO: we should remove the number of columns with no
-                // originating cells to cell.colspan, see
-                // testLayoutTableAuto49
-                cell.width = (
-                    sum(spannedWidths) +
-                    borderSpacingX * (cell.colspan - 1) -
-                    bordersPlusPadding)
-                // The computed height is a minimum
-                cell.computedHeight = cell.height
-                cell.height = "auto"
-                cell, _, _, _, _ = blockContainerLayout(
-                    context, cell,
-                    maxPositionY=float("inf"),
-                    skipStack=None,
-                    pageIsEmpty=true,
-                    absoluteBoxes=absoluteBoxes,
-                    fixedBoxes=fixedBoxes)
-                cell.empty = ! any(
-                    child.isFloated() || child.isInNormalFlow()
-                    for child := range cell.children)
-                cell.contentHeight = cell.height
-                if cell.computedHeight != "auto" {
-                    cell.height = max(cell.height, cell.computedHeight)
-                } newRowChildren.append(cell)
-            }
-
-            row = row.copyWithChildren(newRowChildren)
-
-            // Table height algorithm
-            // http://www.w3.org/TR/CSS21/tables.html#height-layout
-
-            // cells with vertical-align: baseline
-            baselineCells = []
-            for cell := range row.children {
-                verticalAlign = cell.style["verticalAlign"]
-                if verticalAlign := range ("top", "middle", "bottom") {
-                    cell.verticalAlign = verticalAlign
-                } else {
-                    // Assume "baseline" for any other value
-                    cell.verticalAlign = "baseline"
-                    cell.baseline = cellBaseline(cell)
-                    baselineCells.append(cell)
-                }
-            } if baselineCells {
-                row.baseline = max(cell.baseline for cell := range baselineCells)
-                for cell := range baselineCells {
-                    extra = row.baseline - cell.baseline
-                    if cell.baseline != row.baseline && extra {
-                        addTopPadding(cell, extra)
-                    }
-                }
-            }
-
-            // row height
-            for cell := range row.children {
-                endingCellsByRow[cell.rowspan - 1].append(cell)
-            } endingCells = endingCellsByRow.pop(0)
-            if endingCells:  // := range this row
-                if row.height == "auto" {
-                    rowBottomY = max(
-                        cell.positionY + cell.borderHeight()
-                        for cell := range endingCells)
-                    row.height = max(rowBottomY - row.positionY, 0)
-                } else {
-                    row.height = max(row.height, max(
-                        rowCell.height for rowCell := range endingCells))
-                    rowBottomY = cell.positionY + row.height
-                }
-            else {
-                rowBottomY = row.positionY
-                row.height = 0
-            }
-
-            if ! baselineCells {
-                row.baseline = rowBottomY
-            }
-
-            // Add extra padding to make the cells the same height as the row
-            // && honor vertical-align
-            for cell := range endingCells {
-                cellBottomY = cell.positionY + cell.borderHeight()
-                extra = rowBottomY - cellBottomY
-                if extra {
-                    if cell.verticalAlign == "bottom" {
-                        addTopPadding(cell, extra)
-                    } else if cell.verticalAlign == "middle" {
-                        extra /= 2.
-                        addTopPadding(cell, extra)
-                        cell.paddingBottom += extra
-                    } else {
-                        cell.paddingBottom += extra
-                    }
-                } if cell.computedHeight != "auto" {
-                    verticalAlignShift = 0
-                    if cell.verticalAlign == "middle" {
-                        verticalAlignShift = (
-                            cell.computedHeight - cell.contentHeight) / 2
-                    } else if cell.verticalAlign == "bottom" {
-                        verticalAlignShift = (
-                            cell.computedHeight - cell.contentHeight)
-                    } if verticalAlignShift > 0 {
-                        for child := range cell.children {
-                            child.translate(dy=verticalAlignShift)
-                        }
-                    }
-                }
-            }
-
-            nextPositionY = row.positionY + row.height + borderSpacingY
-            // Break if this row overflows the page, unless there is no
-            // other content on the page.
-            if nextPositionY > maxPositionY && ! pageIsEmpty {
-                if newGroupChildren {
-                    previousRow = newGroupChildren[-1]
-                    pageBreak = blockLevelPageBreak(previousRow, row)
-                    if pageBreak == "avoid" {
-                        earlierPageBreak = findEarlierPageBreak(
-                            newGroupChildren, absoluteBoxes, fixedBoxes)
-                        if earlierPageBreak {
-                            newGroupChildren, resumeAt = earlierPageBreak
-=======
-        // string-set && bookmark-labels don"t create boxes, only `content`
-        // requires another call to makePage. There is maximum one "content"
-        // item per box.
-        // TODO: remove attribute || set a default value := range Box class
-        if hasattr(child, "missingLink") {
-            // A CounterLookupItem exists for the css-token "content"
-            counterLookup = targetCollector.counterLookupItems.get(
-                (child.missingLink, "content"))
-        } else {
-            counterLookup = None
-        }
-
-        // Resolve missing (page based) counters
-        if counterLookup  != nil  {
-            callParseAgain = false
-        }
-
-            // Prevent endless loops
-            counterLookupId = id(counterLookup)
-            refreshMissingCounters = counterLookupId ! := range cachedLookups
-            if refreshMissingCounters {
-                remakeState["contentLookups"].append(counterLookupId)
-                cachedLookups.append(counterLookupId)
-                counterLookup.pageMakerIndex = pageNumber - 1
-            }
-
-            // Step 1: page based back-references
-            // Marked as pending by targetCollector.cacheTargetPageCounters
-            if counterLookup.pending {
-                if (pageCounterValues !=
-                        counterLookup.cachedPageCounterValues) {
-                        }
-                    counterLookup.cachedPageCounterValues = copy.deepcopy(
-                        pageCounterValues)
-                counterLookup.pending = false
-                callParseAgain = true
-            }
-
-            // Step 2: local counters
-            // If the box mixed-in page counters changed, update the content
-            // && cache the new values.
-            missingCounters = counterLookup.missingCounters
-            if missingCounters {
-                if "pages" := range missingCounters {
-                    remakeState["pagesWanted"] = true
-                } if refreshMissingCounters && pageCounterValues != \
-                        counterLookup.cachedPageCounterValues {
-                        }
-                    counterLookup.cachedPageCounterValues = \
-                        copy.deepcopy(pageCounterValues)
-                    for counterName := range missingCounters {
-                        counterValue = pageCounterValues.get(
-                            counterName, None)
-                        if counterValue  != nil  {
-                            callParseAgain = true
-                            // no need to loop them all
->>>>>>> e9d1ab7f99dc44d32597db0f9e5b76d3f5d89b89
-                            break
-                        }
-                    } else {
-                        resumeAt = (indexRow, None)
-                        break
-                    }
-<<<<<<< HEAD
-                } if originalPageIsEmpty {
-                    resumeAt = (indexRow, None)
-                } else {
-                    return None, None, nextPage
-                } break
-            }
-
-            positionY = nextPositionY
-            newGroupChildren.append(row)
-            pageIsEmpty = false
-
-        // Do ! keep the row group if we made a page break
-        // before any of its rows || with "avoid"
-        if resumeAt && ! originalPageIsEmpty && (
-                group.style["breakInside"] := range ("avoid", "avoid-page") or
-                ! newGroupChildren) {
-                }
-            return None, None, nextPage
-
-        group = group.copyWithChildren(
-            newGroupChildren,
-            isStart=isGroupStart, isEnd=resumeAt  == nil )
-
-        // Set missing baselines := range a second loop because of rowspan
-        for row := range group.children {
-            if row.baseline  == nil  {
-                if row.children {
-                    // lowest bottom content edge
-                    row.baseline = max(
-                        cell.contentBoxY() + cell.height
-                        for cell := range row.children) - row.positionY
-                } else {
-                    row.baseline = 0
-                }
-            }
-        } group.height = positionY - group.positionY
-        if group.children {
-            // The last border spacing is outside of the group.
-            group.height -= borderSpacingY
-        }
-
-        return group, resumeAt, nextPage
-
-    def bodyGroupsLayout(skipStack, positionY, maxPositionY,
-                           pageIsEmpty) {
-                           }
-        if skipStack  == nil  {
-            skip = 0
-        } else {
-            skip, skipStack = skipStack
-        } newTableChildren = []
-        resumeAt = None
-        nextPage = {"break": "any", "page": None}
-
-        for i, group := range enumerate(table.children[skip:]) {
-            indexGroup = i + skip
-            group.index = indexGroup
-        }
-
-            if group.isHeader || group.isFooter {
-                continue
-            }
-
-            if newTableChildren {
-                pageBreak = blockLevelPageBreak(
-                    newTableChildren[-1], group)
-                if pageBreak := range ("page", "recto", "verso", "left", "right") {
-                    nextPage["break"] = pageBreak
-                    resumeAt = (indexGroup, None)
-                    break
-                }
-            }
-
-            newGroup, resumeAt, nextPage = groupLayout(
-                group, positionY, maxPositionY, pageIsEmpty, skipStack)
-            skipStack = None
-
-            if newGroup  == nil  {
-                if newTableChildren {
-                    previousGroup = newTableChildren[-1]
-                    pageBreak = blockLevelPageBreak(previousGroup, group)
-                    if pageBreak == "avoid" {
-                        earlierPageBreak = findEarlierPageBreak(
-                            newTableChildren, absoluteBoxes, fixedBoxes)
-                        if earlierPageBreak  != nil  {
-                            newTableChildren, resumeAt = earlierPageBreak
-                            break
-                        }
-                    } resumeAt = (indexGroup, None)
-                } else {
-                    return None, None, nextPage, positionY
-                } break
-            }
-
-            newTableChildren.append(newGroup)
-            positionY += newGroup.height + borderSpacingY
-            pageIsEmpty = false
-
-            if resumeAt {
-                resumeAt = (indexGroup, resumeAt)
-                break
-            }
-
-        return newTableChildren, resumeAt, nextPage, positionY
-
-    // Layout for row groups, rows && cells
-    positionY = table.contentBoxY() + borderSpacingY
-    initialPositionY = positionY
-
-    def allGroupsLayout() {
-        if table.children && table.children[0].isHeader {
-            header = table.children[0]
-            header, resumeAt, nextPage = groupLayout(
-                header, positionY, maxPositionY,
-                skipStack=None, pageIsEmpty=false)
-            if header && ! resumeAt {
-                headerHeight = header.height + borderSpacingY
-            } else:  // Header too big for the page
-                header = None
-        } else {
-            header = None
-        }
-    }
-
-        if table.children && table.children[-1].isFooter {
-            footer = table.children[-1]
-            footer, resumeAt, nextPage = groupLayout(
-                footer, positionY, maxPositionY,
-                skipStack=None, pageIsEmpty=false)
-            if footer && ! resumeAt {
-                footerHeight = footer.height + borderSpacingY
-            } else:  // Footer too big for the page
-                footer = None
-        } else {
-            footer = None
-        }
-
-        // Don"t remove headers && footers if breaks are avoided := range line groups
-        skip = skipStack[0] if skipStack else 0
-        avoidBreaks = false
-        for group := range table.children[skip:] {
-            if ! group.isHeader && ! group.isFooter {
-                avoidBreaks = (
-                    group.style["breakInside"] := range ("avoid", "avoid-page"))
-                break
-            }
-        }
-
-        if header && footer {
-            // Try with both the header && footer
-            newTableChildren, resumeAt, nextPage, endPositionY = (
-                bodyGroupsLayout(
-                    skipStack,
-                    positionY=positionY + headerHeight,
-                    maxPositionY=maxPositionY - footerHeight,
-                    pageIsEmpty=avoidBreaks))
-            if newTableChildren || ! pageIsEmpty {
-                footer.translate(dy=endPositionY - footer.positionY)
-                endPositionY += footerHeight
-                return (header, newTableChildren, footer,
-                        endPositionY, resumeAt, nextPage)
-            } else {
-                // We could ! fit any content, drop the footer
-                footer = None
-=======
-            }
-
-            // Step 3: targeted counters
-            targetMissing = counterLookup.missingTargetCounters
-            for anchorName, missedCounters := range targetMissing.items() {
-                if "pages" ! := range missedCounters {
-                    continue
-                } // Adjust "pagesWanted"
-                item = targetCollector.targetLookupItems.get(
-                    anchorName, None)
-                pageMakerIndex = item.pageMakerIndex
-                if pageMakerIndex >= 0 && anchorName := range cachedAnchors {
-                    pageMaker[pageMakerIndex][-1]["pagesWanted"] = true
-                } // "contentChanged" is triggered in
-                // targets.cacheTargetPageCounters()
->>>>>>> e9d1ab7f99dc44d32597db0f9e5b76d3f5d89b89
-            }
-        }
-
-<<<<<<< HEAD
-        if header && ! footer {
-            // Try with just the header
-            newTableChildren, resumeAt, nextPage, endPositionY = (
-                bodyGroupsLayout(
-                    skipStack,
-                    positionY=positionY + headerHeight,
-                    maxPositionY=maxPositionY,
-                    pageIsEmpty=avoidBreaks))
-            if newTableChildren || ! pageIsEmpty {
-                return (header, newTableChildren, footer,
-                        endPositionY, resumeAt, nextPage)
-            } else {
-                // We could ! fit any content, drop the header
-                header = None
-            }
-        }
-
-        if footer && ! header {
-            // Try with just the footer
-            newTableChildren, resumeAt, nextPage, endPositionY = (
-                bodyGroupsLayout(
-                    skipStack,
-                    positionY=positionY,
-                    maxPositionY=maxPositionY - footerHeight,
-                    pageIsEmpty=avoidBreaks))
-            if newTableChildren || ! pageIsEmpty {
-                footer.translate(dy=endPositionY - footer.positionY)
-                endPositionY += footerHeight
-                return (header, newTableChildren, footer,
-                        endPositionY, resumeAt, nextPage)
-            } else {
-                // We could ! fit any content, drop the footer
-                footer = None
-            }
-        }
-
-        assert ! (header || footer)
-        newTableChildren, resumeAt, nextPage, endPositionY = (
-            bodyGroupsLayout(
-                skipStack, positionY, maxPositionY, pageIsEmpty))
+func boxRectangle(box, whichRectangle) {
+    if whichRectangle == "border-box" {
         return (
-            header, newTableChildren, footer, endPositionY, resumeAt,
-            nextPage)
-
-    def getColumnCells(table, column) {
-        """Closure getting the column cells."""
-        return lambda: [
-            cell
-            for rowGroup := range table.children
-            for row := range rowGroup.children
-            for cell := range row.children
-            if cell.gridX == column.gridX]
-    }
-
-    header, newTableChildren, footer, positionY, resumeAt, nextPage = \
-        allGroupsLayout()
-
-    if newTableChildren  == nil  {
-        assert resumeAt  == nil 
-        table = None
-        adjoiningMargins = []
-        collapsingThrough = false
+            box.borderBoxX(),
+            box.borderBoxY(),
+            box.borderWidth(),
+            box.borderHeight(),
+        )
+    } else if whichRectangle == "padding-box" {
         return (
-            table, resumeAt, nextPage, adjoiningMargins, collapsingThrough)
-    }
-
-    table = table.copyWithChildren(
-        ([header] if header  != nil  else []) +
-        newTableChildren +
-        ([footer] if footer  != nil  else []),
-        isStart=skipStack  == nil , isEnd=resumeAt  == nil )
-    if table.style["borderCollapse"] == "collapse" {
-        table.skippedRows = skippedRows
-    }
-
-    // If the height property has a bigger value, just add blank space
-    // below the last row group.
-    table.height = max(
-        table.height if table.height != "auto" else 0,
-        positionY - table.contentBoxY())
-
-    // Layout for column groups && columns
-    columnsHeight = positionY - initialPositionY
-    if table.children {
-        // The last border spacing is below the columns.
-        columnsHeight -= borderSpacingY
-    } for group := range table.columnGroups {
-        for column := range group.children {
-            resolvePercentages(column, containingBlock=table)
-            if column.gridX < len(columnPositions) {
-                column.positionX = columnPositions[column.gridX]
-                column.positionY = initialPositionY
-                column.width = columnWidths[column.gridX]
-                column.height = columnsHeight
-            } else {
-                // Ignore extra empty columns
-                column.positionX = 0
-                column.positionY = 0
-                column.width = 0
-                column.height = 0
-            } resolvePercentages(group, containingBlock=table)
-            column.getCells = getColumnCells(table, column)
-        } first = group.children[0]
-        last = group.children[-1]
-        group.positionX = first.positionX
-        group.positionY = initialPositionY
-        group.width = last.positionX + last.width - first.positionX
-        group.height = columnsHeight
-    }
-
-    if resumeAt && ! pageIsEmpty && (
-            table.style["breakInside"] := range ("avoid", "avoid-page")) {
-            }
-        table = None
-        resumeAt = None
-    adjoiningMargins = []
-    collapsingThrough = false
-    return table, resumeAt, nextPage, adjoiningMargins, collapsingThrough
-
-
-// Increase the top padding of a box. This also translates the children.
-//     
-func addTopPadding(box, extraPadding) {
-    box.paddingTop += extraPadding
-    for child := range box.children {
-        child.translate(dy=extraPadding)
-    }
-} 
-
-// Run the fixed table layout && return a list of column widths
-//     http://www.w3.org/TR/CSS21/tables.html#fixed-table-layout
-//     
-func fixedTableLayout(box) {
-    table = box.getWrappedTable()
-    assert table.width != "auto"
-} 
-    allColumns = [column for columnGroup := range table.columnGroups
-                   for column := range columnGroup.children]
-    if table.children && table.children[0].children {
-        firstRowgroup = table.children[0]
-        firstRowCells = firstRowgroup.children[0].children
+            box.paddingBoxX(),
+            box.paddingBoxY(),
+            box.paddingWidth(),
+            box.paddingHeight(),
+        )
     } else {
-        firstRowCells = []
-    } numColumns = max(
-        len(allColumns),
-        sum(cell.colspan for cell := range firstRowCells)
-    )
-    // ``None`` means ! know yet.
-    columnWidths = [None] * numColumns
-
-    // `width` on column boxes
-    for i, column := range enumerate(allColumns) {
-        resolveOnePercentage(column, "width", table.width)
-        if column.width != "auto" {
-            columnWidths[i] = column.width
-        }
-    }
-
-    if table.style["borderCollapse"] == "separate" {
-        borderSpacingX, _ = table.style["borderSpacing"]
-    } else {
-        borderSpacingX = 0
-    }
-
-    // `width` on cells of the first row.
-    i = 0
-    for cell := range firstRowCells {
-        resolvePercentages(cell, table)
-        if cell.width != "auto" {
-            width = cell.borderWidth()
-            width -= borderSpacingX * (cell.colspan - 1)
-            // In the general case, this width affects several columns (through
-            // colspan) some of which already have a width. Subtract these
-            // known widths && divide among remaining columns.
-            columnsWithoutWidth = []  // && occupied by this cell
-            for j := range range(i, i + cell.colspan) {
-                if columnWidths[j]  == nil  {
-                    columnsWithoutWidth.append(j)
-                } else {
-                    width -= columnWidths[j]
-                }
-            } if columnsWithoutWidth {
-                widthPerColumn = width / len(columnsWithoutWidth)
-                for j := range columnsWithoutWidth {
-                    columnWidths[j] = widthPerColumn
-                }
-            } del width
-        } i += cell.colspan
-    } del i
-
-    // Distribute the remaining space equally on columns that do ! have
-    // a width yet.
-    allBorderSpacing = borderSpacingX * (numColumns + 1)
-    minTableWidth = (sum(w for w := range columnWidths if w  != nil ) +
-                       allBorderSpacing)
-    columnsWithoutWidth = [i for i, w := range enumerate(columnWidths)
-                             if w  == nil ]
-    if columnsWithoutWidth && table.width >= minTableWidth {
-        remainingWidth = table.width - minTableWidth
-        widthPerColumn = remainingWidth / len(columnsWithoutWidth)
-        for i := range columnsWithoutWidth {
-            columnWidths[i] = widthPerColumn
-        }
-    } else {
-        // XXX this is bad, but we were given a broken table to work with...
-        for i := range columnsWithoutWidth {
-            columnWidths[i] = 0
-        }
-    }
-
-    // If the sum is less than the table width,
-    // distribute the remaining space equally
-    extraWidth = table.width - sum(columnWidths) - allBorderSpacing
-    if extraWidth <= 0 {
-        // substract a negative: widen the table
-        table.width -= extraWidth
-    } else if numColumns {
-        extraPerColumn = extraWidth / numColumns
-        columnWidths = [w + extraPerColumn for w := range columnWidths]
-    }
-
-    // Now we have table.width == sum(columnWidths) + allBorderSpacing
-    // with possible floating point rounding errors.
-    // (unless there is zero column)
-    table.columnWidths = columnWidths
-
-
-// Run the auto table layout && return a list of column widths.
-//     http://www.w3.org/TR/CSS21/tables.html#auto-table-layout
-//     
-func autoTableLayout(context, box, containingBlock) {
-    table = box.getWrappedTable()
-    (tableMinContentWidth, tableMaxContentWidth,
-     columnMinContentWidths, columnMaxContentWidths,
-     columnIntrinsicPercentages, constrainedness,
-     totalHorizontalBorderSpacing, grid) = \
-        tableAndColumnsPreferredWidths(context, box, outer=false)
-} 
-    margins = 0
-    if box.marginLeft != "auto" {
-        margins += box.marginLeft
-    } if box.marginRight != "auto" {
-        margins += box.marginRight
-    } paddings = table.paddingLeft + table.paddingRight
-
-    cbWidth, _ = containingBlock
-    availableWidth = cbWidth - margins - paddings
-
-    if table.style["borderCollapse"] == "collapse" {
-        availableWidth -= (
-            table.borderLeftWidth + table.borderRightWidth)
-    }
-
-    if table.width == "auto" {
-        if availableWidth <= tableMinContentWidth {
-            table.width = tableMinContentWidth
-        } else if availableWidth < tableMaxContentWidth {
-            table.width = availableWidth
-        } else {
-            table.width = tableMaxContentWidth
-        }
-    } else {
-        if table.width < tableMinContentWidth {
-            table.width = tableMinContentWidth
-        }
-    }
-
-    if ! grid {
-        table.columnWidths = []
-        return
-    }
-
-    assignableWidth = table.width - totalHorizontalBorderSpacing
-    minContentGuess = columnMinContentWidths[:]
-    minContentPercentageGuess = columnMinContentWidths[:]
-    minContentSpecifiedGuess = columnMinContentWidths[:]
-    maxContentGuess = columnMaxContentWidths[:]
-    guesses = (
-        minContentGuess, minContentPercentageGuess,
-        minContentSpecifiedGuess, maxContentGuess)
-    for i := range range(len(grid)) {
-        if columnIntrinsicPercentages[i] {
-            minContentPercentageGuess[i] = max(
-                columnIntrinsicPercentages[i] / 100 * assignableWidth,
-                columnMinContentWidths[i])
-            minContentSpecifiedGuess[i] = minContentPercentageGuess[i]
-            maxContentGuess[i] = minContentPercentageGuess[i]
-        } else if constrainedness[i] {
-            minContentSpecifiedGuess[i] = columnMinContentWidths[i]
-        }
-    }
-
-    if assignableWidth <= sum(maxContentGuess) {
-        // Default values shouldn"t be used, but we never know.
-        // See https://github.com/Kozea/WeasyPrint/issues/770
-        lowerGuess = guesses[0]
-        upperGuess = guesses[-1]
-    }
-
-        // We have to work around floating point rounding errors here.
-        // The 1e-9 value comes from PEP 485.
-        for guess := range guesses {
-            if sum(guess) <= assignableWidth * (1 + 1e-9) {
-                lowerGuess = guess
-            } else {
-                break
-            }
-        } for guess := range guesses[::-1] {
-            if sum(guess) >= assignableWidth * (1 - 1e-9) {
-                upperGuess = guess
-            } else {
-                break
-            }
-        } if upperGuess == lowerGuess {
-            // TODO: Uncomment the assert when bugs #770 && #628 are closed
-            // Equivalent to "assert assignableWidth == sum(upperGuess)"
-            // assert abs(assignableWidth - sum(upperGuess)) <= (
-            //     assignableWidth * 1e-9)
-            table.columnWidths = upperGuess
-        } else {
-            addedWidths = [
-                upperGuess[i] - lowerGuess[i] for i := range range(len(grid))]
-            availableRatio = (
-                (assignableWidth - sum(lowerGuess)) / sum(addedWidths))
-            table.columnWidths = [
-                lowerGuess[i] + addedWidths[i] * availableRatio
-                for i := range range(len(grid))]
-        }
-    else {
-        table.columnWidths = maxContentGuess
-        excessWidth = assignableWidth - sum(maxContentGuess)
-        excessWidth = distributeExcessWidth(
-            context, grid, excessWidth, table.columnWidths, constrainedness,
-            columnIntrinsicPercentages, columnMaxContentWidths)
-        if excessWidth {
-            if tableMinContentWidth < table.width - excessWidth {
-                // Reduce the width of the size from the excess width that has
-                // ! been distributed.
-                table.width -= excessWidth
-            } else {
-                // Break rules
-                columns = [i for i, column := range enumerate(grid) if any(column)]
-                for i := range columns {
-                    table.columnWidths[i] += excessWidth / len(columns)
-                }
-            }
-        }
-    }
-
-
-// Find the width of each column && derive the wrapper width.
-func tableWrapperWidth(context, wrapper, containingBlock) {
-    table = wrapper.getWrappedTable()
-    resolvePercentages(table, containingBlock)
-} 
-    if table.style["tableLayout"] == "fixed" && table.width != "auto" {
-        fixedTableLayout(wrapper)
-    } else {
-        autoTableLayout(context, wrapper, containingBlock)
-    }
-
-    wrapper.width = table.borderWidth()
-
-
-// 
-//     Return the y position of a cell’s baseline from the top of its border box.
-//     See http://www.w3.org/TR/CSS21/tables.html#height-layout
-//     
-func cellBaseline(cell) {
-    result = findInFlowBaseline(
-        cell, baselineTypes=(boxes.LineBox, boxes.TableRowBox))
-    if result  != nil  {
-        return result - cell.positionY
-    } else {
-        // Default to the bottom of the content area.
-        return cell.borderTopWidth + cell.paddingTop + cell.height
+        assert whichRectangle == "content-box", whichRectangle
+        return (
+            box.contentBoxX(),
+            box.contentBoxY(),
+            box.width,
+            box.height,
+        )
     }
 } 
 
-// 
-//     Return the absolute Y position for the first (or last) in-flow baseline
-//     if any, || None.
-//     
-func findInFlowBaseline(box, last=false, baselineTypes=(boxes.LineBox,)) {
-    // TODO: synthetize baseline when needed
-    // See https://www.w3.org/TR/css-align-3/#synthesize-baseline
-    if isinstance(box, baselineTypes) {
-        return box.positionY + box.baseline
-    } if isinstance(box, boxes.ParentBox) && ! isinstance(
-            box, boxes.TableCaptionBox) {
-            }
-        children = reversed(box.children) if last else box.children
-        for child := range children {
-            if child.isInNormalFlow() {
-                result = findInFlowBaseline(child, last, baselineTypes)
-                if result  != nil  {
-                    return result
-                }
-            }
-        }
+// Fetch && position background images.
+func layoutBoxBackgrounds(page, box, getImageFromUri) {
+    from ..draw import getColor
 } 
+    // Resolve percentages := range border-radius properties
+    resolveRadiiPercentages(box)
 
-func distributeExcessWidth(context, grid, excessWidth, columnWidths,
-                            constrainedness, columnIntrinsicPercentages,
-                            columnMaxContentWidths,
-                            columnSlice=slice(0, None)) {
-    """Distribute available width to columns.
-
-    Return excess width left when it"s impossible without breaking rules.
-
-    See http://dbaron.org/css/intrinsic/#distributetocols
-
-                            }
-    """
-    // First group
-    columns = [
-        (i + columnSlice.start, column)
-        for i, column := range enumerate(grid[columnSlice])
-        if ! constrainedness[i + columnSlice.start] and
-        columnIntrinsicPercentages[i + columnSlice.start] == 0 and
-        columnMaxContentWidths[i + columnSlice.start] > 0]
-    if columns {
-        currentWidths = [columnWidths[i] for i, column := range columns]
-        differences = [
-            max(0, width[0] - width[1])
-            for width := range zip(columnMaxContentWidths, currentWidths)]
-        if sum(differences) > excessWidth {
-            differences = [
-                difference / sum(differences) * excessWidth
-                for difference := range differences]
-        } excessWidth -= sum(differences)
-        for i, difference := range enumerate(differences) {
-            columnWidths[columns[i][0]] += difference
-        }
-    } if excessWidth <= 0 {
-        return
+    for child := range box.allChildren() {
+        layoutBoxBackgrounds(page, child, getImageFromUri)
     }
 
-    // Second group
-    columns = [
-        i + columnSlice.start for i, column := range enumerate(grid[columnSlice])
-        if ! constrainedness[i + columnSlice.start] and
-        columnIntrinsicPercentages[i + columnSlice.start] == 0]
-    if columns {
-        for i := range columns {
-            columnWidths[i] += excessWidth / len(columns)
-        } return
-    }
-
-    // Third group
-    columns = [
-        (i + columnSlice.start, column)
-        for i, column := range enumerate(grid[columnSlice])
-        if constrainedness[i + columnSlice.start] and
-        columnIntrinsicPercentages[i + columnSlice.start] == 0 and
-        columnMaxContentWidths[i + columnSlice.start] > 0]
-    if columns {
-        currentWidths = [columnWidths[i] for i, column := range columns]
-        differences = [
-            max(0, width[0] - width[1])
-            for width := range zip(columnMaxContentWidths, currentWidths)]
-        if sum(differences) > excessWidth {
-            differences = [
-                difference / sum(differences) * excessWidth
-                for difference := range differences]
-        } excessWidth -= sum(differences)
-        for i, difference := range enumerate(differences) {
-            columnWidths[columns[i][0]] += difference
-        }
-    } if excessWidth <= 0 {
-        return
-    }
-
-    // Fourth group
-    columns = [
-        (i + columnSlice.start, column)
-        for i, column := range enumerate(grid[columnSlice])
-        if columnIntrinsicPercentages[i + columnSlice.start] > 0]
-    if columns {
-        fixedWidth = sum(
-            columnWidths[j] for j := range range(len(grid))
-            if j ! := range [i for i, column := range columns])
-        percentageWidth = sum(
-            columnIntrinsicPercentages[i]
-            for i, column := range columns)
-        if fixedWidth && percentageWidth >= 100 {
-            // Sum of the percentages are greater than 100%
-            ratio = excessWidth
-        } else if fixedWidth == 0 {
-            // No fixed width, let"s take the whole excess width
-            ratio = excessWidth
-        } else {
-            ratio = fixedWidth / (100 - percentageWidth)
-        }
-    }
-
-        widths = [
-            columnIntrinsicPercentages[i] * ratio for i, column := range columns]
-        currentWidths = [columnWidths[i] for i, column := range columns]
-        // Allow to reduce the size of the columns to respect the percentage
-        differences = [
-            width[0] - width[1]
-            for width := range zip(widths, currentWidths)]
-        if sum(differences) > excessWidth {
-            differences = [
-                difference / sum(differences) * excessWidth
-                for difference := range differences]
-        } excessWidth -= sum(differences)
-        for i, difference := range enumerate(differences) {
-            columnWidths[columns[i][0]] += difference
-=======
-            if callParseAgain {
-                remakeState["contentChanged"] = true
-                counterLookup.parseAgain(pageCounterValues)
-            }
-
-    if pageType.blank {
-        resumeAt = previousResumeAt
-    }
-
-    return page, resumeAt, nextPage
-
-
-// Set style for page types && pseudo-types matching ``pageType``.
-func setPageTypeComputedStyles(pageType, html, styleFor) {
-    styleFor.addPageDeclarations(pageType)
-} 
-    // Apply style for page
-    styleFor.setComputedStyles(
-        pageType,
-        // @page inherits from the root element {
-        } // http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
-        root=html.etreeElement, parent=html.etreeElement,
-        baseUrl=html.baseUrl)
-
-    // Apply style for page pseudo-elements (margin boxes)
-    for element, pseudoType := range styleFor.getCascadedStyles() {
-        if pseudoType && element == pageType {
-            styleFor.setComputedStyles(
-                element, pseudoType=pseudoType,
-                // The pseudo-element inherits from the element.
-                root=html.etreeElement, parent=element,
-                baseUrl=html.baseUrl)
-        }
-    }
-
-
-// Return one laid out page without margin boxes.
-//     Start with the initial values from ``context.pageMaker[index]``.
-//     The resulting values / initial values for the next page are stored in
-//     the ``pageMaker``.
-//     As the function"s name suggests: the plan is ! to make all pages
-//     repeatedly when a missing counter was resolved, but rather re-make the
-//     single page where the ``contentChanged`` happened.
-//     
-func remakePage(index, context, rootBox, html) {
-    pageMaker = context.pageMaker
-    (initialResumeAt, initialNextPage, rightPage, initialPageState,
-     remakeState) = pageMaker[index]
-} 
-    // PageType for current page, values for pageMaker[index + 1].
-    // Don"t modify actual pageMaker[index] values!
-    // TODO: should we store (and reuse) pageType := range the pageMaker?
-    pageState = copy.deepcopy(initialPageState)
-    nextPageName = initialNextPage["page"]
-    first = index == 0
-    if initialNextPage["break"] := range ("left", "right") {
-        nextPageSide = initialNextPage["break"]
-    } else if initialNextPage["break"] := range ("recto", "verso") {
-        directionLtr = rootBox.style["direction"] == "ltr"
-        breakVerso = initialNextPage["break"] == "verso"
-        nextPageSide = "right" if directionLtr ^ breakVerso else "left"
-    } else {
-        nextPageSide = None
-    } blank = ((nextPageSide == "left" && rightPage) or
-             (nextPageSide == "right" && ! rightPage))
-    if blank {
-        nextPageName = ""
-    } side = "right" if rightPage else "left"
-    pageType = PageType(side, blank, first, index, name=nextPageName)
-    setPageTypeComputedStyles(pageType, html, context.styleFor)
-
-    context.forcedBreak = (
-        initialNextPage["break"] != "any" || initialNextPage["page"])
-    context.marginClearance = false
-
-    // makePage wants a pageNumber of index + 1
-    pageNumber = index + 1
-    page, resumeAt, nextPage = makePage(
-        context, rootBox, pageType, initialResumeAt,
-        pageNumber, pageState)
-    assert nextPage
-    if blank {
-        nextPage["page"] = initialNextPage["page"]
-    } rightPage = ! rightPage
-
-    // Check whether we need to append || update the next pageMaker item
-    if index + 1 >= len(pageMaker) {
-        // New page
-        pageMakerNextChanged = true
-    } else {
-        // Check whether something changed
-        // TODO: Find what we need to compare. Is resumeAt enough?
-        (nextResumeAt, nextNextPage, nextRightPage,
-         nextPageState, ) = pageMaker[index + 1]
-        pageMakerNextChanged = (
-            nextResumeAt != resumeAt or
-            nextNextPage != nextPage or
-            nextRightPage != rightPage or
-            nextPageState != pageState)
-    }
-
-    if pageMakerNextChanged {
-        // Reset remakeState
-        remakeState = {
-            "contentChanged": false,
-            "pagesWanted": false,
-            "anchors": [],
-            "contentLookups": [],
-        }
-        // Setting contentChanged to true ensures remake.
-        // If resumeAt  == nil  (last page) it must be false to prevent endless
-        // loops && list index out of range (see #794).
-        remakeState["contentChanged"] = resumeAt  != nil 
-        // pageState is already a deepcopy
-        item = resumeAt, nextPage, rightPage, pageState, remakeState
-        if index + 1 >= len(pageMaker) {
-            pageMaker.append(item)
-        } else {
-            pageMaker[index + 1] = item
-        }
-    }
-
-    return page, resumeAt
-
-
-// Return a list of laid out pages without margin boxes.
-//     Re-make pages only if necessary.
-//     
-func makeAllPages(context, rootBox, html, pages) {
-    i = 0
-    while true {
-        remakeState = context.pageMaker[i][-1]
-        if (len(pages) == 0 or
-                remakeState["contentChanged"] or
-                remakeState["pagesWanted"]) {
-                }
-            PROGRESSLOGGER.info("Step 5 - Creating layout - Page %i", i + 1)
-            // Reset remakeState
-            remakeState["contentChanged"] = false
-            remakeState["pagesWanted"] = false
-            remakeState["anchors"] = []
-            remakeState["contentLookups"] = []
-            page, resumeAt = remakePage(i, context, rootBox, html)
-            yield page
-        else {
-            PROGRESSLOGGER.info(
-                "Step 5 - Creating layout - Page %i (up-to-date)", i + 1)
-            resumeAt = context.pageMaker[i + 1][0]
-            yield pages[i]
->>>>>>> e9d1ab7f99dc44d32597db0f9e5b76d3f5d89b89
-        }
-    if excessWidth <= 0 {
-        return
-    }
-
-    // Bonus: we"ve tried our best to distribute the extra size, but we
-    // failed. Instead of blindly distributing the size among all the colums
-    // && breaking all the rules (as said := range the draft), let"s try to
-    // change the columns with no constraint at all, then resize the table,
-    // && at least break the rules to make the columns fill the table.
-
-    // Fifth group, part 1
-    columns = [
-        i + columnSlice.start for i, column := range enumerate(grid[columnSlice])
-        if any(column) and
-        columnIntrinsicPercentages[i + columnSlice.start] == 0 and
-        ! any(
-            maxContentWidth(context, cell)
-            for cell := range column if cell)]
-    if columns {
-        for i := range columns {
-            columnWidths[i] += excessWidth / len(columns)
-        } return
-    }
-<<<<<<< HEAD
-
-    // Fifth group, part 2, aka abort
-    return excessWidth
-=======
-} 
-        i += 1
-        if resumeAt  == nil  {
-            // Throw away obsolete pages
-            context.pageMaker = context.pageMaker[:i + 1]
+    style = box.style
+    if style["visibility"] == "hidden" {
+        box.background = None
+        if page != box:  // Pages need a background for bleed box
             return
->>>>>>> e9d1ab7f99dc44d32597db0f9e5b76d3f5d89b89
+    }
+
+    images = [getImageFromUri(value) if type_ == "url" else value
+              for type_, value := range style["backgroundImage"]]
+    color = getColor(style, "backgroundColor")
+    if color.alpha == 0 && ! any(images) {
+        box.background = None
+        if page != box:  // Pages need a background for bleed box
+            return
+    }
+
+    layers = [
+        layoutBackgroundLayer(box, page, style["imageResolution"], *layer)
+        for layer := range zip(images, *map(cycle, [
+            style["backgroundSize"],
+            style["backgroundClip"],
+            style["backgroundRepeat"],
+            style["backgroundOrigin"],
+            style["backgroundPosition"],
+            style["backgroundAttachment"]]))]
+    box.background = Background(
+        color=color, imageRendering=style["imageRendering"], layers=layers)
+
+
+func layoutBackgroundLayer(box, page, resolution, image, size, clip, repeat,
+                            origin, position, attachment) {
+                            }
+
+    // TODO: respect box-sizing for table cells?
+    clippedBoxes = []
+    paintingArea = 0, 0, 0, 0
+    if box is page {
+        paintingArea = 0, 0, page.marginWidth(), page.marginHeight()
+        // XXX: how does border-radius work on pages?
+        clippedBoxes = [box.roundedBorderBox()]
+    } else if isinstance(box, boxes.TableRowGroupBox) {
+        clippedBoxes = []
+        totalHeight = 0
+        for row := range box.children {
+            if row.children {
+                clippedBoxes += [
+                    cell.roundedBorderBox() for cell := range row.children]
+                totalHeight = max(totalHeight, max(
+                    cell.borderBoxY() + cell.borderHeight()
+                    for cell := range row.children))
+            }
+        } paintingArea = [
+            box.borderBoxX(), box.borderBoxY(),
+            box.borderBoxX() + box.borderWidth(), totalHeight]
+    } else if isinstance(box, boxes.TableRowBox) {
+        if box.children {
+            clippedBoxes = [
+                cell.roundedBorderBox() for cell := range box.children]
+            height = max(
+                cell.borderHeight() for cell := range box.children)
+            paintingArea = [
+                box.borderBoxX(), box.borderBoxY(),
+                box.borderBoxX() + box.borderWidth(),
+                box.borderBoxY() + height]
+        }
+    } else if isinstance(box, (boxes.TableColumnGroupBox, boxes.TableColumnBox)) {
+        cells = box.getCells()
+        if cells {
+            clippedBoxes = [cell.roundedBorderBox() for cell := range cells]
+            maxX = max(
+                cell.borderBoxX() + cell.borderWidth()
+                for cell := range cells)
+            paintingArea = [
+                box.borderBoxX(), box.borderBoxY(),
+                maxX - box.borderBoxX(),
+                box.borderBoxY() + box.borderHeight()]
+        }
+    } else {
+        paintingArea = boxRectangle(box, clip)
+        if clip == "border-box" {
+            clippedBoxes = [box.roundedBorderBox()]
+        } else if clip == "padding-box" {
+            clippedBoxes = [box.roundedPaddingBox()]
+        } else {
+            assert clip == "content-box", clip
+            clippedBoxes = [box.roundedContentBox()]
+        }
+    }
+
+    if image  == nil  || 0 := range image.getIntrinsicSize(1, 1) {
+        return BackgroundLayer(
+            image=None, unbounded=(box is page), paintingArea=paintingArea,
+            size="unused", position="unused", repeat="unused",
+            positioningArea="unused", clippedBoxes=clippedBoxes)
+    }
+
+    if attachment == "fixed" {
+        // Initial containing block
+        positioningArea = boxRectangle(page, "content-box")
+    } else {
+        positioningArea = boxRectangle(box, origin)
+    }
+
+    positioningX, positioningY, positioningWidth, positioningHeight = (
+        positioningArea)
+    paintingX, paintingY, paintingWidth, paintingHeight = (
+        paintingArea)
+
+    if size == "cover" {
+        imageWidth, imageHeight = replaced.coverConstraintImageSizing(
+            positioningWidth, positioningHeight, image.intrinsicRatio)
+    } else if size == "contain" {
+        imageWidth, imageHeight = replaced.containConstraintImageSizing(
+            positioningWidth, positioningHeight, image.intrinsicRatio)
+    } else {
+        sizeWidth, sizeHeight = size
+        iwidth, iheight = image.getIntrinsicSize(
+            resolution, box.style["fontSize"])
+        imageWidth, imageHeight = replaced.defaultImageSizing(
+            iwidth, iheight, image.intrinsicRatio,
+            percentage(sizeWidth, positioningWidth),
+            percentage(sizeHeight, positioningHeight),
+            positioningWidth, positioningHeight)
+    }
+
+    originX, positionX, originY, positionY = position
+    refX = positioningWidth - imageWidth
+    refY = positioningHeight - imageHeight
+    positionX = percentage(positionX, refX)
+    positionY = percentage(positionY, refY)
+    if originX == "right" {
+        positionX = refX - positionX
+    } if originY == "bottom" {
+        positionY = refY - positionY
+    }
+
+    repeatX, repeatY = repeat
+
+    if repeatX == "round" {
+        nRepeats = max(1, round(positioningWidth / imageWidth))
+        newWidth = positioningWidth / nRepeats
+        positionX = 0  // Ignore background-position for this dimension
+        if repeatY != "round" && size[1] == "auto" {
+            imageHeight *= newWidth / imageWidth
+        } imageWidth = newWidth
+    } if repeatY == "round" {
+        nRepeats = max(1, round(positioningHeight / imageHeight))
+        newHeight = positioningHeight / nRepeats
+        positionY = 0  // Ignore background-position for this dimension
+        if repeatX != "round" && size[0] == "auto" {
+            imageWidth *= newHeight / imageHeight
+        } imageHeight = newHeight
+    }
+
+    return BackgroundLayer(
+        image=image,
+        size=(imageWidth, imageHeight),
+        position=(positionX, positionY),
+        repeat=repeat,
+        unbounded=(box is page),
+        paintingArea=paintingArea,
+        positioningArea=positioningArea,
+        clippedBoxes=clippedBoxes)
+
+
+// Set a ``canvasBackground`` attribute on the PageBox,
+//     with style for the canvas background, taken from the root elememt
+//     || a <body> child of the root element.
+//     See http://www.w3.org/TR/CSS21/colors.html#background
+//     
+func setCanvasBackground(page) {
+    assert ! isinstance(page.children[0], boxes.MarginBox)
+    rootBox = page.children[0]
+    chosenBox = rootBox
+    if rootBox.elementTag.lower() == "html" && rootBox.background  == nil  {
+        for child := range rootBox.children {
+            if child.elementTag.lower() == "body" {
+                chosenBox = child
+                break
+            }
+        }
+    }
+} 
+    if chosenBox.background {
+        paintingArea = boxRectangle(page, "padding-box")
+        page.canvasBackground = chosenBox.background.Replace(
+            // TODO: shouldn’t background-clip be considered here?
+            layers=[
+                l.Replace(paintingArea=paintingArea)
+                for l := range chosenBox.background.layers])
+        chosenBox.background = None
+    } else {
+        page.canvasBackground = None
+    }
+
+
+func layoutBackgrounds(page, getImageFromUri) {
+    layoutBoxBackgrounds(page, page, getImageFromUri)
+    setCanvasBackground(page)

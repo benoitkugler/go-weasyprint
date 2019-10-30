@@ -1805,11 +1805,11 @@ func innerBlockInInline(box Box, skipStack *tree.SkipStack) (Box, Box, *tree.Ski
 //    See http://www.w3.org/TR/CSS21/visufx.html#overflow
 func setViewportOverflow(rootBox Box) Box {
 	chosenBox := rootBox
-	if strings.ToLower(rootBox.Box().elementTag) == "html" &&
+	if strings.ToLower(rootBox.Box().ElementTag) == "html" &&
 		rootBox.Box().Style.GetOverflow() == "visible" {
 
 		for _, child := range rootBox.Box().Children {
-			if strings.ToLower(child.Box().elementTag) == "body" {
+			if strings.ToLower(child.Box().ElementTag) == "body" {
 				chosenBox = child
 				break
 			}
@@ -1827,7 +1827,7 @@ func boxText(box Box) string {
 	var builder strings.Builder
 	if IsParentBox(box) {
 		for _, child := range Descendants(box) {
-			et := child.Box().elementTag
+			et := child.Box().ElementTag
 			if !strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
 				if tBox, is := child.(*TextBox); is {
 					builder.WriteString(tBox.Text)
@@ -1862,7 +1862,7 @@ func boxTextBefore(box Box) string {
 	var builder strings.Builder
 	if IsParentBox(box) {
 		for _, child := range Descendants(box) {
-			et := child.Box().elementTag
+			et := child.Box().ElementTag
 			if strings.HasSuffix(et, "::before") && !IsParentBox(child) {
 				builder.WriteString(boxText(child))
 			}
@@ -1875,7 +1875,7 @@ func boxTextAfter(box Box) string {
 	var builder strings.Builder
 	if IsParentBox(box) {
 		for _, child := range Descendants(box) {
-			et := child.Box().elementTag
+			et := child.Box().ElementTag
 			if strings.HasSuffix(et, "::after") && !IsParentBox(child) {
 				builder.WriteString(boxText(child))
 			}

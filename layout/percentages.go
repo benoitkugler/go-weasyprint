@@ -53,9 +53,8 @@ func resolvePositionPercentages(box *bo.BoxFields, containingBlock bo.Point) {
 	box.Bottom = resolveOnePercentage(box.Style.GetBottom(), "bottom", cbHeight, "")
 }
 
-func resolvePercentages2(box, containingBlock Box, mainFlexDirection string) {
-	cb := containingBlock.Box()
-	resolvePercentages(box, bo.MaybePoint{cb.Width, cb.Height}, mainFlexDirection)
+func resolvePercentages2(box Box, containingBlock bo.BoxFields, mainFlexDirection string) {
+	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, mainFlexDirection)
 }
 
 // Set used values as attributes of the box object.
