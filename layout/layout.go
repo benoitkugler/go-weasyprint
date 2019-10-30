@@ -22,10 +22,10 @@ import (
 type Box = bo.Box
 
 // Lay out and yield the fixed boxes of ``pages``.
-func layoutFixedBoxes(context LayoutContext, pages []Page) {
+func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox) {
 	var out []Box
 	for _, page := range pages {
-		for _, box := range page.fixedBoxes {
+		for _, box := range page.FixedBoxes {
 			// Use an empty list as last argument because the fixed boxes in the
 			// fixed box has already been added to page.fixedBoxes, we don"t
 			// want to get them again
@@ -48,7 +48,7 @@ type LayoutContext struct {
 	marginClearance     bool
 	excludedShapes      []bo.BoxFields
 	excludedShapesLists [][]bo.BoxFields
-	stringSet           map[string]map[string][]string
+	stringSet           map[string]map[int][]string
 	runningElements     map[string]map[int]Box
 	currentPage         int
 	forcedBreak         bool
@@ -70,7 +70,7 @@ func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUr
 	// Cache
 	self.strutLayouts = map[string]int{}
 	self.fontFeatures = map[string]int{}
-	self.tables = map[string]int{}
+	self.tables = map[*bo.TableBox]map[bool]tableContentWidths{}
 	self.dictionaries = map[string]int{}
 	return &self
 }
@@ -92,21 +92,21 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	// See http://www.w3.org/TR/CSS2/visudet.html#root-height
 	rootBox := rootBox_.Box()
 	if rootBox.Style.GetHeight().String == "auto" && len(self.excludedShapes) != 0 {
-		boxBottom = rootBox.contentBoxY() + rootBox.height
+		boxBottom := rootBox.ContentBoxY() + rootBox.Height.V()
 		maxShapeBottom := boxBottom
 		for _, shape := range self.excludedShapes {
-			v := shape.positionY + shape.marginHeight()
+			v := shape.PositionY + shape.MarginHeight()
 			if v > maxShapeBottom {
 				maxShapeBottom = v
 			}
 		}
-		rootBox.height += maxShapeBottom - boxBottom
+		rootBox.Height = rootBox.Height.V() + maxShapeBottom - boxBottom
 	}
-	self.ExcludedShapesLists.pop()
-	if self.ExcludedShapesLists {
-		self.excludedShapes = self.ExcludedShapesLists[-1]
+	self.excludedShapesLists = self.excludedShapesLists[:len(self.excludedShapesLists)-1]
+	if L := len(self.excludedShapesLists); L != 0 {
+		self.excludedShapes = self.excludedShapesLists[L-1]
 	} else {
-		self.excludedShapes = None
+		self.excludedShapes = nil
 	}
 }
 

@@ -138,6 +138,9 @@ func TestWalkHtml(t *testing.T) {
 }
 func TestRune(t *testing.T) {
 	fmt.Printf("%c", '\'')
+	fmt.Printf("%c", '\u2e80')
+	var c rune = -1
+	fmt.Println(c)
 }
 
 func TestUrl(t *testing.T) {

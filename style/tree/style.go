@@ -674,7 +674,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 
 // Get a dict of computed style mixed from parent and cascaded styles.
 func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
-	if cascaded == nil && parentStyle != nil {
+	if len(cascaded) == 0 && parentStyle != nil {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
 		computed := pr.InitialValues.Copy()

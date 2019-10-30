@@ -261,7 +261,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			newChild.Box().Style.SetHeight(pr.SToV("auto"))
 			newChild.Box().Style.SetMinHeight(pr.ZeroPixels.ToValue())
 			newChild.Box().Style.SetMaxHeight(pr.Dimension{Value: pr.Inf, Unit: pr.Px}.ToValue())
-			newChild = blockLevelLayout(*context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack, parentBox_, pageIsEmpty, nil, nil, nil).newBox
+			newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack, *parentBox, pageIsEmpty, nil, nil, nil)
 			contentSize := pr.Float(newChild.Box().Height.V())
 			child.MinHeight = pr.Min(specifiedSize, contentSize)
 		}
@@ -334,8 +334,8 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 					}
 					newChild.Box().Width = pr.Inf
-					newChild = blockLevelLayout(*context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
-						parentBox_, pageIsEmpty, *absoluteBoxes, *fixedBoxes, nil).newBox
+					newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
+						*parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
 					child.FlexBaseSize = pr.Float(newChild.Box().MarginHeight())
 				}
 			} else if styleAxis.String == "min-content" {
@@ -348,8 +348,8 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 					}
 					newChild.Box().Width = pr.Float(0)
-					newChild = blockLevelLayout(*context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
-						parentBox_, pageIsEmpty, *absoluteBoxes, *fixedBoxes, nil).newBox
+					newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
+						*parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
 					child.FlexBaseSize = pr.Float(newChild.Box().MarginHeight())
 				}
 			} else if styleAxis.Unit == pr.Px {
@@ -628,10 +628,10 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				childCopy = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 
-			blockLevelWidth(childCopy, nil, parentBox_)
-			tmp := blockLevelLayoutSwitch(*context, childCopy.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
-				parentBox_, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
-			newChild, adjoiningMargins := tmp.newBox, tmp.adjoiningMargins
+			blockLevelWidth(childCopy, nil, *parentBox)
+			newChild, tmp := blockLevelLayoutSwitch(context, childCopy.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
+				*parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
+			adjoiningMargins := tmp.adjoiningMargins
 			child.Baseline = pr.Float(0)
 			if bl := findInFlowBaseline(newChild, false, nil); bl != nil {
 				child.Baseline = bl.V()
@@ -1109,9 +1109,9 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		for _, v := range line.line {
 			i, child := v.index, v.box.Box()
 			if child.IsFlexItem {
-				tmp := blockLevelLayoutSwitch(*context, v.box.(bo.InstanceBlockLevelBox), maxPositionY, childSkipStack, v.box,
+				newChild, tmp := blockLevelLayoutSwitch(context, v.box.(bo.InstanceBlockLevelBox), maxPositionY, childSkipStack, *v.box.Box(),
 					pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
-				newChild, childResumeAt := tmp.newBox, tmp.resumeAt
+				childResumeAt := tmp.resumeAt
 				if newChild == nil {
 					if resumeAt != nil && resumeAt.Skip != 0 {
 						resumeAt = &tree.SkipStack{Skip: resumeAt.Skip + i - 1}
@@ -1178,10 +1178,9 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	context.finishBlockFormattingContext(box_)
 
 	// TODO: check these returned values
-	return blockLayout{
-		newBox:            box_.(bo.InstanceBlockLevelBox),
+	return box_.(bo.InstanceBlockLevelBox), blockLayout{
 		resumeAt:          resumeAt,
-		nextPage:          tree.PageBreak{Break: "any", Page: ""},
+		nextPage:          tree.PageBreak{Break: "any"},
 		adjoiningMargins:  nil,
 		collapsingThrough: false,
 	}

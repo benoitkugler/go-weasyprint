@@ -42,12 +42,14 @@ func SplitFirstLine(text string, style pr.Properties, context LayoutContext, max
 	return Splitted{}
 }
 
-func CanBreakText(text, lang string) bool {
+func CanBreakText(text, lang string) *bool {
 	if len(text) < 2 {
-		return false
+		out := false
+		return &out
 	}
 	// FIXME: à implémenter
-	return true
+	out := true
+	return &out
 }
 
 // Return a tuple of the used value of ``line-height`` and the baseline.

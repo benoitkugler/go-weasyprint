@@ -23,9 +23,8 @@ func floatWidth_(box Box, context *LayoutContext, containingBlock containingBloc
 }
 
 // Set the width and position of floating ``box``.
-func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBoxes,
+func floatLayout(context *LayoutContext, box_ Box, containingBlock bo.BoxFields, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder) Box {
-	containingBlock := containingBlock_.Box()
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
 
@@ -57,7 +56,7 @@ func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBox
 	}
 
 	if bo.IsBlockReplacedBox(box_) {
-		inlineReplacedBoxWidthHeight(box_, *containingBlock)
+		inlineReplacedBoxWidthHeight(box_, containingBlock)
 	} else if box.Width == pr.Auto {
 		floatWidth(box_, context, block{Width: containingBlock.Width.V()})
 	}
@@ -72,13 +71,13 @@ func floatLayout(context *LayoutContext, box_, containingBlock_ Box, absoluteBox
 			nil, false, absoluteBoxes, fixedBoxes, nil)
 		context.finishBlockFormattingContext(box_)
 	} else if bo.IsFlexContainerBox(box_) {
-		box_, _ = flexLayout(context, box_, pr.Inf, nil, *containingBlock,
+		box_, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock,
 			false, absoluteBoxes, fixedBoxes)
 	} else if !bo.IsBlockReplacedBox(box_) {
 		log.Fatalf("expected BlockReplaced , got %s", box)
 	}
 
-	box_ = findFloatPosition(*context, box_, *containingBlock)
+	box_ = findFloatPosition(*context, box_, containingBlock)
 
 	context.excludedShapes = append(context.excludedShapes, *box_.Box())
 

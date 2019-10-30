@@ -107,8 +107,8 @@ type TableCaptionBox struct {
 
 type PageBox struct {
 	BoxFields
-	PageType   utils.PageElement
-	FixedBoxes []Box
+	PageType         utils.PageElement
+	FixedBoxes       []Box
 	CanvasBackground *Background
 }
 
