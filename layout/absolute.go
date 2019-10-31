@@ -10,22 +10,22 @@ import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
-type _Box = bo.Box
+type AliasBox = bo.Box
 
 // AbsolutePlaceholder is left where an absolutely-positioned box was taken out of the flow.
 type AbsolutePlaceholder struct {
-	_Box
+	AliasBox
 	layoutDone bool
 	index      int
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
-	out := AbsolutePlaceholder{_Box: box, layoutDone: false}
+	out := AbsolutePlaceholder{AliasBox: box, layoutDone: false}
 	return &out
 }
 
 func (abs *AbsolutePlaceholder) setLaidOutBox(newBox Box) {
-	abs._Box = newBox
+	abs.AliasBox = newBox
 	abs.layoutDone = true
 }
 
@@ -34,22 +34,22 @@ func (abs *AbsolutePlaceholder) Translate(box Box, dx, dy pr.Float, ignoreFloats
 		return
 	}
 	if abs.layoutDone {
-		abs._Box.Translate(box, dx, dy, ignoreFloats)
+		abs.AliasBox.Translate(box, dx, dy, ignoreFloats)
 	} else {
 		// Descendants do not have a position yet.
-		abs._Box.Box().PositionX += dx
-		abs._Box.Box().PositionY += dy
+		abs.AliasBox.Box().PositionX += dx
+		abs.AliasBox.Box().PositionY += dy
 	}
 }
 
 func (abs AbsolutePlaceholder) Copy() Box {
 	out := abs
-	out._Box = abs._Box.Copy()
+	out.AliasBox = abs.AliasBox.Copy()
 	return &out
 }
 
 func (abs AbsolutePlaceholder) String() string {
-	return fmt.Sprintf("<Placeholder %s>", abs._Box)
+	return fmt.Sprintf("<Placeholder %s>", abs.AliasBox)
 }
 
 func ToBoxes(children []*AbsolutePlaceholder) []Box {
@@ -299,7 +299,7 @@ func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, co
 	if placeholder.layoutDone {
 		log.Fatalf("placeholder can't have its layout done.")
 	}
-	box := placeholder._Box
+	box := placeholder.AliasBox
 	placeholder.setLaidOutBox(absoluteBoxLayout(context, box, containingBlock, fixedBoxes))
 }
 

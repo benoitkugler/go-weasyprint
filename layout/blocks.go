@@ -383,7 +383,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 				newChild := newChild_.Box()
 				// New page if overflow
 				if (pageIsEmpty && len(newChildren) == 0) || !(newChild.PositionY+newChild.Height.V() > allowedMaxPositionY) {
-					asPlaceholder := AbsolutePlaceholder{_Box: newChild_}
+					asPlaceholder := AbsolutePlaceholder{AliasBox: newChild_}
 					asPlaceholder.index = index
 					newChildren = append(newChildren, &asPlaceholder)
 				} else {
@@ -589,7 +589,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 			nextAdjoiningMargins, collapsingThrough := tmp.adjoiningMargins, tmp.collapsingThrough
 			skipStack = nil
 
-			newChildPlace := AbsolutePlaceholder{_Box: newChild_}
+			newChildPlace := AbsolutePlaceholder{AliasBox: newChild_}
 			if newChild_ != nil {
 				newChild := newChild_.Box()
 				// index in its non-laid-out parent, not in future new parent
