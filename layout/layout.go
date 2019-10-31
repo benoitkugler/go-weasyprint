@@ -34,10 +34,6 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox) {
 	}
 }
 
-type Page struct {
-	fixedBoxes []Box
-}
-
 type LayoutContext struct {
 	enableHinting       bool
 	styleFor            tree.StyleFor
