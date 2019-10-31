@@ -74,7 +74,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock bo.BoxFields,
 		box_, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock,
 			false, absoluteBoxes, fixedBoxes)
 	} else if !bo.IsBlockReplacedBox(box_) {
-		log.Fatalf("expected BlockReplaced , got %s", box)
+		log.Fatalf("expected BlockReplaced , got %v", box)
 	}
 
 	box_ = findFloatPosition(*context, box_, containingBlock)
@@ -187,10 +187,10 @@ func avoidCollisions(context LayoutContext, box_ Box, containingBlock bo.BoxFiel
 		// Set the real maximum bounds according to sibling float elements
 		if len(leftBounds) != 0 || len(rightBounds) != 0 {
 			if len(leftBounds) != 0 {
-				maxLeftBound = pr.Max(pr.Maxs(leftBounds), maxLeftBound)
+				maxLeftBound = pr.Max(pr.Maxs(leftBounds...), maxLeftBound)
 			}
 			if len(rightBounds) != 0 {
-				maxRightBound = pr.Min(pr.Mins(rightBounds), maxRightBound)
+				maxRightBound = pr.Min(pr.Mins(rightBounds...), maxRightBound)
 			}
 
 			// Points 3, 7 && 8

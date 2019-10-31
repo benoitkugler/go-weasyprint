@@ -9,24 +9,6 @@ import (
 
 // Resolve percentages into fixed values.
 
-// Return the percentage of the reference value, or the value unchanged.
-// ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
-// just replaces percentages.
-func percentage(value pr.Value, referTo pr.Float) pr.MaybeFloat {
-	if value.IsNone() {
-		return nil
-	} else if value.String == "auto" {
-		return pr.Auto
-	} else if value.Unit == pr.Px {
-		return value.Value
-	} else {
-		if value.Unit != pr.Percentage {
-			log.Fatalf("expected percentage, got %d", value.Unit)
-		}
-		return referTo * value.Value / 100.
-	}
-}
-
 // Compute a used length value from a computed length value.
 //
 // the return value should be set on the box
@@ -35,7 +17,7 @@ func resolveOnePercentage(value pr.Value, propertyName string, referTo pr.Float,
 	// value := box.Style[propertyName]
 
 	// box attributes are used values
-	percent := percentage(value, referTo)
+	percent := pr.ResoudPercentage(value, referTo)
 	// setattr(box, propertyName, percent)
 	if (propertyName == "minWidth" || propertyName == "minHeight") && percent == pr.Auto {
 		if mainFlexDirection == "" || propertyName != "min"+mainFlexDirection {
@@ -147,8 +129,8 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 }
 
 func resoudRadius(box *bo.BoxFields, v pr.Point) bo.MaybePoint {
-	rx := percentage(v[0].ToValue(), box.BorderWidth())
-	ry := percentage(v[1].ToValue(), box.BorderHeight())
+	rx := pr.ResoudPercentage(v[0].ToValue(), box.BorderWidth())
+	ry := pr.ResoudPercentage(v[1].ToValue(), box.BorderHeight())
 	return bo.MaybePoint{rx, ry}
 }
 

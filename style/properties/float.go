@@ -1,6 +1,9 @@
 package properties
 
-import "math"
+import (
+	"log"
+	"math"
+)
 
 // During layout, float numbers sometimes need special
 // values like "auto" or nil (None in Python).
@@ -63,7 +66,7 @@ func Floor(x Float) Float {
 	return Float(math.Floor(float64(x)))
 }
 
-func Maxs(values []Float) Float {
+func Maxs(values ...Float) Float {
 	var max Float
 	for _, w := range values {
 		if w > max {
@@ -73,7 +76,7 @@ func Maxs(values []Float) Float {
 	return max
 }
 
-func Mins(values []Float) Float {
+func Mins(values ...Float) Float {
 	var min Float
 	for _, w := range values {
 		if w < min {
@@ -81,4 +84,22 @@ func Mins(values []Float) Float {
 		}
 	}
 	return min
+}
+
+// Return the percentage of the reference value, or the value unchanged.
+// ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
+// just replaces percentages.
+func ResoudPercentage(value Value, referTo Float) MaybeFloat {
+	if value.IsNone() {
+		return nil
+	} else if value.String == "auto" {
+		return Auto
+	} else if value.Unit == Px {
+		return value.Value
+	} else {
+		if value.Unit != Percentage {
+			log.Fatalf("expected percentage, got %d", value.Unit)
+		}
+		return referTo * value.Value / 100.
+	}
 }

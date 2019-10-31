@@ -109,8 +109,8 @@ func replacedboxLayout(box_ bo.InstanceReplacedBox) (drawWidth, drawHeight, posi
 	refX := box.Width.V() - drawWidth
 	refY := box.Height.V() - drawHeight
 
-	positionX = percentage(positionX_.ToValue(), refX).V()
-	positionY = percentage(positionY_.ToValue(), refY).V()
+	positionX = pr.ResoudPercentage(positionX_.ToValue(), refX).V()
+	positionY = pr.ResoudPercentage(positionY_.ToValue(), refY).V()
 	if originX == "right" {
 		positionX = refX - positionX
 	}

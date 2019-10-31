@@ -46,6 +46,22 @@ func cycle(i, N int) int {
 	return i % N
 }
 
+func resolveImage(image pr.Image, getImageFromUri bo.Gifu) images.Image {
+	switch img := image.(type) {
+	case nil, pr.NoneImage:
+		return nil
+	case pr.UrlImage:
+		return getImageFromUri(string(img), "")
+	case pr.RadialGradient:
+		return images.NewRadialGradient(img)
+	case pr.LinearGradient:
+		return images.NewLinearGradient(img)
+	default:
+		log.Panicf("unexpected type for image: %T %v", image, image)
+		return nil
+	}
+}
+
 // Fetch and position background images.
 func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu) {
 	// Resolve percentages in border-radius properties
@@ -68,11 +84,7 @@ func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu) {
 	images := make([]images.Image, len(bs))
 	anyImages := false
 	for i, v := range bs {
-		//FIXME: quel lien entre pr.Image et images.Image ??
-		images[i] = v
-		if url, ok := v.(pr.UrlImage); ok {
-			images[i] = getImageFromUri(string(url), "")
-		}
+		images[i] = resolveImage(v, getImageFromUri)
 		if images[i] != nil {
 			anyImages = true
 		}
@@ -219,14 +231,14 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		sizeWidth, sizeHeight := size.Width, size.Height
 		iwidth, iheight := image.GetIntrinsicSize(resolution, box.Style.GetFontSize())
 		imageWidth, imageHeight = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(),
-			percentage(sizeWidth, positioningWidth), percentage(sizeHeight, positioningHeight), positioningWidth, positioningHeight)
+			pr.ResoudPercentage(sizeWidth, positioningWidth), pr.ResoudPercentage(sizeHeight, positioningHeight), positioningWidth, positioningHeight)
 	}
 
 	originX, positionX_, originY, positionY_ := position.OriginX, position.Pos[0], position.OriginY, position.Pos[1]
 	refX := positioningWidth - imageWidth
 	refY := positioningHeight - imageHeight
-	positionX := percentage(positionX_.ToValue(), refX)
-	positionY := percentage(positionY_.ToValue(), refY)
+	positionX := pr.ResoudPercentage(positionX_.ToValue(), refX)
+	positionY := pr.ResoudPercentage(positionY_.ToValue(), refY)
 	if originX == "right" {
 		positionX = refX - positionX.V()
 	}

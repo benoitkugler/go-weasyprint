@@ -204,7 +204,7 @@ func inlineMinContentWidth(context *LayoutContext, box_ Box, outer bool, skipSta
 	} else {
 		widths[len(widths)-1] -= trailingWhitespaceSize(context, box_)
 	}
-	return adjust(box, outer, pr.Maxs(widths), true, true)
+	return adjust(box, outer, pr.Maxs(widths...), true, true)
 }
 
 // Return the max-content width for an ``InlineBox``.
@@ -214,7 +214,7 @@ func inlineMaxContentWidth(context *LayoutContext, box_ Box, outer, isLineStart 
 
 	widths := inlineLineWidths(context, box, outer, isLineStart, false, nil, false)
 	widths[len(widths)-1] -= trailingWhitespaceSize(context, box_)
-	return adjust(box, outer, pr.Maxs(widths), true, true)
+	return adjust(box, outer, pr.Maxs(widths...), true, true)
 }
 
 // Return the *-content width for a ``TableColumnGroupBox``.
@@ -688,7 +688,7 @@ outerLoop:
 	tableMinContentWidth := totalHorizontalBorderSpacing + sumMin
 	tableMaxContentWidth := totalHorizontalBorderSpacing + pr.Max(
 		pr.Max(sumMax, largepercentageContribution),
-		pr.Maxs(smallpercentageContributions))
+		pr.Maxs(smallpercentageContributions...))
 
 	tableMinWidth := tableMinContentWidth
 	tableMaxWidth := tableMaxContentWidth

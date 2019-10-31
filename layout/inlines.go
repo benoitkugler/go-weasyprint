@@ -776,7 +776,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 		firstLetter = '\u2e80'
 		lastLetter = '\u2e80'
 	} else { // pragma: no cover
-		log.Fatalf("Layout for %s not handled yet", box)
+		log.Fatalf("Layout for %v not handled yet", box)
 	}
 	return splitedInline{
 		newBox:             newBox,
@@ -965,7 +965,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		if newChild == nil {
 			// May be nil where we have an empty TextBox.
 			if !bo.IsTextBox(child_) {
-				log.Fatalf("only text box may yield empty child, got %s", child)
+				log.Fatalf("only text box may yield empty child, got %v", child)
 			}
 		} else {
 			if bo.TypeLineBox.IsInstance(box_) {
