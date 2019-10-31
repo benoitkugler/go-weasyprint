@@ -379,7 +379,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 					*fixedBoxes = append(*fixedBoxes, placeholder)
 				}
 			} else if child.IsFloated() {
-				newChild_ := floatLayout(context, child_, box_, absoluteBoxes, fixedBoxes)
+				newChild_ := floatLayout(context, child_, *box, absoluteBoxes, fixedBoxes)
 				newChild := newChild_.Box()
 				// New page if overflow
 				if (pageIsEmpty && len(newChildren) == 0) || !(newChild.PositionY+newChild.Height.V() > allowedMaxPositionY) {
@@ -427,9 +427,9 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 				positionY += collapseMargin(adjoiningMargins)
 				adjoiningMargins = nil
 			}
-			newContainingBlock := box_
+			newContainingBlock := box
 			linesIterator := iterLineBoxes(context, childLineBox, positionY, skipStack,
-				newContainingBlock, absoluteBoxes, fixedBoxes, firstLetterStyle)
+				*newContainingBlock, absoluteBoxes, fixedBoxes, firstLetterStyle)
 			isPageBreak := false
 			for linesIterator.Has() {
 				tmp := linesIterator.Next()

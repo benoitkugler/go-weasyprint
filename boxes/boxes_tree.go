@@ -40,7 +40,7 @@ type TextBox struct {
 
 	Text                 string
 	JustificationSpacing pr.Float
-	// PangoLayout          pdf.Layout
+	PangoLayout          *PangoLayout
 }
 
 type AtomicInlineLevelBox struct {

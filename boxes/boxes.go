@@ -5,6 +5,7 @@ package boxes
 
 import (
 	"fmt"
+
 	"github.com/benoitkugler/go-weasyprint/images"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -115,24 +116,24 @@ type Background struct {
 
 type Area struct {
 	String string
-	Rect [4]pr.Float
+	Rect   [4]pr.Float
 }
 
 type Position struct {
 	String string
-	Point MaybePoint
+	Point  MaybePoint
 }
 
 type Repeat struct {
-	 String string
-	 Reps [2]string
+	String string
+	Reps   [2]string
 }
 
 type BackgroundLayer struct {
 	Image           images.Image
 	Size            pr.Size
 	Position        Position
-	Repeat           Repeat
+	Repeat          Repeat
 	Unbounded       bool
 	PaintingArea    Area
 	PositioningArea Area

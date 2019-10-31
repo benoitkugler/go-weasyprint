@@ -323,7 +323,7 @@ func inlineLineWidths(context *LayoutContext, box bo.BoxFields, outer, isLineSta
 				newResumeAt := new(int)
 				for newResumeAt != nil {
 					resumeAt += *newResumeAt
-					tmp := SplitFirstLine(childText[resumeAt:], textBox.Style, *context,
+					tmp := SplitFirstLine([]rune(childText)[resumeAt:], textBox.Style, *context,
 						maxWidth, textBox.JustificationSpacing, true)
 					newResumeAt = tmp.ResumeAt
 					lines = append(lines, tmp.Width)
@@ -876,7 +876,7 @@ func trailingWhitespaceSize(context *LayoutContext, box Box) pr.Float {
 		}
 		return oldBox.Box().Width.V() - strippedBox.Box().Width.V()
 	} else {
-		spli := SplitFirstLine(textBox.Text, textBox.Style, *context, nil, textBox.JustificationSpacing, false)
+		spli := SplitFirstLine([]rune(textBox.Text), textBox.Style, *context, nil, textBox.JustificationSpacing, false)
 		return spli.Width
 	}
 }

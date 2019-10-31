@@ -1,19 +1,13 @@
 package layout
 
 import (
+	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
-type PangoLayout struct {
-	Text                 string
-	JustificationSpacing float32
-	Context              *LayoutContext
-	Style                pr.Properties
-}
-
 type Splitted struct {
 	// pango Layout with the first line
-	Layout PangoLayout
+	Layout *bo.PangoLayout
 
 	// length in UTF-8 bytes of the first line
 	Length int
@@ -34,22 +28,29 @@ type Splitted struct {
 	Baseline pr.Float
 }
 
+// Return an opaque Pango layout with default Pango line-breaks.
+// :param style: a style dict of computed values
+// :param maxWidth: The maximum available width in the same unit as ``style['font_size']``,
+// or ``None`` for unlimited width.
+func createLayout(text string, style pr.Properties, context *LayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *bo.PangoLayout {
+	// FIXME: à implémenter
+	return &bo.PangoLayout{}
+}
+
 // Fit as much as possible in the available width for one line of text.
 // minimum=False
-func SplitFirstLine(text string, style pr.Properties, context LayoutContext, maxWidth *pr.Float, justificationSpacing pr.Float,
+func SplitFirstLine(text []rune, style pr.Properties, context LayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float,
 	minimum bool) Splitted {
 	// FIXME: a implémenter
 	return Splitted{}
 }
 
-func CanBreakText(text, lang string) *bool {
+func CanBreakText(text, lang string) MaybeBool {
 	if len(text) < 2 {
-		out := false
-		return &out
+		return Bool(false)
 	}
 	// FIXME: à implémenter
-	out := true
-	return &out
+	return Bool(true)
 }
 
 // Return a tuple of the used value of ``line-height`` and the baseline.
@@ -60,7 +61,7 @@ func StrutLayout(style pr.Properties, context *LayoutContext) (pr.Float, pr.Floa
 }
 
 // Return the ratio 1ex/font_size, according to given style.
-func ExRatio(style pr.Properties) float32 {
+func ExRatio(style pr.Properties) pr.Float {
 	// FIXME: à implémenter
 	return .5
 }
