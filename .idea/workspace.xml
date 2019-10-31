@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/layout/pt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/draw.go" beforeDir="false" afterPath="$PROJECT_DIR$/draw.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pt" beforeDir="false" afterPath="$PROJECT_DIR$/pt" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
