@@ -1,10 +1,15 @@
 package goweasyprint
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"sort"
+	"strings"
+	"text/template"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
+	"github.com/benoitkugler/go-weasyprint/images"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 
@@ -13,81 +18,102 @@ import (
 
 // Take an "after layout" box tree and draw it onto a cairo context.
 
+type Drawer = backend.Drawer
+
 var SIDES = [4]string{"top", "right", "bottom", "left"}
 
 const (
-	pi   = float64(math.Pi)
-	CROP = `
+	pi = float64(math.Pi)
+
+	headerSVG = `
+	<svg height="{{ .Height }}" width="{{ .Width }}"
+		 fill="transparent" stroke="black" stroke-width="1"
+		 xmlns="http://www.w3.org/2000/svg"
+		 xmlns:xlink="http://www.w3.org/1999/xlink">
+  	`
+
+	crop = `
   <!-- horizontal top left -->
-  <path d="M0,{bleedTop} h{halfBleedLeft}" />
+  <path d="M0,{{ .Bleed.Top }} h{{ .HalfBleed.Left }}" />
   <!-- horizontal top right -->
-  <path d="M0,{bleedTop} h{halfBleedRight}"
-        transform="translate({width},0) scale(-1,1)" />
+  <path d="M0,{{ .Bleed.Top }} h{{ .HalfBleed.Right }}"
+        transform="translate({{ .Width }},0) scale(-1,1)" />
   <!-- horizontal bottom right -->
-  <path d="M0,{bleedBottom} h{halfBleedRight}"
-        transform="translate({width},{height}) scale(-1,-1)" />
+  <path d="M0,{{ .Bleed.Bottom }} h{{ .HalfBleed.Right }}"
+        transform="translate({{ .Width }},{{ .Height }}) scale(-1,-1)" />
   <!-- horizontal bottom left -->
-  <path d="M0,{bleedBottom} h{halfBleedLeft}"
-        transform="translate(0,{height}) scale(1,-1)" />
+  <path d="M0,{{ .Bleed.Bottom }} h{{ .HalfBleed.Left }}"
+        transform="translate(0,{{ .Height }}) scale(1,-1)" />
   <!-- vertical top left -->
-  <path d="M{bleedLeft},0 v{halfBleedTop}" />
+  <path d="M{{ .Bleed.Left }},0 v{{ .HalfBleed.Top }}" />
   <!-- vertical bottom right -->
-  <path d="M{bleedRight},0 v{halfBleedBottom}"
-        transform="translate({width},{height}) scale(-1,-1)" />
+  <path d="M{{ .Bleed.Right }},0 v{{ .HalfBleed.Bottom }}"
+        transform="translate({{ .Width }},{{ .Height }}) scale(-1,-1)" />
   <!-- vertical bottom left -->
-  <path d="M{bleedLeft},0 v{halfBleedBottom}"
-        transform="translate(0,{height}) scale(1,-1)" />
+  <path d="M{{ .Bleed.Left }},0 v{{ .HalfBleed.Bottom }}"
+        transform="translate(0,{{ .Height }}) scale(1,-1)" />
   <!-- vertical top right -->
-  <path d="M{bleedRight},0 v{halfBleedTop}"
-        transform="translate({width},0) scale(-1,1)" />
+  <path d="M{{ .Bleed.Right }},0 v{{ .HalfBleed.Top }}"
+        transform="translate({{ .Width }},0) scale(-1,1)" />
 `
-	CROSS = `
+	cross = `
   <!-- top -->
-  <circle r="{halfBleedTop}"
+  <circle r="{{ .HalfBleed.Top }}"
           transform="scale(0.5)
-                     translate({width},{halfBleedTop}) scale(0.5)" />
-  <path d="M-{halfBleedTop},{halfBleedTop} h{bleedTop}
-           M0,0 v{bleedTop}"
-        transform="scale(0.5) translate({width},0)" />
+                     translate({{ .Width }},{{ .HalfBleed.Top }}) scale(0.5)" />
+  <path d="M-{{ .HalfBleed.Top }},{{ .HalfBleed.Top }} h{{ .Bleed.Top }}
+           M0,0 v{{ .Bleed.Top }}"
+        transform="scale(0.5) translate({{ .Width }},0)" />
   <!-- bottom -->
-  <circle r="{halfBleedBottom}"
-          transform="translate(0,{height}) scale(0.5)
-                     translate({width},-{halfBleedBottom}) scale(0.5)" />
-  <path d="M-{halfBleedBottom},-{halfBleedBottom} h{bleedBottom}
-           M0,0 v-{bleedBottom}"
-        transform="translate(0,{height}) scale(0.5) translate({width},0)" />
+  <circle r="{{ .HalfBleed.Bottom }}"
+          transform="translate(0,{{ .Height }}) scale(0.5)
+                     translate({{ .Width }},-{{ .HalfBleed.Bottom }}) scale(0.5)" />
+  <path d="M-{{ .HalfBleed.Bottom }},-{{ .HalfBleed.Bottom }} h{{ .Bleed.Bottom }}
+           M0,0 v-{{ .Bleed.Bottom }}"
+        transform="translate(0,{{ .Height }}) scale(0.5) translate({{ .Width }},0)" />
   <!-- left -->
-  <circle r="{halfBleedLeft}"
+  <circle r="{{ .HalfBleed.Left }}"
           transform="scale(0.5)
-                     translate({halfBleedLeft},{height}) scale(0.5)" />
-  <path d="M{halfBleedLeft},-{halfBleedLeft} v{bleedLeft}
-           M0,0 h{bleedLeft}"
-        transform="scale(0.5) translate(0,{height})" />
+                     translate({{ .HalfBleed.Left }},{{ .Height }}) scale(0.5)" />
+  <path d="M{{ .HalfBleed.Left }},-{{ .HalfBleed.Left }} v{{ .Bleed.Left }}
+           M0,0 h{{ .Bleed.Left }}"
+        transform="scale(0.5) translate(0,{{ .Height }})" />
   <!-- right -->
-  <circle r="{halfBleedRight}"
-          transform="translate({width},0) scale(0.5)
-                     translate(-{halfBleedRight},{height}) scale(0.5)" />
-  <path d="M-{halfBleedRight},-{halfBleedRight} v{bleedRight}
-           M0,0 h-{bleedRight}"
-        transform="translate({width},0)
-                   scale(0.5) translate(0,{height})" />
+  <circle r="{{ .HalfBleed.Right }}"
+          transform="translate({{ .Width }},0) scale(0.5)
+                     translate(-{{ .HalfBleed.Right }},{{ .Height }}) scale(0.5)" />
+  <path d="M-{{ .HalfBleed.Right }},-{{ .HalfBleed.Right }} v{{ .Bleed.Right }}
+           M0,0 h-{{ .Bleed.Right }}"
+        transform="translate({{ .Width }},0)
+                   scale(0.5) translate(0,{{ .Height }})" />
 `
 )
+
+type bleedData struct {
+	Top, Bottom, Left, Right pr.Float
+}
+
+// FIXME: check gofpdf support for SVG
+type svgArgs struct {
+	Width, Height    pr.Float
+	Bleed, HalfBleed bleedData
+}
 
 // The context manager
 // 	with stacked(context):
 //		<body>
 // is equivalent to
-//		context.save()
+//		context.Save()
 //		try:
 //			<body>
 //  	finally:
 //			context.restore()
+// FIXME: add context manager
 
 // Transform a HSV color to a RGB color.
 func hsv2rgb(hue, saturation, value float64) (r, g, b float64) {
 	c := value * saturation
-	x := c * (1 - utils.Abs(utils.FloatModulo(hue/60, 2)-1))
+	x := c * (1 - math.Abs(utils.FloatModulo(hue/60, 2)-1))
 	m := value - c
 	switch {
 	case 0 <= hue && hue < 60:
@@ -110,8 +136,8 @@ func hsv2rgb(hue, saturation, value float64) (r, g, b float64) {
 
 // Transform a RGB color to a HSV color.
 func rgb2hsv(red, green, blue float64) (h, s, c float64) {
-	cmax := math.Maxs(red, green, blue)
-	cmin := math.Mins(red, green, blue)
+	cmax := utils.Maxs(red, green, blue)
+	cmin := utils.Mins(red, green, blue)
 	delta := cmax - cmin
 	var hue float64
 	if delta == 0 {
@@ -152,21 +178,23 @@ func lighten(color Color) Color {
 
 // Draw the given PageBox.
 func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) {
-	bleed := map[string]float64{}
-	for _, side := range [4]string{"top", "right", "bottom", "left"} {
-		bleed[side] = float64(page.Style["bleed_"+side].(pr.Value).Value)
+	bleed := bleedData{
+		Top:    page.Style.GetBleedTop().Value,
+		Bottom: page.Style.GetBleedBottom().Value,
+		Left:   page.Style.GetBleedLeft().Value,
+		Right:  page.Style.GetBleedRight().Value,
 	}
 	marks := page.Style.GetMarks()
 	stackingContext := NewStackingContextFromPage(page)
 	drawBackground(context, stackingContext.box.Box().Background, enableHinting,
 		false, bleed, marks)
-	drawBackground(context, page.CanvasBackground, enableHinting, false, nil, pr.Marks{})
+	drawBackground(context, page.CanvasBackground, enableHinting, false, bleedData{}, pr.Marks{})
 	drawBorder(context, page, enableHinting)
 	drawStackingContext(context, stackingContext, enableHinting)
 }
 
 func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enableHinting bool) {
-	drawBackground(context, box.Box().Background, enableHinting, true, nil, pr.Marks{})
+	drawBackground(context, box.Box().Background, enableHinting, true, bleedData{}, pr.Marks{})
 	if box_, ok := box.(bo.InstanceTableBox); ok {
 		box := box_.Table()
 		drawTableBackgrounds(context, page, box_, enableHinting)
@@ -210,10 +238,11 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			left.Value = box.BorderWidth()
 		}
 		context.Rectangle(
-			box.BorderBoxX()+right.Value,
-			box.BorderBoxY()+top.Value,
-			left.Value-right.Value,
-			bottom.Value-top.Value)
+			float64(box.BorderBoxX()+right.Value),
+			float64(box.BorderBoxY()+top.Value),
+			float64(left.Value-right.Value),
+			float64(bottom.Value-top.Value),
+		)
 		context.Clip()
 	}
 
@@ -222,28 +251,28 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 	}
 
 	if box.TransformationMatrix != nil {
-		if err = box.TransformationMatrix.copy().invert(); err != nil { // } except cairo.CairoError {
+		if err := box.TransformationMatrix.Copy().Invert(); err != nil { // except cairo.CairoError
 			return
 		}
-		context.Transform(box.transformationMatrix)
+		context.Transform(box.TransformationMatrix)
 	}
 
 	// Point 1 is done in drawPage
 
 	// Point 2
-	if bo.TypeBlockBox.IsInstance(box) || bo.TypeMarginBox.IsInstance(box) ||
-		bo.TypeInlineBlockBox.IsInstance(box) || bo.TypeTableCellBox.IsInstance(box) ||
-		bo.TypeFlexContainerBox.IsInstance(box) {
+	if bo.TypeBlockBox.IsInstance(box_) || bo.IsMarginBox(box_) ||
+		bo.TypeInlineBlockBox.IsInstance(box_) || bo.TypeTableCellBox.IsInstance(box_) ||
+		bo.IsFlexContainerBox(box_) {
 
 		// The canvas background was removed by setCanvasBackground
-		drawBoxBackgroundAndBorder(context, stackingContext.page, box, enableHinting)
+		drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting)
 
 		// with stacked(context) {
-		if box.Style["overflow"] != "visible" {
+		if box.Style.GetOverflow() != "visible" {
 			// Only clip the content && the children:
 			// - the background is already clipped
 			// - the border must *not* be clipped
-			roundedBoxPath(context, box.roundedPaddingBox())
+			roundedBoxPath(context, box.RoundedPaddingBox())
 			context.Clip()
 		}
 
@@ -263,18 +292,18 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 		}
 
 		// Point 6
-		if bo.TypeInlineBox.IsInstance(box) {
-			drawInlineLevel(context, stackingContext.page, box, enableHinting)
+		if bo.TypeInlineBox.IsInstance(box_) {
+			drawInlineLevel(context, stackingContext.page, box_, enableHinting, 0, "clip")
 		}
 
 		// Point 7
-		for _, block := range append([]Box{box}, stackingContext.blocksAndCells...) {
+		for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
 			if block, ok := block.(bo.InstanceReplacedBox); ok {
 				drawReplacedbox(context, block)
 			} else {
-				for _, child := range block.children {
+				for _, child := range block.Box().Children {
 					if bo.TypeLineBox.IsInstance(child) {
-						drawInlineLevel(context, stackingContext.page, child, enableHinting)
+						drawInlineLevel(context, stackingContext.page, child, enableHinting, 0, "clip")
 					}
 				}
 			}
@@ -291,9 +320,9 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 		}
 
 		// Point 10
-		drawOutlines(context, box, enableHinting)
+		drawOutlines(context, box_, enableHinting)
 
-		if op := box.Style.GetOpacity(); op < 1 {
+		if op := float64(box.Style.GetOpacity()); op < 1 {
 			context.PopGroupToSource()
 			context.PaintWithAlpha(op)
 		}
@@ -308,197 +337,221 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 //     http://cairographics.org/cookbook/roundedrectangles/
 //
 func roundedBoxPath(context Drawer, radii bo.RoundedBox) {
-	x, y, w, h, tl, tr, br, bl = radii
+	x, y, w, h, tl, tr, br, bl := float64(radii.X), float64(radii.Y), radii.Width, radii.Height, radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
 
 	if tl[0] == 0 || tl[1] == 0 {
-		tl = pr.Point{0, 0}
+		tl = bo.Point{0, 0}
 	}
 	if tr[0] == 0 || tr[1] == 0 {
-		tr = pr.Point{0, 0}
+		tr = bo.Point{0, 0}
 	}
 	if br[0] == 0 || br[1] == 0 {
-		br = pr.Point{0, 0}
+		br = bo.Point{0, 0}
 	}
 	if bl[0] == 0 || bl[1] == 0 {
-		bl = pr.Point{0, 0}
+		bl = bo.Point{0, 0}
 	}
 
-	if (tl == pr.Point{} && tr == pr.Point{} && br == pr.Point{} && bl == pr.Point{}) {
+	if (tl == bo.Point{} && tr == bo.Point{} && br == bo.Point{} && bl == bo.Point{}) {
 		// No radius, draw a rectangle
-		context.Rectangle(x, y, w, h)
+		context.Rectangle(float64(x), float64(y), float64(w), float64(h))
 		return
 	}
 
-	context.moveTo(x, y)
-	context.newSubPath()
-	for i, v := range [4][2]pr.Point{
+	context.MoveTo(float64(x), float64(y))
+	context.NewSubPath()
+	for i, v := range [4][2]bo.Point{
 		{{0, 0}, tl}, {{w, 0}, tr}, {{w, h}, br}, {{0, h}, bl},
 	} {
-		w, h, rx, ry := v[0][0], v[0][1], v[1][0], v[1][1]
-		context.save()
+		w, h, rx, ry := float64(v[0][0]), float64(v[0][1]), float64(v[1][0]), float64(v[1][1])
+		context.Save()
 		context.Translate(x+w, y+h)
-		radius := pr.Max(rx, ry)
+		radius := math.Max(rx, ry)
 		if radius != 0 {
-			context.scale(pr.Min(rx/ry, 1), pr.Min(ry/rx, 1))
+			context.Scale(math.Min(rx/ry, 1), math.Min(ry/rx, 1))
 		}
-		aw, ah := 1, 1
+		aw, ah := 1., 1.
 		if w != 0 {
 			aw = -1
 		}
 		if h != 0 {
 			ah = -1
 		}
-		context.arc(aw*radius, ah*radius, radius,
-			(2+i)*pi/2, (3+i)*pi/2)
+		context.Arc(aw*radius, ah*radius, radius,
+			(2+float64(i))*pi/2, (3+float64(i))*pi/2)
 		context.Restore()
 	}
+}
+
+func formatSVG(svg string, data svgArgs) (string, error) {
+	tmp, err := template.New("svg").Parse(svg)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	if err := tmp.Execute(&b, data); err != nil {
+		return "", fmt.Errorf("unexpected template error : %s", err)
+	}
+	return b.String(), nil
+}
+
+func reversed(in []bo.BackgroundLayer) []bo.BackgroundLayer {
+	N := len(in)
+	out := make([]bo.BackgroundLayer, N)
+	for i, v := range in {
+		out[N-1-i] = v
+	}
+	return out
+}
+
+func drawBackground2(context Drawer, bg *bo.Background, enableHinting bool) error {
+	return drawBackground(context, bg, enableHinting, true, bleedData{}, pr.Marks{})
 }
 
 // Draw the background color and image to a ``cairo.Context``
 // If ``clipBox`` is set to ``false``, the background is not clipped to the
 // border box of the background, but only to the painting area
 // clipBox=true bleed=None marks=()
-func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bool, bleed map[string]float64,
-	marks pr.Marks) {
+func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bool, bleed bleedData,
+	marks pr.Marks) error {
 	if bg == nil {
-		return
+		return nil
 	}
 
 	// with stacked(context) {
 	if enableHinting {
 		// Prefer crisp edges on background rectangles.
-		context.setAntialias(cairo.ANTIALIASNONE)
+		context.SetAntialias(cairo.ANTIALIASNONE)
 	}
 
 	if clipBox {
-		for _, box := range bg.layers[len(bg.layers)-1].clippedBoxes {
+		for _, box := range bg.Layers[len(bg.Layers)-1].ClippedBoxes {
 			roundedBoxPath(context, box)
 		}
 		context.Clip()
 	}
 
 	// Background color
-	if bg.color.alpha > 0 {
+	if bg.Color.A > 0 {
 		// with stacked(context) {
-		paintingArea = bg.layers[-1].paintingArea
-		if paintingArea {
-			if bleed {
+		paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
+		if !paintingArea.IsNone() {
+			if (bleed != bleedData{}) {
 				// Painting area is the PDF BleedBox
-				x, y, width, height = paintingArea
-				paintingArea = [4]float64{
-					x - bleed["left"],
-					y - bleed["top"],
-					width + bleed["left"] + bleed["right"],
-					height + bleed["top"] + bleed["bottom"],
-				}
+				paintingArea[0] -= bleed.Left
+				paintingArea[1] -= bleed.Top
+				paintingArea[2] += bleed.Left + bleed.Right
+				paintingArea[3] += bleed.Top + bleed.Bottom
 			}
-			context.Rectangle(paintingArea)
+			context.Rectangle(paintingArea.Unpack())
 			context.Clip()
 		}
-		context.setSourceRgba(bg.color)
+		context.SetSourceRgba(bg.Color.Unpack())
 		context.Paint()
 		// }
 	}
 
-	if bleed && marks {
-		x, y, width, height := bg.layers[-1].paintingArea
-		x -= bleed["left"]
-		y -= bleed["top"]
-		width += bleed["left"] + bleed["right"]
-		height += bleed["top"] + bleed["bottom"]
-		svg := `
-              <svg height="{height}" width="{width}"
-                   fill="transparent" stroke="black" stroke-width="1"
-                   xmlns="http://www.w3.org/2000/svg"
-                   xmlns:xlink="http://www.w3.org/1999/xlink">
-            `
+	if (bleed != bleedData{}) && !marks.IsNone() {
+		x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack2()
+		x -= bleed.Left
+		y -= bleed.Top
+		width += bleed.Left + bleed.Right
+		height += bleed.Top + bleed.Bottom
+		svg := headerSVG
 		if marks.Crop {
-			svg += CROP
+			svg += crop
 		}
 		if marks.Cross {
-			svg += CROSS
+			svg += cross
 		}
 		svg += "</svg>"
-		// halfBleed = {key: value * 0.5 for key, value := range bleed.items()}
-		// image = SVGImage(svg.format(
-		//     height=height, width=width,
-		//     bleedLeft=bleed["left"], bleedRight=bleed["right"],
-		//     bleedTop=bleed["top"], bleedBottom=bleed["bottom"],
-		//     halfBleedLeft=halfBleed["left"],
-		//     halfBleedRight=halfBleed["right"],
-		//     halfBleedTop=halfBleed["top"],
-		//     halfBleedBottom=halfBleed["bottom"],
-		// ), "", None)
+		halfBleed := bleedData{
+			Top:    bleed.Top * 0.5,
+			Bottom: bleed.Bottom * 0.5,
+			Left:   bleed.Left * 0.5,
+			Right:  bleed.Right * 0.5,
+		}
+		svg, err := formatSVG(svg, svgArgs{Width: width, Height: height, Bleed: bleed, HalfBleed: halfBleed})
+		if err != nil {
+			return err
+		}
+		image, err := images.NewSVGImage(svg, "", nil)
+		if err != nil {
+			return err
+		}
+
 		// Painting area is the PDF media box
-		size := pr.Size{width, height}
-		position := bo.Position{x, y}
-		repeat := bo.Repeat{Reps: {"no-repeat", "no-repeat"}}
+		size := pr.Size{Width: width.ToValue(), Height: height.ToValue()}
+		position := bo.Position{Point: bo.MaybePoint{x, y}}
+		repeat := bo.Repeat{Reps: [2]string{"no-repeat", "no-repeat"}}
 		unbounded := true
-		paintingArea := position + size
-		positioningArea := bo.Area{Rect: {0, 0, width, height}}
-		layer = bo.BackgroundLayer{iamge: image, size, position, repeat, unbounded, paintingArea,
-			positioningArea, nil}
-		bg.layers.insert(0, layer)
+		paintingArea := bo.Area{Rect: pr.Rectangle{x, y, width, height}}
+		positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, width, height}}
+		layer := bo.BackgroundLayer{Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
+			PaintingArea: paintingArea, PositioningArea: positioningArea}
+		bg.Layers = append([]bo.BackgroundLayer{layer}, bg.Layers...)
 	}
 	// Paint in reversed order: first layer is "closest" to the viewer.
-	for _, layer := range reversed(bg.layers) {
-		drawBackgroundImage(context, layer, bg.imageRendering)
+	for _, layer := range reversed(bg.Layers) {
+		drawBackgroundImage(context, layer, bg.ImageRendering)
 	}
+	return nil
 }
 
 // Draw the background color && image of the table children.
-func drawTableBackgrounds(context Drawer, page *bo.PageBox, table bo.InstanceTableBox, enableHinting bool) {
-	for _, columnGroup := range table.columnGroups {
-		drawBackground(context, columnGroup.background, enableHinting)
-		for _, column := range columnGroup.children {
-			drawBackground(context, column.background, enableHinting)
+func drawTableBackgrounds(context Drawer, page *bo.PageBox, table_ bo.InstanceTableBox, enableHinting bool) {
+	table := table_.Table()
+	for _, columnGroup := range table.ColumnGroups {
+		drawBackground2(context, columnGroup.Box().Background, enableHinting)
+		for _, column := range columnGroup.Box().Children {
+			drawBackground2(context, column.Box().Background, enableHinting)
 		}
 	}
-	for _, rowGroup := range table.children {
-		drawBackground(context, rowGroup.background, enableHinting)
-		for _, row := range rowGroup.children {
-			drawBackground(context, row.background, enableHinting)
-			for _, cell := range row.children {
-				if table.style["borderCollapse"] == "collapse" ||
-					cell.style["emptyCells"] == "show" || !cell.empty {
-
-					drawBackground(context, cell.background, enableHinting)
+	for _, rowGroup := range table.Children {
+		drawBackground2(context, rowGroup.Box().Background, enableHinting)
+		for _, row := range rowGroup.Box().Children {
+			drawBackground2(context, row.Box().Background, enableHinting)
+			for _, cell := range row.Box().Children {
+				cell := cell.Box()
+				if table.Style.GetBorderCollapse() == "collapse" ||
+					cell.Style.GetEmptyCells() == "show" || !cell.Empty {
+					drawBackground2(context, cell.Background, enableHinting)
 				}
 			}
 		}
 	}
 }
 
-func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRendering bool) {
-	if layer.image == nil {
+func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRendering pr.String) {
+	if layer.Image == nil {
 		return
 	}
 
-	paintingX, paintingY, paintingWidth, paintingHeight = layer.paintingArea
-	positioningX, positioningY, positioningWidth, positioningHeight = layer.positioningArea
-	positionX, positionY = layer.position
-	repeatX, repeatY = layer.repeat
-	imageWidth, imageHeight = layer.size
-
+	paintingX, paintingY, paintingWidth, paintingHeight := layer.PaintingArea.Rect.Unpack()
+	positioningX, positioningY, positioningWidth, positioningHeight := layer.PositioningArea.Rect.Unpack()
+	positionX, positionY := layer.Position.Point[0], layer.Position.Point[1]
+	repeatX, repeatY := layer.Repeat.Reps[0], layer.Repeat.Reps[1]
+	imageWidth, imageHeight := float64(layer.Size.Width.Value), float64(layer.Size.Height.Value)
+	var repeatWidth, repeatHeight float64
 	switch repeatX {
 	case "no-repeat":
 		// We want at least the whole imageWidth drawn on subSurface, but we
-		// want to be sure it will ! be repeated on the paintingWidth.
-		repeatWidth = max(imageWidth, paintingWidth)
+		// want to be sure it will not be repeated on the paintingWidth.
+		repeatWidth = math.Max(imageWidth, paintingWidth)
 	case "repeat", "round":
 		// We repeat the image each imageWidth.
 		repeatWidth = imageWidth
 	case "space":
-		nRepeats = floor(positioningWidth / imageWidth)
+		nRepeats := math.Floor(positioningWidth / imageWidth)
 		if nRepeats >= 2 {
 			// The repeat width is the whole positioning width with one image
 			// removed, divided by (the number of repeated images - 1). This
 			// way, we get the width of one image + one space. We ignore
 			// background-position for this dimension.
 			repeatWidth = (positioningWidth - imageWidth) / (nRepeats - 1)
-			positionX = 0
+			positionX = pr.Float(0)
 		} else {
-			// We don"t repeat the image.
+			// We don't repeat the image.
 			repeatWidth = imageWidth
 		}
 	default:
@@ -508,14 +561,14 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 	// Comments above apply here too.
 	switch repeatY {
 	case "no-repeat":
-		repeatHeight = max(imageHeight, paintingHeight)
+		repeatHeight = math.Max(imageHeight, paintingHeight)
 	case "repeat", "round":
 		repeatHeight = imageHeight
 	case "space":
-		nRepeats = floor(positioningHeight / imageHeight)
+		nRepeats := math.Floor(positioningHeight / imageHeight)
 		if nRepeats >= 2 {
 			repeatHeight = (positioningHeight - imageHeight) / (nRepeats - 1)
-			positionY = 0
+			positionY = pr.Float(0)
 		} else {
 			repeatHeight = imageHeight
 		}
@@ -523,29 +576,29 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 		log.Fatalf("unexpected repeatY %s", repeatY)
 	}
 
-	subSurface = cairo.PDFSurface(None, repeatWidth, repeatHeight)
-	subContext = cairo.Context(subSurface)
-	subContext.rectangle(0, 0, imageWidth, imageHeight)
-	subContext.clip()
-	layer.image.draw(subContext, imageWidth, imageHeight, imageRendering)
-	pattern = cairo.SurfacePattern(subSurface)
+	subSurface := cairo.PDFSurface(nil, repeatWidth, repeatHeight)
+	var subContext Drawer = cairo.Context(subSurface)
+	subContext.Rectangle(0, 0, imageWidth, imageHeight)
+	subContext.Clip()
+	layer.Image.Draw(subContext, imageWidth, imageHeight, string(imageRendering))
+	pattern := cairo.SurfacePattern(subSurface)
 
-	if repeatX == repeatY == "no-repeat" {
+	if repeatX == "no-repeat" && repeatY == "no-repeat" {
 		pattern.setExtend(cairo.EXTENDNONE)
 	} else {
 		pattern.setExtend(cairo.EXTENDREPEAT)
 	}
 
 	// with stacked(context) {
-	if !layer.unbounded {
-		context.Rectangle(paintingX, paintingY,
+	if !layer.Unbounded {
+		context.Rectangle(float64(paintingX), float64(paintingY),
 			paintingWidth, paintingHeight)
 		context.Clip()
 	} // else: unrestricted, whole page box
 
-	context.Translate(positioningX+positionX,
-		positioningY+positionY)
-	context.setSource(pattern)
+	context.Translate(positioningX+float64(positionX.V()),
+		positioningY+float64(positionY.V()))
+	context.SetSource(pattern)
 	context.Paint()
 }
 
@@ -554,81 +607,84 @@ func xyOffset(x, y, offsetX, offsetY, offset float64) (float64, float64) {
 	return x + offsetX*offset, y + offsetY*offset
 }
 
-func styledColor(style string, color Color, side string) Color {
+func styledColor(style pr.String, color Color, side string) []Color {
 	if style == "inset" || style == "outset" {
 		doLighten := (side == "top" || side == "left") != (style == "inset")
 		if doLighten {
-			return lighten(color)
+			return []Color{lighten(color)}
 		}
-		return darken(color)
+		return []Color{darken(color)}
 	} else if style == "ridge" || style == "groove" {
 		if (side == "top" || side == "left") != (style == "ridge") {
-			return lighten(color), darken(color)
+			return []Color{lighten(color), darken(color)}
 		} else {
-			return darken(color), lighten(color)
+			return []Color{darken(color), lighten(color)}
 		}
 	}
-	return color
+	return []Color{color}
 }
 
 // Draw the box border to a ``cairo.Context``.
-func drawBorder(context Drawer, box Box, enableHinting bool) {
+func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 	// We need a plan to draw beautiful borders, and that's difficult, no need
 	// to lie. Let's try to find the cases that we can handle in a smart way.
+	box := box_.Box()
 
 	// Draw column borders.
 	drawColumnBorder := func() {
-		columns := bo.TypeBlockContainerBox.IsInstance(box) && (box.Style["columnWidth"] != "auto" || box.Style["columnCount"] != "auto")
-		if columns && box.Style["columnRuleWidth"] {
-			borderWidths := [4]float64{0, 0, 0, box.Style["columnRuleWidth"]}
-			for _, child := range box.children[1:] {
+		columns := bo.IsBlockContainerBox(box_) && (box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto")
+		if crw := box.Style.GetColumnRuleWidth(); columns && !crw.IsNone() {
+			borderWidths := pr.Rectangle{0, 0, 0, crw.Value}
+			for _, child := range box.Children[1:] {
 				// with stacked(context) {
-				positionX = child.positionX - (box.Style["columnRuleWidth"]+
-									box.Style["columnGap"])/2
-				borderBox = [4]float64{positionX, child.positionY,
-					box.Style["columnRuleWidth"], box.height}
+				positionX := child.Box().PositionX - (crw.Value+
+					box.Style.GetColumnGap().Value)/2
+				borderBox := pr.Rectangle{positionX, child.Box().PositionY,
+					crw.Value, box.Height.V()}
 				clipBorderSegment(context, enableHinting,
-					box.Style["columnRuleStyle"],
-					box.Style["columnRuleWidth"], "left", borderBox,
-					borderWidths)
+					box.Style.GetColumnRuleStyle(),
+					float64(crw.Value), "left", borderBox,
+					&borderWidths, nil)
 				drawRectBorder(context, borderBox, borderWidths,
-					box.Style["columnRuleStyle"], styledColor(
-						box.Style["columnRuleStyle"],
-						getColor(box.Style, "columnRuleColor"), "left"))
-
+					box.Style.GetColumnRuleStyle(), styledColor(
+						box.Style.GetColumnRuleStyle(),
+						box.Style.ResolveColor("column_rule_color").RGBA, "left"))
 			}
 		}
 	}
 
 	// The box is hidden, easy.
-	if box.Style["visibility"] != "visible" {
+	if box.Style.GetVisibility() != "visible" {
 		drawColumnBorder()
 		return
 	}
 
-	widths = [4]float64{box, "border%sWidth"}
+	widths := pr.Rectangle{box.BorderTopWidth.V(), box.BorderRightWidth.V(), box.BorderBottomWidth.V(), box.BorderLeftWidth.V()}
 
 	// No border, return early.
-	if widths == [4]float64{} {
+	if widths.IsNone() {
 		drawColumnBorder()
 		return
 	}
 	var (
 		colors    [4]Color
 		colorsSet = map[Color]bool{}
+		styles    [4]pr.String
 		stylesSet = pr.NewSet()
 	)
 	for i, side := range SIDES {
-		colors[i] = box.Style.ResolveColor("border_%s_color" % side)
+		colors[i] = box.Style.ResolveColor(fmt.Sprintf("border_%s_color", side)).RGBA
 		colorsSet[colors[i]] = true
-		styles[i] = colors[i].alpha && box.Style["border%sStyle"%side]
-		stylesSet.Add(styles[i])
+		if colors[i].A != 0 {
+			styles[i] = box.Style[fmt.Sprintf("border_%s_style", side)].(pr.String)
+		}
+		stylesSet.Add(string(styles[i]))
 	}
 
 	// The 4 sides are solid or double, and they have the same color. Oh yeah!
 	// We can draw them so easily!
 	if len(stylesSet) == 1 && (stylesSet.Has("solid") || stylesSet.Has("double")) && len(colorsSet) == 1 {
-		drawRoundedBorder(context, box, styles[0], colors[0])
+		drawRoundedBorder(context, box_, styles[0], []Color{colors[0]})
 		drawColumnBorder()
 		return
 	}
@@ -641,9 +697,12 @@ func drawBorder(context Drawer, box Box, enableHinting bool) {
 			continue
 		}
 		// with stacked(context) {
-		clipBorderSegment(context, enableHinting, style, width, side,
-			box.roundedBorderBox()[:4], widths, box.roundedBorderBox()[4:])
-		drawRoundedBorder(context, box, style, styledColor(style, color, side))
+		rb := box.RoundedBorderBox()
+		roundedBox := pr.Rectangle{rb.X, rb.Y, rb.Width, rb.Height}
+		radii := [4]bo.Point{rb.TopLeft, rb.TopRight, rb.BottomRight, rb.BottomLeft}
+		clipBorderSegment(context, enableHinting, style, float64(width), side,
+			roundedBox, &widths, &radii)
+		drawRoundedBorder(context, box_, style, styledColor(style, color, side))
 		// }
 	}
 
@@ -653,27 +712,28 @@ func drawBorder(context Drawer, box Box, enableHinting bool) {
 // Clip one segment of box border.
 // The strategy is to remove the zones not needed because of the style or the
 // side before painting.
-func clipBorderSegment(context Drawer, enableHinting bool, style string, width, side,
-	borderBox, borderWidths *[4]float64, radii *bo.RoundedBox) {
+// border_widths=None, radii=None
+func clipBorderSegment(context Drawer, enableHinting bool, style pr.String, width float64, side string,
+	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
 	if enableHinting && style != "dotted" && (
 	// Borders smaller than 1 device unit would disappear
 	// without anti-aliasing.
-	hypot(context.userToDevice(width, 0)) >= 1 &&
-		hypot(context.userToDevice(0, width)) >= 1) {
+	math.Hypot(context.UserToDevice(float64(width), 0)) >= 1 &&
+		math.Hypot(context.UserToDevice(0, float64(width))) >= 1) {
 		// Avoid an artifact in the corner joining two solid borders
 		// of the same color.
-		context.setAntialias(cairo.ANTIALIASNONE)
+		context.SetAntialias(cairo.ANTIALIASNONE)
 	}
 
-	bbx, bby, bbw, bbh = borderBox
+	bbx, bby, bbw, bbh := borderBox.Unpack()
 	var tlh, tlv, trh, trv, brh, brv, blh, blv float64
 	if radii != nil {
-		tlh, tlv, trh, trv, brh, brv, blh, blv = radii
+		tlh, tlv, trh, trv, brh, brv, blh, blv = float64((*radii)[0][0]), float64((*radii)[0][1]), float64((*radii)[1][0]), float64((*radii)[1][1]), float64((*radii)[2][0]), float64((*radii)[2][1]), float64((*radii)[3][0]), float64((*radii)[3][1])
 	}
-	var bt, br, bb, bl = width
+	bt, br, bb, bl := width, width, width, width
 	if borderWidths != nil {
-		bt, br, bb, bl = borderWidths[0], borderWidths[1], borderWidths[2], borderWidths[3]
+		bt, br, bb, bl = borderWidths.Unpack()
 	}
 
 	// Get the point use for border transition.
@@ -685,7 +745,7 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 	// easy to get and gives quite good results, but it seems to be different
 	// from what other browsers do.
 	transitionPoint := func(x1, y1, x2, y2 float64) (float64, float64, bool) {
-		if utils.Abs(x1) > utils.Abs(x2) && utils.Abs(y1) > utils.Abs(y2) {
+		if math.Abs(x1) > math.Abs(x2) && math.Abs(y1) > math.Abs(y2) {
 			return x1, y1, true
 		}
 		return x2, y2, false
@@ -700,9 +760,12 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 	// http://mathforum.org/dr.math/faq/formulas/
 	cornerHalfLength := func(a, b float64) float64 {
 		x := (a - b) / (a + b)
-		return pi / 8 * (a + b) * (1 + 3*x**2/(10+sqrt(4-3*x**2)))
+		return pi / 8 * (a + b) * (1 + 3*x*x/(10+math.Sqrt(4-3*x*x)))
 	}
-
+	var (
+		px1, px2, py1, py2, way, angle, mainOffset float64
+		rounded1, rounded2                         bool
+	)
 	if side == "top" {
 		px1, py1, rounded1 = transitionPoint(tlh, tlv, bl, bt)
 		px2, py2, rounded2 = transitionPoint(-trh, trv, -br, bt)
@@ -732,13 +795,13 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 		angle = 4
 		mainOffset = bbx
 	}
-
+	var a1, b1, a2, b2, lineLength, length float64
 	if side == "top" || side == "bottom" {
 		a1, b1 = px1-bl/2, way*py1-width/2
 		a2, b2 = -px2-br/2, way*py2-width/2
 		lineLength = bbw - px1 + px2
 		length = bbw
-		context.moveTo(bbx+bbw, mainOffset)
+		context.MoveTo(bbx+bbw, mainOffset)
 		context.RelLineTo(-bbw, 0)
 		context.RelLineTo(px1, py1)
 		context.RelLineTo(-px1+bbw+px2, -py1+py2)
@@ -747,13 +810,13 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 		a2, b2 = -way*px2-width/2, -py2-bb/2
 		lineLength = bbh - py1 + py2
 		length = bbh
-		context.moveTo(mainOffset, bby+bbh)
+		context.MoveTo(mainOffset, bby+bbh)
 		context.RelLineTo(0, -bbh)
 		context.RelLineTo(px1, py1)
 		context.RelLineTo(-px1+px2, -py1+bbh+py2)
 	}
 
-	context.setFillRule(cairo.FILLRULEEVENODD)
+	context.SetFillRule(cairo.FILLRULEEVENODD)
 	if style == "dotted" || style == "dashed" {
 		dash := 3 * width
 		if style == "dotted" {
@@ -761,46 +824,49 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 		}
 		if rounded1 || rounded2 {
 			// At least one of the two corners is rounded
-			chl1 = cornerHalfLength(a1, b1)
-			chl2 = cornerHalfLength(a2, b2)
+			chl1 := cornerHalfLength(a1, b1)
+			chl2 := cornerHalfLength(a2, b2)
 			length = lineLength + chl1 + chl2
-			dashLength = round(length / dash)
+			dashLength := math.Round(length / dash)
 			if rounded1 && rounded2 {
 				// 2x dashes
-				dash = length / (dashLength + dashLength%2)
+				dash = length / (dashLength + utils.FloatModulo(dashLength, 2))
 			} else {
 				// 2x - 1/2 dashes
-				dash = length / (dashLength + dashLength%2 - 0.5)
+				dash = length / (dashLength + utils.FloatModulo(dashLength, 2) - 0.5)
 			}
-			dashes1 = int(ceil((chl1 - dash/2) / dash))
-			dashes2 = int(ceil((chl2 - dash/2) / dash))
-			line = int(floor(lineLength / dash))
+			dashes1 := int(math.Ceil((chl1 - dash/2) / dash))
+			dashes2 := int(math.Ceil((chl2 - dash/2) / dash))
+			line := int(math.Floor(lineLength / dash))
 
-			drawDots := func(dashes, line, way, x, y, px, py, chl float64) (float64, float64) {
-				if !dashes {
+			drawDots := func(dashes, line int, way, x, y, px, py, chl float64) (int, float64) {
+				if dashes == 0 {
 					return line + 1, 0
 				}
-				var hasBroken bool
-				for i := 0; i < dashes; i += 2 {
-					i += 0.5 // half dash
+				var (
+					hasBroken              bool
+					offset, angle1, angle2 float64
+				)
+				for i_ := 0; i_ < dashes; i_ += 2 {
+					i := float64(i_) + 0.5 // half dash
 					angle1 = ((2*angle - way) + i*way*dash/chl) / 4 * pi
 
-					fn := pr.Max
+					fn := math.Max
 					if way > 0 {
-						fn = pr.Min
+						fn = math.Min
 					}
 					angle2 = fn(
 						((2*angle-way)+(i+1)*way*dash/chl)/4*pi,
 						angle*pi/2,
 					)
 					if side == "top" || side == "bottom" {
-						context.moveTo(x+px, mainOffset+py)
-						context.lineTo(x+px-way*px*1/tan(angle2), mainOffset)
-						context.lineTo(x+px-way*px*1/tan(angle1), mainOffset)
+						context.MoveTo(x+px, mainOffset+py)
+						context.LineTo(x+px-way*px*1/math.Tan(angle2), mainOffset)
+						context.LineTo(x+px-way*px*1/math.Tan(angle1), mainOffset)
 					} else if side == "left" || side == "right" {
-						context.moveTo(mainOffset+px, y+py)
-						context.lineTo(mainOffset, y+py+way*py*tan(angle2))
-						context.lineTo(mainOffset, y+py+way*py*tan(angle1))
+						context.MoveTo(mainOffset+px, y+py)
+						context.LineTo(mainOffset, y+py+way*py*math.Tan(angle2))
+						context.LineTo(mainOffset, y+py+way*py*math.Tan(angle1))
 					}
 					if angle2 == angle*pi/2 {
 						offset = (angle1 - angle2) / ((((2*angle - way) + (i+1)*way*dash/chl) /
@@ -815,24 +881,25 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 				}
 				return line, offset
 			}
-
+			var offset float64
 			line, offset = drawDots(dashes1, line, way, bbx, bby, px1, py1, chl1)
 			line, _ = drawDots(dashes2, line, -way, bbx+bbw, bby+bbh, px2, py2, chl2)
 
 			if lineLength > 1e-6 {
-				for i := 0; i < line; i += 2 {
-					i += offset
+				for i_ := 0; i_ < line; i_ += 2 {
+					i := float64(i_) + offset
+					var x1, x2, y1, y2 float64
 					if side == "top" || side == "bottom" {
-						x1 = max(bbx+px1+i*dash, bbx+px1)
-						x2 = min(bbx+px1+(i+1)*dash, bbx+bbw+px2)
+						x1 = math.Max(bbx+px1+i*dash, bbx+px1)
+						x2 = math.Min(bbx+px1+(i+1)*dash, bbx+bbw+px2)
 						y1 = mainOffset
 						if way < 0 {
 							y1 -= width
 						}
 						y2 = y1 + width
 					} else if side == "left" || side == "right" {
-						y1 = max(bby+py1+i*dash, bby+py1)
-						y2 = min(bby+py1+(i+1)*dash, bby+bbh+py2)
+						y1 = math.Max(bby+py1+i*dash, bby+py1)
+						y2 = math.Min(bby+py1+(i+1)*dash, bby+bbh+py2)
 						x1 = mainOffset
 						if way > 0 {
 							x1 -= width
@@ -845,15 +912,15 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 		} else {
 			// 2x + 1 dashes
 			context.Clip()
-			denom := round(length/dash) - (round(length/dash)+1)%2
+			denom := math.Round(length/dash) - utils.FloatModulo(math.Round(length/dash)+1, 2)
 			dash = length
 			if denom != 0 {
 				dash /= denom
 			}
-			maxI := int(round(length / dash))
-			for i := 0; i < maxI; i += 2 {
+			maxI := int(math.Round(length / dash))
+			for i_ := 0; i_ < maxI; i_ += 2 {
+				i := float64(i_)
 				switch side {
-
 				case "top":
 					context.Rectangle(bbx+i*dash, bby, dash, width)
 				case "right":
@@ -869,42 +936,42 @@ func clipBorderSegment(context Drawer, enableHinting bool, style string, width, 
 	context.Clip()
 }
 
-func drawRoundedBorder(context Drawer, box Box, style, color Color) {
-	context.setFillRule(cairo.FILLRULEEVENODD)
-	roundedBoxPath(context, box.roundedPaddingBox())
+func drawRoundedBorder(context Drawer, box bo.BoxFields, style pr.String, color []Color) {
+	context.SetFillRule(cairo.FILLRULEEVENODD)
+	roundedBoxPath(context, box.RoundedPaddingBox())
 	if style == "ridge" || style == "groove" {
-		roundedBoxPath(context, box.roundedBoxRatio(1/2))
-		context.setSourceRgba(*color[0])
+		roundedBoxPath(context, box.RoundedBoxRatio(1/2))
+		context.SetSourceRgba(*color[0])
 		context.fill()
-		roundedBoxPath(context, box.roundedBoxRatio(1/2))
-		roundedBoxPath(context, box.roundedBorderBox())
-		context.setSourceRgba(*color[1])
+		roundedBoxPath(context, box.RoundedBoxRatio(1/2))
+		roundedBoxPath(context, box.RoundedBorderBox())
+		context.SetSourceRgba(*color[1])
 		context.fill()
 		return
 	}
 	if style == "double" {
-		roundedBoxPath(context, box.roundedBoxRatio(1/3))
-		roundedBoxPath(context, box.roundedBoxRatio(2/3))
+		roundedBoxPath(context, box.RoundedBoxRatio(1/3))
+		roundedBoxPath(context, box.RoundedBoxRatio(2/3))
 	}
-	roundedBoxPath(context, box.roundedBorderBox())
-	context.setSourceRgba(*color)
+	roundedBoxPath(context, box.RoundedBorderBox())
+	context.SetSourceRgba(*color)
 	context.fill()
 }
 
-func drawRectBorder(context Drawer, box [4]Point, widths, style, color Color) {
-	context.setFillRule(cairo.FILLRULEEVENODD)
+func drawRectBorder(context Drawer, box [4]Point, widths pr.Rectangle, style pr.String, color []Color) {
+	context.SetFillRule(cairo.FILLRULEEVENODD)
 	bbx, bby, bbw, bbh = box
 	bt, br, bb, bl = widths
 	context.Rectangle(*box)
 	if style == "ridge" || style == "groove" {
 		context.Rectangle(bbx+bl/2, bby+bt/2,
 			bbw-(bl+br)/2, bbh-(bt+bb)/2)
-		context.setSourceRgba(*color[0])
+		context.SetSourceRgba(*color[0])
 		context.fill()
 		context.Rectangle(bbx+bl/2, bby+bt/2,
 			bbw-(bl+br)/2, bbh-(bt+bb)/2)
 		context.Rectangle(bbx+bl, bby+bt, bbw-bl-br, bbh-bt-bb)
-		context.setSourceRgba(*color[1])
+		context.SetSourceRgba(*color[1])
 		context.fill()
 		return
 	}
@@ -917,11 +984,11 @@ func drawRectBorder(context Drawer, box [4]Point, widths, style, color Color) {
 			bbw-(bl+br)*2/3, bbh-(bt+bb)*2/3)
 	}
 	context.Rectangle(bbx+bl, bby+bt, bbw-bl-br, bbh-bt-bb)
-	context.setSourceRgba(*color)
+	context.SetSourceRgba(*color)
 	context.fill()
 }
 
-func drawOutlines(context Drawer, box, enableHinting bool) {
+func drawOutlines(context Drawer, box Box, enableHinting bool) {
 	width = box.Style["outlineWidth"]
 	color = getColor(box.Style, "outlineColor")
 	style = box.Style["outlineStyle"]
@@ -1109,10 +1176,10 @@ func drawReplacedbox(context Drawer, box bo.InstanceReplacedBox) {
 	drawWidth, drawHeight, drawX, drawY = replaced.replacedboxLayout(box)
 
 	// with stacked(context) {
-	roundedBoxPath(context, box.roundedContentBox())
+	roundedBoxPath(context, box.RoundedContentBox())
 	context.Clip()
 	context.Translate(drawX, drawY)
-	box.replacement.draw(context, drawWidth, drawHeight, box.Style["imageRendering"])
+	box.Replacement.draw(context, drawWidth, drawHeight, box.Style["imageRendering"])
 	// }
 }
 
@@ -1164,8 +1231,8 @@ func drawText(context Drawer, textbox *bo.TextBox, enableHinting bool, offsetX f
 		return
 	}
 
-	context.moveTo(textbox.positionX, textbox.positionY+textbox.Baseline)
-	context.setSourceRgba(*textbox.Style["color"])
+	context.MoveTo(textbox.positionX, textbox.positionY+textbox.Baseline)
+	context.SetSourceRgba(*textbox.Style["color"])
 
 	textbox.pangoLayout.reactivate(textbox.Style)
 	showFirstLine(context, textbox, textOverflow)
@@ -1207,7 +1274,7 @@ func drawText(context Drawer, textbox *bo.TextBox, enableHinting bool, offsetX f
 }
 
 func drawWave(context Drawer, x, y, width, offsetX, radius float64) {
-	context.newPath()
+	context.NewPath()
 	diameter = 2 * radius
 	waveIndex = offsetX // diameter
 	remain = offsetX - waveIndex*diameter
@@ -1219,9 +1286,9 @@ func drawWave(context Drawer, x, y, width, offsetX, radius float64) {
 		alpha2 = (1 + min(1, width/diameter)) * pi
 
 		if up {
-			context.arc(centerX, y, radius, alpha1, alpha2)
+			context.Arc(centerX, y, radius, alpha1, alpha2)
 		} else {
-			context.arcNegative(centerX, y, radius, -alpha1, -alpha2)
+			context.ArcNegative(centerX, y, radius, -alpha1, -alpha2)
 		}
 
 		x += diameter - remain
@@ -1238,15 +1305,15 @@ func drawTextDecoration(context Drawer, textbox *bo.TextBox, offsetX, offsetY, t
 	style = textbox.Style["textDecorationStyle"]
 	// with stacked(context) {
 	if enableHinting {
-		context.setAntialias(cairo.ANTIALIASNONE)
+		context.SetAntialias(cairo.ANTIALIASNONE)
 	}
-	context.setSourceRgba(*color)
-	context.setLineWidth(thickness)
+	context.SetSourceRgba(*color)
+	context.SetLineWidth(thickness)
 
 	if style == "dashed" {
-		context.setDash([]float64{5 * thickness}, offsetX)
+		context.SetDash([]float64{5 * thickness}, offsetX)
 	} else if style == "dotted" {
-		context.setDash([]float64{thickness}, offsetX)
+		context.SetDash([]float64{thickness}, offsetX)
 	}
 
 	if style == "wavy" {
@@ -1255,16 +1322,16 @@ func drawTextDecoration(context Drawer, textbox *bo.TextBox, offsetX, offsetY, t
 			textbox.positionX, textbox.positionY+offsetY,
 			textbox.width, offsetX, 0.75*thickness)
 	} else {
-		context.moveTo(textbox.positionX, textbox.positionY+offsetY)
+		context.MoveTo(textbox.positionX, textbox.positionY+offsetY)
 		context.RelLineTo(textbox.width, 0)
 	}
 
 	if style == "double" {
 		delta = 2 * thickness
-		context.moveTo(
+		context.MoveTo(
 			textbox.positionX, textbox.positionY+offsetY+delta)
 		context.RelLineTo(textbox.width, 0)
 	}
 
-	context.stroke()
+	context.Stroke()
 }

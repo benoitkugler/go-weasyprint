@@ -5,10 +5,10 @@ package boxes
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/benoitkugler/go-weasyprint/images"
 
+	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -109,14 +109,14 @@ type BoxType interface {
 }
 
 type Background struct {
-	Color          pr.Color
+	Color          parser.RGBA
 	Layers         []BackgroundLayer
 	ImageRendering pr.String
 }
 
 type Area struct {
 	String string
-	Rect   [4]pr.Float
+	Rect   pr.Rectangle
 }
 
 type Position struct {
@@ -140,6 +140,15 @@ type BackgroundLayer struct {
 	ClippedBoxes    []RoundedBox
 }
 
+// Matrix encode a linear transformation (Y = AX + B)
+type Matrix interface {
+	Copy() Matrix
+
+	// Invert modify the matrix in place. Return an error
+	// if the transformation is not bijective.
+	Invert() error
+}
+
 // BoxFields is an abstract base class for all boxes.
 type BoxFields struct {
 	// Keep track of removed collapsing spaces for wrap opportunities.
@@ -159,7 +168,7 @@ type BoxFields struct {
 	isAttachment bool
 	// isListMarker         bool
 
-	TransformationMatrix interface{}
+	TransformationMatrix Matrix
 
 	bookmarkLabel string
 
@@ -371,8 +380,8 @@ func (self BoxFields) hitArea() (x, y, w, h pr.Float) {
 }
 
 type RoundedBox struct {
-	x, y, width, height                        pr.Float
-	topLeft, topRight, bottomRight, bottomLeft Point
+	X, Y, Width, Height                        pr.Float
+	TopLeft, TopRight, BottomRight, BottomLeft Point
 }
 
 // Position, size and radii of a box inside the outer border box.
@@ -384,14 +393,14 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	brr := self.BorderBottomRightRadius.V()
 	blr := self.BorderBottomLeftRadius.V()
 
-	tlrx := pr.Float(math.Max(0, float64(tlr[0]-bl)))
-	tlry := pr.Float(math.Max(0, float64(tlr[1]-bt)))
-	trrx := pr.Float(math.Max(0, float64(trr[0]-br)))
-	trry := pr.Float(math.Max(0, float64(trr[1]-bt)))
-	brrx := pr.Float(math.Max(0, float64(brr[0]-br)))
-	brry := pr.Float(math.Max(0, float64(brr[1]-bb)))
-	blrx := pr.Float(math.Max(0, float64(blr[0]-bl)))
-	blry := pr.Float(math.Max(0, float64(blr[1]-bb)))
+	tlrx := pr.Max(0, tlr[0]-bl)
+	tlry := pr.Max(0, tlr[1]-bt)
+	trrx := pr.Max(0, trr[0]-br)
+	trry := pr.Max(0, trr[1]-bt)
+	brrx := pr.Max(0, brr[0]-br)
+	brry := pr.Max(0, brr[1]-bb)
+	blrx := pr.Max(0, blr[0]-bl)
+	blry := pr.Max(0, blr[1]-bb)
 
 	x := self.BorderBoxX() + bl
 	y := self.BorderBoxY() + bt
@@ -415,11 +424,11 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 			}
 		}
 	}
-	return RoundedBox{x: x, y: y, width: width, height: height,
-		topLeft:     Point{tlrx * ratio, tlry * ratio},
-		topRight:    Point{trrx * ratio, trry * ratio},
-		bottomRight: Point{brrx * ratio, brry * ratio},
-		bottomLeft:  Point{blrx * ratio, blry * ratio},
+	return RoundedBox{X: x, Y: y, Width: width, Height: height,
+		TopLeft:     Point{tlrx * ratio, tlry * ratio},
+		TopRight:    Point{trrx * ratio, trry * ratio},
+		BottomRight: Point{brrx * ratio, brry * ratio},
+		BottomLeft:  Point{blrx * ratio, blry * ratio},
 	}
 }
 

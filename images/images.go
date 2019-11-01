@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -19,6 +20,7 @@ type Image interface {
 	isImage()
 	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
 	IntrinsicRatio() pr.MaybeFloat
+	Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering string)
 }
 
 type imageSurface interface {
@@ -97,10 +99,10 @@ func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, heigh
 
 // Fake CairoSVG surface used to get SVG attributes.
 type FakeSurface struct {
-	contextHeight pr.Float
-	contextWidth  pr.Float
-	fontSize      pr.Float
-	dpi           pr.Float
+	contextHeight float64
+	contextWidth  float64
+	fontSize      float64
+	dpi           float64
 }
 
 func newFakeSurface() FakeSurface {
@@ -116,10 +118,15 @@ type SVGImage struct {
 	baseUrl    string
 	svgData    string
 	urlFetcher utils.UrlFetcher
-	tree       *html.Node
+	tree       *utils.HTMLNode
 
-	width, height pr.Float
+	width, height   float64
+	intrinsicWidth  pr.MaybeFloat
+	intrinsicHeight pr.MaybeFloat
+	intrinsicRatio  pr.MaybeFloat
 }
+
+func (SVGImage) isImage() {}
 
 func NewSVGImage(svgData string, baseUrl string, urlFetcher utils.UrlFetcher) (*SVGImage, error) {
 	self := new(SVGImage)
@@ -130,12 +137,16 @@ func NewSVGImage(svgData string, baseUrl string, urlFetcher utils.UrlFetcher) (*
 	}
 	self.svgData = svgData
 	self.urlFetcher = urlFetcher
-	var err error
-	self.tree, err = html.Parse(strings.NewReader(self.svgData))
+	tree, err := html.Parse(strings.NewReader(self.svgData))
 	if err != nil {
 		return nil, imageLoadingError(err)
 	}
+	self.tree = (*utils.HTMLNode)(tree)
 	return self, nil
+}
+
+func (s SVGImage) IntrinsicRatio() pr.MaybeFloat {
+	return s.intrinsicRatio
 }
 
 //  func CairosvgUrlFetcher(self, src, mimetype) {
@@ -145,37 +156,43 @@ func NewSVGImage(svgData string, baseUrl string, urlFetcher utils.UrlFetcher) (*
 //         } return data["fileObj"].read()
 //     }
 
-// func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.MaybeFloat) {
-// 	// Vector images may be affected by the font size.
-// 	fakeSurface := newFakeSurface()
-// 	fakeSurface.fontSize = fontSize.Value
-// 	// Percentages don"t provide an intrinsic size, we transform percentages
-// 	// into 0 using a (0, 0) context size :
-// 	// http://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
-// 	self.width = cairosvg.surface.size(fakeSurface, self.Tree.get("width"))
-// 	self.height = cairosvg.surface.size(fakeSurface, self.Tree.get("height"))
-// 	_, _, viewbox = cairosvg.surface.nodeFormat(fakeSurface, self.Tree)
-// 	self.IntrinsicWidth = self.width || nil
-// 	self.IntrinsicHeight = self.height || nil
-// 	self.intrinsicRatio = nil
-// 	if viewbox {
-// 		if self.width && self.height {
-// 			self.intrinsicRatio = self.width / self.height
-// 		} else {
-// 			if viewbox[2] && viewbox[3] {
-// 				self.intrinsicRatio = viewbox[2] / viewbox[3]
-// 				if self.width {
-// 					self.IntrinsicHeight = (self.width / self.intrinsicRatio)
-// 				} else if self.height {
-// 					self.IntrinsicWidth = (self.height * self.intrinsicRatio)
-// 				}
-// 			}
-// 		}
-// 	} else if self.width && self.height {
-// 		self.intrinsicRatio = self.width / self.height
-// 	}
-// 	return self.IntrinsicWidth, self.IntrinsicHeight
-// }
+func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.MaybeFloat) {
+	// Vector images may be affected by the font size.
+	fakeSurface := newFakeSurface()
+	fakeSurface.fontSize = float64(fontSize.Value)
+	// Percentages don't provide an intrinsic size, we transform percentages
+	// into 0 using a (0, 0) context size :
+	// http://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
+	s.width = size(fakeSurface, s.tree.Get("width"), floatOrString{s: "xy"})
+	s.height = size(fakeSurface, s.tree.Get("height"), floatOrString{s: "xy"})
+	_, _, viewbox := nodeFormat(fakeSurface, s.tree, true)
+	s.intrinsicWidth = nil
+	if s.width != 0 {
+		s.intrinsicWidth = pr.Float(s.width)
+	}
+	s.intrinsicHeight = nil
+	if s.height != 0 {
+		s.intrinsicHeight = pr.Float(s.height)
+	}
+	s.intrinsicRatio = nil
+	if len(viewbox) != 0 {
+		if s.width != 0 && s.height != 0 {
+			s.intrinsicRatio = pr.Float(s.width / s.height)
+		} else {
+			if viewbox[2] != 0 && viewbox[3] != 0 {
+				s.intrinsicRatio = pr.Float(viewbox[2] / viewbox[3])
+				if s.width != 0 {
+					s.intrinsicHeight = pr.Float(s.width) / s.intrinsicRatio.V()
+				} else if s.height != 0 {
+					s.intrinsicWidth = pr.Float(s.height) * s.intrinsicRatio.V()
+				}
+			}
+		}
+	} else if s.width != 0 && s.height != 0 {
+		s.intrinsicRatio = pr.Float(s.width / s.height)
+	}
+	return s.intrinsicWidth, s.intrinsicHeight
+}
 
 //  func (s SVGImage) draw(context, concreteWidth, concreteHeight, ImageRendering) {
 //         try {

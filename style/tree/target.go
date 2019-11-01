@@ -27,11 +27,47 @@ type SkipStack struct {
 	Stack *SkipStack
 }
 
+type PageState struct {
+	QuoteDepth    []int
+	CounterValues CounterValues
+	CounterScopes []pr.Set
+}
+
+// Copy returns a deep copy.
+func (s PageState) Copy() PageState {
+	out := PageState{}
+	out.QuoteDepth = append([]int{}, s.QuoteDepth...)
+	out.CounterValues  = s.CounterValues.Copy()
+	out.CounterScopes = make([]pr.Set, len(s.CounterScopes))
+	for i, v := range s.CounterScopes {
+		out.CounterScopes[i] = v.Copy()
+	}
+	return out
+}
+
+// Equal returns `true` for deep equality
+func (s PageState) Equal(other PageState) bool {
+	if len(s.CounterScopes) != len(other.CounterScopes) {
+		return false
+	}
+	for i := range s.CounterScopes {
+		if !s.CounterScopes[i].Equal(other.CounterScopes[i]) {
+			return false
+		}
+	}
+	return equalInts(s.QuoteDepth, other.QuoteDepth) && s.CounterValues.Equal(other.CounterValues)
+}
+
+type PageBreak struct {
+	Break string
+	Page  pr.Page
+}
+
 type PageMaker struct {
 	InitialResumeAt  *SkipStack
-	InitialNextPage  int
-	RightPage        int
-	InitialPageState int
+	InitialNextPage  PageBreak
+	RightPage        bool
+	InitialPageState PageState
 	RemakeState      RemakeState
 }
 
@@ -135,6 +171,10 @@ type optionnalInt struct {
 	none bool
 }
 
+func NewOptionnalInt(i int) optionnalInt {
+	return optionnalInt{int:i}
+}
+
 // Item controlling page based counters.
 //
 // Collected in the TargetCollector's ``CounterLookupItems``.
@@ -147,7 +187,7 @@ type CounterLookupItem struct {
 	MissingTargetCounters map[string]pr.Set
 
 	// Box position during pagination (pageNumber - 1)
-	pageMakerIndex optionnalInt
+	PageMakerIndex optionnalInt
 
 	// Marker for remakePage
 	Pending bool
@@ -161,7 +201,7 @@ func NewCounterLookupItem(parseAgain ParseFunc, missingCounters pr.Set, missingT
 		ParseAgain:              parseAgain,
 		MissingCounters:         missingCounters,
 		MissingTargetCounters:   missingTargetCounters,
-		pageMakerIndex:          optionnalInt{none: true},
+		PageMakerIndex:          optionnalInt{none: true},
 		CachedPageCounterValues: CounterValues{},
 	}
 }
@@ -362,7 +402,7 @@ func (tc TargetCollector) CacheTargetPageCounters(anchorName string, pageCounter
 		}
 
 		// Pending marker for remakePage
-		if item.pageMakerIndex.none || item.pageMakerIndex.int >= len(pageMaker) {
+		if item.PageMakerIndex.none || item.PageMakerIndex.int >= len(pageMaker) {
 			item.Pending = true
 			continue
 		}
@@ -372,7 +412,7 @@ func (tc TargetCollector) CacheTargetPageCounters(anchorName string, pageCounter
 		// brake.
 		for counterName := range missingCounters {
 			if _, in := pageCounterValues[counterName]; in {
-				pageMaker[item.pageMakerIndex.int].RemakeState.ContentChanged = true
+				pageMaker[item.PageMakerIndex.int].RemakeState.ContentChanged = true
 				item.ParseAgain(item.CachedPageCounterValues)
 				break
 			}

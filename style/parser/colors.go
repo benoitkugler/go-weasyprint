@@ -220,6 +220,14 @@ type RGBA struct {
 	R, G, B, A float64
 }
 
+func (color RGBA) Unpack() (r, g, b, a float64) {
+	return color.R, color.G, color.B, color.A
+}
+
+func (color RGBA) IsNone() bool {
+	return color == RGBA{}
+}
+
 type ColorType uint8
 
 type Color struct {

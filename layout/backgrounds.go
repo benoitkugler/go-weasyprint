@@ -89,8 +89,8 @@ func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu) {
 			anyImages = true
 		}
 	}
-	color := style.ResolveColor("background_color")
-	if color.RGBA.A == 0 && !anyImages {
+	color := style.ResolveColor("background_color").RGBA
+	if color.A == 0 && !anyImages {
 		box.Background = nil
 		if page != box_ { // Pages need a background for bleed box
 			return

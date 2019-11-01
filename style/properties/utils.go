@@ -218,3 +218,24 @@ func (bs Strings) Repeat(n int) CssProperty {
 	}
 	return out
 }
+
+// --------------- Geometry -------------------------
+
+type Rectangle [4]Float
+
+func (r Rectangle) ToFloat64() [4]float64 {
+	return [4]float64{float64(r[0]), float64(r[1]), float64(r[2]), float64(r[3])}
+}
+
+func (r Rectangle) Unpack() (x, y, w, h float64) {
+	o := r.ToFloat64()
+	return o[0], o[1], o[2], o[3]
+}
+
+func (r Rectangle) Unpack2() (x, y, w, h Float) {
+	return r[0], r[1], r[2], r[3]
+}
+
+func (r Rectangle) IsNone() bool {
+	return r == Rectangle{}
+}
