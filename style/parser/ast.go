@@ -77,7 +77,7 @@ type bracketsBlock struct {
 }
 type numericToken struct {
 	Origine
-	Value          float32
+	Value          float64
 	IsInteger      bool
 	Representation string
 }
@@ -177,7 +177,7 @@ func (t PercentageToken) IntValue() int {
 
 // ---------------- JSON -------------------------------------------
 type myString string
-type myFloat float32
+type myFloat float64
 type myBool bool
 type myInt int
 

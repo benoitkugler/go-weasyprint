@@ -5,10 +5,11 @@ import (
 	"math"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/utils"
+
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // Preferred and minimum preferred width, aka. max-content and min-content

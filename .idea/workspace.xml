@@ -1,9 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AnalysisUIOptions">
+    <option name="SCOPE_TYPE" value="8" />
+    <option name="CUSTOM_SCOPE_NAME" value="Go" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/boxes/boxes.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/boxes/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/build.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/boxes/pango_layout.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/pango_layout.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/css/accessors.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/css/defs.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/css/properties.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/css/s_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/css/style.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/generated_old.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/structure_old/boxes.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/structure_old/boxes2" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/structure_old/boxes_def.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/structure_old/boxes_impl.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/structure_old/boxes_test.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deprecated/structure_old/generated.go" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/draw.go" beforeDir="false" afterPath="$PROJECT_DIR$/draw.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/images/images.go" beforeDir="false" afterPath="$PROJECT_DIR$/images/images.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/absolute.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/absolute.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/blocks.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/blocks.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/columns.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/columns.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/flex.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/flex.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/float.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/float.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/inlines.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/inlines.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/pages.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pages.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/preferred.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/preferred.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/tables.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/tables.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/macros/boxes.py" beforeDir="false" afterPath="$PROJECT_DIR$/macros/boxes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/macros/props.py" beforeDir="false" afterPath="$PROJECT_DIR$/macros/props.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pt" beforeDir="false" afterPath="$PROJECT_DIR$/pt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/stacking.go" beforeDir="false" afterPath="$PROJECT_DIR$/stacking.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/parser/ast.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/ast.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/parser/colors.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/colors.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/parser/tokenizer.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/parser/tokenizer.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/float.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/float.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/types.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/types.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/utils.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/computed_values.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/target.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/validation.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/validation_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/a_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/a_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/math.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/math.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -32,9 +78,12 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" path="$PROJECT_DIR$/../../../../../../go" />
+  <component name="GOROOT" path="/usr/local/go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="NamedScopeManager">
+    <scope name="Go" pattern="file:*.go" />
   </component>
   <component name="ProjectConfigurationFiles">
     <option name="files">
@@ -69,6 +118,7 @@
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="nodejs_package_manager_path" value="npm" />
+    <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="watcher.settings" />
   </component>
   <component name="RecentsManager">
@@ -96,7 +146,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Go Test.TestDescriptors in github.com/benoitkugler/go-weasyprint/style/style">
+  <component name="RunManager" selected="Go Test.go test github.com/benoitkugler/go-weasyprint/style/tree">
     <configuration name="TestDescriptors in github.com/benoitkugler/go-weasyprint/style/style" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="go-weasyprint" />
       <working_directory value="$PROJECT_DIR$/style/style" />
@@ -106,17 +156,6 @@
       <directory value="$PROJECT_DIR$/" />
       <filePath value="$PROJECT_DIR$/" />
       <pattern value="^TestDescriptors$" />
-      <method v="2" />
-    </configuration>
-    <configuration name="TestFunction in github.com/benoitkugler/go-weasyprint/style/validation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
-      <module name="go-weasyprint" />
-      <working_directory value="$PROJECT_DIR$/style/validation" />
-      <framework value="gotest" />
-      <kind value="PACKAGE" />
-      <package value="github.com/benoitkugler/go-weasyprint/style/validation" />
-      <directory value="$PROJECT_DIR$/" />
-      <filePath value="$PROJECT_DIR$/" />
-      <pattern value="^TestFunction$" />
       <method v="2" />
     </configuration>
     <configuration name="TestLoadStyleSheets in github.com/benoitkugler/go-weasyprint/style/style" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
@@ -141,28 +180,48 @@
       <pattern value="^TestNth$" />
       <method v="2" />
     </configuration>
-    <configuration name="go test github.com/benoitkugler/go-weasyprint/style/validation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="go test github.com/benoitkugler/go-weasyprint/style/properties" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="go-weasyprint" />
-      <working_directory value="$PROJECT_DIR$/style/validation" />
+      <working_directory value="$PROJECT_DIR$/style/properties" />
       <framework value="gotest" />
       <kind value="PACKAGE" />
-      <package value="github.com/benoitkugler/go-weasyprint/style/validation" />
+      <package value="github.com/benoitkugler/go-weasyprint/style/properties" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test github.com/benoitkugler/go-weasyprint/style/tree" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-weasyprint" />
+      <working_directory value="$PROJECT_DIR$/style/tree" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/benoitkugler/go-weasyprint/style/tree" />
       <directory value="$PROJECT_DIR$/" />
       <filePath value="$PROJECT_DIR$/" />
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Go Test.go test github.com/benoitkugler/go-weasyprint/style/tree" />
+        <item itemvalue="Go Test.go test github.com/benoitkugler/go-weasyprint/style/properties" />
         <item itemvalue="Go Test.TestDescriptors in github.com/benoitkugler/go-weasyprint/style/style" />
         <item itemvalue="Go Test.TestLoadStyleSheets in github.com/benoitkugler/go-weasyprint/style/style" />
         <item itemvalue="Go Test.TestNth in github.com/benoitkugler/go-weasyprint/style/parser" />
-        <item itemvalue="Go Test.go test github.com/benoitkugler/go-weasyprint/style/validation" />
-        <item itemvalue="Go Test.TestFunction in github.com/benoitkugler/go-weasyprint/style/validation" />
       </list>
     </recent_temporary>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
+  </component>
+  <component name="Vcs.Log.History.Properties">
+    <option name="COLUMN_ORDER">
+      <list>
+        <option value="0" />
+        <option value="2" />
+        <option value="3" />
+        <option value="1" />
+      </list>
+    </option>
   </component>
   <component name="Vcs.Log.Tabs.Properties">
     <option name="TAB_STATES">

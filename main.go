@@ -6,4 +6,4 @@ import (
 )
 
 type Box = bo.Box
-type Color = parser.Color
+type Color = parser.RGBA

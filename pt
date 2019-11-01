@@ -1,5 +1,5 @@
 // Draw the background color && image of the table children.
-func drawTableBackgrounds(context, page, table, enableHinting) {
+func drawTableBackgrounds(context Drawer, page, table, enableHinting) {
     for columnGroup := range table.columnGroups {
         drawBackground(context, columnGroup.background, enableHinting)
         for column := range columnGroup.children {
@@ -20,7 +20,7 @@ func drawTableBackgrounds(context, page, table, enableHinting) {
     }
 } 
 
-func drawBackgroundImage(context, layer, imageRendering) {
+func drawBackgroundImage(context Drawer, layer, imageRendering) {
     if layer.image  == nil  {
         return
     }
@@ -119,7 +119,7 @@ func styledColor(style, color, side) {
 } 
 
 // Draw the box border to a ``cairo.Context``.
-func drawBorder(context, box, enableHinting) {
+func drawBorder(context Drawer, box, enableHinting) {
     // We need a plan to draw beautiful borders, && that"s difficult, no need
     // to lie. Let"s try to find the cases that we can handle := range a smart way.
 } 
@@ -200,7 +200,7 @@ func drawBorder(context, box, enableHinting) {
     drawColumnBorder()
 
 
-func clipBorderSegment(context, enableHinting, style, width, side,
+func clipBorderSegment(context Drawer, enableHinting, style, width, side,
                         borderBox, borderWidths=None, radii=None) {
                         }
         }
@@ -414,7 +414,7 @@ func clipBorderSegment(context, enableHinting, style, width, side,
     context.clip()
 
 
-func drawRoundedBorder(context, box, style, color) {
+func drawRoundedBorder(context Drawer, box, style, color) {
     context.setFillRule(cairo.FILLRULEEVENODD)
     roundedBoxPath(context, box.roundedPaddingBox())
     if style := range ("ridge", "groove") {
@@ -434,7 +434,7 @@ func drawRoundedBorder(context, box, style, color) {
     context.fill()
 } 
 
-func drawRectBorder(context, box, widths, style, color) {
+func drawRectBorder(context Drawer, box, widths, style, color) {
     context.setFillRule(cairo.FILLRULEEVENODD)
     bbx, bby, bbw, bbh = box
     bt, br, bb, bl = widths
@@ -465,7 +465,7 @@ func drawRectBorder(context, box, widths, style, color) {
     context.fill()
 } 
 
-func drawOutlines(context, box, enableHinting) {
+func drawOutlines(context Drawer, box, enableHinting) {
     width = box.style["outlineWidth"]
     color = getColor(box.style, "outlineColor")
     style = box.style["outlineStyle"]
@@ -494,7 +494,7 @@ func drawOutlines(context, box, enableHinting) {
 
 
 // Draw borders of table cells when they collapse.
-func drawCollapsedBorders(context, table, enableHinting) {
+func drawCollapsedBorders(context Drawer, table, enableHinting) {
     rowHeights = [row.height for rowGroup := range table.children
                    for row := range rowGroup.children]
     columnWidths = table.columnWidths
@@ -626,7 +626,7 @@ func drawCollapsedBorders(context, table, enableHinting) {
 
 
 // Draw the given :class:`boxes.ReplacedBox` to a ``cairo.context``.
-func drawReplacedbox(context, box) {
+func drawReplacedbox(context Drawer, box) {
     if box.style["visibility"] != "visible" || ! box.width || ! box.height {
         return
     }
@@ -642,7 +642,7 @@ func drawReplacedbox(context, box) {
     }
 
 
-func drawInlineLevel(context, page, box, enableHinting, offsetX=0,
+func drawInlineLevel(context Drawer, page, box, enableHinting, offsetX=0,
                       textOverflow="clip") {
                       }
     if isinstance(box, StackingContext) {
@@ -682,7 +682,7 @@ func drawInlineLevel(context, page, box, enableHinting, offsetX=0,
     }
 
 
-func drawText(context, textbox, enableHinting, offsetX=0,
+func drawText(context Drawer, textbox, enableHinting, offsetX=0,
               textOverflow="clip") {
               }
     """Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``."""
@@ -736,7 +736,7 @@ func drawText(context, textbox, enableHinting, offsetX=0,
     textbox.pangoLayout.deactivate()
 
 
-func drawWave(context, x, y, width, offsetX, radius) {
+func drawWave(context Drawer, x, y, width, offsetX, radius) {
     context.newPath()
     diameter = 2 * radius
     waveIndex = offsetX // diameter
@@ -762,7 +762,7 @@ func drawWave(context, x, y, width, offsetX, radius) {
         waveIndex += 1
 
 
-func drawTextDecoration(context, textbox, offsetX, offsetY, thickness,
+func drawTextDecoration(context Drawer, textbox, offsetX, offsetY, thickness,
                          enableHinting, color) {
                          }
     """Draw text-decoration of ``textbox`` to a ``cairo.Context``."""

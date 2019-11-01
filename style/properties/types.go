@@ -63,7 +63,7 @@ type AttrData struct {
 	Fallback   CssProperty
 }
 
-type Float float32
+type Float float64
 
 type Int int
 
@@ -193,7 +193,7 @@ type ColorStop struct {
 
 type DirectionType struct {
 	Corner string
-	Angle  float32
+	Angle  float64
 }
 
 type GradientSize struct {

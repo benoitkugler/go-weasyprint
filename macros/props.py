@@ -47,7 +47,7 @@ TEMPLATE_HEADER_IS_NONE = """func (v {type_}) IsNone() bool {{
 TYPES = {
     "string": ("builtin", ""),
     "int": ("builtin", ""),
-    "float32": ("builtin", ""),
+    "float64": ("builtin", ""),
     "bool": ("builtin", ""),
     "uint8": ("builtin", ""),
     "parser.Color": ("builtin", ""),
@@ -60,7 +60,7 @@ TYPES = {
 ZERO_VALUES = {
     "string": '""',
     "int": "0",
-    "float32": "0.",
+    "float64": "0.",
     "bool": "false",
     "uint8": "0"
 }

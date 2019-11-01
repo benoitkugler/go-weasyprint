@@ -184,7 +184,7 @@ func TestSortOrder(t *testing.T) {
 }
 
 func TestInf(t *testing.T) {
-	u := float32(math.Inf(1))
+	u := math.Inf(1)
 	fmt.Println(u, -u, -u < 0)
 
 }

@@ -5,13 +5,13 @@ package boxes
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/benoitkugler/go-weasyprint/images"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 //    Classes for all types of boxes in the CSS formatting structure / box model.
@@ -158,7 +158,8 @@ type BoxFields struct {
 
 	isAttachment bool
 	// isListMarker         bool
-	// transformationMatrix interface{}
+
+	TransformationMatrix interface{}
 
 	bookmarkLabel string
 
@@ -383,14 +384,14 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	brr := self.BorderBottomRightRadius.V()
 	blr := self.BorderBottomLeftRadius.V()
 
-	tlrx := pr.Float(utils.Max(0, float32(tlr[0]-bl)))
-	tlry := pr.Float(utils.Max(0, float32(tlr[1]-bt)))
-	trrx := pr.Float(utils.Max(0, float32(trr[0]-br)))
-	trry := pr.Float(utils.Max(0, float32(trr[1]-bt)))
-	brrx := pr.Float(utils.Max(0, float32(brr[0]-br)))
-	brry := pr.Float(utils.Max(0, float32(brr[1]-bb)))
-	blrx := pr.Float(utils.Max(0, float32(blr[0]-bl)))
-	blry := pr.Float(utils.Max(0, float32(blr[1]-bb)))
+	tlrx := pr.Float(math.Max(0, float64(tlr[0]-bl)))
+	tlry := pr.Float(math.Max(0, float64(tlr[1]-bt)))
+	trrx := pr.Float(math.Max(0, float64(trr[0]-br)))
+	trry := pr.Float(math.Max(0, float64(trr[1]-bt)))
+	brrx := pr.Float(math.Max(0, float64(brr[0]-br)))
+	brry := pr.Float(math.Max(0, float64(brr[1]-bb)))
+	blrx := pr.Float(math.Max(0, float64(blr[0]-bl)))
+	blry := pr.Float(math.Max(0, float64(blr[1]-bb)))
 
 	x := self.BorderBoxX() + bl
 	y := self.BorderBoxY() + bt

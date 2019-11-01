@@ -133,7 +133,7 @@ mainLoop:
 				Origine:        tokenPos,
 				Representation: repr,
 				IsInteger:      isInt,
-				Value:          float32(value),
+				Value:          value,
 			}
 			if pos < length && isIdentStart(css, pos) {
 				var unit string

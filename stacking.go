@@ -108,7 +108,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 			box = absPlac.AliasBox
 		}
 		style := box.Box().Style
-		absoluteAndZIndex := (style.GetPosition().String != "static" && style.GetZIndex().String != "auto")
+		absoluteAndZIndex := style.GetPosition().String != "static" && style.GetZIndex().String != "auto"
 		if absoluteAndZIndex || style.GetOpacity() < 1 ||
 			// "transform: none" gives a "falsy" empty list here
 			len(style.GetTransform()) != 0 || style.GetOverflow() != "visible" {

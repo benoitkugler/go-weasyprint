@@ -10,7 +10,6 @@ import (
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // Expand shorthands and validate property values.
@@ -48,7 +47,7 @@ var (
 
 	// http://dev.w3.org/csswg/css3-values/#angles
 	// 1<unit> is this many radians.
-	ANGLETORADIANS = map[pr.Unit]float32{
+	ANGLETORADIANS = map[pr.Unit]float64{
 		pr.Rad:  1,
 		pr.Turn: 2 * math.Pi,
 		pr.Deg:  math.Pi / 180,
@@ -56,10 +55,10 @@ var (
 	}
 
 	// http://dev.w3.org/csswg/css-values/#resolution
-	RESOLUTIONTODPPX = map[string]float32{
+	RESOLUTIONTODPPX = map[string]float64{
 		"dppx": 1,
-		"dpi":  float32(1 / pr.LengthsToPixels[pr.In]),
-		"dpcm": float32(1 / pr.LengthsToPixels[pr.Cm]),
+		"dpi":  float64(1 / pr.LengthsToPixels[pr.In]),
+		"dpcm": float64(1 / pr.LengthsToPixels[pr.Cm]),
 	}
 
 	couplesLigatures = [][]string{
@@ -484,7 +483,7 @@ func getLength(_token Token, negative, percentage bool) pr.Dimension {
 }
 
 // Return the value in radians of an <angle> token, or None.
-func getAngle(token Token) (float32, bool) {
+func getAngle(token Token) (float64, bool) {
 	if dim, ok := token.(parser.DimensionToken); ok {
 		unit, in := AngleUnits[string(dim.Unit)]
 		if in {
@@ -495,7 +494,7 @@ func getAngle(token Token) (float32, bool) {
 }
 
 // Return the value := range dppx of a <resolution> token, || None.
-func getResolution(token Token) (float32, bool) {
+func getResolution(token Token) (float64, bool) {
 	if dim, ok := token.(parser.DimensionToken); ok {
 		factor, in := RESOLUTIONTODPPX[string(dim.Unit)]
 		if in {
@@ -1892,7 +1891,7 @@ func opacity(tokens []Token, _ string) pr.CssProperty {
 	}
 	token := tokens[0]
 	if number, ok := token.(parser.NumberToken); ok {
-		return pr.Float(utils.Min(1, utils.Max(0, number.Value)))
+		return pr.Float(math.Min(1, math.Max(0, number.Value)))
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock bo.BoxFields,
 	// TODO: This is only handled later in blocks.blockContainerLayout
 	// http://www.w3.org/TR/CSS21/visudet.html#normal-block
 	if cbHeight == pr.Auto {
-		cbHeight = pr.Float(containingBlock.PositionY - containingBlock.ContentBoxY())
+		cbHeight = containingBlock.PositionY - containingBlock.ContentBoxY()
 	}
 
 	box := box_.Box()
@@ -128,7 +128,7 @@ func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin pr.Fl
 				if clearance != nil {
 					safeClearance = clearance.V()
 				}
-				clearance = pr.Float(pr.Max(safeClearance, y+h-hypotheticalPosition))
+				clearance = pr.Max(safeClearance, y+h-hypotheticalPosition)
 			}
 		}
 	}

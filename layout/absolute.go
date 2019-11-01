@@ -139,7 +139,7 @@ func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock containing
 			box.Width = shrinkToFit(context, box_, cbWidth-spacing-left.V())
 			translateX = left.V() + defaultTranslateX
 		} else if left == pr.Auto {
-			translateX = (cbWidth + defaultTranslateX - right.V() - spacing - width.V())
+			translateX = cbWidth + defaultTranslateX - right.V() - spacing - width.V()
 		} else if width == pr.Auto {
 			box.Width = cbWidth.V() - right.V() - left.V() - spacing
 			translateX = left.V() + defaultTranslateX
@@ -208,7 +208,7 @@ func absoluteHeight(box_ Box, context LayoutContext, containingBlock block) (boo
 		} else if height == pr.Auto && bottom == pr.Auto {
 			translateY = top.V() + defaultTranslateY
 		} else if top == pr.Auto {
-			translateY = (cbHeight.V() + defaultTranslateY - bottom.V() - spacing - height.V())
+			translateY = cbHeight.V() + defaultTranslateY - bottom.V() - spacing - height.V()
 		} else if height == pr.Auto {
 			box.Height = cbHeight.V() - bottom.V() - top.V() - spacing
 			translateY = top.V() + defaultTranslateY

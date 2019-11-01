@@ -66,7 +66,7 @@ func sumCross(f []FlexLine) pr.Float {
 	for _, line := range f {
 		sumCross += line.crossSize
 	}
-	return pr.Float(sumCross)
+	return sumCross
 }
 
 func getAttr(box *bo.BoxFields, axis, min string) pr.MaybeFloat {
@@ -202,7 +202,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	if bo.TypeFlexBox.IsInstance(parentBox_) {
 		blockLevelWidth(parentBox_, nil, containingBlock)
 	} else {
-		parentBox.Width = pr.Float(flexMaxContentWidth(context, *parentBox, true))
+		parentBox.Width = flexMaxContentWidth(context, *parentBox, true)
 	}
 	originalSkipStack := skipStack
 	if skipStack != nil {
@@ -245,7 +245,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			newChild.Box().Style.SetWidth(pr.SToV("auto"))
 			newChild.Box().Style.SetMinWidth(pr.ZeroPixels.ToValue())
 			newChild.Box().Style.SetMaxWidth(pr.Dimension{Value: pr.Inf, Unit: pr.Px}.ToValue())
-			contentSize := pr.Float(minContentWidth(context, newChild, false))
+			contentSize := minContentWidth(context, newChild, false)
 			child.MinWidth = pr.Min(specifiedSize, contentSize)
 		} else if child.MinHeight == pr.Auto {
 			// TODO: find a way to get min-content-height
@@ -262,7 +262,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			newChild.Box().Style.SetMinHeight(pr.ZeroPixels.ToValue())
 			newChild.Box().Style.SetMaxHeight(pr.Dimension{Value: pr.Inf, Unit: pr.Px}.ToValue())
 			newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack, *parentBox, pageIsEmpty, nil, nil, nil)
-			contentSize := pr.Float(newChild.Box().Height.V())
+			contentSize := newChild.Box().Height.V()
 			child.MinHeight = pr.Min(specifiedSize, contentSize)
 		}
 
@@ -272,7 +272,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			flexBasis = pr.SToV("content")
 			child.FlexBasis = flexBasis
 		} else {
-			child.FlexBasis = pr.MaybeFloatToValue(resolveOnePercentage(child.Style.GetFlexBasis(), "flex_basis", pr.Float(availableMainSpace), ""))
+			child.FlexBasis = pr.MaybeFloatToValue(resolveOnePercentage(child.Style.GetFlexBasis(), "flex_basis", availableMainSpace, ""))
 			flexBasis = child.FlexBasis
 		}
 
@@ -283,7 +283,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		if axis == "width" {
 			target = &child.Width
 		}
-		*target = resolveOnePercentage(pr.MaybeFloatToValue(*target), axis, pr.Float(availableMainSpace), "")
+		*target = resolveOnePercentage(pr.MaybeFloatToValue(*target), axis, availableMainSpace, "")
 		if flexBasis.String == "auto" {
 			if getCross(child, axis).String == "auto" {
 				flexBasis = pr.SToV("content")
@@ -327,7 +327,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			if styleAxis.String == "max-content" {
 				child.Style[axis] = pr.SToV("auto")
 				if axis == "width" {
-					child.FlexBaseSize = pr.Float(maxContentWidth(context, child_, true))
+					child.FlexBaseSize = maxContentWidth(context, child_, true)
 				} else {
 					newChild := child_.Copy()
 					if bo.IsParentBox(child_) {
@@ -336,12 +336,12 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					newChild.Box().Width = pr.Inf
 					newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
 						*parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
-					child.FlexBaseSize = pr.Float(newChild.Box().MarginHeight())
+					child.FlexBaseSize = newChild.Box().MarginHeight()
 				}
 			} else if styleAxis.String == "min-content" {
 				child.Style[axis] = pr.SToV("auto")
 				if axis == "width" {
-					child.FlexBaseSize = pr.Float(minContentWidth(context, child_, true))
+					child.FlexBaseSize = minContentWidth(context, child_, true)
 				} else {
 					newChild := child_.Copy()
 					if bo.IsParentBox(child_) {
@@ -350,7 +350,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					newChild.Box().Width = pr.Float(0)
 					newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
 						*parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
-					child.FlexBaseSize = pr.Float(newChild.Box().MarginHeight())
+					child.FlexBaseSize = newChild.Box().MarginHeight()
 				}
 			} else if styleAxis.Unit == pr.Px {
 				// TODO: should we add padding, borders and margins?
@@ -390,7 +390,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					children = children[:i+1]
 					break
 				}
-				box.Height = pr.Float(box.Height.V() + childHeight)
+				box.Height = box.Height.V() + childHeight
 			}
 		}
 	}
@@ -469,7 +469,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		}
 
 		// Step 6 - 9.7.3
-		initialFreeSpace := pr.Float(availableMainSpace)
+		initialFreeSpace := availableMainSpace
 		for _, v := range line.line {
 			child := v.box.Box()
 			if child.Frozen {
@@ -482,7 +482,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		// Step 6 - 9.7.4
 		for !line.allFrozen() {
 			var unfrozenFactorSum pr.Float
-			remainingFreeSpace := pr.Float(availableMainSpace)
+			remainingFreeSpace := availableMainSpace
 
 			// Step 6 - 9.7.4.B
 			for _, v := range line.line {
@@ -641,9 +641,9 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				// As flex items margins never collapse (with other flex items
 				// or with the flex container), we can add the adjoining margins
 				// to the child bottom margin.
-				child.MarginBottom = pr.Float(child.MarginBottom.V() + collapseMargin(adjoiningMargins))
+				child.MarginBottom = child.MarginBottom.V() + collapseMargin(adjoiningMargins)
 			} else {
-				child.Width = pr.Float(minContentWidth(context, child_, false))
+				child.Width = minContentWidth(context, child_, false)
 			}
 
 			newFlexLine.line = append(newFlexLine.line, indexedBox{index: v.index, box: child_})
@@ -775,9 +775,9 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 								child.PaddingLeft.V() + child.PaddingRight.V() + child.BorderLeftWidth.V() + child.BorderRightWidth.V()
 						}
 						if cross == "width" {
-							child.Width = pr.Float(crossSize)
+							child.Width = crossSize
 						} else {
-							child.Height = pr.Float(crossSize)
+							child.Height = crossSize
 						}
 						// TODO: redo layout?
 					}

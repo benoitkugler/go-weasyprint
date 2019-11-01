@@ -49,7 +49,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		}
 		horizontalBorders := table.CollapsedBorderGrid.Horizontal
 		if len(horizontalBorders) != 0 {
-			var max float32
+			var max float64
 			for _, tmp := range horizontalBorders[skippedRows] {
 				if tmp.Width > max {
 					max = tmp.Width
@@ -872,7 +872,7 @@ func findInFlowBaseline(box Box, last bool, baselineTypes ...bo.BoxType) pr.Mayb
 	// See https://www.w3.org/TR/css-align-3/#synthesize-baseline
 	for _, type_ := range baselineTypes { // if isinstance(box, baselineTypes)
 		if type_.IsInstance(box) {
-			return pr.Float(box.Box().PositionY + box.Box().Baseline.V())
+			return box.Box().PositionY + box.Box().Baseline.V()
 		}
 	}
 	if bo.IsParentBox(box) && !bo.TypeTableCaptionBox.IsInstance(box) {

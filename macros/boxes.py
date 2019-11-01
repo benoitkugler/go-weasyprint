@@ -12,8 +12,8 @@ RE_ATTRIBUTES = re.compile(r"^    (\S+) = (.+)\n")
 RE_GO_FIELDS = re.compile(r"\t(\w+,? )+")
 
 TYPES_VARIABLES = {
-    "dx": "float32",
-    "dy": "float32",
+    "dx": "float64",
+    "dy": "float64",
     "ignore_floats": "bool",
     "side": "string",
     "start": "bool",
@@ -31,7 +31,7 @@ TYPES_RETURNS = {
     "descendants": "[]Box",
     "get_wrapped_table": "(Box, error)",
     "page_values": "(pr.Page, pr.Page)",
-    "hit_area": "(x float32, y float32, w float32, h float32)",
+    "hit_area": "(x float64, y float64, w float64, h float64)",
     "get_cells": "[]Box",
     "__repr__": "string",
 }

@@ -255,7 +255,7 @@ func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPosition
 			columnBox = createColumnBox(columnChildren)
 			columnBox.Box().PositionY = currentPositionY
 			if style.GetDirection() == "rtl" {
-				columnBox.Box().PositionX += (box.Width.V() - (i_+1)*width - i_*style.GetColumnGap().Value)
+				columnBox.Box().PositionX += box.Width.V() - (i_+1)*width - i_*style.GetColumnGap().Value
 			} else {
 				columnBox.Box().PositionX += i_ * (width + style.GetColumnGap().Value)
 			}

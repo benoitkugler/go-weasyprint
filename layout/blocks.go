@@ -209,7 +209,7 @@ func blockLevelWidth_(box_ Box, _ *LayoutContext, containingBlock_ containingBlo
 	if width != pr.Auto && marginL != pr.Auto && marginR != pr.Auto {
 		// The equation is over-constrained.
 		if containingBlock.Style.GetDirection() == "rtl" && !box.IsColumn {
-			box.PositionX += (cbWidth - paddingsPlusBorders - width.V() - marginR.V() - marginL.V())
+			box.PositionX += cbWidth - paddingsPlusBorders - width.V() - marginR.V() - marginL.V()
 		} // Do nothing := range ltr.
 	}
 	if width == pr.Auto {

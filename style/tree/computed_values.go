@@ -415,7 +415,7 @@ func asPixels(v pr.Value, pixelsOnly bool) pr.Value {
 
 // Computes a length ``value``.
 // passing a negative fontSize means null
-// Always returns a Value which is interpreted as float32 if Unit is zero.
+// Always returns a Value which is interpreted as float64 if Unit is zero.
 // pixelsOnly=false
 func length2(computer *computer, _ string, value pr.Value, fontSize pr.Float, pixelsOnly bool) pr.Value {
 	if value.String == "auto" || value.String == "content" {

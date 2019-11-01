@@ -102,7 +102,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 
 	if len(context.excludedShapes) != 0 {
 		// Width and height must be calculated to avoid floats
-		linebox.Width = pr.Float(inlineMinContentWidth(context, linebox, true, skipStack, true, false))
+		linebox.Width = inlineMinContentWidth(context, linebox, true, skipStack, true, false)
 		linebox.Height, _ = StrutLayout(linebox.Style, context)
 	} else {
 		// No float, width and height will be set by the lines
@@ -901,7 +901,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			floatResumeAt = index + 1
 			continue
 		}
-		lastChild := (index == len(box.Children)-1)
+		lastChild := index == len(box.Children)-1
 		availableWidth := maxX
 		var childWaitingFloats []Box
 		v := splitInlineLevel(context, child_, positionX, availableWidth, skipStack,
@@ -944,7 +944,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			if nil == lastLetter || first < 0 {
 				canBreak = False
 			} else {
-				canBreak = CanBreakText(string(lastLetter.(rune))+string(first), string(child.Style.GetLang().String))
+				canBreak = CanBreakText(string(lastLetter.(rune))+string(first), child.Style.GetLang().String)
 			}
 		}
 
@@ -1340,13 +1340,13 @@ func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY pr.Float
 			childBaselineY = top + child.Baseline.V()
 		case "text-top":
 			// align top with the top of the parent’s content area
-			top := (baselineY - box.Baseline.V() + box.MarginTop.V() +
-				box.BorderTopWidth.V() + box.PaddingTop.V())
+			top := baselineY - box.Baseline.V() + box.MarginTop.V() +
+							box.BorderTopWidth.V() + box.PaddingTop.V()
 			childBaselineY = top + child.Baseline.V()
 		case "text-bottom":
 			// align bottom with the bottom of the parent’s content area
-			bottom := (baselineY - box.Baseline.V() + box.MarginTop.V() +
-				box.BorderTopWidth.V() + box.PaddingTop.V() + box.Height.V())
+			bottom := baselineY - box.Baseline.V() + box.MarginTop.V() +
+							box.BorderTopWidth.V() + box.PaddingTop.V() + box.Height.V()
 			childBaselineY = bottom - child.MarginHeight() + child.Baseline.V()
 		case "top", "bottom":
 			// TODO: actually implement vertical-align: top and bottom
@@ -1534,7 +1534,7 @@ func canBreakInside(box Box) MaybeBool {
 		return False
 	} else if isTextBox {
 		if textWrap {
-			return CanBreakText(textBox.Text, string(box.Box().Style.GetLang().String))
+			return CanBreakText(textBox.Text, box.Box().Style.GetLang().String)
 		} else {
 			return False
 		}

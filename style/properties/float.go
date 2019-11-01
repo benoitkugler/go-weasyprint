@@ -3,11 +3,13 @@ package properties
 import (
 	"log"
 	"math"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // During layout, float numbers sometimes need special
 // values like "auto" or nil (None in Python).
-// This file define a float32-like type handling these cases.
+// This file define a float64-like type handling these cases.
 
 const (
 	Auto special = true
@@ -85,6 +87,20 @@ func Mins(values ...Float) Float {
 	}
 	return min
 }
+
+// FloatModulo implements Python modulo for float numbers, like
+//	4.456 % 3
+func FloatModulo(x Float, i int) Float {
+	x2 := Floor(x)
+	diff := x - x2
+	return Float(utils.ModLikePython(int(x2), i)) + diff
+}
+
+func Hypot(a, b Float) Float {
+	return Float(math.Hypot(float64(a), float64(b)))
+}
+
+func Abs(x Float) Float { return Float(math.Abs(float64(x))) }
 
 // Return the percentage of the reference value, or the value unchanged.
 // ``referTo`` is the length for 100%. If ``referTo`` is not a number, it

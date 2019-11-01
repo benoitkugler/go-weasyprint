@@ -344,21 +344,21 @@ func gradientAverageColor(colors []Color, positions []pr.Float) Color {
 		}
 		totalLength = pr.Float(nbStops - 1)
 	}
-	premulR := make([]float32, nbStops)
-	premulG := make([]float32, nbStops)
-	premulB := make([]float32, nbStops)
-	alpha := make([]float32, nbStops)
+	premulR := make([]float64, nbStops)
+	premulG := make([]float64, nbStops)
+	premulB := make([]float64, nbStops)
+	alpha := make([]float64, nbStops)
 	for i, col := range colors {
 		premulR[i] = col.R * col.A
 		premulG[i] = col.G * col.A
 		premulB[i] = col.B * col.A
 		alpha[i] = col.A
 	}
-	var resultR, resultG, resultB, resultA float32
+	var resultR, resultG, resultB, resultA float64
 	totalWeight := 2 * totalLength
 	for i, position := range positions[1:] {
 		i = i + 1
-		weight := float32((position - positions[i-1]) / totalWeight)
+		weight := float64((position - positions[i-1]) / totalWeight)
 		for j := i - 1; j < i; j += 1 {
 			resultR += premulR[j] * weight
 			resultG += premulG[j] * weight
@@ -472,12 +472,6 @@ func NewLinearGradient(from pr.LinearGradient) LinearGradient {
 	return self
 }
 
-func hypot(a, b pr.Float) pr.Float {
-	return pr.Float(math.Hypot(float64(a), float64(b)))
-}
-
-func abs(x pr.Float) pr.Float { return pr.Float(math.Abs(float64(x))) }
-
 func toData(c Color) [6]pr.Float {
 	return [6]pr.Float{pr.Float(c.R), pr.Float(c.G), pr.Float(c.B), pr.Float(c.A), 0, 0}
 }
@@ -501,23 +495,23 @@ func (self LinearGradient) layout(width, height pr.Float, userToDeviceDistance f
 		case "bottom_right":
 			factorX, factorY = 1, 1
 		}
-		diagonal := hypot(width, height)
+		diagonal := pr.Hypot(width, height)
 		// Note the direction swap: dx based on height, dy based on width
 		// The gradient line is perpendicular to a diagonal.
 		dx = factorX * height / diagonal
 		dy = factorY * width / diagonal
 	} else {
 		angle := self.direction.Angle // 0 upwards, then clockwise
-		dx = pr.Float(math.Sin(float64(angle)))
-		dy = pr.Float(-math.Cos(float64(angle)))
+		dx = pr.Float(math.Sin(angle))
+		dy = pr.Float(-math.Cos(angle))
 	}
 	// Distance between center && ending point,
 	// ie. half of between the starting point && ending point :
-	distance := abs(width*dx) + abs(height*dy)
+	distance := pr.Abs(width*dx) + pr.Abs(height*dy)
 	positions := processColorStops(distance, self.stopPositions)
 	first, last := normalizeStopPostions(positions)
 
-	devicePerUserUnits := hypot(userToDeviceDistance(dx, dy))
+	devicePerUserUnits := pr.Hypot(userToDeviceDistance(dx, dy))
 	if (last-first)*devicePerUserUnits < pr.Float(len(positions)) {
 		if self.repeating {
 			color := gradientAverageColor(self.colors, positions)
@@ -597,8 +591,8 @@ func (self RadialGradient) layout(width, height pr.Float, userToDeviceDistance f
 	positions := processColorStops(sizeX, self.stopPositions)
 	gradientLineSize := positions[len(positions)-1] - positions[0]
 
-	unit1 := hypot(userToDeviceDistance(1, 0))
-	unit2 := hypot(userToDeviceDistance(0, scaleY))
+	unit1 := pr.Hypot(userToDeviceDistance(1, 0))
+	unit2 := pr.Hypot(userToDeviceDistance(0, scaleY))
 	if self.repeating && (gradientLineSize*unit1 < pr.Float(len(positions)) || gradientLineSize*unit2 < pr.Float(len(positions))) {
 		color := gradientAverageColor(colors, positions)
 		return gradientLayout{scaleY: 1, init: gradientInit{type_: "solid", data: toData(color)}}
@@ -659,10 +653,10 @@ func (self RadialGradient) resolveSize(width, height, centerX, centerY pr.Float)
 		sizeY_ := pr.ResoudPercentage(sizeY.ToValue(), height).V()
 		return sizeX_, sizeY_
 	}
-	left := abs(centerX)
-	right := abs(width - centerX)
-	top := abs(centerY)
-	bottom := abs(height - centerY)
+	left := pr.Abs(centerX)
+	right := pr.Abs(width - centerX)
+	top := pr.Abs(centerY)
+	bottom := pr.Abs(height - centerY)
 	pick := pr.Maxs
 	if strings.HasPrefix(self.size.Keyword, "closest") {
 		pick = pr.Mins
@@ -677,12 +671,12 @@ func (self RadialGradient) resolveSize(width, height, centerX, centerY pr.Float)
 	}
 	// else: corner
 	if self.shape == "circle" {
-		sizeXy := pick(hypot(left, top), hypot(left, bottom),
-			hypot(right, top), hypot(right, bottom))
+		sizeXy := pick(pr.Hypot(left, top), pr.Hypot(left, bottom),
+			pr.Hypot(right, top), pr.Hypot(right, bottom))
 		return sizeXy, sizeXy
 	}
 	// else: ellipse
-	keys := [4]pr.Float{hypot(left, top), hypot(left, bottom), hypot(right, top), hypot(right, bottom)}
+	keys := [4]pr.Float{pr.Hypot(left, top), pr.Hypot(left, bottom), pr.Hypot(right, top), pr.Hypot(right, bottom)}
 	m := map[pr.Float][2]pr.Float{
 		keys[0]: {left, top},
 		keys[1]: {left, bottom},

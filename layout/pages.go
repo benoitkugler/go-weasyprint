@@ -125,14 +125,14 @@ func (self *HorizontalBox) restoreBoxAttributes() {
 
 func (self *HorizontalBox) minContentSize() pr.Float {
 	if self._minContentSize == nil {
-		self._minContentSize = pr.Float(minContentWidth(self.context, self.box, false))
+		self._minContentSize = minContentWidth(self.context, self.box, false)
 	}
 	return self._minContentSize.V()
 }
 
 func (self *HorizontalBox) maxContentSize() pr.Float {
 	if self._maxContentSize == nil {
-		self._maxContentSize = pr.Float(maxContentWidth(self.context, self.box, false))
+		self._maxContentSize = maxContentWidth(self.context, self.box, false)
 	}
 	return self._maxContentSize.V()
 }
@@ -880,10 +880,10 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 		// TODO: Find what we need to compare. Is resumeAt enough?
 		tmp := (*pageMaker)[index+1]
 		// (nextResumeAt, nextNextPage, nextRightPage,nextPageState, )
-		pageMakerNextChanged = (tmp.InitialResumeAt != resumeAt ||
-			tmp.InitialNextPage != nextPage ||
-			tmp.RightPage != rightPage ||
-			!tmp.InitialPageState.Equal(pageState))
+		pageMakerNextChanged = tmp.InitialResumeAt != resumeAt ||
+					tmp.InitialNextPage != nextPage ||
+					tmp.RightPage != rightPage ||
+					!tmp.InitialPageState.Equal(pageState)
 	}
 
 	if pageMakerNextChanged {
