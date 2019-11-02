@@ -1,16 +1,18 @@
-// Draw the given ``textbox`` line to the cairo ``context``.
-func showFirstLine(context, textbox, textOverflow) {
-    pango.pangoLayoutSetSingleParagraphMode(
-        textbox.pangoLayout.layout, true)
-} 
-    if textOverflow == "ellipsis" {
-        maxWidth = context.clipExtents()[2] - textbox.positionX
-        pango.pangoLayoutSetWidth(
-            textbox.pangoLayout.layout, unitsFromDouble(maxWidth))
-        pango.pangoLayoutSetEllipsize(
-            textbox.pangoLayout.layout, pango.PANGOELLIPSIZEEND)
-    }
-
-    firstLine, _ = textbox.pangoLayout.getFirstLine()
-    context = ffi.cast("cairoT *", context.Pointer)
-    pangocairo.pangoCairoShowLayoutLine(context, firstLine)
+    for page := range pages {
+        for box := range page.fixedBoxes {
+            // As replaced boxes are never copied during layout, ensure that we
+            // have different boxes (with a possibly different layout) for
+            // each pages.
+            if isinstance(box, boxes.ReplacedBox) {
+                box = box.copy()
+            } // Absolute boxes := range fixed boxes are rendered as fixed boxes"
+            // children, even when they are fixed themselves.
+            absoluteBoxes = []
+            yield absoluteBoxLayout(
+                context, box, containingPage, absoluteBoxes)
+            while absoluteBoxes {
+                newAbsoluteBoxes = []
+                for box := range absoluteBoxes {
+                    absoluteLayout(
+                        context, box, containingPage, newAbsoluteBoxes)
+                } absoluteBoxes = newAbsoluteBoxes

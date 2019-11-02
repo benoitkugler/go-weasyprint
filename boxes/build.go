@@ -733,18 +733,18 @@ func computeStringSet(element *utils.HTMLNode, box Box, stringName string, conte
 			}
 		}
 		string_ := builder.String()
-		// Avoid duplicates, care for parseAgain and missing counters, don"t
+		// Avoid duplicates, care for parseAgain and missing counters, don't
 		// change the pointer
-		newStringSet := make(pr.ContentProperties, len(box.Box().stringSet))
-		for i, stringSet := range box.Box().stringSet {
+		newStringSet := make(pr.ContentProperties, len(box.Box().StringSet))
+		for i, stringSet := range box.Box().StringSet {
 			if stringSet.Type == stringName {
-				newStringSet = append(newStringSet, box.Box().stringSet[i+1:]...)
+				newStringSet = append(newStringSet, box.Box().StringSet[i+1:]...)
 				break
 			}
 			newStringSet = append(newStringSet, stringSet)
 		}
 		newStringSet = append(newStringSet, pr.ContentProperty{Type: stringName, Content: pr.String(string_)})
-		box.Box().stringSet = newStringSet
+		box.Box().StringSet = newStringSet
 	}
 }
 
@@ -773,7 +773,7 @@ func computeBookmarkLabel(element *utils.HTMLNode, box Box, contentList pr.Conte
 			builder.WriteString(textBox.Text)
 		}
 	}
-	box.Box().bookmarkLabel = builder.String()
+	box.Box().BookmarkLabel = builder.String()
 
 }
 

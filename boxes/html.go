@@ -54,8 +54,8 @@ func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 	}
 	// TODO: check other attributes that need to be copied
 	// TODO: find another solution
-	newBox.Box().stringSet = box.Box().stringSet
-	newBox.Box().bookmarkLabel = box.Box().bookmarkLabel
+	newBox.Box().StringSet = box.Box().StringSet
+	newBox.Box().BookmarkLabel = box.Box().BookmarkLabel
 	return newBox
 }
 
@@ -204,7 +204,7 @@ func handleTd(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 
 // Handle the ``rel`` attribute.
 func handleA(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
-	box.Box().isAttachment = utils.ElementHasLinkType(element, "attachment")
+	box.Box().IsAttachment = utils.ElementHasLinkType(element, "attachment")
 	return []Box{box}
 }
 

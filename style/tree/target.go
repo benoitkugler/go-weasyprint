@@ -17,7 +17,9 @@ import (
 // :license: BSD, see LICENSE for details.
 
 type RemakeState struct {
-	Anchors                     []string
+	// first occurrence of anchor
+	Anchors []string
+	// first occurrence of content-CounterLookupItem
 	ContentLookups              []*CounterLookupItem
 	ContentChanged, PagesWanted bool
 }
@@ -37,7 +39,7 @@ type PageState struct {
 func (s PageState) Copy() PageState {
 	out := PageState{}
 	out.QuoteDepth = append([]int{}, s.QuoteDepth...)
-	out.CounterValues  = s.CounterValues.Copy()
+	out.CounterValues = s.CounterValues.Copy()
 	out.CounterScopes = make([]pr.Set, len(s.CounterScopes))
 	for i, v := range s.CounterScopes {
 		out.CounterScopes[i] = v.Copy()
@@ -121,12 +123,12 @@ func (c CounterValues) Equal(other CounterValues) bool {
 }
 
 type functionKey struct {
-	sourceBox Box
-	cssToken  string
+	SourceBox Box
+	CssToken  string
 }
 
 func NewFunctionKey(sourceBox Box, cssToken string) functionKey {
-	return functionKey{cssToken: cssToken, sourceBox: sourceBox}
+	return functionKey{CssToken: cssToken, SourceBox: sourceBox}
 }
 
 type funcStore = map[functionKey]ParseFunc
@@ -172,7 +174,7 @@ type optionnalInt struct {
 }
 
 func NewOptionnalInt(i int) optionnalInt {
-	return optionnalInt{int:i}
+	return optionnalInt{int: i}
 }
 
 // Item controlling page based counters.
@@ -288,7 +290,7 @@ func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBo
 	if item.state == "Pending" {
 		if tc.existingAnchors.Has(anchorName) {
 			tc.hadPendingTargets = true
-			key := functionKey{sourceBox: sourceBox, cssToken: cssToken}
+			key := functionKey{SourceBox: sourceBox, CssToken: cssToken}
 			if _, in := item.parseAgainFunctions[key]; !in {
 				item.parseAgainFunctions[key] = parseAgain
 			}
@@ -345,7 +347,7 @@ func (tc TargetCollector) CollectMissingCounters(parentBox Box, cssToken string,
 		counterLookupItem := NewCounterLookupItem(
 			parseAgainFunction, missingCounters,
 			missingTargetCounters)
-		key := functionKey{sourceBox: parentBox, cssToken: cssToken}
+		key := functionKey{SourceBox: parentBox, CssToken: cssToken}
 		if _, in := tc.CounterLookupItems[key]; !in {
 			tc.CounterLookupItems[key] = counterLookupItem
 		}
@@ -391,7 +393,7 @@ func (tc TargetCollector) CacheTargetPageCounters(anchorName string, pageCounter
 	for key, item := range tc.CounterLookupItems {
 		// (_, cssToken) = key
 		// Only update items that need counters in their content
-		if key.cssToken != "content" {
+		if key.CssToken != "content" {
 			continue
 		}
 

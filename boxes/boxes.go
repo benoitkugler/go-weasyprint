@@ -140,15 +140,6 @@ type BackgroundLayer struct {
 	ClippedBoxes    []RoundedBox
 }
 
-// Matrix encode a linear transformation (Y = AX + B)
-type Matrix interface {
-	Copy() Matrix
-
-	// Invert modify the matrix in place. Return an error
-	// if the transformation is not bijective.
-	Invert() error
-}
-
 // BoxFields is an abstract base class for all boxes.
 type BoxFields struct {
 	// Keep track of removed collapsing spaces for wrap opportunities.
@@ -165,14 +156,14 @@ type BoxFields struct {
 	internalTableOrCaption bool
 	tabularContainer       bool
 
-	isAttachment bool
+	IsAttachment bool
 	// isListMarker         bool
 
 	TransformationMatrix Matrix
 
-	bookmarkLabel string
+	BookmarkLabel string
 
-	stringSet pr.ContentProperties
+	StringSet pr.ContentProperties
 
 	ElementTag string
 	Style      pr.Properties
@@ -373,7 +364,7 @@ func (self BoxFields) BorderBoxY() pr.Float {
 // "Border area. That's the area that hit-testing is done on."
 // http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
 // TODO: manage the border radii, use outerBorderRadii instead
-func (self BoxFields) hitArea() (x, y, w, h pr.Float) {
+func (self BoxFields) HitArea() (x, y, w, h pr.Float) {
 	return self.BorderBoxX(), self.BorderBoxY(), self.BorderWidth(), self.BorderHeight()
 }
 

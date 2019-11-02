@@ -184,7 +184,7 @@ func AsciiLower(s string) string {
 	return string(out)
 }
 
-// Return whether the given element has a ``rel`` attribute with the
+// Return whether the given element has a `rel` attribute with the
 // given link type.
 // `linkType` must be a lower-case string.
 func (element HTMLNode) HasLinkType(linkType string) bool {
@@ -216,7 +216,7 @@ func FindBaseUrl(htmlDocument *html.Node, fallbackBaseUrl string) string {
 	return fallbackBaseUrl
 }
 
-// Return whether the given element has a ``rel`` attribute with the
+// Return whether the given element has a `rel` attribute with the
 // given link type (must be a lower-case string).
 func ElementHasLinkType(element *HTMLNode, linkType string) bool {
 	for _, token := range htmlSpaceSeparatedTokensRe.FindAllString(element.Get("rel"), -1) {
@@ -227,15 +227,55 @@ func ElementHasLinkType(element *HTMLNode, linkType string) bool {
 	return false
 }
 
-type HtmlMetadata struct {
-	title       string
-	description string
-	generator   string
-	keywords    []string
-	authors     []string
-	created     string
-	modified    string
-	attachments []Attachment
+// Meta-information belonging to a whole `Document`.
+type DocumentMetadata struct {
+	// The title of the document, as a string.
+	// Extracted from the `<title>` element in HTML
+	// and written to the `/Title` info field in PDF.
+	Title string
+
+	// The description of the document, as a string.
+	// Extracted from the `<meta name=description>` element in HTML
+	// and written to the `/Subject` info field in PDF.
+	Description string
+
+	// The name of one of the software packages
+	// used to generate the document, as a string.
+	// Extracted from the `<meta name=generator>` element in HTML
+	// and written to the `/Creator` info field in PDF.
+	Generator string
+
+	// Keywords associated with the document, as a list of strings.
+	// (Defaults to the empty list.)
+	// Extracted from `<meta name=keywords>` elements in HTML
+	// and written to the `/Keywords` info field in PDF.
+	Keywords []string
+
+	// The authors of the document, as a list of strings.
+	// (Defaults to the empty list.)
+	// Extracted from the `<meta name=author>` elements in HTML
+	// and written to the `/Author` info field in PDF.
+	Authors []string
+
+	// The creation date of the document, as a string.
+	// Dates are in one of the six formats specified in
+	// `W3C’s profile of ISO 8601 <http://www.w3.org/TR/NOTE-datetime>`.
+	// Extracted from the `<meta name=dcterms.created>` element in HTML
+	// and written to the `/CreationDate` info field in PDF.
+	Created string
+
+	// The modification date of the document, as a string.
+	// Dates are in one of the six formats specified in
+	// `W3C’s profile of ISO 8601 <http://www.w3.org/TR/NOTE-datetime>`.
+	// Extracted from the `<meta name=dcterms.modified>` element in HTML
+	// and written to the `/ModDate` info field in PDF.
+	Modified string
+
+	// File attachments, as a list of tuples of URL and a description.
+	// (Defaults to the empty list.)
+	// Extracted from the `<link rel=attachment>` elements in HTML
+	// and written to the `/EmbeddedFiles` dictionary in PDF.
+	Attachments []Attachment
 }
 type Attachment struct {
 	Url, Title string
@@ -247,7 +287,7 @@ type Attachment struct {
 //     http://wiki.whatwg.org/wiki/MetaExtensions
 //     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
 //
-func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) HtmlMetadata {
+func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata {
 	title := ""
 	description := ""
 	generator := ""
@@ -308,15 +348,15 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) HtmlMetadata {
 	for kw := range keywordsSet {
 		keywords = append(keywords, kw)
 	}
-	return HtmlMetadata{
-		title:       title,
-		description: description,
-		generator:   generator,
-		keywords:    keywords,
-		authors:     authors,
-		created:     created,
-		modified:    modified,
-		attachments: attachments,
+	return DocumentMetadata{
+		Title:       title,
+		Description: description,
+		Generator:   generator,
+		Keywords:    keywords,
+		Authors:     authors,
+		Created:     created,
+		Modified:    modified,
+		Attachments: attachments,
 	}
 }
 

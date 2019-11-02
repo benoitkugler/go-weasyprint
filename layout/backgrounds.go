@@ -313,7 +313,7 @@ func setCanvasBackground(page *bo.PageBox) {
 	}
 }
 
-func LayoutBackgrounds(page *bo.PageBox, getImageFromUri bo.Gifu) {
+func layoutBackgrounds(page *bo.PageBox, getImageFromUri bo.Gifu) {
 	layoutBoxBackgrounds(page, page, getImageFromUri)
 	setCanvasBackground(page)
 }
