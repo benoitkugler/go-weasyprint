@@ -1,9 +1,11 @@
 package version
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
-	Version = "0.42.3"
+	Version = "0.50"
 )
 
 // Used for "User-Agent" in HTTP and "Creator" in PDF

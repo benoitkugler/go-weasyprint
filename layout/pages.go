@@ -390,7 +390,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 	// :param atKeyword: which margin box to return, eg. "@top-left"
 	// :param containingBlock: as expected by :func:`resolvePercentages`.
 	makeBox := func(atKeyword string, containingBlock bo.MaybePoint) *bo.MarginBox {
-		style := context.styleFor.Get(page.PageType, atKeyword)
+		style := context.StyleFor.Get(page.PageType, atKeyword)
 		if style == nil {
 			// doesn't affect counters
 			style = tree.ComputedFromCascaded(nil, nil, page.Style, nil, "", "", nil)
@@ -412,7 +412,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			bo.UpdateCounters(&marginState, box.Style)
 			box.Children = bo.ContentToBoxes(
 				box.Style, box, marginState.QuoteDepth, marginState.CounterValues,
-				context.getImageFromUri, context.targetCollector, context,
+				context.GetImageFromUri, context.TargetCollector, context,
 				page)
 			bo.ProcessWhitespace(box, false)
 			box_ := bo.AnonymousTableBoxes(box)
@@ -617,7 +617,7 @@ func pageHeight_(box Box, context *LayoutContext, containingBlock containingBloc
 // 	or ``None`` for the first page.
 func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType utils.PageElement, resumeAt *tree.SkipStack,
 	pageNumber int, pageState *tree.PageState) (*bo.PageBox, *tree.SkipStack, tree.PageBreak) {
-	style := context.styleFor.Get(pageType, "")
+	style := context.StyleFor.Get(pageType, "")
 
 	// Propagated from the root or <body>.
 	style.SetOverflow(pr.String(rootBox.Box().ViewportOverflow))
@@ -679,7 +679,7 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 	pageCounterValues := pageState.CounterValues
 	// pageCounterValues will be cached in the pageMaker
 
-	targetCollector := context.targetCollector
+	targetCollector := context.TargetCollector
 	pageMaker := context.pageMaker
 
 	// remakeState tells the makeAllPages-loop in layoutDocument()
@@ -853,7 +853,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 		side = "right"
 	}
 	pageType := utils.PageElement{Side: side, Blank: blank, First: first, Index: index, Name: nextPageName}
-	setPageTypeComputedStyles(pageType, html, context.styleFor)
+	setPageTypeComputedStyles(pageType, html, context.StyleFor)
 
 	context.forcedBreak = tmp.InitialNextPage.Break != "any" || tmp.InitialNextPage.Page.String != ""
 	context.marginClearance = false

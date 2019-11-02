@@ -1,18 +1,629 @@
-    for page := range pages {
-        for box := range page.fixedBoxes {
-            // As replaced boxes are never copied during layout, ensure that we
-            // have different boxes (with a possibly different layout) for
-            // each pages.
-            if isinstance(box, boxes.ReplacedBox) {
-                box = box.copy()
-            } // Absolute boxes := range fixed boxes are rendered as fixed boxes"
-            // children, even when they are fixed themselves.
-            absoluteBoxes = []
-            yield absoluteBoxLayout(
-                context, box, containingPage, absoluteBoxes)
-            while absoluteBoxes {
-                newAbsoluteBoxes = []
-                for box := range absoluteBoxes {
-                    absoluteLayout(
-                        context, box, containingPage, newAbsoluteBoxes)
-                } absoluteBoxes = newAbsoluteBoxes
+"""
+    weasyprint.pdf
+    --------------
+
+    Post-process the PDF files created by cairo && extra metadata (including
+    attachments, embedded files, trim & bleed boxes).
+
+    Rather than trying to parse any valid PDF, we make some assumptions
+    that hold for cairo := range order to simplify the code:
+
+    * All newlines are "\n", ! "\r" || "\r\n"
+    * Except for number 0 (which is always free) there is no "free" object.
+    * Most white space separators are made of a single 0x20 space.
+    * Indirect dictionary objects do ! contain ">>" at the start of a line
+      except to mark the end of the object, followed by "endobj".
+      (In other words, ">>" markers for sub-dictionaries are indented.)
+    * The Page Tree is flat: all kids of the root page node are page objects,
+      ! page tree nodes.
+
+    However the code uses a lot of assert statements so that if an assumptions
+    is ! true anymore, the code should (hopefully) fail with an exception
+    rather than silently behave incorrectly.
+
+
+    :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+
+"""
+
+import hashlib
+import io
+import mimetypes
+import os
+import re
+import string
+import zlib
+from urllib.parse import unquote, urlsplit
+
+import cairocffi as cairo
+
+from . import Attachment
+from .logger import LOGGER
+from .urls import URLFetchingError
+
+
+// Escape parentheses && backslashes := range ``value``.
+//     ``value`` must be unicode, || latin1 bytestring.
+//     
+func pdfEscape(value) {
+    if isinstance(value, bytes) {
+        value = value.decode("latin1")
+    } return value.translate({40: r"\(", 41: r"\)", 92: r"\\"})
+} 
+
+class PDFFormatter(string.Formatter) {
+    """Like str.format except:
+
+    * Results are byte strings
+    * The new !P conversion flags encodes a PDF string.
+      (UTF-16 BE with a BOM, then backslash-escape parentheses.)
+
+    Except for fields marked !P, everything should be ASCII-only.
+
+    """
+    def convertField(self, value, conversion) {
+        if conversion == "P" {
+            // Make a round-trip back through Unicode for the .translate()
+            // method. (bytes.translate only maps to single bytes.)
+            // Use latin1 to map all byte values.
+            return "({0})".format(pdfEscape(
+                ("\ufeff" + value).encode("utf-16-be").decode("latin1")))
+        } else {
+            return super(PDFFormatter, self).convertField(value, conversion)
+        }
+    }
+} 
+    def vformat(self, formatString, args, kwargs) {
+        result = super(PDFFormatter, self).vformat(formatString, args, kwargs)
+        return result.encode("latin1")
+    }
+
+
+pdfFormat = PDFFormatter().format
+
+
+class PDFDictionary(object) {
+    def _Init_(self, objectNumber, byteString) {
+        self.objectNumber = objectNumber
+        self.byteString = byteString
+    }
+} 
+    def _Repr_(self) {
+        return self._Class_._Name__ + repr(
+            (self.objectNumber, self.byteString))
+    }
+
+    ReCache = {}
+
+    def getValue(self, key, valueRe) {
+        regex = self.ReCache.get((key, valueRe))
+        if ! regex {
+            regex = re.compile(pdfFormat("/{0} {1}", key, valueRe))
+            self.ReCache[key, valueRe] = regex
+        } return regex.search(self.byteString).group(1)
+    }
+
+    def getType(self) {
+        """Get dictionary type.
+
+        :returns: the value for the /Type key.
+
+        """
+        // No end delimiter, + defaults to greedy
+        return self.getValue("Type", "/(\\w+)").decode("ascii")
+    }
+
+    def getIndirectDict(self, key, pdfFile) {
+        """Read the value for `key` && follow the reference.
+
+        We assume that it is an indirect dictionary object.
+
+        :return: a new PDFDictionary instance.
+
+        """
+        objectNumber = int(self.getValue(key, "(\\d+) 0 R"))
+        return type(self)(objectNumber, pdfFile.readObject(objectNumber))
+    }
+
+    def getIndirectDictArray(self, key, pdfFile) {
+        """Read the value for `key` && follow the references.
+
+        We assume that it is an array of indirect dictionary objects.
+
+        :return: a list of new PDFDictionary instance.
+
+        """
+        parts = self.getValue(key, "\\[(.+?)\\]").split(b" 0 R")
+        // The array looks like this: " <a> 0 R <b> 0 R <c> 0 R "
+        // so `parts` ends up like this [" <a>", " <b>", " <c>", " "]
+        // With the trailing white space := range the list.
+        trail = parts.pop()
+        assert ! trail.strip()
+        class_ = type(self)
+        read = pdfFile.readObject
+        return [class(n, read(n)) for n := range map(int, parts)]
+    }
+
+
+class PDFFile(object) {
+    trailerRe = re.compile(
+        b"\ntrailer\n(.+)\nstartxref\n(\\d+)\n%%EOF\n$", re.DOTALL)
+} 
+    def _Init_(self, fileobj) {
+        // cairo’s trailer only has Size, Root && Info.
+        // The trailer + startxref + EOF is typically under 100 bytes
+        fileobj.seek(-200, os.SEEKEND)
+        trailer, startxref = self.trailerRe.search(fileobj.read()).groups()
+        trailer = PDFDictionary(None, trailer)
+        startxref = int(startxref)
+    }
+
+        fileobj.seek(startxref)
+        line = next(fileobj)
+        assert line == b"xref\n"
+
+        line = next(fileobj)
+        firstObject, totalObjects = line.split()
+        assert firstObject == b"0"
+        totalObjects = int(totalObjects)
+
+        line = next(fileobj)
+        assert line == b"0000000000 65535 f \n"
+
+        objectsOffsets = [None]
+        for objectNumber := range range(1, totalObjects) {
+            line = next(fileobj)
+            assert line[10:] == b" 00000 n \n"
+            objectsOffsets.append(int(line[:10]))
+        }
+
+        self.fileobj = fileobj
+        #: Maps object number -> bytes from the start of the file
+        self.objectsOffsets = objectsOffsets
+
+        info = trailer.getIndirectDict("Info", self)
+        catalog = trailer.getIndirectDict("Root", self)
+        pageTree = catalog.getIndirectDict("Pages", self)
+        pages = pageTree.getIndirectDictArray("Kids", self)
+        // Check that the tree is flat
+        assert all(p.getType() == "Page" for p := range pages)
+
+        self.startxref = startxref
+        self.info = info
+        self.catalog = catalog
+        self.pageTree = pageTree
+        self.pages = pages
+
+        self.finished = false
+        self.overwrittenObjectsOffsets = {}
+        self.newObjectsOffsets = []
+
+    def readObject(self, objectNumber) {
+        """
+        :param objectNumber:
+            An integer N so that 1 <= N < len(self.objectsOffsets)
+        :returns:
+            The object content as a byte string.
+
+        """
+        fileobj = self.fileobj
+        fileobj.seek(self.objectsOffsets[objectNumber])
+        line = next(fileobj)
+        assert line.endswith(b" 0 obj\n")
+        assert int(line[:-7]) == objectNumber  // len(b" 0 obj\n") == 7
+        objectLines = []
+        for line := range fileobj {
+            if line == b">>\n" {
+                assert next(fileobj) == b"endobj\n"
+                // No newline, we’ll add it when writing.
+                objectLines.append(b">>")
+                return b"".join(objectLines)
+            } objectLines.append(line)
+        }
+    }
+
+    def overwriteObject(self, objectNumber, byteString) {
+        """Write the new content for an existing object at the end of the file.
+
+        :param objectNumber:
+            An integer N so that 1 <= N < len(self.objectsOffsets)
+        :param byteString:
+            The new object content as a byte string.
+
+        """
+        self.overwrittenObjectsOffsets[objectNumber] = (
+            self.WriteObject(objectNumber, byteString))
+    }
+
+    def extendDict(self, dictionary, newContent) {
+        """Overwrite a dictionary object.
+
+        Content is added inside the << >> delimiters.
+
+        """
+        assert dictionary.byteString.endswith(b">>")
+        self.overwriteObject(
+            dictionary.objectNumber,
+            dictionary.byteString[:-2] + newContent + b"\n>>")
+    }
+
+    def nextObjectNumber(self) {
+        """Return object number that would be used by writeNewObject()."""
+        return len(self.objectsOffsets) + len(self.newObjectsOffsets)
+    }
+
+    def writeNewObject(self, byteString) {
+        """Write a new object at the end of the file.
+
+        :param byteString:
+            The object content as a byte string.
+        :return:
+            The new object number.
+
+        """
+        objectNumber = self.nextObjectNumber()
+        self.newObjectsOffsets.append(
+            self.WriteObject(objectNumber, byteString))
+        return objectNumber
+    }
+
+    def finish(self) {
+        """Write cross-ref table && trailer for new && overwritten objects.
+
+        This makes `fileobj` a valid (updated) PDF file.
+
+        """
+        newStartxref, write = self.StartWriting()
+        self.finished = true
+        write(b"xref\n")
+    }
+
+        // Don’t bother sorting || finding contiguous numbers,
+        // just write a new sub-section for each overwritten object.
+        for objectNumber, offset := range self.overwrittenObjectsOffsets.items() {
+            write(pdfFormat(
+                "{0} 1\n{1:010} 00000 n \n", objectNumber, offset))
+        }
+
+        if self.newObjectsOffsets {
+            firstNewObject = len(self.objectsOffsets)
+            write(pdfFormat(
+                "{0} {1}\n", firstNewObject, len(self.newObjectsOffsets)))
+            for objectNumber, offset := range enumerate(
+                    self.newObjectsOffsets, start=firstNewObject) {
+                    }
+                write(pdfFormat("{0:010} 00000 n \n", offset))
+        }
+
+        write(pdfFormat(
+            "trailer\n<< "
+            "/Size {size} /Root {root} 0 R /Info {info} 0 R /Prev {prev}"
+            " >>\nstartxref\n{startxref}\n%%EOF\n",
+            size=self.nextObjectNumber(),
+            root=self.catalog.objectNumber,
+            info=self.info.objectNumber,
+            prev=self.startxref,
+            startxref=newStartxref))
+
+    def WriteObject(self, objectNumber, byteString) {
+        offset, write = self.StartWriting()
+        write(pdfFormat("{0} 0 obj\n", objectNumber))
+        write(byteString)
+        write(b"\nendobj\n")
+        return offset
+    }
+
+    def StartWriting(self) {
+        assert ! self.finished
+        fileobj = self.fileobj
+        fileobj.seek(0, os.SEEKEND)
+        return fileobj.tell(), fileobj.write
+    }
+
+
+// Write a compressed file like object as ``/EmbeddedFile``.
+//     Compressing is done with deflate. In fact, this method writes multiple PDF
+//     objects to include length, compressed length && MD5 checksum.
+//     :return:
+//         the object number of the compressed file stream object
+//     
+func WriteCompressedFileObject(pdf, file) {
+} 
+    objectNumber = pdf.nextObjectNumber()
+    // Make sure we stay := range sync with our object numbers
+    expectedNextObjectNumber = objectNumber + 4
+
+    lengthNumber = objectNumber + 1
+    md5Number = objectNumber + 2
+    uncompressedLengthNumber = objectNumber + 3
+
+    offset, write = pdf.StartWriting()
+    write(pdfFormat("{0} 0 obj\n", objectNumber))
+    write(pdfFormat(
+        "<< /Type /EmbeddedFile /Length {0} 0 R /Filter "
+        "/FlateDecode /Params << /CheckSum {1} 0 R /Size {2} 0 R >> >>\n",
+        lengthNumber, md5Number, uncompressedLengthNumber))
+    write(b"stream\n")
+
+    uncompressedLength = 0
+    compressedLength = 0
+
+    md5 = hashlib.md5()
+    compress = zlib.compressobj()
+    for data := range iter(lambda: file.read(4096), b"") {
+        uncompressedLength += len(data)
+    }
+
+        md5.update(data)
+
+        compressed = compress.compress(data)
+        compressedLength += len(compressed)
+
+        write(compressed)
+
+    compressed = compress.flush(zlib.ZFINISH)
+    compressedLength += len(compressed)
+    write(compressed)
+
+    write(b"\nendstream\n")
+    write(b"endobj\n")
+
+    pdf.newObjectsOffsets.append(offset)
+
+    pdf.writeNewObject(pdfFormat("{0}", compressedLength))
+    pdf.writeNewObject(pdfFormat("<{0}>", md5.hexdigest()))
+    pdf.writeNewObject(pdfFormat("{0}", uncompressedLength))
+
+    assert pdf.nextObjectNumber() == expectedNextObjectNumber
+
+    return objectNumber
+
+
+// Derive a filename from a fetched resource.
+//     This is either the filename returned by the URL fetcher, the last URL path
+//     component || a synthetic name if the URL has no path.
+//     
+func GetFilenameFromResult(url, result) {
+} 
+    filename = None
+
+    // A given filename will always take precedence
+    if result {
+        filename = result.get("filename")
+        if filename {
+            return filename
+        }
+    }
+
+    // The URL path likely contains a filename, which is a good second guess
+    if url {
+        split = urlsplit(url)
+        if split.scheme != "data" {
+            filename = split.path.split("/")[-1]
+            if filename == "" {
+                filename = None
+            }
+        }
+    }
+
+    if filename  == nil  {
+        // The URL lacks a path altogether. Use a synthetic name.
+    }
+
+        // Using guessExtension is a great idea, but sadly the extension is
+        // probably random, depending on the alignment of the stars, which car
+        // you"re driving && which software has been installed on your machine.
+        #
+        // Unfortuneatly this isn"t even imdepodent on one machine, because the
+        // extension can depend on PYTHONHASHSEED if mimetypes has multiple
+        // extensions to offer
+        extension = None
+        if result {
+            mimeType = result.get("mimeType")
+            if mimeType == "text/plain" {
+                // text/plain has a phletora of extensions - all garbage
+                extension = ".txt"
+            } else {
+                extension = mimetypes.guessExtension(mimeType) || ".bin"
+            }
+        } else {
+            extension = ".bin"
+        }
+
+        filename = "attachment" + extension
+    else {
+        filename = unquote(filename)
+    }
+
+    return filename
+
+
+// Write attachments as embedded files (document attachments).
+//     :return:
+//         the object number of the name dictionary || :obj:`None`
+//     
+func WritePdfEmbeddedFiles(pdf, attachments, urlFetcher) {
+    fileSpecIds = []
+    for attachment := range attachments {
+        fileSpecId = WritePdfAttachment(pdf, attachment, urlFetcher)
+        if fileSpecId  != nil  {
+            fileSpecIds.append(fileSpecId)
+        }
+    }
+} 
+    // We might have failed to write any attachment at all
+    if len(fileSpecIds) == 0 {
+        return None
+    }
+
+    content = [b"<< /Names ["]
+    for fs := range fileSpecIds {
+        content.append(pdfFormat("\n(attachment{0}) {0} 0 R ",
+                       fs))
+    } content.append(b"\n] >>")
+    return pdf.writeNewObject(b"".join(content))
+
+
+// Write an attachment to the PDF stream.
+//     :return:
+//         the object number of the ``/Filespec`` object || :obj:`None` if the
+//         attachment couldn"t be read.
+//     
+func WritePdfAttachment(pdf, attachment, urlFetcher) {
+    try {
+        // Attachments from document links like <link> || <a> can only be URLs.
+        // They"re passed := range as tuples
+        if isinstance(attachment, tuple) {
+            url, description = attachment
+            attachment = Attachment(
+                url=url, urlFetcher=urlFetcher, description=description)
+        } else if ! isinstance(attachment, Attachment) {
+            attachment = Attachment(guess=attachment, urlFetcher=urlFetcher)
+        }
+    }
+} 
+        with attachment.source as (sourceType, source, url, ) {
+            if isinstance(source, bytes) {
+                source = io.BytesIO(source)
+            } fileStreamId = WriteCompressedFileObject(pdf, source)
+        }
+    except URLFetchingError as exc {
+        LOGGER.error("Failed to load attachment: %s", exc)
+        return None
+    }
+
+    // TODO: Use the result object from a URL fetch operation to provide more
+    // details on the possible filename
+    filename = GetFilenameFromResult(url, None)
+
+    return pdf.writeNewObject(pdfFormat(
+        "<< /Type /Filespec /F () /UF {0!P} /EF << /F {1} 0 R >> "
+        "/Desc {2!P}\n>>",
+        filename,
+        fileStreamId,
+        attachment.description || ""))
+
+
+func writePdfMetadata(fileobj, scale, urlFetcher, attachments,
+                       attachmentLinks, pages) {
+    """Add PDF metadata that are ! handled by cairo.
+
+    Includes:
+    - attachments
+    - embedded files
+    - trim box
+    - bleed box
+
+                       }
+    """
+    pdf = PDFFile(fileobj)
+
+    // Add embedded files
+
+    embeddedFilesId = WritePdfEmbeddedFiles(
+        pdf, attachments, urlFetcher)
+    if embeddedFilesId  != nil  {
+        params = b""
+        if embeddedFilesId  != nil  {
+            params += pdfFormat(" /Names << /EmbeddedFiles {0} 0 R >>",
+                                 embeddedFilesId)
+        } pdf.extendDict(pdf.catalog, params)
+    }
+
+    // Add attachments
+
+    // A single link can be split := range multiple regions. We don"t want to embed
+    // a file multiple times of course, so keep a reference to every embedded
+    // URL && reuse the object number.
+    // TODO: If we add support for descriptions this won"t always be correct,
+    // because two links might have the same href, but different titles.
+    annotFiles = {}
+    for pageLinks := range attachmentLinks {
+        for linkType, target, rectangle := range pageLinks {
+            if linkType == "attachment" && target ! := range annotFiles {
+                // TODO: use the title attribute as description
+                annotFiles[target] = WritePdfAttachment(
+                    pdf, (target, None), urlFetcher)
+            }
+        }
+    }
+
+    for pdfPage, documentPage, pageLinks := range zip(
+            pdf.pages, pages, attachmentLinks) {
+            }
+
+        // Add bleed box
+
+        mediaBox = pdfPage.getValue(
+            "MediaBox", "\\[(.+?)\\]").decode("ascii").strip()
+        left, top, right, bottom = (
+            float(value) for value := range mediaBox.split(" "))
+        // Convert pixels into points
+        bleed = {
+            key: value * 0.75 for key, value := range documentPage.bleed.items()}
+
+        trimLeft = left + bleed["left"]
+        trimTop = top + bleed["top"]
+        trimRight = right - bleed["right"]
+        trimBottom = bottom - bleed["bottom"]
+
+        // Arbitrarly set PDF BleedBox between CSS bleed box (PDF MediaBox) and
+        // CSS page box (PDF TrimBox), at most 10 points from the TrimBox.
+        bleedLeft = trimLeft - min(10, bleed["left"])
+        bleedTop = trimTop - min(10, bleed["top"])
+        bleedRight = trimRight + min(10, bleed["right"])
+        bleedBottom = trimBottom + min(10, bleed["bottom"])
+
+        pdf.extendDict(pdfPage, pdfFormat(
+            "/TrimBox [ {} {} {} {} ] /BleedBox [ {} {} {} {} ]".format(
+                trimLeft, trimTop, trimRight, trimBottom,
+                bleedLeft, bleedTop, bleedRight, bleedBottom)))
+
+        // Add links to attachments
+
+        // TODO: splitting a link into multiple independent rectangular
+        // annotations works well for pure links, but rather mediocre for other
+        // annotations && fails completely for transformed (CSS) || complex
+        // link shapes (area). It would be better to use /AP for all links and
+        // coalesce link shapes that originate from the same HTML link. This
+        // would give a feeling similiar to what browsers do with links that
+        // span multiple lines.
+        annotations = []
+        for linkType, target, rectangle := range pageLinks {
+            if linkType == "attachment" && annotFiles[target]  != nil  {
+                matrix = cairo.Matrix(
+                    xx=scale, yy=-scale, y0=documentPage.height * scale)
+                rectX, rectY, width, height = rectangle
+                rectX, rectY = matrix.transformPoint(rectX, rectY)
+                width, height = matrix.transformDistance(width, height)
+                // x, y, w, h => x0, y0, x1, y1
+                rectangle = rectX, rectY, rectX + width, rectY + height
+                content = [pdfFormat(
+                    "<< /Type /Annot "
+                    "/Rect [{0:f} {1:f} {2:f} {3:f}] /Border [0 0 0]\n",
+                    *rectangle)]
+                linkAp = pdf.writeNewObject(pdfFormat(
+                    "<< /Type /XObject /Subtype /Form "
+                    "/BBox [{0:f} {1:f} {2:f} {3:f}] /Length 0 >>\n"
+                    "stream\n"
+                    "endstream",
+                    *rectangle))
+                content.append(b"/Subtype /FileAttachment ")
+                // evince needs /T || fails on an internal assertion. PDF
+                // doesn"t require it.
+                content.append(pdfFormat(
+                    "/T () /FS {0} 0 R /AP << /N {1} 0 R >>",
+                    annotFiles[target], linkAp))
+                content.append(b">>")
+                annotations.append(pdf.writeNewObject(b"".join(content)))
+            }
+        }
+
+        if annotations {
+            pdf.extendDict(pdfPage, pdfFormat(
+                "/Annots [{0}]", " ".join(
+                    "{0} 0 R".format(n) for n := range annotations)))
+        }
+
+    pdf.finish()

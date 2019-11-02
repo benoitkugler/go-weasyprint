@@ -152,10 +152,10 @@ func TestFindStylesheets(t *testing.T) {
 
 	var (
 		rules      []cascadia.Sel
-		pagesRules []pageRule
+		pagesRules []PageRule
 	)
 	for _, sheet := range sheets {
-		for _, sheetRules := range sheet.matcher {
+		for _, sheetRules := range sheet.Matcher {
 			rules = append(rules, sheetRules.selector...)
 		}
 		for _, rule := range sheet.pageRules {
@@ -177,7 +177,7 @@ func TestExpandShorthands(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sels []cascadia.Sel
-	for _, match := range sheet.matcher {
+	for _, match := range sheet.Matcher {
 		sels = append(sels, match.selector...)
 	}
 	if len(sels) != 1 {
@@ -187,7 +187,7 @@ func TestExpandShorthands(t *testing.T) {
 		t.Errorf("expected 'li' got %s", sels[0].String())
 	}
 
-	m := (sheet.matcher)[0].declarations
+	m := (sheet.Matcher)[0].declarations
 	if m[0].Name != "margin_bottom" {
 		t.Errorf("expected margin_bottom got %s", m[0].Name)
 	}

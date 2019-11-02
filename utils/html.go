@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"golang.org/x/net/html"
@@ -262,14 +264,14 @@ type DocumentMetadata struct {
 	// `W3C’s profile of ISO 8601 <http://www.w3.org/TR/NOTE-datetime>`.
 	// Extracted from the `<meta name=dcterms.created>` element in HTML
 	// and written to the `/CreationDate` info field in PDF.
-	Created string
+	Created time.Time
 
 	// The modification date of the document, as a string.
 	// Dates are in one of the six formats specified in
 	// `W3C’s profile of ISO 8601 <http://www.w3.org/TR/NOTE-datetime>`.
 	// Extracted from the `<meta name=dcterms.modified>` element in HTML
 	// and written to the `/ModDate` info field in PDF.
-	Modified string
+	Modified time.Time
 
 	// File attachments, as a list of tuples of URL and a description.
 	// (Defaults to the empty list.)
@@ -288,14 +290,13 @@ type Attachment struct {
 //     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
 //
 func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata {
-	title := ""
-	description := ""
-	generator := ""
-	keywordsSet := map[string]bool{}
-	var authors []string
-	created := ""
-	modified := ""
-	var attachments []Attachment
+	var (
+		title, description, generator string
+		authors                       []string
+		created, modified             time.Time
+		keywordsSet                   = map[string]bool{}
+		attachments                   []Attachment
+	)
 	iter := wrapperElement.Iter(atom.Title, atom.Meta, atom.Link)
 	for iter.HasNext() {
 		element := iter.Next()
@@ -324,11 +325,11 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 					generator = content
 				}
 			case "dcterms.created":
-				if created == "" {
+				if created.IsZero() {
 					created = parseW3cDate(name, content)
 				}
 			case "dcterms.modified":
-				if modified == "" {
+				if modified.IsZero() {
 					modified = parseW3cDate(name, content)
 				}
 			}
@@ -375,38 +376,84 @@ func stripWhitespace(s string) string {
 // YYYY-MM-DDThh:mmTZD (eg 1997-07-16T19:20+01:00)
 // YYYY-MM-DDThh:mm:ssTZD (eg 1997-07-16T19:20:30+01:00)
 // YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
-var W3CDateRe = regexp.MustCompile(
-	`^` +
-		"[ \t\n\f\r]*" +
-		`(?P<year>\d\d\d\d)` +
-		`(?:` +
-		`-(?P<month>0\d|1[012])` +
-		`(?:` +
-		`-(?P<day>[012]\d|3[01])` +
-		`(?:` +
-		`T(?P<hour>[01]\d|2[0-3])` +
-		`:(?P<minute>[0-5]\d)` +
-		`(?:` +
-		`:(?P<second>[0-5]\d)` +
-		`(?:\.\d+)?` + // Second fraction, ignored
-		`)?` +
-		`(?:` +
-		`Z |` + //# UTC
-		`(?P<tzHour>[+-](?:[01]\d|2[0-3]))` +
-		`:(?P<tzMinute>[0-5]\d)` +
-		`)` +
-		`)?` +
-		`)?` +
-		`)?` +
-		"[ \t\n\f\r]*" +
-		`$`)
+var (
+	W3CDateRe = regexp.MustCompile(
+		`^` +
+			"[ \t\n\f\r]*" +
+			`(?P<year>\d\d\d\d)` +
+			`(?:` +
+			`-(?P<month>0\d|1[012])` +
+			`(?:` +
+			`-(?P<day>[012]\d|3[01])` +
+			`(?:` +
+			`T(?P<hour>[01]\d|2[0-3])` +
+			`:(?P<minute>[0-5]\d)` +
+			`(?:` +
+			`:(?P<second>[0-5]\d)` +
+			`(?:\.\d+)?` + // Second fraction, ignored
+			`)?` +
+			`(?:` +
+			`Z |` + //# UTC
+			`(?P<tzHour>[+-](?:[01]\d|2[0-3]))` +
+			`:(?P<tzMinute>[0-5]\d)` +
+			`)` +
+			`)?` +
+			`)?` +
+			`)?` +
+			"[ \t\n\f\r]*" +
+			`$`)
+
+	W3CDateReGroupsIndexes = map[string]int{}
+)
+
+func init() {
+	for i, name := range W3CDateRe.SubexpNames() {
+		if i != 0 && name != "" {
+			W3CDateReGroupsIndexes[name] = i
+		}
+	}
+}
+
+func toInt(s string, defaut ...int) int {
+	if s == "" && len(defaut) > 0 {
+		return defaut[0]
+	}
+	out, err := strconv.Atoi(s)
+	if err != nil {
+		log.Fatalf("unexpected string for int : %s", s)
+	}
+	return out
+}
 
 // http://www.w3.org/TR/NOTE-datetime
-func parseW3cDate(metaName, s string) string {
-	if W3CDateRe.MatchString(s) {
-		return s
-	} else {
-		log.Printf("Invalid date in <meta name='%s'> %s \n", metaName, s)
-		return ""
+func parseW3cDate(metaName, str string) time.Time {
+	match := W3CDateRe.FindStringSubmatch(str)
+	if len(match) == 0 {
+		log.Printf("Invalid %s date: %s", metaName, str)
+		return time.Time{}
 	}
+	year := toInt(match[W3CDateReGroupsIndexes["year"]])
+	month := toInt(match[W3CDateReGroupsIndexes["month"]], 1)
+	day := toInt(match[W3CDateReGroupsIndexes["day"]], 1)
+	hour := toInt(match[W3CDateReGroupsIndexes["hour"]], 0)
+	minute := toInt(match[W3CDateReGroupsIndexes["minute"]], 0)
+	second := toInt(match[W3CDateReGroupsIndexes["second"]], 0)
+	var tzHour, tzMinute int
+	if match[W3CDateReGroupsIndexes["hour"]] != "" {
+		if match[W3CDateReGroupsIndexes["minute"]] == "" {
+			log.Fatalf("minute shouldn't be empty when hour is present")
+		}
+		if match[W3CDateReGroupsIndexes["tzHour"]] != "" {
+			if !(strings.HasPrefix(match[W3CDateReGroupsIndexes["tzHour"]], "+") || strings.HasPrefix(match[W3CDateReGroupsIndexes["tzHour"]], "-")) {
+				log.Fatalf("tzHour should start by + or -, got %s", match[W3CDateReGroupsIndexes["tzHour"]])
+			}
+			if match[W3CDateReGroupsIndexes["tzMinute"]] == "" {
+				log.Fatalf("tzMinute shouldn't be empty when tzHour is present")
+			}
+			tzHour = toInt(match[W3CDateReGroupsIndexes["tzHour"]])
+			tzMinute = toInt(match[W3CDateReGroupsIndexes["tzMinute"]])
+		}
+	}
+	loc := time.FixedZone(metaName, tzHour*3600+tzMinute*60)
+	return time.Date(year, time.Month(month), day, hour, minute, second, 0, loc)
 }

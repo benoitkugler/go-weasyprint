@@ -2,11 +2,14 @@ package utils
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode"
@@ -186,5 +189,20 @@ func TestSortOrder(t *testing.T) {
 func TestInf(t *testing.T) {
 	u := math.Inf(1)
 	fmt.Println(u, -u, -u < 0)
+}
 
+func TestParseInt(t *testing.T) {
+	fmt.Println(strconv.Atoi("+789"))
+	fmt.Println(strconv.Atoi("-789"))
+}
+
+func TestHex(t *testing.T) {
+	md := md5.Sum([]byte("lmkelmezkezmlekm"))
+	mdb := make([]byte, len(md))
+	for i, v := range md {
+		mdb[i] = v
+	}
+	fmt.Println(mdb)
+	s := hex.EncodeToString(mdb)
+	fmt.Println(s)
 }

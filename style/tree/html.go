@@ -14,7 +14,7 @@ import (
 type HTML struct {
 	Root       *utils.HTMLNode
 	mediaType  string
-	urlFetcher utils.UrlFetcher
+	UrlFetcher utils.UrlFetcher
 	BaseUrl    string
 }
 
@@ -33,11 +33,11 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 	if mediaType == "" {
 		mediaType = "print"
 	}
-	result, err := selectSource(htmlContent, baseUrl, urlFetcher, false)
+	result, err := SelectSource(htmlContent, baseUrl, urlFetcher, false)
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch html input : %s", err)
 	}
-	root, err := html.Parse(bytes.NewReader(result.content))
+	root, err := html.Parse(bytes.NewReader(result.Content))
 	if err != nil || root.FirstChild == nil {
 		return nil, fmt.Errorf("invalid html input : %s", err)
 	}
@@ -45,8 +45,8 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 	// html.Parse wraps the <html> tag
 	out.Root = (*utils.HTMLNode)(root.FirstChild)
 	out.Root.Parent = nil
-	out.BaseUrl = utils.FindBaseUrl(root, result.baseUrl)
-	out.urlFetcher = urlFetcher
+	out.BaseUrl = utils.FindBaseUrl(root, result.BaseUrl)
+	out.UrlFetcher = urlFetcher
 	out.mediaType = mediaType
 	return &out, nil
 }
@@ -65,4 +65,8 @@ func (h HTML) UAStyleSheet() CSS {
 
 func (h HTML) PHStyleSheet() CSS {
 	return html5PHStylesheet
+}
+
+func (h HTML) GetMetadata() utils.DocumentMetadata {
+	return utils.GetHtmlMetadata(h.Root, h.BaseUrl)
 }

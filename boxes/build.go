@@ -85,7 +85,8 @@ func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.Properties
 }
 
 // Build a formatting structure (box tree) from an element tree.
-func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri Gifu, baseUrl string, targetCollector *tree.TargetCollector) Box {
+func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri Gifu,
+	baseUrl string, targetCollector *tree.TargetCollector) InstanceBlockLevelBox {
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, targetCollector, nil)
 	var box Box
 	if len(boxList) > 0 {
@@ -104,7 +105,7 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 	box = InlineInBlock(box)
 	box = BlockInInline(box)
 	box = setViewportOverflow(box)
-	return box
+	return box.(InstanceBlockLevelBox)
 }
 
 // Maps values of the ``display`` CSS property to box types.

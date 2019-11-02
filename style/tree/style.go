@@ -89,7 +89,7 @@ func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColl
 		for _, sh := range sheets {
 			// sheet, origin, sheetSpecificity
 			// Add declarations for matched elements
-			sels := sh.sheet.matcher.Match(element.AsHtmlNode())
+			sels := sh.sheet.Matcher.Match(element.AsHtmlNode())
 			for _, selector := range sels {
 				// specificity, order, pseudoType, declarations = selector
 				specificity := selector.specificity
@@ -285,7 +285,7 @@ func pageTypeMatch(selectorPageType pageSelector, pageType utils.PageElement) bo
 // Yield the stylesheets in ``elementTree``.
 // The output order is the same as the source order.
 func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher utils.UrlFetcher, baseUrl string,
-	fontConfig *fonts.FontConfiguration, pageRules *[]pageRule) (out []CSS) {
+	fontConfig *fonts.FontConfiguration, pageRules *[]PageRule) (out []CSS) {
 	sel := cascadia.MustCompile("style, link")
 	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
 		element := (*utils.HTMLNode)(_element)
@@ -938,7 +938,7 @@ type selectorPageRule struct {
 	pageType    pageSelector
 }
 
-type pageRule struct {
+type PageRule struct {
 	rule         parser.AtRule
 	selectors    []selectorPageRule
 	declarations []validation.ValidatedProperty
@@ -948,7 +948,7 @@ type pageRule struct {
 // in a document.
 // ignoreImports = false
 func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]pageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
+	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]PageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
 
 	for _, rule := range stylesheetRules {
 		if atRule, isAtRule := rule.(parser.AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
@@ -1049,7 +1049,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 					var selectors []selectorPageRule
 					if len(declarations) > 0 {
 						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", pageType: pageType}}
-						*pageRules = append(*pageRules, pageRule{rule: typedRule, selectors: selectors, declarations: declarations})
+						*pageRules = append(*pageRules, PageRule{rule: typedRule, selectors: selectors, declarations: declarations})
 					}
 
 					for _, marginRule := range content {
@@ -1064,7 +1064,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 							selectors = []selectorPageRule{{
 								specificity: specificity, pseudoType: "@" + atRule.AtKeyword.Lower(),
 								pageType: pageType}}
-							*pageRules = append(*pageRules, pageRule{rule: atRule, selectors: selectors, declarations: declarations})
+							*pageRules = append(*pageRules, PageRule{rule: atRule, selectors: selectors, declarations: declarations})
 						}
 					}
 				}
@@ -1130,7 +1130,7 @@ type htmlLike interface {
 // presentationalHints=false
 func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration,
-	pageRules *[]pageRule, TargetCollector *TargetCollector) *StyleFor {
+	pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -1141,7 +1141,7 @@ func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet(), origin: "author", specificity: []int{0, 0, 0}})
 	}
 	htmlElement := html_.AsHTML()
-	authorShts := findStylesheets(htmlElement.Root, htmlElement.mediaType, htmlElement.urlFetcher,
+	authorShts := findStylesheets(htmlElement.Root, htmlElement.mediaType, htmlElement.UrlFetcher,
 		htmlElement.BaseUrl, fontConfig, pageRules)
 	for _, sht := range authorShts {
 		sheets = append(sheets, sheet{sheet: sht, origin: "author", specificity: nil})

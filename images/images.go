@@ -215,70 +215,70 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.Mayb
 //     }
 
 // // Get a cairo Pattern from an image URI.
-// func getImageFromUri(cache, urlFetcher, url, forcedMimeType=nil) {
-//     missing = object()
-//     image = cache.get(url, missing)
-//     if image is ! missing {
-//         return image
-//     }
+func GetImageFromUri(cache map[string]Image, urlFetcher utils.UrlFetcher, url, forcedMimeType string) Image {
+	image, in := cache[url]
+	if in {
+		return image
+	}
+	//FIXME: à implémenter
+	//     try {
+	//         with fetch(urlFetcher, url) as result {
+	//             if "string" := range result {
+	//                 string = result["string"]
+	//             } else {
+	//                 string = result["fileObj"].read()
+	//             } mimeType = forcedMimeType || result["mimeType"]
+	//             if mimeType == "image/svg+xml" {
+	//                 // No fallback for XML-based mimetypes as defined by MIME
+	//                 // Sniffing Standard, see https://mimesniff.spec.whatwg.org/
+	//                 image = SVGImage(string, url, urlFetcher)
+	//             } else {
+	//                 // Try to rely on given mimetype
+	//                 try {
+	//                     if mimeType == "image/png" {
+	//                         try {
+	//                             surface = cairocffi.ImageSurface.createFromPng(
+	//                                 BytesIO(string))
+	//                         } except Exception as exception {
+	//                             raise ImageLoadingError.fromException(exception)
+	//                         } else {
+	//                             image = RasterImage(surface)
+	//                         }
+	//                     } else {
+	//                         image = nil
+	//                     }
+	//                 } except ImageLoadingError {
+	//                     image = nil
+	//                 }
+	//             }
+	//         }
+	//     }
 
-//     try {
-//         with fetch(urlFetcher, url) as result {
-//             if "string" := range result {
-//                 string = result["string"]
-//             } else {
-//                 string = result["fileObj"].read()
-//             } mimeType = forcedMimeType || result["mimeType"]
-//             if mimeType == "image/svg+xml" {
-//                 // No fallback for XML-based mimetypes as defined by MIME
-//                 // Sniffing Standard, see https://mimesniff.spec.whatwg.org/
-//                 image = SVGImage(string, url, urlFetcher)
-//             } else {
-//                 // Try to rely on given mimetype
-//                 try {
-//                     if mimeType == "image/png" {
-//                         try {
-//                             surface = cairocffi.ImageSurface.createFromPng(
-//                                 BytesIO(string))
-//                         } except Exception as exception {
-//                             raise ImageLoadingError.fromException(exception)
-//                         } else {
-//                             image = RasterImage(surface)
-//                         }
-//                     } else {
-//                         image = nil
-//                     }
-//                 } except ImageLoadingError {
-//                     image = nil
-//                 }
-//             }
-//         }
-//     }
-
-//                 // Relying on mimetype didn"t work, give the image to GDK-Pixbuf
-//                 if ! image {
-//                     if pixbuf  == nil  {
-//                         raise ImageLoadingError(
-//                             "Could ! load GDK-Pixbuf. PNG && SVG are "
-//                             "the only image formats available.")
-//                     } try {
-//                         image = SVGImage(string, url, urlFetcher)
-//                     } except BaseException {
-//                         try {
-//                             surface, formatName = (
-//                                 pixbuf.decodeToImageSurface(string))
-//                         } except pixbuf.ImageLoadingError as exception {
-//                             raise ImageLoadingError(str(exception))
-//                         } if formatName == "jpeg" {
-//                             surface.setMimeData("image/jpeg", string)
-//                         } image = RasterImage(surface)
-//                     }
-//                 }
-//     except (URLFetchingError, ImageLoadingError) as exc {
-//         LOGGER.error("Failed to load image at "%s" (%s)", url, exc)
-//         image = nil
-//     } cache[url] = image
-//     return image
+	//                 // Relying on mimetype didn"t work, give the image to GDK-Pixbuf
+	//                 if ! image {
+	//                     if pixbuf  == nil  {
+	//                         raise ImageLoadingError(
+	//                             "Could ! load GDK-Pixbuf. PNG && SVG are "
+	//                             "the only image formats available.")
+	//                     } try {
+	//                         image = SVGImage(string, url, urlFetcher)
+	//                     } except BaseException {
+	//                         try {
+	//                             surface, formatName = (
+	//                                 pixbuf.decodeToImageSurface(string))
+	//                         } except pixbuf.ImageLoadingError as exception {
+	//                             raise ImageLoadingError(str(exception))
+	//                         } if formatName == "jpeg" {
+	//                             surface.setMimeData("image/jpeg", string)
+	//                         } image = RasterImage(surface)
+	//                     }
+	//                 }
+	//     except (URLFetchingError, ImageLoadingError) as exc {
+	//         LOGGER.error("Failed to load image at "%s" (%s)", url, exc)
+	//         image = nil
+	//     } cache[url] = image
+	return image
+}
 
 // Gradient line size: distance between the starting point and ending point.
 // Positions: list of Dimension in px or % (possibliy zero)

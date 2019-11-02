@@ -364,8 +364,8 @@ func (self BoxFields) BorderBoxY() pr.Float {
 // "Border area. That's the area that hit-testing is done on."
 // http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
 // TODO: manage the border radii, use outerBorderRadii instead
-func (self BoxFields) HitArea() (x, y, w, h pr.Float) {
-	return self.BorderBoxX(), self.BorderBoxY(), self.BorderWidth(), self.BorderHeight()
+func (self BoxFields) HitArea() pr.Rectangle {
+	return pr.Rectangle{self.BorderBoxX(), self.BorderBoxY(), self.BorderWidth(), self.BorderHeight()}
 }
 
 type RoundedBox struct {

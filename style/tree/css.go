@@ -1,7 +1,6 @@
 package tree
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -50,8 +49,8 @@ func LoadStyleSheet(path string) {
 // be used in the `HTML.WritePdf`, `HTML.WritePng` and
 // `HTML.Render` methods of `HTML` objects.
 type CSS struct {
-	matcher   matcher
-	pageRules []pageRule
+	Matcher   matcher
+	pageRules []PageRule
 	baseUrl   string
 	fonts     []string
 }
@@ -60,7 +59,7 @@ type CSS struct {
 func NewCSS(input contentInput, baseUrl string,
 	urlFetcher utils.UrlFetcher, checkMimeType bool,
 	mediaType string, fontConfig *fonts.FontConfiguration, matcher *matcher,
-	pageRules *[]pageRule) (CSS, error) {
+	pageRules *[]PageRule) (CSS, error) {
 
 	logger.ProgressLogger.Printf("Step 2 - Fetching and parsing CSS - %s", input)
 
@@ -71,31 +70,31 @@ func NewCSS(input contentInput, baseUrl string,
 		mediaType = "print"
 	}
 
-	ressource, err := selectSource(input, baseUrl, urlFetcher, checkMimeType)
+	ressource, err := SelectSource(input, baseUrl, urlFetcher, checkMimeType)
 	if err != nil {
 		return CSS{}, fmt.Errorf("error fetching css input : %s", err)
 	}
 
-	stylesheet := parser.ParseStylesheet2(ressource.content, false, false)
+	stylesheet := parser.ParseStylesheet2(ressource.Content, false, false)
 
 	if matcher == nil {
 		matcher = NewMatcher()
 	}
 	if pageRules == nil {
-		pageRules = &[]pageRule{}
+		pageRules = &[]PageRule{}
 	}
 	fonts := &[]string{}
-	out := CSS{baseUrl: ressource.baseUrl}
-	preprocessStylesheet(mediaType, ressource.baseUrl, stylesheet, urlFetcher, matcher,
+	out := CSS{baseUrl: ressource.BaseUrl}
+	preprocessStylesheet(mediaType, ressource.BaseUrl, stylesheet, urlFetcher, matcher,
 		pageRules, fonts, fontConfig, false)
-	out.matcher = *matcher
+	out.Matcher = *matcher
 	out.pageRules = *pageRules
 	out.fonts = *fonts
 	return out, nil
 }
 
 func (c CSS) IsNone() bool {
-	return c.baseUrl == "" && c.fonts == nil && c.matcher == nil && c.pageRules == nil
+	return c.baseUrl == "" && c.fonts == nil && c.Matcher == nil && c.pageRules == nil
 }
 
 func newCSS(input contentInput) (CSS, error) {
@@ -134,17 +133,16 @@ func (c InputReader) String() string {
 	return fmt.Sprintf("reader of type %T", c.ReadCloser)
 }
 
-type source struct {
-	content []byte // utf8 encoded
-	baseUrl string
+type Source struct {
+	Content []byte // utf8 encoded
+	BaseUrl string
 }
 
 // Check that only one input is not None, and return it with the
-// normalized ``BaseUrl``.
-// checkCssMimeType=false
+// normalized ``BaseUrl`` (checkCssMimeType=false).
 // source may have nil content
-func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetcher,
-	checkCssMimeType bool) (out source, err error) {
+func SelectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetcher,
+	checkCssMimeType bool) (out Source, err error) {
 
 	if baseUrl != "" {
 		baseUrl, err = utils.EnsureUrl(baseUrl)
@@ -162,13 +160,13 @@ func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetche
 		}
 		f, err := ioutil.ReadFile(string(data))
 		if err != nil {
-			return source{}, err
+			return Source{}, err
 		}
-		return source{content: f, baseUrl: baseUrl}, nil
+		return Source{Content: f, BaseUrl: baseUrl}, nil
 	case InputUrl:
 		result, err := urlFetcher(string(data))
 		if err != nil {
-			return source{}, err
+			return Source{}, err
 		}
 		if result.RedirectedUrl == "" {
 			result.RedirectedUrl = string(data)
@@ -176,33 +174,33 @@ func selectSource(input contentInput, baseUrl string, urlFetcher utils.UrlFetche
 		if checkCssMimeType && result.MimeType != "text/css" {
 			log.Printf("Unsupported stylesheet type %s for %s",
 				result.MimeType, result.RedirectedUrl)
-			return source{baseUrl: baseUrl}, nil
+			return Source{BaseUrl: baseUrl}, nil
 		} else {
 			if baseUrl == "" {
 				baseUrl = result.RedirectedUrl
 			}
 			decoded, err := decodeToUtf8(result.Content, result.ProtocolEncoding)
 			if err != nil {
-				return source{}, err
+				return Source{}, err
 			}
 			if err = result.Content.Close(); err != nil {
-				return source{}, err
+				return Source{}, err
 			}
-			return source{content: decoded, baseUrl: baseUrl}, nil
+			return Source{Content: decoded, BaseUrl: baseUrl}, nil
 		}
 	case InputReader:
 		bt, err := ioutil.ReadAll(data.ReadCloser)
 		if err != nil {
-			return source{}, err
+			return Source{}, err
 		}
 		if err = data.ReadCloser.Close(); err != nil {
-			return source{}, err
+			return Source{}, err
 		}
-		return source{content: bt, baseUrl: baseUrl}, nil
+		return Source{Content: bt, BaseUrl: baseUrl}, nil
 	case InputString:
-		return source{content: []byte(data), baseUrl: baseUrl}, nil
+		return Source{Content: []byte(data), BaseUrl: baseUrl}, nil
 	default:
-		return source{}, errors.New("unexpected css input")
+		return Source{}, fmt.Errorf("unexpected input type %T", input)
 	}
 }
 

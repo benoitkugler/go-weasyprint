@@ -99,7 +99,7 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 	return out
 }
 
-// Lay out the whole document (maxLoops=8).
+// Lay out the whole document (maxLoops=-1).
 // This includes line breaks, page breaks, absolute size and position for all
 // boxes. Page based counters might require multiple passes.
 // :param rootBox: root of the box tree (formatting structure of the html)
@@ -108,6 +108,9 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 // :returns: a list of laid out Page objects.
 func LayoutDocument(html tree.HTML, rootBox bo.InstanceBlockLevelBox, context *LayoutContext, maxLoops int) []*bo.PageBox {
 	initializePageMaker(context, *rootBox.Box())
+	if maxLoops == -1 {
+		maxLoops = 8 // default value
+	}
 	var pages []*bo.PageBox
 	actualTotalPages := 0
 
@@ -153,7 +156,7 @@ func LayoutDocument(html tree.HTML, rootBox bo.InstanceBlockLevelBox, context *L
 		for _, child := range bo.Descendants(page) {
 			// TODO: remove attribute or set a default value in Box class
 			if mLink := child.MissingLink(); mLink != nil {
-				for key, item := range context.targetCollector.CounterLookupItems {
+				for key, item := range context.TargetCollector.CounterLookupItems {
 					box, cssToken := key.SourceBox, key.CssToken
 					if mLink == box && cssToken != "content" {
 						item.ParseAgain(pageCounterValues)
@@ -183,7 +186,7 @@ func LayoutDocument(html tree.HTML, rootBox bo.InstanceBlockLevelBox, context *L
 		// pageMaker's pageState is ready for the MarginBoxes
 		state := context.pageMaker[context.currentPage].InitialPageState
 		page.Children = append([]Box{root}, makeMarginBoxes(context, page, state)...)
-		layoutBackgrounds(page, context.getImageFromUri)
+		layoutBackgrounds(page, context.GetImageFromUri)
 		out[i] = page
 	}
 	return out
@@ -191,10 +194,10 @@ func LayoutDocument(html tree.HTML, rootBox bo.InstanceBlockLevelBox, context *L
 
 type LayoutContext struct {
 	enableHinting       bool
-	styleFor            tree.StyleFor
-	getImageFromUri     bo.Gifu
+	StyleFor            tree.StyleFor
+	GetImageFromUri     bo.Gifu
 	fontConfig          *fonts.FontConfiguration
-	targetCollector     *tree.TargetCollector
+	TargetCollector     *tree.TargetCollector
 	pageMaker           []tree.PageMaker
 	marginClearance     bool
 	excludedShapes      []bo.BoxFields
@@ -213,10 +216,10 @@ func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUr
 	fontConfig *fonts.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {
 	self := LayoutContext{}
 	self.enableHinting = enableHinting
-	self.styleFor = styleFor
-	self.getImageFromUri = getImageFromUri
+	self.StyleFor = styleFor
+	self.GetImageFromUri = getImageFromUri
 	self.fontConfig = fontConfig
-	self.targetCollector = targetCollector
+	self.TargetCollector = targetCollector
 	self.runningElements = map[string]map[int]Box{}
 	// Cache
 	self.strutLayouts = map[string]int{}
