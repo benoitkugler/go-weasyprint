@@ -57,6 +57,7 @@ func (TableCaptionBox) IsProperChild(parent Box) bool {
 // A box that has children.
 type instanceParentBox interface {
 	isParentBox()
+	isBox()
 }
 
 func IsParentBox(box Box) bool {
@@ -69,6 +70,7 @@ func IsParentBox(box Box) bool {
 // ``table`` generates a block-level box.
 type instanceBlockLevelBox interface {
 	isBlockLevelBox()
+	isBox()
 }
 
 func IsBlockLevelBox(box Box) bool {
@@ -84,6 +86,7 @@ func IsBlockLevelBox(box Box) bool {
 // box.
 type instanceBlockContainerBox interface {
 	isBlockContainerBox()
+	isBox()
 	isParentBox()
 }
 
@@ -97,15 +100,17 @@ func IsBlockContainerBox(box Box) bool {
 // generates a block box.
 type instanceBlockBox interface {
 	isBlockBox()
-	isBlockContainerBox()
-	isParentBox()
 	isBlockLevelBox()
+	isBlockContainerBox()
+	isBox()
+	isParentBox()
 }
 
 func (BlockBox) isBlockBox()          {}
-func (BlockBox) isBlockContainerBox() {}
-func (BlockBox) isParentBox()         {}
 func (BlockBox) isBlockLevelBox()     {}
+func (BlockBox) isBlockContainerBox() {}
+func (BlockBox) isBox()               {}
+func (BlockBox) isParentBox()         {}
 func (b *BlockBox) Box() *BoxFields   { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -144,10 +149,12 @@ func (t typeBlockBox) AnonymousFrom(parent Box, children []Box) Box {
 // be split into multiple line boxes, one for each actual line.
 type instanceLineBox interface {
 	isLineBox()
+	isBox()
 	isParentBox()
 }
 
 func (LineBox) isLineBox()         {}
+func (LineBox) isBox()             {}
 func (LineBox) isParentBox()       {}
 func (b *LineBox) Box() *BoxFields { return &b.BoxFields }
 
@@ -180,6 +187,7 @@ func (t typeLineBox) AnonymousFrom(parent Box, children []Box) Box {
 // ``inline-block`` generates an inline-level box.
 type instanceInlineLevelBox interface {
 	isInlineLevelBox()
+	isBox()
 }
 
 func IsInlineLevelBox(box Box) bool {
@@ -195,11 +203,13 @@ func IsInlineLevelBox(box Box) bool {
 type instanceInlineBox interface {
 	isInlineBox()
 	isInlineLevelBox()
+	isBox()
 	isParentBox()
 }
 
 func (InlineBox) isInlineBox()       {}
 func (InlineBox) isInlineLevelBox()  {}
+func (InlineBox) isBox()             {}
 func (InlineBox) isParentBox()       {}
 func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
 
@@ -238,10 +248,12 @@ func (t typeInlineBox) AnonymousFrom(parent Box, children []Box) Box {
 type instanceTextBox interface {
 	isTextBox()
 	isInlineLevelBox()
+	isBox()
 }
 
 func (TextBox) isTextBox()         {}
 func (TextBox) isInlineLevelBox()  {}
+func (TextBox) isBox()             {}
 func (b *TextBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -268,6 +280,7 @@ func IsTextBox(box Box) bool {
 type instanceAtomicInlineLevelBox interface {
 	isAtomicInlineLevelBox()
 	isInlineLevelBox()
+	isBox()
 }
 
 func IsAtomicInlineLevelBox(box Box) bool {
@@ -282,16 +295,18 @@ func IsAtomicInlineLevelBox(box Box) bool {
 type instanceInlineBlockBox interface {
 	isInlineBlockBox()
 	isBlockContainerBox()
+	isBox()
 	isInlineLevelBox()
-	isParentBox()
 	isAtomicInlineLevelBox()
+	isParentBox()
 }
 
 func (InlineBlockBox) isInlineBlockBox()       {}
 func (InlineBlockBox) isBlockContainerBox()    {}
+func (InlineBlockBox) isBox()                  {}
 func (InlineBlockBox) isInlineLevelBox()       {}
-func (InlineBlockBox) isParentBox()            {}
 func (InlineBlockBox) isAtomicInlineLevelBox() {}
+func (InlineBlockBox) isParentBox()            {}
 func (b *InlineBlockBox) Box() *BoxFields      { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -328,9 +343,11 @@ func (t typeInlineBlockBox) AnonymousFrom(parent Box, children []Box) Box {
 // and is opaque from CSS’s point of view.
 type instanceReplacedBox interface {
 	isReplacedBox()
+	isBox()
 }
 
 func (ReplacedBox) isReplacedBox()     {}
+func (ReplacedBox) isBox()             {}
 func (b *ReplacedBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -357,13 +374,15 @@ func IsReplacedBox(box Box) bool {
 // ``table`` generates a block-level replaced box.
 type instanceBlockReplacedBox interface {
 	isBlockReplacedBox()
-	isReplacedBox()
 	isBlockLevelBox()
+	isReplacedBox()
+	isBox()
 }
 
 func (BlockReplacedBox) isBlockReplacedBox() {}
-func (BlockReplacedBox) isReplacedBox()      {}
 func (BlockReplacedBox) isBlockLevelBox()    {}
+func (BlockReplacedBox) isReplacedBox()      {}
+func (BlockReplacedBox) isBox()              {}
 func (b *BlockReplacedBox) Box() *BoxFields  { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -391,15 +410,17 @@ func IsBlockReplacedBox(box Box) bool {
 // box.
 type instanceInlineReplacedBox interface {
 	isInlineReplacedBox()
+	isBox()
+	isReplacedBox()
 	isInlineLevelBox()
 	isAtomicInlineLevelBox()
-	isReplacedBox()
 }
 
 func (InlineReplacedBox) isInlineReplacedBox()    {}
+func (InlineReplacedBox) isBox()                  {}
+func (InlineReplacedBox) isReplacedBox()          {}
 func (InlineReplacedBox) isInlineLevelBox()       {}
 func (InlineReplacedBox) isAtomicInlineLevelBox() {}
-func (InlineReplacedBox) isReplacedBox()          {}
 func (b *InlineReplacedBox) Box() *BoxFields      { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -424,13 +445,15 @@ func IsInlineReplacedBox(box Box) bool {
 // Box for elements with ``display: table``
 type instanceTableBox interface {
 	isTableBox()
-	isParentBox()
 	isBlockLevelBox()
+	isBox()
+	isParentBox()
 }
 
 func (TableBox) isTableBox()        {}
-func (TableBox) isParentBox()       {}
 func (TableBox) isBlockLevelBox()   {}
+func (TableBox) isBox()             {}
+func (TableBox) isParentBox()       {}
 func (b *TableBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -465,15 +488,17 @@ func (t typeTableBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: inline-table``
 type instanceInlineTableBox interface {
 	isInlineTableBox()
-	isParentBox()
-	isTableBox()
 	isBlockLevelBox()
+	isTableBox()
+	isBox()
+	isParentBox()
 }
 
 func (InlineTableBox) isInlineTableBox()  {}
-func (InlineTableBox) isParentBox()       {}
-func (InlineTableBox) isTableBox()        {}
 func (InlineTableBox) isBlockLevelBox()   {}
+func (InlineTableBox) isTableBox()        {}
+func (InlineTableBox) isBox()             {}
+func (InlineTableBox) isParentBox()       {}
 func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -508,10 +533,12 @@ func (t typeInlineTableBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-row-group``
 type instanceTableRowGroupBox interface {
 	isTableRowGroupBox()
+	isBox()
 	isParentBox()
 }
 
 func (TableRowGroupBox) isTableRowGroupBox() {}
+func (TableRowGroupBox) isBox()              {}
 func (TableRowGroupBox) isParentBox()        {}
 func (b *TableRowGroupBox) Box() *BoxFields  { return &b.BoxFields }
 
@@ -547,10 +574,12 @@ func (t typeTableRowGroupBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-row``
 type instanceTableRowBox interface {
 	isTableRowBox()
+	isBox()
 	isParentBox()
 }
 
 func (TableRowBox) isTableRowBox()     {}
+func (TableRowBox) isBox()             {}
 func (TableRowBox) isParentBox()       {}
 func (b *TableRowBox) Box() *BoxFields { return &b.BoxFields }
 
@@ -586,10 +615,12 @@ func (t typeTableRowBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-column-group``
 type instanceTableColumnGroupBox interface {
 	isTableColumnGroupBox()
+	isBox()
 	isParentBox()
 }
 
 func (TableColumnGroupBox) isTableColumnGroupBox() {}
+func (TableColumnGroupBox) isBox()                 {}
 func (TableColumnGroupBox) isParentBox()           {}
 func (b *TableColumnGroupBox) Box() *BoxFields     { return &b.BoxFields }
 
@@ -625,10 +656,12 @@ func (t typeTableColumnGroupBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-column``
 type instanceTableColumnBox interface {
 	isTableColumnBox()
+	isBox()
 	isParentBox()
 }
 
 func (TableColumnBox) isTableColumnBox()  {}
+func (TableColumnBox) isBox()             {}
 func (TableColumnBox) isParentBox()       {}
 func (b *TableColumnBox) Box() *BoxFields { return &b.BoxFields }
 
@@ -665,11 +698,13 @@ func (t typeTableColumnBox) AnonymousFrom(parent Box, children []Box) Box {
 type instanceTableCellBox interface {
 	isTableCellBox()
 	isBlockContainerBox()
+	isBox()
 	isParentBox()
 }
 
 func (TableCellBox) isTableCellBox()      {}
 func (TableCellBox) isBlockContainerBox() {}
+func (TableCellBox) isBox()               {}
 func (TableCellBox) isParentBox()         {}
 func (b *TableCellBox) Box() *BoxFields   { return &b.BoxFields }
 
@@ -705,17 +740,19 @@ func (t typeTableCellBox) AnonymousFrom(parent Box, children []Box) Box {
 // Box for elements with ``display: table-caption``
 type instanceTableCaptionBox interface {
 	isTableCaptionBox()
-	isBlockContainerBox()
-	isParentBox()
-	isBlockBox()
 	isBlockLevelBox()
+	isBlockContainerBox()
+	isBox()
+	isBlockBox()
+	isParentBox()
 }
 
 func (TableCaptionBox) isTableCaptionBox()   {}
-func (TableCaptionBox) isBlockContainerBox() {}
-func (TableCaptionBox) isParentBox()         {}
-func (TableCaptionBox) isBlockBox()          {}
 func (TableCaptionBox) isBlockLevelBox()     {}
+func (TableCaptionBox) isBlockContainerBox() {}
+func (TableCaptionBox) isBox()               {}
+func (TableCaptionBox) isBlockBox()          {}
+func (TableCaptionBox) isParentBox()         {}
 func (b *TableCaptionBox) Box() *BoxFields   { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -752,10 +789,12 @@ func (t typeTableCaptionBox) AnonymousFrom(parent Box, children []Box) Box {
 // During layout a new page box is created after every page break.
 type instancePageBox interface {
 	isPageBox()
+	isBox()
 	isParentBox()
 }
 
 func (PageBox) isPageBox()         {}
+func (PageBox) isBox()             {}
 func (PageBox) isParentBox()       {}
 func (b *PageBox) Box() *BoxFields { return &b.BoxFields }
 
@@ -771,11 +810,13 @@ func IsPageBox(box Box) bool {
 type instanceMarginBox interface {
 	isMarginBox()
 	isBlockContainerBox()
+	isBox()
 	isParentBox()
 }
 
 func (MarginBox) isMarginBox()         {}
 func (MarginBox) isBlockContainerBox() {}
+func (MarginBox) isBox()               {}
 func (MarginBox) isParentBox()         {}
 func (b *MarginBox) Box() *BoxFields   { return &b.BoxFields }
 
@@ -790,6 +831,7 @@ func IsMarginBox(box Box) bool {
 // A box that contains only flex-items.
 type instanceFlexContainerBox interface {
 	isFlexContainerBox()
+	isBox()
 	isParentBox()
 }
 
@@ -802,15 +844,17 @@ func IsFlexContainerBox(box Box) bool {
 // It behaves as block on the outside and as a flex container on the inside.
 type instanceFlexBox interface {
 	isFlexBox()
+	isBlockLevelBox()
+	isBox()
 	isFlexContainerBox()
 	isParentBox()
-	isBlockLevelBox()
 }
 
 func (FlexBox) isFlexBox()          {}
+func (FlexBox) isBlockLevelBox()    {}
+func (FlexBox) isBox()              {}
 func (FlexBox) isFlexContainerBox() {}
 func (FlexBox) isParentBox()        {}
-func (FlexBox) isBlockLevelBox()    {}
 func (b *FlexBox) Box() *BoxFields  { return &b.BoxFields }
 
 // Copy is a shallow copy
@@ -846,12 +890,14 @@ func (t typeFlexBox) AnonymousFrom(parent Box, children []Box) Box {
 // It behaves as inline on the outside and as a flex container on the inside.
 type instanceInlineFlexBox interface {
 	isInlineFlexBox()
+	isBox()
 	isFlexContainerBox()
 	isInlineLevelBox()
 	isParentBox()
 }
 
 func (InlineFlexBox) isInlineFlexBox()    {}
+func (InlineFlexBox) isBox()              {}
 func (InlineFlexBox) isFlexContainerBox() {}
 func (InlineFlexBox) isInlineLevelBox()   {}
 func (InlineFlexBox) isParentBox()        {}

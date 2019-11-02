@@ -233,8 +233,6 @@ func (box *BoxFields) IsProperChild(b Box) bool {
 	return false
 }
 
-func (box BoxFields) IsContainingBlock() {}
-
 // ----------------------- needed by target ----------------------
 
 func (box *BoxFields) CachedCounterValues() tree.CounterValues {
@@ -432,7 +430,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	}
 }
 
-func (self BoxFields) roundedBoxRatio(ratio pr.Float) RoundedBox {
+func (self BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V()*ratio,
 		self.BorderRightWidth.V()*ratio,

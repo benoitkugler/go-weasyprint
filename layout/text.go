@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/backend"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
@@ -64,4 +65,20 @@ func StrutLayout(style pr.Properties, context *LayoutContext) (pr.Float, pr.Floa
 func ExRatio(style pr.Properties) pr.Float {
 	// FIXME: à implémenter
 	return .5
+}
+
+// Draw the given ``textbox`` line to the cairo ``context``.
+func ShowFirstLine(context backend.Drawer, textbox bo.TextBox, textOverflow string) {
+	// FIXME: à implémenter
+	// pango.pangoLayoutSetSingleParagraphMode(textbox.PangoLayout.Layout, true)
+
+	// if textOverflow == "ellipsis" {
+	// 	maxWidth := context.ClipExtents()[2] - float64(textbox.PositionX)
+	// 	pango.pangoLayoutSetWidth(textbox.PangoLayout.Layout, unitsFromDouble(maxWidth))
+	// 	pango.pangoLayoutSetEllipsize(textbox.PangoLayout.Layout, pango.PANGOELLIPSIZEEND)
+	// }
+
+	// firstLine, _ = textbox.PangoLayout.GetFirstLine()
+	// context = ffi.cast("cairoT *", context.Pointer)
+	// pangocairo.pangoCairoShowLayoutLine(context, firstLine)
 }

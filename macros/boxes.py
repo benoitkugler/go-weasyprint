@@ -36,13 +36,13 @@ TYPES_RETURNS = {
     "__repr__": "string",
 }
 
-DEFAULT_CONSTRUCTOR = [("elementTag", "string"),
+DEFAULT_CONSTRUCTOR = [("ElementTag", "string"),
                        ("style", "pr.Properties"), ("children", "[]Box")]
 SPECIALS_CONSTRUCTORS = {
-    "TextBox": [("elementTag", "string"), ("style", "pr.Properties"), ("text", "string")],
-    "ReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
-    "BlockReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
-    "InlineReplacedBox": [("elementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
+    "TextBox": [("ElementTag", "string"), ("style", "pr.Properties"), ("text", "string")],
+    "ReplacedBox": [("ElementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
+    "BlockReplacedBox": [("ElementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
+    "InlineReplacedBox": [("ElementTag", "string"), ("style", "pr.Properties"), ("replacement", "images.Image")],
     "PageBox": [("pageType", "pr.PageElement"), ("style", "pr.Properties")],
     "MarginBox": [("atKeyword", "string"), ("style", "pr.Properties")],
 }
@@ -88,7 +88,7 @@ def genere_interface(class_name) -> str:
     parents = expand_supers(class_name)
 
     type_methods = [f"is{class_name} ()"] + \
-        [f'is{parent}()' for parent in parents if parent != "Box"]
+        [f'is{parent}()' for parent in parents]
 
     # normal_methods = []
     # for owner, name, _ in expand_methods(class_name):
@@ -121,7 +121,7 @@ def genere_interface(class_name) -> str:
     if not class_name in ("MarginBox", "PageBox"):
         i += f"""
         func (b {class_name}) String() string {{
-            return fmt.Sprintf("<{class_name} %s>", b.BoxFields.elementTag)
+            return fmt.Sprintf("<{class_name} %s>", b.BoxFields.ElementTag)
         }}
         """
     return i
@@ -243,7 +243,7 @@ def generate_constructor(class_name):
 #         if name == "__repr__" and owner != class_name:
 #             out += f"""
 #             func (b {class_name}) String() string {{
-#                 return fmt.Sprintf("<{class_name} %s>", b.elementTag)
+#                 return fmt.Sprintf("<{class_name} %s>", b.ElementTag)
 #             }}
 #             """
 
@@ -284,7 +284,7 @@ def generate_type_objects(class_name: str):
     body = "// TODO" + ":"
     if not own_anonymous_from:
         body = f"""style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
-            out := New{class_name}(parent.Box().elementTag, style, {args[-1][0]})
+            out := New{class_name}(parent.Box().ElementTag, style, {args[-1][0]})
             return &out
             """
 
@@ -375,7 +375,7 @@ with open("macros/source_box.py") as f:
             #     headers += header
             # elif name == "__init__" and class_name != "ParentBox":
             #     headers += f"""
-            #     func New{class_name}(elementTag string, style pr.Properties) {class_name} {{
+            #     func New{class_name}(ElementTag string, style pr.Properties) {class_name} {{
             #         // TODO:
             #     }}
                 # """

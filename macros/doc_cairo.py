@@ -2,13 +2,10 @@
 
 import inspect
 import re
-import subprocess
 
 import cairocffi
 
 from style_accessor import camel_case
-
-OUT_PATH = "drawer.go"
 
 HEADER = """package goweasyprint
 
@@ -84,7 +81,4 @@ for _, f in meths:
             out += default + "\n"
         out += sig + "\n"
 
-with open(OUT_PATH, "w") as f:
-    f.write(HEADER.format(meths=out))
-
-subprocess.run(["goimports", "-w", OUT_PATH])
+print(HEADER.format(meths=out))

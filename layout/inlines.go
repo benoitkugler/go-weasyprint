@@ -26,7 +26,7 @@ type MaybeBool interface {
 }
 
 // IsLineBox || IsInlineBox
-func isLine(box Box) bool {
+func IsLine(box Box) bool {
 	return bo.TypeLineBox.IsInstance(box) || bo.TypeInlineBox.IsInstance(box)
 }
 
@@ -242,7 +242,7 @@ func skipFirstWhitespace(box Box, skipStack *tree.SkipStack) (ss *tree.SkipStack
 		return nil, false
 	}
 
-	if isLine(box) {
+	if IsLine(box) {
 		children := box.Box().Children
 		if index == 0 && len(children) == 0 {
 			return nil, false
@@ -270,7 +270,7 @@ func skipFirstWhitespace(box Box, skipStack *tree.SkipStack) (ss *tree.SkipStack
 // This also reduces the width of the inline parents of the modified text.
 func removeLastWhitespace(context *LayoutContext, box Box) {
 	var ancestors []Box
-	for isLine(box) {
+	for IsLine(box) {
 		ancestors = append(ancestors, box)
 		ch := box.Box().Children
 		if len(ch) == 0 {
@@ -793,7 +793,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 	containingBlock bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
 
-	if !isLine(box_) {
+	if !IsLine(box_) {
 		log.Fatalf("expected Line or Inline Box, got %s", box_)
 	}
 	box := box_.Box()
@@ -1317,7 +1317,7 @@ func alignedSubtreeVerticality(box Box, topBottomSubtrees *[]Box, baselineY pr.F
 //     Return ``(maxY, minY)``, the maximum and minimum vertical position
 //     of margin boxes.
 func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY pr.Float) (maxY, minY pr.MaybeFloat) {
-	if !isLine(box_) {
+	if !IsLine(box_) {
 		return maxY, minY
 	}
 	box := box_.Box()
@@ -1461,7 +1461,7 @@ func countSpaces(box Box) int {
 	if textBox, isTextBox := box.(*bo.TextBox); isTextBox {
 		// TODO: remove trailing spaces correctly
 		return strings.Count(textBox.Text, " ")
-	} else if isLine(box) {
+	} else if IsLine(box) {
 		var sum int
 		for _, child := range box.Box().Children {
 			sum += countSpaces(child)
@@ -1485,7 +1485,7 @@ func addWordSpacing(context *LayoutContext, box_ Box, justificationSpacing, xAdv
 			textBox.Width = textBox.Width.V() + extraSpace
 			textBox.PangoLayout = layout
 		}
-	} else if isLine(box_) {
+	} else if IsLine(box_) {
 		box := box_.Box()
 		box.PositionX += xAdvance
 		previousXAdvance := xAdvance

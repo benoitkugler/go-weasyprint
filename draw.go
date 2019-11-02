@@ -8,6 +8,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/benoitkugler/go-weasyprint/style/parser"
+
+	"github.com/benoitkugler/go-weasyprint/layout"
+
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/images"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -580,7 +584,7 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 	var subContext Drawer = cairo.Context(subSurface)
 	subContext.Rectangle(0, 0, imageWidth, imageHeight)
 	subContext.Clip()
-	layer.Image.Draw(subContext, imageWidth, imageHeight, string(imageRendering))
+	layer.Image.Draw(subContext, imageWidth, imageHeight, imageRendering)
 	pattern := cairo.SurfacePattern(subSurface)
 
 	if repeatX == "no-repeat" && repeatY == "no-repeat" {
@@ -684,7 +688,7 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 	// The 4 sides are solid or double, and they have the same color. Oh yeah!
 	// We can draw them so easily!
 	if len(stylesSet) == 1 && (stylesSet.Has("solid") || stylesSet.Has("double")) && len(colorsSet) == 1 {
-		drawRoundedBorder(context, box_, styles[0], []Color{colors[0]})
+		drawRoundedBorder(context, *box, styles[0], []Color{colors[0]})
 		drawColumnBorder()
 		return
 	}
@@ -702,17 +706,16 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 		radii := [4]bo.Point{rb.TopLeft, rb.TopRight, rb.BottomRight, rb.BottomLeft}
 		clipBorderSegment(context, enableHinting, style, float64(width), side,
 			roundedBox, &widths, &radii)
-		drawRoundedBorder(context, box_, style, styledColor(style, color, side))
+		drawRoundedBorder(context, *box, style, styledColor(style, color, side))
 		// }
 	}
 
 	drawColumnBorder()
 }
 
-// Clip one segment of box border.
+// Clip one segment of box border (border_widths=None, radii=None).
 // The strategy is to remove the zones not needed because of the style or the
 // side before painting.
-// border_widths=None, radii=None
 func clipBorderSegment(context Drawer, enableHinting bool, style pr.String, width float64, side string,
 	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
@@ -941,12 +944,12 @@ func drawRoundedBorder(context Drawer, box bo.BoxFields, style pr.String, color 
 	roundedBoxPath(context, box.RoundedPaddingBox())
 	if style == "ridge" || style == "groove" {
 		roundedBoxPath(context, box.RoundedBoxRatio(1/2))
-		context.SetSourceRgba(*color[0])
-		context.fill()
+		context.SetSourceRgba(color[0].Unpack())
+		context.Fill()
 		roundedBoxPath(context, box.RoundedBoxRatio(1/2))
 		roundedBoxPath(context, box.RoundedBorderBox())
-		context.SetSourceRgba(*color[1])
-		context.fill()
+		context.SetSourceRgba(color[1].Unpack())
+		context.Fill()
 		return
 	}
 	if style == "double" {
@@ -954,58 +957,54 @@ func drawRoundedBorder(context Drawer, box bo.BoxFields, style pr.String, color 
 		roundedBoxPath(context, box.RoundedBoxRatio(2/3))
 	}
 	roundedBoxPath(context, box.RoundedBorderBox())
-	context.SetSourceRgba(*color)
-	context.fill()
+	context.SetSourceRgba(color[0].Unpack())
+	context.Fill()
 }
 
-func drawRectBorder(context Drawer, box [4]Point, widths pr.Rectangle, style pr.String, color []Color) {
+func drawRectBorder(context Drawer, box, widths pr.Rectangle, style pr.String, color []Color) {
 	context.SetFillRule(cairo.FILLRULEEVENODD)
-	bbx, bby, bbw, bbh = box
-	bt, br, bb, bl = widths
-	context.Rectangle(*box)
+	bbx, bby, bbw, bbh := box.Unpack()
+	bt, br, bb, bl := widths.Unpack()
+	context.Rectangle(box.Unpack())
 	if style == "ridge" || style == "groove" {
-		context.Rectangle(bbx+bl/2, bby+bt/2,
-			bbw-(bl+br)/2, bbh-(bt+bb)/2)
-		context.SetSourceRgba(*color[0])
-		context.fill()
-		context.Rectangle(bbx+bl/2, bby+bt/2,
-			bbw-(bl+br)/2, bbh-(bt+bb)/2)
+		context.Rectangle(bbx+bl/2, bby+bt/2, bbw-(bl+br)/2, bbh-(bt+bb)/2)
+		context.SetSourceRgba(color[0].Unpack())
+		context.Fill()
+		context.Rectangle(bbx+bl/2, bby+bt/2, bbw-(bl+br)/2, bbh-(bt+bb)/2)
 		context.Rectangle(bbx+bl, bby+bt, bbw-bl-br, bbh-bt-bb)
-		context.SetSourceRgba(*color[1])
-		context.fill()
+		context.SetSourceRgba(color[1].Unpack())
+		context.Fill()
 		return
 	}
 	if style == "double" {
-		context.Rectangle(
-			bbx+bl/3, bby+bt/3,
-			bbw-(bl+br)/3, bbh-(bt+bb)/3)
-		context.Rectangle(
-			bbx+bl*2/3, bby+bt*2/3,
-			bbw-(bl+br)*2/3, bbh-(bt+bb)*2/3)
+		context.Rectangle(bbx+bl/3, bby+bt/3, bbw-(bl+br)/3, bbh-(bt+bb)/3)
+		context.Rectangle(bbx+bl*2/3, bby+bt*2/3, bbw-(bl+br)*2/3, bbh-(bt+bb)*2/3)
 	}
 	context.Rectangle(bbx+bl, bby+bt, bbw-bl-br, bbh-bt-bb)
-	context.SetSourceRgba(*color)
-	context.fill()
+	context.SetSourceRgba(color[0].Unpack())
+	context.Fill()
 }
 
-func drawOutlines(context Drawer, box Box, enableHinting bool) {
-	width = box.Style["outlineWidth"]
-	color = getColor(box.Style, "outlineColor")
-	style = box.Style["outlineStyle"]
-	if box.Style["visibility"] == "visible" && width && color.alpha {
-		outlineBox = [4]pr.Point{box.BorderBoxX() - width, box.BorderBoxY() - width,
+func drawOutlines(context Drawer, box_ Box, enableHinting bool) {
+	box := box_.Box()
+	width_ := box.Style.GetOutlineWidth()
+	color := box.Style.ResolveColor("outline_color").RGBA
+	style := box.Style.GetOutlineStyle()
+	if box.Style.GetVisibility() == "visible" && !width_.IsNone() && color.A != 0 {
+		width := width_.Value
+		outlineBox := pr.Rectangle{box.BorderBoxX() - width, box.BorderBoxY() - width,
 			box.BorderWidth() + 2*width, box.BorderHeight() + 2*width}
 		for _, side := range SIDES {
 			// with stacked(context) {
-			clipBorderSegment(context, enableHinting, style, width, side, outlineBox)
-			drawRectBorder(context, outlineBox, [4]float64{width, width, width, width},
+			clipBorderSegment(context, enableHinting, style, float64(width), side, outlineBox, nil, nil)
+			drawRectBorder(context, outlineBox, pr.Rectangle{width, width, width, width},
 				style, styledColor(style, color, side))
 			// }
 		}
 	}
 
-	if bo.IsParentBox(box) {
-		for _, child := range box.children {
+	if bo.IsParentBox(box_) {
+		for _, child := range box.Children {
 			if bo.IsBox(child) {
 				drawOutlines(context, child, enableHinting)
 			}
@@ -1013,25 +1012,36 @@ func drawOutlines(context Drawer, box Box, enableHinting bool) {
 	}
 }
 
-type segment struct{}
+type segment struct {
+	bo.Border
+	side      string
+	borderBox pr.Rectangle
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
 
 // Draw borders of table cells when they collapse.
 func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool) {
-	var rowHeights, rowPositions []float64
-	for _, rowGroup := range table.children {
-		for _, row := range rowGroup.children {
-			rowHeights = append(rowHeights, row.height)
-			rowPositions = append(rowPositions, row.positionY)
+	var rowHeights, rowPositions []pr.Float
+	for _, rowGroup := range table.Children {
+		for _, row := range rowGroup.Box().Children {
+			rowHeights = append(rowHeights, row.Box().Height.V())
+			rowPositions = append(rowPositions, row.Box().PositionY)
 		}
 	}
-	columnWidths = table.columnWidths
-	if !(rowHeights && columnWidths) {
+	columnWidths := table.ColumnWidths
+	if len(rowHeights) == 0 || len(columnWidths) == 0 {
 		// One of the list is empty: don’t bother with empty tables
 		return
 	}
-	columnPositions = list(table.columnPositions)
-	gridHeight = len(rowHeights)
-	gridWidth = len(columnWidths)
+	columnPositions := table.ColumnPositions
+	gridHeight := len(rowHeights)
+	gridWidth := len(columnWidths)
 	if gridWidth != len(columnPositions) {
 		log.Fatalf("expected same gridWidth and columnPositions length, got %d, %d", gridWidth, len(columnPositions))
 	}
@@ -1039,38 +1049,34 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 	columnPositions = append(columnPositions, columnPositions[len(columnPositions)-1]+columnWidths[len(columnWidths)-1])
 	// Add the end of the last row. No copy here, we own this list
 	rowPositions = append(rowPositions, rowPositions[len(rowPositions)-1]+rowHeights[len(rowHeights)-1])
-	verticalBorders, horizontalBorders = table.collapsedBorderGrid
-	if table.children[0].isHeader {
-		headerRows = len(table.children[0].children)
-	} else {
-		headerRows = 0
+	verticalBorders, horizontalBorders := table.CollapsedBorderGrid.Vertical, table.CollapsedBorderGrid.Horizontal
+	headerRows := 0
+	if table.Children[0].Box().IsHeader {
+		headerRows = len(table.Children[0].Box().Children)
 	}
-	if table.children[-1].isFooter {
-		footerRows = len(table.children[-1].children)
-	} else {
-		footerRows = 0
+	footerRows := 0
+	if L := len(table.Children); table.Children[L-1].Box().IsFooter {
+		footerRows = len(table.Children[L-1].Box().Children)
 	}
-	skippedRows = table.skippedRows
-	if skippedRows {
+	skippedRows := table.SkippedRows
+	bodyRowsOffset := 0
+	if skippedRows != 0 {
 		bodyRowsOffset = skippedRows - headerRows
-	} else {
-		bodyRowsOffset = 0
 	}
 	if headerRows == 0 {
 		headerRows = -1
 	}
-	if footerRows {
+	firstFooterRow := gridHeight + 1
+	if footerRows != 0 {
 		firstFooterRow = gridHeight - footerRows - 1
-	} else {
-		firstFooterRow = gridHeight + 1
 	}
-	originalGridHeight = len(verticalBorders)
-	footerRowsOffset = originalGridHeight - gridHeight
+	originalGridHeight := len(verticalBorders)
+	footerRowsOffset := originalGridHeight - gridHeight
 
-	rowNumber := func(y float64, horizontal bool) float64 {
-		if y < (headerRows + int(horizontal)) {
+	rowNumber := func(y int, horizontal bool) int {
+		if y < (headerRows + boolToInt(horizontal)) {
 			return y
-		} else if y >= (firstFooterRow + int(horizontal)) {
+		} else if y >= (firstFooterRow + boolToInt(horizontal)) {
 			return y + footerRowsOffset
 		} else {
 			return y + bodyRowsOffset
@@ -1080,54 +1086,52 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 	var segments []segment
 
 	//vertical=true
-	halfMaxWidth := func(borderList, yxPairs, vertical bool) float64 {
-		result = 0
-		for y, x := range yxPairs {
-			cond := 0 <= y <= gridHeight && 0 <= x < gridWidth
+	halfMaxWidth := func(borderList [][]bo.Border, yxPairs [][2]int, vertical bool) pr.Float {
+		var result pr.Float
+		for _, tmp := range yxPairs {
+			y, x := tmp[0], tmp[1]
+			cond := 0 <= y && y <= gridHeight && 0 <= x && x < gridWidth
 			if vertical {
-				cond = 0 <= y < gridHeight && 0 <= x <= gridWidth
+				cond = 0 <= y && y < gridHeight && 0 <= x && x <= gridWidth
 			}
 			if cond {
-				yy = rowNumber(y, !vertical)
-				tmp = borderList[yy][x]
-				// _, (_, width, ) = tmp
-				result = max(result, width)
+				yy := rowNumber(y, !vertical)
+				width := pr.Float(borderList[yy][x].Width)
+				result = pr.Max(result, width)
 			}
 		}
 		return result / 2
 	}
 
-	addVertical := func(x, y float64) {
-		yy = rowNumber(y, false)
-		tmp = verticalBorders[yy][x]
-		// score, (style, width, color) = tmp
-		if width == 0 || color.alpha == 0 {
+	addVertical := func(x, y int) {
+		yy := rowNumber(y, false)
+		border := verticalBorders[yy][x]
+		if border.Width == 0 || border.Color.RGBA.A == 0 {
 			return
 		}
-		posX = columnPositions[x]
-		posY1 = rowPositions[y] - halfMaxWidth(horizontalBorders,
-			[][2]float64{{y, x - 1}, {y, x}}, false)
-		posY2 = rowPositions[y+1] + halfMaxWidth(horizontalBorders,
-			[][2]float64{{y + 1, x - 1}, {y + 1, x}}, false)
-		segments = append(segments, segment{score, style, width, color, "left",
-			{posX - width/2, posY1, 0, posY2 - posY1}})
+		posX := columnPositions[x]
+		posY1 := rowPositions[y] - halfMaxWidth(horizontalBorders,
+			[][2]int{{y, x - 1}, {y, x}}, false)
+		posY2 := rowPositions[y+1] + halfMaxWidth(horizontalBorders,
+			[][2]int{{y + 1, x - 1}, {y + 1, x}}, false)
+		segments = append(segments, segment{Border: border, side: "left",
+			borderBox: pr.Rectangle{posX - pr.Float(border.Width)/2, posY1, 0, posY2 - posY1}})
 	}
 
-	addHorizontal := func(x, y float64) {
-		yy = rowNumber(y, true)
-		tmp = horizontalBorders[yy][x]
-		// score, (style, width, color) = tmp
-		if width == 0 || color.alpha == 0 {
+	addHorizontal := func(x, y int) {
+		yy := rowNumber(y, true)
+		border := horizontalBorders[yy][x]
+		if border.Width == 0 || border.Color.RGBA.A == 0 {
 			return
 		}
-		posY = rowPositions[y]
+		posY := rowPositions[y]
 		// TODO: change signs for rtl when we support rtl tables?
-		posX1 = columnPositions[x] - halfMaxWidth(verticalBorders,
-			[][2]float64{{y - 1, x}, {y, x}}, true)
-		posX2 = columnPositions[x+1] + halfMaxWidth(verticalBorders,
-			[][2]float64{{y - 1, x + 1}, {y, x + 1}}, true)
-		segments = append(segments, segment{score, style, width, color, "top",
-			{posX1, posY - width/2, posX2 - posX1}, 0})
+		posX1 := columnPositions[x] - halfMaxWidth(verticalBorders,
+			[][2]int{{y - 1, x}, {y, x}}, true)
+		posX2 := columnPositions[x+1] + halfMaxWidth(verticalBorders,
+			[][2]int{{y - 1, x + 1}, {y, x + 1}}, true)
+		segments = append(segments, segment{Border: border, side: "top",
+			borderBox: pr.Rectangle{posX1, posY - pr.Float(border.Width)/2, posX2 - posX1, 0}})
 	}
 
 	for x := 0; x < gridWidth; x += 1 {
@@ -1146,144 +1150,142 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 	// to the number of segments, there should be little changes and Timsort
 	// should be closer to O(n) than O(n * log(n))
 	sort.Slice(segments, func(i, j int) bool {
-		return segments[i][0] < segments[j][0] // key=operator.itemgetter(0)
+		return segments[i].Border.Score.Lower(segments[j].Border.Score)
 	})
 
 	for _, segment := range segments {
-		_, style, width, color, side, borderBox = segment
-		if side == "top" {
-			widths = [4]float64{width, 0, 0, 0}
-		} else {
-			widths = [4]float64{0, 0, 0, width}
+		widths := pr.Rectangle{0, 0, 0, pr.Float(segment.Width)}
+		if segment.side == "top" {
+			widths = pr.Rectangle{pr.Float(segment.Width), 0, 0, 0}
 		}
 		// with stacked(context) {
-		clipBorderSegment(
-			context, enableHinting, style, width, side, borderBox,
-			widths)
-		drawRectBorder(
-			context, borderBox, widths, style,
-			styledColor(style, color, side))
+		clipBorderSegment(context, enableHinting, segment.Style, segment.Width, segment.side, segment.borderBox,
+			&widths, nil)
+		drawRectBorder(context, segment.borderBox, widths, segment.Style,
+			styledColor(segment.Style, segment.Color.RGBA, segment.side))
 		// }
 	}
 }
 
 // Draw the given :class:`boxes.ReplacedBox` to a ``cairo.context``.
-func drawReplacedbox(context Drawer, box bo.InstanceReplacedBox) {
-	if box.Style["visibility"] != "visible" || !box.width || !box.height {
+func drawReplacedbox(context Drawer, box_ bo.InstanceReplacedBox) {
+	box := box_.Replaced()
+	if box.Style.GetVisibility() != "visible" || !pr.Is(box.Width) || !pr.Is(box.Height) {
 		return
 	}
 
-	drawWidth, drawHeight, drawX, drawY = replaced.replacedboxLayout(box)
+	drawWidth, drawHeight, drawX, drawY := layout.ReplacedboxLayout(box_)
 
 	// with stacked(context) {
 	roundedBoxPath(context, box.RoundedContentBox())
 	context.Clip()
-	context.Translate(drawX, drawY)
-	box.Replacement.draw(context, drawWidth, drawHeight, box.Style["imageRendering"])
+	context.Translate(float64(drawX), float64(drawY))
+	box.Replacement.Draw(context, float64(drawWidth), float64(drawHeight), box.Style.GetImageRendering())
 	// }
 }
 
 // offsetX=0, textOverflow="clip"
-func drawInlineLevel(context Drawer, page, box Box, enableHinting bool, offsetX float64, textOverflow string) {
-	if stackingContext, ok := box.(StackingContext); ok {
+func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting bool, offsetX float64, textOverflow string) {
+	if stackingContext, ok := box_.(StackingContext); ok {
 		if !(bo.TypeInlineBlockBox.IsInstance(stackingContext.box) || bo.TypeInlineFlexBox.IsInstance(stackingContext.box)) {
 			log.Fatalf("expected InlineBlock or InlineFlex, got %v", stackingContext.box)
 		}
 		drawStackingContext(context, stackingContext, enableHinting)
 	} else {
-		drawBackground(context, box.Background, enableHinting)
-		drawBorder(context, box, enableHinting)
-		textBox, isTextBox := box.(*bo.TextBox)
-		if layout.IsLine(box) {
-			if isinstance(box, bo.LineBox) {
-				textOverflow = box.textOverflow
+		box := box_.Box()
+		drawBackground2(context, box.Background, enableHinting)
+		drawBorder(context, box_, enableHinting)
+		textBox, isTextBox := box_.(*bo.TextBox)
+		replacedBox, isReplacedBox := box_.(bo.InstanceReplacedBox)
+		if layout.IsLine(box_) {
+			if lineBox, ok := box_.(*bo.LineBox); ok {
+				textOverflow = lineBox.TextOverflow
 			}
-			for _, child := range box.children {
-				if _, ok := child.(StackingContext); ok {
-					childOffsetX = offsetX
-				} else {
-					childOffsetX = offsetX + child.positionX - box.positionX
+			for _, child := range box.Children {
+				childOffsetX := offsetX
+				if _, ok := child.(StackingContext); !ok {
+					childOffsetX = offsetX + float64(child.Box().PositionX) - float64(box.PositionX)
 				}
 				if child, ok := child.(*bo.TextBox); ok {
-					drawText(context, child, enableHinting, childOffsetX, textOverflow)
+					drawText(context, *child, enableHinting, childOffsetX, textOverflow)
 				} else {
 					drawInlineLevel(context, page, child, enableHinting, childOffsetX, textOverflow)
 				}
 			}
-		} else if isinstance(box, bo.InlineReplacedBox) {
-			drawReplacedbox(context, box)
+		} else if isReplacedBox {
+			drawReplacedbox(context, replacedBox)
 		} else if isTextBox {
 			// Should only happen for list markers
-			drawText(context, box, enableHinting, offsetX, textOverflow)
+			drawText(context, *textBox, enableHinting, offsetX, textOverflow)
 		} else {
 			log.Fatalf("unexpected box %v", box)
 		}
 	}
 }
 
-// Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``.
-// offsetX=0,textOverflow="clip"
-func drawText(context Drawer, textbox *bo.TextBox, enableHinting bool, offsetX float64, textOverflow string) {
+// Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``
+// 	(offsetX=0,textOverflow="clip")
+func drawText(context Drawer, textbox bo.TextBox, enableHinting bool, offsetX float64, textOverflow string) {
 	// Pango crashes with font-size: 0
-	// FIXME: assert textbox.Style["fontSize"]
+	// FIXME: should we keep this assertion ?
+	// assert textbox.Style["fontSize"]
 
-	if textbox.Style["visibility"] != "visible" {
+	if textbox.Style.GetVisibility() != "visible" {
 		return
 	}
 
-	context.MoveTo(textbox.positionX, textbox.positionY+textbox.Baseline)
-	context.SetSourceRgba(*textbox.Style["color"])
+	context.MoveTo(float64(textbox.PositionX), float64(textbox.PositionY+textbox.Baseline.V()))
+	context.SetSourceRgba(textbox.Style.GetColor().RGBA.Unpack())
 
-	textbox.pangoLayout.reactivate(textbox.Style)
-	showFirstLine(context, textbox, textOverflow)
+	textbox.PangoLayout.Reactivate(textbox.Style)
+	layout.ShowFirstLine(context, textbox, textOverflow)
 
-	values = textbox.Style["textDecorationLine"]
+	values := textbox.Style.GetTextDecorationLine().Decorations
 
-	thickness = textbox.Style["fontSize"] / 18 // Like other browsers do
+	thickness := float64(textbox.Style.GetFontSize().Value / 18) // Like other browsers do
 	if enableHinting && thickness < 1 {
 		thickness = 1
 	}
 
-	color = textbox.Style["textDecorationColor"]
-	if color == "currentColor" {
-		color = textbox.Style["color"]
+	color := textbox.Style.GetTextDecorationColor()
+	if color.Type == parser.ColorCurrentColor {
+		color = textbox.Style.GetColor()
 	}
 
+	var metrics interface{}
 	if values.Has("overline") || values.Has("line-through") || values.Has("underline") {
-		metrics = textbox.pangoLayout.getFontMetrics()
+		metrics = textbox.PangoLayout.getFontMetrics()
 	}
 	if values.Has("overline") {
-		drawTextDecoration(
-			context, textbox, offsetX,
-			textbox.Baseline-metrics.ascent+thickness/2,
-			thickness, enableHinting, color)
+		drawTextDecoration(context, textbox, offsetX,
+			textbox.Baseline-metrics.ascent+thickness/2, thickness, enableHinting, color.RGBA)
 	}
 	if values.Has("underline") {
 		drawTextDecoration(
 			context, textbox, offsetX,
 			textbox.Baseline-metrics.underlinePosition+thickness/2,
-			thickness, enableHinting, color)
+			thickness, enableHinting, color.RGBA)
 	}
 	if values.Has("line-through") {
 		drawTextDecoration(context, textbox, offsetX,
 			textbox.Baseline-metrics.strikethroughPosition,
-			thickness, enableHinting, color)
+			thickness, enableHinting, color.RGBA)
 	}
 
-	textbox.pangoLayout.deactivate()
+	textbox.PangoLayout.deactivate()
 }
 
 func drawWave(context Drawer, x, y, width, offsetX, radius float64) {
 	context.NewPath()
-	diameter = 2 * radius
-	waveIndex = offsetX // diameter
-	remain = offsetX - waveIndex*diameter
+	diameter := 2 * radius
+	waveIndex := offsetX // diameter
+	remain := offsetX - waveIndex*diameter
 
 	for width > 0 {
-		up = waveIndex%2 == 0
-		centerX = x - remain + radius
-		alpha1 = (1 + remain/diameter) * pi
-		alpha2 = (1 + min(1, width/diameter)) * pi
+		up := utils.FloatModulo(waveIndex, 2) == 0
+		centerX := x - remain + radius
+		alpha1 := (1 + remain/diameter) * pi
+		alpha2 := (1 + math.Min(1, width/diameter)) * pi
 
 		if up {
 			context.Arc(centerX, y, radius, alpha1, alpha2)
@@ -1299,15 +1301,15 @@ func drawWave(context Drawer, x, y, width, offsetX, radius float64) {
 }
 
 // Draw text-decoration of ``textbox`` to a ``cairo.Context``.
-func drawTextDecoration(context Drawer, textbox *bo.TextBox, offsetX, offsetY, thickness float64,
+func drawTextDecoration(context Drawer, textbox bo.TextBox, offsetX, offsetY, thickness float64,
 	enableHinting bool, color Color) {
 
-	style = textbox.Style["textDecorationStyle"]
+	style := textbox.Style.GetTextDecorationStyle()
 	// with stacked(context) {
 	if enableHinting {
 		context.SetAntialias(cairo.ANTIALIASNONE)
 	}
-	context.SetSourceRgba(*color)
+	context.SetSourceRgba(color.Unpack())
 	context.SetLineWidth(thickness)
 
 	if style == "dashed" {
@@ -1315,22 +1317,18 @@ func drawTextDecoration(context Drawer, textbox *bo.TextBox, offsetX, offsetY, t
 	} else if style == "dotted" {
 		context.SetDash([]float64{thickness}, offsetX)
 	}
-
+	posX, posY, width := float64(textbox.PositionX), float64(textbox.PositionY), float64(textbox.Width.V())
 	if style == "wavy" {
-		drawWave(
-			context,
-			textbox.positionX, textbox.positionY+offsetY,
-			textbox.width, offsetX, 0.75*thickness)
+		drawWave(context, posX, posY+offsetY, width, offsetX, 0.75*thickness)
 	} else {
-		context.MoveTo(textbox.positionX, textbox.positionY+offsetY)
-		context.RelLineTo(textbox.width, 0)
+		context.MoveTo(posX, posY+offsetY)
+		context.RelLineTo(width, 0)
 	}
 
 	if style == "double" {
-		delta = 2 * thickness
-		context.MoveTo(
-			textbox.positionX, textbox.positionY+offsetY+delta)
-		context.RelLineTo(textbox.width, 0)
+		delta := 2 * thickness
+		context.MoveTo(posX, posY+offsetY+delta)
+		context.RelLineTo(width, 0)
 	}
 
 	context.Stroke()

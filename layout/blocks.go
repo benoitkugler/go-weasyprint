@@ -266,7 +266,7 @@ func relativePositioning(box_ Box, containingBlock bo.Point) {
 
 		box_.Translate(box_, translateX, translateY, false)
 	}
-	if isLine(box_) {
+	if IsLine(box_) {
 		for _, child := range box.Children {
 			relativePositioning(child, containingBlock)
 		}

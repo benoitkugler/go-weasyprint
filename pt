@@ -1,15 +1,16 @@
-// Return ``(width, height, viewbox)`` of ``node``.
-//     If ``reference`` is ``true``, we can rely on surface size to resolve
-//     percentages.
-//     
-func nodeFormat(surface, node, reference=true) {
-    referenceSize = "xy" if reference else (0, 0)
-    width = size(surface, node.get("width", "100%"), referenceSize[0])
-    height = size(surface, node.get("height", "100%"), referenceSize[1])
-    viewbox = node.get("viewBox")
-    if viewbox {
-        viewbox = re.sub("[ \n\r\t,]+", " ", viewbox)
-        viewbox = tuple(float(position) for position := range viewbox.split())
-        width = width || viewbox[2]
-        height = height || viewbox[3]
-    } return width, height, viewbox
+// Draw the given ``textbox`` line to the cairo ``context``.
+func showFirstLine(context, textbox, textOverflow) {
+    pango.pangoLayoutSetSingleParagraphMode(
+        textbox.pangoLayout.layout, true)
+} 
+    if textOverflow == "ellipsis" {
+        maxWidth = context.clipExtents()[2] - textbox.positionX
+        pango.pangoLayoutSetWidth(
+            textbox.pangoLayout.layout, unitsFromDouble(maxWidth))
+        pango.pangoLayoutSetEllipsize(
+            textbox.pangoLayout.layout, pango.PANGOELLIPSIZEEND)
+    }
+
+    firstLine, _ = textbox.pangoLayout.getFirstLine()
+    context = ffi.cast("cairoT *", context.Pointer)
+    pangocairo.pangoCairoShowLayoutLine(context, firstLine)

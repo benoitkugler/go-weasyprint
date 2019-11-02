@@ -22,7 +22,7 @@ type BlockBox struct {
 
 type LineBox struct {
 	BoxFields
-	textOverflow string
+	TextOverflow string
 	TextIndent   pr.MaybeFloat
 }
 
@@ -128,6 +128,16 @@ type InlineFlexBox struct {
 	BoxFields
 }
 
+// We need to distinct the classical Box from the special (AbsolutePlaceholder, StackingContext)
+type classicalBox interface {
+	isBox()
+}
+
+func IsBox(b Box) bool {
+	_, is := b.(classicalBox)
+	return is
+}
+
 type InstanceBlockLevelBox interface {
 	instanceBlockLevelBox
 	Box
@@ -155,14 +165,14 @@ func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil)
 	out := NewLineBox(parentBox.ElementTag, style, children)
 	if parentBox.Style.GetOverflow() != "visible" {
-		out.textOverflow = string(parentBox.Style.GetTextOverflow())
+		out.TextOverflow = string(parentBox.Style.GetTextOverflow())
 	}
 	return &out
 }
 
 func NewLineBox(elementTag string, style pr.Properties, children []Box) LineBox {
 	out := LineBox{BoxFields: newBoxFields(elementTag, style, children)}
-	out.textOverflow = "clip"
+	out.TextOverflow = "clip"
 	return out
 }
 

@@ -20,7 +20,7 @@ type Image interface {
 	isImage()
 	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
 	IntrinsicRatio() pr.MaybeFloat
-	Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering string)
+	Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering pr.String)
 }
 
 type imageSurface interface {
