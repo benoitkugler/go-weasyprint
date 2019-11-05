@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/benoitkugler/go-weasyprint/images"
+	"github.com/benoitkugler/go-weasyprint/matrix"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -159,7 +160,7 @@ type BoxFields struct {
 	IsAttachment bool
 	// isListMarker         bool
 
-	TransformationMatrix Matrix
+	TransformationMatrix *matrix.Transform
 
 	BookmarkLabel string
 

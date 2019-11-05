@@ -1,28 +1,31 @@
 package goweasyprint
 
 import (
-	"regexp"
+	"bufio"
 	"bytes"
 	"compress/zlib"
 	"crypto/md5"
+	"encoding/ascii85"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/url"
 	"path"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 
+	mt "github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
-
-	bo "github.com/benoitkugler/go-weasyprint/boxes"
 )
 
 // Post-process the PDF files created by cairo and add extra metadata (including
@@ -55,32 +58,26 @@ func pdfEscape(s string) string {
 	return s
 }
 
-// class PDFFormatter(string.Formatter) {
-//     """Like str.format except:
+// add line breaks to Bytes() to mimic Python's next()
+type myScan struct {
+	s *bufio.Scanner
+}
 
-//     * Results are byte strings
-//     * The new !P conversion flags encodes a PDF string.
-//       (UTF-16 BE with a BOM, then backslash-escape parentheses.)
+func newScanner(in io.Reader) myScan {
+	return myScan{s: bufio.NewScanner(in)}
+}
 
-//     Except for fields marked !P, everything should be ASCII-only.
+func (m myScan) Next() (line bts, err error) {
+	if !m.s.Scan() {
+		return nil, errors.New("unexpected end of file")
+	}
+	return m.Bytes(), nil
+}
 
-//     """
-//     def convertField(self, value, conversion) {
-//         if conversion == "P" {
-//             // Make a round-trip back through Unicode for the .translate()
-//             // method. (bytes.translate only maps to single bytes.)
-//             // Use latin1 to map all byte values.
-//             return "({0})".format(pdfEscape(
-//                 ("\ufeff" + value).encode("utf-16-be").decode("latin1")))
-//         } else {
-//             return super(PDFFormatter, self).convertField(value, conversion)
-//         }
-//     }
-// }
-//     def vformat(self, formatString, args, kwargs) {
-//         result = super(PDFFormatter, self).vformat(formatString, args, kwargs)
-//         return result.encode("latin1")
-//     }
+func (m myScan) Bytes() []byte {
+	l := m.s.Bytes()
+	return append(l, byte('\n'))
+}
 
 func pdfFormat(str string, args ...interface{}) bts {
 	return bts(fmt.Sprintf(str, args...))
@@ -105,167 +102,263 @@ func pdfString(s string) string {
 }
 
 type PDFDictionary struct {
-	objectNumber int64 
-	byteString bts
+	objectNumber int
+	byteString   bts
 }
 
- var reCache = map[string]*regexp.Regexp{}
+var reCache = map[[2]string]*regexp.Regexp{}
 
-    def getValue(self, key, valueRe) {
-        regex = self.ReCache.get((key, valueRe))
-        if ! regex {
-            regex = re.compile(pdfFormat("/{0} {1}", key, valueRe))
-            self.ReCache[key, valueRe] = regex
-        } return regex.search(self.byteString).group(1)
-    }
+func (d PDFDictionary) getValue(key, valueRe string) (out bts, err error) {
+	regex, in := reCache[[2]string{key, valueRe}]
+	if !in {
+		regex, err = regexp.Compile(string(pdfFormat("/%s %s", key, valueRe)))
+		if err != nil {
+			return nil, err
+		}
+		reCache[[2]string{key, valueRe}] = regex
+	}
+	match := regex.FindSubmatch(d.byteString)
+	if len(match) < 1 {
+		return nil, fmt.Errorf("no matching group for %s", regex.String())
+	}
+	return match[1], nil
+}
 
-    def getType(self) {
-        """Get dictionary type.
+// Get dictionary type.
+// Returns the value for the /Type key.
+func (d PDFDictionary) getType() (string, error) {
+	// No end delimiter, + defaults to greedy
+	v, err := d.getValue("Type", "/(\\w+)")
+	if err != nil {
+		return "", err
+	}
+	b, err := ioutil.ReadAll(ascii85.NewDecoder(bytes.NewReader(v)))
+	return string(b), err
+}
 
-        :returns: the value for the /Type key.
+// Read the value for `key` and follow the reference.
+// We assume that it is an indirect dictionary object.
+// :return: a new PDFDictionary instance.
+func (d PDFDictionary) getIndirectDict(key string, pdfFile PDFFile) (PDFDictionary, error) {
+	v, err := d.getValue(key, "(\\d+) 0 R")
+	if err != nil {
+		return PDFDictionary{}, err
+	}
+	objectNumber, err := strconv.Atoi(string(v))
+	if err != nil {
+		return PDFDictionary{}, err
+	}
+	bs, err := pdfFile.readObject(objectNumber)
+	if err != nil {
+		return PDFDictionary{}, err
+	}
+	return PDFDictionary{objectNumber: objectNumber, byteString: bs}, nil
+}
 
-        """
-        // No end delimiter, + defaults to greedy
-        return self.getValue("Type", "/(\\w+)").decode("ascii")
-    }
-
-    def getIndirectDict(self, key, pdfFile) {
-        """Read the value for `key` && follow the reference.
-
-        We assume that it is an indirect dictionary object.
-
-        :return: a new PDFDictionary instance.
-
-        """
-        objectNumber = int(self.getValue(key, "(\\d+) 0 R"))
-        return type(self)(objectNumber, pdfFile.readObject(objectNumber))
-    }
-
-    def getIndirectDictArray(self, key, pdfFile) {
-        """Read the value for `key` && follow the references.
-
-        We assume that it is an array of indirect dictionary objects.
-
-        :return: a list of new PDFDictionary instance.
-
-        """
-        parts = self.getValue(key, "\\[(.+?)\\]").split(b" 0 R")
-        // The array looks like this: " <a> 0 R <b> 0 R <c> 0 R "
-        // so `parts` ends up like this [" <a>", " <b>", " <c>", " "]
-        // With the trailing white space := range the list.
-        trail = parts.pop()
-        assert ! trail.strip()
-        class_ = type(self)
-        read = pdfFile.readObject
-        return [class(n, read(n)) for n := range map(int, parts)]
-    }
+// Read the value for `key` and follow the references.
+// We assume that it is an array of indirect dictionary objects.
+// :return: a list of new PDFDictionary instance.
+func (d PDFDictionary) getIndirectDictArray(key string, pdfFile PDFFile) ([]PDFDictionary, error) {
+	v, err := d.getValue(key, "\\[(.+?)\\]")
+	if err != nil {
+		return nil, err
+	}
+	parts := bytes.Split(v, bts(" 0 R"))
+	// The array looks like this: " <a> 0 R <b> 0 R <c> 0 R "
+	// so `parts` ends up like this [" <a>", " <b>", " <c>", " "]
+	// With the trailing white space in the list.
+	trail := parts[len(parts)-1]
+	parts = parts[:len(parts)-1]
+	if s := string(bytes.TrimSpace(trail)); s != "" {
+		log.Fatalf("expected empty trail, got %s", s)
+	}
+	out := make([]PDFDictionary, len(parts))
+	for i, ns := range parts {
+		n, err := strconv.Atoi(string(ns))
+		if err != nil {
+			return nil, err
+		}
+		obj, err := pdfFile.readObject(n)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = PDFDictionary{objectNumber: n, byteString: obj}
+	}
+	return out, nil
+}
 
 type PDFFile struct {
-	finished          bool
-	fileobj           io.WriteSeeker
-	objectsOffsets    []*int64
-	newObjectsOffsets []*int64
+	finished bool
+	fileobj  io.ReadWriteSeeker
+
+	// Maps object number -> bytes from the start of the file
+	objectsOffsets            []int64
+	newObjectsOffsets         []int64
+	overwrittenObjectsOffsets map[int]int64
+
+	startxref               int
+	info, catalog, pageTree PDFDictionary
+	pages                   []PDFDictionary
 }
 
-//     trailerRe = re.compile(
-//         b"\ntrailer\n(.+)\nstartxref\n(\\d+)\n%%EOF\n$", re.DOTALL)
-// }
-//     def _Init_(self, fileobj) {
-//         // cairo’s trailer only has Size, Root && Info.
-//         // The trailer + startxref + EOF is typically under 100 bytes
-//         fileobj.seek(-200, os.SEEKEND)
-//         trailer, startxref = self.trailerRe.search(fileobj.read()).groups()
-//         trailer = PDFDictionary(None, trailer)
-//         startxref = int(startxref)
-//
+var trailerRe = regexp.MustCompile("(?s)\ntrailer\n(.+)\nstartxref\n(\\d+)\n%%EOF\n$")
 
-//         fileobj.seek(startxref)
-//         line = next(fileobj)
-//         assert line == b"xref\n"
+func NewPDFFile(fileobj io.ReadWriteSeeker) (p PDFFile, err error) {
+	// cairo’s trailer only has Size, Root and Info.
+	// The trailer + startxref + EOF is typically under 100 bytes
+	_, err = fileobj.Seek(-200, io.SeekEnd)
+	if err != nil {
+		return p, err
+	}
+	content, err := ioutil.ReadAll(fileobj)
+	if err != nil {
+		return p, err
+	}
+	tmp := trailerRe.FindSubmatch(content)
+	trailer_, startxref_ := tmp[1], tmp[2]
+	trailer := PDFDictionary{objectNumber: -1, byteString: trailer_}
+	startxref, err := strconv.Atoi(string(startxref_))
+	if err != nil {
+		return p, err
+	}
 
-//         line = next(fileobj)
-//         firstObject, totalObjects = line.split()
-//         assert firstObject == b"0"
-//         totalObjects = int(totalObjects)
+	_, err = fileobj.Seek(int64(startxref), io.SeekStart)
+	if err != nil {
+		return p, err
+	}
+	scanner := newScanner(fileobj)
+	line, err := scanner.Next()
+	if err != nil {
+		return p, err
+	}
+	if s := string(line); s != "xref\n" {
+		return p, fmt.Errorf("unexpected line %s", s)
+	}
+	line, err = scanner.Next()
+	if err != nil {
+		return p, err
+	}
+	tmp = bytes.Split(line, bts(" "))
+	firstObject, totalObjects_ := tmp[0], tmp[1]
+	if s := string(firstObject); s != "0" {
+		return p, fmt.Errorf("expected 0, got %s", s)
+	}
+	totalObjects, err := strconv.Atoi(string(totalObjects_))
+	if err != nil {
+		return p, err
+	}
+	line, err = scanner.Next()
+	if err != nil {
+		return p, err
+	}
+	if s := string(line); s != "0000000000 65535 f \n" {
+		return p, fmt.Errorf("unexpected line %s", s)
+	}
 
-//         line = next(fileobj)
-//         assert line == b"0000000000 65535 f \n"
+	objectsOffsets := []int64{-1}
+	for objectNumber := 1; objectNumber < totalObjects; objectNumber += 1 {
+		line, err = scanner.Next()
+		if err != nil {
+			return p, err
+		}
 
-//         objectsOffsets = [None]
-//         for objectNumber := range range(1, totalObjects) {
-//             line = next(fileobj)
-//             assert line[10:] == b" 00000 n \n"
-//             objectsOffsets.append(int(line[:10]))
-//         }
+		if s := string(line[10:]); s != " 00000 n \n" {
+			return p, fmt.Errorf("unexpected line %s", s)
+		}
+		offset, err := strconv.Atoi(string(line[:10]))
+		if err != nil {
+			return p, err
+		}
+		objectsOffsets = append(objectsOffsets, int64(offset))
+	}
 
-//         self.fileobj = fileobj
-//         #: Maps object number -> bytes from the start of the file
-//         self.objectsOffsets = objectsOffsets
+	p.fileobj = fileobj
+	p.objectsOffsets = objectsOffsets
 
-//         info = trailer.getIndirectDict("Info", self)
-//         catalog = trailer.getIndirectDict("Root", self)
-//         pageTree = catalog.getIndirectDict("Pages", self)
-//         pages = pageTree.getIndirectDictArray("Kids", self)
-//         // Check that the tree is flat
-//         assert all(p.getType() == "Page" for p := range pages)
+	info, err := trailer.getIndirectDict("Info", p)
+	if err != nil {
+		return p, err
+	}
+	catalog, err := trailer.getIndirectDict("Root", p)
+	if err != nil {
+		return p, err
+	}
+	pageTree, err := catalog.getIndirectDict("Pages", p)
+	if err != nil {
+		return p, err
+	}
+	pages, err := pageTree.getIndirectDictArray("Kids", p)
+	if err != nil {
+		return p, err
+	}
+	// Check that the tree is flat
+	for _, pa := range pages {
+		if t, err := pa.getType(); err != nil || t != "Page" {
+			return p, fmt.Errorf("tree is not flat (page type : %s, err %s)", t, err)
+		}
+	}
 
-//         self.startxref = startxref
-//         self.info = info
-//         self.catalog = catalog
-//         self.pageTree = pageTree
-//         self.pages = pages
+	p.startxref = startxref
+	p.info = info
+	p.catalog = catalog
+	p.pageTree = pageTree
+	p.pages = pages
 
-//         self.finished = false
-//         self.overwrittenObjectsOffsets = {}
-//         self.newObjectsOffsets = []
+	p.overwrittenObjectsOffsets = map[int]int64{}
+	return p, nil
+}
 
-//     def readObject(self, objectNumber) {
-//         """
-//         :param objectNumber:
-//             An integer N so that 1 <= N < len(self.objectsOffsets)
-//         :returns:
-//             The object content as a byte string.
+// objectNumber is an integer N so that 1 <= N < len(self.objectsOffsets)
+func (p PDFFile) readObject(objectNumber int) (bts, error) {
+	p.fileobj.Seek(p.objectsOffsets[objectNumber], io.SeekStart)
+	scanner := newScanner(p.fileobj)
+	line, err := scanner.Next()
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.HasSuffix(line, bts(" 0 obj\n")) {
+		return nil, fmt.Errorf("bad suffix for line %s", string(line))
+	}
+	if i, err := strconv.Atoi(string(line[:len(line)-7])); err != nil || i != objectNumber { // len(b" 0 obj\n") == 7
+		return nil, fmt.Errorf("bad objectNumber for line %s", string(line))
+	}
+	var objectLines []bts
+	for scanner.s.Scan() {
+		line := scanner.Bytes()
+		if string(line) == ">>\n" {
+			line, err = scanner.Next()
+			if err != nil || string(line) != "endobj\n" {
+				return nil, fmt.Errorf("unexpected line %s", string(line))
+			}
+			// No newline, we’ll add it when writing.
+			objectLines = append(objectLines, bts(">>"))
+			return bytes.Join(objectLines, bts("")), nil
+		}
+		objectLines = append(objectLines, line)
+	}
+	return nil, nil
+}
 
-//         """
-//         fileobj = self.fileobj
-//         fileobj.seek(self.objectsOffsets[objectNumber])
-//         line = next(fileobj)
-//         assert line.endswith(b" 0 obj\n")
-//         assert int(line[:-7]) == objectNumber  // len(b" 0 obj\n") == 7
-//         objectLines = []
-//         for line := range fileobj {
-//             if line == b">>\n" {
-//                 assert next(fileobj) == b"endobj\n"
-//                 // No newline, we’ll add it when writing.
-//                 objectLines.append(b">>")
-//                 return b"".join(objectLines)
-//             } objectLines.append(line)
-//         }
-//     }
-
-//     def overwriteObject(self, objectNumber, byteString) {
-//         """Write the new content for an existing object at the end of the file.
-
-//         :param objectNumber:
-//             An integer N so that 1 <= N < len(self.objectsOffsets)
-//         :param byteString:
-//             The new object content as a byte string.
-
-//         """
-//         self.overwrittenObjectsOffsets[objectNumber] = (
-//             self.writeObject(objectNumber, byteString))
-//     }
+// Write the new content for an existing object at the end of the file.
+// objectNumber verifies 1 <= N < len(p.objectsOffsets)
+// byteString is the new object content as a byte string.
+func (p PDFFile) overwriteObject(objectNumber int, byteString bts) error {
+	offset, err := p.writeObject(objectNumber, byteString)
+	if err != nil {
+		return err
+	}
+	p.overwrittenObjectsOffsets[objectNumber] = offset
+	return nil
+}
 
 // Overwrite a dictionary object.
-// 
 // Content is added inside the << >> delimiters.
-    func (p PDFFile) extendDict(dictionary, newContent) {
-        if !bytes.HasSuffix(dictionary.byteString,bts(">>")) {
-			log.Fatalf("expected >> at then end, got %s", string(dictionary.byteString))
-		}
-        self.overwriteObject(dictionary.objectNumber,
-            dictionary.byteString[:-2] + newContent + b"\n>>")
-    }
+func (p PDFFile) extendDict(dictionary PDFDictionary, newContent bts) error {
+	if !bytes.HasSuffix(dictionary.byteString, bts(">>")) {
+		log.Fatalf("expected >> at then end, got %s", string(dictionary.byteString))
+	}
+	return p.overwriteObject(dictionary.objectNumber, append(append(dictionary.byteString[:len(dictionary.byteString)-2], newContent...), bts("\n>>")...))
+}
 
 // Return object number that would be used by writeNewObject().
 func (p PDFFile) nextObjectNumber() int {
@@ -280,47 +373,50 @@ func (p *PDFFile) writeNewObject(byteString bts) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	p.newObjectsOffsets = append(p.newObjectsOffsets, &offset)
+	p.newObjectsOffsets = append(p.newObjectsOffsets, offset)
 	return objectNumber, nil
 }
 
-//     def finish(self) {
-//         """Write cross-ref table && trailer for new && overwritten objects.
+// Write cross-ref table and trailer for new and overwritten objects.
+// This makes `fileobj` a valid (updated) PDF file.
+func (p *PDFFile) finish() error {
+	newStartxref, err := p.startWriting()
+	if err != nil {
+		return err
+	}
+	p.finished = true
+	_, err = p.fileobj.Write(bts("xref\n"))
+	if err != nil {
+		return err
+	}
 
-//         This makes `fileobj` a valid (updated) PDF file.
+	// Don’t bother sorting or finding contiguous numbers,
+	// just write a new sub-section for each overwritten object.
+	for objectNumber, offset := range p.overwrittenObjectsOffsets {
+		_, err = p.fileobj.Write(pdfFormat("%d 1\n%010d 00000 n \n", objectNumber, offset))
+	}
 
-//         """
-//         newStartxref, write = self.startWriting()
-//         self.finished = true
-//         write(b"xref\n")
-//     }
+	if len(p.newObjectsOffsets) != 0 {
+		firstNewObject := len(p.objectsOffsets)
+		_, err = p.fileobj.Write(pdfFormat("%d %d\n", firstNewObject, len(p.newObjectsOffsets)))
+		if err != nil {
+			return err
+		}
+		for _, offset := range p.newObjectsOffsets {
+			_, err = p.fileobj.Write(pdfFormat("%010d 00000 n \n", offset))
+			if err != nil {
+				return err
+			}
+		}
+	}
 
-//         // Don’t bother sorting || finding contiguous numbers,
-//         // just write a new sub-section for each overwritten object.
-//         for objectNumber, offset := range self.overwrittenObjectsOffsets.items() {
-//             write(pdfFormat(
-//                 "{0} 1\n{1:010} 00000 n \n", objectNumber, offset))
-//         }
-
-//         if self.newObjectsOffsets {
-//             firstNewObject = len(self.objectsOffsets)
-//             write(pdfFormat(
-//                 "{0} {1}\n", firstNewObject, len(self.newObjectsOffsets)))
-//             for objectNumber, offset := range enumerate(
-//                     self.newObjectsOffsets, start=firstNewObject) {
-//                     }
-//                 write(pdfFormat("{0:010} 00000 n \n", offset))
-//         }
-
-//         write(pdfFormat(
-//             "trailer\n<< "
-//             "/Size {size} /Root {root} 0 R /Info {info} 0 R /Prev {prev}"
-//             " >>\nstartxref\n{startxref}\n%%EOF\n",
-//             size=self.nextObjectNumber(),
-//             root=self.catalog.objectNumber,
-//             info=self.info.objectNumber,
-//             prev=self.startxref,
-//             startxref=newStartxref))
+	_, err = p.fileobj.Write(pdfFormat(
+		"trailer\n<< "+
+			"/Size %d /Root %d 0 R /Info %d 0 R /Prev %d"+
+			" >>\nstartxref\n%d\n%%EOF\n",
+		p.nextObjectNumber(), p.catalog.objectNumber, p.info.objectNumber, p.startxref, newStartxref))
+	return err
+}
 
 func (p PDFFile) writeObject(objectNumber int, byteString bts) (int64, error) {
 	offset, err := p.startWriting()
@@ -444,7 +540,7 @@ func writeCompressedFileObject(pdf *PDFFile, file io.Reader) (int, error) {
 		return 0, nil
 	}
 
-	pdf.newObjectsOffsets = append(pdf.newObjectsOffsets, &offset)
+	pdf.newObjectsOffsets = append(pdf.newObjectsOffsets, offset)
 
 	_, err = pdf.writeNewObject(pdfFormat("%d", compressedLength))
 	if err != nil {
@@ -574,14 +670,17 @@ func writePdfAttachment(pdf *PDFFile, attachment utils.Attachment, urlFetcher ut
 // - embedded files
 // - trim box
 // - bleed box
-func writePdfMetadata(fileobj io.Reader, scale float64, urlFetcher utils.UrlFetcher, attachments []utils.Attachment,
+func writePdfMetadata(fileobj io.ReadWriteSeeker, scale float64, urlFetcher utils.UrlFetcher, attachments []utils.Attachment,
 	attachmentLinks [][]linkData, pages []Page) {
 
-	pdf := PDFFile(fileobj)
-
+	pdf, err := NewPDFFile(fileobj)
+	if err != nil {
+		log.Printf("failed to read pdf : %s", err)
+		return
+	}
 	// Add embedded files
 
-	embeddedFilesId, err := writePdfEmbeddedFiles(pdf, attachments, urlFetcher)
+	embeddedFilesId, err := writePdfEmbeddedFiles(&pdf, attachments, urlFetcher)
 	if err != nil {
 		log.Printf("failed to embed files : %s\n", err)
 	}
@@ -601,9 +700,9 @@ func writePdfMetadata(fileobj io.Reader, scale float64, urlFetcher utils.UrlFetc
 	for _, pageLinks := range attachmentLinks {
 		for _, v := range pageLinks {
 			// linkType, target, rectangle = v
-			if _, targetInAnnotFiles := annotFiles[v.target]; linkType == "attachment" && !targetInAnnotFiles {
+			if _, targetInAnnotFiles := annotFiles[v.target]; v.type_ == "attachment" && !targetInAnnotFiles {
 				// TODO: use the title attribute as description
-				annotFiles[target] = writePdfAttachment(pdf, utils.Attachment{v.target, ""}, urlFetcher)
+				annotFiles[v.target] = writePdfAttachment(&pdf, utils.Attachment{v.target, ""}, urlFetcher)
 			}
 		}
 	}
@@ -611,32 +710,54 @@ func writePdfMetadata(fileobj io.Reader, scale float64, urlFetcher utils.UrlFetc
 	for i, pdfPage := range pdf.pages {
 		documentPage, pageLinks := pages[i], attachmentLinks[i]
 
-		// FIXME: // Add bleed box
+		// Add bleed box
 
-		// mediaBox = pdfPage.getValue(
-		//     "MediaBox", "\\[(.+?)\\]").decode("ascii").strip()
-		// left, top, right, bottom = (
-		//     float(value) for value := range mediaBox.split(" "))
-		// // Convert pixels into points
-		// bleed = {
-		//     key: value * 0.75 for key, value := range documentPage.bleed.items()}
+		mediaBox_, err := pdfPage.getValue("MediaBox", "\\[(.+?)\\]")
+		if err != nil {
+			log.Printf("can't read MediaBox : %s", err)
+			continue
+		}
+		mediaBoxParts := strings.Split(string(bytes.TrimSpace(mediaBox_)), " ")
+		left, err := strconv.ParseFloat(mediaBoxParts[0], 64)
+		if err != nil {
+			log.Printf("invalid left MediaBox value : %s", mediaBoxParts[0])
+		}
+		top, err := strconv.ParseFloat(mediaBoxParts[1], 64)
+		if err != nil {
+			log.Printf("invalid top MediaBox value : %s", mediaBoxParts[1])
+		}
+		right, err := strconv.ParseFloat(mediaBoxParts[2], 64)
+		if err != nil {
+			log.Printf("invalid right MediaBox value : %s", mediaBoxParts[2])
+		}
+		bottom, err := strconv.ParseFloat(mediaBoxParts[3], 64)
+		if err != nil {
+			log.Printf("invalid bottom MediaBox value : %s", mediaBoxParts[3])
+		}
+		// Convert pixels into points
+		bleed := bleedData{
+			Left:   documentPage.bleed.Left * 0.75,
+			Top:    documentPage.bleed.Top * 0.75,
+			Right:  documentPage.bleed.Right * 0.75,
+			Bottom: documentPage.bleed.Bottom * 0.75,
+		}
 
-		// trimLeft = left + bleed["left"]
-		// trimTop = top + bleed["top"]
-		// trimRight = right - bleed["right"]
-		// trimBottom = bottom - bleed["bottom"]
+		trimLeft := left + bleed.Left
+		trimTop := top + bleed.Top
+		trimRight := right - bleed.Right
+		trimBottom := bottom - bleed.Bottom
 
-		// // Arbitrarly set PDF BleedBox between CSS bleed box (PDF MediaBox) and
-		// // CSS page box (PDF TrimBox), at most 10 points from the TrimBox.
-		// bleedLeft = trimLeft - min(10, bleed["left"])
-		// bleedTop = trimTop - min(10, bleed["top"])
-		// bleedRight = trimRight + min(10, bleed["right"])
-		// bleedBottom = trimBottom + min(10, bleed["bottom"])
+		// Arbitrarly set PDF BleedBox between CSS bleed box (PDF MediaBox) and
+		// CSS page box (PDF TrimBox), at most 10 points from the TrimBox.
+		bleedLeft := trimLeft - math.Min(10, bleed.Left)
+		bleedTop := trimTop - math.Min(10, bleed.Top)
+		bleedRight := trimRight + math.Min(10, bleed.Right)
+		bleedBottom := trimBottom + math.Min(10, bleed.Bottom)
 
-		// pdf.extendDict(pdfPage, pdfFormat(
-		//     "/TrimBox [ {} {} {} {} ] /BleedBox [ {} {} {} {} ]".format(
-		//         trimLeft, trimTop, trimRight, trimBottom,
-		//         bleedLeft, bleedTop, bleedRight, bleedBottom)))
+		pdf.extendDict(pdfPage, pdfFormat(
+			"/TrimBox [ %f %f %f %f ] /BleedBox [ %f %f %f %f ]",
+			trimLeft, trimTop, trimRight, trimBottom,
+			bleedLeft, bleedTop, bleedRight, bleedBottom))
 
 		// Add links to attachments
 
@@ -652,36 +773,47 @@ func writePdfMetadata(fileobj io.Reader, scale float64, urlFetcher utils.UrlFetc
 			linkType, target, r := v.type_, v.target, v.rectangle
 			if anTarget := annotFiles[target]; linkType == "attachment" && anTarget != nil {
 				// xx=scale, yy=-scale, y0=documentPage.height * scale
-				var matrix bo.Matrix = cairo.Matrix(scale, -scale, documentPage.height*scale)
+				matrix := mt.New(scale, 0, 0, -scale, 0, documentPage.height*scale)
 				rectX, rectY, width, height := r[0], r[1], r[2], r[3]
 				rectX, rectY = matrix.TransformPoint(rectX, rectY)
 				width, height = matrix.TransformDistance(width, height)
 				// x, y, w, h => x0, y0, x1, y1
 				r = [4]float64{rectX, rectY, rectX + width, rectY + height}
-				content := []bts{bts{pdfFormat("<< /Type /Annot /Rect [%.2f %.2f %.2f %.2f] /Border [0 0 0]\n",
-					r[0], r[1], r[2], r[3])}}
-				linkAp := pdf.writeNewObject("<< /Type /XObject /Subtype /Form "+
+				content := []bts{pdfFormat("<< /Type /Annot /Rect [%.2f %.2f %.2f %.2f] /Border [0 0 0]\n",
+					r[0], r[1], r[2], r[3])}
+				linkAp, err := pdf.writeNewObject(pdfFormat("<< /Type /XObject /Subtype /Form "+
 					"/BBox [%.2f %.2f %.2f %.2f] /Length 0 >>\n"+
 					"stream\n"+
-					"endstream", r[0], r[1], r[2], r[3])
-				content = append(content, bts{"/Subtype /FileAttachment "})
+					"endstream", r[0], r[1], r[2], r[3]))
+				if err != nil {
+					log.Printf("failed to add link to attachment %v : %s", v.target, err)
+					continue
+				}
+				content = append(content, bts("/Subtype /FileAttachment "))
 				// evince needs /T or fails on an internal assertion. PDF
 				// doesn't require it.
-				content = append(content, bts{pdfFormat("/T () /FS %d 0 R /AP << /N %d 0 R >>",
-					*anTarget, linkAp)})
-				content = append(content, bts{">>"})
-				annotations = append(annotations, pdf.writeNewObject(bytes.Join(content, "")))
+				content = append(content, pdfFormat("/T () /FS %d 0 R /AP << /N %d 0 R >>",
+					*anTarget, linkAp))
+				content = append(content, bts(">>"))
+				annot, err := pdf.writeNewObject(bytes.Join(content, bts("")))
+				if err != nil {
+					log.Printf("failed to add link to attachment %v : %s", v.target, err)
+					continue
+				}
+				annotations = append(annotations, annot)
 			}
 		}
 
 		if len(annotations) != 0 {
-			chunks := make([]string, len(annotations))
+			chunks := make([]bts, len(annotations))
 			for i, n := range annotations {
 				chunks[i] = pdfFormat("%d 0 R", n)
 			}
-			pdf.extendDict(pdfPage, bts{pdfFormat("/Annots [%s]", strings.Join(chunks, " "))})
+			pdf.extendDict(pdfPage, pdfFormat("/Annots [%s]", bytes.Join(chunks, bts(" "))))
 		}
 	}
 
-	pdf.finish()
+	if err = pdf.finish(); err != nil {
+		log.Printf("error closing file : %s", err)
+	}
 }

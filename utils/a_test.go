@@ -1,12 +1,14 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -205,4 +207,15 @@ func TestHex(t *testing.T) {
 	fmt.Println(mdb)
 	s := hex.EncodeToString(mdb)
 	fmt.Println(s)
+}
+
+func TestScan(t *testing.T) {
+	f, _ := os.Open("../pt")
+	s := bufio.NewScanner(f)
+	s.Scan()
+	fmt.Println(len(string(s.Bytes())))
+}
+
+func TestFormat(t *testing.T) {
+	fmt.Printf("%010d", 45)
 }

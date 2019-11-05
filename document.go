@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/images"
+	mt "github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/go-weasyprint/version"
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
@@ -25,7 +26,7 @@ import (
 func toF(v pr.Dimension) float64 { return float64(v.Value) }
 
 // Return the matrix for the CSS transforms on this box (possibly nil)
-func getMatrix(box_ Box) bo.Matrix {
+func getMatrix(box_ Box) *mt.Transform {
 	// "Transforms apply to block-level and atomic inline-level elements,
 	//  but do not apply to elements which may be split into
 	//  multiple inline-level boxes."
@@ -40,7 +41,7 @@ func getMatrix(box_ Box) bo.Matrix {
 		originX := float64(box.BorderBoxX() + offsetX)
 		originY := float64(box.BorderBoxY() + offsetY)
 
-		var matrix bo.Matrix = cairo.Matrix()
+		var matrix mt.Transform
 		matrix.Translate(originX, originY)
 		for _, t := range trans {
 			name, args := t.String, t.Dimensions
@@ -59,31 +60,31 @@ func getMatrix(box_ Box) bo.Matrix {
 					float64(pr.ResoudPercentage(translateY.ToValue(), borderHeight).V()),
 				)
 			default:
-				var leftMat [6]float64
+				var leftMat mt.Transform
 				switch name {
 				case "skewx":
-					leftMat = [6]float64{1, 0, math.Tan(toF(args[0])), 1, 0, 0}
+					leftMat = mt.New(1, 0, math.Tan(toF(args[0])), 1, 0, 0)
 				case "skewy":
-					leftMat = [6]float64{1, math.Tan(toF(args[0])), 0, 1, 0, 0}
+					leftMat = mt.New(1, math.Tan(toF(args[0])), 0, 1, 0, 0)
 				case "matrix":
-					leftMat = [6]float64{toF(args[0]), toF(args[1]), toF(args[2]),
-						toF(args[3]), toF(args[4]), toF(args[5])}
+					leftMat = mt.New(toF(args[0]), toF(args[1]), toF(args[2]),
+						toF(args[3]), toF(args[4]), toF(args[5]))
 				default:
 					log.Fatalf("unexpected name for CSS transform property : %s", name)
 				}
-				matrix = matrix.LeftMultiply(leftMat)
+				matrix = mt.Mul(leftMat, matrix)
 			}
 		}
 		matrix.Translate(-originX, -originY)
-		box.TransformationMatrix = matrix
-		return matrix
+		box.TransformationMatrix = &matrix
+		return &matrix
 	}
 	return nil
 }
 
 // Apply a transformation matrix to an axis-aligned rectangle
 // and return its axis-aligned bounding box as ``(x, y, width, height)``
-func rectangleAabb(matrix bo.Matrix, posX, posY, width, height float64) [4]float64 {
+func rectangleAabb(matrix mt.Transform, posX, posY, width, height float64) [4]float64 {
 	x1, y1 := matrix.TransformPoint(posX, posY)
 	x2, y2 := matrix.TransformPoint(posX+width, posY)
 	x3, y3 := matrix.TransformPoint(posX, posY+height)
@@ -107,11 +108,12 @@ type bookmarkData struct {
 	state    string
 }
 
-func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]linkData, anchors map[string][2]float64, matrix bo.Matrix) {
+func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]linkData, anchors map[string][2]float64, matrix *mt.Transform) {
 	transform := getMatrix(box_)
 	if transform != nil {
 		if matrix != nil {
-			matrix = transform.RightMultiply(matrix.Data())
+			t := mt.Mul(*matrix, *transform)
+			matrix = &t
 		} else {
 			matrix = transform
 		}
@@ -143,7 +145,7 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]li
 			var linkS linkData
 			if matrix != nil {
 				linkS = linkData{type_: linkType, target: target,
-					rectangle: rectangleAabb(matrix, posX, posY, width, height)}
+					rectangle: rectangleAabb(*matrix, posX, posY, width, height)}
 			} else {
 				linkS = linkData{type_: linkType, target: target, rectangle: [4]float64{posX, posY, width, height}}
 			}
@@ -214,10 +216,10 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 	d.height = float64(pageBox.MarginHeight())
 
 	d.bleed = bleedData{
-		Top:    pageBox.Style.GetBleedTop().Value,
-		Right:  pageBox.Style.GetBleedRight().Value,
-		Bottom: pageBox.Style.GetBleedBottom().Value,
-		Left:   pageBox.Style.GetBleedLeft().Value,
+		Top:    float64(pageBox.Style.GetBleedTop().Value),
+		Right:  float64(pageBox.Style.GetBleedRight().Value),
+		Bottom: float64(pageBox.Style.GetBleedBottom().Value),
+		Left:   float64(pageBox.Style.GetBleedLeft().Value),
 	}
 	d.anchors = map[string][2]float64{}
 
@@ -615,7 +617,7 @@ func (d Document) WritePdf(self, target io.Writer, zoom float64, attachments []u
 	}
 	condition := len(d.metadata.Attachments) != 0 || len(attachments) != 0 || anyAL || anyBleed
 	if condition {
-		writePdfMetadata(fileObj, scale, d.urlFetcher,
+		writePdfMetadata(&fileObj, scale, d.urlFetcher,
 			append(d.metadata.Attachments, attachments...), attachmentLinks, d.pages)
 	}
 }

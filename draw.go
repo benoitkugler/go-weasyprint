@@ -94,12 +94,12 @@ const (
 )
 
 type bleedData struct {
-	Top, Bottom, Left, Right pr.Float
+	Top, Bottom, Left, Right float64
 }
 
 // FIXME: check gofpdf support for SVG
 type svgArgs struct {
-	Width, Height    pr.Float
+	Width, Height    float64
 	Bleed, HalfBleed bleedData
 }
 
@@ -183,10 +183,10 @@ func lighten(color Color) Color {
 // Draw the given PageBox.
 func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) {
 	bleed := bleedData{
-		Top:    page.Style.GetBleedTop().Value,
-		Bottom: page.Style.GetBleedBottom().Value,
-		Left:   page.Style.GetBleedLeft().Value,
-		Right:  page.Style.GetBleedRight().Value,
+		Top:    float64(page.Style.GetBleedTop().Value),
+		Bottom: float64(page.Style.GetBleedBottom().Value),
+		Left:   float64(page.Style.GetBleedLeft().Value),
+		Right:  float64(page.Style.GetBleedRight().Value),
 	}
 	marks := page.Style.GetMarks()
 	stackingContext := NewStackingContextFromPage(page)
@@ -440,14 +440,15 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 		// with stacked(context) {
 		paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
 		if !paintingArea.IsNone() {
+			ptx, pty, ptw, pth := paintingArea.Unpack()
 			if (bleed != bleedData{}) {
 				// Painting area is the PDF BleedBox
-				paintingArea[0] -= bleed.Left
-				paintingArea[1] -= bleed.Top
-				paintingArea[2] += bleed.Left + bleed.Right
-				paintingArea[3] += bleed.Top + bleed.Bottom
+				ptx -= bleed.Left
+				pty -= bleed.Top
+				ptw += bleed.Left + bleed.Right
+				pth += bleed.Top + bleed.Bottom
 			}
-			context.Rectangle(paintingArea.Unpack())
+			context.Rectangle(ptx, pty, ptw, pth)
 			context.Clip()
 		}
 		context.SetSourceRgba(bg.Color.Unpack())
@@ -456,7 +457,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 	}
 
 	if (bleed != bleedData{}) && !marks.IsNone() {
-		x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack2()
+		x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack()
 		x -= bleed.Left
 		y -= bleed.Top
 		width += bleed.Left + bleed.Right
@@ -485,12 +486,12 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 		}
 
 		// Painting area is the PDF media box
-		size := pr.Size{Width: width.ToValue(), Height: height.ToValue()}
-		position := bo.Position{Point: bo.MaybePoint{x, y}}
+		size := pr.Size{Width: pr.FToV(width), Height: pr.FToV(height)}
+		position := bo.Position{Point: bo.MaybePoint{pr.Float(x), pr.Float(y)}}
 		repeat := bo.Repeat{Reps: [2]string{"no-repeat", "no-repeat"}}
 		unbounded := true
-		paintingArea := bo.Area{Rect: pr.Rectangle{x, y, width, height}}
-		positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, width, height}}
+		paintingArea := bo.Area{Rect: pr.Rectangle{pr.Float(x), pr.Float(y), pr.Float(width), pr.Float(height)}}
+		positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, pr.Float(width), pr.Float(height)}}
 		layer := bo.BackgroundLayer{Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
 			PaintingArea: paintingArea, PositioningArea: positioningArea}
 		bg.Layers = append([]bo.BackgroundLayer{layer}, bg.Layers...)
