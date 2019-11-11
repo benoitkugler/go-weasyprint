@@ -3,6 +3,7 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"math"
 	"strings"
@@ -81,9 +82,9 @@ var (
 		{"ruby"},
 	}
 
-	allLigaturesValues = pr.Set{}
-	allNumericValues   = pr.Set{}
-	allEastAsianValues = pr.Set{}
+	allLigaturesValues = utils.Set{}
+	allNumericValues   = utils.Set{}
+	allEastAsianValues = utils.Set{}
 
 	// yes/no validators for non-shorthand properties
 	// Maps property names to functions taking a property name and a value list,
@@ -240,14 +241,14 @@ var (
 	}
 
 	// regroup the two cases (with error or without error)
-	allValidators = pr.NewSet("color") // special case because of inherited
+	allValidators = utils.NewSet("color") // special case because of inherited
 
-	proprietary = pr.NewSet(
+	proprietary = utils.NewSet(
 		"anchor",
 		"link",
 		"lang",
 	)
-	unstable = pr.NewSet(
+	unstable = utils.NewSet(
 		"transform-origin",
 		"size",
 		"hyphens",
@@ -277,24 +278,24 @@ var (
 func init() {
 	for _, couple := range couplesLigatures {
 		for _, cc := range couple {
-			allLigaturesValues[cc] = pr.Has
+			allLigaturesValues[cc] = utils.Has
 		}
 	}
 	for _, couple := range couplesNumeric {
 		for _, cc := range couple {
-			allNumericValues[cc] = pr.Has
+			allNumericValues[cc] = utils.Has
 		}
 	}
 	for _, couple := range couplesEastAsian {
 		for _, cc := range couple {
-			allEastAsianValues[cc] = pr.Has
+			allEastAsianValues[cc] = utils.Has
 		}
 	}
 	for name := range validators {
-		allValidators[name] = pr.Has
+		allValidators[name] = utils.Has
 	}
 	for name := range validatorsError {
-		allValidators[name] = pr.Has
+		allValidators[name] = utils.Has
 	}
 }
 
@@ -1457,7 +1458,7 @@ func fontLanguageOverride(tokens []Token, _ string) pr.CssProperty {
 	return nil
 }
 
-func parseFontVariant(tokens []Token, all pr.Set, couples [][]string) pr.SStrings {
+func parseFontVariant(tokens []Token, all utils.Set, couples [][]string) pr.SStrings {
 	var values []string
 	isInValues := func(s string, vs []string) bool {
 		for _, v := range vs {
@@ -2052,7 +2053,7 @@ func textAlign(tokens []Token, _ string) pr.CssProperty {
 // @validator()
 // ``text-decoration-line`` property validation.
 func textDecorationLine(tokens []Token, _ string) pr.CssProperty {
-	uniqKeywords := pr.Set{}
+	uniqKeywords := utils.Set{}
 	valid := true
 	for _, token := range tokens {
 		keyword := getKeyword(token)

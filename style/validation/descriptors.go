@@ -2,6 +2,7 @@ package validation
 
 import (
 	"errors"
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"strings"
 
@@ -36,7 +37,7 @@ type descriptor = func(tokens []Token, baseUrl string) (pr.Descriptor, error)
 // ``font-family`` descriptor validation.
 // allowSpaces = false
 func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
-	allowedTypes := pr.Set{string(parser.TypeIdentToken): pr.Has}
+	allowedTypes := utils.Set{string(parser.TypeIdentToken): utils.Has}
 	if allowSpaces {
 		allowedTypes.Add(string(parser.TypeWhitespaceToken))
 	}

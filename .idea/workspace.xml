@@ -6,24 +6,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/utils/utils.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/drawer.go" beforeDir="false" afterPath="$PROJECT_DIR$/backend/drawer.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/boxes.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/boxes.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/boxes/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/build.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/document.go" beforeDir="false" afterPath="$PROJECT_DIR$/document.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fonts/fonts.go" beforeDir="false" afterPath="$PROJECT_DIR$/fonts/fonts.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/images/images.go" beforeDir="false" afterPath="$PROJECT_DIR$/images/images.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/draw.go" beforeDir="false" afterPath="$PROJECT_DIR$/draw.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/layout/inlines.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/inlines.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/layout.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/layout.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/layout/pages.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pages.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pt" beforeDir="false" afterPath="$PROJECT_DIR$/pt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/css.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/css.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/html.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pdf.go" beforeDir="false" afterPath="$PROJECT_DIR$/pdf.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/datas.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/datas.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/types.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/types.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/properties/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/utils.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/computed_values.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/style/tree/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/style/tree/style_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/a_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/a_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/html.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/html_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils/html_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/version/version.go" beforeDir="false" afterPath="$PROJECT_DIR$/version/version.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/target.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/descriptors.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/descriptors.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/expanders.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/expanders.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/expanders_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/expanders_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/validation.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/validation/validation_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation_test.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -82,7 +85,7 @@
     <property name="go.gopath.indexing.explicitly.defined" value="true" />
     <property name="go.import.settings.migrated" value="true" />
     <property name="go.sdk.automatically.set" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/boxes/boxes_tree.go" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/utils/utils.go" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -97,6 +100,7 @@
   </component>
   <component name="RecentsManager">
     <key name="GoMoveDeclarationDialog.RECENT_KEY">
+      <recent name="$PROJECT_DIR$/utils" />
       <recent name="$PROJECT_DIR$/boxes" />
       <recent name="$PROJECT_DIR$/style/tree" />
     </key>

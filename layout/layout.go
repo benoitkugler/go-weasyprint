@@ -19,6 +19,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/logger"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 type Box = bo.Box
@@ -61,7 +62,7 @@ func initializePageMaker(context *LayoutContext, rootBox bo.BoxFields) {
 		// Shared mutable objects:
 		QuoteDepth:    []int{0}, // quoteDepth: single integer
 		CounterValues: tree.CounterValues{"pages": []int{0}},
-		CounterScopes: []pr.Set{pr.NewSet("pages")}, // counterScopes
+		CounterScopes: []utils.Set{utils.NewSet("pages")}, // counterScopes
 	}
 
 	// Initial values

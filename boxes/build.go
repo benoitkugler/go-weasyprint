@@ -196,7 +196,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 			// Shared mutable objects:
 			QuoteDepth:    []int{0},             // single integer
 			CounterValues: tree.CounterValues{}, // name -> stacked/scoped values
-			CounterScopes: []pr.Set{ //  element tree depths -> counter names
+			CounterScopes: []utils.Set{ //  element tree depths -> counter names
 				{},
 			},
 		}
@@ -207,7 +207,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	UpdateCounters(state, style)
 	// If this element’s direct children create new scopes, the counter
 	// names will be in this new list
-	state.CounterScopes = append(state.CounterScopes, pr.Set{})
+	state.CounterScopes = append(state.CounterScopes, utils.Set{})
 
 	box.Box().FirstLetterStyle = styleFor.Get(element, "first-letter")
 	box.Box().firstLineStyle = styleFor.Get(element, "first-line")
@@ -394,7 +394,7 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 }
 
 // Collect missing counters.
-func collectMissingCounter(counterName string, counterValues tree.CounterValues, missingCounters pr.Set) {
+func collectMissingCounter(counterName string, counterValues tree.CounterValues, missingCounters utils.Set) {
 	for s := range counterValues {
 		if s == counterName {
 			return
@@ -413,7 +413,7 @@ func collectMissingCounter(counterName string, counterValues tree.CounterValues,
 // The corresponding TargetLookupItem caches the target"s page based
 // counter values during pagination.
 func collectMissingTargetCounter(counterName string, lookupCounterValues tree.CounterValues,
-	anchorName string, missingTargetCounters map[string]pr.Set) {
+	anchorName string, missingTargetCounters map[string]utils.Set) {
 
 	if _, in := lookupCounterValues[counterName]; !in {
 		missingCounters := missingTargetCounters[anchorName]
@@ -445,8 +445,8 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 	// like box creation for URIs.
 	boxlist := []Box{}
 
-	missingCounters := pr.Set{}
-	missingTargetCounters := map[string]pr.Set{}
+	missingCounters := utils.Set{}
+	missingTargetCounters := map[string]utils.Set{}
 	inPageContext := context != nil && page != nil
 
 	// Collect missing counters during build_formatting_structure.

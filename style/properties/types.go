@@ -1,6 +1,9 @@
 package properties
 
-import "github.com/benoitkugler/go-weasyprint/style/parser"
+import (
+	"github.com/benoitkugler/go-weasyprint/style/parser"
+	"github.com/benoitkugler/go-weasyprint/utils"
+)
 
 // ------------- Top levels types, implementing CssProperty ------------
 
@@ -26,7 +29,7 @@ type SContent struct {
 
 type NDecorations struct {
 	None        bool
-	Decorations Set
+	Decorations utils.Set
 }
 
 type Transforms []SDimensions

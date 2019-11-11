@@ -170,7 +170,7 @@ func init() {
 type computerFunc = func(*computer, string, pr.CssProperty) pr.CssProperty
 
 func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.CustomProperty {
-	knownVariableNames := pr.NewSet(var_.Name)
+	knownVariableNames := utils.NewSet(var_.Name)
 	default_ := var_.Declaration
 	computedValue_, isIn := specified[var_.Name]
 	computedValue, ok := computedValue_.SpecialProperty.(pr.CustomProperty)

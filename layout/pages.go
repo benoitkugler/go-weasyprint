@@ -408,7 +408,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			marginState := state.Copy()
 			// quoteDepth, counterValues, counterScopes = marginState
 			// TODO: check this, probably useless
-			marginState.CounterScopes = append(marginState.CounterScopes, pr.NewSet())
+			marginState.CounterScopes = append(marginState.CounterScopes, utils.NewSet())
 			bo.UpdateCounters(&marginState, box.Style)
 			box.Children = bo.ContentToBoxes(
 				box.Style, box, marginState.QuoteDepth, marginState.CounterValues,
@@ -689,7 +689,7 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 	// Evaluate and cache page values only once (for the first LineBox)
 	// otherwise we suffer endless loops when the target/pseudo-element
 	// spans across multiple pages
-	cachedAnchors := pr.NewSet()
+	cachedAnchors := utils.NewSet()
 	cachedLookups := map[*tree.CounterLookupItem]bool{}
 
 	for _, v := range pageMaker[:pageNumber-1] {

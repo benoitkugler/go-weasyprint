@@ -152,11 +152,11 @@ func TestDecoration(t *testing.T) {
 		"text_decoration_line": pr.NDecorations{None: true},
 	}))
 	assertValidDict(t, "text-decoration-line: overline", toValidated(pr.Properties{
-		"text_decoration_line": pr.NDecorations{Decorations: pr.NewSet("overline")},
+		"text_decoration_line": pr.NDecorations{Decorations: utils.NewSet("overline")},
 	}))
 	// blink is accepted but ignored
 	assertValidDict(t, "text-decoration-line: overline blink line-through", toValidated(pr.Properties{
-		"text_decoration_line": pr.NDecorations{Decorations: pr.NewSet("blink", "line-through", "overline")},
+		"text_decoration_line": pr.NDecorations{Decorations: utils.NewSet("blink", "line-through", "overline")},
 	}))
 
 	assertValidDict(t, "text-decoration-style: solid", toValidated(pr.Properties{

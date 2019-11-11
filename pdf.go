@@ -651,7 +651,7 @@ func writePdfAttachment(pdf *PDFFile, attachment utils.Attachment, urlFetcher ut
 	filename := getFilenameFromResult(url)
 
 	num, err := pdf.writeNewObject(pdfFormat(
-		"<< /Type /Filespec /F () /UF %s /EF << /F {1} 0 R >> "+
+		"<< /Type /Filespec /F () /UF %s /EF << /F %d 0 R >> "+
 			"/Desc %s\n>>",
 		pdfString(filename),
 		fileStreamId,

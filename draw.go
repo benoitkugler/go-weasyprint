@@ -675,7 +675,7 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 		colors    [4]Color
 		colorsSet = map[Color]bool{}
 		styles    [4]pr.String
-		stylesSet = pr.NewSet()
+		stylesSet = utils.NewSet()
 	)
 	for i, side := range SIDES {
 		colors[i] = box.Style.ResolveColor(fmt.Sprintf("border_%s_color", side)).RGBA

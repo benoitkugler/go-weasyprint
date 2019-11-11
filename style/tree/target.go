@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"strings"
 
@@ -32,7 +33,7 @@ type SkipStack struct {
 type PageState struct {
 	QuoteDepth    []int
 	CounterValues CounterValues
-	CounterScopes []pr.Set
+	CounterScopes []utils.Set
 }
 
 // Copy returns a deep copy.
@@ -40,7 +41,7 @@ func (s PageState) Copy() PageState {
 	out := PageState{}
 	out.QuoteDepth = append([]int{}, s.QuoteDepth...)
 	out.CounterValues = s.CounterValues.Copy()
-	out.CounterScopes = make([]pr.Set, len(s.CounterScopes))
+	out.CounterScopes = make([]utils.Set, len(s.CounterScopes))
 	for i, v := range s.CounterScopes {
 		out.CounterScopes[i] = v.Copy()
 	}
@@ -185,8 +186,8 @@ type CounterLookupItem struct {
 	ParseAgain ParseFunc
 
 	// Missing counters and target counters
-	MissingCounters       pr.Set
-	MissingTargetCounters map[string]pr.Set
+	MissingCounters       utils.Set
+	MissingTargetCounters map[string]utils.Set
 
 	// Box position during pagination (pageNumber - 1)
 	PageMakerIndex optionnalInt
@@ -198,7 +199,7 @@ type CounterLookupItem struct {
 	CachedPageCounterValues CounterValues
 }
 
-func NewCounterLookupItem(parseAgain ParseFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) *CounterLookupItem {
+func NewCounterLookupItem(parseAgain ParseFunc, missingCounters utils.Set, missingTargetCounters map[string]utils.Set) *CounterLookupItem {
 	return &CounterLookupItem{
 		ParseAgain:              parseAgain,
 		MissingCounters:         missingCounters,
@@ -226,7 +227,7 @@ type TargetCollector struct {
 	hadPendingTargets bool
 
 	// List of anchors that have already been seen during parsing.
-	existingAnchors pr.Set
+	existingAnchors utils.Set
 }
 
 func NewTargetCollector() TargetCollector {
@@ -331,7 +332,7 @@ func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues Co
 // The ``missingLink`` attribute added to the parentBox is required to
 // connect the paginated boxes to their originating ``parentBox``.
 func (tc TargetCollector) CollectMissingCounters(parentBox Box, cssToken string,
-	parseAgainFunction ParseFunc, missingCounters pr.Set, missingTargetCounters map[string]pr.Set) {
+	parseAgainFunction ParseFunc, missingCounters utils.Set, missingTargetCounters map[string]utils.Set) {
 
 	// No counter collection during pagination
 	if !tc.collecting {

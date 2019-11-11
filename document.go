@@ -376,7 +376,7 @@ type resolvedLink struct {
 // The page number is a 0-based index into the :attr:`pages` list,
 // and ``x, y`` are in CSS pixels from the top-left of the page.
 func (d Document) resolveLinks() []resolvedLink {
-	anchors := pr.NewSet()
+	anchors := utils.NewSet()
 	var pagedAnchors [][]pagedAnchor
 	for _, page := range d.pages {
 		pagedAnchors = append(pagedAnchors, []pagedAnchor{})

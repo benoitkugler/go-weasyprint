@@ -253,10 +253,10 @@ func TestExpandTextDecoration(t *testing.T) {
 		"text_decoration_line": pr.NDecorations{None: true},
 	}))
 	assertValidDict(t, "text-decoration: overline", fillTextDecoration(pr.Properties{
-		"text_decoration_line": pr.NDecorations{Decorations: pr.NewSet("overline")},
+		"text_decoration_line": pr.NDecorations{Decorations: utils.NewSet("overline")},
 	}))
 	assertValidDict(t, "text-decoration: overline blink line-through", fillTextDecoration(pr.Properties{
-		"text_decoration_line": pr.NDecorations{Decorations: pr.NewSet("blink", "line-through", "overline")},
+		"text_decoration_line": pr.NDecorations{Decorations: utils.NewSet("blink", "line-through", "overline")},
 	}))
 	assertValidDict(t, "text-decoration: red", fillTextDecoration(pr.Properties{
 		"text_decoration_color": pr.NewColor(1, 0, 0, 1),

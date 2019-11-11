@@ -66,7 +66,7 @@ func defaultFromString(keyword string) pr.ValidatedProperty {
 //     get the initial value.
 //
 func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
-	_expandedNames := pr.Set{}
+	_expandedNames := utils.Set{}
 	for _, name := range expandedNames {
 		_expandedNames.Add(name)
 	}
@@ -336,7 +336,7 @@ type backgroundProps struct {
 	size       pr.Size
 	clip       string
 	origin     string
-	_keys      pr.Set
+	_keys      utils.Set
 }
 
 func (b backgroundProps) add(name string) error {
@@ -367,7 +367,7 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out pr.Named
 	}
 
 	parseLayer := func(tokens []parser.Token, finalLayer bool) (pr.CssProperty, backgroundProps, error) {
-		results := backgroundProps{_keys: pr.Set{}}
+		results := backgroundProps{_keys: utils.Set{}}
 
 		// Make `tokens` a stack
 		tokens = reverse(tokens)
@@ -603,7 +603,7 @@ func expandBackground(baseUrl, name string, tokens []parser.Token) (out pr.Named
 // @expander("text-decoration")
 func expandTextDecoration(baseUrl, name string, tokens []parser.Token) (out pr.NamedProperties, err error) {
 	var (
-		textDecorationLine  = pr.Set{}
+		textDecorationLine  = utils.Set{}
 		outDecorations      pr.NDecorations
 		textDecorationColor pr.Color
 		textDecorationStyle string

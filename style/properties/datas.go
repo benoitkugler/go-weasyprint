@@ -1,6 +1,7 @@
 package properties
 
 import (
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -73,7 +74,7 @@ var (
 
 	InitialWidthHeight = Point{Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}}
 
-	KnownProperties = Set{}
+	KnownProperties = utils.Set{}
 
 	// Do not list shorthand properties here as we handle them before inheritance.
 	//
@@ -82,7 +83,7 @@ var (
 	//
 	// link: click events normally bubble up to link ancestors
 	// See http://lists.w3.org/Archives/Public/www-style/2012Jun/0315.html
-	Inherited = NewSet(
+	Inherited = utils.NewSet(
 		"border_collapse",
 		"border_spacing",
 		"caption_side",
@@ -134,7 +135,7 @@ var (
 	)
 
 	// Not applicable to the print media
-	NotPrintMedia = NewSet(
+	NotPrintMedia = utils.NewSet(
 		// Aural media
 		"azimuth",
 		"cue",
@@ -178,7 +179,7 @@ var (
 	// http://www.w3.org/TR/CSS21/tables.html#model
 	// See also http://lists.w3.org/Archives/Public/www-style/2012Jun/0066.html
 	// Only non-inherited properties need to be included here.
-	TableWrapperBoxProperties = NewSet(
+	TableWrapperBoxProperties = utils.NewSet(
 		"bottom",
 		"break_after",
 		"break_before",
@@ -203,7 +204,7 @@ var (
 		"z_index",
 	)
 
-	InitialNotComputed = NewSet(
+	InitialNotComputed = utils.NewSet(
 		"display",
 		"column_gap",
 		"bleed_top",
@@ -227,6 +228,6 @@ var (
 
 func init() {
 	for name := range InitialValues {
-		KnownProperties[strings.ReplaceAll(name, "_", "-")] = Has
+		KnownProperties[strings.ReplaceAll(name, "_", "-")] = utils.Has
 	}
 }

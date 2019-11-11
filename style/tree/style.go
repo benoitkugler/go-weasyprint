@@ -34,7 +34,7 @@ import (
 
 var (
 	// Reject anything not in here
-	pseudoElements = pr.NewSet("", "before", "after", "marker", "first-line", "first-letter")
+	pseudoElements = utils.NewSet("", "before", "after", "marker", "first-line", "first-letter")
 )
 
 type Token = parser.Token

@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"strings"
 	"unicode"
@@ -1153,7 +1154,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 
 // See http://unicode.org/reports/tr14/
 // \r is already handled by processWhitespace
-var lineBreaks = pr.NewSet("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
+var lineBreaks = utils.NewSet("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
 
 // Keep as much text as possible from a TextBox in a limited width.
 //
