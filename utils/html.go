@@ -149,6 +149,7 @@ func (element HTMLNode) IsText() (bool, string) {
 }
 
 // GetChildText returns the text directly in the element, not descendants.
+// It's the concatenation of all child's TextNodes.
 func (element HTMLNode) GetChildText() string {
 	var content []string
 	if element.Type == html.TextNode {
@@ -161,6 +162,26 @@ func (element HTMLNode) GetChildText() string {
 		}
 	}
 	return strings.Join(content, "")
+}
+
+// GetText returns the content of the first text node child.
+// Due to Go html.Parse() behavior, this method mimic Python xml.etree.text
+// attribute.
+func (element HTMLNode) GetText() string {
+	if c := element.FirstChild; c != nil && c.Type == html.TextNode {
+		return c.Data
+	}
+	return ""
+}
+
+// GetTail returns the content of the last text node child.
+// Due to Go html.Parse() behavior, this method mimic Python xml.etree.tail
+// attribute.
+func (element HTMLNode) GetTail() string {
+	if c := element.LastChild; c != nil && c.Type == html.TextNode {
+		return c.Data
+	}
+	return ""
 }
 
 // Transform (only) ASCII letters to lower case: A-Z is mapped to a-z.

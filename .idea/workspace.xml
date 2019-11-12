@@ -5,29 +5,7 @@
     <option name="CUSTOM_SCOPE_NAME" value="Go" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/utils/utils.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/boxes/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/boxes/build.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/document.go" beforeDir="false" afterPath="$PROJECT_DIR$/document.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/draw.go" beforeDir="false" afterPath="$PROJECT_DIR$/draw.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/inlines.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/inlines.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/layout.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/layout.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/layout/pages.go" beforeDir="false" afterPath="$PROJECT_DIR$/layout/pages.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pdf.go" beforeDir="false" afterPath="$PROJECT_DIR$/pdf.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/properties/datas.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/datas.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/properties/types.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/types.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/properties/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/properties/utils.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/computed_values.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/computed_values.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/style_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/target.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/validation/descriptors.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/descriptors.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/validation/expanders.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/expanders.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/validation/expanders_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/expanders_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/validation/validation.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/validation/validation_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/validation/validation_test.go" afterDir="false" />
-    </list>
+    <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
