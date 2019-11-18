@@ -6,6 +6,17 @@ import "time"
 
 type float = float64
 
+type Anchor struct {
+	Name string
+	// Origin at the top-left of the page
+	Pos [2]float64
+}
+
+type Attachment struct {
+	Content            []byte
+	Title, Description string
+}
+
 // Drawer is the backend doing the actual drawing
 // operations
 type Drawer interface {
@@ -1399,57 +1410,6 @@ type Drawer interface {
 	// :meth:`set_line_cap`, :meth:`set_dash`, and :meth:`stroke`.
 	StrokePreserve()
 
-	// Marks the beginning of the ``tag_name`` structure.
-	//
-	// Call :meth:`tag_end` with the same ``tag_name`` to mark the end of the
-	// structure.
-	//
-	// The attributes string is of the form "key1=value2 key2=value2 ...".
-	// Values may be boolean (true/false or 1/0), integer, float, string, or
-	// an array.
-	//
-	// String values are enclosed in single quotes ('). Single quotes and
-	// backslashes inside the string should be escaped with a backslash.
-	//
-	// Boolean values may be set to true by only specifying the key. eg the
-	// attribute string "key" is the equivalent to "key=true".
-	//
-	// Arrays are enclosed in '[]'. eg "rect=[1.2 4.3 2.0 3.0]".
-	//
-	// If no attributes are required, ``attributes`` can be omitted, an empty
-	// string or None.
-	//
-	// See cairo's Tags and Links Description for the list of tags and
-	// attributes.
-	//
-	// Invalid nesting of tags or invalid attributes will cause the context to
-	// shutdown with a status of ``CAIRO_STATUS_TAG_ERROR``.
-	//
-	// See :meth:`tag_end`.
-	//
-	// :param tag_name: tag name
-	// :param attributes: tag attributes
-	//
-	// *New in cairo 1.16.*
-	//
-	// *New in cairocffi 0.9.*
-	// attributes = None
-	TagBegin(tag_name interface{}, attributes interface{})
-
-	// Marks the end of the ``tag_name`` structure.
-	//
-	// Invalid nesting of tags will cause @cr to shutdown with a status of
-	// ``CAIRO_STATUS_TAG_ERROR``.
-	//
-	// See :meth:`tag_begin`.
-	//
-	// :param tag_name: tag name
-	//
-	// *New in cairo 1.16.*
-	//
-	// *New in cairocffi 0.9.*
-	TagEnd(tag_name interface{})
-
 	// Returns the extents for a string of text.
 	//
 	// The extents describe a user-space rectangle
@@ -1576,12 +1536,6 @@ type Drawer interface {
 	// :param dy: Y component of a distance vector.
 	// :returns: A ``(device_dx, device_dy)`` tuple of floats.
 	UserToDeviceDistance(dx, dy float) (deviceX, deviceY float)
-}
-
-type Surface interface {
-	// Emits and clears the current page
-	// for backends that support multiple pages.
-	ShowPage()
 
 	// Changes the size of a PDF surface
 	// for the current (and subsequent) pages.
@@ -1597,12 +1551,33 @@ type Surface interface {
 	// in points (1 point = 1/72.0 inch)
 	SetSize(widthInPoints, heightInPoints float)
 
+	// ----- needed -------------------
+	// Returns the MediaBox for the current page
+	GetMediaBox() (left, top, right, bottom float64)
+	SetTrimBox(left, top, right, bottom float64)
+	SetBleedBox(left, top, right, bottom float64)
+
+	// Create and set anchors (target of internal links).
+	// `anchors` is a 0-based list (meaning anchors in page 1 are at index 0)
+	// Returns the identifier for each anchor.
+	CreateAnchors(anchors [][]Anchor) map[string]int
+	AddInternalLink(x, y, w, h float64, linkId int)
+	AddExternalLink(x, y, w, h float64, url string)
+
+	// Add global attachments to the file
+	SetAttachments(as []Attachment)
+	// Embed a file. Calling this method twice with the same id
+	// won't embed the content twice.
+	EmbedFile(id string, a Attachment)
+	// Add file annotation on the current page
+	AddFileAnnotation(x, y, w, h float64, id string)
+
 	// Metadatas
 
 	SetTitle(title string)
 	SetDescription(description string)
 	SetCreator(creator string)
-	SetAuthor(author string)
+	SetAuthors(authors []string)
 	SetKeywords(keywords []string)
 	SetProducer(producer string)
 	SetDateCreation(d time.Time)
