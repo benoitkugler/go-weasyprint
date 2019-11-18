@@ -1,5 +1,6 @@
 // This package implements the high level parts of
-// document generation, but is still backend independant.
+// the document generation, but is still backend independant.
+// It is meant to be used together with a `backend.Drawer`.
 package document
 
 import (
@@ -498,6 +499,7 @@ func (d Document) FetchAttachment(attachmentUrl string) backend.Attachment {
 	filename := getFilenameFromResult(baseurl)
 	return backend.Attachment{Content: source, Title: filename}
 }
+
 // Derive a filename from a fetched resource.
 // This is either the filename returned by the URL fetcher, the last URL path
 // component or a synthetic name if the URL has no path.
