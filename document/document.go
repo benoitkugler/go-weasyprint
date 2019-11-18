@@ -1,14 +1,15 @@
-package goweasyprint
+// This package implements the high level parts of
+// document generation, but is still backend independant.
+package document
 
 import (
-	"bytes"
-	"io"
 	"log"
 	"math"
+	"net/url"
+	"path"
 
 	"github.com/benoitkugler/go-weasyprint/images"
 	mt "github.com/benoitkugler/go-weasyprint/matrix"
-	"github.com/benoitkugler/go-weasyprint/version"
 
 	"github.com/benoitkugler/go-weasyprint/fonts"
 
@@ -16,10 +17,15 @@ import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/layout"
 	"github.com/benoitkugler/go-weasyprint/logger"
+	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
+
+type Drawer = backend.Drawer
+type Color = parser.RGBA
+type Box = bo.Box
 
 func toF(v pr.Dimension) float64 { return float64(v.Value) }
 
@@ -94,9 +100,9 @@ func rectangleAabb(matrix mt.Transform, posX, posY, width, height float64) [4]fl
 	return [4]float64{boxX1, boxY1, boxX2 - boxX1, boxY2 - boxY1}
 }
 
-type linkData struct {
-	type_, target string
-	rectangle     [4]float64
+type Link struct {
+	Type, Target string
+	rectangle    [4]float64
 }
 
 type bookmarkData struct {
@@ -106,7 +112,7 @@ type bookmarkData struct {
 	state    string
 }
 
-func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]linkData, anchors map[string][2]float64, matrix *mt.Transform) {
+func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors map[string][2]float64, matrix *mt.Transform) {
 	transform := getMatrix(box_)
 	if transform != nil {
 		if matrix != nil {
@@ -140,12 +146,12 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]li
 			if linkType == "external" && isAttachment {
 				linkType = "attachment"
 			}
-			var linkS linkData
+			var linkS Link
 			if matrix != nil {
-				linkS = linkData{type_: linkType, target: target,
+				linkS = Link{Type: linkType, Target: target,
 					rectangle: rectangleAabb(*matrix, posX, posY, width, height)}
 			} else {
-				linkS = linkData{type_: linkType, target: target, rectangle: [4]float64{posX, posY, width, height}}
+				linkS = Link{Type: linkType, Target: target, rectangle: [4]float64{posX, posY, width, height}}
 			}
 			*links = append(*links, linkS)
 		}
@@ -171,14 +177,14 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]li
 // instantiated directly.
 type Page struct {
 	// The page width, including margins, in CSS pixels.
-	width float64
+	Width float64
 
 	// The page height, including margins, in CSS pixels.
-	height float64
+	Height float64
 
 	// The page bleed widths as a `dict` with `"top"`, `"right"`,
 	// `"bottom"` and `"left"` as keys, and values in CSS pixels.
-	bleed bleedData
+	Bleed Bleed
 
 	// `bookmarkLevel` and `bookmarkLabel` are based on
 	// the CSS properties of the same names. `target` is an `(x, y)`
@@ -197,7 +203,7 @@ type Page struct {
 	//   or not at all.
 	// * `"attachment"`: `target` is an absolute URL && points
 	//   to a resource to attach to the document.
-	links []linkData
+	links []Link
 
 	// The `dict` mapping each anchor name to its target, an
 	// `(x, y)` point in CSS pixels from the top-left of the page.
@@ -210,10 +216,10 @@ type Page struct {
 // enableHinting=false
 func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 	d := Page{}
-	d.width = float64(pageBox.MarginWidth())
-	d.height = float64(pageBox.MarginHeight())
+	d.Width = float64(pageBox.MarginWidth())
+	d.Height = float64(pageBox.MarginHeight())
 
-	d.bleed = bleedData{
+	d.Bleed = Bleed{
 		Top:    float64(pageBox.Style.GetBleedTop().Value),
 		Right:  float64(pageBox.Style.GetBleedRight().Value),
 		Bottom: float64(pageBox.Style.GetBleedBottom().Value),
@@ -233,7 +239,7 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 // topY is the Y coordinate of the top of the page, in cairo user units.
 // scale is the Zoom scale in cairo user units per CSS pixel.
 // clip : whether to clip/cut content outside the page. If false, content can overflow.
-func (d Page) paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) {
+func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) {
 	// with stacked(cairoContext) {
 	if d.enableHinting {
 		leftX, topY = cairoContext.UserToDevice(leftX, topY)
@@ -247,8 +253,8 @@ func (d Page) paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) 
 	// Make user units CSS pixels:
 	cairoContext.Scale(scale, scale)
 	if clip {
-		width := d.width
-		height := d.height
+		width := d.Width
+		height := d.Height
 		if d.enableHinting {
 			width, height = cairoContext.UserToDeviceDistance(width, height)
 			// Hint in device space
@@ -270,11 +276,11 @@ func (d Page) paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) 
 // a `fontConfig <fonts.FontConfiguration>`.
 type Document struct {
 	// A list of `Page` objects.
-	pages []Page
+	Pages []Page
 	// A `DocumentMetadata` object.
 	// Contains information that does not belong to a specific page
 	// but to the whole document.
-	metadata utils.DocumentMetadata
+	Metadata utils.DocumentMetadata
 	// A function called to fetch external resources such
 	// as stylesheets and images.
 	urlFetcher utils.UrlFetcher
@@ -313,7 +319,7 @@ func buildLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 }
 
 // presentationalHints=false, fontConfig=None
-func render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
+func Render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 	presentationalHints bool, fontConfig *fonts.FontConfiguration) Document {
 
 	if fontConfig == nil {
@@ -330,7 +336,7 @@ func render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 	for i, pageBox := range pageBoxes {
 		pages[i] = NewPage(pageBox, enableHinting)
 	}
-	return Document{pages: pages, metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher, fontConfig: fontConfig}
+	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher, fontConfig: fontConfig}
 }
 
 // Take a subset of the pages.
@@ -349,9 +355,9 @@ func render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 //		documents[0].Copy(allPages).writePdf("combined.pdf")
 func (d Document) Copy(pages []Page, all bool) Document {
 	if all {
-		pages = d.pages
+		pages = d.Pages
 	}
-	return Document{pages: pages, metadata: d.metadata, urlFetcher: d.urlFetcher,
+	return Document{Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher,
 		fontConfig: d.fontConfig}
 }
 
@@ -363,10 +369,10 @@ func (d Document) Copy(pages []Page, all bool) Document {
 // ``(pageNumber, x, y)`` instead of an anchor name.
 // The page number is a 0-based index into the :attr:`pages` list,
 // and ``x, y`` have been scaled (origin is at the top-left of the page).
-func (d Document) resolveLinks(scale float64) ([][]linkData, [][]backend.Anchor) {
+func (d Document) ResolveLinks(scale float64) ([][]Link, [][]backend.Anchor) {
 	anchors := utils.NewSet()
-	pagedAnchors := make([][]backend.Anchor, len(d.pages))
-	for i, page := range d.pages {
+	pagedAnchors := make([][]backend.Anchor, len(d.Pages))
+	for i, page := range d.Pages {
 		var current []backend.Anchor
 		for anchorName, pos := range page.anchors {
 			if !anchors.Has(anchorName) {
@@ -378,14 +384,14 @@ func (d Document) resolveLinks(scale float64) ([][]linkData, [][]backend.Anchor)
 		}
 		pagedAnchors[i] = current
 	}
-	pagedLinks := make([][]linkData, len(d.pages))
-	for i, page := range d.pages {
-		var pageLinks []linkData
+	pagedLinks := make([][]Link, len(d.Pages))
+	for i, page := range d.Pages {
+		var pageLinks []Link
 		for _, link := range page.links {
 			// linkType, anchorName, rectangle = link
-			if link.type_ == "internal" {
-				if !anchors.Has(link.target) {
-					log.Printf("No anchor #%s for internal URI reference\n", link.target)
+			if link.Type == "internal" {
+				if !anchors.Has(link.Target) {
+					log.Printf("No anchor #%s for internal URI reference\n", link.Target)
 				} else {
 					pageLinks = append(pageLinks, link)
 				}
@@ -412,7 +418,7 @@ type bookmarkSubtree struct {
 }
 
 // Make a tree of all bookmarks in the document.
-func (d Document) makeBookmarkTree() []bookmarkSubtree {
+func (d Document) MakeBookmarkTree() []bookmarkSubtree {
 	var root []bookmarkSubtree
 	// At one point in the document, for each "output" depth, how much
 	// to add to get the source level (CSS values of bookmark-level).
@@ -421,7 +427,7 @@ func (d Document) makeBookmarkTree() []bookmarkSubtree {
 	var skippedLevels []int
 	lastByDepth := [][]bookmarkSubtree{root}
 	previousLevel := 0
-	for pageNumber, page := range d.pages {
+	for pageNumber, page := range d.Pages {
 		for _, bk := range page.bookmarks {
 			level, label, pos, state := bk.level, bk.label, bk.position, bk.state
 			if level > previousLevel {
@@ -461,12 +467,12 @@ func (d Document) makeBookmarkTree() []bookmarkSubtree {
 }
 
 // Include hyperlinks in current PDF page.
-func (d Document) addHyperlinks(links []linkData, anchorsId map[string]int, context Drawer, scale float64) {
+func (d Document) AddHyperlinks(links []Link, anchorsId map[string]int, context Drawer, scale float64) {
 	// TODO: Instead of using rects, we could use the drawing rectangles
 	// defined by cairo when drawing targets. This would give a feeling
 	// similiar to what browsers do with links that span multiple lines.
 	for _, link := range links {
-		linkType, linkTarget, rectangle := link.type_, link.target, link.rectangle
+		linkType, linkTarget, rectangle := link.Type, link.Target, link.rectangle
 		x, y, w, h := rectangle[0]*scale, rectangle[1]*scale, rectangle[2]*scale, rectangle[3]*scale
 		if linkType == "external" {
 			context.AddExternalLink(x, y, w, h, linkTarget)
@@ -479,163 +485,50 @@ func (d Document) addHyperlinks(links []linkData, anchorsId map[string]int, cont
 	}
 }
 
-func fetchAttachment(attachmentUrl string, urlFetcher utils.UrlFetcher) backend.Attachment {
+func (d Document) FetchAttachment(attachmentUrl string) backend.Attachment {
 	// Attachments from document links like <link> or <a> can only be URLs.
-	tmp, err := tree.SelectSource(tree.InputUrl(attachmentUrl), "", urlFetcher, false)
+	tmp, err := utils.SelectSource(utils.InputUrl(attachmentUrl), "", d.urlFetcher, false)
 	if err != nil {
 		log.Printf("Failed to load attachment at url %s: %s\n", attachmentUrl, err)
 		return backend.Attachment{}
 	}
-	source, url := tmp.Content, tmp.BaseUrl
+	source, baseurl := tmp.Content, tmp.BaseUrl
 	// TODO: Use the result object from a URL fetch operation to provide more
 	// details on the possible filename
-	filename := getFilenameFromResult(url)
+	filename := getFilenameFromResult(baseurl)
 	return backend.Attachment{Content: source, Title: filename}
 }
+// Derive a filename from a fetched resource.
+// This is either the filename returned by the URL fetcher, the last URL path
+// component or a synthetic name if the URL has no path.
+func getFilenameFromResult(rawurl string) string {
+	var filename string
 
-func embedFileAnnotations(pagedLinks [][]linkData, urlFetcher utils.UrlFetcher, context Drawer) {
-	// A single link can be split in multiple regions. We don't want to embed
-	// a file multiple times of course, so keep a reference to every embedded
-	// URL and reuse the object number.
-	for _, rl := range pagedLinks {
-		for _, link := range rl {
-			if link.type_ == "attachment" {
-				a := fetchAttachment(link.target, urlFetcher)
-				if len(a.Content) != 0 {
-					context.EmbedFile(link.target, a)
-				}
+	// The URL path likely contains a filename, which is a good second guess
+	if rawurl != "" {
+		u, err := url.Parse(rawurl)
+		if err == nil {
+			if u.Scheme != "data" {
+				filename = path.Base(u.Path)
 			}
 		}
 	}
-}
 
-func setMediaBoxes(context backend.Drawer, bleed bleedData) {
-	// Add bleed box
-	left, top, right, bottom := context.GetMediaBox()
+	if filename == "" {
+		// The URL lacks a path altogether. Use a synthetic name.
 
-	trimLeft := left + bleed.Left
-	trimTop := top + bleed.Top
-	trimRight := right - bleed.Right
-	trimBottom := bottom - bleed.Bottom
+		// Using guessExtension is a great idea, but sadly the extension is
+		// probably random, depending on the alignment of the stars, which car
+		// you're driving and which software has been installed on your machine.
 
-	// Arbitrarly set PDF BleedBox between CSS bleed box (PDF MediaBox) and
-	// CSS page box (PDF TrimBox), at most 12 px from the TrimBox.
-	bleedLeft := trimLeft - math.Min(12, bleed.Left)
-	bleedTop := trimTop - math.Min(12, bleed.Top)
-	bleedRight := trimRight + math.Min(12, bleed.Right)
-	bleedBottom := trimBottom + math.Min(12, bleed.Bottom)
-
-	context.SetTrimBox(trimLeft, trimTop, trimRight, trimBottom)
-	context.SetBleedBox(bleedLeft, bleedTop, bleedRight, bleedBottom)
-}
-
-// Paint the pages in a PDF file, with meta-data (zoom=1, attachments=nil).
-// PDF files written directly by cairo do not have meta-data such as
-// bookmarks/outlines and hyperlinks.
-//
-// The zoom factor in PDF units per CSS units.  **Warning**:
-// All CSS units are affected, including physical units like
-// ``cm`` and named sizes like ``A4``.  For values other than
-// 1, the physical CSS units will thus be "wrong".
-// :type attachments: list
-// :param attachments: A list of additional file attachments for the
-//     generated PDF document || :obj:`None`. The list"s elements are
-//     :class:`Attachment` objects, filenames, URLs || file-like objects.
-func (d Document) WritePdf(self, target io.Writer, zoom float64, attachments []utils.Attachment) {
-	// 0.75 = 72 PDF point (cairo units) per inch / 96 CSS pixel per inch
-	scale := zoom * 0.75
-	// Use an in-memory buffer, as we will need to seek for
-	// metadata. Directly using the target when possible doesn't
-	// significantly save time and memory use.
-	var fileObj bytes.Buffer
-	// (1, 1) is overridden by .setSize() below.
-	// var surface backend.Surface = cairo.PDFSurface(fileObj, 1, 1)
-	var context Drawer = cairo.Context(surface)
-
-	pagedLinks, pagedAnchors := d.resolveLinks(scale)
-
-	logger.ProgressLogger.Println("Step 6 alpha - Embedding attachments")
-	// embedded files
-	var as []backend.Attachment
-	for _, a := range append(d.metadata.Attachments, attachments...) {
-		t := fetchAttachment(a.Url, d.urlFetcher)
-		if len(t.Content) != 0 {
-			as = append(as, t)
-		}
-	}
-	context.SetAttachments(as)
-
-	embedFileAnnotations(pagedLinks, d.urlFetcher, context)
-
-	logger.ProgressLogger.Println("Step 6 - Drawing")
-
-	anchorsId := context.CreateAnchors(pagedAnchors)
-	for i, page := range d.pages {
-		context.SetSize(
-			math.Floor(scale*(page.width+float64(page.bleed.Left)+float64(page.bleed.Right))),
-			math.Floor(scale*(page.height+float64(page.bleed.Top)+float64(page.bleed.Bottom))),
-		)
-		// with stacked(context) {
-		context.Translate(float64(page.bleed.Left)*scale, float64(page.bleed.Top)*scale)
-		page.paint(context, 0, 1, scale, false)
-		d.addHyperlinks(pagedLinks[i], anchorsId, context, scale)
-		setMediaBoxes(context, page.bleed)
-		context.ShowPage()
-		// }
+		// Unfortuneatly this isn't even imdepodent on one machine, because the
+		// extension can depend on PYTHONHASHSEED if mimetypes has multiple
+		// extensions to offer
+		extension := ".bin"
+		filename = "attachment" + extension
+	} else {
+		filename = utils.Unquote(filename)
 	}
 
-	logger.ProgressLogger.Println("Step 7 - Adding PDF metadata")
-
-	// Set document information
-	context.SetTitle(d.metadata.Title)
-	context.SetDescription(d.metadata.Description)
-	context.SetCreator(d.metadata.Generator)
-	context.SetAuthors(d.metadata.Authors)
-	context.SetKeywords(d.metadata.Keywords)
-	context.SetProducer(version.VersionString)
-	context.SetDateCreation(d.metadata.Created)
-	context.SetDateModification(d.metadata.Modified)
-
-	// Set bookmarks
-	bookmarks := d.makeBookmarkTree()
-	levels := make([]int, len(bookmarks)) // 0 is the root level
-	for len(bookmarks) != 0 {
-		bookmark := bookmarks[0]
-		bookmarks = bookmarks[1:]
-		title := bookmark.label
-		page, y := bookmark.target.pageNumber, bookmark.target.pos[1]
-		children := bookmark.children
-		// state := bookmark.state
-
-		level := levels[len(levels)-1]
-		levels = levels[:len(levels)-1]
-		context.AddBookmark(level, title, page+1, y*scale)
-		// preparing children bookmarks
-		childLevel := level + 1
-		for i := 0; i < len(children); i += 1 {
-			levels = append(levels, childLevel)
-		}
-		bookmarks = append(children, bookmarks...)
-	}
-	context.Finish() //FIXME: à garder ?
-
-	// Add extra PDF metadata: attachments, embedded files
-
-	// Write extra PDF metadata only when there is a least one from:
-	// - attachments inmetadata
-	// - attachments as function parameters
-	// - attachments as PDF links
-	// - bleed boxes
-	anyBleed := false
-	for _, page := range d.pages {
-		if (page.bleed != bleedData{}) {
-			anyBleed = true
-			break
-		}
-	}
-	condition := anyBleed
-	if condition {
-		writePdfMetadata(&fileObj, scale, d.urlFetcher, d.pages)
-	}
-
+	return filename
 }

@@ -1,4 +1,4 @@
-package goweasyprint
+package document
 
 import (
 	"log"

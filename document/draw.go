@@ -1,4 +1,4 @@
-package goweasyprint
+package document
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/layout"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/images"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -21,8 +20,6 @@ import (
 )
 
 // Take an "after layout" box tree and draw it onto a cairo context.
-
-type Drawer = backend.Drawer
 
 var SIDES = [4]string{"top", "right", "bottom", "left"}
 
@@ -93,14 +90,14 @@ const (
 `
 )
 
-type bleedData struct {
+type Bleed struct {
 	Top, Bottom, Left, Right float64
 }
 
 // FIXME: check gofpdf support for SVG
 type svgArgs struct {
 	Width, Height    float64
-	Bleed, HalfBleed bleedData
+	Bleed, HalfBleed Bleed
 }
 
 // The context manager
@@ -182,7 +179,7 @@ func lighten(color Color) Color {
 
 // Draw the given PageBox.
 func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) {
-	bleed := bleedData{
+	bleed := Bleed{
 		Top:    float64(page.Style.GetBleedTop().Value),
 		Bottom: float64(page.Style.GetBleedBottom().Value),
 		Left:   float64(page.Style.GetBleedLeft().Value),
@@ -192,13 +189,13 @@ func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) {
 	stackingContext := NewStackingContextFromPage(page)
 	drawBackground(context, stackingContext.box.Box().Background, enableHinting,
 		false, bleed, marks)
-	drawBackground(context, page.CanvasBackground, enableHinting, false, bleedData{}, pr.Marks{})
+	drawBackground(context, page.CanvasBackground, enableHinting, false, Bleed{}, pr.Marks{})
 	drawBorder(context, page, enableHinting)
 	drawStackingContext(context, stackingContext, enableHinting)
 }
 
 func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enableHinting bool) {
-	drawBackground(context, box.Box().Background, enableHinting, true, bleedData{}, pr.Marks{})
+	drawBackground(context, box.Box().Background, enableHinting, true, Bleed{}, pr.Marks{})
 	if box_, ok := box.(bo.InstanceTableBox); ok {
 		box := box_.Table()
 		drawTableBackgrounds(context, page, box_, enableHinting)
@@ -409,14 +406,14 @@ func reversed(in []bo.BackgroundLayer) []bo.BackgroundLayer {
 }
 
 func drawBackground2(context Drawer, bg *bo.Background, enableHinting bool) error {
-	return drawBackground(context, bg, enableHinting, true, bleedData{}, pr.Marks{})
+	return drawBackground(context, bg, enableHinting, true, Bleed{}, pr.Marks{})
 }
 
 // Draw the background color and image to a ``cairo.Context``
 // If ``clipBox`` is set to ``false``, the background is not clipped to the
 // border box of the background, but only to the painting area
 // clipBox=true bleed=None marks=()
-func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bool, bleed bleedData,
+func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bool, bleed Bleed,
 	marks pr.Marks) error {
 	if bg == nil {
 		return nil
@@ -441,7 +438,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 		paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
 		if !paintingArea.IsNone() {
 			ptx, pty, ptw, pth := paintingArea.Unpack()
-			if (bleed != bleedData{}) {
+			if (bleed != Bleed{}) {
 				// Painting area is the PDF BleedBox
 				ptx -= bleed.Left
 				pty -= bleed.Top
@@ -456,7 +453,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 		// }
 	}
 
-	if (bleed != bleedData{}) && !marks.IsNone() {
+	if (bleed != Bleed{}) && !marks.IsNone() {
 		x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack()
 		x -= bleed.Left
 		y -= bleed.Top
@@ -470,7 +467,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 			svg += cross
 		}
 		svg += "</svg>"
-		halfBleed := bleedData{
+		halfBleed := Bleed{
 			Top:    bleed.Top * 0.5,
 			Bottom: bleed.Bottom * 0.5,
 			Left:   bleed.Left * 0.5,

@@ -25,7 +25,7 @@ type HTML struct {
 // `urlFetcher` is a function called to
 // fetch external resources such as stylesheets and images, UTF-8 encoded
 // `mediaType` is the media type to use for ``@media``, and defaults to ``'print'``.
-func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string) (*HTML, error) {
+func NewHTML(htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string) (*HTML, error) {
 	logger.ProgressLogger.Println("Step 1 - Fetching and parsing HTML")
 	if urlFetcher == nil {
 		urlFetcher = utils.DefaultUrlFetcher
@@ -33,7 +33,7 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 	if mediaType == "" {
 		mediaType = "print"
 	}
-	result, err := SelectSource(htmlContent, baseUrl, urlFetcher, false)
+	result, err := utils.SelectSource(htmlContent, baseUrl, urlFetcher, false)
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch html input : %s", err)
 	}
@@ -51,7 +51,7 @@ func NewHTML(htmlContent contentInput, baseUrl string, urlFetcher utils.UrlFetch
 	return &out, nil
 }
 
-func newHtml(htmlContent contentInput) (*HTML, error) {
+func newHtml(htmlContent utils.ContentInput) (*HTML, error) {
 	return NewHTML(htmlContent, "", nil, "")
 }
 
