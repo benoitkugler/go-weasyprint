@@ -3,11 +3,22 @@ package pdf
 
 import (
 	"github.com/benoitkugler/go-weasyprint/backend"
+	"github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/gofpdf"
 )
 
 type graphicState struct {
-	clipNest int // each ClipXXX increment clipNest by 1
+	clipNest      int // each ClipXXX increment clipNest by 1
+	transformNest int
+	alpha         float64
+	r, g, b       int
+}
+
+func newGraphicState(f *gofpdf.Fpdf) graphicState {
+	out := graphicState{}
+	out.alpha, _ = f.GetAlpha()
+	out.r, out.g, out.b = f.GetFillColor()
+	return out
 }
 
 // Context implements Drawer
@@ -20,14 +31,18 @@ type Context struct {
 
 func NewContext() Context {
 	out := Context{}
+	out.f = gofpdf.New("", "", "", "")
 	out.fileAnnotationsMap = map[string]*gofpdf.Attachment{}
-	out.stack = []graphicState{{}} // start with a basic state
+	out.stack = []graphicState{newGraphicState(out.f)} // start with a basic state
 	return out
 }
 
 // --------- shortcuts  -----------------------
 func (c *Context) currentState() *graphicState {
 	return &c.stack[len(c.stack)-1]
+}
+func (c *Context) previousState() *graphicState {
+	return &c.stack[len(c.stack)-2]
 }
 
 // return y in gofpdf "order" (origin at top left of the page)
@@ -37,22 +52,66 @@ func (c Context) convertY(y float64) float64 {
 }
 
 func (c *Context) SaveStack() backend.StackedDrawer {
-	newStack := graphicState{}
+	newStack := newGraphicState(c.f)
 	c.stack = append(c.stack, newStack)
 	return c
 }
 
 func (c *Context) Restore() {
 	s := c.currentState()
-
 	// Restore Clip
 	for i := 0; i < s.clipNest; i += 1 {
 		c.f.ClipEnd()
 	}
+	// Restore Transform
+	for i := 0; i < s.transformNest; i += 1 {
+		c.f.TransformEnd()
+	}
+	s = c.previousState()
+	c.f.SetAlpha(s.alpha, "Normal")
 	c.stack = c.stack[:len(c.stack)-1]
+}
+
+func (c *Context) Paint() {
+
 }
 
 func (c *Context) ClipRectangle(x, y, w, h float64) {
 	c.currentState().clipNest += 1
 	c.f.ClipRect(x, c.convertY(y), w, h, false)
+}
+
+func (c *Context) ClipRoundedRect(x, y, w, h, tl, tr, br, bl float64) {
+	c.currentState().clipNest += 1
+	c.f.ClipRoundedRectExt(x, y, w, h, tl, tr, br, bl, false)
+}
+
+func (c *Context) Transform(mt matrix.Transform) {
+	c.f.TransformBegin()
+	a, b, c, d, e, f := mt.Data()
+	c.f.Transform(gofpdf.Transform{A: a, B: b, C: c, D: d, E: e, F: f})
+	c.currentState().transformNest += 1
+}
+
+func (c *Context) OpacityGroup(alpha float64) {
+	c.SaveStack()
+	c.f.SetAlpha(alpha, "Normal")
+}
+
+func convert(v float64) int {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return int(v * 255)
+}
+
+func (c *Context) SetSourceRgba(r, g, b, a float64) {
+	ri, gi, bi := convert(r), convert(g), convert(b)
+	c.f.SetAlpha(a, "Normal")
+	c.f.SetFillColor(ri, gi, bi)
+	c.f.SetDrawColor(ri, gi, bi)
+	c.f.SetTextColor(ri, gi, bi)
 }

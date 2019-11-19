@@ -2,12 +2,13 @@ package document
 
 import (
 	"fmt"
-	"github.com/benoitkugler/go-weasyprint/backend"
 	"log"
 	"math"
 	"sort"
 	"strings"
 	"text/template"
+
+	"github.com/benoitkugler/go-weasyprint/backend"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
@@ -254,13 +255,13 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 				float64(bottom.Value-top.Value),
 			)
 		}
-
-		if box.Style.GetOpacity() < 1 {
-			context.PushGroup()
+		opacity := float64(box.Style.GetOpacity())
+		if opacity < 1 {
+			context.OpacityGroup(opacity)
 		}
 
 		if box.TransformationMatrix != nil {
-			if err := box.TransformationMatrix.Copy().Invert(); err != nil { // except cairo.CairoError
+			if err := box.TransformationMatrix.Copy().Invert(); err != nil {
 				return err
 			}
 			context.Transform(box.TransformationMatrix)
@@ -279,11 +280,10 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 		}
 		if context = context.SaveStack(); true {
 			if box.Style.GetOverflow() != "visible" {
-				// Only clip the content && the children:
+				// Only clip the content and the children:
 				// - the background is already clipped
 				// - the border must *not* be clipped
-				roundedBoxPath(context, box.RoundedPaddingBox())
-				context.Clip()
+				clipRoundedBox(context, box.RoundedPaddingBox())
 			}
 
 			// Point 3
@@ -346,12 +346,17 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 		// Point 10
 		drawOutlines(context, box_, enableHinting)
 
-		if op := float64(box.Style.GetOpacity()); op < 1 {
-			context.PopGroupToSource()
-			context.PaintWithAlpha(op)
+		if opacity < 1 {
+			context.Restore() // one more restore due to OpacityGroup()
 		}
+		context.Restore()
 	}
 	return nil
+}
+
+func clipRoundedBox(context Drawer, radii bo.RoundedBox) {
+	x, y, w, h, tl, tr, br, bl := float64(radii.X), float64(radii.Y), radii.Width, radii.Height, radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
+	context.ClipRoundedRect(x, y, w, h, tl, tr, br, bl)
 }
 
 // Draw the path of the border radius box.
@@ -443,83 +448,85 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 		return nil
 	}
 
-	// with stacked(context) {
-	if enableHinting {
-		// Prefer crisp edges on background rectangles.
-		context.SetAntialias(backend.AntialiasNone)
-	}
-
-	if clipBox {
-		for _, box := range bg.Layers[len(bg.Layers)-1].ClippedBoxes {
-			roundedBoxPath(context, box)
+	if context := context.SaveStack(); true {
+		if enableHinting {
+			// Prefer crisp edges on background rectangles.
+			context.SetAntialias(backend.AntialiasNone)
 		}
-		context.Clip()
-	}
 
-	// Background color
-	if bg.Color.A > 0 {
-		// with stacked(context) {
-		paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
-		if !paintingArea.IsNone() {
-			ptx, pty, ptw, pth := paintingArea.Unpack()
-			if (bleed != Bleed{}) {
-				// Painting area is the PDF BleedBox
-				ptx -= bleed.Left
-				pty -= bleed.Top
-				ptw += bleed.Left + bleed.Right
-				pth += bleed.Top + bleed.Bottom
+		if clipBox {
+			for _, box := range bg.Layers[len(bg.Layers)-1].ClippedBoxes {
+				clipRoundedBox(context, box)
 			}
-			context.Rectangle(ptx, pty, ptw, pth)
-			context.Clip()
-		}
-		context.SetSourceRgba(bg.Color.Unpack())
-		context.Paint()
-		// }
-	}
-
-	if (bleed != Bleed{}) && !marks.IsNone() {
-		x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack()
-		x -= bleed.Left
-		y -= bleed.Top
-		width += bleed.Left + bleed.Right
-		height += bleed.Top + bleed.Bottom
-		svg := headerSVG
-		if marks.Crop {
-			svg += crop
-		}
-		if marks.Cross {
-			svg += cross
-		}
-		svg += "</svg>"
-		halfBleed := Bleed{
-			Top:    bleed.Top * 0.5,
-			Bottom: bleed.Bottom * 0.5,
-			Left:   bleed.Left * 0.5,
-			Right:  bleed.Right * 0.5,
-		}
-		svg, err := formatSVG(svg, svgArgs{Width: width, Height: height, Bleed: bleed, HalfBleed: halfBleed})
-		if err != nil {
-			return err
-		}
-		image, err := images.NewSVGImage(svg, "", nil)
-		if err != nil {
-			return err
 		}
 
-		// Painting area is the PDF media box
-		size := pr.Size{Width: pr.FToV(width), Height: pr.FToV(height)}
-		position := bo.Position{Point: bo.MaybePoint{pr.Float(x), pr.Float(y)}}
-		repeat := bo.Repeat{Reps: [2]string{"no-repeat", "no-repeat"}}
-		unbounded := true
-		paintingArea := bo.Area{Rect: pr.Rectangle{pr.Float(x), pr.Float(y), pr.Float(width), pr.Float(height)}}
-		positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, pr.Float(width), pr.Float(height)}}
-		layer := bo.BackgroundLayer{Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
-			PaintingArea: paintingArea, PositioningArea: positioningArea}
-		bg.Layers = append([]bo.BackgroundLayer{layer}, bg.Layers...)
-	}
-	// Paint in reversed order: first layer is "closest" to the viewer.
-	for _, layer := range reversed(bg.Layers) {
-		drawBackgroundImage(context, layer, bg.ImageRendering)
+		// Background color
+		if bg.Color.A > 0 {
+			if context = context.SaveStack(); true {
+				paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
+				if !paintingArea.IsNone() {
+					ptx, pty, ptw, pth := paintingArea.Unpack()
+					if (bleed != Bleed{}) {
+						// Painting area is the PDF BleedBox
+						ptx -= bleed.Left
+						pty -= bleed.Top
+						ptw += bleed.Left + bleed.Right
+						pth += bleed.Top + bleed.Bottom
+					}
+					context.ClipRectangle(ptx, pty, ptw, pth)
+				}
+				context.SetSourceRgba(bg.Color.Unpack())
+				context.Paint()
+			}
+		}
+
+		if (bleed != Bleed{}) && !marks.IsNone() {
+			x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack()
+			x -= bleed.Left
+			y -= bleed.Top
+			width += bleed.Left + bleed.Right
+			height += bleed.Top + bleed.Bottom
+			svg := headerSVG
+			if marks.Crop {
+				svg += crop
+			}
+			if marks.Cross {
+				svg += cross
+			}
+			svg += "</svg>"
+			halfBleed := Bleed{
+				Top:    bleed.Top * 0.5,
+				Bottom: bleed.Bottom * 0.5,
+				Left:   bleed.Left * 0.5,
+				Right:  bleed.Right * 0.5,
+			}
+			svg, err := formatSVG(svg, svgArgs{Width: width, Height: height, Bleed: bleed, HalfBleed: halfBleed})
+			if err != nil {
+				context.Restore()
+				return err
+			}
+			image, err := images.NewSVGImage(svg, "", nil)
+			if err != nil {
+				context.Restore()
+				return err
+			}
+
+			// Painting area is the PDF media box
+			size := pr.Size{Width: pr.FToV(width), Height: pr.FToV(height)}
+			position := bo.Position{Point: bo.MaybePoint{pr.Float(x), pr.Float(y)}}
+			repeat := bo.Repeat{Reps: [2]string{"no-repeat", "no-repeat"}}
+			unbounded := true
+			paintingArea := bo.Area{Rect: pr.Rectangle{pr.Float(x), pr.Float(y), pr.Float(width), pr.Float(height)}}
+			positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, pr.Float(width), pr.Float(height)}}
+			layer := bo.BackgroundLayer{Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
+				PaintingArea: paintingArea, PositioningArea: positioningArea}
+			bg.Layers = append([]bo.BackgroundLayer{layer}, bg.Layers...)
+		}
+		// Paint in reversed order: first layer is "closest" to the viewer.
+		for _, layer := range reversed(bg.Layers) {
+			drawBackgroundImage(context, layer, bg.ImageRendering)
+		}
+		context.Restore()
 	}
 	return nil
 }
@@ -1215,8 +1222,7 @@ func drawReplacedbox(context Drawer, box_ bo.InstanceReplacedBox) {
 	drawWidth, drawHeight, drawX, drawY := layout.ReplacedboxLayout(box_)
 
 	// with stacked(context) {
-	roundedBoxPath(context, box.RoundedContentBox())
-	context.Clip()
+	clipRoundedBox(context, box.RoundedContentBox())
 	context.Translate(float64(drawX), float64(drawY))
 	box.Replacement.Draw(context, float64(drawWidth), float64(drawHeight), box.Style.GetImageRendering())
 	// }

@@ -25,6 +25,10 @@ func (T Transform) Copy() *Transform {
 	return &T
 }
 
+func (T Transform) Data() (a, b, c, d, e, f float64) {
+	return T.a, T.b, T.c, T.d, T.e, T.f
+}
+
 // write T_ * T in out
 func mult(T_, T Transform, out *Transform) {
 	out.a = T_.a*T.a + T_.c*T.b
