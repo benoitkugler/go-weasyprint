@@ -50,13 +50,11 @@ func (c Context) CreateAnchors(anchors [][]backend.Anchor) map[string]int {
 }
 
 func (c Context) AddInternalLink(x, y, w, h float64, linkId int) {
-	_, pageHeight := c.f.GetPageSize()
-	c.f.Link(x, pageHeight-y, w, h, linkId)
+	c.f.Link(x, c.convertY(y), w, h, linkId)
 }
 
 func (c Context) AddExternalLink(x, y, w, h float64, url string) {
-	_, pageHeight := c.f.GetPageSize()
-	c.f.LinkString(x, pageHeight-y, w, h, url)
+	c.f.LinkString(x, c.convertY(y), w, h, url)
 }
 
 // embedded files
@@ -83,6 +81,5 @@ func (c Context) EmbedFile(id string, a backend.Attachment) {
 // Add file annotation on the current page
 func (c Context) AddFileAnnotation(x, y, w, h float64, id string) {
 	a := c.fileAnnotationsMap[id]
-	_, pageHeight := c.f.GetPageSize()
-	c.f.AddAttachmentAnnotation(a, x, pageHeight-y, w, h)
+	c.f.AddAttachmentAnnotation(a, x, c.convertY(y), w, h)
 }

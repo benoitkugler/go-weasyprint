@@ -230,121 +230,119 @@ func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enabl
 // Draw a ``stackingContext`` on ``context``.
 func drawStackingContext(context Drawer, stackingContext StackingContext, enableHinting bool) error {
 	// See http://www.w3.org/TR/CSS2/zindex.html
-	// with stacked(context) {
-	box_ := stackingContext.box
-	box := box_.Box()
-	if clips := box.Style.GetClip(); box.IsAbsolutelyPositioned() && len(clips) != 0 {
-		top, right, bottom, left := clips[0], clips[1], clips[2], clips[3]
-		if top.String == "auto" {
-			top.Value = 0
-		}
-		if right.String == "auto" {
-			right.Value = 0
-		}
-		if bottom.String == "auto" {
-			bottom.Value = box.BorderHeight()
-		}
-		if left.String == "auto" {
-			left.Value = box.BorderWidth()
-		}
-		context.Rectangle(
-			float64(box.BorderBoxX()+right.Value),
-			float64(box.BorderBoxY()+top.Value),
-			float64(left.Value-right.Value),
-			float64(bottom.Value-top.Value),
-		)
-		context.Clip()
-	}
-
-	if box.Style.GetOpacity() < 1 {
-		context.PushGroup()
-	}
-
-	if box.TransformationMatrix != nil {
-		if err := box.TransformationMatrix.Copy().Invert(); err != nil { // except cairo.CairoError
-			return err
-		}
-		context.Transform(box.TransformationMatrix)
-	}
-
-	// Point 1 is done in drawPage
-
-	// Point 2
-	if bo.TypeBlockBox.IsInstance(box_) || bo.IsMarginBox(box_) ||
-		bo.TypeInlineBlockBox.IsInstance(box_) || bo.TypeTableCellBox.IsInstance(box_) ||
-		bo.IsFlexContainerBox(box_) {
-
-		// The canvas background was removed by setCanvasBackground
-		if err := drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting); err != nil {
-			return err
+	if context := context.SaveStack(); true {
+		box_ := stackingContext.box
+		box := box_.Box()
+		if clips := box.Style.GetClip(); box.IsAbsolutelyPositioned() && len(clips) != 0 {
+			top, right, bottom, left := clips[0], clips[1], clips[2], clips[3]
+			if top.String == "auto" {
+				top.Value = 0
+			}
+			if right.String == "auto" {
+				right.Value = 0
+			}
+			if bottom.String == "auto" {
+				bottom.Value = box.BorderHeight()
+			}
+			if left.String == "auto" {
+				left.Value = box.BorderWidth()
+			}
+			context.ClipRectangle(
+				float64(box.BorderBoxX()+right.Value),
+				float64(box.BorderBoxY()+top.Value),
+				float64(left.Value-right.Value),
+				float64(bottom.Value-top.Value),
+			)
 		}
 
-		// with stacked(context) {
-		if box.Style.GetOverflow() != "visible" {
-			// Only clip the content && the children:
-			// - the background is already clipped
-			// - the border must *not* be clipped
-			roundedBoxPath(context, box.RoundedPaddingBox())
-			context.Clip()
+		if box.Style.GetOpacity() < 1 {
+			context.PushGroup()
 		}
 
-		// Point 3
-		for _, childContext := range stackingContext.negativeZContexts {
-			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+		if box.TransformationMatrix != nil {
+			if err := box.TransformationMatrix.Copy().Invert(); err != nil { // except cairo.CairoError
+				return err
+			}
+			context.Transform(box.TransformationMatrix)
+		}
+
+		// Point 1 is done in drawPage
+
+		// Point 2
+		if bo.TypeBlockBox.IsInstance(box_) || bo.IsMarginBox(box_) ||
+			bo.TypeInlineBlockBox.IsInstance(box_) || bo.TypeTableCellBox.IsInstance(box_) ||
+			bo.IsFlexContainerBox(box_) {
+			// The canvas background was removed by setCanvasBackground
+			if err := drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting); err != nil {
 				return err
 			}
 		}
-
-		// Point 4
-		for _, block := range stackingContext.blockLevelBoxes {
-			if err := drawBoxBackgroundAndBorder(context, stackingContext.page, block, enableHinting); err != nil {
-				return err
+		if context = context.SaveStack(); true {
+			if box.Style.GetOverflow() != "visible" {
+				// Only clip the content && the children:
+				// - the background is already clipped
+				// - the border must *not* be clipped
+				roundedBoxPath(context, box.RoundedPaddingBox())
+				context.Clip()
 			}
-		}
 
-		// Point 5
-		for _, childContext := range stackingContext.floatContexts {
-			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
-				return err
+			// Point 3
+			for _, childContext := range stackingContext.negativeZContexts {
+				if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+					return err
+				}
 			}
-		}
 
-		// Point 6
-		if bo.TypeInlineBox.IsInstance(box_) {
-			if err := drawInlineLevel(context, stackingContext.page, box_, enableHinting, 0, "clip"); err != nil {
-				return err
+			// Point 4
+			for _, block := range stackingContext.blockLevelBoxes {
+				if err := drawBoxBackgroundAndBorder(context, stackingContext.page, block, enableHinting); err != nil {
+					return err
+				}
 			}
-		}
 
-		// Point 7
-		for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
-			if block, ok := block.(bo.InstanceReplacedBox); ok {
-				drawReplacedbox(context, block)
-			} else {
-				for _, child := range block.Box().Children {
-					if bo.TypeLineBox.IsInstance(child) {
-						if err := drawInlineLevel(context, stackingContext.page, child, enableHinting, 0, "clip"); err != nil {
-							return err
+			// Point 5
+			for _, childContext := range stackingContext.floatContexts {
+				if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+					return err
+				}
+			}
+
+			// Point 6
+			if bo.TypeInlineBox.IsInstance(box_) {
+				if err := drawInlineLevel(context, stackingContext.page, box_, enableHinting, 0, "clip"); err != nil {
+					return err
+				}
+			}
+
+			// Point 7
+			for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
+				if block, ok := block.(bo.InstanceReplacedBox); ok {
+					drawReplacedbox(context, block)
+				} else {
+					for _, child := range block.Box().Children {
+						if bo.TypeLineBox.IsInstance(child) {
+							if err := drawInlineLevel(context, stackingContext.page, child, enableHinting, 0, "clip"); err != nil {
+								return err
+							}
 						}
 					}
 				}
 			}
-		}
 
-		// Point 8
-		for _, childContext := range stackingContext.zeroZContexts {
-			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
-				return err
+			// Point 8
+			for _, childContext := range stackingContext.zeroZContexts {
+				if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+					return err
+				}
+			}
+
+			// Point 9
+			for _, childContext := range stackingContext.positiveZContexts {
+				if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+					return err
+				}
 			}
 		}
-
-		// Point 9
-		for _, childContext := range stackingContext.positiveZContexts {
-			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
-				return err
-			}
-		}
-
 		// Point 10
 		drawOutlines(context, box_, enableHinting)
 

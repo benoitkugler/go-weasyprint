@@ -757,23 +757,6 @@ type Drawer interface {
 	// :param content: A :ref:`CONTENT` string.
 	PushGroupWithContent(content interface{})
 
-	// Adds a closed sub-path rectangle
-	// of the given size to the current path
-	// at position ``(x, y)`` in user-space coordinates.
-	// This method is logically equivalent to::
-	//
-	//     context.move_to(x, y)
-	//     context.rel_line_to(width, 0)
-	//     context.rel_line_to(0, height)
-	//     context.rel_line_to(-width, 0)
-	//     context.close_path()
-	//
-	// :param x: The X coordinate of the top left corner of the rectangle.
-	// :param y: The Y coordinate of the top left corner of the rectangle.
-	// :param width: Width of the rectangle.
-	// :param height: Height of the rectangle.
-	Rectangle(x float, y float, width float, height float)
-
 	// Relative-coordinate version of :meth:`curve_to`.
 	// All offsets are relative to the current point.
 	// Adds a cubic Bézier spline to the path from the current point
@@ -940,16 +923,6 @@ type Drawer interface {
 	// family =  slant = 0 weight = 0
 	SelectFontFace(family interface{}, slant interface{}, weight interface{})
 
-	// Set the :ref:`ANTIALIAS` of the rasterizer used for drawing shapes.
-	// This value is a hint, and a particular backend may or may not support a particular value.
-	// At the current time,
-	// no backend supports :obj:`SUBPIXEL <ANTIALIAS_SUBPIXEL>`
-	// when drawing shapes.
-	//
-	// Note that this option does not affect text rendering,
-	// instead see `FontOptions.set_antialias`.
-	SetAntialias(antialias int)
-
 	// Sets the dash pattern to be used by :meth:`stroke`.
 	// A dash pattern is specified by dashes, a list of positive values.
 	// Each value provides the length of alternate "on" and "off"
@@ -985,14 +958,6 @@ type Drawer interface {
 	//     The context  will be put into an error state.
 	// offset = 0
 	SetDash(dashes []float, offset float)
-
-	// Set the current :ref:`FILL_RULE` within the cairo context.
-	// The fill rule is used to determine which regions are inside
-	// or outside a complex (potentially self-intersecting) path.
-	// The current fill rule affects both :meth:`fill` and :meth:`clip`.
-	//
-	// The default fill rule is :obj:`WINDING <FILL_RULE_WINDING>`.
-	SetFillRule(fillRule int)
 
 	// Replaces the current font face with :obj:`font_face`.
 	//
@@ -1556,6 +1521,25 @@ type Drawer interface {
 	SetSize(widthInPoints, heightInPoints float)
 
 	// ----- needed -------------------
+
+	// Set the :ref:`ANTIALIAS` of the rasterizer used for drawing shapes.
+	// This value is a hint, and a particular backend may or may not support a particular value.
+	// At the current time,
+	// no backend supports :obj:`SUBPIXEL <ANTIALIAS_SUBPIXEL>`
+	// when drawing shapes.
+	//
+	// Note that this option does not affect text rendering,
+	// instead see `FontOptions.set_antialias`.
+	SetAntialias(antialias int)
+
+	// Set the current :ref:`FILL_RULE` within the cairo context.
+	// The fill rule is used to determine which regions are inside
+	// or outside a complex (potentially self-intersecting) path.
+	// The current fill rule affects both :meth:`fill` and :meth:`clip`.
+	//
+	// The default fill rule is :obj:`WINDING <FILL_RULE_WINDING>`.
+	SetFillRule(fillRule int)
+
 	// Returns the MediaBox for the current page
 	GetMediaBox() (left, top, right, bottom float64)
 	SetTrimBox(left, top, right, bottom float64)
@@ -1591,4 +1575,28 @@ type Drawer interface {
 	// `pageNumber` is the page number in the PDF file to link to.
 	// `y`is the position in the page
 	AddBookmark(level int, title string, pageNumber int, y float)
+
+	sharedMethods
+}
+
+type sharedMethods interface {
+	// SaveStack save graphics parameters and returns
+	// a (partial) drawer, whose method `Restore`
+	// should be called to restore parameters.
+	SaveStack() StackedDrawer
+
+	// Intersects the current clip region by a rectangle
+	// of the given size to the current path.
+	// at position ``(x, y)`` in user-space coordinates.
+	// (X,Y) coordinates are the top left corner of the rectangle.
+	ClipRectangle(x float, y float, width float, height float)
+}
+
+type StackedDrawer interface {
+	// Restore forget the current stack
+	// After calling `Restore`, the stacked drawer should'nt be
+	// used anymore.
+	Restore()
+
+	sharedMethods
 }

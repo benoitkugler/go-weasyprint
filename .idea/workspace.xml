@@ -9,8 +9,8 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/drawer.go" beforeDir="false" afterPath="$PROJECT_DIR$/backend/drawer.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/document/draw.go" beforeDir="false" afterPath="$PROJECT_DIR$/document/draw.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/style_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pdf/meta.go" beforeDir="false" afterPath="$PROJECT_DIR$/pdf/meta.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pdf/pdf.go" beforeDir="false" afterPath="$PROJECT_DIR$/pdf/pdf.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -206,6 +206,7 @@
     <MESSAGE value="WIP" />
     <MESSAGE value="WIP : style" />
     <MESSAGE value="WIP : test style" />
-    <option name="LAST_COMMIT_MESSAGE" value="WIP : test style" />
+    <MESSAGE value="propagate error" />
+    <option name="LAST_COMMIT_MESSAGE" value="propagate error" />
   </component>
 </project>
