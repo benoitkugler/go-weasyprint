@@ -22,7 +22,7 @@ var testUAStylesheet CSS
 
 func init() {
 	var err error
-	testUAStylesheet, err = newCSS(InputFilename("tests_ua.css"))
+	testUAStylesheet, err = newCSS(utils.InputFilename("tests_ua.css"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func rsplit(s, sep string) string {
 //@assertNoLogs
 func TestFindStylesheets(t *testing.T) {
 	capt := utils.CaptureLogs()
-	html_, err := newHtml(InputFilename(resourceFilename("doc1.html")))
+	html_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestFindStylesheets(t *testing.T) {
 //@assertNoLogs
 func TestExpandShorthands(t *testing.T) {
 	capt := utils.CaptureLogs()
-	sheet, err := newCSS(InputFilename(resourceFilename("sheet2.css")))
+	sheet, err := newCSS(utils.InputFilename(resourceFilename("sheet2.css")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,17 +238,17 @@ func assertProp(t *testing.T, got pr.Properties, name string, expected pr.CssPro
 //@assertNoLogs
 func TestAnnotateDocument(t *testing.T) {
 	capt := utils.CaptureLogs()
-	document_, err := newHtml(InputFilename(resourceFilename("doc1.html")))
+	document_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	document := fakeHTML{HTML: *document_}
-	document.customUA, err = newCSS(InputFilename(resourceFilename("mini_ua.css")))
+	document.customUA, err = newCSS(utils.InputFilename(resourceFilename("mini_ua.css")))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	userStylesheet, err := newCSS(InputFilename(resourceFilename("user.css")))
+	userStylesheet, err := newCSS(utils.InputFilename(resourceFilename("user.css")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,12 +343,12 @@ func TestAnnotateDocument(t *testing.T) {
 //@assertNoLogs
 func TestPage(t *testing.T) {
 	capt := utils.CaptureLogs()
-	document_, err := newHtml(InputFilename(resourceFilename("doc1.html")))
+	document_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	document := fakeHTML{HTML: *document_}
-	css, err := newCSS(InputString(`
+	css, err := newCSS(utils.InputString(`
 		html { color: red }
 		@page { margin: 10px }
 		@page :right {
@@ -516,7 +516,7 @@ func TestWarnings(t *testing.T) {
 	for _, te := range testsWarnings {
 
 		capt := utils.CaptureLogs()
-		_, err := newCSS(InputString(te.sel))
+		_, err := newCSS(utils.InputString(te.sel))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -536,7 +536,7 @@ func TestWarnings(t *testing.T) {
 func TestWarningsStylesheet(t *testing.T) {
 	ml := "<link rel=stylesheet href=invalid-protocol://absolute>"
 	capt := utils.CaptureLogs()
-	html, err := newHtml(InputString(ml))
+	html, err := newHtml(utils.InputString(ml))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -585,13 +585,13 @@ func isClose(a, b pr.Float) bool {
 func TestFontSize(t *testing.T) {
 	//@assertNoLogs
 	capt := utils.CaptureLogs()
-	html_, err := newHtml(InputString("<p>a<span>b"))
+	html_, err := newHtml(utils.InputString("<p>a<span>b"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	document := fakeHTML{HTML: *html_}
 	for _, te := range testsFs {
-		css, err := newCSS(InputString(fmt.Sprintf("p{font-size:%s}span{font-size:%s}", te.parentCss, te.childCss)))
+		css, err := newCSS(utils.InputString(fmt.Sprintf("p{font-size:%s}span{font-size:%s}", te.parentCss, te.childCss)))
 		if err != nil {
 			t.Fatal(err)
 		}

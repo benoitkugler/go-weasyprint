@@ -316,7 +316,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 			content := element.GetChildText()
 			// ElementTree should give us either unicode or  ASCII-only
 			// bytestrings, so we don"t need `encoding` here.
-			css, err := NewCSS(InputString(content), baseUrl, urlFetcher, false, deviceMediaType,
+			css, err := NewCSS(utils.InputString(content), baseUrl, urlFetcher, false, deviceMediaType,
 				fontConfig, nil, pageRules)
 			if err != nil {
 				log.Printf("Invalid style %s : %s \n", content, err)
@@ -330,7 +330,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 				}
 				href := element.GetUrlAttribute("href", baseUrl, false)
 				if href != "" {
-					css, err := NewCSS(InputUrl(href), "", urlFetcher, true, deviceMediaType,
+					css, err := NewCSS(utils.InputUrl(href), "", urlFetcher, true, deviceMediaType,
 						fontConfig, nil, pageRules)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
@@ -1012,7 +1012,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				url = utils.UrlJoin(baseUrl, url, false, "@import")
 				if url != "" {
-					_, err := NewCSS(InputUrl(url), "", urlFetcher, false,
+					_, err := NewCSS(utils.InputUrl(url), "", urlFetcher, false,
 						deviceMediaType, fontConfig, matcher, pageRules)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", url, err)

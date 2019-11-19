@@ -2,6 +2,7 @@ package document
 
 import (
 	"fmt"
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"log"
 	"math"
 	"sort"
@@ -178,7 +179,7 @@ func lighten(color Color) Color {
 }
 
 // Draw the given PageBox.
-func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) {
+func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) error {
 	bleed := Bleed{
 		Top:    float64(page.Style.GetBleedTop().Value),
 		Bottom: float64(page.Style.GetBleedBottom().Value),
@@ -187,18 +188,25 @@ func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) {
 	}
 	marks := page.Style.GetMarks()
 	stackingContext := NewStackingContextFromPage(page)
-	drawBackground(context, stackingContext.box.Box().Background, enableHinting,
-		false, bleed, marks)
-	drawBackground(context, page.CanvasBackground, enableHinting, false, Bleed{}, pr.Marks{})
+	if err := drawBackground(context, stackingContext.box.Box().Background, enableHinting, false, bleed, marks); err != nil {
+		return err
+	}
+	if err := drawBackground(context, page.CanvasBackground, enableHinting, false, Bleed{}, pr.Marks{}); err != nil {
+		return err
+	}
 	drawBorder(context, page, enableHinting)
-	drawStackingContext(context, stackingContext, enableHinting)
+	return drawStackingContext(context, stackingContext, enableHinting)
 }
 
-func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enableHinting bool) {
-	drawBackground(context, box.Box().Background, enableHinting, true, Bleed{}, pr.Marks{})
+func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enableHinting bool) error {
+	if err := drawBackground(context, box.Box().Background, enableHinting, true, Bleed{}, pr.Marks{}); err != nil {
+		return err
+	}
 	if box_, ok := box.(bo.InstanceTableBox); ok {
 		box := box_.Table()
-		drawTableBackgrounds(context, page, box_, enableHinting)
+		if err := drawTableBackgrounds(context, page, box_, enableHinting); err != nil {
+			return err
+		}
 		if box.Style.GetBorderCollapse() == "separate" {
 			drawBorder(context, box, enableHinting)
 			for _, rowGroup := range box.Children {
@@ -216,10 +224,11 @@ func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enabl
 	} else {
 		drawBorder(context, box, enableHinting)
 	}
+	return nil
 }
 
 // Draw a ``stackingContext`` on ``context``.
-func drawStackingContext(context Drawer, stackingContext StackingContext, enableHinting bool) {
+func drawStackingContext(context Drawer, stackingContext StackingContext, enableHinting bool) error {
 	// See http://www.w3.org/TR/CSS2/zindex.html
 	// with stacked(context) {
 	box_ := stackingContext.box
@@ -253,7 +262,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 
 	if box.TransformationMatrix != nil {
 		if err := box.TransformationMatrix.Copy().Invert(); err != nil { // except cairo.CairoError
-			return
+			return err
 		}
 		context.Transform(box.TransformationMatrix)
 	}
@@ -266,7 +275,9 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 		bo.IsFlexContainerBox(box_) {
 
 		// The canvas background was removed by setCanvasBackground
-		drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting)
+		if err := drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting); err != nil {
+			return err
+		}
 
 		// with stacked(context) {
 		if box.Style.GetOverflow() != "visible" {
@@ -279,22 +290,30 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 
 		// Point 3
 		for _, childContext := range stackingContext.negativeZContexts {
-			drawStackingContext(context, childContext, enableHinting)
+			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+				return err
+			}
 		}
 
 		// Point 4
 		for _, block := range stackingContext.blockLevelBoxes {
-			drawBoxBackgroundAndBorder(context, stackingContext.page, block, enableHinting)
+			if err := drawBoxBackgroundAndBorder(context, stackingContext.page, block, enableHinting); err != nil {
+				return err
+			}
 		}
 
 		// Point 5
 		for _, childContext := range stackingContext.floatContexts {
-			drawStackingContext(context, childContext, enableHinting)
+			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+				return err
+			}
 		}
 
 		// Point 6
 		if bo.TypeInlineBox.IsInstance(box_) {
-			drawInlineLevel(context, stackingContext.page, box_, enableHinting, 0, "clip")
+			if err := drawInlineLevel(context, stackingContext.page, box_, enableHinting, 0, "clip"); err != nil {
+				return err
+			}
 		}
 
 		// Point 7
@@ -304,7 +323,9 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			} else {
 				for _, child := range block.Box().Children {
 					if bo.TypeLineBox.IsInstance(child) {
-						drawInlineLevel(context, stackingContext.page, child, enableHinting, 0, "clip")
+						if err := drawInlineLevel(context, stackingContext.page, child, enableHinting, 0, "clip"); err != nil {
+							return err
+						}
 					}
 				}
 			}
@@ -312,12 +333,16 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 
 		// Point 8
 		for _, childContext := range stackingContext.zeroZContexts {
-			drawStackingContext(context, childContext, enableHinting)
+			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+				return err
+			}
 		}
 
 		// Point 9
 		for _, childContext := range stackingContext.positiveZContexts {
-			drawStackingContext(context, childContext, enableHinting)
+			if err := drawStackingContext(context, childContext, enableHinting); err != nil {
+				return err
+			}
 		}
 
 		// Point 10
@@ -328,6 +353,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			context.PaintWithAlpha(op)
 		}
 	}
+	return nil
 }
 
 // Draw the path of the border radius box.
@@ -422,7 +448,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 	// with stacked(context) {
 	if enableHinting {
 		// Prefer crisp edges on background rectangles.
-		context.SetAntialias(cairo.ANTIALIASNONE)
+		context.SetAntialias(backend.AntialiasNone)
 	}
 
 	if clipBox {
@@ -501,27 +527,43 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 }
 
 // Draw the background color && image of the table children.
-func drawTableBackgrounds(context Drawer, page *bo.PageBox, table_ bo.InstanceTableBox, enableHinting bool) {
+func drawTableBackgrounds(context Drawer, page *bo.PageBox, table_ bo.InstanceTableBox, enableHinting bool) error {
 	table := table_.Table()
 	for _, columnGroup := range table.ColumnGroups {
-		drawBackground2(context, columnGroup.Box().Background, enableHinting)
+		err := drawBackground2(context, columnGroup.Box().Background, enableHinting)
+		if err != nil {
+			return err
+		}
 		for _, column := range columnGroup.Box().Children {
-			drawBackground2(context, column.Box().Background, enableHinting)
+			err = drawBackground2(context, column.Box().Background, enableHinting)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	for _, rowGroup := range table.Children {
-		drawBackground2(context, rowGroup.Box().Background, enableHinting)
+		err := drawBackground2(context, rowGroup.Box().Background, enableHinting)
+		if err != nil {
+			return err
+		}
 		for _, row := range rowGroup.Box().Children {
-			drawBackground2(context, row.Box().Background, enableHinting)
+			err = drawBackground2(context, row.Box().Background, enableHinting)
+			if err != nil {
+				return err
+			}
 			for _, cell := range row.Box().Children {
 				cell := cell.Box()
 				if table.Style.GetBorderCollapse() == "collapse" ||
 					cell.Style.GetEmptyCells() == "show" || !cell.Empty {
-					drawBackground2(context, cell.Background, enableHinting)
+					err = drawBackground2(context, cell.Background, enableHinting)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
+	return nil
 }
 
 func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRendering pr.String) {
@@ -724,7 +766,7 @@ func clipBorderSegment(context Drawer, enableHinting bool, style pr.String, widt
 		math.Hypot(context.UserToDevice(0, float64(width))) >= 1) {
 		// Avoid an artifact in the corner joining two solid borders
 		// of the same color.
-		context.SetAntialias(cairo.ANTIALIASNONE)
+		context.SetAntialias(backend.AntialiasNone)
 	}
 
 	bbx, bby, bbw, bbh := borderBox.Unpack()
@@ -817,7 +859,7 @@ func clipBorderSegment(context Drawer, enableHinting bool, style pr.String, widt
 		context.RelLineTo(-px1+px2, -py1+bbh+py2)
 	}
 
-	context.SetFillRule(cairo.FILLRULEEVENODD)
+	context.SetFillRule(backend.FillRuleEvenOdd)
 	if style == "dotted" || style == "dashed" {
 		dash := 3 * width
 		if style == "dotted" {
@@ -938,7 +980,7 @@ func clipBorderSegment(context Drawer, enableHinting bool, style pr.String, widt
 }
 
 func drawRoundedBorder(context Drawer, box bo.BoxFields, style pr.String, color []Color) {
-	context.SetFillRule(cairo.FILLRULEEVENODD)
+	context.SetFillRule(backend.FillRuleEvenOdd)
 	roundedBoxPath(context, box.RoundedPaddingBox())
 	if style == "ridge" || style == "groove" {
 		roundedBoxPath(context, box.RoundedBoxRatio(1/2))
@@ -960,7 +1002,7 @@ func drawRoundedBorder(context Drawer, box bo.BoxFields, style pr.String, color 
 }
 
 func drawRectBorder(context Drawer, box, widths pr.Rectangle, style pr.String, color []Color) {
-	context.SetFillRule(cairo.FILLRULEEVENODD)
+	context.SetFillRule(backend.FillRuleEvenOdd)
 	bbx, bby, bbw, bbh := box.Unpack()
 	bt, br, bb, bl := widths.Unpack()
 	context.Rectangle(box.Unpack())
@@ -1183,15 +1225,19 @@ func drawReplacedbox(context Drawer, box_ bo.InstanceReplacedBox) {
 }
 
 // offsetX=0, textOverflow="clip"
-func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting bool, offsetX float64, textOverflow string) {
+func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting bool, offsetX float64, textOverflow string) error {
 	if stackingContext, ok := box_.(StackingContext); ok {
 		if !(bo.TypeInlineBlockBox.IsInstance(stackingContext.box) || bo.TypeInlineFlexBox.IsInstance(stackingContext.box)) {
 			log.Fatalf("expected InlineBlock or InlineFlex, got %v", stackingContext.box)
 		}
-		drawStackingContext(context, stackingContext, enableHinting)
+		if err := drawStackingContext(context, stackingContext, enableHinting); err != nil {
+			return err
+		}
 	} else {
 		box := box_.Box()
-		drawBackground2(context, box.Background, enableHinting)
+		if err := drawBackground2(context, box.Background, enableHinting); err != nil {
+			return err
+		}
 		drawBorder(context, box_, enableHinting)
 		textBox, isTextBox := box_.(*bo.TextBox)
 		replacedBox, isReplacedBox := box_.(bo.InstanceReplacedBox)
@@ -1207,7 +1253,9 @@ func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting b
 				if child, ok := child.(*bo.TextBox); ok {
 					drawText(context, *child, enableHinting, childOffsetX, textOverflow)
 				} else {
-					drawInlineLevel(context, page, child, enableHinting, childOffsetX, textOverflow)
+					if err := drawInlineLevel(context, page, child, enableHinting, childOffsetX, textOverflow); err != nil {
+						return err
+					}
 				}
 			}
 		} else if isReplacedBox {
@@ -1219,6 +1267,7 @@ func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting b
 			log.Fatalf("unexpected box %v", box)
 		}
 	}
+	return nil
 }
 
 // Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``
@@ -1305,7 +1354,7 @@ func drawTextDecoration(context Drawer, textbox bo.TextBox, offsetX, offsetY, th
 	style := textbox.Style.GetTextDecorationStyle()
 	// with stacked(context) {
 	if enableHinting {
-		context.SetAntialias(cairo.ANTIALIASNONE)
+		context.SetAntialias(backend.AntialiasNone)
 	}
 	context.SetSourceRgba(color.Unpack())
 	context.SetLineWidth(thickness)

@@ -6,15 +6,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ea380f48-016f-404a-930d-7d7844a7e710" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/utils/io.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/document.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/draw.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pdf.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/stacking.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/css.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/css.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/style/tree/html.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/html.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/drawer.go" beforeDir="false" afterPath="$PROJECT_DIR$/backend/drawer.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/document/draw.go" beforeDir="false" afterPath="$PROJECT_DIR$/document/draw.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/style.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/style/tree/style_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/style/tree/style_test.go" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -43,7 +39,7 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" path="/usr/local/go" />
+  <component name="GOROOT" path="$PROJECT_DIR$/../../../../../../go" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
