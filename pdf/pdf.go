@@ -12,6 +12,7 @@ type graphicState struct {
 	transformNest int
 	alpha         float64
 	r, g, b       int
+	fillRule      int
 }
 
 func newGraphicState(f *gofpdf.Fpdf) graphicState {
@@ -51,7 +52,7 @@ func (c Context) convertY(y float64) float64 {
 	return pageHeight - y
 }
 
-func (c *Context) SaveStack() backend.StackedDrawer {
+func (c *Context) Save() backend.StackedDrawer {
 	newStack := newGraphicState(c.f)
 	c.stack = append(c.stack, newStack)
 	return c
@@ -72,8 +73,21 @@ func (c *Context) Restore() {
 	c.stack = c.stack[:len(c.stack)-1]
 }
 
-func (c *Context) Paint() {
+func (c *Context) Finish() {
+	s := c.currentState()
+	// Restore Clip
+	for i := 0; i < s.clipNest; i += 1 {
+		c.f.ClipEnd()
+	}
+	// Restore Transform
+	for i := 0; i < s.transformNest; i += 1 {
+		c.f.TransformEnd()
+	}
+}
 
+func (c *Context) Paint() {
+	w, h := c.f.GetPageSize()
+	c.f.Rect(0, 0, w, h, "F")
 }
 
 func (c *Context) ClipRectangle(x, y, w, h float64) {
@@ -86,15 +100,21 @@ func (c *Context) ClipRoundedRect(x, y, w, h, tl, tr, br, bl float64) {
 	c.f.ClipRoundedRectExt(x, y, w, h, tl, tr, br, bl, false)
 }
 
-func (c *Context) Transform(mt matrix.Transform) {
-	c.f.TransformBegin()
+func (c *Context) Translate(tx, ty float64) {
+	mt := matrix.Identity()
+	mt.Translate(tx, ty)
+	c.Transform(mt)
+}
+
+func (ct *Context) Transform(mt matrix.Transform) {
+	ct.f.TransformBegin()
 	a, b, c, d, e, f := mt.Data()
-	c.f.Transform(gofpdf.Transform{A: a, B: b, C: c, D: d, E: e, F: f})
-	c.currentState().transformNest += 1
+	ct.f.Transform(gofpdf.TransformMatrix{A: a, B: b, C: c, D: d, E: e, F: f})
+	ct.currentState().transformNest += 1
 }
 
 func (c *Context) OpacityGroup(alpha float64) {
-	c.SaveStack()
+	c.Save()
 	c.f.SetAlpha(alpha, "Normal")
 }
 

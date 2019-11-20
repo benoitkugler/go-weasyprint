@@ -231,7 +231,7 @@ func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enabl
 // Draw a ``stackingContext`` on ``context``.
 func drawStackingContext(context Drawer, stackingContext StackingContext, enableHinting bool) error {
 	// See http://www.w3.org/TR/CSS2/zindex.html
-	if context := context.SaveStack(); true {
+	if context := context.Save(); true {
 		box_ := stackingContext.box
 		box := box_.Box()
 		if clips := box.Style.GetClip(); box.IsAbsolutelyPositioned() && len(clips) != 0 {
@@ -278,7 +278,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 				return err
 			}
 		}
-		if context = context.SaveStack(); true {
+		if context = context.Save(); true {
 			if box.Style.GetOverflow() != "visible" {
 				// Only clip the content and the children:
 				// - the background is already clipped
@@ -448,7 +448,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 		return nil
 	}
 
-	if context := context.SaveStack(); true {
+	if context := context.Save(); true {
 		if enableHinting {
 			// Prefer crisp edges on background rectangles.
 			context.SetAntialias(backend.AntialiasNone)
@@ -462,7 +462,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 
 		// Background color
 		if bg.Color.A > 0 {
-			if context = context.SaveStack(); true {
+			if context = context.Save(); true {
 				paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
 				if !paintingArea.IsNone() {
 					ptx, pty, ptw, pth := paintingArea.Unpack()
@@ -627,8 +627,7 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 
 	subSurface := cairo.PDFSurface(nil, repeatWidth, repeatHeight)
 	var subContext Drawer = cairo.Context(subSurface)
-	subContext.Rectangle(0, 0, imageWidth, imageHeight)
-	subContext.Clip()
+	subContext.ClipRectangle(0, 0, imageWidth, imageHeight)
 	layer.Image.Draw(subContext, imageWidth, imageHeight, imageRendering)
 	pattern := cairo.SurfacePattern(subSurface)
 
@@ -638,17 +637,18 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 		pattern.setExtend(cairo.EXTENDREPEAT)
 	}
 
-	// with stacked(context) {
-	if !layer.Unbounded {
-		context.Rectangle(float64(paintingX), float64(paintingY),
-			paintingWidth, paintingHeight)
-		context.Clip()
-	} // else: unrestricted, whole page box
+	if context := context.Save(); true {
+		if !layer.Unbounded {
+			context.ClipRectangle(float64(paintingX), float64(paintingY),
+				paintingWidth, paintingHeight)
+		} // else: unrestricted, whole page box
 
-	context.Translate(positioningX+float64(positionX.V()),
-		positioningY+float64(positionY.V()))
-	context.SetSource(pattern)
-	context.Paint()
+		context.Translate(positioningX+float64(positionX.V()),
+			positioningY+float64(positionY.V()))
+		context.SetSource(pattern)
+		context.Paint()
+		context.Restore()
+	}
 }
 
 // Increment X and Y coordinates by the given offsets.

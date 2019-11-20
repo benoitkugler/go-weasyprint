@@ -846,29 +846,6 @@ type Drawer interface {
 	//     positive angles rotate in a clockwise direction.
 	Rotate(radians float)
 
-	// Makes a copy of the current state of this context
-	// and saves it on an internal stack of saved states.
-	// When :meth:`restore` is called,
-	// the context will be restored to the saved state.
-	// Multiple calls to :meth:`save` and :meth:`restore` can be nested;
-	// each call to :meth:`restore` restores the state
-	// from the matching paired :meth:`save`.
-	//
-	// Instead of using :meth:`save` and :meth:`restore` directly,
-	// it is recommended to use a :ref:`with statement <with>`::
-	//
-	//     with context:
-	//         do_something(context)
-	//
-	// … which is equivalent to::
-	//
-	//     context.save()
-	//     try:
-	//         do_something(context)
-	//     finally:
-	//         context.restore()
-	Save()
-
 	// Modifies the current transformation matrix (CTM)
 	// by scaling the X and Y user-space axes
 	// by :obj:`sx` and :obj:`sy` respectively.
@@ -1446,17 +1423,6 @@ type Drawer interface {
 	//     and :meth:`glyph_path` for the "real" text path API in cairo.
 	TextPath(text interface{})
 
-	// Modifies the current transformation matrix (CTM)
-	// by translating the user-space origin by ``(tx, ty)``.
-	// This offset is interpreted as a user-space coordinate
-	// according to the CTM in place before the new call to :meth:`translate`.
-	// In other words, the translation of the user-space origin takes place
-	// after any existing transformation.
-	//
-	// :param tx: Amount to translate in the X direction
-	// :param ty: Amount to translate in the Y direction
-	Translate(tx float, ty float)
-
 	// Transform a coordinate from user space to device space
 	// by multiplying the given point
 	// by the current transformation matrix (CTM).
@@ -1553,7 +1519,7 @@ type sharedMethods interface {
 	// SaveStack save graphics parameters and returns
 	// a (partial) drawer, whose method `Restore`
 	// should be called to restore parameters.
-	SaveStack() StackedDrawer
+	Save() StackedDrawer
 
 	// Intersects the current clip region by a rectangle
 	// of the given size to the current path.
@@ -1564,6 +1530,17 @@ type sharedMethods interface {
 	// Intersects the current clip region by a rectangle
 	// of the given size to the current path, with rounded corners.
 	ClipRoundedRect(x, y, w, h, tl, tr, br, bl float64)
+
+	// Modifies the current transformation matrix (CTM)
+	// by translating the user-space origin by ``(tx, ty)``.
+	// This offset is interpreted as a user-space coordinate
+	// according to the CTM in place before the new call to :meth:`translate`.
+	// In other words, the translation of the user-space origin takes place
+	// after any existing transformation.
+	//
+	// :param tx: Amount to translate in the X direction
+	// :param ty: Amount to translate in the Y direction
+	Translate(tx float, ty float)
 
 	// Sets the source pattern within this context to a solid color.
 	// This color will then be used for any subsequent drawing operation
@@ -1577,6 +1554,13 @@ type sharedMethods interface {
 	// A drawing operator that paints the current source everywhere
 	// within the current clip region.
 	Paint()
+
+	// Modifies the current transformation matrix (CTM)
+	// by applying `mt` as an additional transformation.
+	// The new transformation of user space takes place
+	// after any existing transformation.
+	// `Restore` or `Finish` should be called.
+	Transform(mt matrix.Transform)
 }
 
 type StackedDrawer interface {
@@ -1589,12 +1573,6 @@ type StackedDrawer interface {
 	// opacity (internally calling `SaveStack`).
 	// `Restore` should be called once done.
 	OpacityGroup(alpha float64)
-
-	// Modifies the current transformation matrix (CTM)
-	// by applying `mt` as an additional transformation.
-	// The new transformation of user space takes place
-	// after any existing transformation.
-	Transform(mt matrix.Transform)
 
 	sharedMethods
 }

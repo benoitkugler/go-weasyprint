@@ -20,6 +20,10 @@ func New(a, b, c, d, e, f float64) Transform {
 	return Transform{a: a, b: b, c: c, d: d, e: e, f: f}
 }
 
+func Identity() Transform {
+	return New(1, 0, 0, 1, 0, 0)
+}
+
 // Copy() method returns a copy of M
 func (T Transform) Copy() *Transform {
 	return &T
