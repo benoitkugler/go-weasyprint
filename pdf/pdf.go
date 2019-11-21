@@ -28,13 +28,17 @@ type Context struct {
 
 	fileAnnotationsMap map[string]*gofpdf.Attachment
 	stack              []graphicState // used to implement Save() / Restore() mechanism
+
+	matrixToPdf, matrixToPdfInv matrix.Transform
 }
 
 func NewContext() Context {
 	out := Context{}
 	out.f = gofpdf.New("", "", "", "")
+	out.f.SetFont("Helvetica", "", 15)
 	out.fileAnnotationsMap = map[string]*gofpdf.Attachment{}
 	out.stack = []graphicState{newGraphicState(out.f)} // start with a basic state
+	out.matrixToPdf, out.matrixToPdfInv = out.convertionMatrix()
 	return out
 }
 
@@ -101,16 +105,31 @@ func (c *Context) ClipRoundedRect(x, y, w, h, tl, tr, br, bl float64) {
 }
 
 func (c *Context) Translate(tx, ty float64) {
-	mt := matrix.Identity()
-	mt.Translate(tx, ty)
-	c.Transform(mt)
+	c.Transform(matrix.Translation(tx, ty))
 }
 
-func (ct *Context) Transform(mt matrix.Transform) {
-	ct.f.TransformBegin()
+func (c *Context) convertionMatrix() (M, Minv matrix.Transform) {
+	_, h := c.f.GetPageSize()
+	k := c.f.GetConversionRatio()
+	conv := matrix.New(k, 0, 0, -k, 0, h*k)
+	convInv := conv
+	err := convInv.Invert()
+	if err != nil {
+		c.f.SetError(err)
+	}
+	return conv, convInv
+}
+
+func toTransformMatrix(mt matrix.Transform) gofpdf.TransformMatrix {
 	a, b, c, d, e, f := mt.Data()
-	ct.f.Transform(gofpdf.TransformMatrix{A: a, B: b, C: c, D: d, E: e, F: f})
-	ct.currentState().transformNest += 1
+	return gofpdf.TransformMatrix{A: a, B: b, C: c, D: d, E: e, F: f}
+}
+
+func (c *Context) Transform(mt matrix.Transform) {
+	mt = matrix.Mul(matrix.Mul(c.matrixToPdf, mt), c.matrixToPdfInv)
+	c.f.TransformBegin()
+	c.f.Transform(toTransformMatrix(mt))
+	c.currentState().transformNest += 1
 }
 
 func (c *Context) OpacityGroup(alpha float64) {

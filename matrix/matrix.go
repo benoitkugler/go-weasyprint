@@ -24,6 +24,12 @@ func Identity() Transform {
 	return New(1, 0, 0, 1, 0, 0)
 }
 
+func Translation(tx, ty float64) Transform {
+	mt := Identity()
+	mt.Translate(tx, ty)
+	return mt
+}
+
 // Copy() method returns a copy of M
 func (T Transform) Copy() *Transform {
 	return &T
@@ -58,10 +64,9 @@ func (T *Transform) Invert() error {
 	if det == 0 {
 		return errors.New("The transformation is not invertible.")
 	}
-	T.a = T.d / det
+	T.a, T.d = T.d/det, T.a/det
 	T.b = -T.b / det
 	T.c = -T.c / det
-	T.d = T.a / det
 	T.e = -(T.a*T.e + T.c*T.f)
 	T.f = -(T.b*T.e + T.d*T.f)
 	return nil
