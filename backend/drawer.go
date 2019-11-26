@@ -578,17 +578,6 @@ type Drawer interface {
 	// :returns: A boolean.
 	InStroke(x float, y float)
 
-	// Adds a line to the path from the current point
-	// to position ``(x, y)`` in user-space coordinates.
-	// After this call the current point will be ``(x, y)``.
-	//
-	// If there is no current point before the call to :meth:`line_to`
-	// this method will behave as ``context.move_to(x, y)``.
-	//
-	// :param x: X coordinate of the end of the new line.
-	// :param y: Y coordinate of the end of the new line.
-	LineTo(x float, y float)
-
 	// A drawing operator that paints the current source
 	// using the alpha channel of :obj:`pattern` as a mask.
 	// (Opaque areas of :obj:`pattern` are painted with the source,
@@ -607,13 +596,6 @@ type Drawer interface {
 	// :param surface_y: Y coordinate at which to place the origin of surface.
 	// surface_x = 0 surface_y = 0
 	MaskSurface(surface interface{}, surface_x float, surface_y float)
-
-	// Begin a new sub-path.
-	// After this call the current point will be ``(x, y)``.
-	//
-	// :param x: X position of the new point.
-	// :param y: Y position of the new point.
-	MoveTo(x float, y float)
 
 	// Clears the current path.
 	// After this call there will be no path and no current point.
@@ -780,23 +762,6 @@ type Drawer interface {
 	//     :exc:`CairoError` if there is no current point.
 	//     Doing so will cause leave the context in an error state.
 	RelCurveTo(dx1 float, dy1 float, dx2 float, dy2 float, dx3 float, dy3 float)
-
-	// Relative-coordinate version of :meth:`line_to`.
-	// Adds a line to the path from the current point
-	// to a point that is offset from the current point
-	// by ``(dx, dy)`` in user space.
-	// After this call the current point will be offset by ``(dx, dy)``.
-	//
-	// Given a current point of ``(x, y)``,
-	// ``context.rel_line_to(dx, dy)`` is logically equivalent to
-	// ``context.line_to(x + dx, y + dy)``.
-	//
-	// :param dx: The X offset to the end of the new line.
-	// :param dy: The Y offset to the end of the new line.
-	// :raises:
-	//     :exc:`CairoError` if there is no current point.
-	//     Doing so will cause leave the context in an error state.
-	RelLineTo(dx float, dy float)
 
 	// Begin a new sub-path.
 	// After this call the current point will be offset by ``(dx, dy)``.
@@ -1468,14 +1433,6 @@ type Drawer interface {
 	// instead see `FontOptions.set_antialias`.
 	SetAntialias(antialias int)
 
-	// Set the current :ref:`FILL_RULE` within the cairo context.
-	// The fill rule is used to determine which regions are inside
-	// or outside a complex (potentially self-intersecting) path.
-	// The current fill rule affects both :meth:`fill` and :meth:`clip`.
-	//
-	// The default fill rule is :obj:`WINDING <FILL_RULE_WINDING>`.
-	SetFillRule(fillRule int)
-
 	// Returns the MediaBox for the current page
 	GetMediaBox() (left, top, right, bottom float64)
 	SetTrimBox(left, top, right, bottom float64)
@@ -1561,6 +1518,38 @@ type sharedMethods interface {
 	// after any existing transformation.
 	// `Restore` or `Finish` should be called.
 	Transform(mt matrix.Transform)
+
+	// Begin a new sub-path.
+	// After this call the current point will be ``(x, y)``.
+	//
+	// :param x: X position of the new point.
+	// :param y: Y position of the new point.
+	MoveTo(x float, y float)
+
+	// Adds a line to the path from the current point
+	// to position ``(x, y)`` in user-space coordinates.
+	// After this call the current point will be ``(x, y)``.
+	// A current point must be defined before using this method.
+	LineTo(x float, y float)
+
+	// Relative-coordinate version of :meth:`line_to`.
+	// Adds a line to the path from the current point
+	// to a point that is offset from the current point
+	// by ``(dx, dy)`` in user space.
+	// After this call the current point will be offset by ``(dx, dy)``.
+	//
+	// Given a current point of ``(x, y)``,
+	// ``context.rel_line_to(dx, dy)`` is logically equivalent to
+	// ``context.line_to(x + dx, y + dy)``.
+	RelLineTo(dx float, dy float)
+
+	// Set the current :ref:`FILL_RULE` within the cairo context.
+	// The fill rule is used to determine which regions are inside
+	// or outside a complex (potentially self-intersecting) path.
+	// The current fill rule affects both :meth:`fill` and :meth:`clip`.
+	//
+	// The default fill rule is :obj:`WINDING <FILL_RULE_WINDING>`.
+	SetFillRule(fillRule int)
 }
 
 type StackedDrawer interface {

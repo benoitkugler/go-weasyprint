@@ -154,3 +154,20 @@ func (c *Context) SetSourceRgba(r, g, b, a float64) {
 	c.f.SetDrawColor(ri, gi, bi)
 	c.f.SetTextColor(ri, gi, bi)
 }
+
+func (c *Context) SetFillRule(r int) {
+	c.currentState().fillRule = r
+}
+
+// Paths
+
+func (c Context) MoveTo(x, y float64) {
+	c.f.MoveTo(x, c.convertY(y))
+}
+func (c Context) LineTo(x, y float64) {
+	c.f.LineTo(x, c.convertY(y))
+}
+func (c Context) RelLineTo(dx, dy float64) {
+	x, y := c.f.GetXY()
+	c.LineTo(x+dx, c.convertY(y)+dy)
+}

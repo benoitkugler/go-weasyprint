@@ -685,19 +685,21 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 		if crw := box.Style.GetColumnRuleWidth(); columns && !crw.IsNone() {
 			borderWidths := pr.Rectangle{0, 0, 0, crw.Value}
 			for _, child := range box.Children[1:] {
-				// with stacked(context) {
-				positionX := child.Box().PositionX - (crw.Value+
-					box.Style.GetColumnGap().Value)/2
-				borderBox := pr.Rectangle{positionX, child.Box().PositionY,
-					crw.Value, box.Height.V()}
-				clipBorderSegment(context, enableHinting,
-					box.Style.GetColumnRuleStyle(),
-					float64(crw.Value), "left", borderBox,
-					&borderWidths, nil)
-				drawRectBorder(context, borderBox, borderWidths,
-					box.Style.GetColumnRuleStyle(), styledColor(
+				if context := context.Save(); true {
+					positionX := child.Box().PositionX - (crw.Value+
+						box.Style.GetColumnGap().Value)/2
+					borderBox := pr.Rectangle{positionX, child.Box().PositionY,
+						crw.Value, box.Height.V()}
+					clipBorderSegment(context, enableHinting,
 						box.Style.GetColumnRuleStyle(),
-						box.Style.ResolveColor("column_rule_color").RGBA, "left"))
+						float64(crw.Value), "left", borderBox,
+						&borderWidths, nil)
+					drawRectBorder(context, borderBox, borderWidths,
+						box.Style.GetColumnRuleStyle(), styledColor(
+							box.Style.GetColumnRuleStyle(),
+							box.Style.ResolveColor("column_rule_color").RGBA, "left"))
+					context.Restore()
+				}
 			}
 		}
 	}
@@ -761,18 +763,18 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 // Clip one segment of box border (border_widths=None, radii=None).
 // The strategy is to remove the zones not needed because of the style or the
 // side before painting.
-func clipBorderSegment(context Drawer, enableHinting bool, style pr.String, width float64, side string,
+func clipBorderSegment(context backend.StackedDrawer, enableHinting bool, style pr.String, width float64, side string,
 	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
-	if enableHinting && style != "dotted" && (
-	// Borders smaller than 1 device unit would disappear
-	// without anti-aliasing.
-	math.Hypot(context.UserToDevice(float64(width), 0)) >= 1 &&
-		math.Hypot(context.UserToDevice(0, float64(width))) >= 1) {
-		// Avoid an artifact in the corner joining two solid borders
-		// of the same color.
-		context.SetAntialias(backend.AntialiasNone)
-	}
+	// if enableHinting && style != "dotted" && (
+	// // Borders smaller than 1 device unit would disappear
+	// // without anti-aliasing.
+	// math.Hypot(context.UserToDevice(float64(width), 0)) >= 1 &&
+	// 	math.Hypot(context.UserToDevice(0, float64(width))) >= 1) {
+	// 	// Avoid an artifact in the corner joining two solid borders
+	// 	// of the same color.
+	// 	context.SetAntialias(backend.AntialiasNone)
+	// }
 
 	bbx, bby, bbw, bbh := borderBox.Unpack()
 	var tlh, tlv, trh, trv, brh, brv, blh, blv float64
