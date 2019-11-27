@@ -2,10 +2,11 @@ package pdf
 
 import (
 	"fmt"
-	"github.com/benoitkugler/go-weasyprint/matrix"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/benoitkugler/go-weasyprint/matrix"
 
 	"github.com/benoitkugler/gofpdf"
 )
@@ -18,8 +19,11 @@ func TestPaint(t *testing.T) {
 	pdf.SetFont("Helvetica", "", 15)
 	pdf.AddPage()
 	c.f = pdf
-	c.ClipRoundedRect(20, 20, 30, 30, 5, 5, 5, 5)
-	c.Paint()
+	c.OnNewStack(func() {
+		c.RoundedRect(20, 20, 30, 30, 5, 5, 5, 5)
+		c.Clip()
+		c.Paint()
+	})
 	finishAndSave(c, t)
 }
 
@@ -45,12 +49,12 @@ func TestRepeat(t *testing.T) {
 	nbx := 1
 	nby := int(maxH / h)
 	for i := 0; i < nbx; i += 1 {
-		c.Save()
-		for j := 0; j < nby; j += 1 {
-			drawImage(c.f, w, h)
-			c.Translate(0, h)
-		}
-		c.Restore()
+		c.OnNewStack(func() {
+			for j := 0; j < nby; j += 1 {
+				drawImage(c.f, w, h)
+				c.Translate(0, h)
+			}
+		})
 		c.Translate(w, 0)
 	}
 	finishAndSave(c, t)

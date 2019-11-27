@@ -30,9 +30,7 @@ type Attachment struct {
 	Title, Description string
 }
 
-// Drawer is the backend doing the actual drawing
-// operations
-type Drawer interface {
+type Drawer2 interface {
 
 	// Initialize self.  See help(type(self)) for accurate signature.
 	Init(target interface{})
@@ -282,15 +280,6 @@ type Drawer interface {
 	// :param dy: Y component of a distance vector.
 	// :returns: A ``(user_dx, user_dy)`` tuple of floats.
 	DeviceToUserDistance(dx float, dy float) (userdDx, userDy float)
-
-	// A drawing operator that fills the current path
-	// according to the current fill rule,
-	// (each sub-path is implicitly closed before being filled).
-	// After :meth:`fill`,
-	// the current path will be cleared from the cairo context.
-	//
-	// See :meth:`set_fill_rule` and :meth:`fill_preserve`.
-	Fill()
 
 	// Computes a bounding box in user-space coordinates
 	// covering the area that would be affected, (the "inked" area),
@@ -1420,9 +1409,9 @@ type Drawer interface {
 	// `widthInPoints`,`heightInPoints` are the new width and height of the page,
 	// in points (1 point = 1/72.0 inch)
 	SetSize(widthInPoints, heightInPoints float)
+}
 
-	// ----- needed -------------------
-
+type Drawer interface {
 	// Set the :ref:`ANTIALIAS` of the rasterizer used for drawing shapes.
 	// This value is a hint, and a particular backend may or may not support a particular value.
 	// At the current time,
@@ -1469,24 +1458,36 @@ type Drawer interface {
 	// `y`is the position in the page
 	AddBookmark(level int, title string, pageNumber int, y float)
 
-	sharedMethods
-}
+	// OnNewStack save the current stack,
+	// execute the given closure, and restore the stack.
+	// If an error is encoutered, the stack is still restored
+	// and the error is returned
+	OnNewStack(func() error) error
 
-type sharedMethods interface {
-	// SaveStack save graphics parameters and returns
-	// a (partial) drawer, whose method `Restore`
-	// should be called to restore parameters.
-	Save() StackedDrawer
-
-	// Intersects the current clip region by a rectangle
-	// of the given size to the current path.
+	// Adds a rectangle
+	// of the given size to the current path,
 	// at position ``(x, y)`` in user-space coordinates.
 	// (X,Y) coordinates are the top left corner of the rectangle.
-	ClipRectangle(x float, y float, width float, height float)
+	Rectangle(x float, y float, width float, height float)
 
-	// Intersects the current clip region by a rectangle
+	// Adds a rectangle
 	// of the given size to the current path, with rounded corners.
-	ClipRoundedRect(x, y, w, h, tl, tr, br, bl float64)
+	RoundedRect(x, y, w, h, tl, tr, br, bl float64)
+
+	// Establishes a new clip region
+	// by intersecting the current clip region
+	// with the current path as it would be filled by `Fill`
+	// and according to the current fill rule (see `SetFillRule`).
+	//
+	// After `Clip`, the current path will be cleared.
+	//
+	// The current clip region affects all drawing operations
+	// by effectively masking out any changes to the surface
+	// that are outside the current clip region.
+	//
+	// Calling `Clip` can only make the clip region smaller,
+	// never larger, but you can call it in the `OnNewStack` closure argument.
+	Clip()
 
 	// Modifies the current transformation matrix (CTM)
 	// by translating the user-space origin by ``(tx, ty)``.
@@ -1507,6 +1508,15 @@ type sharedMethods interface {
 	// floating point numbers  in the range 0 to 1.
 	// If the values passed in are outside that range, they will be clamped.
 	SetSourceRgba(red, green, blue, alpha float)
+
+	// Set current alpha (see `SetSourceRgba`)
+	SetAlpha(alpha float)
+
+	// A drawing operator that fills the current path
+	// according to the current fill rule,
+	// (each sub-path is implicitly closed before being filled).
+	// After `fill`, the current path will is cleared
+	Fill()
 
 	// A drawing operator that paints the current source everywhere
 	// within the current clip region.
@@ -1550,18 +1560,4 @@ type sharedMethods interface {
 	//
 	// The default fill rule is :obj:`WINDING <FILL_RULE_WINDING>`.
 	SetFillRule(fillRule int)
-}
-
-type StackedDrawer interface {
-	// Restore forget the current stack
-	// After calling `Restore`, the stacked drawer should'nt be
-	// used anymore.
-	Restore()
-
-	// OpacityGroup start a new stack with the given
-	// opacity (internally calling `SaveStack`).
-	// `Restore` should be called once done.
-	OpacityGroup(alpha float64)
-
-	sharedMethods
 }

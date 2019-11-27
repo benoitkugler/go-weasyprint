@@ -7,29 +7,30 @@ import (
 	"github.com/benoitkugler/gofpdf"
 )
 
-type graphicState struct {
-	clipNest      int // each ClipXXX increment clipNest by 1
-	transformNest int
-	alpha         float64
-	r, g, b       int
-	fillRule      int
-}
+// type graphicState struct {
+// 	clipNest      int // each ClipXXX increment clipNest by 1
+// 	transformNest int
+// 	alpha         float64
+// 	r, g, b       int
+// 	fillRule      int
+// }
 
-func newGraphicState(f *gofpdf.Fpdf) graphicState {
-	out := graphicState{}
-	out.alpha, _ = f.GetAlpha()
-	out.r, out.g, out.b = f.GetFillColor()
-	return out
-}
+// func newGraphicState(f *gofpdf.Fpdf) graphicState {
+// 	out := graphicState{}
+// 	out.alpha, _ = f.GetAlpha()
+// 	out.r, out.g, out.b = f.GetFillColor()
+// 	return out
+// }
 
 // Context implements Drawer
 type Context struct {
 	f *gofpdf.Fpdf
 
 	fileAnnotationsMap map[string]*gofpdf.Attachment
-	stack              []graphicState // used to implement Save() / Restore() mechanism
 
 	matrixToPdf, matrixToPdfInv matrix.Transform
+
+	fillRule int
 }
 
 func NewContext() Context {
@@ -37,17 +38,8 @@ func NewContext() Context {
 	out.f = gofpdf.New("", "", "", "")
 	out.f.SetFont("Helvetica", "", 15)
 	out.fileAnnotationsMap = map[string]*gofpdf.Attachment{}
-	out.stack = []graphicState{newGraphicState(out.f)} // start with a basic state
 	out.matrixToPdf, out.matrixToPdfInv = out.convertionMatrix()
 	return out
-}
-
-// --------- shortcuts  -----------------------
-func (c *Context) currentState() *graphicState {
-	return &c.stack[len(c.stack)-1]
-}
-func (c *Context) previousState() *graphicState {
-	return &c.stack[len(c.stack)-2]
 }
 
 // return y in gofpdf "order" (origin at top left of the page)
@@ -56,37 +48,23 @@ func (c Context) convertY(y float64) float64 {
 	return pageHeight - y
 }
 
-func (c *Context) Save() backend.StackedDrawer {
-	newStack := newGraphicState(c.f)
-	c.stack = append(c.stack, newStack)
-	return c
-}
-
-func (c *Context) Restore() {
-	s := c.currentState()
-	// Restore Clip
-	for i := 0; i < s.clipNest; i += 1 {
-		c.f.ClipEnd()
-	}
-	// Restore Transform
-	for i := 0; i < s.transformNest; i += 1 {
-		c.f.TransformEnd()
-	}
-	s = c.previousState()
-	c.f.SetAlpha(s.alpha, "Normal")
-	c.stack = c.stack[:len(c.stack)-1]
+func (c *Context) OnNewStack(f func() error) error {
+	c.f.Save()
+	err := f()
+	c.f.Restore()
+	return err
 }
 
 func (c *Context) Finish() {
-	s := c.currentState()
-	// Restore Clip
-	for i := 0; i < s.clipNest; i += 1 {
-		c.f.ClipEnd()
+
+}
+
+func (c Context) Fill() {
+	s := "f"
+	if c.fillRule == backend.FillRuleEvenOdd {
+		s = "f*"
 	}
-	// Restore Transform
-	for i := 0; i < s.transformNest; i += 1 {
-		c.f.TransformEnd()
-	}
+	c.f.DrawPath(s)
 }
 
 func (c *Context) Paint() {
@@ -94,14 +72,8 @@ func (c *Context) Paint() {
 	c.f.Rect(0, 0, w, h, "F")
 }
 
-func (c *Context) ClipRectangle(x, y, w, h float64) {
-	c.currentState().clipNest += 1
-	c.f.ClipRect(x, c.convertY(y), w, h, false)
-}
-
-func (c *Context) ClipRoundedRect(x, y, w, h, tl, tr, br, bl float64) {
-	c.currentState().clipNest += 1
-	c.f.ClipRoundedRectExt(x, y, w, h, tl, tr, br, bl, false)
+func (c Context) Clip() {
+	c.f.ClipPath(c.fillRule == backend.FillRuleEvenOdd)
 }
 
 func (c *Context) Translate(tx, ty float64) {
@@ -127,14 +99,7 @@ func toTransformMatrix(mt matrix.Transform) gofpdf.TransformMatrix {
 
 func (c *Context) Transform(mt matrix.Transform) {
 	mt = matrix.Mul(matrix.Mul(c.matrixToPdf, mt), c.matrixToPdfInv)
-	c.f.TransformBegin()
-	c.f.Transform(toTransformMatrix(mt))
-	c.currentState().transformNest += 1
-}
-
-func (c *Context) OpacityGroup(alpha float64) {
-	c.Save()
-	c.f.SetAlpha(alpha, "Normal")
+	c.f.RawTransform(toTransformMatrix(mt))
 }
 
 func convert(v float64) int {
@@ -147,16 +112,19 @@ func convert(v float64) int {
 	return int(v * 255)
 }
 
-func (c *Context) SetSourceRgba(r, g, b, a float64) {
+func (c Context) SetSourceRgba(r, g, b, a float64) {
 	ri, gi, bi := convert(r), convert(g), convert(b)
 	c.f.SetAlpha(a, "Normal")
 	c.f.SetFillColor(ri, gi, bi)
 	c.f.SetDrawColor(ri, gi, bi)
 	c.f.SetTextColor(ri, gi, bi)
 }
+func (c *Context) SetAlpha(a float64) {
+	c.f.SetAlpha(a, "Normal")
+}
 
 func (c *Context) SetFillRule(r int) {
-	c.currentState().fillRule = r
+	c.fillRule = r
 }
 
 // Paths
@@ -170,4 +138,12 @@ func (c Context) LineTo(x, y float64) {
 func (c Context) RelLineTo(dx, dy float64) {
 	x, y := c.f.GetXY()
 	c.LineTo(x+dx, c.convertY(y)+dy)
+}
+
+func (c *Context) Rectangle(x, y, w, h float64) {
+	c.f.RectPath(x, c.convertY(y), w, h)
+}
+
+func (c *Context) RoundedRect(x, y, w, h, tl, tr, br, bl float64) {
+	c.f.RoundedRectPath(x, y, w, h, tl, tr, br, bl)
 }
