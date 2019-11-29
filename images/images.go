@@ -70,20 +70,19 @@ func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, heigh
 	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value
 }
 
-// func (r RasterImage) draw(context, concreteWidth, concreteHeight pr.Float, imageRendering string) {
-// 	hasSize := concreteWidth > 0 && concreteHeight > 0 && r.intrinsicWidth > 0 && r.intrinsicHeight > 0
-// 	if !hasSize {
-// 		return
-// 	}
+func (r RasterImage) Draw(context backend.Drawer, concreteWidth, concreteHeight pr.Float, imageRendering string) {
+	hasSize := concreteWidth > 0 && concreteHeight > 0 && r.intrinsicWidth > 0 && r.intrinsicHeight > 0
+	if !hasSize {
+		return
+	}
 
-// 	// Use the real intrinsic size here,
-// 	// not affected by "image-resolution".
-// 	context.scale(concreteWidth/r.intrinsicWidth,
-// 		concreteHeight/r.intrinsicHeight)
-// 	context.setSourceSurface(r.imageSurface)
-// 	context.getSource().setFilter(imagesRenderingToFilter[imageRendering])
-// 	context.paint()
-// }
+	// Use the real intrinsic size here,
+	// not affected by "image-resolution".
+	context.Scale(float64(concreteWidth/r.intrinsicWidth), float64(concreteHeight/r.intrinsicHeight))
+	context.setSourceSurface(r.imageSurface)
+	context.getSource().setFilter(imagesRenderingToFilter[imageRendering])
+	context.paint()
+}
 
 // class ScaledSVGSurface(cairosvg.surface.SVGSurface) {
 //     """

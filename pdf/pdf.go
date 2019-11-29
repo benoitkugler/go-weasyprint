@@ -2,6 +2,8 @@
 package pdf
 
 import (
+	"math"
+
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/gofpdf"
@@ -48,6 +50,10 @@ func (c Context) convertY(y float64) float64 {
 	return pageHeight - y
 }
 
+func (c Context) GetPageSize() (width, height float64) {
+	return c.f.GetPageSize()
+}
+
 func (c *Context) OnNewStack(f func() error) error {
 	c.f.Save()
 	err := f()
@@ -67,6 +73,10 @@ func (c Context) Fill() {
 	c.f.DrawPath(s)
 }
 
+func (c Context) Stroke() {
+	c.f.DrawPath("S")
+}
+
 func (c *Context) Paint() {
 	w, h := c.f.GetPageSize()
 	c.f.Rect(0, 0, w, h, "F")
@@ -78,6 +88,10 @@ func (c Context) Clip() {
 
 func (c *Context) Translate(tx, ty float64) {
 	c.Transform(matrix.Translation(tx, ty))
+}
+
+func (c *Context) Scale(sx, sy float64) {
+	c.Transform(matrix.Scaling(sx, sy))
 }
 
 func (c *Context) convertionMatrix() (M, Minv matrix.Transform) {
@@ -127,7 +141,20 @@ func (c *Context) SetFillRule(r int) {
 	c.fillRule = r
 }
 
+func (c Context) SetLineWidth(w float64) {
+	c.f.SetLineWidth(w)
+}
+
+func (c Context) SetDash(dashes []float64, offset float64) {
+	c.f.SetDashPattern(dashes, offset)
+}
+
 // Paths
+
+// NewPath only clears the current path.
+func (c Context) NewPath() {
+	c.f.RawWriteStr(" n")
+}
 
 func (c Context) MoveTo(x, y float64) {
 	c.f.MoveTo(x, c.convertY(y))
@@ -140,10 +167,29 @@ func (c Context) RelLineTo(dx, dy float64) {
 	c.LineTo(x+dx, c.convertY(y)+dy)
 }
 
-func (c *Context) Rectangle(x, y, w, h float64) {
+func (c Context) Rectangle(x, y, w, h float64) {
 	c.f.RectPath(x, c.convertY(y), w, h)
 }
 
-func (c *Context) RoundedRect(x, y, w, h, tl, tr, br, bl float64) {
+func (c Context) RoundedRect(x, y, w, h, tl, tr, br, bl float64) {
 	c.f.RoundedRectPath(x, y, w, h, tl, tr, br, bl)
+}
+
+func (c Context) Arc(xc, yc, radius, angle1, angle2 float64) {
+	// in degrees
+	angle1, angle2 = angle1*180/math.Pi, angle2*180/math.Pi
+	// to draw a "positive"  arc, we need to ensure that angle 2  >= angle 1
+	for angle2 < angle1 {
+		angle2 += 360
+	}
+	c.f.ArcTo(xc, c.convertY(yc), radius, radius, 0, angle1, angle2)
+}
+func (c Context) ArcNegative(xc, yc, radius, angle1, angle2 float64) {
+	// in degrees
+	angle1, angle2 = angle1*180/math.Pi, angle2*180/math.Pi
+	// to draw a "negative"  arc, we need to ensure that angle1  >= angle 2
+	for angle1 < angle2 {
+		angle2 -= 360
+	}
+	c.f.ArcTo(xc, c.convertY(yc), radius, radius, 0, angle1, angle2)
 }

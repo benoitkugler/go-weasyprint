@@ -589,17 +589,8 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 		log.Fatalf("unexpected repeatY %s", repeatY)
 	}
 
-	subSurface := cairo.PDFSurface(nil, repeatWidth, repeatHeight)
-	var subContext Drawer = cairo.Context(subSurface)
-	subContext.ClipRectangle(0, 0, imageWidth, imageHeight)
-	layer.Image.Draw(subContext, imageWidth, imageHeight, imageRendering)
-	pattern := cairo.SurfacePattern(subSurface)
-
-	if repeatX == "no-repeat" && repeatY == "no-repeat" {
-		pattern.setExtend(cairo.EXTENDNONE)
-	} else {
-		pattern.setExtend(cairo.EXTENDREPEAT)
-	}
+	pageWidth, pageHeight := context.GetPageSize()
+	nRepeatX, nRepeatY := int(math.Ceil(pageWidth/repeatWidth)), int(math.Ceil(pageHeight/repeatHeight))
 
 	context.OnNewStack(func() error {
 		if !layer.Unbounded {
@@ -610,8 +601,16 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 
 		context.Translate(positioningX+float64(positionX.V()),
 			positioningY+float64(positionY.V()))
-		context.SetSource(pattern)
-		context.Paint()
+		for i := 0; i < nRepeatX; i += 1 {
+			context.OnNewStack(func() error {
+				for j := 0; j < nRepeatY; j += 1 {
+					layer.Image.Draw(context, imageWidth, imageHeight, imageRendering)
+					context.Translate(0, repeatHeight)
+				}
+				return nil
+			})
+			context.Translate(repeatWidth, 0)
+		}
 		return nil
 	})
 }
