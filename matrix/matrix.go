@@ -30,6 +30,12 @@ func Translation(tx, ty float64) Transform {
 	return mt
 }
 
+func Scaling(sx, sy float64) Transform {
+	mt := Identity()
+	mt.Scale(sx, sy)
+	return mt
+}
+
 // Copy() method returns a copy of M
 func (T Transform) Copy() *Transform {
 	return &T

@@ -2,10 +2,16 @@ package pdf
 
 import (
 	"fmt"
-	"github.com/benoitkugler/go-weasyprint/matrix"
+	"image/jpeg"
+	"log"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/disintegration/imaging"
+
+	"github.com/benoitkugler/go-weasyprint/matrix"
 
 	"github.com/benoitkugler/gofpdf"
 )
@@ -18,8 +24,12 @@ func TestPaint(t *testing.T) {
 	pdf.SetFont("Helvetica", "", 15)
 	pdf.AddPage()
 	c.f = pdf
-	c.ClipRoundedRect(20, 20, 30, 30, 5, 5, 5, 5)
-	c.Paint()
+	c.OnNewStack(func() error {
+		c.RoundedRect(20, 20, 30, 30, 5, 5, 5, 5)
+		c.Clip()
+		c.Paint()
+		return nil
+	})
 	finishAndSave(c, t)
 }
 
@@ -45,12 +55,13 @@ func TestRepeat(t *testing.T) {
 	nbx := 1
 	nby := int(maxH / h)
 	for i := 0; i < nbx; i += 1 {
-		c.Save()
-		for j := 0; j < nby; j += 1 {
-			drawImage(c.f, w, h)
-			c.Translate(0, h)
-		}
-		c.Restore()
+		c.OnNewStack(func() error {
+			for j := 0; j < nby; j += 1 {
+				drawImage(c.f, w, h)
+				c.Translate(0, h)
+			}
+			return nil
+		})
 		c.Translate(w, 0)
 	}
 	finishAndSave(c, t)
@@ -92,4 +103,40 @@ func TestTransform(t *testing.T) {
 	c.f.TransformEnd()
 
 	finishAndSave(c, t)
+}
+
+func TestArc(t *testing.T) {
+	c := NewContext()
+	c.f.AddPage()
+	c.f.SetDrawColor(0xff, 0x00, 0x00)
+	c.f.Arc(20, 20, 10, 10, 0, 10, 370, "D")
+	finishAndSave(c, t)
+}
+
+func TestImage(t *testing.T) {
+	// open ".test/france_belgique.jpeg"
+	file, err := os.Open("../.test/france_belgique.jpeg")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// decode jpeg into image.Image
+	img, err := jpeg.Decode(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	file.Close()
+
+	// resize to width 1000 using Lanczos resampling
+	// and preserve aspect ratio
+	m := imaging.Resize(img, 1000, 0, imaging.Lanczos)
+	m = imaging.Resize(img, 1000, 0, imaging.NearestNeighbor)
+	out, err := os.Create("../.test/france_belgique_resized.jpeg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+
+	// write new image to file
+	jpeg.Encode(out, m, nil)
 }
