@@ -1,5 +1,9 @@
 package text
 
+import (
+	"github.com/benoitkugler/go-weasyprint/text/linebreak"
+)
+
 // The PangoLogAttr structure stores information
 // about the attributes of a single character.
 type PangoLogAttr struct {
@@ -76,64 +80,6 @@ type PangoLogAttr struct {
 	// Boundaries</ulink> semantics. (Since: 1.22)
 	IsWordBoundary bool
 }
-
-// An enum that works as the states of the Hangul syllables system.
-type JamoType int8
-
-const (
-	JAMO_L   JamoType = iota /* G_UNICODE_BREAK_HANGUL_L_JAMO */
-	JAMO_V                   /* G_UNICODE_BREAK_HANGUL_V_JAMO */
-	JAMO_T                   /* G_UNICODE_BREAK_HANGUL_T_JAMO */
-	JAMO_LV                  /* G_UNICODE_BREAK_HANGUL_LV_SYLLABLE */
-	JAMO_LVT                 /* G_UNICODE_BREAK_HANGUL_LVT_SYLLABLE */
-	NO_JAMO                  /* Other */
-)
-
-// const (
-// 	G_UNICODE_BREAK_MANDATORY                    GUnicodeBreakType = iota // Mandatory Break (BK)
-// 	G_UNICODE_BREAK_CARRIAGE_RETURN                                       // Carriage Return (CR)
-// 	G_UNICODE_BREAK_LINE_FEED                                             // Line Feed (LF)
-// 	G_UNICODE_BREAK_COMBINING_MARK                                        // Attached Characters and Combining Marks (CM)
-// 	G_UNICODE_BREAK_SURROGATE                                             // Surrogates (SG)
-// 	G_UNICODE_BREAK_ZERO_WIDTH_SPACE                                      // Zero Width Space (ZW)
-// 	G_UNICODE_BREAK_INSEPARABLE                                           // Inseparable (IN)
-// 	G_UNICODE_BREAK_NON_BREAKING_GLUE                                     // Non-breaking ("Glue") (GL)
-// 	G_UNICODE_BREAK_CONTINGENT                                            // Contingent Break Opportunity (CB)
-// 	G_UNICODE_BREAK_SPACE                                                 // Space (SP)
-// 	G_UNICODE_BREAK_AFTER                                                 // Break Opportunity After (BA)
-// 	G_UNICODE_BREAK_BEFORE                                                // Break Opportunity Before (BB)
-// 	G_UNICODE_BREAK_BEFORE_AND_AFTER                                      // Break Opportunity Before and After (B2)
-// 	G_UNICODE_BREAK_HYPHEN                                                // Hyphen (HY)
-// 	G_UNICODE_BREAK_NON_STARTER                                           // Nonstarter (NS)
-// 	G_UNICODE_BREAK_OPEN_PUNCTUATION                                      // Opening Punctuation (OP)
-// 	G_UNICODE_BREAK_CLOSE_PUNCTUATION                                     // Closing Punctuation (CL)
-// 	G_UNICODE_BREAK_QUOTATION                                             // Ambiguous Quotation (QU)
-// 	G_UNICODE_BREAK_EXCLAMATION                                           // Exclamation/Interrogation (EX)
-// 	G_UNICODE_BREAK_IDEOGRAPHIC                                           // Ideographic (ID)
-// 	G_UNICODE_BREAK_NUMERIC                                               // Numeric (NU)
-// 	G_UNICODE_BREAK_INFIX_SEPARATOR                                       // Infix Separator (Numeric) (IS)
-// 	G_UNICODE_BREAK_SYMBOL                                                // Symbols Allowing Break After (SY)
-// 	G_UNICODE_BREAK_ALPHABETIC                                            // Ordinary Alphabetic and Symbol Characters (AL)
-// 	G_UNICODE_BREAK_PREFIX                                                // Prefix (Numeric) (PR)
-// 	G_UNICODE_BREAK_POSTFIX                                               // Postfix (Numeric) (PO)
-// 	G_UNICODE_BREAK_COMPLEX_CONTEXT                                       // Complex Content Dependent (South East Asian) (SA)
-// 	G_UNICODE_BREAK_AMBIGUOUS                                             // Ambiguous (Alphabetic or Ideographic) (AI)
-// 	G_UNICODE_BREAK_UNKNOWN                                               // Unknown (XX)
-// 	G_UNICODE_BREAK_NEXT_LINE                                             // Next Line (NL)
-// 	G_UNICODE_BREAK_WORD_JOINER                                           // Word Joiner (WJ)
-// 	G_UNICODE_BREAK_HANGUL_L_JAMO                                         // Hangul L Jamo (JL)
-// 	G_UNICODE_BREAK_HANGUL_V_JAMO                                         // Hangul V Jamo (JV)
-// 	G_UNICODE_BREAK_HANGUL_T_JAMO                                         // Hangul T Jamo (JT)
-// 	G_UNICODE_BREAK_HANGUL_LV_SYLLABLE                                    // Hangul LV Syllable (H2)
-// 	G_UNICODE_BREAK_HANGUL_LVT_SYLLABLE                                   // Hangul LVT Syllable (H3)
-// 	G_UNICODE_BREAK_CLOSE_PARANTHESIS                                     // Closing Parenthesis (CP). Since 2.28
-// 	G_UNICODE_BREAK_CONDITIONAL_JAPANESE_STARTER                          // Conditional Japanese Starter (CJ). Since: 2.32
-// 	G_UNICODE_BREAK_HEBREW_LETTER                                         // Hebrew Letter (HL). Since: 2.32
-// 	G_UNICODE_BREAK_REGIONAL_INDICATOR                                    // Regional Indicator (RI). Since: 2.36
-// 	G_UNICODE_BREAK_EMOJI_BASE                                            // Emoji Base (EB). Since: 2.50
-// 	G_UNICODE_BREAK_EMOJI_MODIFIER                                        // Emoji Modifier (EM). Since: 2.50
-// 	G_UNICODE_BREAK_ZERO_WIDTH_JOINER                                     // Zero Width Joiner (ZWJ). Since: 2.50
-// )
 
 // See Grapheme_Cluster_Break Property Values table of UAX#29
 type graphemeBreakType uint8
@@ -226,3 +172,25 @@ const (
 	// and "prohibited break for combining marks"
 	// but we handle that inline in the code.
 )
+
+// There are Hangul syllables encoded as characters, that act like a
+// sequence of Jamos. For each character we define a JamoType
+// that the character starts with, and one that it ends with.  This
+// decomposes JAMO_LV and JAMO_LVT to simple other JAMOs.  So for
+// example, a character with LineBreak type
+// G_UNICODE_BREAK_HANGUL_LV_SYLLABLE has start=JAMO_L and end=JAMO_V.
+type charJamoProps struct {
+	start, end linebreak.JamoType
+}
+
+/* Map from JamoType to CharJamoProps that hold only simple
+ * JamoTypes (no LV or LVT) or none.
+ */
+var HangulJamoProps = [6]charJamoProps{
+	{JAMO_L, JAMO_L},   /* JAMO_L */
+	{JAMO_V, JAMO_V},   /* JAMO_V */
+	{JAMO_T, JAMO_T},   /* JAMO_T */
+	{JAMO_L, JAMO_V},   /* JAMO_LV */
+	{JAMO_L, JAMO_T},   /* JAMO_LVT */
+	{NO_JAMO, NO_JAMO}, /* NO_JAMO */
+}

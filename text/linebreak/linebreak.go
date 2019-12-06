@@ -24,6 +24,18 @@ import (
 	"unicode"
 )
 
+// An enum that works as the states of the Hangul syllables system.
+type JamoType int8
+
+const (
+	JAMO_LV  JamoType = iota /* G_UNICODE_BREAK_HANGUL_LV_SYLLABLE */
+	JAMO_LVT                 /* G_UNICODE_BREAK_HANGUL_LVT_SYLLABLE */
+	JAMO_L                   /* G_UNICODE_BREAK_HANGUL_L_JAMO */
+	JAMO_V                   /* G_UNICODE_BREAK_HANGUL_V_JAMO */
+	JAMO_T                   /* G_UNICODE_BREAK_HANGUL_T_JAMO */
+	NO_JAMO                  /* Other */
+)
+
 func ResolveClass(r rune) GUnicodeBreakType {
 	cls := Class(r)
 	// LB1: Resolve AI, CB, CJ, SA, SG, and XX into other classes.
@@ -46,4 +58,14 @@ func ResolveClass(r rune) GUnicodeBreakType {
 		cls = G_UNICODE_BREAK_ID
 	}
 	return cls
+}
+
+// Jamo returns the Jamo Type of `btype` or NO_JAMO
+// The implementation depends on tables.go
+func Jamo(btype GUnicodeBreakType) JamoType {
+	isJamo := G_UNICODE_BREAK_H2 <= btype && btype <= G_UNICODE_BREAK_JT
+	if isJamo {
+		return JamoType(btype - G_UNICODE_BREAK_H2)
+	}
+	return NO_JAMO
 }
