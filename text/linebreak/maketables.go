@@ -52,7 +52,7 @@ var (
 	testDataURL = flag.String("testdata", "",
 		"full URL for LineBreakTest.txt; defaults to --url/auxiliary/LineBreakTest.txt")
 	url = flag.String("url",
-		"http://www.unicode.org/Public/6.2.0/ucd/",
+		"http://www.unicode.org/Public/12.0.0/ucd/",
 		"URL of Unicode database directory")
 	excludeclasses = flag.String("excludeclasses",
 		"XX",
@@ -65,7 +65,7 @@ type class struct {
 	name, doc string
 }
 
-// Supported line breaking classes for Unicode 6.2.0.
+// Supported line breaking classes for Unicode 12.0.0.
 //
 // Table loading depends on this: classes not listed here aren't loaded.
 var classes = []class{
@@ -109,6 +109,9 @@ var classes = []class{
 	{"AI", "Ambiguous (Alphabetic or Ideographic)"},
 	{"CJ", "Conditional Japanese Starter"},
 	{"SA", "Complex Context Dependent (South East Asian)"},
+	{"EB", "Emoji Base"},
+	{"EM", "Emoji Modifier"},
+	{"ZWJ", "Zero width joiner"},
 	{"XX", "Unknown"},
 }
 
@@ -189,7 +192,7 @@ const imports = `import (
 // Version is the Unicode edition from which the tables are derived.
 const Version = %q`
 
-var codePointRe = regexp.MustCompile(`^([0-9A-F]+)(\.\.[0-9A-F]+)?;([A-Z0-9]{2})$`)
+var codePointRe = regexp.MustCompile(`^([0-9A-F]+)(\.\.[0-9A-F]+)?;([A-Z0-9]{2,3})$`)
 
 // LineBreak.txt has form:
 //  4DFF;AL # HEXAGRAM FOR BEFORE COMPLETION

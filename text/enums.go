@@ -187,10 +187,10 @@ type charJamoProps struct {
  * JamoTypes (no LV or LVT) or none.
  */
 var HangulJamoProps = [6]charJamoProps{
-	{JAMO_L, JAMO_L},   /* JAMO_L */
-	{JAMO_V, JAMO_V},   /* JAMO_V */
-	{JAMO_T, JAMO_T},   /* JAMO_T */
-	{JAMO_L, JAMO_V},   /* JAMO_LV */
-	{JAMO_L, JAMO_T},   /* JAMO_LVT */
-	{NO_JAMO, NO_JAMO}, /* NO_JAMO */
+	{linebreak.JAMO_L, linebreak.JAMO_L},   /* JAMO_L */
+	{linebreak.JAMO_V, linebreak.JAMO_V},   /* JAMO_V */
+	{linebreak.JAMO_T, linebreak.JAMO_T},   /* JAMO_T */
+	{linebreak.JAMO_L, linebreak.JAMO_V},   /* JAMO_LV */
+	{linebreak.JAMO_L, linebreak.JAMO_T},   /* JAMO_LVT */
+	{linebreak.NO_JAMO, linebreak.NO_JAMO}, /* NO_JAMO */
 }
