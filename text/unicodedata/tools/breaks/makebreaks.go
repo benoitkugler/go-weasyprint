@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	urlSentences = "https://unicode.org/Public/UCD/latest/ucd/auxiliary/SentenceBreakProperty.txt"
-	urlIndic     = "https://unicode.org/Public/UCD/latest/ucd/IndicSyllabicCategory.txt"
+	urlIndic = "https://unicode.org/Public/UCD/latest/ucd/IndicSyllabicCategory.txt"
 )
 
 func onecondition(cond tools.Rg) string {
@@ -99,10 +98,10 @@ func printTable(ranges map[string][]tools.Rg) {
 
 	package unicodedata
 	
-	// data from : ` + urlSentences + "\n// and :" + urlIndic)
+	// data from : ` + urlIndic)
 
 	for typ, s := range ranges {
-		if typ != "STerm" && typ != "Virama" && typ != "Vowel_Dependent" {
+		if typ != "Virama" && typ != "Vowel_Dependent" {
 			continue
 		}
 		fmt.Println()
@@ -116,9 +115,7 @@ func printTable(ranges map[string][]tools.Rg) {
 
 func main() {
 	ranges := map[string][]tools.Rg{}
-	s := tools.FetchData(urlSentences)
-	tools.Parse(s, ranges)
-	s = tools.FetchData(urlIndic)
+	s := tools.FetchData(urlIndic)
 	tools.Parse(s, ranges)
 	printTable(ranges)
 }
