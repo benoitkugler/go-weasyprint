@@ -5,8 +5,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/benoitkugler/go-weasyprint/text/unicodedata"
-
-	"github.com/benoitkugler/go-weasyprint/text/linebreak"
 )
 
 const PARAGRAPH_SEPARATOR rune = 0x2029
@@ -87,17 +85,18 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 	// the line breaking stuff is also in TR14 on unicode.org
 	// This is a default break implementation that should work for nearly all
 	// languages. Language engines can override it optionally.
+
 	attrs := make([]PangoLogAttr, len(text_)+1)
 	text := charPointer{data: []byte(text_)}
 	next := text // share same data but with different adresses
 	var (
 		prevWc, nextWc rune
 
-		prevJamo = linebreak.NO_JAMO
+		prevJamo = unicodedata.NO_JAMO
 
-		nextBreakType     = linebreak.G_UNICODE_BREAK_XX
-		prevBreakType     linebreak.GUnicodeBreakType
-		prevPrevBreakType = linebreak.G_UNICODE_BREAK_XX
+		nextBreakType     = unicodedata.BreakXX
+		prevBreakType     *unicode.RangeTable
+		prevPrevBreakType = unicodedata.BreakXX
 
 		prevGbType              = gb_Other
 		metExtendedPictographic = false
@@ -128,13 +127,13 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		nextWc = text.getUTF8Char()
 	}
 
-	nextBreakType = linebreak.ResolveClass(nextWc)
+	nextBreakType = unicodedata.BreakClass(nextWc)
 	for i = 0; !done; i++ {
 		var (
 			makesHangulSyllable                                    bool
 			isWordBoundary, isGraphemeBoundary, isSentenceBoundary bool
 			breakOp                                                breakOpportunity
-			rowBreakType                                           linebreak.GUnicodeBreakType
+			rowBreakType                                           *unicode.RangeTable
 		)
 
 		wc := nextWc
@@ -145,7 +144,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			// may not increment next
 
 			nextWc = 0
-			nextBreakType = linebreak.G_UNICODE_BREAK_XX
+			nextBreakType = unicodedata.BreakXX
 			done = true
 		} else {
 			next.nextUTF8()
@@ -159,14 +158,14 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				nextWc = next.getUTF8Char()
 			}
 
-			nextBreakType = linebreak.ResolveClass(nextWc)
+			nextBreakType = unicodedata.BreakClass(nextWc)
 		}
 
 		type_ := unicodeCategorie(wc)
-		jamo := linebreak.Jamo(breakType)
+		jamo := unicodedata.Jamo(breakType)
 
 		/* Determine wheter this forms a Hangul syllable with prev. */
-		if jamo == linebreak.NO_JAMO {
+		if jamo == unicodedata.NO_JAMO {
 			makesHangulSyllable = false
 		} else {
 			prevEnd := HangulJamoProps[prevJamo].end
@@ -305,7 +304,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				attrs[i].BackspaceDeletesCharacter = backspaceDeleteCharacter(baseCharacter)
 
 				/* Dependent Vowels for Indic language */
-				if unicodedata.IsVirama(prevWc) || unicodedata.IsVowel_Dependent(prevWc) {
+				if unicodedata.IsVirama(prevWc) || unicodedata.IsVowelDependent(prevWc) {
 					attrs[i].BackspaceDeletesCharacter = true
 				}
 			} else {
@@ -352,11 +351,11 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 
 				if wbType == wb_Other {
 					switch breakType {
-					case linebreak.G_UNICODE_BREAK_NU:
+					case unicodedata.BreakNU:
 						if wc != 0x066C {
 							wbType = wb_Numeric /* Numeric */
 						}
-					case linebreak.G_UNICODE_BREAK_IS:
+					case unicodedata.BreakIS:
 						if wc != 0x003A && wc != 0xFE13 && wc != 0x002E {
 							wbType = wb_MidNum /* MidNum */
 						}
@@ -425,12 +424,12 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				}
 
 			Alphabetic:
-				if breakType != linebreak.G_UNICODE_BREAK_SA && script != unicode.Hiragana {
+				if breakType != unicodedata.BreakSA && script != unicode.Hiragana {
 					wbType = wb_ALetter /* ALetter */
 				}
 
 				if wbType == wb_Other {
-					if type_ == unicode.Zs && breakType != linebreak.G_UNICODE_BREAK_GL {
+					if type_ == unicode.Zs && breakType != unicodedata.BreakGL {
 						wbType = wb_WSegSpace
 					}
 				}
@@ -519,7 +518,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				/* Find the SentenceBreakType of wc */
 				sbType := sb_Other
 
-				if breakType == linebreak.G_UNICODE_BREAK_NU {
+				if breakType == unicodedata.BreakNU {
 					sbType = sb_Numeric /* Numeric */
 				}
 
@@ -599,7 +598,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 						sbType = sb_OLetter
 					}
 
-					if type_ == unicode.Pe || type_ == unicode.Ps || breakType == linebreak.G_UNICODE_BREAK_QU {
+					if type_ == unicode.Pe || type_ == unicode.Ps || breakType == unicodedata.BreakQU {
 						sbType = sb_Close
 					}
 				}
@@ -693,7 +692,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		breakOp = break_ALREADY_HANDLED
 
 		rowBreakType = prevBreakType
-		if prevBreakType == linebreak.G_UNICODE_BREAK_SP {
+		if prevBreakType == unicodedata.BreakSP {
 			rowBreakType = prevPrevBreakType
 		}
 
@@ -704,45 +703,45 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		/* Rule LB1:
 		assign a line breaking class to each code point of the input. */
 		switch breakType {
-		case linebreak.G_UNICODE_BREAK_AI, linebreak.G_UNICODE_BREAK_SG, linebreak.G_UNICODE_BREAK_XX:
-			breakType = linebreak.G_UNICODE_BREAK_AL
-		case linebreak.G_UNICODE_BREAK_SA:
+		case unicodedata.BreakAI, unicodedata.BreakSG, unicodedata.BreakXX:
+			breakType = unicodedata.BreakAL
+		case unicodedata.BreakSA:
 			if type_ == unicode.Mn || type_ == unicode.Mc {
-				breakType = linebreak.G_UNICODE_BREAK_CM
+				breakType = unicodedata.BreakCM
 			} else {
-				breakType = linebreak.G_UNICODE_BREAK_AL
+				breakType = unicodedata.BreakAL
 			}
-		case linebreak.G_UNICODE_BREAK_CJ:
-			breakType = linebreak.G_UNICODE_BREAK_NS
+		case unicodedata.BreakCJ:
+			breakType = unicodedata.BreakNS
 		}
 
 		/* If it's not a grapheme boundary, it's not a line break either */
 		if attrs[i].IsCursorPosition ||
-			// breakType == linebreak.G_UNICODE_BREAK_EM ||
-			// breakType == linebreak.G_UNICODE_BREAK_ZWJ ||
-			breakType == linebreak.G_UNICODE_BREAK_CM ||
-			breakType == linebreak.G_UNICODE_BREAK_JL ||
-			breakType == linebreak.G_UNICODE_BREAK_JV ||
-			breakType == linebreak.G_UNICODE_BREAK_JT ||
-			breakType == linebreak.G_UNICODE_BREAK_H2 ||
-			breakType == linebreak.G_UNICODE_BREAK_H3 ||
-			breakType == linebreak.G_UNICODE_BREAK_RI {
+			// breakType == unicodedata.BreakEM ||
+			// breakType == unicodedata.BreakZWJ ||
+			breakType == unicodedata.BreakCM ||
+			breakType == unicodedata.BreakJL ||
+			breakType == unicodedata.BreakJV ||
+			breakType == unicodedata.BreakJT ||
+			breakType == unicodedata.BreakH2 ||
+			breakType == unicodedata.BreakH3 ||
+			breakType == unicodedata.BreakRI {
 
 			/* Find the LineBreakType of wc */
 			lbType := lb_Other
 
-			if breakType == linebreak.G_UNICODE_BREAK_NU {
+			if breakType == unicodedata.BreakNU {
 				lbType = lb_Numeric
 			}
-			if breakType == linebreak.G_UNICODE_BREAK_SY ||
-				breakType == linebreak.G_UNICODE_BREAK_IS {
+			if breakType == unicodedata.BreakSY ||
+				breakType == unicodedata.BreakIS {
 				if !(prevLbType == lb_Numeric) {
 					lbType = lb_Other
 				}
 			}
 
-			if breakType == linebreak.G_UNICODE_BREAK_CL ||
-				breakType == linebreak.G_UNICODE_BREAK_CP {
+			if breakType == unicodedata.BreakCL ||
+				breakType == unicodedata.BreakCP {
 				if prevLbType == lb_Numeric {
 					lbType = lb_Numeric_Close
 				} else {
@@ -750,7 +749,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				}
 			}
 
-			if breakType == linebreak.G_UNICODE_BREAK_RI {
+			if breakType == unicodedata.BreakRI {
 				if prevLbType == lb_RI_Odd {
 					lbType = lb_RI_Even
 				} else if prevLbType == lb_RI_Even {
@@ -767,23 +766,23 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				attrs[i].IsCharBreak = true
 			}
 			/* Make any necessary replacements first */
-			if rowBreakType == linebreak.G_UNICODE_BREAK_XX {
-				rowBreakType = linebreak.G_UNICODE_BREAK_AL
+			if rowBreakType == unicodedata.BreakXX {
+				rowBreakType = unicodedata.BreakAL
 			}
 			/* add the line break rules in reverse order to override
 			   the lower priority rules. */
 
 			/* Rule LB30 */
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_AL ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_HL ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_NU) &&
-				breakType == linebreak.G_UNICODE_BREAK_OP {
+			if (prevBreakType == unicodedata.BreakAL ||
+				prevBreakType == unicodedata.BreakHL ||
+				prevBreakType == unicodedata.BreakNU) &&
+				breakType == unicodedata.BreakOP {
 				breakOp = break_PROHIBITED
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_CP &&
-				(breakType == linebreak.G_UNICODE_BREAK_AL ||
-					breakType == linebreak.G_UNICODE_BREAK_HL ||
-					breakType == linebreak.G_UNICODE_BREAK_NU) {
+			if prevBreakType == unicodedata.BreakCP &&
+				(breakType == unicodedata.BreakAL ||
+					breakType == unicodedata.BreakHL ||
+					breakType == unicodedata.BreakNU) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB30a */
@@ -791,264 +790,264 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB30b */
-			if prevBreakType == linebreak.G_UNICODE_BREAK_EB &&
-				breakType == linebreak.G_UNICODE_BREAK_EM {
+			if prevBreakType == unicodedata.BreakEB &&
+				breakType == unicodedata.BreakEM {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB29 */
-			if prevBreakType == linebreak.G_UNICODE_BREAK_IS &&
-				(breakType == linebreak.G_UNICODE_BREAK_AL ||
-					breakType == linebreak.G_UNICODE_BREAK_HL) {
+			if prevBreakType == unicodedata.BreakIS &&
+				(breakType == unicodedata.BreakAL ||
+					breakType == unicodedata.BreakHL) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB28 */
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_AL ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_HL) &&
-				(breakType == linebreak.G_UNICODE_BREAK_AL ||
-					breakType == linebreak.G_UNICODE_BREAK_HL) {
+			if (prevBreakType == unicodedata.BreakAL ||
+				prevBreakType == unicodedata.BreakHL) &&
+				(breakType == unicodedata.BreakAL ||
+					breakType == unicodedata.BreakHL) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB27 */
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_JL ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_JV ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_JT ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_H2 ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_H3) &&
-				(breakType == linebreak.G_UNICODE_BREAK_IN ||
-					breakType == linebreak.G_UNICODE_BREAK_PO) {
+			if (prevBreakType == unicodedata.BreakJL ||
+				prevBreakType == unicodedata.BreakJV ||
+				prevBreakType == unicodedata.BreakJT ||
+				prevBreakType == unicodedata.BreakH2 ||
+				prevBreakType == unicodedata.BreakH3) &&
+				(breakType == unicodedata.BreakIN ||
+					breakType == unicodedata.BreakPO) {
 				breakOp = break_PROHIBITED
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_PR &&
-				(breakType == linebreak.G_UNICODE_BREAK_JL ||
-					breakType == linebreak.G_UNICODE_BREAK_JV ||
-					breakType == linebreak.G_UNICODE_BREAK_JT ||
-					breakType == linebreak.G_UNICODE_BREAK_H2 ||
-					breakType == linebreak.G_UNICODE_BREAK_H3) {
+			if prevBreakType == unicodedata.BreakPR &&
+				(breakType == unicodedata.BreakJL ||
+					breakType == unicodedata.BreakJV ||
+					breakType == unicodedata.BreakJT ||
+					breakType == unicodedata.BreakH2 ||
+					breakType == unicodedata.BreakH3) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB26 */
-			if prevBreakType == linebreak.G_UNICODE_BREAK_JL &&
-				(breakType == linebreak.G_UNICODE_BREAK_JL ||
-					breakType == linebreak.G_UNICODE_BREAK_JV ||
-					breakType == linebreak.G_UNICODE_BREAK_H2 ||
-					breakType == linebreak.G_UNICODE_BREAK_H3) {
+			if prevBreakType == unicodedata.BreakJL &&
+				(breakType == unicodedata.BreakJL ||
+					breakType == unicodedata.BreakJV ||
+					breakType == unicodedata.BreakH2 ||
+					breakType == unicodedata.BreakH3) {
 				breakOp = break_PROHIBITED
 			}
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_JV ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_H2) &&
-				(breakType == linebreak.G_UNICODE_BREAK_JV ||
-					breakType == linebreak.G_UNICODE_BREAK_JT) {
+			if (prevBreakType == unicodedata.BreakJV ||
+				prevBreakType == unicodedata.BreakH2) &&
+				(breakType == unicodedata.BreakJV ||
+					breakType == unicodedata.BreakJT) {
 				breakOp = break_PROHIBITED
 			}
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_JT ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_H3) &&
-				breakType == linebreak.G_UNICODE_BREAK_JT {
+			if (prevBreakType == unicodedata.BreakJT ||
+				prevBreakType == unicodedata.BreakH3) &&
+				breakType == unicodedata.BreakJT {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB25 with Example 7 of Customization */
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_PR ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_PO) &&
-				breakType == linebreak.G_UNICODE_BREAK_NU {
+			if (prevBreakType == unicodedata.BreakPR ||
+				prevBreakType == unicodedata.BreakPO) &&
+				breakType == unicodedata.BreakNU {
 				breakOp = break_PROHIBITED
 			}
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_PR ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_PO) &&
-				(breakType == linebreak.G_UNICODE_BREAK_OP ||
-					breakType == linebreak.G_UNICODE_BREAK_HY) &&
-				nextBreakType == linebreak.G_UNICODE_BREAK_NU {
+			if (prevBreakType == unicodedata.BreakPR ||
+				prevBreakType == unicodedata.BreakPO) &&
+				(breakType == unicodedata.BreakOP ||
+					breakType == unicodedata.BreakHY) &&
+				nextBreakType == unicodedata.BreakNU {
 				breakOp = break_PROHIBITED
 			}
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_OP ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_HY) &&
-				breakType == linebreak.G_UNICODE_BREAK_NU {
+			if (prevBreakType == unicodedata.BreakOP ||
+				prevBreakType == unicodedata.BreakHY) &&
+				breakType == unicodedata.BreakNU {
 				breakOp = break_PROHIBITED
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_NU &&
-				(breakType == linebreak.G_UNICODE_BREAK_NU ||
-					breakType == linebreak.G_UNICODE_BREAK_SY ||
-					breakType == linebreak.G_UNICODE_BREAK_IS) {
+			if prevBreakType == unicodedata.BreakNU &&
+				(breakType == unicodedata.BreakNU ||
+					breakType == unicodedata.BreakSY ||
+					breakType == unicodedata.BreakIS) {
 				breakOp = break_PROHIBITED
 			}
 			if prevLbType == lb_Numeric &&
-				(breakType == linebreak.G_UNICODE_BREAK_NU ||
-					breakType == linebreak.G_UNICODE_BREAK_SY ||
-					breakType == linebreak.G_UNICODE_BREAK_IS ||
-					breakType == linebreak.G_UNICODE_BREAK_CL ||
-					breakType == linebreak.G_UNICODE_BREAK_CP) {
+				(breakType == unicodedata.BreakNU ||
+					breakType == unicodedata.BreakSY ||
+					breakType == unicodedata.BreakIS ||
+					breakType == unicodedata.BreakCL ||
+					breakType == unicodedata.BreakCP) {
 				breakOp = break_PROHIBITED
 			}
 			if (prevLbType == lb_Numeric ||
 				prevLbType == lb_Numeric_Close) &&
-				(breakType == linebreak.G_UNICODE_BREAK_PO ||
-					breakType == linebreak.G_UNICODE_BREAK_PR) {
+				(breakType == unicodedata.BreakPO ||
+					breakType == unicodedata.BreakPR) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB24 */
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_PR ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_PO) &&
-				(breakType == linebreak.G_UNICODE_BREAK_AL ||
-					breakType == linebreak.G_UNICODE_BREAK_HL) {
+			if (prevBreakType == unicodedata.BreakPR ||
+				prevBreakType == unicodedata.BreakPO) &&
+				(breakType == unicodedata.BreakAL ||
+					breakType == unicodedata.BreakHL) {
 				breakOp = break_PROHIBITED
 			}
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_AL ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_HL) &&
-				(breakType == linebreak.G_UNICODE_BREAK_PR ||
-					breakType == linebreak.G_UNICODE_BREAK_PO) {
+			if (prevBreakType == unicodedata.BreakAL ||
+				prevBreakType == unicodedata.BreakHL) &&
+				(breakType == unicodedata.BreakPR ||
+					breakType == unicodedata.BreakPO) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB23 */
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_AL ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_HL) &&
-				breakType == linebreak.G_UNICODE_BREAK_NU {
+			if (prevBreakType == unicodedata.BreakAL ||
+				prevBreakType == unicodedata.BreakHL) &&
+				breakType == unicodedata.BreakNU {
 				breakOp = break_PROHIBITED
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_NU &&
-				(breakType == linebreak.G_UNICODE_BREAK_AL ||
-					breakType == linebreak.G_UNICODE_BREAK_HL) {
+			if prevBreakType == unicodedata.BreakNU &&
+				(breakType == unicodedata.BreakAL ||
+					breakType == unicodedata.BreakHL) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB23a */
-			if prevBreakType == linebreak.G_UNICODE_BREAK_PR &&
-				(breakType == linebreak.G_UNICODE_BREAK_ID ||
-					breakType == linebreak.G_UNICODE_BREAK_EB ||
-					breakType == linebreak.G_UNICODE_BREAK_EM) {
+			if prevBreakType == unicodedata.BreakPR &&
+				(breakType == unicodedata.BreakID ||
+					breakType == unicodedata.BreakEB ||
+					breakType == unicodedata.BreakEM) {
 				breakOp = break_PROHIBITED
 			}
-			if (prevBreakType == linebreak.G_UNICODE_BREAK_ID ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_EB ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_EM) &&
-				breakType == linebreak.G_UNICODE_BREAK_PO {
+			if (prevBreakType == unicodedata.BreakID ||
+				prevBreakType == unicodedata.BreakEB ||
+				prevBreakType == unicodedata.BreakEM) &&
+				breakType == unicodedata.BreakPO {
 				breakOp = break_PROHIBITED
 			}
 
 			/* Rule LB22 */
-			if breakType == linebreak.G_UNICODE_BREAK_IN {
-				if prevBreakType == linebreak.G_UNICODE_BREAK_AL ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_HL {
+			if breakType == unicodedata.BreakIN {
+				if prevBreakType == unicodedata.BreakAL ||
+					prevBreakType == unicodedata.BreakHL {
 					breakOp = break_PROHIBITED
 				}
-				if prevBreakType == linebreak.G_UNICODE_BREAK_EX {
+				if prevBreakType == unicodedata.BreakEX {
 					breakOp = break_PROHIBITED
 				}
-				if prevBreakType == linebreak.G_UNICODE_BREAK_ID ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_EB ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_EM {
+				if prevBreakType == unicodedata.BreakID ||
+					prevBreakType == unicodedata.BreakEB ||
+					prevBreakType == unicodedata.BreakEM {
 					breakOp = break_PROHIBITED
 				}
-				if prevBreakType == linebreak.G_UNICODE_BREAK_IN {
+				if prevBreakType == unicodedata.BreakIN {
 					breakOp = break_PROHIBITED
 				}
-				if prevBreakType == linebreak.G_UNICODE_BREAK_NU {
+				if prevBreakType == unicodedata.BreakNU {
 					breakOp = break_PROHIBITED
 				}
 			}
 
-			if breakType == linebreak.G_UNICODE_BREAK_BA ||
-				breakType == linebreak.G_UNICODE_BREAK_HY ||
-				breakType == linebreak.G_UNICODE_BREAK_NS ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_BB {
+			if breakType == unicodedata.BreakBA ||
+				breakType == unicodedata.BreakHY ||
+				breakType == unicodedata.BreakNS ||
+				prevBreakType == unicodedata.BreakBB {
 				breakOp = break_PROHIBITED /* Rule LB21 */
 			}
-			if prevPrevBreakType == linebreak.G_UNICODE_BREAK_HL &&
-				(prevBreakType == linebreak.G_UNICODE_BREAK_HY ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_BA) {
+			if prevPrevBreakType == unicodedata.BreakHL &&
+				(prevBreakType == unicodedata.BreakHY ||
+					prevBreakType == unicodedata.BreakBA) {
 				breakOp = break_PROHIBITED /* Rule LB21a */
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_SY &&
-				breakType == linebreak.G_UNICODE_BREAK_HL {
+			if prevBreakType == unicodedata.BreakSY &&
+				breakType == unicodedata.BreakHL {
 				breakOp = break_PROHIBITED /* Rule LB21b */
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_CB ||
-				breakType == linebreak.G_UNICODE_BREAK_CB {
+			if prevBreakType == unicodedata.BreakCB ||
+				breakType == unicodedata.BreakCB {
 				breakOp = break_ALLOWED /* Rule LB20 */
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_QU ||
-				breakType == linebreak.G_UNICODE_BREAK_QU {
+			if prevBreakType == unicodedata.BreakQU ||
+				breakType == unicodedata.BreakQU {
 				breakOp = break_PROHIBITED /* Rule LB19 */
 			}
 
 			/* handle related rules for Space as state machine here,
 			   and override the pair table result. */
-			if prevBreakType == linebreak.G_UNICODE_BREAK_SP { /* Rule LB18 */
+			if prevBreakType == unicodedata.BreakSP { /* Rule LB18 */
 				breakOp = break_ALLOWED
 			}
-			if rowBreakType == linebreak.G_UNICODE_BREAK_B2 &&
-				breakType == linebreak.G_UNICODE_BREAK_B2 {
+			if rowBreakType == unicodedata.BreakB2 &&
+				breakType == unicodedata.BreakB2 {
 				breakOp = break_PROHIBITED /* Rule LB17 */
 			}
-			if (rowBreakType == linebreak.G_UNICODE_BREAK_CL ||
-				rowBreakType == linebreak.G_UNICODE_BREAK_CP) &&
-				breakType == linebreak.G_UNICODE_BREAK_NS {
+			if (rowBreakType == unicodedata.BreakCL ||
+				rowBreakType == unicodedata.BreakCP) &&
+				breakType == unicodedata.BreakNS {
 				breakOp = break_PROHIBITED /* Rule LB16 */
 			}
-			if rowBreakType == linebreak.G_UNICODE_BREAK_QU &&
-				breakType == linebreak.G_UNICODE_BREAK_OP {
+			if rowBreakType == unicodedata.BreakQU &&
+				breakType == unicodedata.BreakOP {
 				breakOp = break_PROHIBITED /* Rule LB15 */
 			}
-			if rowBreakType == linebreak.G_UNICODE_BREAK_OP {
+			if rowBreakType == unicodedata.BreakOP {
 				breakOp = break_PROHIBITED /* Rule LB14 */
 			}
 			/* Rule LB13 with Example 7 of Customization */
-			if breakType == linebreak.G_UNICODE_BREAK_EX {
+			if breakType == unicodedata.BreakEX {
 				breakOp = break_PROHIBITED
 			}
-			if prevBreakType != linebreak.G_UNICODE_BREAK_NU &&
-				(breakType == linebreak.G_UNICODE_BREAK_CL ||
-					breakType == linebreak.G_UNICODE_BREAK_CP ||
-					breakType == linebreak.G_UNICODE_BREAK_IS ||
-					breakType == linebreak.G_UNICODE_BREAK_SY) {
+			if prevBreakType != unicodedata.BreakNU &&
+				(breakType == unicodedata.BreakCL ||
+					breakType == unicodedata.BreakCP ||
+					breakType == unicodedata.BreakIS ||
+					breakType == unicodedata.BreakSY) {
 				breakOp = break_PROHIBITED
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_GL {
+			if prevBreakType == unicodedata.BreakGL {
 				breakOp = break_PROHIBITED /* Rule LB12 */
 			}
-			if breakType == linebreak.G_UNICODE_BREAK_GL &&
-				(prevBreakType != linebreak.G_UNICODE_BREAK_SP &&
-					prevBreakType != linebreak.G_UNICODE_BREAK_BA &&
-					prevBreakType != linebreak.G_UNICODE_BREAK_HY) {
+			if breakType == unicodedata.BreakGL &&
+				(prevBreakType != unicodedata.BreakSP &&
+					prevBreakType != unicodedata.BreakBA &&
+					prevBreakType != unicodedata.BreakHY) {
 				breakOp = break_PROHIBITED /* Rule LB12a */
 			}
-			if prevBreakType == linebreak.G_UNICODE_BREAK_WJ ||
-				breakType == linebreak.G_UNICODE_BREAK_WJ {
+			if prevBreakType == unicodedata.BreakWJ ||
+				breakType == unicodedata.BreakWJ {
 				breakOp = break_PROHIBITED /* Rule LB11 */
 			}
 
 			/* Rule LB9 */
-			if breakType == linebreak.G_UNICODE_BREAK_CM ||
-				breakType == linebreak.G_UNICODE_BREAK_ZWJ {
-				if !(prevBreakType == linebreak.G_UNICODE_BREAK_BK ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_CR ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_LF ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_NL ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_SP ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_ZW) {
+			if breakType == unicodedata.BreakCM ||
+				breakType == unicodedata.BreakZWJ {
+				if !(prevBreakType == unicodedata.BreakBK ||
+					prevBreakType == unicodedata.BreakCR ||
+					prevBreakType == unicodedata.BreakLF ||
+					prevBreakType == unicodedata.BreakNL ||
+					prevBreakType == unicodedata.BreakSP ||
+					prevBreakType == unicodedata.BreakZW) {
 					breakOp = break_PROHIBITED
 				}
 			}
 
-			if rowBreakType == linebreak.G_UNICODE_BREAK_ZW {
+			if rowBreakType == unicodedata.BreakZW {
 				breakOp = break_ALLOWED /* Rule LB8 */
 			}
 			if prevWc == 0x200D {
 				breakOp = break_PROHIBITED /* Rule LB8a */
 			}
-			if breakType == linebreak.G_UNICODE_BREAK_SP ||
-				breakType == linebreak.G_UNICODE_BREAK_ZW {
+			if breakType == unicodedata.BreakSP ||
+				breakType == unicodedata.BreakZW {
 				breakOp = break_PROHIBITED /* Rule LB7 */
 			}
 			/* Rule LB6 */
-			if breakType == linebreak.G_UNICODE_BREAK_BK ||
-				breakType == linebreak.G_UNICODE_BREAK_CR ||
-				breakType == linebreak.G_UNICODE_BREAK_LF ||
-				breakType == linebreak.G_UNICODE_BREAK_NL {
+			if breakType == unicodedata.BreakBK ||
+				breakType == unicodedata.BreakCR ||
+				breakType == unicodedata.BreakLF ||
+				breakType == unicodedata.BreakNL {
 				breakOp = break_PROHIBITED
 			}
 			/* Rules LB4 and LB5 */
-			if prevBreakType == linebreak.G_UNICODE_BREAK_BK ||
-				(prevBreakType == linebreak.G_UNICODE_BREAK_CR &&
+			if prevBreakType == unicodedata.BreakBK ||
+				(prevBreakType == unicodedata.BreakCR &&
 					wc != '\n') ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_LF ||
-				prevBreakType == linebreak.G_UNICODE_BREAK_NL {
+				prevBreakType == unicodedata.BreakLF ||
+				prevBreakType == unicodedata.BreakNL {
 				attrs[i].IsMandatoryBreak = true
 				breakOp = break_ALLOWED
 			}
@@ -1059,7 +1058,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				attrs[i].IsLineBreak = false
 			case break_IF_SPACES:
 				/* break if prev char was space */
-				if prevBreakType != linebreak.G_UNICODE_BREAK_SP {
+				if prevBreakType != unicodedata.BreakSP {
 					attrs[i].IsLineBreak = false
 				}
 			case break_ALLOWED:
@@ -1068,12 +1067,12 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			}
 
 			/* Rule LB9 */
-			if !(breakType == linebreak.G_UNICODE_BREAK_CM ||
-				breakType == linebreak.G_UNICODE_BREAK_ZWJ) {
+			if !(breakType == unicodedata.BreakCM ||
+				breakType == unicodedata.BreakZWJ) {
 				/* Rule LB25 with Example 7 of Customization */
-				if breakType == linebreak.G_UNICODE_BREAK_NU ||
-					breakType == linebreak.G_UNICODE_BREAK_SY ||
-					breakType == linebreak.G_UNICODE_BREAK_IS {
+				if breakType == unicodedata.BreakNU ||
+					breakType == unicodedata.BreakSY ||
+					breakType == unicodedata.BreakIS {
 					if prevLbType != lb_Numeric {
 						prevLbType = lbType
 					} /* else don't change the prevLbType */
@@ -1084,18 +1083,18 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			/* else don't change the prevLbType for Rule LB9 */
 		}
 
-		if breakType != linebreak.G_UNICODE_BREAK_SP {
+		if breakType != unicodedata.BreakSP {
 			/* Rule LB9 */
-			if breakType == linebreak.G_UNICODE_BREAK_CM ||
-				breakType == linebreak.G_UNICODE_BREAK_ZWJ {
+			if breakType == unicodedata.BreakCM ||
+				breakType == unicodedata.BreakZWJ {
 				if i == 0 /* start of text */ ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_BK ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_CR ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_LF ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_NL ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_SP ||
-					prevBreakType == linebreak.G_UNICODE_BREAK_ZW {
-					prevBreakType = linebreak.G_UNICODE_BREAK_AL /* Rule LB10 */
+					prevBreakType == unicodedata.BreakBK ||
+					prevBreakType == unicodedata.BreakCR ||
+					prevBreakType == unicodedata.BreakLF ||
+					prevBreakType == unicodedata.BreakNL ||
+					prevBreakType == unicodedata.BreakSP ||
+					prevBreakType == unicodedata.BreakZW {
+					prevBreakType = unicodedata.BreakAL /* Rule LB10 */
 				} /* else don't change the prevBreakType for Rule LB9 */
 			} else {
 				prevPrevBreakType = prevBreakType
@@ -1103,7 +1102,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			}
 			prevJamo = jamo
 		} else {
-			if prevBreakType != linebreak.G_UNICODE_BREAK_SP {
+			if prevBreakType != unicodedata.BreakSP {
 				prevPrevBreakType = prevBreakType
 				prevBreakType = breakType
 			}

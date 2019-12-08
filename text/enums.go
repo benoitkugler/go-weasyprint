@@ -1,8 +1,6 @@
 package text
 
-import (
-	"github.com/benoitkugler/go-weasyprint/text/linebreak"
-)
+import "github.com/benoitkugler/go-weasyprint/text/unicodedata"
 
 // The PangoLogAttr structure stores information
 // about the attributes of a single character.
@@ -180,17 +178,17 @@ const (
 // example, a character with LineBreak type
 // G_UNICODE_BREAK_HANGUL_LV_SYLLABLE has start=JAMO_L and end=JAMO_V.
 type charJamoProps struct {
-	start, end linebreak.JamoType
+	start, end unicodedata.JamoType
 }
 
 /* Map from JamoType to CharJamoProps that hold only simple
  * JamoTypes (no LV or LVT) or none.
  */
 var HangulJamoProps = [6]charJamoProps{
-	{linebreak.JAMO_L, linebreak.JAMO_L},   /* JAMO_L */
-	{linebreak.JAMO_V, linebreak.JAMO_V},   /* JAMO_V */
-	{linebreak.JAMO_T, linebreak.JAMO_T},   /* JAMO_T */
-	{linebreak.JAMO_L, linebreak.JAMO_V},   /* JAMO_LV */
-	{linebreak.JAMO_L, linebreak.JAMO_T},   /* JAMO_LVT */
-	{linebreak.NO_JAMO, linebreak.NO_JAMO}, /* NO_JAMO */
+	{unicodedata.JAMO_L, unicodedata.JAMO_L},   /* JAMO_L */
+	{unicodedata.JAMO_V, unicodedata.JAMO_V},   /* JAMO_V */
+	{unicodedata.JAMO_T, unicodedata.JAMO_T},   /* JAMO_T */
+	{unicodedata.JAMO_L, unicodedata.JAMO_V},   /* JAMO_LV */
+	{unicodedata.JAMO_L, unicodedata.JAMO_T},   /* JAMO_LVT */
+	{unicodedata.NO_JAMO, unicodedata.NO_JAMO}, /* NO_JAMO */
 }
