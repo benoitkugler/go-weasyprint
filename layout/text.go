@@ -1,9 +1,12 @@
 package layout
 
 import (
+	"strings"
+
 	"github.com/benoitkugler/go-weasyprint/backend"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
+	"github.com/benoitkugler/go-weasyprint/style/properties"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
@@ -110,4 +113,139 @@ func ShowFirstLine(context backend.Drawer, textbox bo.TextBox, textOverflow stri
 	// firstLine, _ = textbox.PangoLayout.GetFirstLine()
 	// context = ffi.cast("cairoT *", context.Pointer)
 	// pangocairo.pangoCairoShowLayoutLine(context, firstLine)
+}
+
+func defaultFontFeature(f string) string {
+	if f == "" {
+		return "normal"
+	}
+	return f
+}
+
+// Get the font features from the different properties in style.
+// See https://www.w3.org/TR/css-fonts-3/#feature-precedence
+// default value is "normal"
+// pass nil for default ("normal") on fontFeatureSettings
+func getFontFeatures(fontKerning, fontVariantPosition, fontVariantCaps, fontVariantAlternates string,
+	fontVariantEastAsian, fontVariantLigatures, fontVariantNumeric properties.SStrings,
+	fontFeatureSettings properties.SIntStrings) map[string]int {
+
+	fontKerning = defaultFontFeature(fontKerning)
+	fontVariantPosition = defaultFontFeature(fontVariantPosition)
+	fontVariantCaps = defaultFontFeature(fontVariantCaps)
+	fontVariantAlternates = defaultFontFeature(fontVariantAlternates)
+
+	features := map[string]int{}
+	ligatureKeys := map[string][]string{
+		"common-ligatures":        {"liga", "clig"},
+		"historical-ligatures":    {"hlig"},
+		"discretionary-ligatures": {"dlig"},
+		"contextual":              {"calt"},
+	}
+	capsKeys := map[string][]string{
+		"small-caps":      {"smcp"},
+		"all-small-caps":  {"c2sc", "smcp"},
+		"petite-caps":     {"pcap"},
+		"all-petite-caps": {"c2pc", "pcap"},
+		"unicase":         {"unic"},
+		"titling-caps":    {"titl"},
+	}
+	numericKeys := map[string]string{
+		"lining-nums":        "lnum",
+		"oldstyle-nums":      "onum",
+		"proportional-nums":  "pnum",
+		"tabular-nums":       "tnum",
+		"diagonal-fractions": "frac",
+		"stacked-fractions":  "afrc",
+		"ordinal":            "ordn",
+		"slashed-zero":       "zero",
+	}
+	eastAsianKeys := map[string]string{
+		"jis78":              "jp78",
+		"jis83":              "jp83",
+		"jis90":              "jp90",
+		"jis04":              "jp04",
+		"simplified":         "smpl",
+		"traditional":        "trad",
+		"full-width":         "fwid",
+		"proportional-width": "pwid",
+		"ruby":               "ruby",
+	}
+
+	// Step 1: getting the default, we rely on Pango for this
+	// Step 2: @font-face font-variant, done in fonts.addFontFace
+	// Step 3: @font-face font-feature-settings, done in fonts.addFontFace
+
+	// Step 4: font-variant && OpenType features
+
+	if fontKerning != "auto" {
+		features["kern"] = 0
+		if fontKerning == "normal" {
+			features["kern"] = 1
+		}
+	}
+
+	if fontVariantLigatures.String == "none" {
+		for _, keys := range ligatureKeys {
+			for _, key := range keys {
+				features[key] = 0
+			}
+		}
+	} else if fontVariantLigatures.String != "normal" {
+		for _, ligatureType := range fontVariantLigatures.Strings {
+			value := 1
+			if strings.HasPrefix(ligatureType, "no-") {
+				value = 0
+				ligatureType = ligatureType[3:]
+			}
+			for _, key := range ligatureKeys[ligatureType] {
+				features[key] = value
+			}
+		}
+	}
+
+	if fontVariantPosition == "sub" {
+		// TODO: the specification asks for additional checks
+		// https://www.w3.org/TR/css-fonts-3/#font-variant-position-prop
+		features["subs"] = 1
+	} else if fontVariantPosition == "super" {
+		features["sups"] = 1
+	}
+
+	if fontVariantCaps != "normal" {
+		// TODO: the specification asks for additional checks
+		// https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
+		for _, key := range capsKeys[fontVariantCaps] {
+			features[key] = 1
+		}
+	}
+
+	if fontVariantNumeric.String != "normal" {
+		for _, key := range fontVariantNumeric.Strings {
+			features[numericKeys[key]] = 1
+		}
+	}
+
+	if fontVariantAlternates != "normal" {
+		// TODO: support other values
+		// See https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
+		if fontVariantAlternates == "historical-forms" {
+			features["hist"] = 1
+		}
+	}
+
+	if fontVariantEastAsian.String != "normal" {
+		for _, key := range fontVariantEastAsian.Strings {
+			features[eastAsianKeys[key]] = 1
+		}
+	}
+
+	// Step 5: incompatible non-OpenType features, already handled by Pango
+
+	// Step 6: font-feature-settings
+	for _, pair := range fontFeatureSettings.Values {
+		features[pair.String] = pair.Int
+	}
+
+	return features
 }
