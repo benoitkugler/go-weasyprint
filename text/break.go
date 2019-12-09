@@ -86,7 +86,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 	// This is a default break implementation that should work for nearly all
 	// languages. Language engines can override it optionally.
 
-	attrs := make([]PangoLogAttr, len(text_)+1)
+	attrs := make([]PangoLogAttr, len([]rune(text_))+1)
 	text := charPointer{data: []byte(text_)}
 	next := text // share same data but with different adresses
 	var (
@@ -127,7 +127,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		nextWc = text.getUTF8Char()
 	}
 
-	nextBreakType = unicodedata.BreakClass(nextWc)
+	_, nextBreakType = unicodedata.BreakClass(nextWc)
 	for i = 0; !done; i++ {
 		var (
 			makesHangulSyllable                                    bool
@@ -142,7 +142,6 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		if almostDone {
 			// If we have already reached the end of `text`, gUtf8NextChar()
 			// may not increment next
-
 			nextWc = 0
 			nextBreakType = unicodedata.BreakXX
 			done = true
@@ -150,7 +149,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			next.nextUTF8()
 			if next.end() {
 				// This is how we fill in the last element (end position) of the
-				// attr array - assume there"s a paragraph separators off the end
+				// attr array - assume there's a paragraph separators off the end
 				// of @text.
 				nextWc = PARAGRAPH_SEPARATOR
 				almostDone = true
@@ -158,7 +157,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				nextWc = next.getUTF8Char()
 			}
 
-			nextBreakType = unicodedata.BreakClass(nextWc)
+			_, nextBreakType = unicodedata.BreakClass(nextWc)
 		}
 
 		type_ := unicodeCategorie(wc)
@@ -717,8 +716,8 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 
 		/* If it's not a grapheme boundary, it's not a line break either */
 		if attrs[i].IsCursorPosition ||
-			// breakType == unicodedata.BreakEM ||
-			// breakType == unicodedata.BreakZWJ ||
+			breakType == unicodedata.BreakEM ||
+			breakType == unicodedata.BreakZWJ ||
 			breakType == unicodedata.BreakCM ||
 			breakType == unicodedata.BreakJL ||
 			breakType == unicodedata.BreakJV ||
@@ -813,8 +812,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 				prevBreakType == unicodedata.BreakJT ||
 				prevBreakType == unicodedata.BreakH2 ||
 				prevBreakType == unicodedata.BreakH3) &&
-				(breakType == unicodedata.BreakIN ||
-					breakType == unicodedata.BreakPO) {
+				(breakType == unicodedata.BreakIN || breakType == unicodedata.BreakPO) {
 				breakOp = break_PROHIBITED
 			}
 			if prevBreakType == unicodedata.BreakPR &&
@@ -891,8 +889,7 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			}
 			if (prevBreakType == unicodedata.BreakAL ||
 				prevBreakType == unicodedata.BreakHL) &&
-				(breakType == unicodedata.BreakPR ||
-					breakType == unicodedata.BreakPO) {
+				(breakType == unicodedata.BreakPR || breakType == unicodedata.BreakPO) {
 				breakOp = break_PROHIBITED
 			}
 			/* Rule LB23 */
@@ -1205,7 +1202,6 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			baseCharacter = wc
 		}
 	}
-
 	i--
 
 	attrs[i].IsCursorPosition = true /* Rule GB2 */

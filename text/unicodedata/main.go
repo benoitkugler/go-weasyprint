@@ -54,13 +54,13 @@ func IsVowelDependent(r rune) bool {
 	return unicode.Is(_Vowel_Dependent, r)
 }
 
-func BreakClass(r rune) *unicode.RangeTable {
-	for _, class := range Breaks {
+func BreakClass(r rune) (string, *unicode.RangeTable) {
+	for name, class := range Breaks {
 		if unicode.Is(class, r) {
-			return class
+			return name, class
 		}
 	}
-	return BreakXX
+	return "", BreakXX
 }
 
 // Jamo returns the Jamo Type of `btype` or NO_JAMO
