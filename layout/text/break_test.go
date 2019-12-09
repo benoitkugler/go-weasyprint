@@ -1,6 +1,7 @@
 package text
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -28,4 +29,8 @@ func TestLineBreak(t *testing.T) {
 		got := pangoDefaultBreak([]rune(test.text))
 		assertEqual(test, got, t)
 	}
+}
+
+func TestA(t *testing.T) {
+	fmt.Println([]int{0, 1, 2, 3}[1 : 4-1])
 }

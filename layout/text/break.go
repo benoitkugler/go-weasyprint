@@ -2,35 +2,14 @@ package text
 
 import (
 	"unicode"
-	"unicode/utf8"
 
-	"github.com/benoitkugler/go-weasyprint/text/unicodedata"
+	"github.com/benoitkugler/go-weasyprint/layout/text/unicodedata"
 )
 
 const PARAGRAPH_SEPARATOR rune = 0x2029
 
-// replace a *char from c
-type charPointer struct {
-	data  []byte
-	index int
-}
-
-// return rune at current position
-// does not change it
-func (c charPointer) getUTF8Char() rune {
-	r, _ := utf8.DecodeRune(c.data[c.index:])
-	return r
-}
-
-// increase the position
-func (c *charPointer) nextUTF8() {
-	_, l := utf8.DecodeRune(c.data[c.index:])
-	c.index += l
-}
-
-// return `true` if we are at the end of the string
-func (c charPointer) end() bool {
-	return c.index >= len(c.data)
+func GetLogAttrs(text []rune) []PangoLogAttr {
+	return pangoDefaultBreak(text)
 }
 
 func unicodeCategorie(r rune) *unicode.RangeTable {

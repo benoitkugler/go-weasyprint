@@ -3,6 +3,7 @@ package layout
 import (
 	"github.com/benoitkugler/go-weasyprint/backend"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
@@ -46,12 +47,40 @@ func SplitFirstLine(text []rune, style pr.Properties, context LayoutContext, max
 	return Splitted{}
 }
 
-func CanBreakText(text, lang string) MaybeBool {
-	if len(text) < 2 {
-		return Bool(false)
+// returns nil or [wordStart, wordEnd]
+func getNextWordBoundaries(t []rune, lang string) []int {
+	if len(t) < 2 {
+		return nil
 	}
-	// FIXME: à implémenter
-	return Bool(true)
+	out := make([]int, 2)
+	hasBroken := false
+	for i, attr := range text.GetLogAttrs(t) {
+		if attr.IsWordEnd {
+			out[1] = i // word end
+			hasBroken = true
+			break
+		}
+		if attr.IsWordBoundary {
+			out[0] = i // word start
+		}
+	}
+	if !hasBroken {
+		return nil
+	}
+	return out
+}
+
+func CanBreakText(t []rune, lang string) MaybeBool {
+	if len(t) < 2 {
+		return nil
+	}
+	logs := text.GetLogAttrs(t)
+	for _, l := range logs[1 : len(logs)-1] {
+		if l.IsLineBreak {
+			return Bool(true)
+		}
+	}
+	return Bool(false)
 }
 
 // Return a tuple of the used value of ``line-height`` and the baseline.
