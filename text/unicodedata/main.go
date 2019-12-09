@@ -16,6 +16,28 @@ const (
 	NO_JAMO                  /* Other */
 )
 
+// There are Hangul syllables encoded as characters, that act like a
+// sequence of Jamos. For each character we define a JamoType
+// that the character starts with, and one that it ends with.  This
+// decomposes JAMO_LV and JAMO_LVT to simple other JAMOs.  So for
+// example, a character with LineBreak type
+// BreakH2 has start=JAMO_L and end=JAMO_V.
+type charJamoProps struct {
+	Start, End JamoType
+}
+
+/* Map from JamoType to CharJamoProps that hold only simple
+ * JamoTypes (no LV or LVT) or none.
+ */
+var HangulJamoProps = [6]charJamoProps{
+	{Start: JAMO_L, End: JAMO_V},   /* JAMO_LV */
+	{Start: JAMO_L, End: JAMO_T},   /* JAMO_LVT */
+	{Start: JAMO_L, End: JAMO_L},   /* JAMO_L */
+	{Start: JAMO_V, End: JAMO_V},   /* JAMO_V */
+	{Start: JAMO_T, End: JAMO_T},   /* JAMO_T */
+	{Start: NO_JAMO, End: NO_JAMO}, /* NO_JAMO */
+}
+
 func IsEmojiExtendedPictographic(r rune) bool {
 	return unicode.Is(_Extended_Pictographic, r)
 }

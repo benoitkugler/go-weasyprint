@@ -168,8 +168,8 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		if jamo == unicodedata.NO_JAMO {
 			makesHangulSyllable = false
 		} else {
-			prevEnd := HangulJamoProps[prevJamo].end
-			thisStart := HangulJamoProps[jamo].start
+			prevEnd := unicodedata.HangulJamoProps[prevJamo].End
+			thisStart := unicodedata.HangulJamoProps[jamo].Start
 
 			/* See comments before ISJAMO */
 			makesHangulSyllable = (prevEnd == thisStart) || (prevEnd+1 == thisStart)

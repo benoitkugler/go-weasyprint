@@ -1,7 +1,5 @@
 package text
 
-import "github.com/benoitkugler/go-weasyprint/text/unicodedata"
-
 // The PangoLogAttr structure stores information
 // about the attributes of a single character.
 type PangoLogAttr struct {
@@ -170,25 +168,3 @@ const (
 	// and "prohibited break for combining marks"
 	// but we handle that inline in the code.
 )
-
-// There are Hangul syllables encoded as characters, that act like a
-// sequence of Jamos. For each character we define a JamoType
-// that the character starts with, and one that it ends with.  This
-// decomposes JAMO_LV and JAMO_LVT to simple other JAMOs.  So for
-// example, a character with LineBreak type
-// G_UNICODE_BREAK_HANGUL_LV_SYLLABLE has start=JAMO_L and end=JAMO_V.
-type charJamoProps struct {
-	start, end unicodedata.JamoType
-}
-
-/* Map from JamoType to CharJamoProps that hold only simple
- * JamoTypes (no LV or LVT) or none.
- */
-var HangulJamoProps = [6]charJamoProps{
-	{unicodedata.JAMO_L, unicodedata.JAMO_L},   /* JAMO_L */
-	{unicodedata.JAMO_V, unicodedata.JAMO_V},   /* JAMO_V */
-	{unicodedata.JAMO_T, unicodedata.JAMO_T},   /* JAMO_T */
-	{unicodedata.JAMO_L, unicodedata.JAMO_V},   /* JAMO_LV */
-	{unicodedata.JAMO_L, unicodedata.JAMO_T},   /* JAMO_LVT */
-	{unicodedata.NO_JAMO, unicodedata.NO_JAMO}, /* NO_JAMO */
-}
