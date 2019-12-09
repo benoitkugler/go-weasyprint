@@ -25,7 +25,7 @@ func assertEqual(test lineBreakTest, got []PangoLogAttr, t *testing.T) {
 
 func TestLineBreak(t *testing.T) {
 	for _, test := range lineBreakTests {
-		got := pangoDefaultBreak(test.text)
+		got := pangoDefaultBreak([]rune(test.text))
 		assertEqual(test, got, t)
 	}
 }

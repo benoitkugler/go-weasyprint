@@ -80,15 +80,13 @@ func _KATAKANA(wc rune) bool { return wc >= 0x30A0 && wc <= 0x30FF }
 // rules without language-specific tailoring.
 //
 // See pango_tailor_break() for language-specific breaks.
-func pangoDefaultBreak(text_ string) []PangoLogAttr {
+func pangoDefaultBreak(text []rune) []PangoLogAttr {
 	// The rationale for all this is in section 5.15 of the Unicode 3.0 book,
 	// the line breaking stuff is also in TR14 on unicode.org
 	// This is a default break implementation that should work for nearly all
 	// languages. Language engines can override it optionally.
 
-	attrs := make([]PangoLogAttr, len([]rune(text_))+1)
-	text := charPointer{data: []byte(text_)}
-	next := text // share same data but with different adresses
+	attrs := make([]PangoLogAttr, len(text)+1)
 	var (
 		prevWc, nextWc rune
 
@@ -120,11 +118,11 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 		i                int
 	)
 
-	if len(text.data) == 0 {
+	if len(text) == 0 {
 		nextWc = PARAGRAPH_SEPARATOR
 		almostDone = true
 	} else {
-		nextWc = text.getUTF8Char()
+		nextWc = text[0]
 	}
 
 	_, nextBreakType = unicodedata.BreakClass(nextWc)
@@ -146,15 +144,14 @@ func pangoDefaultBreak(text_ string) []PangoLogAttr {
 			nextBreakType = unicodedata.BreakXX
 			done = true
 		} else {
-			next.nextUTF8()
-			if next.end() {
+			if i+1 >= len(text) {
 				// This is how we fill in the last element (end position) of the
 				// attr array - assume there's a paragraph separators off the end
 				// of @text.
 				nextWc = PARAGRAPH_SEPARATOR
 				almostDone = true
 			} else {
-				nextWc = next.getUTF8Char()
+				nextWc = text[i+1]
 			}
 
 			_, nextBreakType = unicodedata.BreakClass(nextWc)
