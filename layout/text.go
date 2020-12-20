@@ -58,12 +58,12 @@ func getNextWordBoundaries(t []rune, lang string) []int {
 	out := make([]int, 2)
 	hasBroken := false
 	for i, attr := range text.GetLogAttrs(t) {
-		if attr.IsWordEnd {
+		if attr.IsWordEnd() {
 			out[1] = i // word end
 			hasBroken = true
 			break
 		}
-		if attr.IsWordBoundary {
+		if attr.IsWordBoundary() {
 			out[0] = i // word start
 		}
 	}
@@ -79,7 +79,7 @@ func CanBreakText(t []rune, lang string) MaybeBool {
 	}
 	logs := text.GetLogAttrs(t)
 	for _, l := range logs[1 : len(logs)-1] {
-		if l.IsLineBreak {
+		if l.IsLineBreak() {
 			return Bool(true)
 		}
 	}

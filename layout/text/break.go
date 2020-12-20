@@ -8,7 +8,7 @@ import (
 
 const PARAGRAPH_SEPARATOR rune = 0x2029
 
-func GetLogAttrs(text []rune) []PangoLogAttr {
+func GetLogAttrs(text []rune) []CharAttr {
 	return pangoDefaultBreak(text)
 }
 
@@ -59,13 +59,13 @@ func _KATAKANA(wc rune) bool { return wc >= 0x30A0 && wc <= 0x30FF }
 // rules without language-specific tailoring.
 //
 // See pango_tailor_break() for language-specific breaks.
-func pangoDefaultBreak(text []rune) []PangoLogAttr {
+func pangoDefaultBreak(text []rune) []CharAttr {
 	// The rationale for all this is in section 5.15 of the Unicode 3.0 book,
 	// the line breaking stuff is also in TR14 on unicode.org
 	// This is a default break implementation that should work for nearly all
 	// languages. Language engines can override it optionally.
 
-	attrs := make([]PangoLogAttr, len(text)+1)
+	attrs := make([]CharAttr, len(text)+1)
 	var (
 		prevWc, nextWc rune
 
@@ -152,13 +152,13 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 
 		switch type_ {
 		case unicode.Zs, unicode.Zl, unicode.Zp:
-			attrs[i].IsWhite = true
+			attrs[i].SetWhite(true)
 		default:
-			attrs[i].IsWhite = wc == '\t' || wc == '\n' || wc == '\r' || wc == '\f'
+			attrs[i].SetWhite(wc == '\t' || wc == '\n' || wc == '\r' || wc == '\f')
 		}
 
 		// Just few spaces have variable width. So explicitly mark them.
-		attrs[i].IsExpandableSpace = (0x0020 == wc || 0x00A0 == wc)
+		attrs[i].SetExpandableSpace((0x0020 == wc || 0x00A0 == wc))
 
 		isExtendedPictographic := unicodedata.IsEmojiExtendedPictographic(wc)
 
@@ -272,18 +272,18 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 				metExtendedPictographic = true
 			}
 
-			attrs[i].IsCursorPosition = isGraphemeBoundary
+			attrs[i].SetCursorPosition(isGraphemeBoundary)
 			/* If this is a grapheme boundary, we have to decide if backspace
 			 * deletes a character or the whole grapheme cluster */
 			if isGraphemeBoundary {
-				attrs[i].BackspaceDeletesCharacter = backspaceDeleteCharacter(baseCharacter)
+				attrs[i].SetBackspaceDeletesCharacter(backspaceDeleteCharacter(baseCharacter))
 
 				/* Dependent Vowels for Indic language */
 				if unicodedata.IsVirama(prevWc) || unicodedata.IsVowelDependent(prevWc) {
-					attrs[i].BackspaceDeletesCharacter = true
+					attrs[i].SetBackspaceDeletesCharacter(true)
 				}
 			} else {
-				attrs[i].BackspaceDeletesCharacter = false
+				attrs[i].SetBackspaceDeletesCharacter(false)
 			}
 
 			prevGbType = gbType
@@ -457,19 +457,19 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 					(prevWbType == wb_MidLetter ||
 						prevWbType == wb_MidNumLet ||
 						prevWc == 0x0027) {
-					attrs[prevWbI].IsWordBoundary = false /* Rule WB6 */
+					attrs[prevWbI].SetWordBoundary(false) /* Rule WB6 */
 					isWordBoundary = false                /* Rule WB7 */
 				} else if prevWbType == wb_Hebrew_Letter && wc == 0x0027 {
 					isWordBoundary = false /* Rule WB7a */
 				} else if prevPrevWbType == wb_Hebrew_Letter && prevWc == 0x0022 &&
 					wbType == wb_Hebrew_Letter {
-					attrs[prevWbI].IsWordBoundary = false /* Rule WB7b */
+					attrs[prevWbI].SetWordBoundary(false) /* Rule WB7b */
 					isWordBoundary = false                /* Rule WB7c */
 				} else if (prevPrevWbType == wb_Numeric && wbType == wb_Numeric) &&
 					(prevWbType == wb_MidNum || prevWbType == wb_MidNumLet ||
 						prevWc == 0x0027) {
 					isWordBoundary = false                /* Rule WB11 */
-					attrs[prevWbI].IsWordBoundary = false /* Rule WB12 */
+					attrs[prevWbI].SetWordBoundary(false) /* Rule WB12 */
 				} else if prevWbType == wb_RI_Odd && wbType == wb_RI_Even {
 					isWordBoundary = false /* Rule WB15 and WB16 */
 				} else {
@@ -483,7 +483,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 				}
 			}
 
-			attrs[i].IsWordBoundary = isWordBoundary
+			attrs[i].SetWordBoundary(isWordBoundary)
 		}
 
 		/* ---- UAX#29 Sentence Boundaries ---- */
@@ -618,7 +618,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 					prevPrevSbType == sb_ATerm_Close_Sp) &&
 					isOtherTerm(prevSbType) &&
 					sbType == sb_Lower:
-					attrs[prevSbI].IsSentenceBoundary = false
+					attrs[prevSbI].SetSentenceBoundary(false)
 				case (prevSbType == sb_ATerm ||
 					prevSbType == sb_ATerm_Close_Sp ||
 					prevSbType == sb_STerm ||
@@ -661,7 +661,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 			if i == 0 || done {
 				isSentenceBoundary = true /* Rules SB1 and SB2 */
 			}
-			attrs[i].IsSentenceBoundary = isSentenceBoundary
+			attrs[i].SetSentenceBoundary(isSentenceBoundary)
 		}
 		/* ---- Line breaking ---- */
 		breakOp = break_ALREADY_HANDLED
@@ -671,9 +671,9 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 			rowBreakType = prevPrevBreakType
 		}
 
-		attrs[i].IsCharBreak = false
-		attrs[i].IsLineBreak = false
-		attrs[i].IsMandatoryBreak = false
+		attrs[i].SetCharBreak(false)
+		attrs[i].SetLineBreak(false)
+		attrs[i].SetMandatoryBreak(false)
 
 		/* Rule LB1:
 		assign a line breaking class to each code point of the input. */
@@ -691,7 +691,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 		}
 
 		/* If it's not a grapheme boundary, it's not a line break either */
-		if attrs[i].IsCursorPosition ||
+		if attrs[i].IsCursorPosition() ||
 			breakType == unicodedata.BreakEM ||
 			breakType == unicodedata.BreakZWJ ||
 			breakType == unicodedata.BreakCM ||
@@ -734,11 +734,11 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 				}
 			}
 
-			attrs[i].IsLineBreak = true /* Rule LB31 */
+			attrs[i].SetLineBreak(true /* Rule LB31 */)
 			/* Unicode doesn't specify char wrap;
 			   we wrap around all chars currently. */
-			if attrs[i].IsCursorPosition {
-				attrs[i].IsCharBreak = true
+			if attrs[i].IsCursorPosition() {
+				attrs[i].SetCharBreak(true)
 			}
 			/* Make any necessary replacements first */
 			if rowBreakType == unicodedata.BreakXX {
@@ -1021,21 +1021,21 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 					wc != '\n') ||
 				prevBreakType == unicodedata.BreakLF ||
 				prevBreakType == unicodedata.BreakNL {
-				attrs[i].IsMandatoryBreak = true
+				attrs[i].SetMandatoryBreak(true)
 				breakOp = break_ALLOWED
 			}
 
 			switch breakOp {
 			case break_PROHIBITED:
 				/* can't break here */
-				attrs[i].IsLineBreak = false
+				attrs[i].SetLineBreak(false)
 			case break_IF_SPACES:
 				/* break if prev char was space */
 				if prevBreakType != unicodedata.BreakSP {
-					attrs[i].IsLineBreak = false
+					attrs[i].SetLineBreak(false)
 				}
 			case break_ALLOWED:
-				attrs[i].IsLineBreak = true
+				attrs[i].SetLineBreak(true)
 			case break_ALREADY_HANDLED:
 			}
 
@@ -1085,8 +1085,8 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 		/* ---- Word breaks ---- */
 
 		/* default to not a word start/end */
-		attrs[i].IsWordStart = false
-		attrs[i].IsWordEnd = false
+		attrs[i].SetWordStart(false)
+		attrs[i].SetWordEnd(false)
 
 		if currentWordType != wordNone {
 			/* Check for a word end */
@@ -1107,7 +1107,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 								!_JAPANESE(wc)) ||
 							(!_JAPANESE(lastWordLetter) &&
 								_JAPANESE(wc)) {
-							attrs[i].IsWordEnd = true
+							attrs[i].SetWordEnd(true)
 						}
 					}
 				}
@@ -1116,7 +1116,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 				lastWordLetter = wc
 			default:
 				/* Punctuation, control/format chars, etc. all end a word. */
-				attrs[i].IsWordEnd = true
+				attrs[i].SetWordEnd(true)
 				currentWordType = wordNone
 			}
 		} else {
@@ -1125,11 +1125,11 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 			case unicode.Ll, unicode.Lm, unicode.Lo, unicode.Lt, unicode.Lu:
 				currentWordType = wordLetters
 				lastWordLetter = wc
-				attrs[i].IsWordStart = true
+				attrs[i].SetWordStart(true)
 			case unicode.Nd, unicode.Nl, unicode.No:
 				currentWordType = wordNumbers
 				lastWordLetter = wc
-				attrs[i].IsWordStart = true
+				attrs[i].SetWordStart(true)
 			default:
 				/* No word here */
 			}
@@ -1139,22 +1139,22 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 		{
 
 			/* default to not a sentence start/end */
-			attrs[i].IsSentenceStart = false
-			attrs[i].IsSentenceEnd = false
+			attrs[i].SetSentenceStart(false)
+			attrs[i].SetSentenceEnd(false)
 
 			/* maybe start sentence */
 			if lastSentenceStart == -1 && !isSentenceBoundary {
 				lastSentenceStart = i - 1
 			}
 			/* remember last non space character position */
-			if i > 0 && !attrs[i-1].IsWhite {
+			if i > 0 && !attrs[i-1].IsWhite() {
 				lastNonSpace = i
 			}
 			/* meets sentence end, mark both sentence start and end */
 			if lastSentenceStart != -1 && isSentenceBoundary {
 				if lastNonSpace != -1 {
-					attrs[lastSentenceStart].IsSentenceStart = true
-					attrs[lastNonSpace].IsSentenceEnd = true
+					attrs[lastSentenceStart].SetSentenceStart(true)
+					attrs[lastNonSpace].SetSentenceEnd(true)
 				}
 
 				lastSentenceStart = -1
@@ -1164,7 +1164,7 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 			/* meets space character, move sentence start */
 			if lastSentenceStart != -1 &&
 				lastSentenceStart == i-1 &&
-				attrs[i-1].IsWhite {
+				attrs[i-1].IsWhite() {
 				lastSentenceStart++
 			}
 		}
@@ -1180,13 +1180,13 @@ func pangoDefaultBreak(text []rune) []PangoLogAttr {
 	}
 	i--
 
-	attrs[i].IsCursorPosition = true /* Rule GB2 */
-	attrs[0].IsCursorPosition = true /* Rule GB1 */
+	attrs[i].SetCursorPosition(true /* Rule GB2 */)
+	attrs[0].SetCursorPosition(true) /* Rule GB1 */
 
-	attrs[i].IsWordBoundary = true /* Rule WB2 */
-	attrs[0].IsWordBoundary = true /* Rule WB1 */
+	attrs[i].SetWordBoundary(true /* Rule WB2 */)
+	attrs[0].SetWordBoundary(true) /* Rule WB1 */
 
-	attrs[i].IsLineBreak = true  /* Rule LB3 */
-	attrs[0].IsLineBreak = false /* Rule LB2 */
+	attrs[i].SetLineBreak(true /* Rule LB3 */)
+	attrs[0].SetLineBreak(false) /* Rule LB2 */
 	return attrs
 }

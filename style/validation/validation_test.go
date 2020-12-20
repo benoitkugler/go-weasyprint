@@ -612,7 +612,7 @@ func TestLinearGradient(t *testing.T) {
 			colors = []pr.Color{blue}
 		}
 		if stopPositions == nil {
-			stopPositions = []pr.Dimension{pr.Dimension{}}
+			stopPositions = []pr.Dimension{{}}
 		}
 		colorStops := make([]pr.ColorStop, len(colors))
 		for i, s := range stopPositions {
@@ -643,23 +643,23 @@ func TestLinearGradient(t *testing.T) {
 
 	capt := utils.CaptureLogs()
 	gradient(t, "blue", pr.DirectionType{Angle: pi}, nil, nil)
-	gradient(t, "red", pr.DirectionType{Angle: pi}, []pr.Color{red}, []pr.Dimension{pr.Dimension{}})
+	gradient(t, "red", pr.DirectionType{Angle: pi}, []pr.Color{red}, []pr.Dimension{{}})
 	gradient(t, "blue 1%, lime,red 2em ", pr.DirectionType{Angle: pi},
-		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, pr.Dimension{}, {Value: 2, Unit: pr.Em}})
+		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, {}, {Value: 2, Unit: pr.Em}})
 
 	gradient(t, "18deg, blue", pr.DirectionType{Angle: pi / 10}, nil, nil)
 	gradient(t, "4rad, blue", pr.DirectionType{Angle: 4}, nil, nil)
 	gradient(t, ".25turn, blue", pr.DirectionType{Angle: pi / 2}, nil, nil)
 	gradient(t, "100grad, blue", pr.DirectionType{Angle: pi / 2}, nil, nil)
 	gradient(t, "12rad, blue 1%, lime,red 2em ", pr.DirectionType{Angle: 12},
-		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, pr.Dimension{}, {Value: 2, Unit: pr.Em}})
+		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, {}, {Value: 2, Unit: pr.Em}})
 
 	gradient(t, "to top, blue", pr.DirectionType{Angle: 0}, nil, nil)
 	gradient(t, "to right, blue", pr.DirectionType{Angle: pi / 2}, nil, nil)
 	gradient(t, "to bottom, blue", pr.DirectionType{Angle: pi}, nil, nil)
 	gradient(t, "to left, blue", pr.DirectionType{Angle: pi * 3 / 2}, nil, nil)
 	gradient(t, "to right, blue 1%, lime,red 2em ", pr.DirectionType{Angle: pi / 2},
-		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, pr.Dimension{}, {Value: 2, Unit: pr.Em}})
+		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, {}, {Value: 2, Unit: pr.Em}})
 
 	gradient(t, "to top left, blue", pr.DirectionType{Corner: "top_left"}, nil, nil)
 	gradient(t, "to left top, blue", pr.DirectionType{Corner: "top_left"}, nil, nil)
@@ -693,7 +693,7 @@ func TestRadialGradient(t *testing.T) {
 			colors = []pr.Color{blue}
 		}
 		if stopPositions == nil {
-			stopPositions = []pr.Dimension{pr.Dimension{}}
+			stopPositions = []pr.Dimension{{}}
 		}
 		colorStops := make([]pr.ColorStop, len(colors))
 		for i, s := range stopPositions {
@@ -743,7 +743,7 @@ func TestRadialGradient(t *testing.T) {
 	gradient(t, "red", "", pr.GradientSize{}, pr.Center{}, []pr.Color{red}, nil)
 	gradient(t, "blue 1%, lime,red 2em ", "", pr.GradientSize{}, pr.Center{},
 		[]pr.Color{blue, lime, red},
-		[]pr.Dimension{{Value: 1, Unit: pr.Percentage}, pr.Dimension{}, {Value: 2, Unit: pr.Em}})
+		[]pr.Dimension{{Value: 1, Unit: pr.Percentage}, {}, {Value: 2, Unit: pr.Em}})
 	gradient(t, "circle, blue", "circle", pr.GradientSize{}, pr.Center{}, nil, nil)
 	gradient(t, "ellipse, blue", "ellipse", pr.GradientSize{}, pr.Center{}, nil, nil)
 
