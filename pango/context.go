@@ -33,12 +33,12 @@ type Context struct {
 
 	//    PangoLanguage *set_language;
 	//    PangoLanguage *language;
-	//    PangoDirection base_dir;
+	base_dir Direction
 	//    PangoGravity base_gravity;
 	//    PangoGravity resolved_gravity;
 	//    PangoGravityHint gravity_hint;
 
-	//    PangoFontDescription *font_desc;
+	font_desc FontDescription
 
 	//    PangoMatrix *matrix;
 
@@ -1815,9 +1815,11 @@ type Context struct {
 // is only useful when implementing objects that need update when their
 // #Context changes, like Layout.
 func (context *Context) pango_context_get_serial() uint {
-	check_fontmap_changed(context)
+	context.check_fontmap_changed()
 	return context.serial
 }
+
+func (context *Context) check_fontmap_changed() {} // TODO:
 
 //  /**
 //  // pango_context_set_round_glyph_positions:

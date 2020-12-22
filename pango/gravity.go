@@ -20,3 +20,14 @@ const (
 	PANGO_GRAVITY_WEST                 // Glyphs are rotated 90 degrees counter-clockwise
 	PANGO_GRAVITY_AUTO                 // Gravity is resolved from the context matrix
 )
+
+var gravity_map = [...]string{
+	// PANGO_GRAVITY_SOUTH: "Not-Rotated" ,
+	PANGO_GRAVITY_SOUTH: "South",
+	// PANGO_GRAVITY_NORTH: "Upside-Down" ,
+	PANGO_GRAVITY_NORTH: "North",
+	// PANGO_GRAVITY_EAST:  "Rotated-Left" ,
+	PANGO_GRAVITY_EAST: "East",
+	// PANGO_GRAVITY_WEST:  "Rotated-Right" ,
+	PANGO_GRAVITY_WEST: "West",
+}

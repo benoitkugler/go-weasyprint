@@ -53,7 +53,7 @@ type Layout struct {
 	/* Referenced items */
 	context   *Context
 	attrs     AttrList
-	font_desc *PangoFontDescription
+	font_desc *FontDescription
 	tabs      *TabArray
 
 	/* Dupped */
@@ -73,7 +73,7 @@ type Layout struct {
 	justify              uint // = 1;
 	alignment            uint // = 2;
 	single_paragraph     bool // = 1;
-	auto_dir             uint // = 1;
+	auto_dir             bool // = 1;
 	wrap                 uint // = 2;		/* PangoWrapMode */
 	is_wrapped           bool // = 1;		/* Whether the layout has any wrapped lines */
 	ellipsize            uint // = 2;		/* PangoEllipsizeMode */
@@ -202,197 +202,222 @@ func (layout *Layout) pango_layout_set_tabs(tabs *TabArray) {
  *               but will become invalid if changes are made to the
  *               #Layout.  No changes should be made to the line.
  **/
-func (layout *Layout) pango_layout_get_line_readonly(line int) *LayoutLine {
-	GSList * list_item
+// func (layout *Layout) pango_layout_get_line_readonly(line int) *LayoutLine {
+// 	GSList * list_item
 
-	if line < 0 {
-		return nil
+// 	if line < 0 {
+// 		return nil
+// 	}
+
+// 	layout.pango_layout_check_lines()
+
+// 	list_item = g_slist_nth(layout.lines, line)
+
+// 	if list_item {
+// 		LayoutLine * line = list_item.data
+// 		return line
+// 	}
+
+// 	return nil
+// }
+
+func affects_break_or_shape(attr Attr) bool {
+	switch attr.Type {
+	/* Affects breaks */
+	case ATTR_ALLOW_BREAKS:
+		return true
+	/* Affects shaping */
+	case ATTR_INSERT_HYPHENS, ATTR_FONT_FEATURES, ATTR_SHOW:
+		return true
+	default:
+		return false
 	}
-
-	layout.pango_layout_check_lines()
-
-	list_item = g_slist_nth(layout.lines, line)
-
-	if list_item {
-		LayoutLine * line = list_item.data
-		return line
-	}
-
-	return nil
 }
 
-func (layout *Layout) pango_layout_check_lines() {
-	//    const char *start;
-	//    gboolean done = false;
-	//    int start_offset;
-	//    PangoAttrList *attrs;
-	//    PangoAttrList *itemize_attrs;
-	//    PangoAttrList *shape_attrs;
-	//    PangoAttrIterator iter;
-	//    PangoDirection prev_base_dir = PANGO_DIRECTION_NEUTRAL, base_dir = PANGO_DIRECTION_NEUTRAL;
-	//    ParaBreakState state;
-
-	layout.check_context_changed()
-
-	if len(layout.lines) != 0 {
-		return
+func affects_itemization(attr Attr) bool {
+	switch attr.Type {
+	/* These affect font selection */
+	case ATTR_LANGUAGE, ATTR_FAMILY, ATTR_STYLE, ATTR_WEIGHT, ATTR_VARIANT, ATTR_STRETCH, ATTR_SIZE, ATTR_FONT_DESC, ATTR_SCALE, ATTR_FALLBACK, ATTR_ABSOLUTE_SIZE, ATTR_GRAVITY, ATTR_GRAVITY_HINT:
+		return true
+	/* These need to be constant across runs */
+	case ATTR_LETTER_SPACING, ATTR_SHAPE, ATTR_RISE:
+		return true
+	default:
+		return false
 	}
-
-	// g_assert(!layout.log_attrs)
-
-	/* For simplicity, we make sure at this point that layout.text
-	* is non-nil even if it is zero length
-	 */
-	if len(layout.text) == 0 {
-		layout.SetText("")
-	}
-
-	attrs = pango_layout_get_effective_attributes(layout)
-	if attrs {
-		shape_attrs = pango_attr_list_filter(attrs, affects_break_or_shape, nil)
-		itemize_attrs = pango_attr_list_filter(attrs, affects_itemization, nil)
-
-		if itemize_attrs {
-			_pango_attr_list_get_iterator(itemize_attrs, &iter)
-		}
-	} else {
-		shape_attrs = nil
-		itemize_attrs = nil
-	}
-
-	layout.log_attrs = g_new(PangoLogAttr, layout.n_chars+1)
-
-	start_offset = 0
-	start = layout.text
-
-	/* Find the first strong direction of the text */
-	if layout.auto_dir {
-		prev_base_dir = pango_find_base_dir(layout.text, layout.length)
-		if prev_base_dir == PANGO_DIRECTION_NEUTRAL {
-			prev_base_dir = pango_context_get_base_dir(layout.context)
-		}
-	} else {
-		base_dir = pango_context_get_base_dir(layout.context)
-	}
-
-	/* these are only used if layout.height >= 0 */
-	state.remaining_height = layout.height
-	state.line_height = -1
-	if layout.height >= 0 {
-		var logical PangoRectangle
-		pango_layout_get_empty_extents_at_index(layout, 0, &logical)
-		state.line_height = logical.height
-	}
-
-	done := false
-	for !done {
-		//    int delim_len;
-		//    const char *end;
-		//    int delimiter_index, next_para_index;
-
-		if layout.single_paragraph {
-			delimiter_index = layout.length
-			next_para_index = layout.length
-		} else {
-			pango_find_paragraph_boundary(start,
-				(layout.text+layout.length)-start,
-				&delimiter_index,
-				&next_para_index)
-		}
-
-		g_assert(next_para_index >= delimiter_index)
-
-		if layout.auto_dir {
-			base_dir = pango_find_base_dir(start, delimiter_index)
-
-			/* Propagate the base direction for neutral paragraphs */
-			if base_dir == PANGO_DIRECTION_NEUTRAL {
-				base_dir = prev_base_dir
-			} else {
-				prev_base_dir = base_dir
-			}
-		}
-
-		end = start + delimiter_index
-
-		delim_len = next_para_index - delimiter_index
-
-		if end == (layout.text + layout.length) {
-			done = true
-		}
-
-		g_assert(end <= (layout.text + layout.length))
-		g_assert(start <= (layout.text + layout.length))
-		g_assert(delim_len < 4) /* PS is 3 bytes */
-		g_assert(delim_len >= 0)
-
-		state.attrs = itemize_attrs
-		var iterPointer interface{}
-		if itemize_attrs {
-			iterPointer = &iter
-		}
-		state.items = pango_itemize_with_base_dir(layout.context,
-			base_dir,
-			layout.text,
-			start-layout.text,
-			end-start,
-			itemize_attrs, iterPointer)
-
-		apply_attributes_to_items(state.items, shape_attrs)
-
-		get_items_log_attrs(layout.text,
-			start-layout.text,
-			delimiter_index+delim_len,
-			state.items,
-			layout.log_attrs+start_offset,
-			layout.n_chars+1-start_offset)
-
-		state.base_dir = base_dir
-		state.line_of_par = 1
-		state.start_offset = start_offset
-		state.line_start_offset = start_offset
-		state.line_start_index = start - layout.text
-
-		state.glyphs = nil
-		state.log_widths = nil
-		state.need_hyphen = nil
-
-		/* for deterministic bug hunting's sake set everything! */
-		state.line_width = -1
-		state.remaining_width = -1
-		state.log_widths_offset = 0
-
-		state.hyphen_width = -1
-
-		if state.items {
-			for state.items {
-				process_line(layout, &state)
-			}
-		} else {
-			LayoutLine * empty_line
-
-			empty_line = pango_layout_line_new(layout)
-			empty_line.start_index = state.line_start_index
-			empty_line.is_paragraph_start = true
-			line_set_resolved_dir(empty_line, base_dir)
-
-			add_line(empty_line, &state)
-		}
-
-		if layout.height >= 0 && state.remaining_height < state.line_height {
-			done = true
-		}
-
-		if !done {
-			start_offset += pango_utf8_strlen(start, (end-start)+delim_len)
-		}
-
-		start = end + delim_len
-	}
-
-	apply_attributes_to_runs(layout, attrs)
-	layout.lines = g_slist_reverse(layout.lines)
 }
+
+// func (layout *Layout) pango_layout_check_lines() {
+// 	//    const char *start;
+// 	//    gboolean done = false;
+// 	//    int start_offset;
+// 	//    PangoAttrList *itemize_attrs;
+// 	//    PangoAttrList *shape_attrs;
+// 	//    PangoAttrIterator iter;
+// 	//    PangoDirection prev_base_dir = PANGO_DIRECTION_NEUTRAL, base_dir = PANGO_DIRECTION_NEUTRAL;
+// 	//    ParaBreakState state;
+
+// 	layout.check_context_changed()
+
+// 	if len(layout.lines) != 0 {
+// 		return
+// 	}
+
+// 	// g_assert(!layout.log_attrs)
+
+// 	/* For simplicity, we make sure at this point that layout.text
+// 	* is non-nil even if it is zero length
+// 	 */
+// 	if len(layout.text) == 0 {
+// 		layout.SetText("")
+// 	}
+
+// 	attrs := layout.pango_layout_get_effective_attributes()
+// 	var shape_attrs, itemize_attrs AttrList
+// 	if len(attrs) != 0 {
+// 		shape_attrs = attrs.pango_attr_list_filter(affects_break_or_shape)
+// 		itemize_attrs = attrs.pango_attr_list_filter(affects_itemization)
+// 		// shape_attrs = attr_list_filter(attrs, affects_break_or_shape, nil)
+// 		// itemize_attrs = attr_list_filter(attrs, affects_itemization, nil)
+
+// 		if len(itemize_attrs) != 0 {
+// 			_attr_list_get_iterator(itemize_attrs, &iter)
+// 		}
+// 	}
+
+// 	layout.log_attrs = make([]CharAttr, layout.n_chars+1)
+
+// 	start_offset := 0
+// 	start := layout.text
+
+// 	/* Find the first strong direction of the text */
+// 	if layout.auto_dir {
+// 		prev_base_dir = pango_find_base_dir(layout.text, layout.length)
+// 		if prev_base_dir == PANGO_DIRECTION_NEUTRAL {
+// 			prev_base_dir = layout.context.base_dir
+// 		}
+// 	} else {
+// 		base_dir = layout.context.base_dir
+// 	}
+
+// 	/* these are only used if layout.height >= 0 */
+// 	state.remaining_height = layout.height
+// 	state.line_height = -1
+// 	if layout.height >= 0 {
+// 		var logical PangoRectangle
+// 		pango_layout_get_empty_extents_at_index(layout, 0, &logical)
+// 		state.line_height = logical.height
+// 	}
+
+// 	done := false
+// 	for !done {
+// 		//    int delim_len;
+// 		//    const char *end;
+// 		//    int delimiter_index, next_para_index;
+
+// 		if layout.single_paragraph {
+// 			delimiter_index = layout.length
+// 			next_para_index = layout.length
+// 		} else {
+// 			pango_find_paragraph_boundary(start,
+// 				(layout.text+layout.length)-start,
+// 				&delimiter_index,
+// 				&next_para_index)
+// 		}
+
+// 		g_assert(next_para_index >= delimiter_index)
+
+// 		if layout.auto_dir {
+// 			base_dir = pango_find_base_dir(start, delimiter_index)
+
+// 			/* Propagate the base direction for neutral paragraphs */
+// 			if base_dir == PANGO_DIRECTION_NEUTRAL {
+// 				base_dir = prev_base_dir
+// 			} else {
+// 				prev_base_dir = base_dir
+// 			}
+// 		}
+
+// 		end = start + delimiter_index
+
+// 		delim_len = next_para_index - delimiter_index
+
+// 		if end == (layout.text + layout.length) {
+// 			done = true
+// 		}
+
+// 		g_assert(end <= (layout.text + layout.length))
+// 		g_assert(start <= (layout.text + layout.length))
+// 		g_assert(delim_len < 4) /* PS is 3 bytes */
+// 		g_assert(delim_len >= 0)
+
+// 		state.attrs = itemize_attrs
+// 		var iterPointer interface{}
+// 		if itemize_attrs {
+// 			iterPointer = &iter
+// 		}
+// 		state.items = pango_itemize_with_base_dir(layout.context,
+// 			base_dir,
+// 			layout.text,
+// 			start-layout.text,
+// 			end-start,
+// 			itemize_attrs, iterPointer)
+
+// 		apply_attributes_to_items(state.items, shape_attrs)
+
+// 		get_items_log_attrs(layout.text,
+// 			start-layout.text,
+// 			delimiter_index+delim_len,
+// 			state.items,
+// 			layout.log_attrs+start_offset,
+// 			layout.n_chars+1-start_offset)
+
+// 		state.base_dir = base_dir
+// 		state.line_of_par = 1
+// 		state.start_offset = start_offset
+// 		state.line_start_offset = start_offset
+// 		state.line_start_index = start - layout.text
+
+// 		state.glyphs = nil
+// 		state.log_widths = nil
+// 		state.need_hyphen = nil
+
+// 		/* for deterministic bug hunting's sake set everything! */
+// 		state.line_width = -1
+// 		state.remaining_width = -1
+// 		state.log_widths_offset = 0
+
+// 		state.hyphen_width = -1
+
+// 		if state.items {
+// 			for state.items {
+// 				process_line(layout, &state)
+// 			}
+// 		} else {
+// 			LayoutLine * empty_line
+
+// 			empty_line = pango_layout_line_new(layout)
+// 			empty_line.start_index = state.line_start_index
+// 			empty_line.is_paragraph_start = true
+// 			line_set_resolved_dir(empty_line, base_dir)
+
+// 			add_line(empty_line, &state)
+// 		}
+
+// 		if layout.height >= 0 && state.remaining_height < state.line_height {
+// 			done = true
+// 		}
+
+// 		if !done {
+// 			start_offset += pango_utf8_strlen(start, (end-start)+delim_len)
+// 		}
+
+// 		start = end + delim_len
+// 	}
+
+// 	apply_attributes_to_runs(layout, attrs)
+// 	layout.lines = g_slist_reverse(layout.lines)
+// }
 
 func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 	var attrs AttrList
@@ -402,21 +427,78 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 	}
 
 	if layout.font_desc != nil {
-		attr := pango_attr_font_desc_new(layout.font_desc)
+		attr := pango_attr_font_desc_new(*layout.font_desc)
 		attrs.pango_attr_list_insert_before(attr)
 	}
 
 	if layout.single_paragraph {
-		PangoAttribute * attr = pango_attr_show_new(PANGO_SHOW_LINE_BREAKS)
-
-		if !attrs {
-			attrs = pango_attr_list_new()
-		}
-
-		pango_attr_list_insert_before(attrs, attr)
+		attr := pango_attr_show_new(PANGO_SHOW_LINE_BREAKS)
+		attrs.pango_attr_list_insert_before(attr)
 	}
 
 	return attrs
+}
+
+func (layout *Layout) pango_layout_get_empty_extents_at_index(index uint32, logical_rect *Rectangle) {
+	if logical_rect == nil {
+		return
+	}
+
+	font_desc := layout.context.font_desc // copy
+
+	if layout.font_desc != nil {
+		font_desc.pango_font_description_merge(layout.font_desc, true)
+	}
+
+	// TODO:
+	// // Find the font description for this line
+	// if len(layout.attrs) != 0 {
+
+	// 	iter := layout.attrs.pango_attr_list_get_iterator()
+	// 	hasNext := true // do ... while
+	// 	for hasNext {
+	// 		start, end := iter.StartIndex, iter.EndIndex
+
+	// 		if start <= index && index < end {
+	// 			iter.pango_attr_iterator_get_font(&font_desc, nil)
+
+	// 			break
+	// 		}
+
+	// 		hasNext = iter.pango_attr_iterator_next()
+	// 	}
+
+	// 	_pango_attr_iterator_destroy(&iter)
+	// }
+
+	// font = pango_context_load_font(layout.context, font_desc)
+	// if font {
+	// 	PangoFontMetrics * metrics
+
+	// 	metrics = pango_font_get_metrics(font,
+	// 		pango_context_get_language(layout.context))
+
+	// 	if metrics {
+	// 		logical_rect.y = -pango_font_metrics_get_ascent(metrics)
+	// 		logical_rect.height = -logical_rect.y + pango_font_metrics_get_descent(metrics)
+
+	// 		pango_font_metrics_unref(metrics)
+	// 	} else {
+	// 		logical_rect.y = 0
+	// 		logical_rect.height = 0
+	// 	}
+	// 	g_object_unref(font)
+	// } else {
+	// 	logical_rect.y = 0
+	// 	logical_rect.height = 0
+	// }
+
+	// if free_font_desc {
+	// 	pango_font_description_free(font_desc)
+	// }
+
+	logical_rect.x = 0
+	logical_rect.width = 0
 }
 
 // /**
@@ -603,7 +685,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 g_object_unref (layout.context);
 
 //    if (layout.attrs)
-// 	 pango_attr_list_unref (layout.attrs);
+// 	 attr_list_unref (layout.attrs);
 
 //    g_free (layout.text);
 
@@ -666,7 +748,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    layout = pango_layout_new (src.context);
 //    if (src.attrs)
-// 	 layout.attrs = pango_attr_list_copy (src.attrs);
+// 	 layout.attrs = attr_list_copy (src.attrs);
 //    if (src.font_desc)
 // 	 layout.font_desc = pango_font_description_copy (src.font_desc);
 //    if (src.tabs)
@@ -1563,7 +1645,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    pango_layout_set_text (layout, text, -1);
 //    pango_layout_set_attributes (layout, list);
-//    pango_attr_list_unref (list);
+//    attr_list_unref (list);
 //    g_free (text);
 //  }
 
@@ -1577,7 +1659,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //   *
 //   * This function can be used to determine if there are any fonts
 //   * available to render all characters in a certain string, or when
-//   * used in combination with %PANGO_ATTR_FALLBACK, to check if a
+//   * used in combination with %ATTR_FALLBACK, to check if a
 //   * certain font supports all the characters in the string.
 //   *
 //   * Return value: The number of unknown glyphs in @layout.
@@ -1601,12 +1683,12 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	   return layout.unknown_glyphs_count;
 
 // 	 lines_list = layout.lines;
-// 	 while (lines_list)
+// 	 for (lines_list)
 // 	   {
 // 	 line = lines_list.data;
 // 	 runs_list = line.runs;
 
-// 	 while (runs_list)
+// 	 for (runs_list)
 // 	   {
 // 		 run = runs_list.data;
 
@@ -1762,7 +1844,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    if (layout.lines)
 // 	 {
 // 	   GSList *tmp_list = layout.lines;
-// 	   while (tmp_list)
+// 	   for (tmp_list)
 // 	 {
 // 	   LayoutLine *line = tmp_list.data;
 // 	   tmp_list = tmp_list.next;
@@ -1863,7 +1945,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    GSList *run_list = line.runs;
 //    int width = 0;
 
-//    while (run_list)
+//    for (run_list)
 // 	 {
 // 	   GlyphItem *run = run_list.data;
 
@@ -1872,7 +1954,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	   int offset = g_utf8_pointer_to_offset (layout.text, layout.text + index);
 // 	   if (trailing)
 // 		 {
-// 		   while (index < line.start_index + line.length &&
+// 		   for (index < line.start_index + line.length &&
 // 			  offset + 1 < layout.n_chars &&
 // 			  !layout.log_attrs[offset + 1].is_cursor_position)
 // 		 {
@@ -1882,7 +1964,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		 }
 // 	   else
 // 		 {
-// 		   while (index > line.start_index &&
+// 		   for (index > line.start_index &&
 // 			  !layout.log_attrs[offset].is_cursor_position)
 // 		 {
 // 		   offset--;
@@ -1925,7 +2007,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    int i = -1;
 
 //    line_list = tmp_list = layout.lines;
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   LayoutLine *tmp_line = tmp_list.data;
 
@@ -1966,7 +2048,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    _pango_layout_get_iter (layout, &iter);
 
 //    if (!ITER_IS_INVALID (&iter))
-// 	 while (true)
+// 	 for (true)
 // 	   {
 // 	 LayoutLine *tmp_line = _pango_layout_iter_get_line (&iter);
 
@@ -2121,7 +2203,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    start_offset = g_utf8_pointer_to_offset (layout.text, layout.text + line.start_index);
 
-//    while (old_trailing--)
+//    for (old_trailing--)
 // 	 old_index = g_utf8_next_char (layout.text + old_index) - layout.text;
 
 //    log2vis_map = pango_layout_line_get_log2vis_map (line, strong);
@@ -2210,7 +2292,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 						layout.text + line.start_index + vis2log_map[vis_pos]);
 // 	   vis_pos_old = vis_pos;
 // 	 }
-//    while (vis_pos > 0 && vis_pos < n_vis &&
+//    for (vis_pos > 0 && vis_pos < n_vis &&
 // 	  !layout.log_attrs[start_offset + log_pos].is_cursor_position);
 
 //    *new_index = line.start_index + vis2log_map[vis_pos];
@@ -2226,7 +2308,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	   *new_index = g_utf8_prev_char (layout.text + *new_index) - layout.text;
 // 	   (*new_trailing)++;
 // 	 }
-// 	   while (log_pos > 0 && !layout.log_attrs[start_offset + log_pos].is_cursor_position);
+// 	   for (log_pos > 0 && !layout.log_attrs[start_offset + log_pos].is_cursor_position);
 // 	 }
 //  }
 
@@ -2314,7 +2396,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	   if (found != nil)
 // 	 break;
 // 	 }
-//    while (pango_layout_iter_next_line (&iter));
+//    for (pango_layout_iter_next_line (&iter));
 
 //    _pango_layout_iter_destroy (&iter);
 
@@ -2368,7 +2450,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    if (!ITER_IS_INVALID (&iter))
 // 	 {
-// 	   while (true)
+// 	   for (true)
 // 	 {
 // 	   LayoutLine *tmp_line = _pango_layout_iter_get_line (&iter);
 
@@ -2463,7 +2545,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    prev_dir = line.resolved_dir;
 //    pos = 0;
 //    tmp_list = line.runs;
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   GlyphItem *run = tmp_list.data;
 // 	   int run_n_chars = run.item.num_chars;
@@ -2553,7 +2635,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    GSList *run_list;
 
 //    run_list = layout_line.runs;
-//    while (run_list)
+//    for (run_list)
 // 	 {
 // 	   GlyphItem *run = run_list.data;
 
@@ -2897,7 +2979,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		* looping through the lines for layout.auto_dir.
 // 		*/
 // 	   line_list = layout.lines;
-// 	   while (line_list && !need_width)
+// 	   for (line_list && !need_width)
 // 	 {
 // 	   LayoutLine *line = line_list.data;
 
@@ -2933,7 +3015,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    baseline = 0;
 //    line_list = layout.lines;
-//    while (line_list)
+//    for (line_list)
 // 	 {
 // 	   LayoutLine *line = line_list.data;
 // 	   /* Line extents in layout coords (origin at 0,0 of the layout) */
@@ -3253,31 +3335,31 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		 {
 // 		   PangoAttrIterator iter;
 
-// 		   _pango_attr_list_get_iterator (layout_attrs, &iter);
+// 		   _attr_list_get_iterator (layout_attrs, &iter);
 // 		   pango_attr_iterator_get_font (&iter, font_desc, &language, nil);
 // 		   _pango_attr_iterator_destroy (&iter);
 // 		 }
 
-// 	   _pango_attr_list_init (&tmp_attrs);
+// 	   _attr_list_init (&tmp_attrs);
 
-// 	   attr = pango_attr_font_desc_new (font_desc);
+// 	   attr = ATTR_font_desc_new (font_desc);
 // 	   pango_font_description_free (font_desc);
-// 	   pango_attr_list_insert_before (&tmp_attrs, attr);
+// 	   attr_list_insert_before (&tmp_attrs, attr);
 
 // 	   if (language)
 // 		 {
-// 		   attr = pango_attr_language_new (language);
-// 		   pango_attr_list_insert_before (&tmp_attrs, attr);
+// 		   attr = ATTR_language_new (language);
+// 		   attr_list_insert_before (&tmp_attrs, attr);
 // 		 }
 
 // 	   items = pango_itemize (layout.context, " ", 0, 1, &tmp_attrs, nil);
 
 // 	   if (layout_attrs != layout.attrs)
 // 		 {
-// 		   pango_attr_list_unref (layout_attrs);
+// 		   attr_list_unref (layout_attrs);
 // 		   layout_attrs = nil;
 // 		 }
-// 	   _pango_attr_list_destroy (&tmp_attrs);
+// 	   _attr_list_destroy (&tmp_attrs);
 
 // 	   item = items.data;
 // 	   pango_shape_with_flags ("        ", 8, "        ", 8, &item.analysis, glyphs, shape_flags);
@@ -3405,7 +3487,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 {
 // 	   PangoAttribute *attr = l.data;
 
-// 	   if (attr.klass.type == PANGO_ATTR_SHOW &&
+// 	   if (attr.klass.type == ATTR_SHOW &&
 // 		   (((PangoAttrInt*)attr).value & PANGO_SHOW_SPACES) != 0)
 // 		 return true;
 // 	 }
@@ -3649,14 +3731,14 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    PangoAttrIterator iter;
 //    GSList *l;
 
-//    _pango_attr_list_init (&attrs);
+//    _attr_list_init (&attrs);
 //    for (l = item.analysis.extra_attrs; l; l = l.next)
 // 	 {
 // 	   PangoAttribute *attr = l.data;
-// 	   if (attr.klass.type == PANGO_ATTR_INSERT_HYPHENS)
-// 		 pango_attr_list_change (&attrs, pango_attribute_copy (attr));
+// 	   if (attr.klass.type == ATTR_INSERT_HYPHENS)
+// 		 attr_list_change (&attrs, ATTRibute_copy (attr));
 // 	 }
-//    _pango_attr_list_get_iterator (&attrs, &iter);
+//    _attr_list_get_iterator (&attrs, &iter);
 
 //    for (i = 0, p = text + item.offset; i < item.num_chars; i++, p = g_utf8_next_char (p))
 // 	 {
@@ -3671,12 +3753,12 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		 pango_attr_iterator_range (&iter, &start, &end);
 // 		 if (end > pos)
 // 		   break;
-// 	   } while (pango_attr_iterator_next (&iter));
+// 	   } for (pango_attr_iterator_next (&iter));
 
 // 	   if (start <= pos && pos < end)
 // 		 {
 // 		   PangoAttribute *attr;
-// 		   attr = pango_attr_iterator_get (&iter, PANGO_ATTR_INSERT_HYPHENS);
+// 		   attr = pango_attr_iterator_get (&iter, ATTR_INSERT_HYPHENS);
 // 		   if (attr)
 // 			 insert_hyphens = ((PangoAttrInt*)attr).value;
 
@@ -3742,7 +3824,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 }
 
 //    _pango_attr_iterator_destroy (&iter);
-//    _pango_attr_list_destroy (&attrs);
+//    _attr_list_destroy (&attrs);
 //  }
 
 //  static gboolean
@@ -3815,7 +3897,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		where);
 //  }
 //  #else
-//  # define DEBUG(where, line, state) do { } while (0)
+//  # define DEBUG(where, line, state) do { } for (0)
 //  #endif
 
 //  /* Tries to insert as much as possible of the item at the head of
@@ -4164,7 +4246,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 state.remaining_width = state.line_width;
 //    DEBUG ("starting to fill line", line, state);
 
-//    while (state.items)
+//    for (state.items)
 // 	 {
 // 	   PangoItem *item = state.items.data;
 // 	   BreakResult result;
@@ -4205,7 +4287,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 // 	 case BREAK_NONE_FIT:
 // 	   /* Back up over unused runs to run where there is a break */
-// 	   while (line.runs && line.runs != break_link)
+// 	   for (line.runs && line.runs != break_link)
 // 		 state.items = g_list_prepend (state.items, uninsert_run (line));
 
 // 	   state.start_offset = break_start_offset;
@@ -4271,54 +4353,6 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 }
 //  }
 
-//  static gboolean
-//  affects_itemization (PangoAttribute *attr,
-// 					  gpointer        data)
-//  {
-//    switch (attr.klass.type)
-// 	 {
-// 	 /* These affect font selection */
-// 	 case PANGO_ATTR_LANGUAGE:
-// 	 case PANGO_ATTR_FAMILY:
-// 	 case PANGO_ATTR_STYLE:
-// 	 case PANGO_ATTR_WEIGHT:
-// 	 case PANGO_ATTR_VARIANT:
-// 	 case PANGO_ATTR_STRETCH:
-// 	 case PANGO_ATTR_SIZE:
-// 	 case PANGO_ATTR_FONT_DESC:
-// 	 case PANGO_ATTR_SCALE:
-// 	 case PANGO_ATTR_FALLBACK:
-// 	 case PANGO_ATTR_ABSOLUTE_SIZE:
-// 	 case PANGO_ATTR_GRAVITY:
-// 	 case PANGO_ATTR_GRAVITY_HINT:
-// 	 /* These need to be constant across runs */
-// 	 case PANGO_ATTR_LETTER_SPACING:
-// 	 case PANGO_ATTR_SHAPE:
-// 	 case PANGO_ATTR_RISE:
-// 	   return true;
-// 	 default:
-// 	   return false;
-// 	 }
-//  }
-
-//  static gboolean
-//  affects_break_or_shape (PangoAttribute *attr,
-// 						 gpointer        data)
-//  {
-//    switch (attr.klass.type)
-// 	 {
-// 	 /* Affects breaks */
-// 	 case PANGO_ATTR_ALLOW_BREAKS:
-// 	 /* Affects shaping */
-// 	 case PANGO_ATTR_INSERT_HYPHENS:
-// 	 case PANGO_ATTR_FONT_FEATURES:
-// 	 case PANGO_ATTR_SHOW:
-// 	   return true;
-// 	 default:
-// 	   return false;
-// 	 }
-//  }
-
 //  static void
 //  apply_attributes_to_items (GList         *items,
 // 							PangoAttrList *attrs)
@@ -4329,7 +4363,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    if (!attrs)
 // 	 return;
 
-//    _pango_attr_list_get_iterator (attrs, &iter);
+//    _attr_list_get_iterator (attrs, &iter);
 
 //    for (l = items; l; l = l.next)
 // 	 {
@@ -4404,11 +4438,11 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    attrs = pango_layout_get_effective_attributes (layout);
 //    if (attrs)
 // 	 {
-// 	   shape_attrs = pango_attr_list_filter (attrs, affects_break_or_shape, nil);
-// 	   itemize_attrs = pango_attr_list_filter (attrs, affects_itemization, nil);
+// 	   shape_attrs = attr_list_filter (attrs, affects_break_or_shape, nil);
+// 	   itemize_attrs = attr_list_filter (attrs, affects_itemization, nil);
 
 // 	   if (itemize_attrs)
-// 		 _pango_attr_list_get_iterator (itemize_attrs, &iter);
+// 		 _attr_list_get_iterator (itemize_attrs, &iter);
 // 	 }
 //    else
 // 	 {
@@ -4522,7 +4556,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 // 	   if (state.items)
 // 	 {
-// 	   while (state.items)
+// 	   for (state.items)
 // 		 process_line (layout, &state);
 // 	 }
 // 	   else
@@ -4545,19 +4579,19 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 // 	   start = end + delim_len;
 // 	 }
-//    while (!done);
+//    for (!done);
 
 //    apply_attributes_to_runs (layout, attrs);
 //    layout.lines = g_slist_reverse (layout.lines);
 
 //    if (itemize_attrs)
 // 	 {
-// 	   pango_attr_list_unref (itemize_attrs);
+// 	   attr_list_unref (itemize_attrs);
 // 	   _pango_attr_iterator_destroy (&iter);
 // 	 }
 
-//    pango_attr_list_unref (shape_attrs);
-//    pango_attr_list_unref (attrs);
+//    attr_list_unref (shape_attrs);
+//    attr_list_unref (attrs);
 //  }
 
 //  #pragma GCC diagnostic pop
@@ -4692,7 +4726,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	   last_offset--;
 // 	   last_trailing++;
 // 	 }
-//    while (last_offset > first_offset && !layout.log_attrs[last_offset].is_cursor_position);
+//    for (last_offset > first_offset && !layout.log_attrs[last_offset].is_cursor_position);
 
 //    /* This is a HACK. If a program only keeps track of cursor (etc)
 // 	* indices and not the trailing flag, then the trailing index of the
@@ -4719,7 +4753,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	* trailing cursors.
 // 	*/
 //    tmp_list = layout.lines;
-//    while (tmp_list.data != line)
+//    for (tmp_list.data != line)
 // 	 tmp_list = tmp_list.next;
 
 //    if (tmp_list.next &&
@@ -4741,7 +4775,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 }
 
 //    tmp_list = line.runs;
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   GlyphItem *run = tmp_list.data;
 // 	   int logical_width;
@@ -4772,7 +4806,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 // 	   grapheme_start_offset = offset;
 // 	   grapheme_start_index = char_index;
-// 	   while (grapheme_start_offset > first_offset &&
+// 	   for (grapheme_start_offset > first_offset &&
 // 		  !layout.log_attrs[grapheme_start_offset].is_cursor_position)
 // 		 {
 // 		   grapheme_start_index = g_utf8_prev_char (layout.text + grapheme_start_index) - layout.text;
@@ -4784,7 +4818,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		 {
 // 		   grapheme_end_offset++;
 // 		 }
-// 	   while (grapheme_end_offset < end_offset &&
+// 	   for (grapheme_end_offset < end_offset &&
 // 		  !layout.log_attrs[grapheme_end_offset].is_cursor_position);
 
 // 	   if (index)
@@ -4823,7 +4857,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    int width = 0;
 //    GSList *tmp_list = line.runs;
 
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   GlyphItem *run = tmp_list.data;
 
@@ -4925,7 +4959,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 }
 
 //    tmp_list = line.runs;
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   GlyphItem *run = (GlyphItem *)tmp_list.data;
 
@@ -4985,97 +5019,6 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    if (n_ranges)
 // 	 *n_ranges = range_count;
-//  }
-
-//  static void
-//  pango_layout_get_empty_extents_at_index (Layout    *layout,
-// 					  int             index,
-// 					  PangoRectangle *logical_rect)
-//  {
-//    if (logical_rect)
-// 	 {
-// 	   PangoFont *font;
-// 	   PangoFontDescription *font_desc = nil;
-// 	   gboolean free_font_desc = false;
-
-// 	   font_desc = pango_context_get_font_description (layout.context);
-
-// 	   if (layout.font_desc)
-// 		 {
-// 	   font_desc = pango_font_description_copy_static (font_desc);
-// 	   pango_font_description_merge (font_desc, layout.font_desc, true);
-// 	   free_font_desc = true;
-// 	 }
-
-// 	   /* Find the font description for this line
-// 		*/
-// 	   if (layout.attrs)
-// 	 {
-// 		   PangoAttrIterator iter;
-// 	   int start, end;
-
-// 		   _pango_attr_list_get_iterator (layout.attrs, &iter);
-
-// 	   do
-// 		 {
-// 			   pango_attr_iterator_range (&iter, &start, &end);
-
-// 		   if (start <= index && index < end)
-// 		 {
-// 		   if (!free_font_desc)
-// 			 {
-// 			   font_desc = pango_font_description_copy_static (font_desc);
-// 			   free_font_desc = true;
-// 			 }
-
-// 				   pango_attr_iterator_get_font (&iter,
-// 						 font_desc,
-// 						 nil,
-// 						 nil);
-
-// 		   break;
-// 		 }
-
-// 		 }
-// 		   while (pango_attr_iterator_next (&iter));
-
-// 		   _pango_attr_iterator_destroy (&iter);
-// 	 }
-
-// 	   font = pango_context_load_font (layout.context, font_desc);
-// 	   if (font)
-// 	 {
-// 	   PangoFontMetrics *metrics;
-
-// 	   metrics = pango_font_get_metrics (font,
-// 						 pango_context_get_language (layout.context));
-
-// 	   if (metrics)
-// 		 {
-// 		   logical_rect.y = - pango_font_metrics_get_ascent (metrics);
-// 		   logical_rect.height = - logical_rect.y + pango_font_metrics_get_descent (metrics);
-
-// 		   pango_font_metrics_unref (metrics);
-// 		 }
-// 	   else
-// 		 {
-// 		   logical_rect.y = 0;
-// 		   logical_rect.height = 0;
-// 		 }
-// 	   g_object_unref (font);
-// 	 }
-// 	   else
-// 	 {
-// 	   logical_rect.y = 0;
-// 	   logical_rect.height = 0;
-// 	 }
-
-// 	   if (free_font_desc)
-// 	 pango_font_description_free (font_desc);
-
-// 	   logical_rect.x = 0;
-// 	   logical_rect.width = 0;
-// 	 }
 //  }
 
 //  static void
@@ -5274,7 +5217,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 	 *height = 0;
 
 //    tmp_list = line.runs;
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   GlyphItem *run = tmp_list.data;
 // 	   int new_pos;
@@ -5547,7 +5490,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //  {
 //    int glyph = glyphs.num_glyphs - 1;
 
-//    while (glyph >= 0 && glyphs.glyphs[glyph].geometry.width == 0)
+//    for (glyph >= 0 && glyphs.glyphs[glyph].geometry.width == 0)
 // 	 glyph--;
 
 //    if (glyph < 0)
@@ -5569,7 +5512,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //  {
 //    int glyph = 0;
 
-//    while (glyph < glyphs.num_glyphs && glyphs.glyphs[glyph].geometry.width == 0)
+//    for (glyph < glyphs.num_glyphs && glyphs.glyphs[glyph].geometry.width == 0)
 // 	 glyph++;
 
 //    if (glyph == glyphs.num_glyphs)
@@ -6053,13 +5996,13 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    properties.shape_ink_rect = nil;
 //    properties.shape_logical_rect = nil;
 
-//    while (tmp_list)
+//    for (tmp_list)
 // 	 {
 // 	   PangoAttribute *attr = tmp_list.data;
 
 // 	   switch ((int) attr.klass.type)
 // 	 {
-// 	 case PANGO_ATTR_UNDERLINE:
+// 	 case ATTR_UNDERLINE:
 // 		   switch (((PangoAttrInt *)attr).value)
 // 			 {
 // 			 case PANGO_UNDERLINE_NONE:
@@ -6085,7 +6028,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 			 }
 // 	   break;
 
-// 	 case PANGO_ATTR_OVERLINE:
+// 	 case ATTR_OVERLINE:
 // 		   switch (((PangoAttrInt *)attr).value)
 // 			 {
 // 			 case PANGO_OVERLINE_SINGLE:
@@ -6097,19 +6040,19 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 			 }
 // 	   break;
 
-// 	 case PANGO_ATTR_STRIKETHROUGH:
+// 	 case ATTR_STRIKETHROUGH:
 // 	   properties.strikethrough = ((PangoAttrInt *)attr).value;
 // 	   break;
 
-// 	 case PANGO_ATTR_RISE:
+// 	 case ATTR_RISE:
 // 	   properties.rise = ((PangoAttrInt *)attr).value;
 // 	   break;
 
-// 	 case PANGO_ATTR_LETTER_SPACING:
+// 	 case ATTR_LETTER_SPACING:
 // 	   properties.letter_spacing = ((PangoAttrInt *)attr).value;
 // 	   break;
 
-// 	 case PANGO_ATTR_SHAPE:
+// 	 case ATTR_SHAPE:
 // 	   properties.shape_set = true;
 // 	   properties.shape_logical_rect = &((PangoAttrShape *)attr).logical_rect;
 // 	   properties.shape_ink_rect = &((PangoAttrShape *)attr).ink_rect;
@@ -6129,7 +6072,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //    int i;
 
 //    i = cluster_start + 1;
-//    while (i < gs.num_glyphs)
+//    for (i < gs.num_glyphs)
 // 	 {
 // 	   if (gs.glyphs[i].attr.is_cluster_start)
 // 	 return i;
@@ -6149,7 +6092,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 
 //    width = gs.glyphs[cluster_start].geometry.width;
 //    i = cluster_start + 1;
-//    while (i < gs.num_glyphs)
+//    for (i < gs.num_glyphs)
 // 	 {
 // 	   if (gs.glyphs[i].attr.is_cluster_start)
 // 	 break;
@@ -6201,7 +6144,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 // 		* visual cluster which is the next logical cluster.
 // 		*/
 // 	   int i = iter.cluster_start;
-// 	   while (i > 0 && gs.log_clusters[i - 1] == cluster_start_index)
+// 	   for (i > 0 && gs.log_clusters[i - 1] == cluster_start_index)
 // 	 i--;
 
 // 	   if (i == 0)
@@ -6619,7 +6562,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //  {
 //    gboolean result;
 
-//    while (true)
+//    for (true)
 // 	 {
 // 	   result = pango_layout_iter_next_line (iter);
 // 	   if (!result)
@@ -6645,7 +6588,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 //  {
 //    gboolean result;
 
-//    while (true)
+//    for (true)
 // 	 {
 // 	   result = pango_layout_iter_next_run (iter);
 // 	   if (!result)

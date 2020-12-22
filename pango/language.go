@@ -1,3 +1,4 @@
 package pango
 
-type Language struct{} // TODO:
+// TODO: maybe use golang.org/x/text/language ?
+type Language [2]byte

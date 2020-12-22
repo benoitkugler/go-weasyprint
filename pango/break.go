@@ -330,6 +330,13 @@ func max(a, b uint32) uint32 {
 	return a
 }
 
+func min(a, b uint32) uint32 {
+	if a > b {
+		return b
+	}
+	return a
+}
+
 func GetLogAttrs(text []rune) []CharAttr {
 	return pangoDefaultBreak(text)
 }
