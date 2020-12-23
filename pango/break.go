@@ -350,15 +350,6 @@ func unicodeCategorie(r rune) *unicode.RangeTable {
 	return nil
 }
 
-func unicodeScript(r rune) *unicode.RangeTable {
-	for _, table := range unicode.Scripts {
-		if unicode.Is(table, r) {
-			return table
-		}
-	}
-	return nil
-}
-
 func backspaceDeleteCharacter(wc rune) bool {
 	return !((wc >= 0x0020 && wc <= 0x02AF) || (wc >= 0x1E00 && wc <= 0x1EFF)) &&
 		!(wc >= 0x0400 && wc <= 0x052F) &&
@@ -378,8 +369,8 @@ func isOtherTerm(sbType sentenceBreakType) bool {
 		sbType == sb_STerm_Close_Sp)
 }
 
-func labelAlphabetic(breakType, script *unicode.RangeTable, wbType *wordBreakType) {
-	if breakType != unicodedata.BreakSA && script != unicode.Hiragana {
+func labelAlphabetic(breakType *unicode.RangeTable, script Script, wbType *wordBreakType) {
+	if breakType != unicodedata.BreakSA && script != SCRIPT_HIRAGANA {
 		*wbType = wb_ALetter /* ALetter */
 	}
 }
@@ -628,16 +619,16 @@ func pangoDefaultBreak(text []rune) []CharAttr {
 		var isWordBoundary bool
 		{
 			if isGraphemeBoundary || (wc >= 0x1F1E6 && wc <= 0x1F1FF) { /* Rules WB3 and WB4 */
-				script := unicodeScript(wc)
+				script := pango_script_for_unichar(wc)
 
 				/* Find the WordBreakType of wc */
 				wbType := wb_Other
 
-				if script == unicode.Katakana {
+				if script == SCRIPT_KATAKANA {
 					wbType = wb_Katakana
 				}
 
-				if script == unicode.Hebrew && type_ == unicode.Lo {
+				if script == SCRIPT_HEBREW && type_ == unicode.Lo {
 					wbType = wb_Hebrew_Letter
 				}
 

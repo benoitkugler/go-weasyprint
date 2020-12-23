@@ -23,7 +23,9 @@ const (
 
 // Coverage represents a map from Unicode characters to CoverageLevel.
 type Coverage struct {
-	storage map[rune]struct{} // we use a basic approach, which may be not efficient
+	// TODO: a map is not very efficient,
+	// we could use unicode.RangeTable
+	storage map[rune]struct{}
 }
 
 func pango_coverage_new() Coverage {

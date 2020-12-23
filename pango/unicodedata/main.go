@@ -38,6 +38,18 @@ var HangulJamoProps = [6]charJamoProps{
 	{Start: NO_JAMO, End: NO_JAMO}, /* NO_JAMO */
 }
 
+func IsEmoji(r rune) bool {
+	return unicode.Is(_Emoji, r)
+}
+func IsEmojiPresentation(r rune) bool {
+	return unicode.Is(_Emoji_Presentation, r)
+}
+func IsEmojiModifier(r rune) bool {
+	return unicode.Is(_Emoji_Modifier, r)
+}
+func IsEmojiModifierBase(r rune) bool {
+	return unicode.Is(_Emoji_Modifier_Base, r)
+}
 func IsEmojiExtendedPictographic(r rune) bool {
 	return unicode.Is(_Extended_Pictographic, r)
 }
