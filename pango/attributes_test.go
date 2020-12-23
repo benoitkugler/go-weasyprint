@@ -1,7 +1,6 @@
 package pango
 
 import (
-	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -142,15 +141,6 @@ func TestList(t *testing.T) {
 		"[0,-1]size=30\n"+
 		"[10,40]size=40\n"+
 		"[10,20]size=20\n")
-}
-
-func TestMutateSlice(t *testing.T) {
-	a := make([]int, 5)
-	ap := &a
-	p := &(*ap)[3]
-	fmt.Printf("%p %p", p, &(*ap)[3])
-	*p = 8
-	fmt.Println(a)
 }
 
 func TestListChange(t *testing.T) {
@@ -414,14 +404,14 @@ func TestIterGet(t *testing.T) {
 	if attr == nil {
 		t.Error("expected attribute")
 	}
-	assertEquals(t, attr.StartIndex, 0)
-	assertEquals(t, attr.EndIndex, math.MaxUint32)
+	assertEquals(t, attr.StartIndex, uint32(0))
+	assertEquals(t, attr.EndIndex, uint32(math.MaxUint32))
 	attr = iter.pango_attr_iterator_get(ATTR_STRETCH)
 	if attr == nil {
 		t.Error("expected attribute")
 	}
-	assertEquals(t, attr.StartIndex, 10)
-	assertEquals(t, attr.EndIndex, 30)
+	assertEquals(t, attr.StartIndex, uint32(10))
+	assertEquals(t, attr.EndIndex, uint32(30))
 	attr = iter.pango_attr_iterator_get(ATTR_WEIGHT)
 	if attr != nil {
 		t.Errorf("expected no attribute, got %v", attr)
