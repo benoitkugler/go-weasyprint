@@ -13,6 +13,9 @@ type Glyph uint32
 // points (as in "12 point font"), rather than pixels.
 const pangoScale = 1024
 
+const PANGO_UNKNOWN_GLYPH_WIDTH = 10
+const PANGO_UNKNOWN_GLYPH_HEIGHT = 14
+
 // GlyphUnit is used to store dimensions within
 // Pango. Dimensions are stored in 1/pangoScale of a device unit.
 // (A device unit might be a pixel for screen display, or

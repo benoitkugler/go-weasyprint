@@ -21,13 +21,33 @@ const (
 	PANGO_GRAVITY_AUTO                 // Gravity is resolved from the context matrix
 )
 
-var gravity_map = [...]string{
-	// PANGO_GRAVITY_SOUTH: "Not-Rotated" ,
-	PANGO_GRAVITY_SOUTH: "South",
-	// PANGO_GRAVITY_NORTH: "Upside-Down" ,
-	PANGO_GRAVITY_NORTH: "North",
-	// PANGO_GRAVITY_EAST:  "Rotated-Left" ,
-	PANGO_GRAVITY_EAST: "East",
-	// PANGO_GRAVITY_WEST:  "Rotated-Right" ,
-	PANGO_GRAVITY_WEST: "West",
+var gravity_map = enumMap{
+	{value: int(PANGO_GRAVITY_SOUTH), str: "Not-Rotated"},
+	{value: int(PANGO_GRAVITY_SOUTH), str: "South"},
+	{value: int(PANGO_GRAVITY_NORTH), str: "Upside-Down"},
+	{value: int(PANGO_GRAVITY_NORTH), str: "North"},
+	{value: int(PANGO_GRAVITY_EAST), str: "Rotated-Left"},
+	{value: int(PANGO_GRAVITY_EAST), str: "East"},
+	{value: int(PANGO_GRAVITY_WEST), str: "Rotated-Right"},
+	{value: int(PANGO_GRAVITY_WEST), str: "West"},
 }
+
+// whether `g` represents vertical writing directions.
+func (g Gravity) isVertical() bool {
+	return g == PANGO_GRAVITY_EAST || g == PANGO_GRAVITY_WEST
+}
+
+// GravityHint defines how horizontal scripts should behave in a
+// vertical context.  That is, English excerpt in a vertical paragraph for
+// example.
+type GravityHint uint8
+
+const (
+	PANGO_GRAVITY_HINT_NATURAL GravityHint = iota // scripts will take their natural gravity based on the base gravity and the script
+	PANGO_GRAVITY_HINT_STRONG                     // always use the base gravity set, regardless of the script
+	// For scripts not in their natural direction (eg.
+	// Latin in East gravity), choose per-script gravity such that every script
+	// respects the line progression.  This means, Latin and Arabic will take
+	// opposite gravities and both flow top-to-bottom for example.
+	PANGO_GRAVITY_HINT_LINE
+)

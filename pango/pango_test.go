@@ -13,14 +13,8 @@ func assertTrue(t *testing.T, b bool, message string) {
 	}
 }
 
-func assertEqualInt(t *testing.T, a, b int) {
+func assertEquals(t *testing.T, a, b interface{}) {
 	if a != b {
-		t.Errorf("expected same values, got %d and %d", a, b)
-	}
-}
-
-func assertEqualUInt(t *testing.T, a, b uint32) {
-	if a != b {
-		t.Errorf("expected same values, got %d and %d", a, b)
+		t.Errorf("expected same values, got %v and %v", a, b)
 	}
 }

@@ -2,8 +2,35 @@ package pango
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 )
+
+// contains acceptable strings value
+type enumMap []struct {
+	value int
+	str   string
+}
+
+func (e enumMap) fromString(str string) (int, bool) {
+	for _, v := range e {
+		if field_matches(v.str, str) {
+			return v.value, true
+		}
+	}
+	return 0, false
+}
+
+// if v is not found, it is printed as "what=v"
+func (e enumMap) toString(what string, v int) string {
+	for _, entry := range e {
+		if entry.value == v {
+			return entry.str
+		}
+	}
+	return fmt.Sprintf("%s=%d", what, v)
+}
 
 // Style specifies the various slant styles possible for a font.
 type Style uint8
@@ -14,11 +41,11 @@ const (
 	PANGO_STYLE_ITALIC               //  the font is slanted in an italic style.
 )
 
-var style_map = [...]string{
-	// { PANGO_STYLE_NORMAL, "" },
-	PANGO_STYLE_NORMAL:  "Roman",
-	PANGO_STYLE_OBLIQUE: "Oblique",
-	PANGO_STYLE_ITALIC:  "Italic",
+var style_map = enumMap{
+	{value: int(PANGO_STYLE_NORMAL), str: ""},
+	{value: int(PANGO_STYLE_NORMAL), str: "Roman"},
+	{value: int(PANGO_STYLE_OBLIQUE), str: "Oblique"},
+	{value: int(PANGO_STYLE_ITALIC), str: "Italic"},
 }
 
 // Variant specifies capitalization variant of the font.
@@ -29,9 +56,9 @@ const (
 	PANGO_VARIANT_SMALL_CAPS                // A font with the lower case characters replaced by smaller variants of the capital characters.
 )
 
-var variant_map = [...]string{
-	PANGO_VARIANT_NORMAL:     "",
-	PANGO_VARIANT_SMALL_CAPS: "Small-Caps",
+var variant_map = enumMap{
+	{value: int(PANGO_VARIANT_NORMAL), str: ""},
+	{value: int(PANGO_VARIANT_SMALL_CAPS), str: "Small-Caps"},
 }
 
 //  Weight specifies the weight (boldness) of a font. This is a numerical
@@ -53,28 +80,28 @@ const (
 	PANGO_WEIGHT_ULTRAHEAVY Weight = 1000 // the ultraheavy weight (= 1000; Since: 1.24)
 )
 
-var weight_map = [...]string{
-	PANGO_WEIGHT_THIN:       "Thin",
-	PANGO_WEIGHT_ULTRALIGHT: "Ultra-Light",
-	// PANGO_WEIGHT_ULTRALIGHT: "Extra-Light" ,
-	PANGO_WEIGHT_LIGHT:     "Light",
-	PANGO_WEIGHT_SEMILIGHT: "Semi-Light",
-	// PANGO_WEIGHT_SEMILIGHT: "Demi-Light" ,
-	PANGO_WEIGHT_BOOK: "Book",
-	// PANGO_WEIGHT_NORMAL: "" ,
-	PANGO_WEIGHT_NORMAL:   "Regular",
-	PANGO_WEIGHT_MEDIUM:   "Medium",
-	PANGO_WEIGHT_SEMIBOLD: "Semi-Bold",
-	// PANGO_WEIGHT_SEMIBOLD: "Demi-Bold" ,
-	PANGO_WEIGHT_BOLD:      "Bold",
-	PANGO_WEIGHT_ULTRABOLD: "Ultra-Bold",
-	// PANGO_WEIGHT_ULTRABOLD: "Extra-Bold" ,
-	PANGO_WEIGHT_HEAVY: "Heavy",
-	// PANGO_WEIGHT_HEAVY: "Black" ,
-	PANGO_WEIGHT_ULTRAHEAVY: "Ultra-Heavy",
-	// PANGO_WEIGHT_ULTRAHEAVY: "Extra-Heavy" ,
-	// PANGO_WEIGHT_ULTRAHEAVY: "Ultra-Black" ,
-	// PANGO_WEIGHT_ULTRAHEAVY: "Extra-Black",
+var weight_map = enumMap{
+	{value: int(PANGO_WEIGHT_THIN), str: "Thin"},
+	{value: int(PANGO_WEIGHT_ULTRALIGHT), str: "Ultra-Light"},
+	{value: int(PANGO_WEIGHT_ULTRALIGHT), str: "Extra-Light"},
+	{value: int(PANGO_WEIGHT_LIGHT), str: "Light"},
+	{value: int(PANGO_WEIGHT_SEMILIGHT), str: "Semi-Light"},
+	{value: int(PANGO_WEIGHT_SEMILIGHT), str: "Demi-Light"},
+	{value: int(PANGO_WEIGHT_BOOK), str: "Book"},
+	{value: int(PANGO_WEIGHT_NORMAL), str: ""},
+	{value: int(PANGO_WEIGHT_NORMAL), str: "Regular"},
+	{value: int(PANGO_WEIGHT_MEDIUM), str: "Medium"},
+	{value: int(PANGO_WEIGHT_SEMIBOLD), str: "Semi-Bold"},
+	{value: int(PANGO_WEIGHT_SEMIBOLD), str: "Demi-Bold"},
+	{value: int(PANGO_WEIGHT_BOLD), str: "Bold"},
+	{value: int(PANGO_WEIGHT_ULTRABOLD), str: "Ultra-Bold"},
+	{value: int(PANGO_WEIGHT_ULTRABOLD), str: "Extra-Bold"},
+	{value: int(PANGO_WEIGHT_HEAVY), str: "Heavy"},
+	{value: int(PANGO_WEIGHT_HEAVY), str: "Black"},
+	{value: int(PANGO_WEIGHT_ULTRAHEAVY), str: "Ultra-Heavy"},
+	{value: int(PANGO_WEIGHT_ULTRAHEAVY), str: "Extra-Heavy"},
+	{value: int(PANGO_WEIGHT_ULTRAHEAVY), str: "Ultra-Black"},
+	{value: int(PANGO_WEIGHT_ULTRAHEAVY), str: "Extra-Black"},
 }
 
 //  Stretch specifies the width of the font relative to other designs within a family.
@@ -92,16 +119,16 @@ const (
 	PANGO_STRETCH_ULTRA_EXPANDED                 // ultra expanded width
 )
 
-var stretch_map = [...]string{
-	PANGO_STRETCH_ULTRA_CONDENSED: "Ultra-Condensed",
-	PANGO_STRETCH_EXTRA_CONDENSED: "Extra-Condensed",
-	PANGO_STRETCH_CONDENSED:       "Condensed",
-	PANGO_STRETCH_SEMI_CONDENSED:  "Semi-Condensed",
-	PANGO_STRETCH_NORMAL:          "",
-	PANGO_STRETCH_SEMI_EXPANDED:   "Semi-Expanded",
-	PANGO_STRETCH_EXPANDED:        "Expanded",
-	PANGO_STRETCH_EXTRA_EXPANDED:  "Extra-Expanded",
-	PANGO_STRETCH_ULTRA_EXPANDED:  "Ultra-Expanded",
+var stretch_map = enumMap{
+	{value: int(PANGO_STRETCH_ULTRA_CONDENSED), str: "Ultra-Condensed"},
+	{value: int(PANGO_STRETCH_EXTRA_CONDENSED), str: "Extra-Condensed"},
+	{value: int(PANGO_STRETCH_CONDENSED), str: "Condensed"},
+	{value: int(PANGO_STRETCH_SEMI_CONDENSED), str: "Semi-Condensed"},
+	{value: int(PANGO_STRETCH_NORMAL), str: ""},
+	{value: int(PANGO_STRETCH_SEMI_EXPANDED), str: "Semi-Expanded"},
+	{value: int(PANGO_STRETCH_EXPANDED), str: "Expanded"},
+	{value: int(PANGO_STRETCH_EXTRA_EXPANDED), str: "Extra-Expanded"},
+	{value: int(PANGO_STRETCH_ULTRA_EXPANDED), str: "Ultra-Expanded"},
 }
 
 // FontMask bits correspond to fields in a `FontDescription` that have been set.
@@ -120,13 +147,13 @@ const (
 
 /* CSS scale factors (1.2 factor between each size) */
 const (
-	PANGO_SCALE_XX_SMALL = 0.5787037037037 //  The scale factor for three shrinking steps (1 / (1.2 * 1.2 * 1.2)).
-	PANGO_SCALE_X_SMALL  = 0.6944444444444 //  The scale factor for two shrinking steps (1 / (1.2 * 1.2)).
-	PANGO_SCALE_SMALL    = 0.8333333333333 //  The scale factor for one shrinking step (1 / 1.2).
-	PANGO_SCALE_MEDIUM   = 1.0             //  The scale factor for normal size (1.0).
-	PANGO_SCALE_LARGE    = 1.2             //  The scale factor for one magnification step (1.2).
-	PANGO_SCALE_X_LARGE  = 1.44            //  The scale factor for two magnification steps (1.2 * 1.2).
-	PANGO_SCALE_XX_LARGE = 1.728           //  The scale factor for three magnification steps (1.2 * 1.2 * 1.2).
+	pangoScale_XX_SMALL = 0.5787037037037 //  The scale factor for three shrinking steps (1 / (1.2 * 1.2 * 1.2)).
+	pangoScale_X_SMALL  = 0.6944444444444 //  The scale factor for two shrinking steps (1 / (1.2 * 1.2)).
+	pangoScale_SMALL    = 0.8333333333333 //  The scale factor for one shrinking step (1 / 1.2).
+	pangoScale_MEDIUM   = 1.0             //  The scale factor for normal size (1.0).
+	pangoScale_LARGE    = 1.2             //  The scale factor for one magnification step (1.2).
+	pangoScale_X_LARGE  = 1.44            //  The scale factor for two magnification steps (1.2 * 1.2).
+	pangoScale_XX_LARGE = 1.728           //  The scale factor for three magnification steps (1.2 * 1.2 * 1.2).
 )
 
 var pfd_defaults = FontDescription{
@@ -147,13 +174,21 @@ var pfd_defaults = FontDescription{
 
 // Font is used to represent a font in a rendering-system-independent matter.
 type Font interface {
-	// TODO:
+	describe() FontDescription
+	get_coverage(language Language) Coverage
+	get_glyph_extents(glyph Glyph, ink_rect, logical_rect *Rectangle)
+	get_metrics(language Language) FontMetrics
+	get_font_map() FontMap
+	describe_absolute() FontDescription
+	// get_features       (,  hb_feature_t   *features,				 guint           len,				 guint          *num_features) void
+	// create_hb_font     () hb_font_t *
 }
 
 // FontDescription represents the description
 // of an ideal font. These structures are used both to list
 // what fonts are available on the system and also for specifying
 // the characteristics of a font to load.
+// This struct does not hold any pointer types: it can be copied by value.
 type FontDescription struct {
 	family_name string
 
@@ -171,13 +206,165 @@ type FontDescription struct {
 	size int
 }
 
+// pango_font_description_new creates a new font description structure with all fields unset.
+func pango_font_description_new() FontDescription {
+	return pfd_defaults // copy
+}
+
+// pango_font_description_from_string creates a new font description from a string representation in the
+// form
+//
+// "[FAMILY-LIST] [STYLE-OPTIONS] [SIZE] [VARIATIONS]",
+//
+// where FAMILY-LIST is a comma-separated list of families optionally
+// terminated by a comma, STYLE_OPTIONS is a whitespace-separated list
+// of words where each word describes one of style, variant, weight,
+// stretch, or gravity, and SIZE is a decimal number (size in points)
+// or optionally followed by the unit modifier "px" for absolute size.
+// VARIATIONS is a comma-separated list of font variation
+// specifications of the form "@axis=value" (the = sign is optional).
+//
+// The following words are understood as styles:
+// "Normal", "Roman", "Oblique", "Italic".
+//
+// The following words are understood as variants:
+// "Small-Caps".
+//
+// The following words are understood as weights:
+// "Thin", "Ultra-Light", "Extra-Light", "Light", "Semi-Light",
+// "Demi-Light", "Book", "Regular", "Medium", "Semi-Bold", "Demi-Bold",
+// "Bold", "Ultra-Bold", "Extra-Bold", "Heavy", "Black", "Ultra-Black",
+// "Extra-Black".
+//
+// The following words are understood as stretch values:
+// "Ultra-Condensed", "Extra-Condensed", "Condensed", "Semi-Condensed",
+// "Semi-Expanded", "Expanded", "Extra-Expanded", "Ultra-Expanded".
+//
+// The following words are understood as gravity values:
+// "Not-Rotated", "South", "Upside-Down", "North", "Rotated-Left",
+// "East", "Rotated-Right", "West".
+//
+// Any one of the options may be absent. If FAMILY-LIST is absent, then
+// the family_name field of the resulting font description will be
+// initialized to nil. If STYLE-OPTIONS is missing, then all style
+// options will be set to the default values. If SIZE is missing, the
+// size in the resulting font description will be set to 0.
+//
+// A default value is returned on invalid or empty input.
+//
+// A typical example:
+//
+// "Cantarell Italic Light 15 @wght=200"
+func pango_font_description_from_string(str string) FontDescription {
+	desc := pango_font_description_new()
+
+	desc.mask = PANGO_FONT_MASK_STYLE |
+		PANGO_FONT_MASK_WEIGHT |
+		PANGO_FONT_MASK_VARIANT |
+		PANGO_FONT_MASK_STRETCH
+
+	fields := strings.Fields(str)
+	if len(fields) == 0 {
+		return desc
+	}
+
+	// Look for variations at the end of the string */
+	if word := fields[len(fields)-1]; word[0] == '@' {
+		/* XXX: actually validate here */
+		desc.variations = word[1:]
+		desc.mask |= PANGO_FONT_MASK_VARIATIONS
+		fields = fields[:len(fields)-1]
+	}
+
+	/* Look for a size */
+	if len(fields) != 0 {
+		word := fields[len(fields)-1]
+		var size_is_absolute bool
+		if strings.HasSuffix(word, "px") {
+			size_is_absolute = true
+			word = strings.TrimSuffix(word, "px")
+		}
+		size, err := strconv.ParseFloat(word, 64)
+		if err != nil { // just ignore invalid floats
+			log.Println("invalid size format:", err)
+		} else if size < 0 || size > 1000000 {
+			log.Println("invalid size value:", size)
+		} else { // word is a valid float
+			desc.size = int(size*pangoScale + 0.5)
+			desc.size_is_absolute = size_is_absolute
+			desc.mask |= PANGO_FONT_MASK_SIZE
+			fields = fields[:len(fields)-1]
+		}
+
+	}
+
+	// Now parse style words
+	for len(fields) != 0 {
+		word := fields[len(fields)-1]
+		if !desc.find_field_any(word) {
+			break
+		} else {
+			fields = fields[:len(fields)-1]
+		}
+	}
+
+	// Remainder is family list. Trim off trailing commas and leading and trailing white space
+	if len(fields) != 0 {
+		families := strings.Split(strings.Join(fields, " "), ",")
+		/* Now sanitize it to trim space from around individual family names.
+		* bug #499624 */
+		for i, f := range families {
+			families[i] = strings.TrimSpace(f)
+		}
+		desc.family_name = strings.Join(families, ",")
+		desc.mask |= PANGO_FONT_MASK_FAMILY
+	}
+
+	return desc
+}
+
+func (desc *FontDescription) find_field_any(str string) bool {
+	if field_matches("Normal", str) {
+		return true
+	}
+	// try each of the possible field
+	if v, ok := weight_map.fromString(str); ok {
+		desc.pango_font_description_set_weight(Weight(v))
+		return true
+	}
+	if v, ok := style_map.fromString(str); ok {
+		desc.pango_font_description_set_style(Style(v))
+		return true
+	}
+	if v, ok := stretch_map.fromString(str); ok {
+		desc.pango_font_description_set_stretch(Stretch(v))
+		return true
+	}
+	if v, ok := variant_map.fromString(str); ok {
+		desc.pango_font_description_set_variant(Variant(v))
+		return true
+	}
+	if v, ok := gravity_map.fromString(str); ok {
+		desc.pango_font_description_set_gravity(Gravity(v))
+		return true
+	}
+	return false
+}
+
+var hyphenStripper = strings.NewReplacer("-", "")
+
+// TODO: check this is correct
+func field_matches(s1, s2 string) bool {
+	return strings.ToLower(hyphenStripper.Replace(s1)) == strings.ToLower(hyphenStripper.Replace(s2))
+}
+
 // Creates a string representation of a font description.
 // The family list in the string description will only have a terminating comma if the
 // last word of the list is a valid style option.
 func (desc FontDescription) String() string {
-	var result string
+	var chunks []string
 	if desc.family_name != "" && (desc.mask&PANGO_FONT_MASK_FAMILY != 0) {
-		result += desc.family_name
+		fam := desc.family_name
 
 		/* We need to add a trailing comma if the family name ends
 		* in a keyword like "Bold", or if the family name ends in
@@ -191,39 +378,48 @@ func (desc FontDescription) String() string {
 			desc.stretch == PANGO_STRETCH_NORMAL &&
 			desc.variant == PANGO_VARIANT_NORMAL &&
 			(desc.mask&(PANGO_FONT_MASK_GRAVITY|PANGO_FONT_MASK_SIZE) == 0) {
-			result += ","
+			fam += ","
 		}
+		chunks = append(chunks, fam)
 	}
 
-	result += weight_map[desc.weight]
-	result += style_map[desc.style]
-	result += stretch_map[desc.stretch]
-	result += variant_map[desc.variant]
+	if s := weight_map.toString("weight", int(desc.weight)); s != "" {
+		chunks = append(chunks, s)
+	}
+	if s := style_map.toString("style", int(desc.style)); s != "" {
+		chunks = append(chunks, s)
+	}
+	if s := stretch_map.toString("stretch", int(desc.stretch)); s != "" {
+		chunks = append(chunks, s)
+	}
+	if s := variant_map.toString("variant", int(desc.variant)); s != "" {
+		chunks = append(chunks, s)
+	}
 	if desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
-		result += gravity_map[desc.gravity]
-	}
-
-	if len(result) == 0 {
-		result += "Normal"
-	}
-	if desc.mask&PANGO_FONT_MASK_SIZE != 0 {
-		if result[len(result)-1] != ' ' {
-			result = " "
+		if s := gravity_map.toString("gravity", int(desc.gravity)); s != "" {
+			chunks = append(chunks)
 		}
+	}
 
-		result += fmt.Sprintf("%g", float64(desc.size)/pangoScale)
+	if len(chunks) == 0 {
+		chunks = append(chunks, "Normal")
+	}
+
+	if desc.mask&PANGO_FONT_MASK_SIZE != 0 {
+		size := fmt.Sprintf("%g", float64(desc.size)/pangoScale)
 
 		if desc.size_is_absolute {
-			result += "px"
+			size += "px"
 		}
+		chunks = append(chunks, size)
 	}
 
 	if desc.variations != "" && desc.mask&PANGO_FONT_MASK_VARIATIONS != 0 {
-		result += " @"
-		result += desc.variations
+		v := "@" + desc.variations
+		chunks = append(chunks, v)
 	}
 
-	return result
+	return strings.Join(chunks, " ")
 }
 
 // pango_font_description_equal compares two font descriptions for equality.
@@ -262,8 +458,8 @@ func (desc *FontDescription) pango_font_description_set_style(style Style) {
 }
 
 // Sets the size field of a font description in fractional points.
-// `size` is the size of the font in points, scaled by PANGO_SCALE.
-// That is, a `size` value of 10 * PANGO_SCALE is a 10 point font. The conversion
+// `size` is the size of the font in points, scaled by pangoScale.
+// That is, a `size` value of 10 * pangoScale is a 10 point font. The conversion
 // factor between points and device units depends on system configuration
 // and the output device. For screen display, a logical DPI of 96 is
 // common, in which case a 10 point font corresponds to a 10 * (96 / 72) = 13.3
@@ -282,9 +478,9 @@ func (desc *FontDescription) pango_font_description_set_size(size int) {
 }
 
 // Sets the size field of a font description, in device units.
-// `size` is the new size, in Pango units. There are `PANGO_SCALE` Pango units in one
+// `size` is the new size, in Pango units. There are `pangoScale` Pango units in one
 // device unit. For an output backend where a device unit is a pixel, a `size`
-// value of 10 * PANGO_SCALE gives a 10 pixel font.
+// value of 10 * pangoScale gives a 10 pixel font.
 //
 // This is mutually exclusive with pango_font_description_set_size() which sets the font size
 // in points.
@@ -351,6 +547,48 @@ func (desc *FontDescription) pango_font_description_set_family(family string) {
 	}
 }
 
+// pango_font_description_set_gravity sets the gravity field of a font description. The gravity field
+// specifies how the glyphs should be rotated.  If @gravity is
+// %PANGO_GRAVITY_AUTO, this actually unsets the gravity mask on
+// the font description.
+func (desc *FontDescription) pango_font_description_set_gravity(gravity Gravity) {
+	if desc == nil {
+		return
+	}
+
+	if gravity == PANGO_GRAVITY_AUTO {
+		desc.pango_font_description_unset_fields(PANGO_FONT_MASK_GRAVITY)
+		return
+	}
+
+	desc.gravity = gravity
+	desc.mask |= PANGO_FONT_MASK_GRAVITY
+}
+
+// Sets the variations field of a font description. OpenType
+// font variations allow to select a font instance by specifying
+// values for a number of axes, such as width or weight.
+//
+// The format of the variations string is AXIS1=VALUE,AXIS2=VALUE...,
+// with each AXIS a 4 character tag that identifies a font axis,
+// and each VALUE a floating point number. Unknown axes are ignored,
+// and values are clamped to their allowed range.
+//
+// Pango does not currently have a way to find supported axes of
+// a font. Both harfbuzz or freetype have API for this.
+func (desc *FontDescription) pango_font_description_set_variations(variations string) {
+	if desc == nil {
+		return
+	}
+	if variations != "" {
+		desc.variations = variations
+		desc.mask |= PANGO_FONT_MASK_VARIATIONS
+	} else {
+		desc.variations = pfd_defaults.variations
+		desc.mask &= ^PANGO_FONT_MASK_VARIATIONS
+	}
+}
+
 // Merges the fields that are set in `descToMerge` into the fields in
 // `desc`.  If `replaceExisting `is `false`, only fields in `desc` that
 // are not already set are affected. If `true`, then fields that are
@@ -390,13 +628,7 @@ func (desc *FontDescription) pango_font_description_merge(descToMerge *FontDescr
 		desc.gravity = descToMerge.gravity
 	}
 	if newMask&PANGO_FONT_MASK_VARIATIONS != 0 {
-		if descToMerge.variations != "" {
-			desc.variations = descToMerge.variations
-			desc.mask |= PANGO_FONT_MASK_VARIATIONS
-		} else {
-			desc.variations = pfd_defaults.variations
-			desc.mask &= ^PANGO_FONT_MASK_VARIATIONS
-		}
+		desc.pango_font_description_set_variations(descToMerge.variations)
 	}
 	desc.mask |= newMask
 }
@@ -414,4 +646,93 @@ func (desc *FontDescription) pango_font_description_unset_fields(toUnset FontMas
 	desc.pango_font_description_merge(&unsetDesc, true)
 
 	desc.mask &= ^toUnset
+}
+
+// FontMetrics holds the overall metric information
+// for a font (possibly restricted to a script).
+// All values are expressed in Pango units.
+type FontMetrics struct {
+	// Distance from the baseline to the logical top of a line of text.
+	// (The logical top may be above or below the top of the
+	// actual drawn ink. It is necessary to lay out the text to figure
+	// where the ink will be.)
+	ascent int
+
+	// Distance from the baseline to the logical bottom of a line of text.
+	// (The logical bottom may be above or below the bottom of the
+	// actual drawn ink. It is necessary to lay out the text to figure
+	// where the ink will be.)
+	descent int
+
+	// Distance between successive baselines in wrapped text.
+	height int
+
+	// Representative value useful for example for
+	// determining the initial size for a window. Actual characters in
+	// text will be wider and narrower than this.
+	approximate_char_width int
+
+	// Same as `approximate_char_width` but for digits.
+	// This value is generally somewhat more accurate than `approximate_char_width` for digits.
+	approximate_digit_width int
+
+	// Distance above the baseline of the top of the underline.
+	// Since most fonts have underline positions beneath the baseline, this value is typically negative.
+	underline_position int
+
+	// Suggested thickness to draw for the underline.
+	underline_thickness int
+
+	// Distance above the baseline of the top of the strikethrough.
+	strikethrough_position int
+	// Suggested thickness to draw for the strikethrough.
+	strikethrough_thickness int
+}
+
+// pango_font_get_metrics gets overall metric information for a font.
+// Since the metrics may be substantially different for different scripts, a language tag can
+// be provided to indicate that the metrics should be retrieved that
+// correspond to the script(s) used by that language.
+//
+// If `font` is `nil`, this function gracefully sets some sane values in the
+// output variables and returns.
+func pango_font_get_metrics(font Font, language Language) FontMetrics {
+	if font == nil {
+		var metrics FontMetrics
+
+		metrics.ascent = pangoScale * PANGO_UNKNOWN_GLYPH_HEIGHT
+		metrics.descent = 0
+		metrics.height = 0
+		metrics.approximate_char_width = pangoScale * PANGO_UNKNOWN_GLYPH_WIDTH
+		metrics.approximate_digit_width = pangoScale * PANGO_UNKNOWN_GLYPH_WIDTH
+		metrics.underline_position = -pangoScale
+		metrics.underline_thickness = pangoScale
+		metrics.strikethrough_position = pangoScale * PANGO_UNKNOWN_GLYPH_HEIGHT / 2
+		metrics.strikethrough_thickness = pangoScale
+
+		return metrics
+	}
+
+	return font.get_metrics(language)
+}
+
+// FontFamily is used to represent a family of related
+// font faces. The faces in a family share a common design, but differ in
+// slant, weight, width and other aspects.
+type FontFamily interface {
+	list_faces() []FontFace
+	get_name() string
+	is_monospace() bool
+	is_variable() bool
+	get_face(name string) FontFace
+}
+
+// FontFace is used to represent a group of fonts with
+// the same family, slant, weight, width, but varying sizes.
+type FontFace interface {
+	get_face_name() string
+	describe() FontDescription
+	list_sizes() []int
+	is_synthesized() bool
+	get_family() FontFamily
 }

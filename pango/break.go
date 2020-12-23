@@ -1520,3 +1520,50 @@ func pangoDefaultBreak(text []rune) []CharAttr {
 	attrs[0].setLineBreak(false) /* Rule LB2 */
 	return attrs
 }
+
+// pango_find_paragraph_boundary locates a paragraph boundary in `text`.
+// A boundary is caused by delimiter characters, such as a newline, carriage return, carriage
+// return-newline pair, or Unicode paragraph separator character.
+// The index of the run of delimiters is returned, as well as
+// the index of the start of the paragraph (index after all delimiters).
+// If no delimiters are found, the length of `text` is returned.
+func pango_find_paragraph_boundary(text []rune) (delimiter, start int) {
+	// Note: we return indexes in the rune slice, not in the utf8 byte string,
+	// diverging from the C implementation
+
+	// Only one character has type G_UNICODE_PARAGRAPH_SEPARATOR in
+	// Unicode 5.0; update the following code if that changes.
+
+	start, delimiter = -1, -1
+
+	var prev_sep rune
+
+	for i, p := range text {
+		if prev_sep == '\n' || prev_sep == paragraphSeparator {
+			start = i
+			break
+		} else if prev_sep == '\r' {
+			// don't break between \r and \n
+			if p != '\n' {
+				start = i
+				break
+			}
+		}
+
+		if p == '\n' || p == '\r' || p == paragraphSeparator {
+			if delimiter == -1 {
+				delimiter = i
+			}
+			prev_sep = p
+		} else {
+			prev_sep = 0
+		}
+	}
+
+	if delimiter == -1 {
+		delimiter = len(text)
+		start = len(text)
+	}
+
+	return delimiter, start
+}

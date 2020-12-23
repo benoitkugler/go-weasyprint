@@ -1,5 +1,7 @@
 package pango
 
+import "log"
+
 // /**
 //  * SECTION:main
 //  * @title:Rendering
@@ -31,21 +33,62 @@ type Context struct {
 	serial uint
 	//     fontmap_serial uint
 
-	//    PangoLanguage *set_language;
-	//    PangoLanguage *language;
+	set_language Language // the global language tag for the context.
+
+	language Language
 	base_dir Direction
 	//    PangoGravity base_gravity;
-	//    PangoGravity resolved_gravity;
-	//    PangoGravityHint gravity_hint;
+	resolved_gravity Gravity
+	gravity_hint     GravityHint
 
 	font_desc FontDescription
 
 	//    PangoMatrix *matrix;
 
-	//    PangoFontMap *font_map;
+	font_map FontMap
 
-	//    gboolean round_glyph_positions;
+	//    bool round_glyph_positions;
 }
+
+// pango_context_load_font loads the font in one of the fontmaps in the context
+// that is the closest match for `desc`, or nil if no font matched.
+func (context *Context) pango_context_load_font(desc FontDescription) Font {
+	if context == nil || context.font_map == nil {
+		return nil
+	}
+	return context.font_map.load_font(context, desc)
+}
+
+// pango_itemize_with_base_dir is like pango_itemize(), but the base direction to use when
+// computing bidirectional levels (see pango_context_set_base_dir ()),
+// is specified explicitly rather than gotten from the Context.
+// func (context *Context) pango_itemize_with_base_dir(base_dir Direction, text []rune,
+// 	//   start_index,   length int,
+// 	attrs AttrList, cached_iter *AttrIterator) []Item {
+// 	//    ItemizeState state;
+
+// 	//    g_return_val_if_fail (context != nil, nil);
+// 	//    g_return_val_if_fail (start_index >= 0, nil);
+// 	//    g_return_val_if_fail (length >= 0, nil);
+// 	//    g_return_val_if_fail (length == 0 || text != nil, nil);
+
+// 	if context == nil || len(text) == 0 {
+// 		return nil
+// 	}
+
+// 	itemize_state_init(&state, context, text, base_dir, start_index, length,
+// 		attrs, cached_iter, nil)
+
+// 	do := true // do ... while
+// 	for do {
+// 		itemize_state_process_run(&state)
+// 		do = itemize_state_next(&state)
+// 	}
+
+// 	itemize_state_finish(&state)
+
+// 	return g_list_reverse(state.result)
+// }
 
 //  struct _ContextClass
 //  {
@@ -66,10 +109,10 @@ type Context struct {
 //    context.gravity_hint = PANGO_GRAVITY_HINT_NATURAL;
 
 //    context.serial = 1;
-//    context.set_language = NULL;
+//    context.set_language = nil;
 //    context.language = pango_language_get_default ();
-//    context.font_map = NULL;
-//    context.round_glyph_positions = TRUE;
+//    context.font_map = nil;
+//    context.round_glyph_positions = true;
 
 //    context.font_desc = pango_font_description_new ();
 //    pango_font_description_set_family_static (context.font_desc, "serif");
@@ -129,7 +172,7 @@ type Context struct {
 //  {
 //    Context *context;
 
-//    context = g_object_new (PANGO_TYPE_CONTEXT, NULL);
+//    context = g_object_new (PANGO_TYPE_CONTEXT, nil);
 
 //    return context;
 //  }
@@ -146,7 +189,7 @@ type Context struct {
 //  /**
 //   * pango_context_set_matrix:
 //   * `context`: a #Context
-//   * @matrix: (allow-none): a #PangoMatrix, or %NULL to unset any existing
+//   * @matrix: (allow-none): a #PangoMatrix, or %nil to unset any existing
 //   * matrix. (No matrix set is the same as setting the identity matrix.)
 //   *
 //   * Sets the transformation matrix that will be applied when rendering
@@ -172,7 +215,7 @@ type Context struct {
 //    if (matrix)
 // 	 context.matrix = pango_matrix_copy (matrix);
 //    else
-// 	 context.matrix = NULL;
+// 	 context.matrix = nil;
 
 //    update_resolved_gravity (context);
 //  }
@@ -184,7 +227,7 @@ type Context struct {
 //   * Gets the transformation matrix that will be applied when
 //   * rendering with this context. See pango_context_set_matrix().
 //   *
-//   * Return value: (nullable): the matrix, or %NULL if no matrix has
+//   * Return value: (nullable): the matrix, or %nil if no matrix has
 //   *  been set (which is the same as the identity matrix). The returned
 //   *  matrix is owned by Pango and must not be modified or freed.
 //   *
@@ -193,7 +236,7 @@ type Context struct {
 //  const PangoMatrix *
 //  pango_context_get_matrix (Context *context)
 //  {
-//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), NULL);
+//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), nil);
 
 //    return context.matrix;
 //  }
@@ -243,7 +286,7 @@ type Context struct {
 //  PangoFontMap *
 //  pango_context_get_font_map (Context *context)
 //  {
-//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), NULL);
+//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), nil);
 
 //    return context.font_map;
 //  }
@@ -263,43 +306,22 @@ type Context struct {
 // 				  PangoFontFamily     ***families,
 // 				  int                   *n_families)
 //  {
-//    g_return_if_fail (context != NULL);
-//    g_return_if_fail (families == NULL || n_families != NULL);
+//    g_return_if_fail (context != nil);
+//    g_return_if_fail (families == nil || n_families != nil);
 
-//    if (n_families == NULL)
+//    if (n_families == nil)
 // 	 return;
 
-//    if (context.font_map == NULL)
+//    if (context.font_map == nil)
 // 	 {
 // 	   *n_families = 0;
 // 	   if (families)
-// 	 *families = NULL;
+// 	 *families = nil;
 
 // 	   return;
 // 	 }
 //    else
 // 	 pango_font_map_list_families (context.font_map, families, n_families);
-//  }
-
-//  /**
-//   * pango_context_load_font:
-//   * `context`: a #Context
-//   * @desc: a #PangoFontDescription describing the font to load
-//   *
-//   * Loads the font in one of the fontmaps in the context
-//   * that is the closest match for @desc.
-//   *
-//   * Returns: (transfer full) (nullable): the newly allocated #PangoFont
-//   *          that was loaded, or %NULL if no font matched.
-//   **/
-//  PangoFont *
-//  pango_context_load_font (Context               *context,
-// 			  const PangoFontDescription *desc)
-//  {
-//    g_return_val_if_fail (context != NULL, NULL);
-//    g_return_val_if_fail (context.font_map != NULL, NULL);
-
-//    return pango_font_map_load_font (context.font_map, context, desc);
 //  }
 
 //  /**
@@ -312,14 +334,14 @@ type Context struct {
 //   * a font matching @desc.
 //   *
 //   * Returns: (transfer full) (nullable): the newly allocated
-//   *          #PangoFontset loaded, or %NULL if no font matched.
+//   *          #PangoFontset loaded, or %nil if no font matched.
 //   **/
 //  PangoFontset *
 //  pango_context_load_fontset (Context               *context,
 // 				 const PangoFontDescription *desc,
 // 				 PangoLanguage             *language)
 //  {
-//    g_return_val_if_fail (context != NULL, NULL);
+//    g_return_val_if_fail (context != nil, nil);
 
 //    return pango_font_map_load_fontset (context.font_map, context, desc, language);
 //  }
@@ -335,8 +357,8 @@ type Context struct {
 //  pango_context_set_font_description (Context               *context,
 // 					 const PangoFontDescription *desc)
 //  {
-//    g_return_if_fail (context != NULL);
-//    g_return_if_fail (desc != NULL);
+//    g_return_if_fail (context != nil);
+//    g_return_if_fail (desc != nil);
 
 //    if (desc != context.font_desc &&
 // 	   (!desc || !context.font_desc || !pango_font_description_equal(desc, context.font_desc)))
@@ -360,7 +382,7 @@ type Context struct {
 //  PangoFontDescription *
 //  pango_context_get_font_description (Context *context)
 //  {
-//    g_return_val_if_fail (context != NULL, NULL);
+//    g_return_val_if_fail (context != nil, nil);
 
 //    return context.font_desc;
 //  }
@@ -378,7 +400,7 @@ type Context struct {
 //  pango_context_set_language (Context *context,
 // 				 PangoLanguage    *language)
 //  {
-//    g_return_if_fail (context != NULL);
+//    g_return_if_fail (context != nil);
 
 //    if (language != context.language)
 // 	 context_changed (context);
@@ -401,7 +423,7 @@ type Context struct {
 //  PangoLanguage *
 //  pango_context_get_language (Context *context)
 //  {
-//    g_return_val_if_fail (context != NULL, NULL);
+//    g_return_val_if_fail (context != nil, nil);
 
 //    return context.set_language;
 //  }
@@ -424,7 +446,7 @@ type Context struct {
 //  pango_context_set_base_dir (Context  *context,
 // 				 PangoDirection direction)
 //  {
-//    g_return_if_fail (context != NULL);
+//    g_return_if_fail (context != nil);
 
 //    if (direction != context.base_dir)
 // 	 context_changed (context);
@@ -444,7 +466,7 @@ type Context struct {
 //  PangoDirection
 //  pango_context_get_base_dir (Context *context)
 //  {
-//    g_return_val_if_fail (context != NULL, PANGO_DIRECTION_LTR);
+//    g_return_val_if_fail (context != nil, PANGO_DIRECTION_LTR);
 
 //    return context.base_dir;
 //  }
@@ -464,7 +486,7 @@ type Context struct {
 //  pango_context_set_base_gravity (Context  *context,
 // 				 PangoGravity gravity)
 //  {
-//    g_return_if_fail (context != NULL);
+//    g_return_if_fail (context != nil);
 
 //    if (gravity != context.base_gravity)
 // 	 context_changed (context);
@@ -488,7 +510,7 @@ type Context struct {
 //  PangoGravity
 //  pango_context_get_base_gravity (Context *context)
 //  {
-//    g_return_val_if_fail (context != NULL, PANGO_GRAVITY_SOUTH);
+//    g_return_val_if_fail (context != nil, PANGO_GRAVITY_SOUTH);
 
 //    return context.base_gravity;
 //  }
@@ -509,7 +531,7 @@ type Context struct {
 //  PangoGravity
 //  pango_context_get_gravity (Context *context)
 //  {
-//    g_return_val_if_fail (context != NULL, PANGO_GRAVITY_SOUTH);
+//    g_return_val_if_fail (context != nil, PANGO_GRAVITY_SOUTH);
 
 //    return context.resolved_gravity;
 //  }
@@ -531,7 +553,7 @@ type Context struct {
 //  pango_context_set_gravity_hint (Context    *context,
 // 				 PangoGravityHint hint)
 //  {
-//    g_return_if_fail (context != NULL);
+//    g_return_if_fail (context != nil);
 
 //    if (hint != context.gravity_hint)
 // 	 context_changed (context);
@@ -553,34 +575,30 @@ type Context struct {
 //  PangoGravityHint
 //  pango_context_get_gravity_hint (Context *context)
 //  {
-//    g_return_val_if_fail (context != NULL, PANGO_GRAVITY_HINT_NATURAL);
+//    g_return_val_if_fail (context != nil, PANGO_GRAVITY_HINT_NATURAL);
 
 //    return context.gravity_hint;
 //  }
 
 //  /**********************************************************************/
 
-//  static gboolean
-//  advance_attr_iterator_to (PangoAttrIterator *iterator,
-// 			   int                start_index)
-//  {
-//    int start_range, end_range;
+func (iterator *AttrIterator) advance_attr_iterator_to(start_index uint32) bool {
+	start_range, end_range := iterator.StartIndex, iterator.EndIndex
 
-//    pango_attr_iterator_range (iterator, &start_range, &end_range);
+	for start_index >= end_range {
+		if !iterator.pango_attr_iterator_next() {
+			return false
+		}
+		start_range, end_range = iterator.StartIndex, iterator.EndIndex
+	}
 
-//    while (start_index >= end_range)
-// 	 {
-// 	   if (!pango_attr_iterator_next (iterator))
-// 	 return FALSE;
-// 	   pango_attr_iterator_range (iterator, &start_range, &end_range);
-// 	 }
+	if start_range > start_index {
+		log.Println("In pango_itemize(), the cached iterator passed in " +
+			"had already moved beyond the start_index")
+	}
 
-//    if (start_range > start_index)
-// 	 g_warning ("In pango_itemize(), the cached iterator passed in "
-// 			"had already moved beyond the start_index");
-
-//    return TRUE;
-//  }
+	return true
+}
 
 //  /***************************************************************************
 //   * We cache the results of character,fontset => font in a hash table
@@ -623,11 +641,11 @@ type Context struct {
 //    if (G_UNLIKELY (!cache))
 // 	 {
 // 	   cache = g_slice_new (FontCache);
-// 	   cache.hash = g_hash_table_new_full (g_direct_hash, NULL,
-// 						NULL, (GDestroyNotify)font_element_destroy);
-// 	   if (!g_object_replace_qdata (G_OBJECT (fontset), cache_quark, NULL,
+// 	   cache.hash = g_hash_table_new_full (g_direct_hash, nil,
+// 						nil, (GDestroyNotify)font_element_destroy);
+// 	   if (!g_object_replace_qdata (G_OBJECT (fontset), cache_quark, nil,
 // 									cache, (GDestroyNotify)font_cache_destroy,
-// 									NULL))
+// 									nil))
 // 		 {
 // 		   font_cache_destroy (cache);
 // 		   goto retry;
@@ -637,7 +655,7 @@ type Context struct {
 //    return cache;
 //  }
 
-//  static gboolean
+//  static bool
 //  font_cache_get (FontCache   *cache,
 // 		 gunichar     wc,
 // 		 PangoFont  **font)
@@ -649,10 +667,10 @@ type Context struct {
 // 	 {
 // 	   *font = element.font;
 
-// 	   return TRUE;
+// 	   return true;
 // 	 }
 //    else
-// 	 return FALSE;
+// 	 return false;
 //  }
 
 //  static void
@@ -661,22 +679,24 @@ type Context struct {
 // 			PangoFont         *font)
 //  {
 //    FontElement *element = g_slice_new (FontElement);
-//    element.font = font ? g_object_ref (font) : NULL;
+//    element.font = font ? g_object_ref (font) : nil;
 
 //    g_hash_table_insert (cache.hash, GUINT_TO_POINTER (wc), element);
 //  }
 
 //  /**********************************************************************/
 
-//  typedef enum {
-//    EMBEDDING_CHANGED    = 1 << 0,
-//    SCRIPT_CHANGED       = 1 << 1,
-//    LANG_CHANGED         = 1 << 2,
-//    FONT_CHANGED         = 1 << 3,
-//    DERIVED_LANG_CHANGED = 1 << 4,
-//    WIDTH_CHANGED        = 1 << 5,
-//    EMOJI_CHANGED        = 1 << 6,
-//  } ChangedFlags;
+type ChangedFlags uint8
+
+const (
+	EMBEDDING_CHANGED ChangedFlags = 1 << iota
+	SCRIPT_CHANGED
+	LANG_CHANGED
+	FONT_CHANGED
+	DERIVED_LANG_CHANGED
+	WIDTH_CHANGED
+	EMOJI_CHANGED
+)
 
 //  typedef struct _PangoWidthIter PangoWidthIter;
 
@@ -686,59 +706,56 @@ type Context struct {
 // 	 const gchar *text_end;
 // 	 const gchar *start;
 // 	 const gchar *end;
-// 	 gboolean     upright;
+// 	 bool     upright;
 //  };
 
-//  typedef struct _ItemizeState ItemizeState;
+type ItemizeState struct {
+	context *Context
+	text    []rune
+	end     uint32
 
-//  struct _ItemizeState
-//  {
-//    Context *context;
-//    const char *text;
-//    const char *end;
+	run_start uint32
+	//    const char *run_end;
 
-//    const char *run_start;
-//    const char *run_end;
+	//    GList *result;
+	item *Item
 
-//    GList *result;
-//    PangoItem *item;
+	embedding_levels     []uint8
+	embedding_end_offset int
+	//    const char *embedding_end;
+	embedding uint8
 
-//    guint8 *embedding_levels;
-//    int embedding_end_offset;
-//    const char *embedding_end;
-//    guint8 embedding;
+	gravity           Gravity
+	gravity_hint      GravityHint
+	resolved_gravity  Gravity
+	font_desc_gravity Gravity
+	centered_baseline bool
 
-//    PangoGravity gravity;
-//    PangoGravityHint gravity_hint;
-//    PangoGravity resolved_gravity;
-//    PangoGravity font_desc_gravity;
-//    gboolean centered_baseline;
+	attr_iter *AttrIterator
+	// free_attr_iter bool
+	attr_end         uint32
+	font_desc        *FontDescription
+	emoji_font_desc  *FontDescription
+	lang             Language
+	extra_attrs      AttrList
+	copy_extra_attrs bool
 
-//    PangoAttrIterator *attr_iter;
-//    gboolean free_attr_iter;
-//    const char *attr_end;
-//    PangoFontDescription *font_desc;
-//    PangoFontDescription *emoji_font_desc;
-//    PangoLanguage *lang;
-//    GSList *extra_attrs;
-//    gboolean copy_extra_attrs;
+	changed ChangedFlags
 
-//    ChangedFlags changed;
+	// script_iter ScriptIter
+	//    const char *script_end;
+	// script Script
 
-//    PangoScriptIter script_iter;
-//    const char *script_end;
-//    PangoScript script;
+	// width_iter WidthIter
+	// emoji_iter EmojiIter
 
-//    PangoWidthIter width_iter;
-//    PangoEmojiIter emoji_iter;
+	derived_lang *Language
 
-//    PangoLanguage *derived_lang;
-
-//    PangoFontset *current_fonts;
-//    FontCache *cache;
-//    PangoFont *base_font;
-//    gboolean enable_fallback;
-//  };
+	current_fonts *Fontset
+	// cache           *FontCache
+	base_font       *Font
+	enable_fallback bool
+}
 
 //  static void
 //  update_embedding_end (ItemizeState *state)
@@ -754,67 +771,68 @@ type Context struct {
 //    state.changed |= EMBEDDING_CHANGED;
 //  }
 
-//  static PangoAttribute *
-//  find_attribute (GSList        *attr_list,
-// 		 PangoAttrType  type)
-//  {
-//    GSList *node;
+func (attr_list AttrList) find_attribute(type_ AttrType) *Attr {
+	for _, attr := range attr_list {
+		if attr.Type == type_ {
+			return attr
+		}
+	}
+	return nil
+}
 
-//    for (node = attr_list; node; node = node.next)
-// 	 if (((PangoAttribute *) node.data).klass.type == type)
-// 	   return (PangoAttribute *) node.data;
+// func (state *ItemizeState) update_attr_iterator() {
+// 	//    PangoLanguage *old_lang;
+// 	//    PangoAttribute *attr;
+// 	//    int end_index;
+// 	end_index := state.attr_iter.EndIndex
+// 	//    pango_attr_iterator_range (state.attr_iter, nil, &end_index);
+// 	if end_index < state.end-state.text {
+// 		state.attr_end = state.text + end_index
+// 	} else {
+// 		state.attr_end = state.end
+// 	}
 
-//    return NULL;
-//  }
+// 	if state.emoji_font_desc != nil {
+// 		state.emoji_font_desc = nil
+// 	}
 
-//  static void
-//  update_attr_iterator (ItemizeState *state)
-//  {
-//    PangoLanguage *old_lang;
-//    PangoAttribute *attr;
-//    int end_index;
+// 	old_lang := state.lang
 
-//    pango_attr_iterator_range (state.attr_iter, NULL, &end_index);
-//    if (end_index < state.end - state.text)
-// 	 state.attr_end = state.text + end_index;
-//    else
-// 	 state.attr_end = state.end;
+// 	cp := state.context.font_desc // copy
+// 	state.font_desc = &cp
+// 	state.attr_iter.pango_attr_iterator_get_font(state.font_desc, &state.lang, &state.extra_attrs)
+// 	if state.font_desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
+// 		state.font_desc_gravity = state.font_desc.gravity
+// 	} else {
+// 		state.font_desc_gravity = PANGO_GRAVITY_AUTO
+// 	}
 
-//    if (state.emoji_font_desc)
-// 	 {
-// 	   pango_font_description_free (state.emoji_font_desc);
-// 	   state.emoji_font_desc = NULL;
-// 	 }
+// 	state.copy_extra_attrs = false
 
-//    old_lang = state.lang;
-//    if (state.font_desc)
-// 	 pango_font_description_free (state.font_desc);
-//    state.font_desc = pango_font_description_copy_static (state.context.font_desc);
-//    pango_attr_iterator_get_font (state.attr_iter, state.font_desc,
-// 				 &state.lang, &state.extra_attrs);
-//    if (pango_font_description_get_set_fields (state.font_desc) & PANGO_FONT_MASK_GRAVITY)
-// 	 state.font_desc_gravity = pango_font_description_get_gravity (state.font_desc);
-//    else
-// 	 state.font_desc_gravity = PANGO_GRAVITY_AUTO;
+// 	if state.lang == "" {
+// 		state.lang = state.context.language
+// 	}
 
-//    state.copy_extra_attrs = FALSE;
+// 	attr := state.extra_attrs.find_attribute(ATTR_FALLBACK)
+// 	state.enable_fallback = (attr == nil || attr.Data.(AttrInt) != 0)
 
-//    if (!state.lang)
-// 	 state.lang = state.context.language;
+// 	attr = state.extra_attrs.find_attribute(ATTR_GRAVITY)
+// 	state.gravity = PANGO_GRAVITY_AUTO
+// 	if attr != nil {
+// 		state.gravity = Gravity(attr.Data.(AttrInt))
+// 	}
 
-//    attr = find_attribute (state.extra_attrs, PANGO_ATTR_FALLBACK);
-//    state.enable_fallback = (attr == NULL || ((PangoAttrInt *)attr).value);
+// 	attr = state.extra_attrs.find_attribute(ATTR_GRAVITY_HINT)
+// 	state.gravity_hint = state.context.gravity_hint
+// 	if attr != nil {
+// 		state.gravity_hint = GravityHint(attr.Data.(AttrInt))
+// 	}
 
-//    attr = find_attribute (state.extra_attrs, PANGO_ATTR_GRAVITY);
-//    state.gravity = attr == NULL ? PANGO_GRAVITY_AUTO : ((PangoAttrInt *)attr).value;
-
-//    attr = find_attribute (state.extra_attrs, PANGO_ATTR_GRAVITY_HINT);
-//    state.gravity_hint = attr == NULL ? state.context.gravity_hint : (PangoGravityHint)((PangoAttrInt *)attr).value;
-
-//    state.changed |= FONT_CHANGED;
-//    if (state.lang != old_lang)
-// 	 state.changed |= LANG_CHANGED;
-//  }
+// 	state.changed |= FONT_CHANGED
+// 	if state.lang != old_lang {
+// 		state.changed |= LANG_CHANGED
+// 	}
+// }
 
 //  static void
 //  update_end (ItemizeState *state)
@@ -830,7 +848,7 @@ type Context struct {
 // 	 state.run_end = state.emoji_iter.end;
 //  }
 
-//  static gboolean
+//  static bool
 //  width_iter_is_upright (gunichar ch)
 //  {
 //    /* https://www.unicode.org/Public/11.0.0/ucd/VerticalOrientation.txt
@@ -873,7 +891,7 @@ type Context struct {
 // 	 {
 // 	   int mid = (st + ed) / 2;
 // 	   if (upright[mid][0] <= ch && ch <= upright[mid][1])
-// 		 return TRUE;
+// 		 return true;
 // 	   else
 // 		 if (upright[mid][0] <= ch)
 // 		   st = mid + 1;
@@ -881,13 +899,13 @@ type Context struct {
 // 		   ed = mid - 1;
 // 	 }
 
-//    return FALSE;
+//    return false;
 //  }
 
 //  static void
 //  width_iter_next(PangoWidthIter* iter)
 //  {
-//    gboolean met_joiner = FALSE;
+//    bool met_joiner = false;
 //    iter.start = iter.end;
 
 //    if (iter.end < iter.text_end)
@@ -904,7 +922,7 @@ type Context struct {
 // 	   if (ch == 0x200D)
 // 		 {
 // 		   iter.end = g_utf8_next_char (iter.end);
-// 		   met_joiner = TRUE;
+// 		   met_joiner = true;
 // 		   continue;
 // 		 }
 
@@ -912,7 +930,7 @@ type Context struct {
 // 	   if (met_joiner)
 // 		 {
 // 		   iter.end = g_utf8_next_char (iter.end);
-// 		   met_joiner = FALSE;
+// 		   met_joiner = false;
 // 		   continue;
 // 		 }
 
@@ -946,111 +964,96 @@ type Context struct {
 //  {
 //  }
 
-//  static void
-//  itemize_state_init (ItemizeState      *state,
-// 			 Context      *context,
-// 			 const char        *text,
-// 			 PangoDirection     base_dir,
-// 			 int                start_index,
-// 			 int                length,
-// 			 PangoAttrList     *attrs,
-// 			 PangoAttrIterator *cached_iter,
-// 			 const PangoFontDescription *desc)
-//  {
+// func (context *Context) itemize_state_init(text []rune,
+// 	base_dir Direction,
+// 	start_index, length uint32,
+// 	attrs AttrList,
+// 	cached_iter *AttrIterator,
+// 	desc *FontDescription) *ItemizeState {
 
-//    state.context = context;
-//    state.text = text;
-//    state.end = text + start_index + length;
+// 	var state ItemizeState
+// 	state.context = context
+// 	state.text = text
+// 	state.end = start_index + length
 
-//    state.result = NULL;
-//    state.item = NULL;
+// 	// state.result = nil
+// 	// state.item = nil
 
-//    state.run_start = text + start_index;
-//    state.changed = EMBEDDING_CHANGED | SCRIPT_CHANGED | LANG_CHANGED |
-// 					FONT_CHANGED | WIDTH_CHANGED | EMOJI_CHANGED;
+// 	state.run_start = start_index
+// 	state.changed = EMBEDDING_CHANGED | SCRIPT_CHANGED | LANG_CHANGED |
+// 		FONT_CHANGED | WIDTH_CHANGED | EMOJI_CHANGED
 
-//    /* First, apply the bidirectional algorithm to break
-// 	* the text into directional runs.
-// 	*/
-//    state.embedding_levels = pango_log2vis_get_embedding_levels (text + start_index, length, &base_dir);
+// 	// First, apply the bidirectional algorithm to break the text into directional runs.
+// 	state.embedding_levels = pango_log2vis_get_embedding_levels(text+start_index, length, &base_dir)
 
-//    state.embedding_end_offset = 0;
-//    state.embedding_end = text + start_index;
-//    update_embedding_end (state);
+// 	state.embedding_end_offset = 0
+// 	state.embedding_end = text + start_index
+// 	update_embedding_end(state)
 
-//    /* Initialize the attribute iterator
-// 	*/
-//    if (cached_iter)
-// 	 {
-// 	   state.attr_iter = cached_iter;
-// 	   state.free_attr_iter = FALSE;
-// 	 }
-//    else if (attrs)
-// 	 {
-// 	   state.attr_iter = pango_attr_list_get_iterator (attrs);
-// 	   state.free_attr_iter = TRUE;
-// 	 }
-//    else
-// 	 {
-// 	   state.attr_iter = NULL;
-// 	   state.free_attr_iter = FALSE;
-// 	 }
+// 	/* Initialize the attribute iterator
+// 	 */
+// 	if cached_iter != nil {
+// 		state.attr_iter = cached_iter
+// 	} else if len(attrs) != 0 {
+// 		state.attr_iter = attrs.pango_attr_list_get_iterator()
+// 	}
 
-//    state.emoji_font_desc = NULL;
-//    if (state.attr_iter)
-// 	 {
-// 	   state.font_desc = NULL;
-// 	   state.lang = NULL;
+// 	if state.attr_iter != nil {
+// 		state.attr_iter.advance_attr_iterator_to(start_index)
+// 		state.update_attr_iterator()
+// 	} else {
+// 		if desc == nil {
+// 			cp := state.context.font_desc
+// 			state.font_desc = &cp
+// 		} else {
+// 			state.font_desc = desc
+// 		}
+// 		state.lang = state.context.language
+// 		state.extra_attrs = nil
+// 		state.copy_extra_attrs = false
 
-// 	   advance_attr_iterator_to (state.attr_iter, start_index);
-// 	   update_attr_iterator (state);
-// 	 }
-//    else
-// 	 {
-// 	   state.font_desc = pango_font_description_copy_static (desc ? desc : state.context.font_desc);
-// 	   state.lang = state.context.language;
-// 	   state.extra_attrs = NULL;
-// 	   state.copy_extra_attrs = FALSE;
+// 		state.attr_end = state.end
+// 		state.enable_fallback = true
+// 	}
 
-// 	   state.attr_end = state.end;
-// 	   state.enable_fallback = TRUE;
-// 	 }
+// 	/* Initialize the script iterator
+// 	 */
+// 	_pango_script_iter_init(&state.script_iter, text+start_index, length)
+// 	pango_script_iter_get_range(&state.script_iter, nil,
+// 		&state.script_end, &state.script)
 
-//    /* Initialize the script iterator
-// 	*/
-//    _pango_script_iter_init (&state.script_iter, text + start_index, length);
-//    pango_script_iter_get_range (&state.script_iter, NULL,
-// 					&state.script_end, &state.script);
+// 	width_iter_init(&state.width_iter, text+start_index, length)
+// 	_pango_emoji_iter_init(&state.emoji_iter, text+start_index, length)
 
-//    width_iter_init (&state.width_iter, text + start_index, length);
-//    _pango_emoji_iter_init (&state.emoji_iter, text + start_index, length);
+// 	if state.emoji_iter.is_emoji {
+// 		state.width_iter.end = max(state.width_iter.end, state.emoji_iter.end)
+// 	}
 
-//    if (state.emoji_iter.is_emoji)
-// 	 state.width_iter.end = MAX (state.width_iter.end, state.emoji_iter.end);
+// 	update_end(state)
 
-//    update_end (state);
+// 	if state.font_desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
+// 		state.font_desc_gravity = state.font_desc.gravity
+// 	} else {
+// 		state.font_desc_gravity = PANGO_GRAVITY_AUTO
+// 	}
 
-//    if (pango_font_description_get_set_fields (state.font_desc) & PANGO_FONT_MASK_GRAVITY)
-// 	 state.font_desc_gravity = pango_font_description_get_gravity (state.font_desc);
-//    else
-// 	 state.font_desc_gravity = PANGO_GRAVITY_AUTO;
+// 	state.gravity = PANGO_GRAVITY_AUTO
+// 	state.centered_baseline = state.context.resolved_gravity.isVertical()
+// 	state.gravity_hint = state.context.gravity_hint
+// 	state.resolved_gravity = PANGO_GRAVITY_AUTO
+// 	state.derived_lang = nil
+// 	state.current_fonts = nil
+// 	state.cache = nil
+// 	state.base_font = nil
 
-//    state.gravity = PANGO_GRAVITY_AUTO;
-//    state.centered_baseline = PANGO_GRAVITY_IS_VERTICAL (state.context.resolved_gravity);
-//    state.gravity_hint = state.context.gravity_hint;
-//    state.resolved_gravity = PANGO_GRAVITY_AUTO;
-//    state.derived_lang = NULL;
-//    state.current_fonts = NULL;
-//    state.cache = NULL;
-//    state.base_font = NULL;
+// 	return &state
+// }
 
-//  }
-
-//  static gboolean
+//  static bool
 //  itemize_state_next (ItemizeState *state)
 //  {
 //    if (state.run_end == state.end)
-// 	 return FALSE;
+// 	 return false;
 
 //    state.changed = 0;
 
@@ -1070,7 +1073,7 @@ type Context struct {
 //    if (state.run_end == state.script_end)
 // 	 {
 // 	   pango_script_iter_next (&state.script_iter);
-// 	   pango_script_iter_get_range (&state.script_iter, NULL,
+// 	   pango_script_iter_get_range (&state.script_iter, nil,
 // 					&state.script_end, &state.script);
 // 	   state.changed |= SCRIPT_CHANGED;
 // 	 }
@@ -1090,13 +1093,13 @@ type Context struct {
 
 //    update_end (state);
 
-//    return TRUE;
+//    return true;
 //  }
 
 //  static GSList *
 //  copy_attr_slist (GSList *attr_slist)
 //  {
-//    GSList *new_list = NULL;
+//    GSList *new_list = nil;
 //    GSList *l;
 
 //    for (l = attr_slist; l; l = l.next)
@@ -1124,7 +1127,7 @@ type Context struct {
 //  static void
 //  itemize_state_add_character (ItemizeState *state,
 // 				  PangoFont    *font,
-// 				  gboolean      force_break,
+// 				  bool      force_break,
 // 				  const char   *pos)
 //  {
 //    if (state.item)
@@ -1203,7 +1206,7 @@ type Context struct {
 //    else
 // 	 {
 // 	   state.item.analysis.extra_attrs = state.extra_attrs;
-// 	   state.copy_extra_attrs = TRUE;
+// 	   state.copy_extra_attrs = true;
 // 	 }
 
 //    state.result = g_list_prepend (state.result, state.item);
@@ -1215,7 +1218,7 @@ type Context struct {
 //    PangoFont *font;
 //  } GetFontInfo;
 
-//  static gboolean
+//  static bool
 //  get_font_foreach (PangoFontset *fontset,
 // 		   PangoFont    *font,
 // 		   gpointer      data)
@@ -1223,21 +1226,21 @@ type Context struct {
 //    GetFontInfo *info = data;
 
 //    if (G_UNLIKELY (!font))
-// 	 return FALSE;
+// 	 return false;
 
 //    if (pango_font_has_char (font, info.wc))
 // 	 {
 // 	   info.font = font;
-// 	   return TRUE;
+// 	   return true;
 // 	 }
 
 //    if (!fontset)
 // 	 {
 // 	   info.font = font;
-// 	   return TRUE;
+// 	   return true;
 // 	 }
 
-//    return FALSE;
+//    return false;
 //  }
 
 //  static PangoFont *
@@ -1250,7 +1253,7 @@ type Context struct {
 //    return state.base_font;
 //  }
 
-//  static gboolean
+//  static bool
 //  get_font (ItemizeState  *state,
 // 		   gunichar       wc,
 // 		   PangoFont    **font)
@@ -1260,16 +1263,16 @@ type Context struct {
 //    /* We'd need a separate cache when fallback is disabled, but since lookup
 // 	* with fallback disabled is faster anyways, we just skip caching */
 //    if (state.enable_fallback && font_cache_get (state.cache, wc, font))
-// 	 return TRUE;
+// 	 return true;
 
 //    info.lang = state.derived_lang;
 //    info.wc = wc;
-//    info.font = NULL;
+//    info.font = nil;
 
 //    if (state.enable_fallback)
 // 	 pango_fontset_foreach (state.current_fonts, get_font_foreach, &info);
 //    else
-// 	 get_font_foreach (NULL, get_base_font (state), &info);
+// 	 get_font_foreach (nil, get_base_font (state), &info);
 
 //    *font = info.font;
 
@@ -1277,7 +1280,7 @@ type Context struct {
 //    if (state.enable_fallback)
 // 	 font_cache_insert (state.cache, wc, *font);
 
-//    return TRUE;
+//    return true;
 //  }
 
 //  static PangoLanguage *
@@ -1359,13 +1362,13 @@ type Context struct {
 // 	   state.current_fonts)
 // 	 {
 // 	   g_object_unref (state.current_fonts);
-// 	   state.current_fonts = NULL;
-// 	   state.cache = NULL;
+// 	   state.current_fonts = nil;
+// 	   state.cache = nil;
 // 	 }
 
 //    if (!state.current_fonts)
 // 	 {
-// 	   gboolean is_emoji = state.emoji_iter.is_emoji;
+// 	   bool is_emoji = state.emoji_iter.is_emoji;
 // 	   if (is_emoji && !state.emoji_font_desc)
 // 	   {
 // 		 state.emoji_font_desc = pango_font_description_copy_static (state.font_desc);
@@ -1381,7 +1384,7 @@ type Context struct {
 //    if ((state.changed & FONT_CHANGED) && state.base_font)
 // 	 {
 // 	   g_object_unref (state.base_font);
-// 	   state.base_font = NULL;
+// 	   state.base_font = nil;
 // 	 }
 //  }
 
@@ -1389,7 +1392,7 @@ type Context struct {
 //  itemize_state_process_run (ItemizeState *state)
 //  {
 //    const char *p;
-//    gboolean last_was_forced_break = FALSE;
+//    bool last_was_forced_break = false;
 
 //    /* Only one character has type G_UNICODE_LINE_SEPARATOR in Unicode 4.0;
 // 	* update this if that changes. */
@@ -1405,7 +1408,7 @@ type Context struct {
 // 		p = g_utf8_next_char (p))
 // 	 {
 // 	   gunichar wc = g_utf8_get_char (p);
-// 	   gboolean is_forced_break = (wc == '\t' || wc == LINE_SEPARATOR);
+// 	   bool is_forced_break = (wc == '\t' || wc == LINE_SEPARATOR);
 // 	   PangoFont *font;
 // 	   GUnicodeType type;
 
@@ -1431,7 +1434,7 @@ type Context struct {
 // 					   (wc >= 0xfe00u && wc <= 0xfe0fu) ||
 // 					   (wc >= 0xe0100u && wc <= 0xe01efu)))
 // 		 {
-// 	   font = NULL;
+// 	   font = nil;
 // 		 }
 // 	   else
 // 		 {
@@ -1463,16 +1466,16 @@ type Context struct {
 // 						  state.script);
 
 // 			   g_object_set_data_full (G_OBJECT (fontmap), script_tag,
-// 									   GINT_TO_POINTER (1), NULL);
+// 									   GINT_TO_POINTER (1), nil);
 // 			 }
 
 // 		   g_free (script_tag);
 
-// 		   font = NULL;
+// 		   font = nil;
 // 		 }
 // 	   itemize_state_fill_font (state, font);
 // 	 }
-//    state.item = NULL;
+//    state.item = nil;
 //  }
 
 //  static void
@@ -1493,60 +1496,6 @@ type Context struct {
 // 	 g_object_unref (state.base_font);
 //  }
 
-//  /**
-//   * pango_itemize_with_base_dir:
-//   * `context`:   a structure holding information that affects
-//   *             the itemization process.
-//   * @base_dir:  base direction to use for bidirectional processing
-//   * @text:      the text to itemize.
-//   * @start_index: first byte in @text to process
-//   * @length:    the number of bytes (not characters) to process
-//   *             after @start_index. This must be >= 0.
-//   * @attrs:     the set of attributes that apply to @text.
-//   * @cached_iter: (allow-none): Cached attribute iterator, or %NULL
-//   *
-//   * Like pango_itemize(), but the base direction to use when
-//   * computing bidirectional levels (see pango_context_set_base_dir ()),
-//   * is specified explicitly rather than gotten from the #Context.
-//   *
-//   * Return value: (transfer full) (element-type Pango.Item): a #GList of
-//   *               #PangoItem structures.  The items should be freed using
-//   *               pango_item_free() probably in combination with
-//   *               g_list_foreach(), and the list itself using g_list_free().
-//   *
-//   * Since: 1.4
-//   */
-//  GList *
-//  pango_itemize_with_base_dir (Context      *context,
-// 				  PangoDirection     base_dir,
-// 				  const char        *text,
-// 				  int                start_index,
-// 				  int                length,
-// 				  PangoAttrList     *attrs,
-// 				  PangoAttrIterator *cached_iter)
-//  {
-//    ItemizeState state;
-
-//    g_return_val_if_fail (context != NULL, NULL);
-//    g_return_val_if_fail (start_index >= 0, NULL);
-//    g_return_val_if_fail (length >= 0, NULL);
-//    g_return_val_if_fail (length == 0 || text != NULL, NULL);
-
-//    if (length == 0 || g_utf8_strlen (text, length) == 0)
-// 	 return NULL;
-
-//    itemize_state_init (&state, context, text, base_dir, start_index, length,
-// 			   attrs, cached_iter, NULL);
-
-//    do
-// 	 itemize_state_process_run (&state);
-//    while (itemize_state_next (&state));
-
-//    itemize_state_finish (&state);
-
-//    return g_list_reverse (state.result);
-//  }
-
 //  static GList *
 //  itemize_with_font (Context               *context,
 // 			const char                 *text,
@@ -1557,10 +1506,10 @@ type Context struct {
 //    ItemizeState state;
 
 //    if (length == 0)
-// 	 return NULL;
+// 	 return nil;
 
 //    itemize_state_init (&state, context, text, context.base_dir, start_index, length,
-// 			   NULL, NULL, desc);
+// 			   nil, nil, desc);
 
 //    do
 // 	 itemize_state_process_run (&state);
@@ -1581,7 +1530,7 @@ type Context struct {
 //   *             after @start_index.
 //   *             This must be >= 0.
 //   * @attrs:     the set of attributes that apply to @text.
-//   * @cached_iter: (allow-none): Cached attribute iterator, or %NULL
+//   * @cached_iter: (allow-none): Cached attribute iterator, or %nil
 //   *
 //   * Breaks a piece of text into segments with consistent
 //   * directional level and shaping engine. Each byte of @text will
@@ -1607,16 +1556,16 @@ type Context struct {
 // 			PangoAttrList     *attrs,
 // 			PangoAttrIterator *cached_iter)
 //  {
-//    g_return_val_if_fail (context != NULL, NULL);
-//    g_return_val_if_fail (start_index >= 0, NULL);
-//    g_return_val_if_fail (length >= 0, NULL);
-//    g_return_val_if_fail (length == 0 || text != NULL, NULL);
+//    g_return_val_if_fail (context != nil, nil);
+//    g_return_val_if_fail (start_index >= 0, nil);
+//    g_return_val_if_fail (length >= 0, nil);
+//    g_return_val_if_fail (length == 0 || text != nil, nil);
 
 //    return pango_itemize_with_base_dir (context, context.base_dir,
 // 					   text, start_index, length, attrs, cached_iter);
 //  }
 
-//  static gboolean
+//  static bool
 //  get_first_metrics_foreach (PangoFontset  *fontset,
 // 				PangoFont     *font,
 // 				gpointer       data)
@@ -1636,7 +1585,7 @@ type Context struct {
 
 //    pango_font_metrics_unref (font_metrics);
 
-//    return TRUE;			/* Stops iteration */
+//    return true;			/* Stops iteration */
 //  }
 
 //  static PangoFontMetrics *
@@ -1658,7 +1607,7 @@ type Context struct {
 // 				GList            *items)
 
 //  {
-//    GHashTable *fonts_seen = g_hash_table_new (NULL, NULL);
+//    GHashTable *fonts_seen = g_hash_table_new (nil, nil);
 //    PangoGlyphString *glyphs = pango_glyph_string_new ();
 //    GList *l;
 //    glong text_width;
@@ -1673,7 +1622,7 @@ type Context struct {
 // 	   PangoItem *item = l.data;
 // 	   PangoFont *font = item.analysis.font;
 
-// 	   if (font != NULL && g_hash_table_lookup (fonts_seen, font) == NULL)
+// 	   if (font != nil && g_hash_table_lookup (fonts_seen, font) == nil)
 // 	 {
 // 	   PangoFontMetrics *raw_metrics = pango_font_get_metrics (font, language);
 // 	   g_hash_table_insert (fonts_seen, font, font);
@@ -1702,10 +1651,10 @@ type Context struct {
 //  /**
 //   * pango_context_get_metrics:
 //   * `context`: a #Context
-//   * @desc: (allow-none): a #PangoFontDescription structure.  %NULL means that the
+//   * @desc: (allow-none): a #PangoFontDescription structure.  %nil means that the
 //   *            font description from the context will be used.
 //   * @language: (allow-none): language tag used to determine which script to get
-//   *            the metrics for. %NULL means that the language tag from the context
+//   *            the metrics for. %nil means that the language tag from the context
 //   *            will be used. If no language tag is set on the context, metrics
 //   *            for the default language (as determined by pango_language_get_default())
 //   *            will be returned.
@@ -1731,13 +1680,13 @@ type Context struct {
 // 				const PangoFontDescription   *desc,
 // 				PangoLanguage                *language)
 //  {
-//    PangoFontset *current_fonts = NULL;
+//    PangoFontset *current_fonts = nil;
 //    PangoFontMetrics *metrics;
 //    const char *sample_str;
 //    unsigned int text_len;
 //    GList *items;
 
-//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), NULL);
+//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), nil);
 
 //    if (!desc)
 // 	 desc = context.font_desc;
@@ -1754,7 +1703,7 @@ type Context struct {
 
 //    update_metrics_from_items (metrics, language, sample_str, text_len, items);
 
-//    g_list_foreach (items, (GFunc)pango_item_free, NULL);
+//    g_list_foreach (items, (GFunc)pango_item_free, nil);
 //    g_list_free (items);
 
 //    g_object_unref (current_fonts);
@@ -1840,7 +1789,7 @@ func (context *Context) check_fontmap_changed() {} // TODO:
 //   */
 //  void
 //  pango_context_set_round_glyph_positions (Context *context,
-// 										  gboolean      round_positions)
+// 										  bool      round_positions)
 //  {
 //    if (context.round_glyph_positions != round_positions)
 // 	 {
@@ -1858,7 +1807,7 @@ func (context *Context) check_fontmap_changed() {} // TODO:
 //   *
 //   * Since: 1.44
 //   */
-//  gboolean
+//  bool
 //  pango_context_get_round_glyph_positions (Context *context)
 //  {
 //    return context.round_glyph_positions;

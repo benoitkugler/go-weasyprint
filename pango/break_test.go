@@ -308,7 +308,7 @@ func isEqual(b bool, v CharAttr, ref CharAttr) bool {
 	return v&ref == 0
 }
 
-func assertEquals(t *testing.T, bools []bool, attrs []CharAttr, ref CharAttr) {
+func assertEqualAttrs(t *testing.T, bools []bool, attrs []CharAttr, ref CharAttr) {
 	if len(bools) != len(attrs) {
 		t.Fatalf("exepected length %d, got %d", len(bools), len(attrs))
 	}
@@ -351,7 +351,7 @@ func TestUCD(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := GetLogAttrs([]rune(s))
-			assertEquals(t, bs, got, refs[i])
+			assertEqualAttrs(t, bs, got, refs[i])
 		}
 	}
 }

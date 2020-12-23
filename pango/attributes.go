@@ -50,6 +50,32 @@ const (
 	PANGO_SHOW_IGNORABLES                        //  Render default-ignorable Unicode characters visibly
 )
 
+// Underline enumeration is used to specify
+// whether text should be underlined, and if so, the type
+// of underlining.
+type Underline uint8
+
+const (
+	PANGO_UNDERLINE_NONE   Underline = iota // no underline should be drawn
+	PANGO_UNDERLINE_SINGLE                  // a single underline should be drawn
+	PANGO_UNDERLINE_DOUBLE                  // a double underline should be drawn
+	// a single underline should be drawn at a
+	// position beneath the ink extents of the text being
+	// underlined. This should be used only for underlining
+	// single characters, such as for keyboard accelerators.
+	// PANGO_UNDERLINE_SINGLE should be used for extended
+	// portions of text.
+	PANGO_UNDERLINE_LOW
+	// a wavy underline should be drawn below.
+	// This underline is typically used to indicate an error such
+	// as a possible mispelling; in some cases a contrasting color
+	// may automatically be used.
+	PANGO_UNDERLINE_ERROR
+	PANGO_UNDERLINE_SINGLE_LINE // like PANGO_UNDERLINE_SINGLE, but drawn continuously across multiple runs.
+	PANGO_UNDERLINE_DOUBLE_LINE // like PANGO_UNDERLINE_DOUBLE, but drawn continuously across multiple runs.
+	PANGO_UNDERLINE_ERROR_LINE  // like PANGO_UNDERLINE_ERROR, but drawn continuously across multiple runs.
+)
+
 type AttrType uint8
 
 var typeNames = [...]string{
@@ -118,7 +144,7 @@ func (a AttrString) String() string             { return string(a) }
 func (a AttrString) equals(other AttrData) bool { return a == other }
 
 func (a Language) copy() AttrData             { return a }
-func (a Language) String() string             { return fmt.Sprintf("%s", a[:]) }
+func (a Language) String() string             { return string(a) }
 func (a Language) equals(other AttrData) bool { return a == other }
 
 func (a FontDescription) copy() AttrData { return a }
@@ -235,9 +261,56 @@ func pango_attr_stretch_new(stretch Stretch) *Attr {
 	return &out
 }
 
+// Create a new baseline displacement attribute: `rise` is the amount
+// that the text should be displaced vertically, in Pango units.
+// Positive values displace the text upwards.
+func pango_attr_rise_new(rise int) *Attr {
+	out := Attr{Type: ATTR_RISE, Data: AttrInt(rise)}
+	out.pango_attribute_init()
+	return &out
+}
+
+// Create a new underline-style attribute.
+func pango_attr_underline_new(underline Underline) *Attr {
+	out := Attr{Type: ATTR_UNDERLINE, Data: AttrInt(underline)}
+	out.pango_attribute_init()
+	return &out
+}
+
+// Create a new font fallback attribute.
+//
+// If fallback is disabled, characters will only be used from the
+// closest matching font on the system. No fallback will be done to
+// other fonts on the system that might contain the characters in the
+// text.
+func pango_attr_fallback_new(enableFallback bool) *Attr {
+	f := 0
+	if enableFallback {
+		f = 1
+	}
+	out := Attr{Type: ATTR_FALLBACK, Data: AttrInt(f)}
+	out.pango_attribute_init()
+	return &out
+}
+
 // Create a new language tag attribute
 func pango_attr_language_new(language Language) *Attr {
 	out := Attr{Type: ATTR_LANGUAGE, Data: language}
+	out.pango_attribute_init()
+	return &out
+}
+
+// Create a new font family attribute: `family` is
+// the family or comma separated list of families.
+func pango_attr_family_new(family string) *Attr {
+	out := Attr{Type: ATTR_FAMILY, Data: AttrString(family)}
+	out.pango_attribute_init()
+	return &out
+}
+
+// Create a new foreground color attribute.
+func pango_attr_foreground_new(red, green, blue uint16) *Attr {
+	out := Attr{Type: ATTR_FOREGROUND, Data: AttrColor{red: red, green: green, blue: blue}}
 	out.pango_attribute_init()
 	return &out
 }
@@ -621,30 +694,25 @@ func (iterator AttrIterator) pango_attr_iterator_get(type_ AttrType) *Attr {
 	return nil
 }
 
-// @extra_attrs: (allow-none) (element-type Pango.Attribute) (transfer full): if non-nil,
-//           location in which to store a list of non-font
-//           attributes at the the current position; only the highest priority
-//           value of each attribute will be added to this list. In order
-//           to free this value, you must call pango_attribute_destroy() on
-//           each member.
-//
 // pango_attr_iterator_get_font gets the font and other attributes at the current iterator position.
 // `desc` is a FontDescription to fill in with the current values.
 // If non-nil, `language` is a location to store language tag for item, or zero if none is found.
-// TODO: support extra_attrs GSList               **extra_attrs
-func (iterator AttrIterator) pango_attr_iterator_get_font(desc *FontDescription, language *Language) {
+// If non-nil, `extra_attrs` is a location in which to store a list of non-font
+// attributes at the the current position; only the highest priority
+// value of each attribute will be added to this list.
+func (iterator AttrIterator) pango_attr_iterator_get_font(desc *FontDescription, language *Language, extra_attrs *AttrList) {
 	if desc == nil {
 		return
 	}
 	//    int i;
 
 	if language != nil {
-		*language = [2]byte{}
+		*language = ""
 	}
 
-	// if extra_attrs {
-	// 	*extra_attrs = nil
-	// }
+	if extra_attrs != nil {
+		*extra_attrs = nil
+	}
 
 	if len(iterator.attribute_stack) == 0 {
 		return
@@ -713,28 +781,25 @@ func (iterator AttrIterator) pango_attr_iterator_get_font(desc *FontDescription,
 				}
 			}
 		default:
-			//    if (extra_attrs) {
-			// 	   gboolean found = false;
+			if extra_attrs != nil {
+				found := false
 
-			// 	   /* Hack: special-case FONT_FEATURES.  We don't want them to
-			// 		* override each other, so we never merge them.  This should
-			// 		* be fixed when we implement attr-merging. */
-			// 	   if (attr.klass.type != ATTR_FONT_FEATURES)  {
-			// 			   GSList *tmp_list = *extra_attrs;
-			// 			   for (tmp_list)  {
-			// 				   PangoAttribute *old_attr = tmp_list.data;
-			// 				   if (attr.klass.type == old_attr.klass.type)  {
-			// 					   found = true;
-			// 					   break;
-			// 					 }
+				/* Hack: special-case FONT_FEATURES.  We don't want them to
+				* override each other, so we never merge them.  This should
+				* be fixed when we implement attr-merging. */
+				if attr.Type != ATTR_FONT_FEATURES {
+					for _, old_attr := range *extra_attrs {
+						if attr.Type == old_attr.Type {
+							found = true
+							break
+						}
+					}
+				}
 
-			// 				   tmp_list = tmp_list.next;
-			// 				 }
-			// 			 }
-
-			// 	   if (!found){
-			// 	 *extra_attrs = g_slist_prepend (*extra_attrs, pango_attribute_copy (attr));}
-			// 	 }
+				if !found {
+					*extra_attrs = append(AttrList{attr.pango_attribute_copy()}, *extra_attrs...)
+				}
+			}
 		}
 	}
 

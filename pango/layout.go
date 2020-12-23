@@ -450,52 +450,36 @@ func (layout *Layout) pango_layout_get_empty_extents_at_index(index uint32, logi
 		font_desc.pango_font_description_merge(layout.font_desc, true)
 	}
 
-	// TODO:
-	// // Find the font description for this line
-	// if len(layout.attrs) != 0 {
+	// Find the font description for this line
+	if len(layout.attrs) != 0 {
+		iter := layout.attrs.pango_attr_list_get_iterator()
+		hasNext := true // do ... while
+		for hasNext {
+			start, end := iter.StartIndex, iter.EndIndex
 
-	// 	iter := layout.attrs.pango_attr_list_get_iterator()
-	// 	hasNext := true // do ... while
-	// 	for hasNext {
-	// 		start, end := iter.StartIndex, iter.EndIndex
+			if start <= index && index < end {
+				iter.pango_attr_iterator_get_font(&font_desc, nil, nil)
+				break
+			}
 
-	// 		if start <= index && index < end {
-	// 			iter.pango_attr_iterator_get_font(&font_desc, nil)
+			hasNext = iter.pango_attr_iterator_next()
+		}
+	}
 
-	// 			break
-	// 		}
-
-	// 		hasNext = iter.pango_attr_iterator_next()
-	// 	}
-
-	// 	_pango_attr_iterator_destroy(&iter)
-	// }
-
-	// font = pango_context_load_font(layout.context, font_desc)
-	// if font {
-	// 	PangoFontMetrics * metrics
-
-	// 	metrics = pango_font_get_metrics(font,
-	// 		pango_context_get_language(layout.context))
-
-	// 	if metrics {
-	// 		logical_rect.y = -pango_font_metrics_get_ascent(metrics)
-	// 		logical_rect.height = -logical_rect.y + pango_font_metrics_get_descent(metrics)
-
-	// 		pango_font_metrics_unref(metrics)
-	// 	} else {
-	// 		logical_rect.y = 0
-	// 		logical_rect.height = 0
-	// 	}
-	// 	g_object_unref(font)
-	// } else {
-	// 	logical_rect.y = 0
-	// 	logical_rect.height = 0
-	// }
-
-	// if free_font_desc {
-	// 	pango_font_description_free(font_desc)
-	// }
+	font := layout.context.pango_context_load_font(font_desc)
+	if font != nil {
+		metrics := pango_font_get_metrics(font, layout.context.set_language)
+		// if metrics {
+		logical_rect.y = -metrics.ascent
+		logical_rect.height = -logical_rect.y + metrics.descent
+		// } else {
+		// 	logical_rect.y = 0
+		// 	logical_rect.height = 0
+		// }
+	} else {
+		logical_rect.y = 0
+		logical_rect.height = 0
+	}
 
 	logical_rect.x = 0
 	logical_rect.width = 0
