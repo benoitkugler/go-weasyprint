@@ -1,55 +1,47 @@
 package pango
 
 import (
-	"math"
 	"strings"
 	"testing"
 )
 
-// func TestCopy (t *testing.T,PangoAttribute *attr) {
-//    PangoAttribute *a;
+func testCopy(t *testing.T, attr *Attribute) {
+	a := attr.pango_attribute_copy()
+	assertTrue(t, attr.pango_attribute_equal(*a), "cloned values")
+}
 
-//    a = pango_attribute_copy (attr);
-//    assertTrue (t,pango_attribute_equal (attr, a));
-//    pango_attribute_destroy (a);
-//    pango_attribute_destroy (attr);
-//  }
+func TestAttributesBasic(t *testing.T) {
+	testCopy(t, pango_attr_language_new(pango_language_from_string("ja-JP")))
+	testCopy(t, pango_attr_family_new("Times"))
+	testCopy(t, pango_attr_foreground_new(100, 200, 300))
+	testCopy(t, pango_attr_background_new(100, 200, 300))
+	testCopy(t, pango_attr_size_new(1024))
+	testCopy(t, pango_attr_size_new_absolute(1024))
+	testCopy(t, pango_attr_style_new(PANGO_STYLE_ITALIC))
+	testCopy(t, pango_attr_weight_new(PANGO_WEIGHT_ULTRALIGHT))
+	testCopy(t, pango_attr_variant_new(PANGO_VARIANT_SMALL_CAPS))
+	testCopy(t, pango_attr_stretch_new(PANGO_STRETCH_SEMI_EXPANDED))
+	testCopy(t, pango_attr_font_desc_new(pango_font_description_from_string("Computer Modern 12")))
+	testCopy(t, pango_attr_underline_new(PANGO_UNDERLINE_LOW))
+	testCopy(t, pango_attr_underline_new(PANGO_UNDERLINE_ERROR_LINE))
+	testCopy(t, pango_attr_underline_color_new(100, 200, 300))
+	testCopy(t, pango_attr_overline_new(PANGO_OVERLINE_SINGLE))
+	testCopy(t, pango_attr_overline_color_new(100, 200, 300))
+	testCopy(t, pango_attr_strikethrough_new(true))
+	testCopy(t, pango_attr_strikethrough_color_new(100, 200, 300))
+	testCopy(t, pango_attr_rise_new(256))
+	testCopy(t, pango_attr_scale_new(2.56))
+	testCopy(t, pango_attr_fallback_new(false))
+	testCopy(t, pango_attr_letter_spacing_new(1024))
 
-// func TestAttributesBasic (t *testing.T,void) {
-//    PangoFontDescription *desc;
-//    PangoRectangle rect = { 0, 0, 10, 10 };
-
-//    test_copy (pango_attr_language_new (pango_language_from_string ("ja-JP")));
-//    test_copy (pango_attr_family_new ("Times"));
-//    test_copy (pango_attr_foreground_new (100, 200, 300));
-//    test_copy (pango_attr_background_new (100, 200, 300));
-//    test_copy (pango_attr_size_new (1024));
-//    test_copy (pango_attr_size_new_absolute (1024));
-//    test_copy (pango_attr_style_new (PANGO_STYLE_ITALIC));
-//    test_copy (pango_attr_weight_new (PANGO_WEIGHT_ULTRALIGHT));
-//    test_copy (pango_attr_variant_new (PANGO_VARIANT_SMALL_CAPS));
-//    test_copy (pango_attr_stretch_new (PANGO_STRETCH_SEMI_EXPANDED));
-//    desc = pango_font_description_from_string ("Computer Modern 12");
-//    test_copy (pango_attr_font_desc_new (desc));
-//    pango_font_description_free (desc);
-//    test_copy (pango_attr_underline_new (PANGO_UNDERLINE_LOW));
-//    test_copy (pango_attr_underline_new (PANGO_UNDERLINE_ERROR_LINE));
-//    test_copy (pango_attr_underline_color_new (100, 200, 300));
-//    test_copy (pango_attr_overline_new (PANGO_OVERLINE_SINGLE));
-//    test_copy (pango_attr_overline_color_new (100, 200, 300));
-//    test_copy (pango_attr_strikethrough_new (TRUE));
-//    test_copy (pango_attr_strikethrough_color_new (100, 200, 300));
-//    test_copy (pango_attr_rise_new (256));
-//    test_copy (pango_attr_scale_new (2.56));
-//    test_copy (pango_attr_fallback_new (false));
-//    test_copy (pango_attr_letter_spacing_new (1024));
-//    test_copy (pango_attr_shape_new (&rect, &rect));
-//    test_copy (pango_attr_gravity_new (PANGO_GRAVITY_SOUTH));
-//    test_copy (pango_attr_gravity_hint_new (PANGO_GRAVITY_HINT_STRONG));
-//    test_copy (pango_attr_allow_breaks_new (false));
-//    test_copy (pango_attr_show_new (PANGO_SHOW_SPACES));
-//    test_copy (pango_attr_insert_hyphens_new (false));
-//  }
+	rect := Rectangle{x: 0, y: 0, width: 10, height: 10}
+	testCopy(t, pango_attr_shape_new(rect, rect))
+	testCopy(t, pango_attr_gravity_new(PANGO_GRAVITY_SOUTH))
+	testCopy(t, pango_attr_gravity_hint_new(PANGO_GRAVITY_HINT_STRONG))
+	testCopy(t, pango_attr_allow_breaks_new(false))
+	testCopy(t, pango_attr_show_new(PANGO_SHOW_SPACES))
+	testCopy(t, pango_attr_insert_hyphens_new(false))
+}
 
 /* check that pango_attribute_equal compares values, but not ranges */
 func TestAttributesEqual(t *testing.T) {
@@ -301,7 +293,7 @@ func TestListChange(t *testing.T) {
 //  just_weight (PangoAttribute *attribute, gpointer user_data)
 //  {
 //    if (attribute.klass.type == ATTR_WEIGHT)
-// 	 return TRUE;
+// 	 return true;
 //    else
 // 	 return false;
 //  }
@@ -322,12 +314,12 @@ func TestListFilter(t *testing.T) {
 		"[10,20]stretch=2\n"+
 		"[20,-1]weight=700\n")
 
-	out := list.pango_attr_list_filter(func(attr *Attr) bool { return false })
+	out := list.pango_attr_list_filter(func(attr *Attribute) bool { return false })
 	if len(out) != 0 {
 		t.Errorf("expected empty list, got %v", out)
 	}
 
-	out = list.pango_attr_list_filter(func(attr *Attr) bool { return attr.Type == ATTR_WEIGHT })
+	out = list.pango_attr_list_filter(func(attr *Attribute) bool { return attr.Type == ATTR_WEIGHT })
 	if len(out) == 0 {
 		t.Error("expected list, got 0 elements")
 	}
@@ -339,8 +331,6 @@ func TestListFilter(t *testing.T) {
 
 // TODO: add copy test once it's implemented
 func TestIter(t *testing.T) {
-
-	/* Empty list */
 	var list AttrList
 	iter := list.pango_attr_list_get_iterator()
 
@@ -364,21 +354,17 @@ func TestIter(t *testing.T) {
 	assertEquals(t, int(iter.StartIndex), 0)
 	assertEquals(t, int(iter.EndIndex), 10)
 	assertTrue(t, iter.pango_attr_iterator_next(), "iterator has a next element")
-	// pango_attr_iterator_range(iter, &start, &end)
 	assertEquals(t, int(iter.StartIndex), 10)
 	assertEquals(t, int(iter.EndIndex), 20)
 	assertTrue(t, iter.pango_attr_iterator_next(), "iterator has a next element")
-	// pango_attr_iterator_range(iter, &start, &end)
 	assertEquals(t, int(iter.StartIndex), 20)
 	assertEquals(t, int(iter.EndIndex), 30)
 	assertTrue(t, iter.pango_attr_iterator_next(), "iterator has a next element")
-	// pango_attr_iterator_range(iter, &start, &end)
 	assertEquals(t, int(iter.StartIndex), 30)
-	assertEquals(t, int(iter.EndIndex), math.MaxUint32)
+	assertEquals(t, int(iter.EndIndex), maxInt)
 	assertTrue(t, iter.pango_attr_iterator_next(), "iterator has a next element")
-	// pango_attr_iterator_range(iter, &start, &end)
-	assertEquals(t, int(iter.StartIndex), math.MaxUint32)
-	assertEquals(t, int(iter.EndIndex), math.MaxUint32)
+	assertEquals(t, int(iter.StartIndex), maxInt)
+	assertEquals(t, int(iter.EndIndex), maxInt)
 	assertTrue(t, !iter.pango_attr_iterator_next(), "iterator has no more element")
 
 	// pango_attr_iterator_range(copy, &start, &end)
@@ -404,14 +390,14 @@ func TestIterGet(t *testing.T) {
 	if attr == nil {
 		t.Error("expected attribute")
 	}
-	assertEquals(t, attr.StartIndex, uint32(0))
-	assertEquals(t, attr.EndIndex, uint32(math.MaxUint32))
+	assertEquals(t, attr.StartIndex, 0)
+	assertEquals(t, attr.EndIndex, maxInt)
 	attr = iter.pango_attr_iterator_get(ATTR_STRETCH)
 	if attr == nil {
 		t.Error("expected attribute")
 	}
-	assertEquals(t, attr.StartIndex, uint32(10))
-	assertEquals(t, attr.EndIndex, uint32(30))
+	assertEquals(t, attr.StartIndex, 10)
+	assertEquals(t, attr.EndIndex, 30)
 	attr = iter.pango_attr_iterator_get(ATTR_WEIGHT)
 	if attr != nil {
 		t.Errorf("expected no attribute, got %v", attr)
@@ -756,7 +742,7 @@ func TestMerge(t *testing.T) {
 		"[13,15]size=11264\n"+
 		"[40,50]size=12288\n")
 
-	list2.pango_attr_list_filter(func(attr *Attr) bool {
+	list2.pango_attr_list_filter(func(attr *Attribute) bool {
 		list.pango_attr_list_change(*attr.pango_attribute_copy())
 		return false
 	})
@@ -903,7 +889,7 @@ func TestMerge2(t *testing.T) {
 //    pango_attr_list_unref (attributes);
 //    pango_attr_iterator_destroy (attr);
 
-//    g_string_free (s, TRUE);
+//    g_string_free (s, true);
 //  }
 
 //  int

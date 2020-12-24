@@ -1,1 +1,1 @@
-package fridibi
+package fribidi

@@ -9,3 +9,19 @@ type Rectangle struct {
 	width  int // width of the rectangle.
 	height int // height of the rectangle.
 }
+
+const maxInt = int(^uint(0) >> 1)
+
+func max(a, b int) int {
+	if a < b {
+		return b
+	}
+	return a
+}
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}

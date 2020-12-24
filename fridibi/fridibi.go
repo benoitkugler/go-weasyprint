@@ -1,13 +1,18 @@
-// Golang port of fridibi, using golang.org/x/text/unicode/bidi
+// Golang port of fribidi, using golang.org/x/text/unicode/bidi
 // as data source.
-package fridibi
+package fribidi
 
 import "golang.org/x/text/unicode/bidi"
 
-type fridibiClass uint8
+type Level = int8
+
+/* The maximum embedding level value assigned by explicit marks */
+const FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL = 125
+
+type fribidiClass uint8
 
 const (
-	ltr fridibiClass = iota
+	ltr fribidiClass = iota
 	rtl
 	al
 	en
@@ -86,6 +91,8 @@ const (
 	/* We reserve a single bit for user's private use: we will never use it. */
 	maskPRIVATE = 0x01000000
 )
+
+type ParType = CharType
 
 type CharType uint32
 
@@ -319,7 +326,7 @@ func (p CharType) IsPrivate() bool { return p&maskPRIVATE != 0 }
 //  #define FRIBIDI_WEAK_PARAGRAPH(p) (FRIBIDI_PAR_WLTR | p & maskRTL))
 
 // convert from golang enums to frididi class
-func newFribidiClass(class bidi.Class) fridibiClass {
+func newFribidiClass(class bidi.Class) fribidiClass {
 	switch class {
 	case bidi.L: // LeftToRight
 		return l
@@ -372,12 +379,30 @@ func newFribidiClass(class bidi.Class) fridibiClass {
 	}
 }
 
+type BracketType uint8
+
+const (
+	NoBracket BracketType = iota
+	BracketOpen
+	BracketClose
+)
+
 // GetBidiType returns the bidi type of a character as defined in Table 3.7
 // Bidirectional Character Types of the Unicode Bidirectional Algorithm
-// available at
-// http://www.unicode.org/reports/tr9/#Bidirectional_Character_Types, using
+// available at http://www.unicode.org/reports/tr9/#Bidirectional_Character_Types, using
 // data provided by golang.org/x/text/unicode/bidi
 func GetBidiType(ch rune) CharType {
 	props, _ := bidi.LookupRune(ch)
 	return classToType[newFribidiClass(props.Class())]
+}
+
+func GetBracket(ch rune) BracketType {
+	props, _ := bidi.LookupRune(ch)
+	if !props.IsBracket() {
+		return NoBracket
+	}
+	if props.IsOpeningBracket() {
+		return BracketOpen
+	}
+	return BracketClose
 }

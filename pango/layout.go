@@ -221,7 +221,7 @@ func (layout *Layout) pango_layout_set_tabs(tabs *TabArray) {
 // 	return nil
 // }
 
-func affects_break_or_shape(attr Attr) bool {
+func affects_break_or_shape(attr Attribute) bool {
 	switch attr.Type {
 	/* Affects breaks */
 	case ATTR_ALLOW_BREAKS:
@@ -234,7 +234,7 @@ func affects_break_or_shape(attr Attr) bool {
 	}
 }
 
-func affects_itemization(attr Attr) bool {
+func affects_itemization(attr Attribute) bool {
 	switch attr.Type {
 	/* These affect font selection */
 	case ATTR_LANGUAGE, ATTR_FAMILY, ATTR_STYLE, ATTR_WEIGHT, ATTR_VARIANT, ATTR_STRETCH, ATTR_SIZE, ATTR_FONT_DESC, ATTR_SCALE, ATTR_FALLBACK, ATTR_ABSOLUTE_SIZE, ATTR_GRAVITY, ATTR_GRAVITY_HINT:
@@ -439,7 +439,7 @@ func (layout *Layout) pango_layout_get_effective_attributes() AttrList {
 	return attrs
 }
 
-func (layout *Layout) pango_layout_get_empty_extents_at_index(index uint32, logical_rect *Rectangle) {
+func (layout *Layout) pango_layout_get_empty_extents_at_index(index int, logical_rect *Rectangle) {
 	if logical_rect == nil {
 		return
 	}

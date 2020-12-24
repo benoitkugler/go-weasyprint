@@ -104,7 +104,7 @@ func (iter *EmojiIter) _pango_emoji_iter_init(text []rune) {
 }
 
 func (iter *EmojiIter) _pango_emoji_iter_next() bool {
-	if iter.end >= len(iter.text)-1 {
+	if int(iter.end) > len(iter.text) {
 		return false
 	}
 
@@ -120,7 +120,7 @@ func (iter *EmojiIter) _pango_emoji_iter_next() bool {
 		iter.cursor = cursor
 		iter.is_emoji = is_emoji
 
-		if cursor == len(iter.text) {
+		if int(cursor) == len(iter.text) {
 			break
 		}
 
@@ -216,7 +216,6 @@ const (
 // pe is the end of p
 // cursor is the index into p
 func scan_emoji_presentation(p []emojiScannerCategory, is_emoji *bool) (cursor int) {
-	var te int // index into p
 	// eof := pe
 
 	//   unsigned act;
@@ -229,8 +228,7 @@ func scan_emoji_presentation(p []emojiScannerCategory, is_emoji *bool) (cursor i
 
 	// line 115 "emoji_presentation_scanner.c"
 	var (
-		// int ;
-		// unsigned int ;
+		te                    int // index into p
 		_acts                 []byte
 		_keys                 []emojiScannerCategory
 		_nacts, _trans, _klen byte

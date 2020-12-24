@@ -582,7 +582,7 @@ func (context *Context) pango_context_load_font(desc FontDescription) Font {
 
 //  /**********************************************************************/
 
-func (iterator *AttrIterator) advance_attr_iterator_to(start_index uint32) bool {
+func (iterator *AttrIterator) advance_attr_iterator_to(start_index int) bool {
 	start_range, end_range := iterator.StartIndex, iterator.EndIndex
 
 	for start_index >= end_range {
@@ -807,18 +807,17 @@ func (iter *WidthIter) width_iter_next() {
 type ItemizeState struct {
 	context *Context
 	text    []rune
-	end     uint32
+	end     int // index into text
 
-	run_start uint32
-	//    const char *run_end;
+	run_start, run_end int // index in text
 
 	//    GList *result;
 	item *Item
 
 	embedding_levels     []uint8
 	embedding_end_offset int
-	//    const char *embedding_end;
-	embedding uint8
+	embedding_end        int
+	embedding            uint8
 
 	gravity           Gravity
 	gravity_hint      GravityHint
@@ -828,7 +827,7 @@ type ItemizeState struct {
 
 	attr_iter *AttrIterator
 	// free_attr_iter bool
-	attr_end         uint32
+	attr_end         int
 	font_desc        *FontDescription
 	emoji_font_desc  *FontDescription
 	lang             Language
@@ -838,11 +837,11 @@ type ItemizeState struct {
 	changed ChangedFlags
 
 	script_iter ScriptIter
-	//    const char *script_end;
-	script Script
+	script_end  int    // copied from `script_iter`
+	script      Script // copied from `script_iter`
 
 	width_iter WidthIter
-	// emoji_iter EmojiIter
+	emoji_iter EmojiIter
 
 	derived_lang *Language
 
@@ -852,21 +851,18 @@ type ItemizeState struct {
 	enable_fallback bool
 }
 
-//  static void
-//  update_embedding_end (ItemizeState *state)
-//  {
-//    state.embedding = state.embedding_levels[state.embedding_end_offset];
-//    for (state.embedding_end < state.end &&
-// 	  state.embedding_levels[state.embedding_end_offset] == state.embedding)
-// 	 {
-// 	   state.embedding_end_offset++;
-// 	   state.embedding_end = g_utf8_next_char (state.embedding_end);
-// 	 }
+func (state *ItemizeState) update_embedding_end() {
+	state.embedding = state.embedding_levels[state.embedding_end_offset]
+	for state.embedding_end < state.end &&
+		state.embedding_levels[state.embedding_end_offset] == state.embedding {
+		state.embedding_end_offset++
+		state.embedding_end++
+	}
 
-//    state.changed |= EMBEDDING_CHANGED;
-//  }
+	state.changed |= EMBEDDING_CHANGED
+}
 
-func (attr_list AttrList) find_attribute(type_ AttrType) *Attr {
+func (attr_list AttrList) find_attribute(type_ AttrType) *Attribute {
 	for _, attr := range attr_list {
 		if attr.Type == type_ {
 			return attr
@@ -875,73 +871,74 @@ func (attr_list AttrList) find_attribute(type_ AttrType) *Attr {
 	return nil
 }
 
-// func (state *ItemizeState) update_attr_iterator() {
-// 	//    PangoLanguage *old_lang;
-// 	//    PangoAttribute *attr;
-// 	//    int end_index;
-// 	end_index := state.attr_iter.EndIndex
-// 	//    pango_attr_iterator_range (state.attr_iter, nil, &end_index);
-// 	if end_index < state.end-state.text {
-// 		state.attr_end = state.text + end_index
-// 	} else {
-// 		state.attr_end = state.end
-// 	}
+func (state *ItemizeState) update_attr_iterator() {
+	//    PangoLanguage *old_lang;
+	//    PangoAttribute *attr;
+	//    int end_index;
+	end_index := state.attr_iter.EndIndex // pango_attr_iterator_range (state.attr_iter, nil, &end_index);
+	if end_index < state.end {
+		state.attr_end = end_index
+	} else {
+		state.attr_end = state.end
+	}
 
-// 	if state.emoji_font_desc != nil {
-// 		state.emoji_font_desc = nil
-// 	}
+	if state.emoji_font_desc != nil {
+		state.emoji_font_desc = nil
+	}
 
-// 	old_lang := state.lang
+	old_lang := state.lang
 
-// 	cp := state.context.font_desc // copy
-// 	state.font_desc = &cp
-// 	state.attr_iter.pango_attr_iterator_get_font(state.font_desc, &state.lang, &state.extra_attrs)
-// 	if state.font_desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
-// 		state.font_desc_gravity = state.font_desc.gravity
-// 	} else {
-// 		state.font_desc_gravity = PANGO_GRAVITY_AUTO
-// 	}
+	cp := state.context.font_desc // copy
+	state.font_desc = &cp
+	state.attr_iter.pango_attr_iterator_get_font(state.font_desc, &state.lang, &state.extra_attrs)
+	if state.font_desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
+		state.font_desc_gravity = state.font_desc.gravity
+	} else {
+		state.font_desc_gravity = PANGO_GRAVITY_AUTO
+	}
 
-// 	state.copy_extra_attrs = false
+	state.copy_extra_attrs = false
 
-// 	if state.lang == "" {
-// 		state.lang = state.context.language
-// 	}
+	if state.lang == "" {
+		state.lang = state.context.language
+	}
 
-// 	attr := state.extra_attrs.find_attribute(ATTR_FALLBACK)
-// 	state.enable_fallback = (attr == nil || attr.Data.(AttrInt) != 0)
+	attr := state.extra_attrs.find_attribute(ATTR_FALLBACK)
+	state.enable_fallback = (attr == nil || attr.Data.(AttrInt) != 0)
 
-// 	attr = state.extra_attrs.find_attribute(ATTR_GRAVITY)
-// 	state.gravity = PANGO_GRAVITY_AUTO
-// 	if attr != nil {
-// 		state.gravity = Gravity(attr.Data.(AttrInt))
-// 	}
+	attr = state.extra_attrs.find_attribute(ATTR_GRAVITY)
+	state.gravity = PANGO_GRAVITY_AUTO
+	if attr != nil {
+		state.gravity = Gravity(attr.Data.(AttrInt))
+	}
 
-// 	attr = state.extra_attrs.find_attribute(ATTR_GRAVITY_HINT)
-// 	state.gravity_hint = state.context.gravity_hint
-// 	if attr != nil {
-// 		state.gravity_hint = GravityHint(attr.Data.(AttrInt))
-// 	}
+	attr = state.extra_attrs.find_attribute(ATTR_GRAVITY_HINT)
+	state.gravity_hint = state.context.gravity_hint
+	if attr != nil {
+		state.gravity_hint = GravityHint(attr.Data.(AttrInt))
+	}
 
-// 	state.changed |= FONT_CHANGED
-// 	if state.lang != old_lang {
-// 		state.changed |= LANG_CHANGED
-// 	}
-// }
+	state.changed |= FONT_CHANGED
+	if state.lang != old_lang {
+		state.changed |= LANG_CHANGED
+	}
+}
 
-//  static void
-//  update_end (ItemizeState *state)
-//  {
-//    state.run_end = state.embedding_end;
-//    if (state.attr_end < state.run_end)
-// 	 state.run_end = state.attr_end;
-//    if (state.script_end < state.run_end)
-// 	 state.run_end = state.script_end;
-//    if (state.width_iter.end < state.run_end)
-// 	 state.run_end = state.width_iter.end;
-//    if (state.emoji_iter.end < state.run_end)
-// 	 state.run_end = state.emoji_iter.end;
-//  }
+func (state *ItemizeState) update_end() {
+	state.run_end = state.embedding_end
+	if state.attr_end < state.run_end {
+		state.run_end = state.attr_end
+	}
+	if state.script_end < state.run_end {
+		state.run_end = state.script_end
+	}
+	if state.width_iter.end < state.run_end {
+		state.run_end = state.width_iter.end
+	}
+	if state.emoji_iter.end < state.run_end {
+		state.run_end = state.emoji_iter.end
+	}
+}
 
 //  }
 
@@ -950,90 +947,90 @@ func (attr_list AttrList) find_attribute(type_ AttrType) *Attr {
 //  {
 //  }
 
-// func (context *Context) itemize_state_init(text []rune,
-// 	base_dir Direction,
-// 	start_index, length uint32,
-// 	attrs AttrList,
-// 	cached_iter *AttrIterator,
-// 	desc *FontDescription) *ItemizeState {
+func (context *Context) itemize_state_init(text []rune,
+	base_dir Direction,
+	start_index, length int,
+	attrs AttrList,
+	cached_iter *AttrIterator,
+	desc *FontDescription) *ItemizeState {
 
-// 	var state ItemizeState
-// 	state.context = context
-// 	state.text = text
-// 	state.end = start_index + length
+	var state ItemizeState
+	state.context = context
+	state.text = text
+	state.end = start_index + length
 
-// 	// state.result = nil
-// 	// state.item = nil
+	// state.result = nil
+	// state.item = nil
 
-// 	state.run_start = start_index
-// 	state.changed = EMBEDDING_CHANGED | SCRIPT_CHANGED | LANG_CHANGED |
-// 		FONT_CHANGED | WIDTH_CHANGED | EMOJI_CHANGED
+	state.run_start = start_index
+	state.changed = EMBEDDING_CHANGED | SCRIPT_CHANGED | LANG_CHANGED |
+		FONT_CHANGED | WIDTH_CHANGED | EMOJI_CHANGED
 
-// 	// First, apply the bidirectional algorithm to break the text into directional runs.
-// 	state.embedding_levels = pango_log2vis_get_embedding_levels(text+start_index, length, &base_dir)
+	// First, apply the bidirectional algorithm to break the text into directional runs.
+	// TODO:
+	// state.embedding_levels = pango_log2vis_get_embedding_levels(text+start_index, length, &base_dir)
 
-// 	state.embedding_end_offset = 0
-// 	state.embedding_end = text + start_index
-// 	update_embedding_end(state)
+	state.embedding_end_offset = 0
+	state.embedding_end = start_index
+	state.update_embedding_end()
 
-// 	/* Initialize the attribute iterator
-// 	 */
-// 	if cached_iter != nil {
-// 		state.attr_iter = cached_iter
-// 	} else if len(attrs) != 0 {
-// 		state.attr_iter = attrs.pango_attr_list_get_iterator()
-// 	}
+	/* Initialize the attribute iterator
+	 */
+	if cached_iter != nil {
+		state.attr_iter = cached_iter
+	} else if len(attrs) != 0 {
+		state.attr_iter = attrs.pango_attr_list_get_iterator()
+	}
 
-// 	if state.attr_iter != nil {
-// 		state.attr_iter.advance_attr_iterator_to(start_index)
-// 		state.update_attr_iterator()
-// 	} else {
-// 		if desc == nil {
-// 			cp := state.context.font_desc
-// 			state.font_desc = &cp
-// 		} else {
-// 			state.font_desc = desc
-// 		}
-// 		state.lang = state.context.language
-// 		state.extra_attrs = nil
-// 		state.copy_extra_attrs = false
+	if state.attr_iter != nil {
+		state.attr_iter.advance_attr_iterator_to(start_index)
+		state.update_attr_iterator()
+	} else {
+		if desc == nil {
+			cp := state.context.font_desc
+			state.font_desc = &cp
+		} else {
+			state.font_desc = desc
+		}
+		state.lang = state.context.language
+		state.extra_attrs = nil
+		state.copy_extra_attrs = false
 
-// 		state.attr_end = state.end
-// 		state.enable_fallback = true
-// 	}
+		state.attr_end = state.end
+		state.enable_fallback = true
+	}
 
-// 	/* Initialize the script iterator
-// 	 */
-// 	_pango_script_iter_init(&state.script_iter, text+start_index, length)
-// 	pango_script_iter_get_range(&state.script_iter, nil,
-// 		&state.script_end, &state.script)
+	/* Initialize the script iterator
+	 */
+	state.script_iter._pango_script_iter_init(text[start_index:])
+	state.script_end, state.script = state.script_iter.script_end, state.script_iter.script_code
 
-// 	width_iter_init(&state.width_iter, text+start_index, length)
-// 	_pango_emoji_iter_init(&state.emoji_iter, text+start_index, length)
+	state.width_iter.width_iter_init(text[start_index:])
+	state.emoji_iter._pango_emoji_iter_init(text[start_index:])
 
-// 	if state.emoji_iter.is_emoji {
-// 		state.width_iter.end = max(state.width_iter.end, state.emoji_iter.end)
-// 	}
+	if state.emoji_iter.is_emoji {
+		state.width_iter.end = max(state.width_iter.end, state.emoji_iter.end)
+	}
 
-// 	update_end(state)
+	state.update_end()
 
-// 	if state.font_desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
-// 		state.font_desc_gravity = state.font_desc.gravity
-// 	} else {
-// 		state.font_desc_gravity = PANGO_GRAVITY_AUTO
-// 	}
+	if state.font_desc.mask&PANGO_FONT_MASK_GRAVITY != 0 {
+		state.font_desc_gravity = state.font_desc.gravity
+	} else {
+		state.font_desc_gravity = PANGO_GRAVITY_AUTO
+	}
 
-// 	state.gravity = PANGO_GRAVITY_AUTO
-// 	state.centered_baseline = state.context.resolved_gravity.isVertical()
-// 	state.gravity_hint = state.context.gravity_hint
-// 	state.resolved_gravity = PANGO_GRAVITY_AUTO
-// 	state.derived_lang = nil
-// 	state.current_fonts = nil
-// 	state.cache = nil
-// 	state.base_font = nil
+	state.gravity = PANGO_GRAVITY_AUTO
+	state.centered_baseline = state.context.resolved_gravity.isVertical()
+	state.gravity_hint = state.context.gravity_hint
+	state.resolved_gravity = PANGO_GRAVITY_AUTO
+	// state.derived_lang = nil
+	// state.current_fonts = nil
+	// state.cache = nil
+	// state.base_font = nil
 
-// 	return &state
-// }
+	return &state
+}
 
 //  static bool
 //  itemize_state_next (ItemizeState *state)
