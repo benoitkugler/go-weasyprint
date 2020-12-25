@@ -1,6 +1,8 @@
 package pango
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestCoverageBasic(t *testing.T) {
 

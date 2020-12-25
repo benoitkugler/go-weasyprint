@@ -30,6 +30,20 @@ const (
 	FRIBIDI_BIDI_MAX_NESTED_BRACKET_PAIRS = 63
 )
 
+const (
+	FRIBIDI_CHAR_LRM = 0x200E
+	FRIBIDI_CHAR_RLM = 0x200F
+	FRIBIDI_CHAR_LRE = 0x202A
+	FRIBIDI_CHAR_RLE = 0x202B
+	FRIBIDI_CHAR_PDF = 0x202C
+	FRIBIDI_CHAR_LRO = 0x202D
+	FRIBIDI_CHAR_RLO = 0x202E
+	FRIBIDI_CHAR_LRI = 0x2066
+	FRIBIDI_CHAR_RLI = 0x2067
+	FRIBIDI_CHAR_FSI = 0x2068
+	FRIBIDI_CHAR_PDI = 0x2069
+)
+
 /*
  * Define bit masks that bidi types are based on, each mask has
  * only one bit set.
@@ -407,200 +421,144 @@ func GetBidiType(ch rune) CharType {
 	return newCharType(props.Class())
 }
 
-// BracketType is a rune value with its MSB is used to indicate an opening bracket
-type BracketType rune
-
-const NoBracket BracketType = 0
-
-func (bt BracketType) isOpen() bool {
-	return bt&FRIBIDI_BRACKET_OPEN_MASK > 0
+func getBidiTypes(str []rune) []CharType {
+	out := make([]CharType, len(str))
+	for i, r := range str {
+		out[i] = GetBidiType(r)
+	}
+	return out
 }
 
-func (bt BracketType) id() BracketType {
-	return bt & FRIBIDI_BRACKET_ID_MASK
-}
-
-var brackets = map[rune]rune{
-	'\u0029': '\u0028',
-	'\u0028': '\u0029',
-	'\u005B': '\u005D',
-	'\u005D': '\u005B',
-	'\u007B': '\u007D',
-	'\u007D': '\u007B',
-	'\u0F3A': '\u0F3B',
-	'\u0F3B': '\u0F3A',
-	'\u0F3C': '\u0F3D',
-	'\u0F3D': '\u0F3C',
-	'\u169B': '\u169C',
-	'\u169C': '\u169B',
-	'\u2045': '\u2046',
-	'\u2046': '\u2045',
-	'\u207D': '\u207E',
-	'\u207E': '\u207D',
-	'\u208D': '\u208E',
-	'\u208E': '\u208D',
-	'\u2308': '\u2309',
-	'\u2309': '\u2308',
-	'\u230A': '\u230B',
-	'\u230B': '\u230A',
-	'\u2329': '\u232A',
-	'\u232A': '\u2329',
-	'\u2768': '\u2769',
-	'\u2769': '\u2768',
-	'\u276A': '\u276B',
-	'\u276B': '\u276A',
-	'\u276C': '\u276D',
-	'\u276D': '\u276C',
-	'\u276E': '\u276F',
-	'\u276F': '\u276E',
-	'\u2770': '\u2771',
-	'\u2771': '\u2770',
-	'\u2772': '\u2773',
-	'\u2773': '\u2772',
-	'\u2774': '\u2775',
-	'\u2775': '\u2774',
-	'\u27C5': '\u27C6',
-	'\u27C6': '\u27C5',
-	'\u27E6': '\u27E7',
-	'\u27E7': '\u27E6',
-	'\u27E8': '\u27E9',
-	'\u27E9': '\u27E8',
-	'\u27EA': '\u27EB',
-	'\u27EB': '\u27EA',
-	'\u27EC': '\u27ED',
-	'\u27ED': '\u27EC',
-	'\u27EE': '\u27EF',
-	'\u27EF': '\u27EE',
-	'\u2983': '\u2984',
-	'\u2984': '\u2983',
-	'\u2985': '\u2986',
-	'\u2986': '\u2985',
-	'\u2987': '\u2988',
-	'\u2988': '\u2987',
-	'\u2989': '\u298A',
-	'\u298A': '\u2989',
-	'\u298B': '\u298C',
-	'\u298C': '\u298B',
-	'\u298D': '\u2990',
-	'\u298E': '\u298F',
-	'\u298F': '\u298E',
-	'\u2990': '\u298D',
-	'\u2991': '\u2992',
-	'\u2992': '\u2991',
-	'\u2993': '\u2994',
-	'\u2994': '\u2993',
-	'\u2995': '\u2996',
-	'\u2996': '\u2995',
-	'\u2997': '\u2998',
-	'\u2998': '\u2997',
-	'\u29D8': '\u29D9',
-	'\u29D9': '\u29D8',
-	'\u29DA': '\u29DB',
-	'\u29DB': '\u29DA',
-	'\u29FC': '\u29FD',
-	'\u29FD': '\u29FC',
-	'\u2E22': '\u2E23',
-	'\u2E23': '\u2E22',
-	'\u2E24': '\u2E25',
-	'\u2E25': '\u2E24',
-	'\u2E26': '\u2E27',
-	'\u2E27': '\u2E26',
-	'\u2E28': '\u2E29',
-	'\u2E29': '\u2E28',
-	'\u3008': '\u3009',
-	'\u3009': '\u3008',
-	'\u300A': '\u300B',
-	'\u300B': '\u300A',
-	'\u300C': '\u300D',
-	'\u300D': '\u300C',
-	'\u300E': '\u300F',
-	'\u300F': '\u300E',
-	'\u3010': '\u3011',
-	'\u3011': '\u3010',
-	'\u3014': '\u3015',
-	'\u3015': '\u3014',
-	'\u3016': '\u3017',
-	'\u3017': '\u3016',
-	'\u3018': '\u3019',
-	'\u3019': '\u3018',
-	'\u301A': '\u301B',
-	'\u301B': '\u301A',
-	'\uFE59': '\uFE5A',
-	'\uFE5A': '\uFE59',
-	'\uFE5B': '\uFE5C',
-	'\uFE5C': '\uFE5B',
-	'\uFE5D': '\uFE5E',
-	'\uFE5E': '\uFE5D',
-	'\uFF08': '\uFF09',
-	'\uFF09': '\uFF08',
-	'\uFF3B': '\uFF3D',
-	'\uFF3D': '\uFF3B',
-	'\uFF5B': '\uFF5D',
-	'\uFF5D': '\uFF5B',
-	'\uFF5F': '\uFF60',
-	'\uFF60': '\uFF5F',
-	'\uFF62': '\uFF63',
-	'\uFF63': '\uFF62',
-}
-
+// Define option flags that various functions use.
 const (
-	FRIBIDI_BRACKET_OPEN_MASK BracketType = 1<<31 - 1
-	FRIBIDI_BRACKET_ID_MASK               = ^FRIBIDI_BRACKET_OPEN_MASK
+	FRIBIDI_FLAG_SHAPE_MIRRORING = 1
+	FRIBIDI_FLAG_REORDER_NSM     = 1 << 1
+
+	FRIBIDI_FLAG_SHAPE_ARAB_PRES    = 1 << 8
+	FRIBIDI_FLAG_SHAPE_ARAB_LIGA    = 1 << 9
+	FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE = 1 << 10
+
+	FRIBIDI_FLAG_REMOVE_BIDI     = 1 << 16
+	FRIBIDI_FLAG_REMOVE_JOINING  = 1 << 17
+	FRIBIDI_FLAG_REMOVE_SPECIALS = 1 << 18
+
+	/*
+	 * And their combinations.
+	 */
+	FRIBIDI_FLAGS_DEFAULT = FRIBIDI_FLAG_SHAPE_MIRRORING | FRIBIDI_FLAG_REORDER_NSM | FRIBIDI_FLAG_REMOVE_SPECIALS
+	FRIBIDI_FLAGS_ARABIC  = FRIBIDI_FLAG_SHAPE_ARAB_PRES | FRIBIDI_FLAG_SHAPE_ARAB_LIGA
 )
 
-/* fribidi_get_bracket - get bracketed character
- *
- * This function finds the bracketed equivalent of a character as defined in
- * the file BidiBrackets.txt of the Unicode Character Database available at
- * http://www.unicode.org/Public/UNIDATA/BidiBrackets.txt.
- *
- * If  the input character is declared as a brackets character in the
- * Unicode standard and has a bracketed equivalent.  The matching bracketed
- * character is put in the output, otherwise the input character itself is
- * put.
- *
- * Returns: The bracket type of the character. Use the
- * FRIBIDI_IS_BRACKET(FriBidiBracketType) to test if it is a valid
- * property.
- */
-func GetBracket(ch rune) BracketType {
-	props, _ := bidi.LookupRune(ch)
-	if !props.IsBracket() {
-		return NoBracket
-	}
-	pair := BracketType(brackets[ch])
-	pair &= FRIBIDI_BRACKET_ID_MASK
-	if props.IsOpeningBracket() {
-		pair |= FRIBIDI_BRACKET_OPEN_MASK
-	}
-	return pair
+var flags = FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC
+
+// Visual is the visual output as specified by the Unicode Bidirectional Algorithm
+type Visual struct {
+	Str             []rune  // visual string
+	VisualToLogical []int   // mapping from visual string back to the logical string indexes
+	EmbeddingLevels []Level // list of embedding levels
 }
 
-/* fribidi_log2vis - get visual string
- *
- * This function converts the logical input string to the visual output
- * strings as specified by the Unicode Bidirectional Algorithm.  As a side
- * effect it also generates mapping lists between the two strings, and the
- * list of embedding levels as defined by the algorithm.
- *
- * If NULL is passed as any of the the lists, the list is ignored and not
- * filled.
- *
- * Note that this function handles one-line paragraphs. For multi-
- * paragraph texts it is necessary to first split the text into
- * separate paragraphs and then carry over the resolved pbase_dir
- * between the subsequent invocations.
- *
- * Returns: Maximum level found plus one, or zero if any error occurred
- * (memory allocation failure most probably).
- */
-//  FriBidiChar *visual_str,	/* output visual string */
-//  FriBidiStrIndex *positions_L_to_V,	/* output mapping from logical to
-// 					* visual string positions */
-//  FriBidiStrIndex *positions_V_to_L,	/* output mapping from visual string
-// 					* back to the logical string
-// 					* positions */
-//  FriBidiLevel *embedding_levels	/* output list of embedding levels */
-func fribidi_log2vis(str []CharType, pbase_dir *ParType /* requested and resolved paragraph base direction */) ([]CharType, []int, []int, []Level, Level) {
+// LogicalToVisual reverts `VisualToLogical`,
+// return the mapping from logical to visual string indexes
+func (v Visual) LogicalToVisual() []int {
+	out := make([]int, len(v.VisualToLogical))
+	for i, vToL := range v.VisualToLogical {
+		out[vToL] = i
+	}
+	return out
+}
 
+// fribidi_log2vis converts the logical input string to the visual output
+// strings as specified by the Unicode Bidirectional Algorithm.  As a side
+// effect it also generates mapping lists between the two strings, and the
+// list of embedding levels as defined by the algorithm.
+//
+// Note that this function handles one-line paragraphs. For multi-
+// paragraph texts it is necessary to first split the text into
+// separate paragraphs and then carry over the resolved paragraphBaseDir
+// between the subsequent invocations.
+//
+// The maximum level found plus one is also returned.
+func fribidi_log2vis(str []rune, paragraphBaseDir *ParType /* requested and resolved paragraph base direction */) (Visual, Level) {
+	bidiTypes := getBidiTypes(str)
+
+	bracketTypes := getBracketTypes(str, bidiTypes)
+
+	embeddingLevels, maxLevel := fribidi_get_par_embedding_levels_ex(bidiTypes, bracketTypes, paragraphBaseDir)
+
+	/* Set up the ordering array to identity order */
+	positionsVToL := make([]int, len(str))
+	for i := range positionsVToL {
+		positionsVToL[i] = i
+	}
+
+	visualStr := append([]rune{}, str...) // copy
+
+	/* Arabic joining */
+	arProps := getJoiningTypes(str, bidiTypes)
+	fribidi_join_arabic(bidiTypes, embeddingLevels, arProps)
+
+	fribidi_shape(flags, embeddingLevels, arProps, visualStr)
+
+	/* line breaking goes here, but we assume one line in this function */
+
+	/* and this should be called once per line, but again, we assume one
+	 * line in this deprecated function */
+	fribidi_reorder_line(flags, bidiTypes, len(str), 0, *paragraphBaseDir,
+		embeddingLevels, visualStr, positionsVToL)
+
+	return Visual{Str: visualStr, VisualToLogical: positionsVToL, EmbeddingLevels: embeddingLevels}, maxLevel
+}
+
+// fribidi_remove_bidi_marks removes the bidi and boundary-neutral marks out of an string
+// and the accompanying lists.  It implements rule X9 of the Unicode
+// Bidirectional Algorithm available at
+// http://www.unicode.org/reports/tr9/#X9, with the exception that it removes
+// U+200E LEFT-TO-RIGHT MARK and U+200F RIGHT-TO-LEFT MARK too.
+//
+// If any of the input lists are NULL, the list is skipped.  If str is the
+// visual string, then positions_to_this is positions_L_to_V and
+// position_from_this_list is positions_V_to_L;  if str is the logical
+// string, the other way. Moreover, the position maps should be filled with
+// valid entries.
+//
+// A position map pointing to a removed character is filled with \(mi1. By the
+// way, you should not use embedding_levels if str is visual string.
+//
+// For best results this function should be run on a whole paragraph, not
+// lines; but feel free to do otherwise if you know what you are doing.
+//
+// The input slice is mutated and resliced to its new length, then returned
+func fribidi_remove_bidi_marks(str []rune, positions_to_this, position_from_this_list []int, embedding_levels []Level) []rune {
+	var j int
+
+	/* If to_this is not NULL, we must have from_this as well. If it is
+	   not given by the caller, we have to make a private instance of it. */
+	if len(positions_to_this) != 0 && len(position_from_this_list) == 0 {
+		position_from_this_list = make([]int, len(str))
+		for i, to := range positions_to_this {
+			position_from_this_list[to] = i
+		}
+	}
+
+	for i, r := range str {
+		if bType := GetBidiType(r); !bType.IsExplicitOrBn() && !bType.IsIsolate() &&
+			r != FRIBIDI_CHAR_LRM && r != FRIBIDI_CHAR_RLM {
+			str[j] = r
+			embedding_levels[j] = embedding_levels[i]
+			if len(position_from_this_list) != 0 {
+				position_from_this_list[j] = position_from_this_list[i]
+			}
+			j++
+		}
+	}
+
+	/* Convert the from_this list to to_this */
+	if len(positions_to_this) != 0 {
+		for i, from := range position_from_this_list {
+			positions_to_this[from] = i
+		}
+	}
+
+	return str[0:j]
 }

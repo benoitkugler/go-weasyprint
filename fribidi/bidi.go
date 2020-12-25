@@ -4,23 +4,6 @@ package fribidi
  * This file implements most of Unicode Standard Annex #9, Tracking Number 13.
  */
 
-// #ifndef MAX
-// # define MAX(a,b) ((a) > (b) ? (a) : (b))
-// #endif /* !MAX */
-
-// /* Some convenience macros */
-// #define RL_TYPE_(list) ((list).type)
-// #define RL_LEN_(list) ((list).len)
-// #define RL_LEVEL_(list) ((list).level)
-
-// /* "Within this scope, bidirectional types EN and AN are treated as R" */
-// #define RL_TYPE_AN_EN_AS_RTL(list) ( \
-//  (((list).type == AN) || ((list).type == EN) | ((list).type == RTL)) ? RTL : (list).type)
-// #define list.bracket_type ((list).bracket_type)
-// #define RL_ISOLATE_LEVEL(list) ((list).isolate_level)
-
-// #define LOCAL_BRACKET_SIZE 16
-
 /* Pairing nodes are used for holding a pair of open/close brackets as
    described in BD16. */
 type PairingNode struct {
@@ -124,122 +107,6 @@ func (list *Run) get_adjacent_run(forward, skip_neutral bool) *Run {
 	return ppp
 }
 
-// #ifdef DEBUG
-// /*======================================================================
-//  *  For debugging, define some functions for printing the types and the
-//  *  levels.
-//  *----------------------------------------------------------------------*/
-
-// static char char_from_level_array[] = {
-//   '$',				/* -1 == FRIBIDI_SENTINEL, indicating
-// 				 * start or end of string. */
-//   /* 0-61 == 0-9,a-z,A-Z are the the only valid levels before resolving
-//    * implicits.  after that the level @ may be appear too. */
-//   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-//   'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
-//   'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
-//   'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D',
-//   'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
-//   'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-//   'Y', 'Z',
-
-//   /* TBD - insert another 125-64 levels */
-
-//   '@',				/* 62 == only must appear after resolving
-// 				 * implicits. */
-
-//   '!',				/* 63 == FRIBIDI_LEVEL_INVALID, internal error,
-// 				 * this level shouldn't be seen.  */
-
-//   '*', '*', '*', '*', '*'	/* >= 64 == overflows, this levels and higher
-// 				 * levels show a real bug!. */
-// };
-
-// #define fribidi_char_from_level(level) char_from_level_array[(level) + 1]
-
-// static void
-// print_types_re (
-//   const Run *pp
-// )
-// {
-//   fribidi_assert (pp);
-
-//   MSG ("  Run types  : ");
-//   for_run_list (pp, pp)
-//   {
-//     MSG6 ("%d:%d(%s)[%d,%d] ",
-// 	  pp.pos, pp.len, fribidi_get_bidi_type_name (pp.type), pp.level, pp.isolate_level);
-//   }
-//   MSG ("\n");
-// }
-
-// static void
-// print_resolved_levels (
-//   const Run *pp
-// )
-// {
-//   fribidi_assert (pp);
-
-//   MSG ("  Res. levels: ");
-//   for_run_list (pp, pp)
-//   {
-//     register StrIndex i;
-//     for (i = RL_LEN (pp); i; i--)
-//       MSG2 ("%c", fribidi_char_from_level (RL_LEVEL (pp)));
-//   }
-//   MSG ("\n");
-// }
-
-// static void
-// print_resolved_types (
-//   const Run *pp
-// )
-// {
-//   fribidi_assert (pp);
-
-//   MSG ("  Res. types : ");
-//   for_run_list (pp, pp)
-//   {
-//     StrIndex i;
-//     for (i = RL_LEN (pp); i; i--)
-//       MSG2 ("%s ", fribidi_get_bidi_type_name (pp.type));
-//   }
-//   MSG ("\n");
-// }
-
-// static void
-// print_bidi_string (
-//   /* input */
-//   const CharType *bidi_types,
-//   const StrIndex len
-// )
-// {
-//   register StrIndex i;
-
-//   fribidi_assert (bidi_types);
-
-//   MSG ("  Org. types : ");
-//   for (i = 0; i < len; i++)
-//     MSG2 ("%s ", fribidi_get_bidi_type_name (bidi_types[i]));
-//   MSG ("\n");
-// }
-
-// static void print_pairing_nodes(PairingNode *nodes)
-// {
-//   MSG ("Pairs: ");
-//   for (nodes)
-//     {
-//       MSG3 ("(%d, %d) ", nodes.open.pos, nodes.close.pos);
-//       nodes = nodes.next;
-//     }
-//   MSG ("\n");
-// }
-// #endif /* DEBUG */
-
-/*=========================================================================
- * define macros for push and pop the status in to / out of the stack
- *-------------------------------------------------------------------------*/
-
 type stStack [FRIBIDI_BIDI_MAX_RESOLVED_LEVELS]struct {
 	override      CharType /* only LTR, RTL and ON are valid */
 	level         Level
@@ -301,25 +168,6 @@ func (st *stStack) pushStatus(isolate_overflow, isolate int, isolate_level, new_
 	}
 }
 
-// #define pushStatus \
-//     FRIBIDI_BEGIN_STMT \
-//       if (over_pushed == 0 \
-//                 && isolate_overflow == 0 \
-//                 && new_level <= FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL)   \
-//         { \
-//           if (level == FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL - 1) \
-//             first_interval = over_pushed; \
-//           status_stack[stack_size].level = level; \
-//           status_stack[stack_size].isolate_level = isolate_level; \
-//           status_stack[stack_size].isolate = isolate; \
-//           status_stack[stack_size].override = override; \
-//           stack_size++; \
-//           level = new_level; \
-//           override = new_override; \
-//         } else if (isolate_overflow == 0) \
-// 	  over_pushed++; \
-//     FRIBIDI_END_STMT
-
 /* If there was a valid matching code, restore (pop) the last remembered
    (pushed) embedding level and directional override.
 */
@@ -339,47 +187,6 @@ func (st *stStack) popStatus(state status, isolate *int, isolate_level *Level) {
 		}
 	}
 }
-
-// #define popStatus \
-//     FRIBIDI_BEGIN_STMT \
-//       if (stack_size) \
-//       { \
-//         if (over_pushed > first_interval) \
-//           over_pushed--; \
-//         else \
-//           { \
-//             if (over_pushed == first_interval) \
-//               first_interval = 0; \
-//             stack_size--; \
-//             level = status_stack[stack_size].level; \
-//             override = status_stack[stack_size].override; \
-//             isolate = status_stack[stack_size].isolate; \
-//             isolate_level = status_stack[stack_size].isolate_level; \
-//           } \
-//       } \
-//     FRIBIDI_END_STMT
-
-// /* Return the type of previous run or the SOR, if already at the start of
-//    a level run. */
-// #define PREV_TYPE_OR_SOR(pp) \
-//     ( \
-//       pp.prev.level == pp.level ? \
-//         pp.prev.bracket_type : \
-//         FRIBIDI_LEVEL_TO_DIR(MAX(pp.prev.level, pp.level)) \
-//     )
-
-// /* Return the type of next run or the EOR, if already at the end of
-//    a level run. */
-// #define NEXTTYPE_OR_EOR(pp) \
-//     ( \
-//       pp.next.level == pp.level ? \
-//         pp.next.bracket_type : \
-//         FRIBIDI_LEVEL_TO_DIR(MAX(pp.next.level, pp.level)) \
-//     )
-
-// /* Return the embedding direction of a link. */
-// #define FRIBIDI_EMBEDDING_DIRECTION(link) \
-//     FRIBIDI_LEVEL_TO_DIR(link.level)
 
 func fribidi_get_par_direction(bidi_types []CharType) ParType {
 	valid_isolate_count := 0
@@ -479,7 +286,8 @@ func sort_pairing_nodes(nodes **PairingNode) {
  * There are a few macros defined in fribidi-bidi-types.h to work with this
  * embedding levels.
  *
- * Returns: a slice of same length as `bidi_types`, and th maximum level found plus one
+ * Returns: a slice of same length as `bidi_types`, and the maximum level found plus one,
+ * which is thus always >= 1
  */
 func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []BracketType,
 	/* input and output */
@@ -1186,151 +994,110 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	return embeddingLevels, maxLevel + 1
 }
 
-// static void
-// bidi_string_reverse (
-//   Char *str,
-//   const StrIndex len
-// )
-// {
-//   StrIndex i;
+func bidi_string_reverse(str []rune) {
+	for i := len(str)/2 - 1; i >= 0; i-- {
+		opp := len(str) - 1 - i
+		str[i], str[opp] = str[opp], str[i]
+	}
+}
+func index_array_reverse(arr []int) {
+	for i := len(arr)/2 - 1; i >= 0; i-- {
+		opp := len(arr) - 1 - i
+		arr[i], arr[opp] = arr[opp], arr[i]
+	}
+}
 
-//   fribidi_assert (str);
+// fribidi_reorder_line reorders the characters in a line of text from logical to
+// final visual order.  This function implements part 4 of rule L1, and rules
+// L2 and L3 of the Unicode Bidirectional Algorithm available at
+// http://www.unicode.org/reports/tr9/#Reordering_Resolved_Levels.
+//
+// As a side effect it also sets position maps if not nil.
+//
+// You should provide the resolved paragraph direction and embedding levels as
+// set by fribidi_get_par_embedding_levels(), which may change a bit.
+// To be exact, the embedding level of any sequence of white space at the end of line
+// is reset to the paragraph embedding level (according to part 4 of rule L1).
+//
+// Note that the bidi types and embedding levels are not reordered.  You can
+// reorder these arrays using the map later. `map` must be either nil, or
+// a slice with same length as other inputs.
+//
+// There is an optional part to this function, which is whether non-spacing
+// marks for right-to-left parts of the text should be reordered to come after
+// their base characters in the visual string or not.  Most rendering engines
+// expect this behavior, but console-based systems for example do not like it.
+// This is controlled by the FRIBIDI_FLAG_REORDER_NSM flag. The flag is on
+// in FRIBIDI_FLAGS_DEFAULT.
+//
+// The maximum level found in this line plus one is returned
+func fribidi_reorder_line(
+	flags int /* reorder flags */, bidi_types []CharType,
+	length, off int, // definition of the line in the paragraph
+	base_dir ParType,
+	/* input and output */
+	embedding_levels []Level, visual_str []rune, map_ []int) Level {
 
-//   for (i = 0; i < len / 2; i++)
-//     {
-//       Char tmp = str[i];
-//       str[i] = str[len - 1 - i];
-//       str[len - 1 - i] = tmp;
-//     }
-// }
+	var max_level Level
 
-// static void
-// index_array_reverse (
-//   StrIndex *arr,
-//   const StrIndex len
-// )
-// {
-//   StrIndex i;
+	/* L1. Reset the embedding levels of some chars:
+	   4. any sequence of white space characters at the end of the line. */
+	for i := off; i < off+length && bidi_types[i].IsExplicitOrBnOrWs(); i++ {
+		embedding_levels[i] = FRIBIDI_DIR_TO_LEVEL(base_dir)
+	}
 
-//   fribidi_assert (arr);
+	/* 7. Reordering resolved levels */
+	var level Level
+	// register StrIndex i;
 
-//   for (i = 0; i < len / 2; i++)
-//     {
-//       StrIndex tmp = arr[i];
-//       arr[i] = arr[len - 1 - i];
-//       arr[len - 1 - i] = tmp;
-//     }
-// }
+	/* Reorder both the outstring and the order array */
+	if flags&FRIBIDI_FLAG_REORDER_NSM != 0 {
+		/* L3. Reorder NSMs. */
+		for i := off + length - 1; i >= off; i-- {
+			if embedding_levels[i].isRtl() != 0 && bidi_types[i] == NSM {
+				seq_end := i
+				level = embedding_levels[i]
 
-// FRIBIDI_ENTRY Level
-// fribidi_reorder_line (
-//   /* input */
-//   Flags flags, /* reorder flags */
-//   const CharType *bidi_types,
-//   const StrIndex len,
-//   const StrIndex off,
-//   const ParType base_dir,
-//   /* input and output */
-//   Level *embedding_levels,
-//   Char *visual_str,
-//   /* output */
-//   StrIndex *map
-// )
-// {
-//   bool status = false;
-//   Level max_level = 0;
+				for i--; i >= off && bidi_types[i].IsExplicitOrBnOrNsm() && embedding_levels[i] == level; i-- {
+				}
 
-//   if
-//     (len == 0)
-//     {
-//       status = true;
-//       goto out;
-//     }
+				if i < off || embedding_levels[i] != level {
+					i++
+				}
 
-//   DBG ("in fribidi_reorder_line");
+				bidi_string_reverse(visual_str[i : seq_end+1])
+				if len(map_) != 0 {
+					index_array_reverse(map_[i : seq_end+1])
+				}
+			}
+		}
+	}
 
-//   fribidi_assert (bidi_types);
-//   fribidi_assert (embedding_levels);
+	/* Find max_level of the line.  We don't reuse the paragraph
+	 * max_level, both for a cleaner API, and that the line max_level
+	 * may be far less than paragraph max_level. */
+	for i := off + length - 1; i >= off; i-- {
+		if embedding_levels[i] > max_level {
+			max_level = embedding_levels[i]
+		}
+	}
 
-//   DBG ("reset the embedding levels, 4. whitespace at the end of line");
-//   {
-//     register StrIndex i;
+	/* L2. Reorder. */
+	for level = max_level; level > 0; level-- {
+		for i := off + length - 1; i >= off; i-- {
+			if embedding_levels[i] >= level {
+				/* Find all stretches that are >= level_idx */
+				seq_end := i
+				for i--; i >= off && embedding_levels[i] >= level; i-- {
+				}
 
-//     /* L1. Reset the embedding levels of some chars:
-//        4. any sequence of white space characters at the end of the line. */
-//     for (i = off + len - 1; i >= off &&
-// 	 FRIBIDI_IS_EXPLICIT_OR_BN_OR_WS (bidi_types[i]); i--)
-//       embedding_levels[i] = FRIBIDI_DIR_TO_LEVEL (base_dir);
-//   }
+				bidi_string_reverse(visual_str[i+1 : seq_end+1])
+				if len(map_) != 0 {
+					index_array_reverse(map_[i+1 : seq_end+1])
+				}
+			}
+		}
+	}
 
-//   /* 7. Reordering resolved levels */
-//   {
-//     register Level level;
-//     register StrIndex i;
-
-//     /* Reorder both the outstring and the order array */
-//     {
-//       if (FRIBIDI_TEST_BITS (flags, FRIBIDI_FLAG_REORDER_NSM))
-// 	{
-// 	  /* L3. Reorder NSMs. */
-// 	  for (i = off + len - 1; i >= off; i--)
-// 	    if (FRIBIDI_LEVEL_IS_RTL (embedding_levels[i])
-// 		&& bidi_types[i] == NSM)
-// 	      {
-// 		register StrIndex seq_end = i;
-// 		level = embedding_levels[i];
-
-// 		for (i--; i >= off &&
-// 		     FRIBIDI_IS_EXPLICIT_OR_BN_OR_NSM (bidi_types[i])
-// 		     && embedding_levels[i] == level; i--)
-// 		  ;
-
-// 		if (i < off || embedding_levels[i] != level)
-// 		  {
-// 		    i++;
-// 		    DBG ("warning: NSM(s) at the beginning of level run");
-// 		  }
-
-// 		if (visual_str)
-// 		  {
-// 		    bidi_string_reverse (visual_str + i, seq_end - i + 1);
-// 		  }
-// 		if (map)
-// 		  {
-// 		    index_array_reverse (map + i, seq_end - i + 1);
-// 		  }
-// 	      }
-// 	}
-
-//       /* Find max_level of the line.  We don't reuse the paragraph
-//        * max_level, both for a cleaner API, and that the line max_level
-//        * may be far less than paragraph max_level. */
-//       for (i = off + len - 1; i >= off; i--)
-// 	if (embedding_levels[i] > max_level)
-// 	  max_level = embedding_levels[i];
-
-//       /* L2. Reorder. */
-//       for (level = max_level; level > 0; level--)
-// 	for (i = off + len - 1; i >= off; i--)
-// 	  if (embedding_levels[i] >= level)
-// 	    {
-// 	      /* Find all stretches that are >= level_idx */
-// 	      register StrIndex seq_end = i;
-// 	      for (i--; i >= off && embedding_levels[i] >= level; i--)
-// 		;
-
-// 	      if (visual_str)
-// 		bidi_string_reverse (visual_str + i + 1, seq_end - i);
-// 	      if (map)
-// 		index_array_reverse (map + i + 1, seq_end - i);
-// 	    }
-//     }
-
-//   }
-
-//   status = true;
-
-// out:
-
-//   return status ? max_level + 1 : 0;
-// }
+	return max_level + 1
+}
