@@ -3,11 +3,14 @@
 package fribidi
 
 import (
+	"fmt"
+
 	"golang.org/x/text/unicode/bidi"
 )
 
 type Level int8
 
+// returns 0 or 1
 func (lev Level) isRtl() Level { return lev & 1 }
 
 func maxL(l1, l2 Level) Level {
@@ -113,7 +116,7 @@ const (
 	ET   = maskWEAK | maskNUMSEPTER | maskET
 	PDI  = maskNEUTRAL | maskWEAK | maskISOLATE // Pop Directional Isolate
 	LRO  = maskSTRONG | maskEXPLICIT | maskOVERRIDE
-	RLO  = maskSTRONG | maskEXPLICIT | maskRTL | maskOVERRIDE
+	RLO  = maskSTRONG | maskEXPLICIT | maskOVERRIDE | maskRTL
 	RLE  = maskSTRONG | maskEXPLICIT | maskRTL
 	LRE  = maskSTRONG | maskEXPLICIT
 	WS   = maskNEUTRAL | maskSPACE | maskWS
@@ -144,124 +147,69 @@ func FRIBIDI_LEVEL_TO_DIR(lev Level) CharType {
  * LRO,LRE->LTR, RLO,RLE->RTL, otherwise->ON. */
 func FRIBIDI_EXPLICIT_TO_OVERRIDE_DIR(p CharType) CharType {
 	if p.IsOverride() {
-		FRIBIDI_LEVEL_TO_DIR(FRIBIDI_DIR_TO_LEVEL(p))
+		return FRIBIDI_LEVEL_TO_DIR(FRIBIDI_DIR_TO_LEVEL(p))
 	}
 	return ON
 }
 
 type CharType uint32
 
-//  /*
-//   * Define values for CharType
-//   */
-
-//  /* Strong types */
-
-//  /* Left-To-Right letter */
-//  #define FRIBIDI_TYPE_LTR_VAL	( maskSTRONG | maskLETTER )
-//  /* Right-To-Left letter */
-//  #define FRIBIDI_TYPE_RTL_VAL	( maskSTRONG | maskLETTER \
-// 				 | maskRTL)
-//  /* Arabic Letter */
-//  #define FRIBIDI_TYPE_AL_VAL	( maskSTRONG | maskLETTER \
-// 				 | maskRTL | maskARABIC )
-//  /* Left-to-Right Embedding */
-//  #define FRIBIDI_TYPE_LRE_VAL	( maskSTRONG | maskEXPLICIT)
-//  /* Right-to-Left Embedding */
-//  #define FRIBIDI_TYPE_RLE_VAL	( maskSTRONG | maskEXPLICIT \
-// 				 | maskRTL )
-//  /* Left-to-Right Override */
-//  #define FRIBIDI_TYPE_LRO_VAL	( maskSTRONG | maskEXPLICIT \
-// 				 | maskOVERRIDE )
-//  /* Right-to-Left Override */
-//  #define FRIBIDI_TYPE_RLO_VAL	( maskSTRONG | maskEXPLICIT \
-// 				 | maskRTL | maskOVERRIDE )
-
-//  /* Weak types */
-
-//  /* Pop Directional Flag*/
-//  #define FRIBIDI_TYPE_PDF_VAL	( maskWEAK | maskEXPLICIT )
-//  /* European Numeral */
-//  #define FRIBIDI_TYPE_EN_VAL	( maskWEAK | maskNUMBER )
-//  /* Arabic Numeral */
-//  #define FRIBIDI_TYPE_AN_VAL	( maskWEAK | maskNUMBER \
-// 				 | maskARABIC )
-//  /* European number Separator */
-//  #define FRIBIDI_TYPE_ES_VAL	( maskWEAK | maskNUMSEPTER \
-// 				 | maskES )
-//  /* European number Terminator */
-//  #define FRIBIDI_TYPE_ET_VAL	( maskWEAK | maskNUMSEPTER \
-// 				 | maskET )
-//  /* Common Separator */
-//  #define FRIBIDI_TYPE_CS_VAL	( maskWEAK | maskNUMSEPTER \
-// 				 | maskCS )
-//  /* Non Spacing Mark */
-//  #define FRIBIDI_TYPE_NSM_VAL	( maskWEAK | maskNSM )
-//  /* Boundary Neutral */
-//  #define FRIBIDI_TYPE_BN_VAL	( maskWEAK | maskSPACE \
-// 				 | maskBN )
-
-//  /* Neutral types */
-
-//  /* Block Separator */
-//  #define FRIBIDI_TYPE_BS_VAL	( maskNEUTRAL | maskSPACE \
-// 				 | maskSEPARATOR | maskBS )
-//  /* Segment Separator */
-//  #define FRIBIDI_TYPE_SS_VAL	( maskNEUTRAL | maskSPACE \
-// 				 | maskSEPARATOR | maskSS )
-//  /* WhiteSpace */
-//  #define FRIBIDI_TYPE_WS_VAL	( maskNEUTRAL | maskSPACE \
-// 				 | maskWS )
-//  /* Other Neutral */
-//  #define FRIBIDI_TYPE_ON_VAL	( maskNEUTRAL )
-
-//  /* The following are used in specifying paragraph direction only. */
-
-//  /* Weak Left-To-Right */
-//  #define FRIBIDI_TYPE_WLTR_VAL	( maskWEAK )
-//  /* Weak Right-To-Left */
-//  #define FRIBIDI_TYPE_WRTL_VAL	( maskWEAK | maskRTL )
-
-/* start or end of text (run list) SENTINEL.  Only used internally */
-//  #define FRIBIDI_TYPE_SENTINEL	( maskSENTINEL )
-
-//  /* Private types for applications.  More private types can be obtained by
-//   * summing up from this one. */
-//  #define FRIBIDI_TYPE_PRIVATE	( maskPRIVATE )
-
-//  /* New types in Unicode 6.3 */
-
-//  /* Left-to-Right Isolate */
-//  #define FRIBIDI_TYPE_LRI_VAL    ( maskNEUTRAL | maskISOLATE )
-//  /* Right-to-Left Isolate */
-//  #define FRIBIDI_TYPE_RLI_VAL    ( maskNEUTRAL | maskISOLATE | maskRTL )
-//  /* First strong isolate */
-//  #define FRIBIDI_TYPE_FSI_VAL    ( maskNEUTRAL | maskISOLATE | maskFIRST )
-
-//  /* Pop Directional Isolate*/
-//  #define FRIBIDI_TYPE_PDI_VAL	( maskNEUTRAL | maskWEAK | maskISOLATE )
-
-//  /* Please don't use these two type names, use FRIBIDI_PAR_* form instead. */
-//  #define FRIBIDI_TYPE_WLTR	FRIBIDI_PAR_WLTR
-//  #define FRIBIDI_TYPE_WRTL	FRIBIDI_PAR_WRTL
-
-//  /*
-//   * Defining macros for needed queries, It is fully dependent on the
-//   * implementation of CharType.
-//   */
-
-// IsRight checks is `p` is right -to-left level? */
-//  #define FRIBIDI_LEVEL_IS_RTL(lev) ((lev) & 1)
-
-//  /* Return the bidi type corresponding to the direction of the level number,
-// 	FRIBIDI_TYPE_LTR for evens and FRIBIDI_TYPE_RTL for odds. */
-//  #define FRIBIDI_LEVEL_TO_DIR(lev)	\
-// 	 (FRIBIDI_LEVEL_IS_RTL (lev) ? FRIBIDI_TYPE_RTL : FRIBIDI_TYPE_LTR)
-
-//  /* Return the minimum level of the direction, 0 for FRIBIDI_TYPE_LTR and
-// 	1 for FRIBIDI_TYPE_RTL and FRIBIDI_TYPE_AL. */
-//  #define FRIBIDI_DIR_TO_LEVEL(dir)	\
-// 	 ((Level) (FRIBIDI_IS_RTL (dir) ? 1 : 0))
+func (c CharType) String() string {
+	switch c {
+	case LTR:
+		return "LTR"
+	case RTL:
+		return "RTL"
+	case EN:
+		return "EN"
+	case ON:
+		return "ON"
+	case WLTR:
+		return "WLTR"
+	case WRTL:
+		return "WRTL"
+	case PDF:
+		return "PDF"
+	case LRI:
+		return "LRI"
+	case RLI:
+		return "RLI"
+	case FSI:
+		return "FSI"
+	case BS:
+		return "BS"
+	case NSM:
+		return "NSM"
+	case AL:
+		return "AL"
+	case AN:
+		return "AN"
+	case CS:
+		return "CS"
+	case ET:
+		return "ET"
+	case PDI:
+		return "PDI"
+	case LRO:
+		return "LRO"
+	case RLO:
+		return "RLO"
+	case RLE:
+		return "RLE"
+	case LRE:
+		return "LRE"
+	case WS:
+		return "WS"
+	case ES:
+		return "ES"
+	case BN:
+		return "BN"
+	case SS:
+		return "SS"
+	default:
+		return fmt.Sprintf("<unknown type: %d>", c)
+	}
+}
 
 // IsStrong checks if `p` is string.
 func (p CharType) IsStrong() bool { return p&maskSTRONG != 0 }
@@ -348,16 +296,6 @@ func (p CharType) FRIBIDI_CHANGE_NUMBER_TO_RTL() CharType {
 	return p
 }
 
-//  /* Override status of an explicit mark:
-//   * LRO,LRE->LTR, RLO,RLE->RTL, otherwise->ON. */
-//  #define FRIBIDI_EXPLICIT_TO_OVERRIDE_DIR(p) \
-// 	 (FRIBIDI_IS_OVERRIDE(p) ? FRIBIDI_LEVEL_TO_DIR(FRIBIDI_DIR_TO_LEVEL(p)) \
-// 				 : FRIBIDI_TYPE_ON)
-
-//  /* Weaken type for paragraph fallback purposes:
-//   * LTR->WLTR, RTL->WRTL. */
-//  #define FRIBIDI_WEAK_PARAGRAPH(p) (FRIBIDI_PAR_WLTR | p & maskRTL))
-
 // convert from golang enums to frididi types
 func newCharType(class bidi.Class) CharType {
 	switch class {
@@ -429,27 +367,35 @@ func getBidiTypes(str []rune) []CharType {
 	return out
 }
 
+// Options is a flag to customize fribidi behaviour
+type Options int
+
 // Define option flags that various functions use.
 const (
-	FRIBIDI_FLAG_SHAPE_MIRRORING = 1
-	FRIBIDI_FLAG_REORDER_NSM     = 1 << 1
+	FRIBIDI_FLAG_SHAPE_MIRRORING Options = 1
+	FRIBIDI_FLAG_REORDER_NSM     Options = 1 << 1
 
-	FRIBIDI_FLAG_SHAPE_ARAB_PRES    = 1 << 8
-	FRIBIDI_FLAG_SHAPE_ARAB_LIGA    = 1 << 9
-	FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE = 1 << 10
+	FRIBIDI_FLAG_SHAPE_ARAB_PRES    Options = 1 << 8
+	FRIBIDI_FLAG_SHAPE_ARAB_LIGA    Options = 1 << 9
+	FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE Options = 1 << 10
 
-	FRIBIDI_FLAG_REMOVE_BIDI     = 1 << 16
-	FRIBIDI_FLAG_REMOVE_JOINING  = 1 << 17
-	FRIBIDI_FLAG_REMOVE_SPECIALS = 1 << 18
+	FRIBIDI_FLAG_REMOVE_BIDI     Options = 1 << 16
+	FRIBIDI_FLAG_REMOVE_JOINING  Options = 1 << 17
+	FRIBIDI_FLAG_REMOVE_SPECIALS Options = 1 << 18
 
-	/*
-	 * And their combinations.
-	 */
+	// And their combinations
 	FRIBIDI_FLAGS_DEFAULT = FRIBIDI_FLAG_SHAPE_MIRRORING | FRIBIDI_FLAG_REORDER_NSM | FRIBIDI_FLAG_REMOVE_SPECIALS
 	FRIBIDI_FLAGS_ARABIC  = FRIBIDI_FLAG_SHAPE_ARAB_PRES | FRIBIDI_FLAG_SHAPE_ARAB_LIGA
+
+	defaultFlags = FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC
 )
 
-var flags = FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC
+func (f Options) adjust(mask Options, cond bool) Options {
+	if !cond {
+		mask = 0
+	}
+	return (f & ^mask) | mask
+}
 
 // Visual is the visual output as specified by the Unicode Bidirectional Algorithm
 type Visual struct {
@@ -479,7 +425,7 @@ func (v Visual) LogicalToVisual() []int {
 // between the subsequent invocations.
 //
 // The maximum level found plus one is also returned.
-func fribidi_log2vis(str []rune, paragraphBaseDir *ParType /* requested and resolved paragraph base direction */) (Visual, Level) {
+func fribidi_log2vis(flags Options, str []rune, paragraphBaseDir *ParType /* requested and resolved paragraph base direction */) (Visual, Level) {
 	bidiTypes := getBidiTypes(str)
 
 	bracketTypes := getBracketTypes(str, bidiTypes)
@@ -504,8 +450,10 @@ func fribidi_log2vis(str []rune, paragraphBaseDir *ParType /* requested and reso
 
 	/* and this should be called once per line, but again, we assume one
 	 * line in this deprecated function */
+	fmt.Println(visualStr)
 	fribidi_reorder_line(flags, bidiTypes, len(str), 0, *paragraphBaseDir,
 		embeddingLevels, visualStr, positionsVToL)
+	fmt.Println(visualStr)
 
 	return Visual{Str: visualStr, VisualToLogical: positionsVToL, EmbeddingLevels: embeddingLevels}, maxLevel
 }

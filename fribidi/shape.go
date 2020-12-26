@@ -13,7 +13,7 @@ package fribidi
 //
 // Feel free to do your own shaping before or after calling this function,
 // but you should take care of embedding levels yourself then.
-func fribidi_shape(flags int, embedding_levels []Level,
+func fribidi_shape(flags Options, embedding_levels []Level,
 	/* input and output */ ar_props []JoiningType, str []rune) {
 
 	if len(ar_props) == 0 {

@@ -1,5 +1,7 @@
 package fribidi
 
+import "fmt"
+
 /*
  * This file implements most of Unicode Standard Annex #9, Tracking Number 13.
  */
@@ -11,51 +13,13 @@ type PairingNode struct {
 	next        *PairingNode
 }
 
-func (second *Run) merge_with_prev() *Run {
-	first := second.prev
-	first.next = second.next
-	first.next.prev = first
-	first.len += second.len
-	if second.next_isolate != nil {
-		second.next_isolate.prev_isolate = second.prev_isolate
-		/* The following edge case typically shouldn't happen, but fuzz
-		   testing shows it does, and the assignment protects against
-		   a dangling pointer. */
-	} else if second.next.prev_isolate == second {
-		second.next.prev_isolate = second.prev_isolate
+func (nodes *PairingNode) print_pairing_nodes() {
+	fmt.Print("Pairs: ")
+	for nodes != nil {
+		fmt.Printf("(%d, %d) ", nodes.open.pos, nodes.close.pos)
+		nodes = nodes.next
 	}
-	if second.prev_isolate != nil {
-		second.prev_isolate.next_isolate = second.next_isolate
-	}
-	first.next_isolate = second.next_isolate
-
-	return first
-}
-
-func (list *Run) compact_list() {
-	if list.next != nil {
-		for list = list.next; list.type_ != maskSENTINEL; list = list.next {
-			/* Don't join brackets! */
-			if list.prev.type_ == list.type_ && list.prev.level == list.level &&
-				list.bracket_type == NoBracket && list.prev.bracket_type == NoBracket {
-				list = list.merge_with_prev()
-			}
-		}
-	}
-}
-
-func (list *Run) compact_neutrals() {
-	if list.next != nil {
-		for list = list.next; list.type_ != maskSENTINEL; list = list.next {
-			if list.prev.level == list.level &&
-				(list.prev.type_ == list.type_ ||
-					(list.prev.type_.IsNeutral() && list.type_.IsNeutral())) &&
-				list.bracket_type == NoBracket /* Don't join brackets! */ &&
-				list.prev.bracket_type == NoBracket {
-				list = list.merge_with_prev()
-			}
-		}
-	}
+	fmt.Println()
 }
 
 /* Search for an adjacent run in the forward or backward direction.
@@ -258,7 +222,7 @@ func pairing_nodes_sorted_merge(nodes1, nodes2 *PairingNode) *PairingNode {
 	return res
 }
 
-// TODO: use slices
+// TODO: use slices ?
 func sort_pairing_nodes(nodes **PairingNode) {
 	/* 0 or 1 node case */
 	if *nodes == nil || (*nodes).next == nil {
@@ -272,23 +236,18 @@ func sort_pairing_nodes(nodes **PairingNode) {
 	*nodes = pairing_nodes_sorted_merge(front, back)
 }
 
-/* fribidi_get_par_embedding_levels_ex - get bidi embedding levels of a paragraph
- *
- * This function finds the bidi embedding levels of a single paragraph,
- * as defined by the Unicode Bidirectional Algorithm available at
- * http://www.unicode.org/reports/tr9/.  This function implements rules P2 to
- * I1 inclusive, and parts 1 to 3 of L1, except for rule X9 which is
- *  implemented in fribidi_remove_bidi_marks().  Part 4 of L1 is implemented
- *  in fribidi_reorder_line().
- *
- * bidi_types is a list of bidi types as returned by fribidi_get_bidi_types()
- * bracket_types is a list of bracket types as returned by  fribidi_get_bracket_types()
- * There are a few macros defined in fribidi-bidi-types.h to work with this
- * embedding levels.
- *
- * Returns: a slice of same length as `bidi_types`, and the maximum level found plus one,
- * which is thus always >= 1
- */
+// fribidi_get_par_embedding_levels_ex finds the bidi embedding levels of a single paragraph,
+// as defined by the Unicode Bidirectional Algorithm available at
+// http://www.unicode.org/reports/tr9/.  This function implements rules P2 to
+// I1 inclusive, and parts 1 to 3 of L1, except for rule X9 which is
+//  implemented in fribidi_remove_bidi_marks().  Part 4 of L1 is implemented
+//  in fribidi_reorder_line().
+//
+// bidi_types is a list of bidi types as returned by fribidi_get_bidi_types()
+// bracketTypes is either empty or a list of bracket types as returned by fribidi_get_bracketTypes()
+//
+// Returns: a slice of same length as `bidi_types`, and the maximum level found plus one,
+// which is thus always >= 1
 func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []BracketType,
 	/* input and output */
 	pbaseDir *ParType) (embeddingLevels []Level, maxLevel Level) {
@@ -359,16 +318,13 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		var (
 			level = baseLevel
 			/* stack */
-			stackSize                  = 0
-			overPushed                 = 0
-			firstInterval              = 0
-			validIsolateCount          = 0
-			isolateOverflow            = 0
-			override          CharType = ON
-			isolateLevel      Level
-			newOverride       CharType
-			newLevel          Level
-			isolate           int
+			stackSize, overPushed, firstInterval int
+			validIsolateCount, isolateOverflow   int
+			override                             CharType = ON
+			isolateLevel                         Level
+			isolate                              int
+			newOverride                          CharType
+			newLevel                             Level
 		)
 
 		// used in push/pop operation
@@ -378,6 +334,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		}
 
 		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
+
 			thisType := pp.type_
 			pp.isolate_level = isolateLevel
 
@@ -519,7 +476,6 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		prevIsolateLevel = 0
 		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
 			isolateLevel := pp.isolate_level
-			//   int i;
 
 			/* When going from an upper to a lower level, zero out all higher levels
 			   in order not erroneous connections! */
@@ -554,6 +510,11 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	   of Resolving Weak Types and Resolving Neutral Types is needed. */
 
 	mainRunList.compact_list()
+
+	mainRunList.print_types_re() // DEBUG
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("resolving weak types")
 
 	/* 4. Resolving weak types. Also calculate the maximum isolate level */
 	var maxIsoLevel Level
@@ -634,6 +595,10 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 				}
 			}
 		}
+
+		mainRunList.print_resolved_levels()
+		mainRunList.print_resolved_types()
+		fmt.Println("4b. resolving weak types. W4 and W5")
 
 		/* The last iso level is used to invalidate the the last strong values when going from
 		   a higher to a lower iso level. When this occur, all "last_strong" values are
@@ -725,12 +690,15 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	mainRunList.compact_neutrals()
 
-	/* 5. Resolving Neutral Types */
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("5. Resolving Neutral Types - N0")
+
 	/*  BD16 - Build list of all pairs*/
 	var (
-		numIsoLevels      = int(maxIsoLevel) + 1
+		numIsoLevels      = int(maxIsoLevel + 1)
 		pairingNodes      *PairingNode
-		localBracketStack [FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL][LOCAL_BRACKET_SIZE]*Run
+		localBracketStack [LOCAL_BRACKET_SIZE][FRIBIDI_BIDI_MAX_NESTED_BRACKET_PAIRS]*Run
 		bracketStack      [FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL][]*Run
 		bracketStackSize  [FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL]int
 		lastLevel         = mainRunList.level
@@ -752,7 +720,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
 		level := pp.level
 		isoLevel := pp.isolate_level
-		brackProp := pp.bracket_type
+		brackProp := pp.bracketType
 
 		/* Interpret the isolating run sequence as such that they
 		   end at a change in the level, unless the iso_level has been
@@ -773,7 +741,8 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 			} else {
 				stackIdx := bracketStackSize[isoLevel] - 1
 				for stackIdx >= 0 {
-					seBrackProp := bracketStack[isoLevel][stackIdx].bracket_type
+					seBrackProp := bracketStack[isoLevel][stackIdx].bracketType
+					fmt.Println("brak props", seBrackProp, brackProp, seBrackProp.id() == brackProp.id())
 					if seBrackProp.id() == brackProp.id() {
 						bracketStackSize[isoLevel] = stackIdx
 
@@ -790,6 +759,8 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	/* The list must now be sorted for the next algo to work! */
 	sort_pairing_nodes(&pairingNodes)
+
+	pairingNodes.print_pairing_nodes()
 
 	/* Start the N0 */
 	ppairs := pairingNodes
@@ -857,9 +828,13 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	/* Remove the bracket property and re-compact */
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-		pp.bracket_type = NoBracket
+		pp.bracketType = NoBracket
 	}
 	mainRunList.compact_neutrals()
+
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("resolving neutral types - N1+N2")
 
 	// resolving neutral types - N1+N2
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
@@ -896,29 +871,35 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	mainRunList.compact_list()
 
-	/* 6. Resolving implicit levels */
-	{
-		maxLevel = baseLevel
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("6. Resolving implicit levels")
 
-		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-			thisType := pp.type_
-			level := pp.level
+	maxLevel = baseLevel
 
-			/* I1. Even */
-			/* I2. Odd */
-			if thisType.IsNumber() {
-				pp.level = (level + 2) & ^1
-			} else {
-				pp.level = level + (level.isRtl() ^ FRIBIDI_DIR_TO_LEVEL(thisType))
-			}
+	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
+		thisType := pp.type_
+		level := pp.level
 
-			if pp.level > maxLevel {
-				maxLevel = pp.level
-			}
+		/* I1. Even */
+		/* I2. Odd */
+		if thisType.IsNumber() {
+			pp.level = (level + 2) & ^1
+		} else {
+			pp.level = level + (level.isRtl() ^ FRIBIDI_DIR_TO_LEVEL(thisType))
+		}
+
+		if pp.level > maxLevel {
+			maxLevel = pp.level
 		}
 	}
 
 	mainRunList.compact_list()
+
+	fmt.Println(bidiTypes)
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("reinserting explicit codes")
 
 	/* Reinsert the explicit codes & BN's that are already removed, from the
 	   explicits_list to main_run_list. */
@@ -940,7 +921,10 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		}
 	}
 
-	// reset the embedding levels, 1, 2, 3.
+	mainRunList.print_types_re()
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("reset the embedding levels, 1, 2, 3.")
 
 	/* L1. Reset the embedding levels of some chars:
 	   1. segment separators,
@@ -952,7 +936,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	   ... (to be continued in fribidi_reorder_line()). */
 	list := new_run_list()
 	q := list
-	state := 1
+	state := true
 	pos := len(bidiTypes) - 1
 	var (
 		charType CharType
@@ -965,11 +949,11 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		} else {
 			charType = ON
 		}
-		if state == 0 && charType.IsSeparator() {
-			state = 1
+		if !state && charType.IsSeparator() {
+			state = true
 			pos = j
-		} else if state != 0 && !(charType.IsExplicitOrSeparatorOrBnOrWs() || charType.IsIsolate()) {
-			state = 0
+		} else if state && !(charType.IsExplicitOrSeparatorOrBnOrWs() || charType.IsIsolate()) {
+			state = false
 			p = &Run{}
 			p.pos = j + 1
 			p.len = pos - j
@@ -980,6 +964,11 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		}
 	}
 	shadow_run_list(mainRunList, list, false)
+
+	mainRunList.print_types_re()
+	mainRunList.print_resolved_levels()
+	mainRunList.print_resolved_types()
+	fmt.Println("leaving")
 
 	pos = 0
 	embeddingLevels = make([]Level, len(bidiTypes))
@@ -1020,8 +1009,9 @@ func index_array_reverse(arr []int) {
 // is reset to the paragraph embedding level (according to part 4 of rule L1).
 //
 // Note that the bidi types and embedding levels are not reordered.  You can
-// reorder these arrays using the map later. `map` must be either nil, or
-// a slice with same length as other inputs.
+// reorder these arrays using the map later.
+//
+// `visual_str` and `map_` must be either empty, or  with same length as other inputs.
 //
 // There is an optional part to this function, which is whether non-spacing
 // marks for right-to-left parts of the text should be reordered to come after
@@ -1032,23 +1022,25 @@ func index_array_reverse(arr []int) {
 //
 // The maximum level found in this line plus one is returned
 func fribidi_reorder_line(
-	flags int /* reorder flags */, bidi_types []CharType,
+	flags Options /* reorder flags */, bidi_types []CharType,
 	length, off int, // definition of the line in the paragraph
 	base_dir ParType,
 	/* input and output */
 	embedding_levels []Level, visual_str []rune, map_ []int) Level {
 
-	var max_level Level
+	var (
+		max_level         Level
+		hasVisual, hasMap = len(visual_str) != 0, len(map_) != 0
+	)
 
 	/* L1. Reset the embedding levels of some chars:
 	   4. any sequence of white space characters at the end of the line. */
-	for i := off; i < off+length && bidi_types[i].IsExplicitOrBnOrWs(); i++ {
+	for i := off + length - 1; i >= off && bidi_types[i].IsExplicitOrBnOrWs(); i-- {
 		embedding_levels[i] = FRIBIDI_DIR_TO_LEVEL(base_dir)
 	}
 
 	/* 7. Reordering resolved levels */
 	var level Level
-	// register StrIndex i;
 
 	/* Reorder both the outstring and the order array */
 	if flags&FRIBIDI_FLAG_REORDER_NSM != 0 {
@@ -1065,8 +1057,10 @@ func fribidi_reorder_line(
 					i++
 				}
 
-				bidi_string_reverse(visual_str[i : seq_end+1])
-				if len(map_) != 0 {
+				if hasVisual {
+					bidi_string_reverse(visual_str[i : seq_end+1])
+				}
+				if hasMap {
 					index_array_reverse(map_[i : seq_end+1])
 				}
 			}
@@ -1081,7 +1075,6 @@ func fribidi_reorder_line(
 			max_level = embedding_levels[i]
 		}
 	}
-
 	/* L2. Reorder. */
 	for level = max_level; level > 0; level-- {
 		for i := off + length - 1; i >= off; i-- {
@@ -1091,8 +1084,10 @@ func fribidi_reorder_line(
 				for i--; i >= off && embedding_levels[i] >= level; i-- {
 				}
 
-				bidi_string_reverse(visual_str[i+1 : seq_end+1])
-				if len(map_) != 0 {
+				if hasVisual {
+					bidi_string_reverse(visual_str[i+1 : seq_end+1])
+				}
+				if hasMap {
 					index_array_reverse(map_[i+1 : seq_end+1])
 				}
 			}

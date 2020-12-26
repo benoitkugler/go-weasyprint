@@ -20,7 +20,7 @@ package fribidi
  * other means for doing Arabic shaping.  The set of extra flags that enable
  * this level of Arabic support has a shortcut named FRIBIDI_FLAGS_ARABIC.
  */
-func fribidi_shape_arabic(flags int, embedding_levels []Level,
+func fribidi_shape_arabic(flags Options, embedding_levels []Level,
 	/* input and output */
 	ar_props []JoiningType, str []rune) {
 

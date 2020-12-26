@@ -29,7 +29,7 @@ func init() {
 	caprtl_to_unicode = make([]rune, len(capRTLCharTypes))
 
 	var (
-		mark             [len(capRTLCharTypes)]byte
+		mark             [len(capRTLCharTypes)]bool
 		num_types, count int
 		to_type          [numTypes]CharType
 		request          [numTypes]int
@@ -38,16 +38,16 @@ func init() {
 	for i, ct := range capRTLCharTypes {
 		if ct == GetBidiType(rune(i)) {
 			caprtl_to_unicode[i] = rune(i)
-			mark[i] = 1
+			mark[i] = true
 		} else {
-			var j int
 
 			caprtl_to_unicode[i] = FRIBIDI_UNICODE_CHARS
-			mark[i] = 0
+			mark[i] = false
 			if _, ok := fribidi_get_mirror_char(rune(i)); ok {
 				fmt.Println("warning: I could not map mirroring character map to itself in CapRTL")
 			}
 
+			var j int
 			for j = 0; j < num_types; j++ {
 				if to_type[j] == ct {
 					break
@@ -61,36 +61,36 @@ func init() {
 			request[j]++
 			count++
 		}
-		for i = 0; i < 0x10000 && count != 0; i++ { /* Assign BMP chars to CapRTL entries */
-			if _, ok := fribidi_get_mirror_char(rune(i)); !ok && !(i < len(capRTLCharTypes) && mark[i] != 0) {
-				var j, k int
-				t := GetBidiType(rune(i))
-				for j = 0; j < num_types; j++ {
-					if to_type[j] == t {
-						break
-					}
+	}
+	for i := 0; i < 0x10000 && count != 0; i++ { /* Assign BMP chars to CapRTL entries */
+		if _, ok := fribidi_get_mirror_char(rune(i)); !ok && !(i < len(capRTLCharTypes) && mark[i]) {
+			var j, k int
+			t := GetBidiType(rune(i))
+			for j = 0; j < num_types; j++ {
+				if to_type[j] == t {
+					break
 				}
-				if j >= num_types || request[j] == 0 { /* Do not need this type */
-					continue
-				}
-				for k = 0; k < len(capRTLCharTypes); k++ {
-					if caprtl_to_unicode[k] == FRIBIDI_UNICODE_CHARS && to_type[j] == capRTLCharTypes[k] {
-						request[j]--
-						count--
-						caprtl_to_unicode[k] = rune(i)
-						break
-					}
+			}
+			if j >= num_types || request[j] == 0 { /* Do not need this type */
+				continue
+			}
+			for k = 0; k < len(capRTLCharTypes); k++ {
+				if caprtl_to_unicode[k] == FRIBIDI_UNICODE_CHARS && to_type[j] == capRTLCharTypes[k] {
+					request[j]--
+					count--
+					caprtl_to_unicode[k] = rune(i)
+					break
 				}
 			}
 		}
-		if count != 0 {
-			var j int
+	}
+	if count != 0 {
+		var j int
 
-			fmt.Println("warning: could not find a mapping for CapRTL to Unicode:")
-			for j = 0; j < num_types; j++ {
-				if request[j] != 0 {
-					fmt.Printf("  need this type: %d\n", to_type[j])
-				}
+		fmt.Println("warning: could not find a mapping for CapRTL to Unicode:")
+		for j = 0; j < num_types; j++ {
+			if request[j] != 0 {
+				fmt.Printf("  need this type: %d\n", to_type[j])
 			}
 		}
 	}
@@ -153,7 +153,7 @@ func fribidi_unicode_to_cap_rtl_c(uch rune) byte {
 func (capRTLCharset) encode(str []rune) []byte {
 	var s []byte
 	for _, ch := range str {
-		if !GetBidiType(ch).IsExplicit() && !GetBidiType(ch).IsIsolate() &&
+		if bd := GetBidiType(ch); !bd.IsExplicit() && !bd.IsIsolate() &&
 			ch != '_' && ch != FRIBIDI_CHAR_LRM && ch != FRIBIDI_CHAR_RLM {
 			s = append(s, fribidi_unicode_to_cap_rtl_c(ch))
 		} else {

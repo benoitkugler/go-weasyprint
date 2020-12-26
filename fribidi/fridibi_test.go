@@ -6,7 +6,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"strings"
+	"testing"
 
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
@@ -106,14 +108,12 @@ func parseCharset(filename string) charsetI {
 
 func processFile(filename string, fileOut io.Writer) error {
 
-	do_clean := true
-	// do_reorder_nsm := true
+	do_clean, do_reorder_nsm, do_mirror := true, true, true
 	show_input := true
-	// do_break := false
 	text_width := default_text_width
+	// do_break := false
 
 	do_pad := true
-	// do_mirror := true
 	show_visual := true
 	show_basedir := false
 	show_ltov := false
@@ -137,8 +137,8 @@ func processFile(filename string, fileOut io.Writer) error {
 
 	charset := parseCharset(filename)
 
-	// fribidi_set_mirroring(do_mirror)
-	// fribidi_set_reorder_nsm(do_reorder_nsm)
+	flags := defaultFlags.adjust(FRIBIDI_FLAG_SHAPE_MIRRORING, do_mirror)
+	flags = flags.adjust(FRIBIDI_FLAG_REORDER_NSM, do_reorder_nsm)
 
 	padding_width := text_width
 	if show_input {
@@ -153,21 +153,18 @@ func processFile(filename string, fileOut io.Writer) error {
 
 	/* Read and process input one line at a time */
 	for _, line := range bytes.Split(b, []byte{'\n'}) {
-
+		if len(line) == 0 {
+			continue
+		}
 		logical := charset.decode(line)
 
-		var (
-			visual   []rune
-			nl_found = ""
-		)
-		if show_visual {
-			visual = make([]rune, len(logical)+1)
-		}
+		var nl_found = ""
 
 		/* Create a bidi string. */
 		base := input_base_direction
 
-		out, _ := fribidi_log2vis(logical, &base)
+		out, _ := fribidi_log2vis(flags, logical, &base)
+		logToVis := out.LogicalToVisual()
 
 		if show_input {
 			fmt.Fprintf(fileOut, "%-*s => ", padding_width, line)
@@ -176,26 +173,24 @@ func processFile(filename string, fileOut io.Writer) error {
 		/* Remove explicit marks, if asked for. */
 
 		if do_clean {
-			visual = fribidi_remove_bidi_marks(visual, out.LogicalToVisual(), out.VisualToLogical, out.EmbeddingLevels)
+			out.Str = fribidi_remove_bidi_marks(out.Str, logToVis, out.VisualToLogical, out.EmbeddingLevels)
 		}
-
 		if show_visual {
 			fmt.Fprintf(fileOut, "%s", nl_found)
-
 			// if bol_text {
 			// 	fmt.Fprintf(fileOut, "%s", bol_text)
 			// }
 
 			/* Convert it to input charset and print. */
 			var st int
-			for idx := range visual {
+			for idx := 0; idx < len(out.Str); {
 				var inlen int
 
 				wid := break_width
 				st = idx
 				if _, isCapRTL := charset.(capRTLCharset); !isCapRTL {
-					for wid > 0 && idx < len(visual) {
-						if GetBidiType(visual[idx]).IsExplicitOrIsolateOrBnOrNsm() {
+					for wid > 0 && idx < len(out.Str) {
+						if GetBidiType(out.Str[idx]).IsExplicitOrIsolateOrBnOrNsm() {
 							wid -= 0
 						} else {
 							wid -= 1
@@ -203,7 +198,7 @@ func processFile(filename string, fileOut io.Writer) error {
 						idx++
 					}
 				} else {
-					for wid > 0 && idx < len(visual) {
+					for wid > 0 && idx < len(out.Str) {
 						wid--
 						idx++
 					}
@@ -213,7 +208,7 @@ func processFile(filename string, fileOut io.Writer) error {
 				}
 				inlen = idx - st
 
-				outstring := charset.encode(visual[st : inlen+st])
+				outstring := charset.encode(out.Str[st : inlen+st])
 				if base.IsRtl() {
 					var w int
 					if do_pad {
@@ -223,8 +218,8 @@ func processFile(filename string, fileOut io.Writer) error {
 				} else {
 					fmt.Fprintf(fileOut, "%s", outstring)
 				}
-				if idx < len(visual) {
-					fmt.Fprintf(fileOut, "\n")
+				if idx < len(out.Str) {
+					fmt.Fprintln(fileOut)
 				}
 			}
 			// if eol_text {
@@ -244,7 +239,7 @@ func processFile(filename string, fileOut io.Writer) error {
 		}
 		if show_ltov {
 			fmt.Fprintf(fileOut, "%s", nl_found)
-			for _, ltov := range out.LogicalToVisual() {
+			for _, ltov := range logToVis {
 				fmt.Fprintf(fileOut, "%d ", ltov)
 			}
 			nl_found = "\n"
@@ -264,9 +259,26 @@ func processFile(filename string, fileOut io.Writer) error {
 			nl_found = "\n"
 		}
 
-		// if nl_found != "" {
-		// 	fmt.Fprintf(fileOut, "%s", new_line)
-		// }
+		if nl_found != "" {
+			fmt.Fprintln(fileOut)
+		}
 	}
 	return nil
+}
+
+func Test1(t *testing.T) {
+	for _, file := range []string{
+		"test/test_CapRTL_explicit.input",
+		// "test/test_CapRTL_explicit.input",
+		// "test/test_CapRTL_implicit.input",
+		// "test/test_CapRTL_isolate.input",
+		// "test/test_ISO8859-8_hebrew.input",
+		// "test/test_UTF-8_persian.input",
+		// "test/test_UTF-8_reordernsm.input",
+	} {
+		err := processFile(file, os.Stdout)
+		if err != nil {
+			t.Fatal("error in test file", file, err)
+		}
+	}
 }
