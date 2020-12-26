@@ -100,7 +100,6 @@ func TestBidiCharacters(t *testing.T) {
 		t.Fatal(err)
 	}
 	for lineNumber, line := range bytes.Split(b, []byte{'\n'}) {
-
 		if len(line) == 0 || line[0] == '#' || line[0] == '\n' {
 			continue
 		}

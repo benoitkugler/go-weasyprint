@@ -511,10 +511,10 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	mainRunList.compact_list()
 
-	mainRunList.print_types_re() // DEBUG
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("resolving weak types")
+	// mainRunList.print_types_re() // DEBUG
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("resolving weak types")
 
 	/* 4. Resolving weak types. Also calculate the maximum isolate level */
 	var maxIsoLevel Level
@@ -596,9 +596,9 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 			}
 		}
 
-		mainRunList.print_resolved_levels()
-		mainRunList.print_resolved_types()
-		fmt.Println("4b. resolving weak types. W4 and W5")
+		// mainRunList.print_resolved_levels()
+		// mainRunList.print_resolved_types()
+		// fmt.Println("4b. resolving weak types. W4 and W5")
 
 		/* The last iso level is used to invalidate the the last strong values when going from
 		   a higher to a lower iso level. When this occur, all "last_strong" values are
@@ -690,9 +690,9 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	mainRunList.compact_neutrals()
 
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("5. Resolving Neutral Types - N0")
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("5. Resolving Neutral Types - N0")
 
 	/*  BD16 - Build list of all pairs*/
 	var (
@@ -742,7 +742,6 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 				stackIdx := bracketStackSize[isoLevel] - 1
 				for stackIdx >= 0 {
 					seBrackProp := bracketStack[isoLevel][stackIdx].bracketType
-					fmt.Println("brak props", seBrackProp, brackProp, seBrackProp.id() == brackProp.id())
 					if seBrackProp.id() == brackProp.id() {
 						bracketStackSize[isoLevel] = stackIdx
 
@@ -760,7 +759,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	/* The list must now be sorted for the next algo to work! */
 	sort_pairing_nodes(&pairingNodes)
 
-	pairingNodes.print_pairing_nodes()
+	// pairingNodes.print_pairing_nodes()
 
 	/* Start the N0 */
 	ppairs := pairingNodes
@@ -832,9 +831,9 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	}
 	mainRunList.compact_neutrals()
 
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("resolving neutral types - N1+N2")
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("resolving neutral types - N1+N2")
 
 	// resolving neutral types - N1+N2
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
@@ -871,9 +870,9 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	mainRunList.compact_list()
 
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("6. Resolving implicit levels")
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("6. Resolving implicit levels")
 
 	maxLevel = baseLevel
 
@@ -896,10 +895,10 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 	mainRunList.compact_list()
 
-	fmt.Println(bidiTypes)
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("reinserting explicit codes")
+	// fmt.Println(bidiTypes)
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("reinserting explicit codes")
 
 	/* Reinsert the explicit codes & BN's that are already removed, from the
 	   explicits_list to main_run_list. */
@@ -921,10 +920,10 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		}
 	}
 
-	mainRunList.print_types_re()
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("reset the embedding levels, 1, 2, 3.")
+	// mainRunList.print_types_re()
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("reset the embedding levels, 1, 2, 3.")
 
 	/* L1. Reset the embedding levels of some chars:
 	   1. segment separators,
@@ -965,10 +964,10 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	}
 	shadow_run_list(mainRunList, list, false)
 
-	mainRunList.print_types_re()
-	mainRunList.print_resolved_levels()
-	mainRunList.print_resolved_types()
-	fmt.Println("leaving")
+	// mainRunList.print_types_re()
+	// mainRunList.print_resolved_levels()
+	// mainRunList.print_resolved_types()
+	// fmt.Println("leaving")
 
 	pos = 0
 	embeddingLevels = make([]Level, len(bidiTypes))

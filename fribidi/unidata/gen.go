@@ -49,7 +49,7 @@ func parseUnicodeData() error {
 		}
 		chunks := strings.Split(line, ";")
 		// we are looking for <...> XXXX
-		if len(chunks) < 6 || chunks[5] == "" || chunks[5][0] != '<' {
+		if len(chunks) < 6 || chunks[5] == "" {
 			continue
 		}
 		var (
@@ -64,7 +64,11 @@ func parseUnicodeData() error {
 		if c >= maxUnicode || unshaped >= maxUnicode {
 			return fmt.Errorf("invalid line %s: too high rune value", line)
 		}
-		_, err = fmt.Sscanf(chunks[5], "%s %04x", &tag, &unshaped)
+		if chunks[5][0] == '<' {
+			_, err = fmt.Sscanf(chunks[5], "%s %04x", &tag, &unshaped)
+		} else {
+			_, err = fmt.Sscanf(chunks[5], "%04x", &unshaped)
+		}
 		if err != nil {
 			return fmt.Errorf("invalid line %s: %s", line, err)
 		}
