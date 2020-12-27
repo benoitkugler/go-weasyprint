@@ -1,57 +1,57 @@
 package fribidi
 
-import "unicode"
+import (
+	"unicode"
+)
 
 type JoiningType uint8
 
 const (
-	U JoiningType = iota /* nUn-joining, e.g. Full Stop */
-	R                    /* Right-joining, e.g. Arabic Letter Dal */
-	D                    /* Dual-joining, e.g. Arabic Letter Ain */
-	C                    /* join-Causing, e.g. Tatweel, ZWJ */
-	T                    /* Transparent, e.g. Arabic Fatha */
-	L                    /* Left-joining, i.e. fictional */
-	G                    /* iGnored, e.g. LRE, RLE, ZWNBSP */
+	U JoiningType = 0                                   /* nUn-joining, e.g. Full Stop */
+	R JoiningType = joinsRight | arabShapes             /* Right-joining, e.g. Arabic Letter Dal */
+	D JoiningType = joinsRight | joinsLeft | arabShapes /* Dual-joining, e.g. Arabic Letter Ain */
+	C JoiningType = joinsRight | joinsLeft              /* join-Causing, e.g. Tatweel, ZWJ */
+	L JoiningType = joinsLeft | arabShapes              /* Left-joining, i.e. fictional */
+	T JoiningType = transparent | arabShapes            /* Transparent, e.g. Arabic Fatha */
+	G JoiningType = ignored                             /* iGnored, e.g. LRE, RLE, ZWNBSP */
 )
 
 // Define bit masks that joining types are based on
 const (
-	FRIBIDI_MASK_JOINS_RIGHT = 1 << iota /* May join to right */
-	FRIBIDI_MASK_JOINS_LEFT              /* May join to left */
-	FRIBIDI_MASK_ARAB_SHAPES             /* May Arabic shape */
-	FRIBIDI_MASK_TRANSPARENT             /* Is transparent */
-	FRIBIDI_MASK_IGNORED                 /* Is ignored */
-	FRIBIDI_MASK_LIGATURED               /* Is ligatured */
+	joinsRight  = 1 << iota /* May join to right */
+	joinsLeft               /* May join to left */
+	arabShapes              /* May Arabic shape */
+	transparent             /* Is transparent */
+	ignored                 /* Is ignored */
+	ligatured               /* Is ligatured */
 )
 
 /* iGnored */
 func (p JoiningType) isG() bool {
-	return FRIBIDI_MASK_IGNORED == (p)&(FRIBIDI_MASK_TRANSPARENT|FRIBIDI_MASK_IGNORED)
+	return ignored == p&(transparent|ignored)
 }
 
 /* Is skipped in joining: T, G? */
 func (p JoiningType) isJoinSkipped() bool {
-	return p&(FRIBIDI_MASK_TRANSPARENT|FRIBIDI_MASK_IGNORED) != 0
+	return p&(transparent|ignored) != 0
 }
 
 /* May shape: R, D, L, T? */
 func (p JoiningType) isArabShapes() bool {
-	return p&FRIBIDI_MASK_ARAB_SHAPES != 0
+	return p&arabShapes != 0
 }
 
 // the return verifies 0 <= s < 4
 func (p JoiningType) joinShape() uint8 {
-	return uint8(p & (FRIBIDI_MASK_JOINS_RIGHT | FRIBIDI_MASK_JOINS_LEFT))
+	return uint8(p & (joinsRight | joinsLeft))
 }
 
 func getJoiningType(ch rune, bidi CharType) JoiningType {
-	if jt, ok := joinings[ch]; ok {
+	if jt, ok := joiningTable[ch]; ok {
 		return jt
 	}
-	// - Those that are not explicitly listed and that are of General Category Mn, Me, or Cf
-	//   have joining type T.
-	// - All others not explicitly listed have joining type U.
-	// general transparents
+	// (general transparents) Those that are not explicitly listed and that are of General Category
+	// Mn, Me, or Cf have joining type T.
 	if unicode.In(ch, unicode.Mn, unicode.Me, unicode.Cf) {
 		return T
 	}
@@ -60,6 +60,7 @@ func getJoiningType(ch rune, bidi CharType) JoiningType {
 	case BN, LRE, RLE, LRO, RLO, PDF, LRI, RLI, FSI, PDI:
 		return G
 	default:
+		// All others not explicitly listed have joining type U.
 		return U
 	}
 }
@@ -72,7 +73,7 @@ func getJoiningTypes(str []rune, bidiTypes []CharType) []JoiningType {
 	return out
 }
 
-// fribidi_join_arabic does the Arabic joining algorithm.  Means, given Arabic
+// joinArabic does the Arabic joining algorithm.  Means, given Arabic
 // joining types of the characters in ar_props, this
 // function modifies (in place) this properties to grasp the effect of neighboring
 // characters. You probably need this information later to do Arabic shaping.
@@ -83,7 +84,7 @@ func getJoiningTypes(str []rune, bidiTypes []CharType) []JoiningType {
 // interacts correctly with the bidirection algorithm as defined in Section
 // 3.5 Shaping of the Unicode Bidirectional Algorithm available at
 // http://www.unicode.org/reports/tr9/#Shaping.
-func fribidi_join_arabic(bidi_types []CharType, embedding_levels []Level, ar_props []JoiningType) {
+func joinArabic(bidiTypes []CharType, embeddingLevels []Level, arProps []JoiningType) {
 	/* The joining algorithm turned out very very dirty :(.  That's what happens
 	 * when you follow the standard which has never been implemented closely
 	 * before.
@@ -91,39 +92,38 @@ func fribidi_join_arabic(bidi_types []CharType, embedding_levels []Level, ar_pro
 
 	/* 8.2 Arabic - Cursive Joining */
 	var (
-		saved                            = 0
-		saved_level                Level = FRIBIDI_SENTINEL
-		saved_shapes                     = false
-		saved_joins_following_mask JoiningType
-		joins                      = false
+		saved                         = 0
+		savedLevel              Level = levelSentinel
+		savedShapes                   = false
+		savedJoinsFollowingMask JoiningType
+		joins                   = false
 	)
-	for i := range ar_props {
-		if !ar_props[i].isG() {
+	for i := range arProps {
+		if !arProps[i].isG() {
 			disjoin := false
-			shapes := ar_props[i].isArabShapes()
+			shapes := arProps[i].isArabShapes()
 
 			//  FRIBIDI_CONSISTENT_LEVEL
-			var level Level = FRIBIDI_SENTINEL
-			if !bidi_types[i].IsExplicitOrBn() {
-				level = embedding_levels[i]
+			var level Level = levelSentinel
+			if !bidiTypes[i].IsExplicitOrBn() {
+				level = embeddingLevels[i]
 			}
 
-			if levelMatch := saved_level == level || saved_level == FRIBIDI_SENTINEL || level == FRIBIDI_SENTINEL; joins && !levelMatch {
+			if levelMatch := savedLevel == level || savedLevel == levelSentinel || level == levelSentinel; joins && !levelMatch {
 				disjoin = true
 				joins = false
 			}
-
-			if !ar_props[i].isJoinSkipped() {
-				var joins_preceding_mask JoiningType = FRIBIDI_MASK_JOINS_LEFT
+			if !arProps[i].isJoinSkipped() {
+				var joinsPrecedingMask JoiningType = joinsLeft
 				if level.isRtl() != 0 {
-					joins_preceding_mask = FRIBIDI_MASK_JOINS_RIGHT
+					joinsPrecedingMask = joinsRight
 				}
 
 				if !joins {
 					if shapes {
-						ar_props[i] &= ^joins_preceding_mask // unset bits
+						arProps[i] &= ^joinsPrecedingMask // unset bits
 					}
-				} else if ar_props[i]&joins_preceding_mask == 0 { // ! test bits
+				} else if arProps[i]&joinsPrecedingMask == 0 { // ! test bits
 					disjoin = true
 				} else {
 					/* This is a FriBidi extension:  we set joining properties
@@ -131,30 +131,30 @@ func fribidi_join_arabic(bidi_types []CharType, embedding_levels []Level, ar_pro
 					 * later if we want.  Useful on console for example.
 					 */
 					for j := saved + 1; j < i; j++ {
-						ar_props[j] |= joins_preceding_mask | saved_joins_following_mask
+						arProps[j] |= joinsPrecedingMask | savedJoinsFollowingMask
 					}
 				}
 			}
 
-			if disjoin && saved_shapes {
-				ar_props[saved] &= ^saved_joins_following_mask // unset bits
+			if disjoin && savedShapes {
+				arProps[saved] &= ^savedJoinsFollowingMask // unset bits
 			}
 
-			if !ar_props[i].isJoinSkipped() {
+			if !arProps[i].isJoinSkipped() {
 				saved = i
-				saved_level = level
-				saved_shapes = shapes
+				savedLevel = level
+				savedShapes = shapes
 				// FRIBIDI_JOINS_FOLLOWING_MASK(level)
 				if level.isRtl() != 0 {
-					saved_joins_following_mask = FRIBIDI_MASK_JOINS_LEFT
+					savedJoinsFollowingMask = joinsLeft
 				} else {
-					saved_joins_following_mask = FRIBIDI_MASK_JOINS_RIGHT
+					savedJoinsFollowingMask = joinsRight
 				}
-				joins = ar_props[i]&saved_joins_following_mask != 0
+				joins = arProps[i]&savedJoinsFollowingMask != 0
 			}
 		}
 	}
-	if joins && saved_shapes {
-		ar_props[saved] &= ^saved_joins_following_mask
+	if joins && savedShapes {
+		arProps[saved] &= ^savedJoinsFollowingMask
 	}
 }

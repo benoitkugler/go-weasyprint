@@ -5,64 +5,64 @@ import (
 	"log"
 )
 
-const FRIBIDI_SENTINEL = -1
+const levelSentinel = -1
 
-type Run struct {
-	prev *Run
-	next *Run
+type oneRun struct {
+	prev *oneRun
+	next *oneRun
 
-	pos, len             int
-	type_                CharType
-	level, isolate_level Level
-	bracketType          BracketType
+	pos, len            int
+	type_               CharType
+	level, isolateLevel Level
+	bracketType         BracketType
 
 	/* Additional links for connecting the isolate tree */
-	prev_isolate, next_isolate *Run
+	prevIsolate, nextIsolate *oneRun
 }
 
-func new_run_list() *Run {
-	var run Run
+func newRunList() *oneRun {
+	var run oneRun
 
 	run.type_ = maskSENTINEL
-	run.level = FRIBIDI_SENTINEL
-	run.pos = FRIBIDI_SENTINEL
-	run.len = FRIBIDI_SENTINEL
+	run.level = levelSentinel
+	run.pos = levelSentinel
+	run.len = levelSentinel
 	run.next = &run
 	run.prev = &run
 
 	return &run
 }
 
-func (x *Run) delete_node() {
+func (x *oneRun) deleteNode() {
 	x.prev.next = x.next
 	x.next.prev = x.prev
 }
 
-func (list *Run) insert_node_before(x *Run) {
+func (list *oneRun) insertNodeBefore(x *oneRun) {
 	x.prev = list.prev
 	list.prev.next = x
 	x.next = list
 	list.prev = x
 }
 
-func (list *Run) move_node_before(x *Run) {
+func (list *oneRun) moveNodeBefore(x *oneRun) {
 	if x.prev != nil {
-		x.delete_node()
+		x.deleteNode()
 	}
-	list.insert_node_before(x)
+	list.insertNodeBefore(x)
 }
 
 /* Return the type of previous run or the SOR, if already at the start of
    a level run. */
-func (pp *Run) PREV_TYPE_OR_SOR() CharType {
+func (pp *oneRun) prevTypeOrSOR() CharType {
 	if pp.prev.level == pp.level {
 		return pp.prev.type_
 	}
-	return FRIBIDI_LEVEL_TO_DIR(maxL(pp.prev.level, pp.level))
+	return levelToDir(maxL(pp.prev.level, pp.level))
 }
 
 /* "Within this scope, bidirectional types EN and AN are treated as R" */
-func (list *Run) RL_TYPE_AN_EN_AS_RTL() CharType {
+func (list *oneRun) typeAnEnAsRTL() CharType {
 	if list.type_ == AN || list.type_ == EN {
 		return RTL
 	}
@@ -70,14 +70,14 @@ func (list *Run) RL_TYPE_AN_EN_AS_RTL() CharType {
 }
 
 /* Return the embedding direction of a link. */
-func (link *Run) FRIBIDI_EMBEDDING_DIRECTION() CharType {
-	return FRIBIDI_LEVEL_TO_DIR(link.level)
+func (link *oneRun) embeddingDirection() CharType {
+	return levelToDir(link.level)
 }
 
 // bracketTypes is either empty or with same length as `bidiTypes`
-func run_list_encode_bidi_types(bidiTypes []CharType, bracketTypes []BracketType) *Run {
+func encodeBidiTypes(bidiTypes []CharType, bracketTypes []BracketType) *oneRun {
 	/* Create the list sentinel */
-	list := new_run_list()
+	list := newRunList()
 	last := list
 	hasBrackets := len(bracketTypes) != 0
 
@@ -87,11 +87,10 @@ func run_list_encode_bidi_types(bidiTypes []CharType, bracketTypes []BracketType
 		if hasBrackets {
 			bracketType = bracketTypes[i]
 		}
-		fmt.Println(i, bracketType)
 
 		if charType != last.type_ || bracketType != NoBracket || // Always separate bracket into single char runs!
 			last.bracketType != NoBracket || charType.IsIsolate() {
-			run := &Run{}
+			run := &oneRun{}
 			run.type_ = charType
 			run.pos = i
 			last.len = run.pos - last.pos
@@ -131,9 +130,9 @@ Todo:
   use some explanatory names instead of p, q, ...
   rewrite comment above to remove references to special usage.
 */
-func shadow_run_list(base, over *Run, preserveLength bool) {
+func shadowRunList(base, over *oneRun, preserveLength bool) {
 	var (
-		r, t      *Run
+		r, t      *oneRun
 		p         = base
 		pos, pos2 int
 	)
@@ -164,11 +163,11 @@ func shadow_run_list(base, over *Run, preserveLength bool) {
 			the second interval, set r to be the third part. */
 			/* third part needed? */
 			if p.pos+p.len > pos2 {
-				r = &Run{}
+				r = &oneRun{}
 				p.next.prev = r
 				r.next = p.next
 				r.level = p.level
-				r.isolate_level = p.isolate_level
+				r.isolateLevel = p.isolateLevel
 				r.type_ = p.type_
 				r.len = p.pos + p.len - pos2
 				r.pos = pos2
@@ -217,7 +216,7 @@ func shadow_run_list(base, over *Run, preserveLength bool) {
 		*/
 		t = q
 		q = q.prev
-		t.delete_node()
+		t.deleteNode()
 		p.next = t
 		t.prev = p
 		t.next = r
@@ -227,52 +226,100 @@ func shadow_run_list(base, over *Run, preserveLength bool) {
 	base.validate()
 }
 
-func (second *Run) merge_with_prev() *Run {
+func (second *oneRun) mergeWithPrev() *oneRun {
 	first := second.prev
 	first.next = second.next
 	first.next.prev = first
 	first.len += second.len
-	if second.next_isolate != nil {
-		second.next_isolate.prev_isolate = second.prev_isolate
+	if second.nextIsolate != nil {
+		second.nextIsolate.prevIsolate = second.prevIsolate
 		/* The following edge case typically shouldn't happen, but fuzz
 		   testing shows it does, and the assignment protects against
 		   a dangling pointer. */
-	} else if second.next.prev_isolate == second {
-		second.next.prev_isolate = second.prev_isolate
+	} else if second.next.prevIsolate == second {
+		second.next.prevIsolate = second.prevIsolate
 	}
-	if second.prev_isolate != nil {
-		second.prev_isolate.next_isolate = second.next_isolate
+	if second.prevIsolate != nil {
+		second.prevIsolate.nextIsolate = second.nextIsolate
 	}
-	first.next_isolate = second.next_isolate
+	first.nextIsolate = second.nextIsolate
 
 	return first
 }
 
-func (list *Run) compact_list() {
-	if list.next != nil {
-		for list = list.next; list.type_ != maskSENTINEL; list = list.next {
-			/* Don't join brackets! */
-			if list.prev.type_ == list.type_ && list.prev.level == list.level &&
-				list.bracketType == NoBracket && list.prev.bracketType == NoBracket {
-				list = list.merge_with_prev()
-			}
+func (list *oneRun) compact() {
+	if list.next == nil {
+		return
+	}
+	for list = list.next; list.type_ != maskSENTINEL; list = list.next {
+		/* Don't join brackets! */
+		if list.prev.type_ == list.type_ && list.prev.level == list.level &&
+			list.bracketType == NoBracket && list.prev.bracketType == NoBracket {
+			list = list.mergeWithPrev()
 		}
 	}
 }
 
-func (list *Run) compact_neutrals() {
-	if list.next != nil {
-		for list = list.next; list.type_ != maskSENTINEL; list = list.next {
-			if list.prev.level == list.level &&
-				(list.prev.type_ == list.type_ ||
-					(list.prev.type_.IsNeutral() && list.type_.IsNeutral())) &&
-				list.bracketType == NoBracket /* Don't join brackets! */ &&
-				list.prev.bracketType == NoBracket {
-				list = list.merge_with_prev()
-			}
+func (list *oneRun) compactNeutrals() {
+	if list.next == nil {
+		return
+	}
+	for list = list.next; list.type_ != maskSENTINEL; list = list.next {
+		if list.prev.level == list.level &&
+			(list.prev.type_ == list.type_ ||
+				(list.prev.type_.IsNeutral() && list.type_.IsNeutral())) &&
+			list.bracketType == NoBracket /* Don't join brackets! */ &&
+			list.prev.bracketType == NoBracket {
+			list = list.mergeWithPrev()
 		}
 	}
 }
+
+// The static sentinel is used to signal the end of an isolating sequence
+var sentinel = oneRun{type_: maskSENTINEL, level: -1, isolateLevel: -1}
+
+func (list *oneRun) getAdjacentRun(forward, skipNeutral bool) *oneRun {
+	ppp := list.prevIsolate
+	if forward {
+		ppp = list.nextIsolate
+	}
+
+	if ppp == nil {
+		return &sentinel
+	}
+
+	for ppp != nil {
+		pppType := ppp.type_
+
+		if pppType == maskSENTINEL {
+			break
+		}
+
+		/* Note that when sweeping forward we continue one run
+		   beyond the PDI to see what lies behind. When looking
+		   backwards, this is not necessary as the leading isolate
+		   run has already been assigned the resolved level. */
+		if ppp.isolateLevel > list.isolateLevel /* <- How can this be true? */ ||
+			(forward && pppType == PDI) || (skipNeutral && !pppType.IsStrong()) {
+			if forward {
+				ppp = ppp.nextIsolate
+			} else {
+				ppp = ppp.prevIsolate
+
+			}
+			if ppp == nil {
+				ppp = &sentinel
+			}
+
+			continue
+		}
+		break
+	}
+
+	return ppp
+}
+
+// debug helpers
 
 func assertT(b bool) {
 	if !b {
@@ -280,31 +327,30 @@ func assertT(b bool) {
 	}
 }
 
-// only used to debug TODO: include in test ?
-func (run_list *Run) validate() {
-	assertT(run_list != nil)
-	assertT(run_list.next != nil)
-	assertT(run_list.next.prev == run_list)
-	assertT(run_list.type_ == maskSENTINEL)
-	q := run_list
-	for ; q.type_ != maskSENTINEL; q = q.next {
-		assertT(q.next != nil)
-		assertT(q.next.prev == q)
+func (runList *oneRun) validate() {
+	if debug {
+		assertT(runList != nil)
+		assertT(runList.next != nil)
+		assertT(runList.next.prev == runList)
+		assertT(runList.type_ == maskSENTINEL)
+		q := runList
+		for ; q.type_ != maskSENTINEL; q = q.next {
+			assertT(q.next != nil)
+			assertT(q.next.prev == q)
+		}
+		assertT(q == runList)
 	}
-	assertT(q == run_list)
 }
 
-// debug printing helpers
-
-func (r Run) print_types_re() {
+func (r oneRun) printTypesRe() {
 	fmt.Print("  Run types  : ")
 	for pp := r.next; pp.type_ != maskSENTINEL; pp = pp.next {
-		fmt.Printf("%d:%d(%s)[%d,%d] ", pp.pos, pp.len, pp.type_, pp.level, pp.isolate_level)
+		fmt.Printf("%d:%d(%s)[%d,%d] ", pp.pos, pp.len, pp.type_, pp.level, pp.isolateLevel)
 	}
 	fmt.Println()
 }
 
-func (r Run) print_resolved_types() {
+func (r oneRun) printResolvedTypes() {
 	fmt.Print("  Res. types: ")
 	for pp := r.next; pp.type_ != maskSENTINEL; pp = pp.next {
 		for i := pp.len; i != 0; i-- {
@@ -314,7 +360,7 @@ func (r Run) print_resolved_types() {
 	fmt.Println()
 }
 
-func (r Run) print_resolved_levels() {
+func (r oneRun) printResolvedLevels() {
 	fmt.Print("  Res. levels: ")
 	for pp := r.next; pp.type_ != maskSENTINEL; pp = pp.next {
 		for i := pp.len; i != 0; i-- {

@@ -8,6 +8,10 @@ import (
 	"golang.org/x/text/unicode/bidi"
 )
 
+// controls whether we print debug info to stdout
+const debug = false
+
+// Level is the embedding level in a paragraph
 type Level int8
 
 // returns 0 or 1
@@ -22,29 +26,29 @@ func maxL(l1, l2 Level) Level {
 
 const (
 	/* The maximum embedding level value assigned by explicit marks */
-	FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL = 125
+	maxExplicitLevel = 125
 
 	/* The maximum *number* of different resolved embedding levels: 0-126 */
-	FRIBIDI_BIDI_MAX_RESOLVED_LEVELS = 127
+	bidiMaxResolvedLevels = 127
 
-	LOCAL_BRACKET_SIZE = 16
+	localBracketSize = 16
 
 	/* The maximum *number* of nested brackets: 0-63 */
-	FRIBIDI_BIDI_MAX_NESTED_BRACKET_PAIRS = 63
+	maxNestedBracketPairs = 63
 )
 
 const (
-	FRIBIDI_CHAR_LRM = 0x200E
-	FRIBIDI_CHAR_RLM = 0x200F
-	FRIBIDI_CHAR_LRE = 0x202A
-	FRIBIDI_CHAR_RLE = 0x202B
-	FRIBIDI_CHAR_PDF = 0x202C
-	FRIBIDI_CHAR_LRO = 0x202D
-	FRIBIDI_CHAR_RLO = 0x202E
-	FRIBIDI_CHAR_LRI = 0x2066
-	FRIBIDI_CHAR_RLI = 0x2067
-	FRIBIDI_CHAR_FSI = 0x2068
-	FRIBIDI_CHAR_PDI = 0x2069
+	charLRM = 0x200E
+	charRLM = 0x200F
+	charLRE = 0x202A
+	charRLE = 0x202B
+	charPDF = 0x202C
+	charLRO = 0x202D
+	charRLO = 0x202E
+	charLRI = 0x2066
+	charRLI = 0x2067
+	charFSI = 0x2068
+	charPDI = 0x2069
 )
 
 /*
@@ -127,7 +131,7 @@ const (
 
 /* Return the minimum level of the direction, 0 for FRIBIDI_TYPE_LTR and
    1 for FRIBIDI_TYPE_RTL and FRIBIDI_TYPE_AL. */
-func FRIBIDI_DIR_TO_LEVEL(dir ParType) Level {
+func dirToLevel(dir ParType) Level {
 	if dir.IsRtl() {
 		return 1
 	}
@@ -136,7 +140,7 @@ func FRIBIDI_DIR_TO_LEVEL(dir ParType) Level {
 
 /* Return the bidi type corresponding to the direction of the level number,
    FRIBIDI_TYPE_LTR for evens and FRIBIDI_TYPE_RTL for odds. */
-func FRIBIDI_LEVEL_TO_DIR(lev Level) CharType {
+func levelToDir(lev Level) CharType {
 	if lev.isRtl() != 0 {
 		return RTL
 	}
@@ -145,9 +149,9 @@ func FRIBIDI_LEVEL_TO_DIR(lev Level) CharType {
 
 /* Override status of an explicit mark:
  * LRO,LRE->LTR, RLO,RLE->RTL, otherwise->ON. */
-func FRIBIDI_EXPLICIT_TO_OVERRIDE_DIR(p CharType) CharType {
+func explicitToOverrideDir(p CharType) CharType {
 	if p.IsOverride() {
-		return FRIBIDI_LEVEL_TO_DIR(FRIBIDI_DIR_TO_LEVEL(p))
+		return levelToDir(dirToLevel(p))
 	}
 	return ON
 }
@@ -289,7 +293,7 @@ func (p CharType) IsPrivate() bool { return p&maskPRIVATE != 0 }
 //  /* Define some conversions. */
 
 /* Change numbers to RTL: EN,AN -> RTL. */
-func (p CharType) FRIBIDI_CHANGE_NUMBER_TO_RTL() CharType {
+func (p CharType) changeNumberToRTL() CharType {
 	if p.IsNumber() {
 		return RTL
 	}
@@ -367,27 +371,29 @@ func getBidiTypes(str []rune) []CharType {
 	return out
 }
 
-// Options is a flag to customize fribidi behaviour
+// Options is a flag to customize fribidi behaviour.
+// The flags beginning with Shape affects the `Shape` function.
 type Options int
 
 // Define option flags that various functions use.
 const (
-	FRIBIDI_FLAG_SHAPE_MIRRORING Options = 1
-	FRIBIDI_FLAG_REORDER_NSM     Options = 1 << 1
+	ReorderNSM Options = 1 << 1
 
-	FRIBIDI_FLAG_SHAPE_ARAB_PRES    Options = 1 << 8
-	FRIBIDI_FLAG_SHAPE_ARAB_LIGA    Options = 1 << 9
-	FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE Options = 1 << 10
+	ShapeMirroring   Options = 1      // in DefaultFlags
+	ShapeArabPres    Options = 1 << 8 // in DefaultFlags
+	ShapeArabLiga    Options = 1 << 9 // in DefaultFlags
+	ShapeArabConsole Options = 1 << 10
 
-	FRIBIDI_FLAG_REMOVE_BIDI     Options = 1 << 16
-	FRIBIDI_FLAG_REMOVE_JOINING  Options = 1 << 17
-	FRIBIDI_FLAG_REMOVE_SPECIALS Options = 1 << 18
+	RemoveBidi     Options = 1 << 16
+	RemoveJoining  Options = 1 << 17
+	RemoveSpecials Options = 1 << 18
 
 	// And their combinations
-	FRIBIDI_FLAGS_DEFAULT = FRIBIDI_FLAG_SHAPE_MIRRORING | FRIBIDI_FLAG_REORDER_NSM | FRIBIDI_FLAG_REMOVE_SPECIALS
-	FRIBIDI_FLAGS_ARABIC  = FRIBIDI_FLAG_SHAPE_ARAB_PRES | FRIBIDI_FLAG_SHAPE_ARAB_LIGA
 
-	defaultFlags = FRIBIDI_FLAGS_DEFAULT | FRIBIDI_FLAGS_ARABIC
+	baseDefault = ShapeMirroring | ReorderNSM | RemoveSpecials
+	arabic      = ShapeArabPres | ShapeArabLiga
+
+	DefaultFlags = baseDefault | arabic
 )
 
 func (f Options) adjust(mask Options, cond bool) Options {
@@ -414,23 +420,23 @@ func (v Visual) LogicalToVisual() []int {
 	return out
 }
 
-// fribidi_log2vis converts the logical input string to the visual output
+// LogicalToVisual converts the logical input string to the visual output
 // strings as specified by the Unicode Bidirectional Algorithm.  As a side
 // effect it also generates mapping lists between the two strings, and the
 // list of embedding levels as defined by the algorithm.
 //
 // Note that this function handles one-line paragraphs. For multi-
 // paragraph texts it is necessary to first split the text into
-// separate paragraphs and then carry over the resolved paragraphBaseDir
+// separate paragraphs and then carry over the resolved `paragraphBaseDir`
 // between the subsequent invocations.
 //
 // The maximum level found plus one is also returned.
-func fribidi_log2vis(flags Options, str []rune, paragraphBaseDir *ParType /* requested and resolved paragraph base direction */) (Visual, Level) {
+func LogicalToVisual(flags Options, str []rune, paragraphBaseDir *ParType /* requested and resolved paragraph base direction */) (Visual, Level) {
 	bidiTypes := getBidiTypes(str)
 
 	bracketTypes := getBracketTypes(str, bidiTypes)
 
-	embeddingLevels, maxLevel := fribidi_get_par_embedding_levels_ex(bidiTypes, bracketTypes, paragraphBaseDir)
+	embeddingLevels, maxLevel := GetParEmbeddingLevels(bidiTypes, bracketTypes, paragraphBaseDir)
 
 	/* Set up the ordering array to identity order */
 	positionsVToL := make([]int, len(str))
@@ -442,29 +448,26 @@ func fribidi_log2vis(flags Options, str []rune, paragraphBaseDir *ParType /* req
 
 	/* Arabic joining */
 	arProps := getJoiningTypes(str, bidiTypes)
-	fribidi_join_arabic(bidiTypes, embeddingLevels, arProps)
-
-	fribidi_shape(flags, embeddingLevels, arProps, visualStr)
+	joinArabic(bidiTypes, embeddingLevels, arProps)
+	Shape(flags, embeddingLevels, arProps, visualStr)
 
 	/* line breaking goes here, but we assume one line in this function */
 
 	/* and this should be called once per line, but again, we assume one
 	 * line in this deprecated function */
-	fmt.Println(visualStr)
-	fribidi_reorder_line(flags, bidiTypes, len(str), 0, *paragraphBaseDir,
+	ReorderLine(flags, bidiTypes, len(str), 0, *paragraphBaseDir,
 		embeddingLevels, visualStr, positionsVToL)
-	fmt.Println(visualStr)
 
 	return Visual{Str: visualStr, VisualToLogical: positionsVToL, EmbeddingLevels: embeddingLevels}, maxLevel
 }
 
-// fribidi_remove_bidi_marks removes the bidi and boundary-neutral marks out of an string
+// removeBidiMarks removes the bidi and boundary-neutral marks out of an string
 // and the accompanying lists.  It implements rule X9 of the Unicode
 // Bidirectional Algorithm available at
 // http://www.unicode.org/reports/tr9/#X9, with the exception that it removes
 // U+200E LEFT-TO-RIGHT MARK and U+200F RIGHT-TO-LEFT MARK too.
 //
-// If any of the input lists are NULL, the list is skipped.  If str is the
+// If any of the input lists are empty, the list is skipped.  If str is the
 // visual string, then positions_to_this is positions_L_to_V and
 // position_from_this_list is positions_V_to_L;  if str is the logical
 // string, the other way. Moreover, the position maps should be filled with
@@ -477,34 +480,43 @@ func fribidi_log2vis(flags Options, str []rune, paragraphBaseDir *ParType /* req
 // lines; but feel free to do otherwise if you know what you are doing.
 //
 // The input slice is mutated and resliced to its new length, then returned
-func fribidi_remove_bidi_marks(str []rune, positions_to_this, position_from_this_list []int, embedding_levels []Level) []rune {
-	var j int
+func removeBidiMarks(str []rune, positionsToThis, positionFromThis []int, embeddingLevels []Level) []rune {
 
 	/* If to_this is not NULL, we must have from_this as well. If it is
-	   not given by the caller, we have to make a private instance of it. */
-	if len(positions_to_this) != 0 && len(position_from_this_list) == 0 {
-		position_from_this_list = make([]int, len(str))
-		for i, to := range positions_to_this {
-			position_from_this_list[to] = i
+	not given by the caller, we have to make a private instance of it. */
+	if len(positionsToThis) != 0 && len(positionFromThis) == 0 {
+		positionFromThis = make([]int, len(str))
+		for i, to := range positionsToThis {
+			positionFromThis[to] = i
 		}
 	}
 
+	hasTo := len(positionsToThis) != 0
+	hasLevels := len(embeddingLevels) != 0
+	hasFrom := len(positionFromThis) != 0
+
+	var j int
 	for i, r := range str {
 		if bType := GetBidiType(r); !bType.IsExplicitOrBn() && !bType.IsIsolate() &&
-			r != FRIBIDI_CHAR_LRM && r != FRIBIDI_CHAR_RLM {
+			r != charLRM && r != charRLM {
 			str[j] = r
-			embedding_levels[j] = embedding_levels[i]
-			if len(position_from_this_list) != 0 {
-				position_from_this_list[j] = position_from_this_list[i]
+			if hasLevels {
+				embeddingLevels[j] = embeddingLevels[i]
+			}
+			if hasFrom {
+				positionFromThis[j] = positionFromThis[i]
 			}
 			j++
 		}
 	}
 
 	/* Convert the from_this list to to_this */
-	if len(positions_to_this) != 0 {
-		for i, from := range position_from_this_list {
-			positions_to_this[from] = i
+	if hasTo {
+		for i := range positionsToThis {
+			positionsToThis[i] = -1
+		}
+		for i, from := range positionFromThis {
+			positionsToThis[from] = i
 		}
 	}
 

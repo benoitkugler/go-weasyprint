@@ -2,18 +2,16 @@ package fribidi
 
 import "fmt"
 
-/*
- * This file implements most of Unicode Standard Annex #9, Tracking Number 13.
- */
+// This file implements most of Unicode Standard Annex #9, Tracking Number 13.
 
-/* Pairing nodes are used for holding a pair of open/close brackets as
+/* pairingNode nodes are used for holding a pair of open/close brackets as
    described in BD16. */
-type PairingNode struct {
-	open, close *Run
-	next        *PairingNode
+type pairingNode struct {
+	open, close *oneRun
+	next        *pairingNode
 }
 
-func (nodes *PairingNode) print_pairing_nodes() {
+func (nodes *pairingNode) print() {
 	fmt.Print("Pairs: ")
 	for nodes != nil {
 		fmt.Printf("(%d, %d) ", nodes.open.pos, nodes.close.pos)
@@ -26,56 +24,11 @@ func (nodes *PairingNode) print_pairing_nodes() {
    It uses the next_isolate and prev_isolate run for short circuited searching.
 */
 
-/* The static sentinel is used to signal the end of an isolating
-   sequence */
-var sentinel = Run{type_: maskSENTINEL, level: -1, isolate_level: -1}
-
-func (list *Run) get_adjacent_run(forward, skip_neutral bool) *Run {
-	ppp := list.prev_isolate
-	if forward {
-		ppp = list.next_isolate
-	}
-
-	if ppp == nil {
-		return &sentinel
-	}
-
-	for ppp != nil {
-		ppp_type := ppp.type_
-
-		if ppp_type == maskSENTINEL {
-			break
-		}
-
-		/* Note that when sweeping forward we continue one run
-		   beyond the PDI to see what lies behind. When looking
-		   backwards, this is not necessary as the leading isolate
-		   run has already been assigned the resolved level. */
-		if ppp.isolate_level > list.isolate_level /* <- How can this be true? */ ||
-			(forward && ppp_type == PDI) || (skip_neutral && !ppp_type.IsStrong()) {
-			if forward {
-				ppp = ppp.next_isolate
-			} else {
-				ppp = ppp.prev_isolate
-
-			}
-			if ppp == nil {
-				ppp = &sentinel
-			}
-
-			continue
-		}
-		break
-	}
-
-	return ppp
-}
-
-type stStack [FRIBIDI_BIDI_MAX_RESOLVED_LEVELS]struct {
-	override      CharType /* only LTR, RTL and ON are valid */
-	level         Level
-	isolate       int
-	isolate_level Level
+type stStack [bidiMaxResolvedLevels]struct {
+	override     CharType /* only LTR, RTL and ON are valid */
+	level        Level
+	isolate      int
+	isolateLevel Level
 }
 
 /* There are a few little points in pushing into and popping from the status
@@ -103,66 +56,66 @@ type stStack [FRIBIDI_BIDI_MAX_RESOLVED_LEVELS]struct {
 /* a. If this new level would be valid, then this embedding code is valid.
    Remember (push) the current embedding level and override status.
    Reset current level to this new level, and reset the override status to
-   new_override.
+   newOverride.
    b. If the new level would not be valid, then this code is invalid. Don't
    change the current level or override status.
 */
 
 // group the current state variable
 type status struct {
-	over_pushed, first_interval, stack_size *int
-	level                                   *Level
-	override                                *CharType
+	overPushed, firstInterval, stackSize *int
+	level                                *Level
+	override                             *CharType
 }
 
-func (st *stStack) pushStatus(isolate_overflow, isolate int, isolate_level, new_level Level, new_override CharType, state status) {
-	if *state.over_pushed == 0 && isolate_overflow == 0 && new_level <= FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL {
-		if *state.level == FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL-1 {
-			*state.first_interval = *state.over_pushed
+func (st *stStack) pushStatus(isolateOverflow, isolate int, isolateLevel, newLevel Level, newOverride CharType, state status) {
+	if *state.overPushed == 0 && isolateOverflow == 0 && newLevel <= maxExplicitLevel {
+		if *state.level == maxExplicitLevel-1 {
+			*state.firstInterval = *state.overPushed
 		}
-		st[*state.stack_size].level = *state.level
-		st[*state.stack_size].isolate_level = isolate_level
-		st[*state.stack_size].isolate = isolate
-		st[*state.stack_size].override = *state.override
-		*state.stack_size++
-		*state.level = new_level
-		*state.override = new_override
-	} else if isolate_overflow == 0 {
-		*state.over_pushed++
+		st[*state.stackSize].level = *state.level
+		st[*state.stackSize].isolateLevel = isolateLevel
+		st[*state.stackSize].isolate = isolate
+		st[*state.stackSize].override = *state.override
+		*state.stackSize++
+		*state.level = newLevel
+		*state.override = newOverride
+	} else if isolateOverflow == 0 {
+		*state.overPushed++
 	}
 }
 
 /* If there was a valid matching code, restore (pop) the last remembered
    (pushed) embedding level and directional override.
 */
-func (st *stStack) popStatus(state status, isolate *int, isolate_level *Level) {
-	if *state.stack_size != 0 {
-		if *state.over_pushed > *state.first_interval {
-			*state.over_pushed--
+func (st *stStack) popStatus(state status, isolate *int, isolateLevel *Level) {
+	if *state.stackSize != 0 {
+		if *state.overPushed > *state.firstInterval {
+			*state.overPushed--
 		} else {
-			if *state.over_pushed == *state.first_interval {
-				*state.first_interval = 0
+			if *state.overPushed == *state.firstInterval {
+				*state.firstInterval = 0
 			}
-			*state.stack_size--
-			*state.level = (*st)[*state.stack_size].level
-			*state.override = (*st)[*state.stack_size].override
-			*isolate = (*st)[*state.stack_size].isolate
-			*isolate_level = (*st)[*state.stack_size].isolate_level
+			*state.stackSize--
+			*state.level = (*st)[*state.stackSize].level
+			*state.override = (*st)[*state.stackSize].override
+			*isolate = (*st)[*state.stackSize].isolate
+			*isolateLevel = (*st)[*state.stackSize].isolateLevel
 		}
 	}
 }
 
-func fribidi_get_par_direction(bidi_types []CharType) ParType {
-	valid_isolate_count := 0
-	for _, bt := range bidi_types {
+func getParDirection(bidiTypes []CharType) ParType {
+	validIsolateCount := 0
+	for _, bt := range bidiTypes {
 		if bt == PDI {
 			/* Ignore if there is no matching isolate */
-			if valid_isolate_count > 0 {
-				valid_isolate_count--
+			if validIsolateCount > 0 {
+				validIsolateCount--
 			}
 		} else if bt.IsIsolate() {
-			valid_isolate_count++
-		} else if valid_isolate_count == 0 && bt.IsLetter() {
+			validIsolateCount++
+		} else if validIsolateCount == 0 && bt.IsLetter() {
 			if bt.IsRtl() {
 				return RTL
 			}
@@ -173,8 +126,8 @@ func fribidi_get_par_direction(bidi_types []CharType) ParType {
 }
 
 /* Push a new entry to the pairing linked list */
-func (nodes *PairingNode) pairing_nodes_push(open, close *Run) *PairingNode {
-	node := &PairingNode{}
+func (nodes *pairingNode) push(open, close *oneRun) *pairingNode {
+	node := &pairingNode{}
 	node.open = open
 	node.close = close
 	node.next = nodes
@@ -182,7 +135,7 @@ func (nodes *PairingNode) pairing_nodes_push(open, close *Run) *PairingNode {
 }
 
 /* Sort by merge sort */ // TODO: use the more idiomatic slices
-func (source *PairingNode) pairing_nodes_front_back_split(front **PairingNode, back **PairingNode) {
+func (source *pairingNode) frontBackSplit(front **pairingNode, back **pairingNode) {
 	//   PairingNode *pfast, *pslow;
 	if source == nil || source.next == nil {
 		*front = source
@@ -203,7 +156,7 @@ func (source *PairingNode) pairing_nodes_front_back_split(front **PairingNode, b
 	}
 }
 
-func pairing_nodes_sorted_merge(nodes1, nodes2 *PairingNode) *PairingNode {
+func sortedMerge(nodes1, nodes2 *pairingNode) *pairingNode {
 	if nodes1 == nil {
 		return nodes2
 	}
@@ -211,32 +164,32 @@ func pairing_nodes_sorted_merge(nodes1, nodes2 *PairingNode) *PairingNode {
 		return nodes1
 	}
 
-	var res *PairingNode
+	var res *pairingNode
 	if nodes1.open.pos < nodes2.open.pos {
 		res = nodes1
-		res.next = pairing_nodes_sorted_merge(nodes1.next, nodes2)
+		res.next = sortedMerge(nodes1.next, nodes2)
 	} else {
 		res = nodes2
-		res.next = pairing_nodes_sorted_merge(nodes1, nodes2.next)
+		res.next = sortedMerge(nodes1, nodes2.next)
 	}
 	return res
 }
 
 // TODO: use slices ?
-func sort_pairing_nodes(nodes **PairingNode) {
+func sortPairingNodes(nodes **pairingNode) {
 	/* 0 or 1 node case */
 	if *nodes == nil || (*nodes).next == nil {
 		return
 	}
 
-	var front, back *PairingNode
-	(*nodes).pairing_nodes_front_back_split(&front, &back)
-	sort_pairing_nodes(&front)
-	sort_pairing_nodes(&back)
-	*nodes = pairing_nodes_sorted_merge(front, back)
+	var front, back *pairingNode
+	(*nodes).frontBackSplit(&front, &back)
+	sortPairingNodes(&front)
+	sortPairingNodes(&back)
+	*nodes = sortedMerge(front, back)
 }
 
-// fribidi_get_par_embedding_levels_ex finds the bidi embedding levels of a single paragraph,
+// GetParEmbeddingLevels finds the bidi embedding levels of a single paragraph,
 // as defined by the Unicode Bidirectional Algorithm available at
 // http://www.unicode.org/reports/tr9/.  This function implements rules P2 to
 // I1 inclusive, and parts 1 to 3 of L1, except for rule X9 which is
@@ -248,23 +201,23 @@ func sort_pairing_nodes(nodes **PairingNode) {
 //
 // Returns: a slice of same length as `bidi_types`, and the maximum level found plus one,
 // which is thus always >= 1
-func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []BracketType,
+func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 	/* input and output */
 	pbaseDir *ParType) (embeddingLevels []Level, maxLevel Level) {
 
 	if len(bidiTypes) == 0 {
 		return nil, 1
 	}
-	var explicitsList, pp *Run
+	var explicitsList, pp *oneRun
 
 	/* Determinate character types */
 	/* Get run-length encoded character types */
-	mainRunList := run_list_encode_bidi_types(bidiTypes, bracketTypes)
+	mainRunList := encodeBidiTypes(bidiTypes, bracketTypes)
 
 	/* Find base level */
 	/* If no strong base_dir was found, resort to the weak direction
 	   that was passed on input. */
-	baseLevel := FRIBIDI_DIR_TO_LEVEL(*pbaseDir)
+	baseLevel := dirToLevel(*pbaseDir)
 	if !pbaseDir.IsStrong() {
 		/* P2. P3. Search for first strong character and use its direction as
 		   base direction */
@@ -278,227 +231,219 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 			} else if pp.type_.IsIsolate() {
 				validIsolateCount++
 			} else if validIsolateCount == 0 && pp.type_.IsLetter() {
-				baseLevel = FRIBIDI_DIR_TO_LEVEL(pp.type_)
-				*pbaseDir = FRIBIDI_LEVEL_TO_DIR(baseLevel)
+				baseLevel = dirToLevel(pp.type_)
+				*pbaseDir = levelToDir(baseLevel)
 				break
 			}
 		}
 	}
-	baseDir := FRIBIDI_LEVEL_TO_DIR(baseLevel)
+	baseDir := levelToDir(baseLevel)
 
 	/* Explicit Levels and Directions */
-	{
-		// Level level, new_level = 0;
-		// CharType override, new_override;
-		// StrIndex i;
-		// int stack_size, over_pushed, first_interval;
-		// int valid_isolate_count = 0;
-		// int isolate_overflow = 0;
-		// int isolate = 0; /* The isolate status flag */
-		var (
-			statusStack        stStack
-			tempLink           Run
-			prevIsolateLevel   Level /* When running over the isolate levels, remember the previous level */
-			runPerIsolateLevel [FRIBIDI_BIDI_MAX_RESOLVED_LEVELS]*Run
-		)
+	var (
+		statusStack        stStack
+		tempLink           oneRun
+		prevIsolateLevel   Level /* When running over the isolate levels, remember the previous level */
+		runPerIsolateLevel [bidiMaxResolvedLevels]*oneRun
+	)
 
-		/* explicits_list is a list like main_run_list, that holds the explicit
-		   codes that are removed from main_run_list, to reinsert them later by
-		   calling the shadow_run_list.
-		*/
-		explicitsList = new_run_list()
+	/* explicits_list is a list like main_run_list, that holds the explicit
+	   codes that are removed from main_run_list, to reinsert them later by
+	   calling the shadow_run_list.
+	*/
+	explicitsList = newRunList()
 
-		/* X1. Begin by setting the current embedding level to the paragraph
-		   embedding level. Set the directional override status to neutral,
-		   and directional isolate status to false.
+	/* X1. Begin by setting the current embedding level to the paragraph
+	   embedding level. Set the directional override status to neutral,
+	   and directional isolate status to false.
 
-		   Process each character iteratively, applying rules X2 through X8.
-		   Only embedding levels from 0 to 123 are valid in this phase. */
+	   Process each character iteratively, applying rules X2 through X8.
+	   Only embedding levels from 0 to 123 are valid in this phase. */
 
-		var (
-			level = baseLevel
-			/* stack */
-			stackSize, overPushed, firstInterval int
-			validIsolateCount, isolateOverflow   int
-			override                             CharType = ON
-			isolateLevel                         Level
-			isolate                              int
-			newOverride                          CharType
-			newLevel                             Level
-		)
-
-		// used in push/pop operation
-		vars := status{
-			over_pushed: &overPushed, first_interval: &firstInterval, stack_size: &stackSize,
-			level: &level, override: &override,
-		}
-
-		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-
-			thisType := pp.type_
-			pp.isolate_level = isolateLevel
-
-			if thisType.IsExplicitOrBn() {
-				if thisType.IsStrong() { /* LRE, RLE, LRO, RLO */
-					/* 1. Explicit Embeddings */
-					/*   X2. With each RLE, compute the least greater odd
-					     embedding level. */
-					/*   X3. With each LRE, compute the least greater even
-					     embedding level. */
-					/* 2. Explicit Overrides */
-					/*   X4. With each RLO, compute the least greater odd
-					     embedding level. */
-					/*   X5. With each LRO, compute the least greater even
-					     embedding level. */
-					newOverride = FRIBIDI_EXPLICIT_TO_OVERRIDE_DIR(thisType)
-					for i := pp.len; i != 0; i-- {
-						newLevel = ((level + FRIBIDI_DIR_TO_LEVEL(thisType) + 2) & ^1) - FRIBIDI_DIR_TO_LEVEL(thisType)
-						isolate = 0
-						statusStack.pushStatus(isolateOverflow, isolate, isolateLevel, newLevel, newOverride, vars)
-					}
-				} else if thisType == PDF {
-					/* 3. Terminating Embeddings and overrides */
-					/*   X7. With each PDF, determine the matching embedding or
-					     override code. */
-					for i := pp.len; i != 0; i-- {
-						if stackSize != 0 && statusStack[stackSize-1].isolate != 0 {
-							break
-						}
-						statusStack.popStatus(vars, &isolate, &isolateLevel)
-					}
-				}
-
-				/* X9. Remove all RLE, LRE, RLO, LRO, PDF, and BN codes. */
-				/* Remove element and add it to explicits_list */
-				pp.level = FRIBIDI_SENTINEL
-				tempLink.next = pp.next
-				explicitsList.move_node_before(pp)
-				pp = &tempLink
-			} else if thisType == PDI {
-				/* X6a. pop the direction of the stack */
-				for i := pp.len; i != 0; i-- {
-					if isolateOverflow > 0 {
-						isolateOverflow--
-						pp.level = level
-					} else if validIsolateCount > 0 {
-						/* Pop away all LRE,RLE,LRO, RLO levels
-						   from the stack, as these are implicitly
-						   terminated by the PDI */
-						for stackSize != 0 && statusStack[stackSize-1].isolate == 0 {
-							statusStack.popStatus(vars, &isolate, &isolateLevel)
-						}
-						overPushed = 0 /* The PDI resets the overpushed! */
-						statusStack.popStatus(vars, &isolate, &isolateLevel)
-						isolateLevel--
-						validIsolateCount--
-						pp.level = level
-						pp.isolate_level = isolateLevel
-					} else {
-						/* Ignore isolated PDI's by turning them into ON's */
-						pp.type_ = ON
-						pp.level = level
-					}
-				}
-			} else if thisType.IsIsolate() {
-				/* TBD support RL_LEN > 1 */
-				newOverride = ON
-				isolate = 1
-				if thisType == LRI {
-					newLevel = level + 2 - (level % 2)
-				} else if thisType == RLI {
-					newLevel = level + 1 + (level % 2)
-				} else if thisType == FSI {
-					/* Search for a local strong character until we
-					   meet the corresponding PDI or the end of the
-					   paragraph */
-					//   Run *fsi_pp;
-					isolateCount := 0
-					var fsiBaseLevel Level
-					for fsiPp := pp.next; fsiPp.type_ != maskSENTINEL; fsiPp = fsiPp.next {
-						if fsiPp.type_ == PDI {
-							isolateCount--
-							if validIsolateCount < 0 {
-								break
-							}
-						} else if fsiPp.type_.IsIsolate() {
-							isolateCount++
-						} else if isolateCount == 0 && fsiPp.type_.IsLetter() {
-							fsiBaseLevel = FRIBIDI_DIR_TO_LEVEL(fsiPp.type_)
-							break
-						}
-					}
-
-					/* Same behavior like RLI and LRI above */
-					if fsiBaseLevel.isRtl() != 0 {
-						newLevel = level + 1 + (level % 2)
-					} else {
-						newLevel = level + 2 - (level % 2)
-					}
-				}
-
-				pp.level = level
-				pp.isolate_level = isolateLevel
-				if isolateLevel < FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL-1 {
-					isolateLevel++
-				}
-
-				if !override.IsNeutral() {
-					pp.type_ = override
-				}
-
-				if newLevel <= FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL {
-					validIsolateCount++
-					statusStack.pushStatus(isolateOverflow, isolate, isolateLevel, newLevel, newOverride, vars)
-					level = newLevel
-				} else {
-					isolateOverflow += 1
-				}
-			} else if thisType == BS {
-				/* X8. All explicit directional embeddings and overrides are
-				   completely terminated at the end of each paragraph. Paragraph
-				   separators are not included in the embedding. */
-				break
-			} else {
-				/* X6. For all types besides RLE, LRE, RLO, LRO, and PDF:
-				   a. Set the level of the current character to the current
-				   embedding level.
-				   b. Whenever the directional override status is not neutral,
-				   reset the current character type to the directional override
-				   status. */
-				pp.level = level
-				if !override.IsNeutral() {
-					pp.type_ = override
-				}
-			}
-		}
-
-		/* Build the isolate_level connections */
-		prevIsolateLevel = 0
-		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-			isolateLevel := pp.isolate_level
-
-			/* When going from an upper to a lower level, zero out all higher levels
-			   in order not erroneous connections! */
-			if isolateLevel < prevIsolateLevel {
-				for i := isolateLevel + 1; i <= prevIsolateLevel; i++ {
-					runPerIsolateLevel[i] = nil
-				}
-			}
-			prevIsolateLevel = isolateLevel
-
-			if runPerIsolateLevel[isolateLevel] != nil {
-				runPerIsolateLevel[isolateLevel].next_isolate = pp
-				pp.prev_isolate = runPerIsolateLevel[isolateLevel]
-			}
-			runPerIsolateLevel[isolateLevel] = pp
-		}
-
-		/* Implementing X8. It has no effect on a single paragraph! */
+	var (
 		level = baseLevel
-		override = ON
-		stackSize = 0
-		overPushed = 0
+		/* stack */
+		stackSize, overPushed, firstInterval int
+		validIsolateCount, isolateOverflow   int
+		override                             CharType = ON
+		isolateLevel                         Level
+		isolate                              int
+		newOverride                          CharType
+		newLevel                             Level
+	)
+
+	// used in push/pop operation
+	vars := status{
+		overPushed: &overPushed, firstInterval: &firstInterval, stackSize: &stackSize,
+		level: &level, override: &override,
 	}
+
+	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
+
+		thisType := pp.type_
+		pp.isolateLevel = isolateLevel
+
+		if thisType.IsExplicitOrBn() {
+			if thisType.IsStrong() { /* LRE, RLE, LRO, RLO */
+				/* 1. Explicit Embeddings */
+				/*   X2. With each RLE, compute the least greater odd
+				     embedding level. */
+				/*   X3. With each LRE, compute the least greater even
+				     embedding level. */
+				/* 2. Explicit Overrides */
+				/*   X4. With each RLO, compute the least greater odd
+				     embedding level. */
+				/*   X5. With each LRO, compute the least greater even
+				     embedding level. */
+				newOverride = explicitToOverrideDir(thisType)
+				for i := pp.len; i != 0; i-- {
+					newLevel = ((level + dirToLevel(thisType) + 2) & ^1) - dirToLevel(thisType)
+					isolate = 0
+					statusStack.pushStatus(isolateOverflow, isolate, isolateLevel, newLevel, newOverride, vars)
+				}
+			} else if thisType == PDF {
+				/* 3. Terminating Embeddings and overrides */
+				/*   X7. With each PDF, determine the matching embedding or
+				     override code. */
+				for i := pp.len; i != 0; i-- {
+					if stackSize != 0 && statusStack[stackSize-1].isolate != 0 {
+						break
+					}
+					statusStack.popStatus(vars, &isolate, &isolateLevel)
+				}
+			}
+
+			/* X9. Remove all RLE, LRE, RLO, LRO, PDF, and BN codes. */
+			/* Remove element and add it to explicits_list */
+			pp.level = levelSentinel
+			tempLink.next = pp.next
+			explicitsList.moveNodeBefore(pp)
+			pp = &tempLink
+		} else if thisType == PDI {
+			/* X6a. pop the direction of the stack */
+			for i := pp.len; i != 0; i-- {
+				if isolateOverflow > 0 {
+					isolateOverflow--
+					pp.level = level
+				} else if validIsolateCount > 0 {
+					/* Pop away all LRE,RLE,LRO, RLO levels
+					   from the stack, as these are implicitly
+					   terminated by the PDI */
+					for stackSize != 0 && statusStack[stackSize-1].isolate == 0 {
+						statusStack.popStatus(vars, &isolate, &isolateLevel)
+					}
+					overPushed = 0 /* The PDI resets the overpushed! */
+					statusStack.popStatus(vars, &isolate, &isolateLevel)
+					isolateLevel--
+					validIsolateCount--
+					pp.level = level
+					pp.isolateLevel = isolateLevel
+				} else {
+					/* Ignore isolated PDI's by turning them into ON's */
+					pp.type_ = ON
+					pp.level = level
+				}
+			}
+		} else if thisType.IsIsolate() {
+			/* TBD support RL_LEN > 1 */
+			newOverride = ON
+			isolate = 1
+			if thisType == LRI {
+				newLevel = level + 2 - (level % 2)
+			} else if thisType == RLI {
+				newLevel = level + 1 + (level % 2)
+			} else if thisType == FSI {
+				/* Search for a local strong character until we
+				   meet the corresponding PDI or the end of the
+				   paragraph */
+				//   Run *fsi_pp;
+				isolateCount := 0
+				var fsiBaseLevel Level
+				for fsiPp := pp.next; fsiPp.type_ != maskSENTINEL; fsiPp = fsiPp.next {
+					if fsiPp.type_ == PDI {
+						isolateCount--
+						if validIsolateCount < 0 {
+							break
+						}
+					} else if fsiPp.type_.IsIsolate() {
+						isolateCount++
+					} else if isolateCount == 0 && fsiPp.type_.IsLetter() {
+						fsiBaseLevel = dirToLevel(fsiPp.type_)
+						break
+					}
+				}
+
+				/* Same behavior like RLI and LRI above */
+				if fsiBaseLevel.isRtl() != 0 {
+					newLevel = level + 1 + (level % 2)
+				} else {
+					newLevel = level + 2 - (level % 2)
+				}
+			}
+
+			pp.level = level
+			pp.isolateLevel = isolateLevel
+			if isolateLevel < maxExplicitLevel-1 {
+				isolateLevel++
+			}
+
+			if !override.IsNeutral() {
+				pp.type_ = override
+			}
+
+			if newLevel <= maxExplicitLevel {
+				validIsolateCount++
+				statusStack.pushStatus(isolateOverflow, isolate, isolateLevel, newLevel, newOverride, vars)
+				level = newLevel
+			} else {
+				isolateOverflow += 1
+			}
+		} else if thisType == BS {
+			/* X8. All explicit directional embeddings and overrides are
+			   completely terminated at the end of each paragraph. Paragraph
+			   separators are not included in the embedding. */
+			break
+		} else {
+			/* X6. For all types besides RLE, LRE, RLO, LRO, and PDF:
+			   a. Set the level of the current character to the current
+			   embedding level.
+			   b. Whenever the directional override status is not neutral,
+			   reset the current character type to the directional override
+			   status. */
+			pp.level = level
+			if !override.IsNeutral() {
+				pp.type_ = override
+			}
+		}
+	}
+
+	/* Build the isolateLevel connections */
+	prevIsolateLevel = 0
+	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
+		isolateLevel := pp.isolateLevel
+
+		/* When going from an upper to a lower level, zero out all higher levels
+		   in order not erroneous connections! */
+		if isolateLevel < prevIsolateLevel {
+			for i := isolateLevel + 1; i <= prevIsolateLevel; i++ {
+				runPerIsolateLevel[i] = nil
+			}
+		}
+		prevIsolateLevel = isolateLevel
+
+		if runPerIsolateLevel[isolateLevel] != nil {
+			runPerIsolateLevel[isolateLevel].nextIsolate = pp
+			pp.prevIsolate = runPerIsolateLevel[isolateLevel]
+		}
+		runPerIsolateLevel[isolateLevel] = pp
+	}
+
+	/* Implementing X8. It has no effect on a single paragraph! */
+	level = baseLevel
+	override = ON
+	stackSize = 0
+	overPushed = 0
+
 	/* X10. The remaining rules are applied to each run of characters at the
 	   same level. For each run, determine the start-of-level-run (sor) and
 	   end-of-level-run (eor) type, either L or R. This depends on the
@@ -509,198 +454,200 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	/* Resolving Implicit Levels can be done out of X10 loop, so only change
 	   of Resolving Weak Types and Resolving Neutral Types is needed. */
 
-	mainRunList.compact_list()
+	mainRunList.compact()
 
-	// mainRunList.print_types_re() // DEBUG
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
+	// mainRunList.printTypesRe() // DEBUG
+	// mainRunList.printResolvedLevels()
+	// mainRunList.printResolvedTypes()
 	// fmt.Println("resolving weak types")
 
 	/* 4. Resolving weak types. Also calculate the maximum isolate level */
 	var maxIsoLevel Level
-	{
-		// int lastStrongStack[FRIBIDI_BIDI_MAX_RESOLVED_LEVELS];
-		// CharType prev_type_orig;
-		// bool w4;
-		var lastStrongStack [FRIBIDI_BIDI_MAX_RESOLVED_LEVELS]CharType
-		lastStrongStack[0] = baseDir
+	// int lastStrongStack[FRIBIDI_BIDI_MAX_RESOLVED_LEVELS];
+	// CharType prev_type_orig;
+	// bool w4;
+	var lastStrongStack [bidiMaxResolvedLevels]CharType
+	lastStrongStack[0] = baseDir
 
-		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
+	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
 
-			pppPrev := pp.get_adjacent_run(false, false)
-			pppNext := pp.get_adjacent_run(true, false)
+		pppPrev := pp.getAdjacentRun(false, false)
+		pppNext := pp.getAdjacentRun(true, false)
 
-			thisType := pp.type_
-			isoLevel := pp.isolate_level
+		thisType := pp.type_
+		isoLevel := pp.isolateLevel
 
-			if isoLevel > maxIsoLevel {
-				maxIsoLevel = isoLevel
-			}
-
-			var prevType, nextType CharType
-			if pppPrev.level == pp.level {
-				prevType = pppPrev.type_
-			} else {
-				prevType = FRIBIDI_LEVEL_TO_DIR(maxL(pppPrev.level, pp.level))
-			}
-
-			if pppNext.level == pp.level {
-				nextType = pppNext.type_
-			} else {
-				nextType = FRIBIDI_LEVEL_TO_DIR(maxL(pppNext.level, pp.level))
-			}
-
-			if prevType.IsStrong() {
-				lastStrongStack[isoLevel] = prevType
-			}
-
-			/* W1. NSM
-			   Examine each non-spacing mark (NSM) in the level run, and change the
-			   type of the NSM to the type of the previous character. If the NSM
-			   is at the start of the level run, it will get the type of sor. */
-			/* Implementation note: it is important that if the previous character
-			   is not sor, then we should merge this run with the previous,
-			   because of rules like W5, that we assume all of a sequence of
-			   adjacent ETs are in one Run. */
-			if thisType == NSM {
-				/* New rule in Unicode 6.3 */
-				if pp.prev.type_.IsIsolate() {
-					pp.type_ = ON
-				}
-
-				if pppPrev.level == pp.level {
-					if pppPrev == pp.prev {
-						pp = pp.merge_with_prev()
-					}
-				} else {
-					pp.type_ = prevType
-				}
-
-				if prevType == nextType && pp.level == pp.next.level {
-					if pppNext == pp.next {
-						pp = pp.next.merge_with_prev()
-					}
-				}
-				continue /* As we know the next condition cannot be true. */
-			}
-
-			/* W2: European numbers. */
-			if thisType == EN && lastStrongStack[isoLevel] == AL {
-				pp.type_ = AN
-
-				/* Resolving dependency of loops for rules W1 and W2, so we
-				   can merge them in one loop. */
-				if nextType == NSM {
-					pppNext.type_ = AN
-				}
-			}
+		if isoLevel > maxIsoLevel {
+			maxIsoLevel = isoLevel
 		}
 
-		// mainRunList.print_resolved_levels()
-		// mainRunList.print_resolved_types()
-		// fmt.Println("4b. resolving weak types. W4 and W5")
+		var prevType, nextType CharType
+		if pppPrev.level == pp.level {
+			prevType = pppPrev.type_
+		} else {
+			prevType = levelToDir(maxL(pppPrev.level, pp.level))
+		}
 
-		/* The last iso level is used to invalidate the the last strong values when going from
-		   a higher to a lower iso level. When this occur, all "last_strong" values are
-		   set to the base_dir. */
-		lastStrongStack[0] = baseDir
+		if pppNext.level == pp.level {
+			nextType = pppNext.type_
+		} else {
+			nextType = levelToDir(maxL(pppNext.level, pp.level))
+		}
 
-		/* Resolving dependency of loops for rules W4 and W5, W5 may
-		   want to prevent W4 to take effect in the next turn, do this
-		   through "w4". */
-		w4 := true
-		/* Resolving dependency of loops for rules W4 and W5 with W7,
-		   W7 may change an EN to L but it sets the prevTypeOrig if needed,
-		   so W4 and W5 in next turn can still do their works. */
-		var prevTypeOrig CharType = ON
+		if prevType.IsStrong() {
+			lastStrongStack[isoLevel] = prevType
+		}
 
-		/* Each isolate level has its own memory of the last strong character */
-		for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-
-			thisType := pp.type_
-			isoLevel := pp.isolate_level
-
-			pppPrev := pp.get_adjacent_run(false, false)
-			pppNext := pp.get_adjacent_run(true, false)
-
-			var prevType, nextType CharType
-			if pppPrev.level == pp.level {
-				prevType = pppPrev.type_
-			} else {
-				prevType = FRIBIDI_LEVEL_TO_DIR(maxL(pppPrev.level, pp.level))
-			}
-
-			if pppNext.level == pp.level {
-				nextType = pppNext.type_
-			} else {
-				nextType = FRIBIDI_LEVEL_TO_DIR(maxL(pppNext.level, pp.level))
-			}
-
-			if prevType.IsStrong() {
-				lastStrongStack[isoLevel] = prevType
-			}
-
-			/* W2 ??? */
-
-			/* W3: Change ALs to R. */
-			if thisType == AL {
-				pp.type_ = RTL
-				w4 = true
-				prevTypeOrig = ON
-				continue
-			}
-
-			/* W4. A single european separator changes to a european number.
-			   A single common separator between two numbers of the same type
-			   changes to that type. */
-			if w4 && pp.len == 1 && thisType.IsEsOrCs() &&
-				prevTypeOrig.IsNumber() && prevTypeOrig == nextType &&
-				(prevTypeOrig == EN || thisType == CS) {
-				pp.type_ = prevType
-				thisType = pp.type_
-			}
-			w4 = true
-
-			/* W5. A sequence of European terminators adjacent to European
-			   numbers changes to All European numbers. */
-			if thisType == ET && (prevTypeOrig == EN || nextType == EN) {
-				pp.type_ = EN
-				w4 = false
-				thisType = pp.type_
-			}
-
-			/* W6. Otherwise change separators and terminators to other neutral. */
-			if thisType.IsNumberSeparatorOrTerminator() {
+		/* W1. NSM
+		   Examine each non-spacing mark (NSM) in the level run, and change the
+		   type of the NSM to the type of the previous character. If the NSM
+		   is at the start of the level run, it will get the type of sor. */
+		/* Implementation note: it is important that if the previous character
+		   is not sor, then we should merge this run with the previous,
+		   because of rules like W5, that we assume all of a sequence of
+		   adjacent ETs are in one Run. */
+		if thisType == NSM {
+			/* New rule in Unicode 6.3 */
+			if pp.prev.type_.IsIsolate() {
 				pp.type_ = ON
 			}
 
-			/* W7. Change european numbers to L. */
-			if thisType == EN && lastStrongStack[isoLevel] == LTR {
-				pp.type_ = LTR
-
-				prevTypeOrig = ON
-				if pp.level == pp.next.level {
-					prevTypeOrig = EN
+			if pppPrev.level == pp.level {
+				if pppPrev == pp.prev {
+					pp = pp.mergeWithPrev()
 				}
 			} else {
-				prevTypeOrig = pp.next.PREV_TYPE_OR_SOR()
+				pp.type_ = prevType
+			}
+
+			if prevType == nextType && pp.level == pp.next.level {
+				if pppNext == pp.next {
+					pp = pp.next.mergeWithPrev()
+				}
+			}
+			continue /* As we know the next condition cannot be true. */
+		}
+
+		/* W2: European numbers. */
+		if thisType == EN && lastStrongStack[isoLevel] == AL {
+			pp.type_ = AN
+
+			/* Resolving dependency of loops for rules W1 and W2, so we
+			   can merge them in one loop. */
+			if nextType == NSM {
+				pppNext.type_ = AN
 			}
 		}
 	}
 
-	mainRunList.compact_neutrals()
+	if debug {
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("4b. resolving weak types. W4 and W5")
+	}
 
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
-	// fmt.Println("5. Resolving Neutral Types - N0")
+	/* The last iso level is used to invalidate the the last strong values when going from
+	   a higher to a lower iso level. When this occur, all "last_strong" values are
+	   set to the base_dir. */
+	lastStrongStack[0] = baseDir
+
+	/* Resolving dependency of loops for rules W4 and W5, W5 may
+	   want to prevent W4 to take effect in the next turn, do this
+	   through "w4". */
+	w4 := true
+	/* Resolving dependency of loops for rules W4 and W5 with W7,
+	   W7 may change an EN to L but it sets the prevTypeOrig if needed,
+	   so W4 and W5 in next turn can still do their works. */
+	var prevTypeOrig CharType = ON
+
+	/* Each isolate level has its own memory of the last strong character */
+	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
+
+		thisType := pp.type_
+		isoLevel := pp.isolateLevel
+
+		pppPrev := pp.getAdjacentRun(false, false)
+		pppNext := pp.getAdjacentRun(true, false)
+
+		var prevType, nextType CharType
+		if pppPrev.level == pp.level {
+			prevType = pppPrev.type_
+		} else {
+			prevType = levelToDir(maxL(pppPrev.level, pp.level))
+		}
+
+		if pppNext.level == pp.level {
+			nextType = pppNext.type_
+		} else {
+			nextType = levelToDir(maxL(pppNext.level, pp.level))
+		}
+
+		if prevType.IsStrong() {
+			lastStrongStack[isoLevel] = prevType
+		}
+
+		/* W2 ??? */
+
+		/* W3: Change ALs to R. */
+		if thisType == AL {
+			pp.type_ = RTL
+			w4 = true
+			prevTypeOrig = ON
+			continue
+		}
+
+		/* W4. A single european separator changes to a european number.
+		   A single common separator between two numbers of the same type
+		   changes to that type. */
+		if w4 && pp.len == 1 && thisType.IsEsOrCs() &&
+			prevTypeOrig.IsNumber() && prevTypeOrig == nextType &&
+			(prevTypeOrig == EN || thisType == CS) {
+			pp.type_ = prevType
+			thisType = pp.type_
+		}
+		w4 = true
+
+		/* W5. A sequence of European terminators adjacent to European
+		   numbers changes to All European numbers. */
+		if thisType == ET && (prevTypeOrig == EN || nextType == EN) {
+			pp.type_ = EN
+			w4 = false
+			thisType = pp.type_
+		}
+
+		/* W6. Otherwise change separators and terminators to other neutral. */
+		if thisType.IsNumberSeparatorOrTerminator() {
+			pp.type_ = ON
+		}
+
+		/* W7. Change european numbers to L. */
+		if thisType == EN && lastStrongStack[isoLevel] == LTR {
+			pp.type_ = LTR
+
+			prevTypeOrig = ON
+			if pp.level == pp.next.level {
+				prevTypeOrig = EN
+			}
+		} else {
+			prevTypeOrig = pp.next.prevTypeOrSOR()
+		}
+	}
+
+	mainRunList.compactNeutrals()
+
+	if debug {
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("5. Resolving Neutral Types - N0")
+	}
 
 	/*  BD16 - Build list of all pairs*/
 	var (
 		numIsoLevels      = int(maxIsoLevel + 1)
-		pairingNodes      *PairingNode
-		localBracketStack [LOCAL_BRACKET_SIZE][FRIBIDI_BIDI_MAX_NESTED_BRACKET_PAIRS]*Run
-		bracketStack      [FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL][]*Run
-		bracketStackSize  [FRIBIDI_BIDI_MAX_EXPLICIT_LEVEL]int
+		pairingNodes      *pairingNode
+		localBracketStack [localBracketSize][maxNestedBracketPairs]*oneRun
+		bracketStack      [maxExplicitLevel][]*oneRun
+		bracketStackSize  [maxExplicitLevel]int
 		lastLevel         = mainRunList.level
 		lastIsoLevel      Level
 	)
@@ -708,18 +655,18 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	/* populate the bracket_size. The first LOCAL_BRACKET_SIZE entries
 	   of the stack are on the stack. Allocate the rest of the entries.
 	*/
-	for isoLevel := 0; isoLevel < LOCAL_BRACKET_SIZE; isoLevel++ {
+	for isoLevel := 0; isoLevel < localBracketSize; isoLevel++ {
 		bracketStack[isoLevel] = localBracketStack[isoLevel][:]
 	}
 
-	for isoLevel := LOCAL_BRACKET_SIZE; isoLevel < numIsoLevels; isoLevel++ {
-		bracketStack[isoLevel] = make([]*Run, FRIBIDI_BIDI_MAX_NESTED_BRACKET_PAIRS)
+	for isoLevel := localBracketSize; isoLevel < numIsoLevels; isoLevel++ {
+		bracketStack[isoLevel] = make([]*oneRun, maxNestedBracketPairs)
 	}
 
 	/* Build the bd16 pair stack. */
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
 		level := pp.level
-		isoLevel := pp.isolate_level
+		isoLevel := pp.isolateLevel
 		brackProp := pp.bracketType
 
 		/* Interpret the isolating run sequence as such that they
@@ -731,7 +678,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 		if brackProp != NoBracket && pp.type_ == ON {
 			if brackProp.isOpen() {
-				if bracketStackSize[isoLevel] == FRIBIDI_BIDI_MAX_NESTED_BRACKET_PAIRS {
+				if bracketStackSize[isoLevel] == maxNestedBracketPairs {
 					break
 				}
 
@@ -745,7 +692,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 					if seBrackProp.id() == brackProp.id() {
 						bracketStackSize[isoLevel] = stackIdx
 
-						pairingNodes = pairingNodes.pairing_nodes_push(bracketStack[isoLevel][stackIdx], pp)
+						pairingNodes = pairingNodes.push(bracketStack[isoLevel][stackIdx], pp)
 						break
 					}
 					stackIdx--
@@ -757,9 +704,11 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	}
 
 	/* The list must now be sorted for the next algo to work! */
-	sort_pairing_nodes(&pairingNodes)
+	sortPairingNodes(&pairingNodes)
 
-	// pairingNodes.print_pairing_nodes()
+	if debug {
+		pairingNodes.print()
+	}
 
 	/* Start the N0 */
 	ppairs := pairingNodes
@@ -768,13 +717,13 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 
 		/* Find matching strong. */
 		found := false
-		var ppn *Run
+		var ppn *oneRun
 		for ppn = ppairs.open; ppn != ppairs.close; ppn = ppn.next {
-			thisType := ppn.RL_TYPE_AN_EN_AS_RTL()
+			thisType := ppn.typeAnEnAsRTL()
 
 			/* Calculate level like in resolve implicit levels below to prevent
 			   embedded levels not to match the base_level */
-			thisLevel := ppn.level + (ppn.level.isRtl() ^ FRIBIDI_DIR_TO_LEVEL(thisType))
+			thisLevel := ppn.level + (ppn.level.isRtl() ^ dirToLevel(thisType))
 
 			/* N0b */
 			if thisType.IsStrong() && thisLevel == embeddingLevel {
@@ -794,18 +743,18 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		if !found {
 			/* Search for a preceding strong */
 			precStrongLevel := embeddingLevel /* TBDov! Extract from Isolate level in effect */
-			isoLevel := ppairs.open.isolate_level
+			isoLevel := ppairs.open.isolateLevel
 			for ppn = ppairs.open.prev; ppn.type_ != maskSENTINEL; ppn = ppn.prev {
-				thisType := ppn.RL_TYPE_AN_EN_AS_RTL()
-				if thisType.IsStrong() && ppn.isolate_level == isoLevel {
-					precStrongLevel = ppn.level + (ppn.level.isRtl() ^ FRIBIDI_DIR_TO_LEVEL(thisType))
+				thisType := ppn.typeAnEnAsRTL()
+				if thisType.IsStrong() && ppn.isolateLevel == isoLevel {
+					precStrongLevel = ppn.level + (ppn.level.isRtl() ^ dirToLevel(thisType))
 					break
 				}
 			}
 
 			for ppn = ppairs.open; ppn != ppairs.close; ppn = ppn.next {
-				thisType := ppn.RL_TYPE_AN_EN_AS_RTL()
-				if thisType.IsStrong() && ppn.isolate_level == isoLevel {
+				thisType := ppn.typeAnEnAsRTL()
+				if thisType.IsStrong() && ppn.isolateLevel == isoLevel {
 					/* By constraint this is opposite the embedding direction,
 					   since we did not match the N0b rule. We must now
 					   compare with the preceding strong to establish whether
@@ -829,50 +778,54 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
 		pp.bracketType = NoBracket
 	}
-	mainRunList.compact_neutrals()
+	mainRunList.compactNeutrals()
 
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
-	// fmt.Println("resolving neutral types - N1+N2")
+	if debug {
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("resolving neutral types - N1+N2")
+	}
 
 	// resolving neutral types - N1+N2
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
 
-		pppPrev := pp.get_adjacent_run(false, false)
-		pppNext := pp.get_adjacent_run(true, false)
+		pppPrev := pp.getAdjacentRun(false, false)
+		pppNext := pp.getAdjacentRun(true, false)
 
 		/* "European and Arabic numbers are treated as though they were R"
 		FRIBIDI_CHANGE_NUMBER_TO_RTL does this. */
-		thisType := pp.type_.FRIBIDI_CHANGE_NUMBER_TO_RTL()
+		thisType := pp.type_.changeNumberToRTL()
 
 		var prevType, nextType CharType
 		if pppPrev.level == pp.level {
-			prevType = pppPrev.type_.FRIBIDI_CHANGE_NUMBER_TO_RTL()
+			prevType = pppPrev.type_.changeNumberToRTL()
 		} else {
-			prevType = FRIBIDI_LEVEL_TO_DIR(maxL(pppPrev.level, pp.level))
+			prevType = levelToDir(maxL(pppPrev.level, pp.level))
 		}
 
 		if pppNext.level == pp.level {
-			nextType = pppNext.type_.FRIBIDI_CHANGE_NUMBER_TO_RTL()
+			nextType = pppNext.type_.changeNumberToRTL()
 		} else {
-			nextType = FRIBIDI_LEVEL_TO_DIR(maxL(pppNext.level, pp.level))
+			nextType = levelToDir(maxL(pppNext.level, pp.level))
 		}
 
 		if thisType.IsNeutral() {
 			if prevType == nextType {
 				pp.type_ = prevType // N1
 			} else {
-				pp.type_ = pp.FRIBIDI_EMBEDDING_DIRECTION() // N2
+				pp.type_ = pp.embeddingDirection() // N2
 			}
 
 		}
 	}
 
-	mainRunList.compact_list()
+	mainRunList.compact()
 
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
-	// fmt.Println("6. Resolving implicit levels")
+	if debug {
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("6. Resolving implicit levels")
+	}
 
 	maxLevel = baseLevel
 
@@ -885,7 +838,7 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		if thisType.IsNumber() {
 			pp.level = (level + 2) & ^1
 		} else {
-			pp.level = level + (level.isRtl() ^ FRIBIDI_DIR_TO_LEVEL(thisType))
+			pp.level = level + (level.isRtl() ^ dirToLevel(thisType))
 		}
 
 		if pp.level > maxLevel {
@@ -893,37 +846,41 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 		}
 	}
 
-	mainRunList.compact_list()
+	mainRunList.compact()
 
-	// fmt.Println(bidiTypes)
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
-	// fmt.Println("reinserting explicit codes")
+	if debug {
+		fmt.Println(bidiTypes)
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("reinserting explicit codes")
+	}
 
 	/* Reinsert the explicit codes & BN's that are already removed, from the
 	   explicits_list to main_run_list. */
 	if explicitsList.next != explicitsList {
 		//   register Run *p;
-		shadow_run_list(mainRunList, explicitsList, true)
+		shadowRunList(mainRunList, explicitsList, true)
 		explicitsList = nil
 
 		/* Set level of inserted explicit chars to that of their previous
 		 * char, such that they do not affect reordering. */
 		p := mainRunList.next
-		if p != mainRunList && p.level == FRIBIDI_SENTINEL {
+		if p != mainRunList && p.level == levelSentinel {
 			p.level = baseLevel
 		}
 		for p = mainRunList.next; p.type_ != maskSENTINEL; p = p.next {
-			if p.level == FRIBIDI_SENTINEL {
+			if p.level == levelSentinel {
 				p.level = p.prev.level
 			}
 		}
 	}
 
-	// mainRunList.print_types_re()
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
-	// fmt.Println("reset the embedding levels, 1, 2, 3.")
+	if debug {
+		mainRunList.printTypesRe()
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("reset the embedding levels, 1, 2, 3.")
+	}
 
 	/* L1. Reset the embedding levels of some chars:
 	   1. segment separators,
@@ -933,13 +890,13 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	   4. any sequence of whitespace characters and/or isolate formatting
 	      characters at the end of the line.
 	   ... (to be continued in fribidi_reorder_line()). */
-	list := new_run_list()
+	list := newRunList()
 	q := list
 	state := true
 	pos := len(bidiTypes) - 1
 	var (
 		charType CharType
-		p        *Run
+		p        *oneRun
 	)
 	for j := pos; j >= -1; j-- {
 		/* close up the open link at the end */
@@ -953,21 +910,23 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 			pos = j
 		} else if state && !(charType.IsExplicitOrSeparatorOrBnOrWs() || charType.IsIsolate()) {
 			state = false
-			p = &Run{}
+			p = &oneRun{}
 			p.pos = j + 1
 			p.len = pos - j
 			p.type_ = baseDir
 			p.level = baseLevel
-			q.move_node_before(p)
+			q.moveNodeBefore(p)
 			q = p
 		}
 	}
-	shadow_run_list(mainRunList, list, false)
+	shadowRunList(mainRunList, list, false)
 
-	// mainRunList.print_types_re()
-	// mainRunList.print_resolved_levels()
-	// mainRunList.print_resolved_types()
-	// fmt.Println("leaving")
+	if debug {
+		mainRunList.printTypesRe()
+		mainRunList.printResolvedLevels()
+		mainRunList.printResolvedTypes()
+		fmt.Println("leaving")
+	}
 
 	pos = 0
 	embeddingLevels = make([]Level, len(bidiTypes))
@@ -982,20 +941,20 @@ func fribidi_get_par_embedding_levels_ex(bidiTypes []CharType, bracketTypes []Br
 	return embeddingLevels, maxLevel + 1
 }
 
-func bidi_string_reverse(str []rune) {
+func stringReverse(str []rune) {
 	for i := len(str)/2 - 1; i >= 0; i-- {
 		opp := len(str) - 1 - i
 		str[i], str[opp] = str[opp], str[i]
 	}
 }
-func index_array_reverse(arr []int) {
+func indexesReverse(arr []int) {
 	for i := len(arr)/2 - 1; i >= 0; i-- {
 		opp := len(arr) - 1 - i
 		arr[i], arr[opp] = arr[opp], arr[i]
 	}
 }
 
-// fribidi_reorder_line reorders the characters in a line of text from logical to
+// ReorderLine reorders the characters in a line of text from logical to
 // final visual order.  This function implements part 4 of rule L1, and rules
 // L2 and L3 of the Unicode Bidirectional Algorithm available at
 // http://www.unicode.org/reports/tr9/#Reordering_Resolved_Levels.
@@ -1003,7 +962,7 @@ func index_array_reverse(arr []int) {
 // As a side effect it also sets position maps if not nil.
 //
 // You should provide the resolved paragraph direction and embedding levels as
-// set by fribidi_get_par_embedding_levels(), which may change a bit.
+// set by GetParEmbeddingLevels(), which may change a bit.
 // To be exact, the embedding level of any sequence of white space at the end of line
 // is reset to the paragraph embedding level (according to part 4 of rule L1).
 //
@@ -1020,47 +979,47 @@ func index_array_reverse(arr []int) {
 // in FRIBIDI_FLAGS_DEFAULT.
 //
 // The maximum level found in this line plus one is returned
-func fribidi_reorder_line(
-	flags Options /* reorder flags */, bidi_types []CharType,
+func ReorderLine(
+	flags Options /* reorder flags */, bidiTypes []CharType,
 	length, off int, // definition of the line in the paragraph
-	base_dir ParType,
+	baseDir ParType,
 	/* input and output */
-	embedding_levels []Level, visual_str []rune, map_ []int) Level {
+	embeddingLevels []Level, visualStr []rune, map_ []int) Level {
 
 	var (
-		max_level         Level
-		hasVisual, hasMap = len(visual_str) != 0, len(map_) != 0
+		maxLevel          Level
+		hasVisual, hasMap = len(visualStr) != 0, len(map_) != 0
 	)
 
 	/* L1. Reset the embedding levels of some chars:
 	   4. any sequence of white space characters at the end of the line. */
-	for i := off + length - 1; i >= off && bidi_types[i].IsExplicitOrBnOrWs(); i-- {
-		embedding_levels[i] = FRIBIDI_DIR_TO_LEVEL(base_dir)
+	for i := off + length - 1; i >= off && bidiTypes[i].IsExplicitOrBnOrWs(); i-- {
+		embeddingLevels[i] = dirToLevel(baseDir)
 	}
 
 	/* 7. Reordering resolved levels */
 	var level Level
 
 	/* Reorder both the outstring and the order array */
-	if flags&FRIBIDI_FLAG_REORDER_NSM != 0 {
+	if flags&ReorderNSM != 0 {
 		/* L3. Reorder NSMs. */
 		for i := off + length - 1; i >= off; i-- {
-			if embedding_levels[i].isRtl() != 0 && bidi_types[i] == NSM {
+			if embeddingLevels[i].isRtl() != 0 && bidiTypes[i] == NSM {
 				seq_end := i
-				level = embedding_levels[i]
+				level = embeddingLevels[i]
 
-				for i--; i >= off && bidi_types[i].IsExplicitOrBnOrNsm() && embedding_levels[i] == level; i-- {
+				for i--; i >= off && bidiTypes[i].IsExplicitOrBnOrNsm() && embeddingLevels[i] == level; i-- {
 				}
 
-				if i < off || embedding_levels[i] != level {
+				if i < off || embeddingLevels[i] != level {
 					i++
 				}
 
 				if hasVisual {
-					bidi_string_reverse(visual_str[i : seq_end+1])
+					stringReverse(visualStr[i : seq_end+1])
 				}
 				if hasMap {
-					index_array_reverse(map_[i : seq_end+1])
+					indexesReverse(map_[i : seq_end+1])
 				}
 			}
 		}
@@ -1070,28 +1029,28 @@ func fribidi_reorder_line(
 	 * max_level, both for a cleaner API, and that the line max_level
 	 * may be far less than paragraph max_level. */
 	for i := off + length - 1; i >= off; i-- {
-		if embedding_levels[i] > max_level {
-			max_level = embedding_levels[i]
+		if embeddingLevels[i] > maxLevel {
+			maxLevel = embeddingLevels[i]
 		}
 	}
 	/* L2. Reorder. */
-	for level = max_level; level > 0; level-- {
+	for level = maxLevel; level > 0; level-- {
 		for i := off + length - 1; i >= off; i-- {
-			if embedding_levels[i] >= level {
+			if embeddingLevels[i] >= level {
 				/* Find all stretches that are >= level_idx */
 				seq_end := i
-				for i--; i >= off && embedding_levels[i] >= level; i-- {
+				for i--; i >= off && embeddingLevels[i] >= level; i-- {
 				}
 
 				if hasVisual {
-					bidi_string_reverse(visual_str[i+1 : seq_end+1])
+					stringReverse(visualStr[i+1 : seq_end+1])
 				}
 				if hasMap {
-					index_array_reverse(map_[i+1 : seq_end+1])
+					indexesReverse(map_[i+1 : seq_end+1])
 				}
 			}
 		}
 	}
 
-	return max_level + 1
+	return maxLevel + 1
 }

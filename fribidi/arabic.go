@@ -1,6 +1,6 @@
 package fribidi
 
-/* fribidi_shape_arabic - do Arabic shaping
+/* shapeArabic - do Arabic shaping
  *
  * The actual shaping that is done depends on the flags set.  Only flags
  * starting with FRIBIDI_FLAG_SHAPE_ARAB_ affect this function.
@@ -20,7 +20,7 @@ package fribidi
  * other means for doing Arabic shaping.  The set of extra flags that enable
  * this level of Arabic support has a shortcut named FRIBIDI_FLAGS_ARABIC.
  */
-func fribidi_shape_arabic(flags Options, embedding_levels []Level,
+func shapeArabic(flags Options, embedding_levels []Level,
 	/* input and output */
 	ar_props []JoiningType, str []rune) {
 
@@ -28,12 +28,12 @@ func fribidi_shape_arabic(flags Options, embedding_levels []Level,
 		return
 	}
 
-	if flags&FRIBIDI_FLAG_SHAPE_ARAB_PRES != 0 {
-		fribidi_shape_arabic_joining(ar_props, str)
+	if flags&ShapeArabPres != 0 {
+		shapeArabicJoining(ar_props, str)
 	}
 
-	if flags&FRIBIDI_FLAG_SHAPE_ARAB_LIGA != 0 {
-		fribidi_shape_arabic_ligature(mandatory_liga_table, embedding_levels, ar_props, str)
+	if flags&ShapeArabLiga != 0 {
+		shapeArabicLigature(mandatoryLigaTable, embedding_levels, ar_props, str)
 	}
 
 	// if flags&FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE != 0 {
@@ -47,7 +47,7 @@ type PairMap struct {
 	to   rune
 }
 
-func fribidi_shape_arabic_joining(ar_props []JoiningType, str []rune /* input and output */) {
+func shapeArabicJoining(ar_props []JoiningType, str []rune /* input and output */) {
 	for i, ar := range ar_props {
 		if ar.isArabShapes() {
 			str[i] = getArabicShapePres(str[i], ar.joinShape())
@@ -79,7 +79,7 @@ func binarySearch(key PairMap, base []PairMap) (PairMap, bool) {
 	return PairMap{}, false
 }
 
-func find_pair_match(table []PairMap, first, second rune) rune {
+func findPairMatch(table []PairMap, first, second rune) rune {
 	x := PairMap{
 		pair: [2]rune{first, second},
 	}
@@ -89,33 +89,30 @@ func find_pair_match(table []PairMap, first, second rune) rune {
 	return 0
 }
 
-//  #define PAIR_MATCH(table,len,first,second) \
-// 	 ((first)<(table[0].pair[0])||(first)>(table[len-1].pair[0])?0: \
-// 	  find_pair_match(table, len, first, second))
-
 /* Char we place for a deleted slot, to delete later */
-const FRIBIDI_CHAR_FILL = 0xFEFF
+const charFill = 0xFEFF
 
-func fribidi_shape_arabic_ligature(table []PairMap, embedding_levels []Level,
+func shapeArabicLigature(table []PairMap, embedding_levels []Level,
 	/* input and output */
 	ar_props []JoiningType, str []rune) {
 	// TODO: This doesn't form ligatures for even-level Arabic text. no big problem though. */
 	L := len(embedding_levels)
+	size := len(table)
 	for i := 0; i < L-1; i++ {
 		var c rune
-		if str[i] >= table[0].pair[0] && str[i] <= table[L-1].pair[0] {
-			c = find_pair_match(table, str[i], str[i+1])
+		if str[i] >= table[0].pair[0] && str[i] <= table[size-1].pair[0] {
+			c = findPairMatch(table, str[i], str[i+1])
 		}
 
 		if embedding_levels[i].isRtl() != 0 && embedding_levels[i] == embedding_levels[i+1] && c != 0 {
-			str[i] = FRIBIDI_CHAR_FILL
-			ar_props[i] |= FRIBIDI_MASK_LIGATURED
+			str[i] = charFill
+			ar_props[i] |= ligatured
 			str[i+1] = c
 		}
 	}
 }
 
-var mandatory_liga_table = []PairMap{
+var mandatoryLigaTable = []PairMap{
 	{pair: [2]rune{0xFEDF, 0xFE82}, to: 0xFEF5},
 	{pair: [2]rune{0xFEDF, 0xFE84}, to: 0xFEF7},
 	{pair: [2]rune{0xFEDF, 0xFE88}, to: 0xFEF9},

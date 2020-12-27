@@ -1,13 +1,13 @@
 package fribidi
 
-// fribidi_get_mirror_char finds the mirrored equivalent of a character as defined in
+// getMirrorChar finds the mirrored equivalent of a character as defined in
 // the file BidiMirroring.txt of the Unicode Character Database available at
 // http://www.unicode.org/Public/UNIDATA/BidiMirroring.txt.
 //
 // If the input character is a declared as a mirroring character in the
 // Unicode standard and has a mirrored equivalent, it is returned with `true`.
 // Otherwise the input character itself returned with `false`.
-func fribidi_get_mirror_char(ch rune) (rune, bool) {
+func getMirrorChar(ch rune) (rune, bool) {
 	m, ok := mirrors[ch]
 	if !ok {
 		m = ch

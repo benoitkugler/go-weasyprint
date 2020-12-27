@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"os"
 	"strings"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 )
 
-const MAX_STR_LEN = 65000
+const maxStrLen = 65000
 
 //    /* Break help string into little ones, to assure ISO C89 conformance */
 //    printf ("Usage: " appname " [OPTION]... [FILE]...\n"
@@ -66,8 +65,6 @@ const MAX_STR_LEN = 65000
 // 	   "    [input-str` => '][BOL][[padding space]visual-str][EOL]\n"
 // 	   "    [\\n base-dir][\\n ltov-map][\\n vtol-map][\\n levels]\n");
 
-const default_text_width = 80
-
 type charsetI interface {
 	decode(input []byte) []rune
 	encode(input []rune) []byte
@@ -107,22 +104,22 @@ func parseCharset(filename string) charsetI {
 }
 
 func processFile(filename string, fileOut io.Writer) error {
+	const textWidth = 80
 
 	do_clean, do_reorder_nsm, do_mirror := true, true, true
-	show_input := true
-	text_width := default_text_width
-	// do_break := false
+	showInput := true
+	doBreak := false
 
-	do_pad := true
+	doPad := true
 	show_visual := true
-	show_basedir := false
-	show_ltov := false
-	show_vtol := false
-	show_levels := false
+	showBasedir := false
+	showLtov := false
+	showVtol := false
+	showLevels := false
 	// char_set := "UTF-8"
 	// bol_text := nil
 	// eol_text := nil
-	var input_base_direction ParType = ON
+	var inputBaseDirection ParType = ON
 
 	// s = getenv("COLUMNS")
 	// if s {
@@ -132,19 +129,19 @@ func processFile(filename string, fileOut io.Writer) error {
 	// 	}
 	// }
 
-	const CHARSETDESC = 257
-	const CAPRTL = 258
-
 	charset := parseCharset(filename)
 
-	flags := defaultFlags.adjust(FRIBIDI_FLAG_SHAPE_MIRRORING, do_mirror)
-	flags = flags.adjust(FRIBIDI_FLAG_REORDER_NSM, do_reorder_nsm)
+	flags := DefaultFlags.adjust(ShapeMirroring, do_mirror)
+	flags = flags.adjust(ReorderNSM, do_reorder_nsm)
 
-	padding_width := text_width
-	if show_input {
-		padding_width = (text_width - 10) / 2
+	paddingWidth := textWidth
+	if showInput {
+		paddingWidth = (textWidth - 10) / 2
 	}
-	break_width := 3 * MAX_STR_LEN
+	breakWidth := 3 * maxStrLen
+	if doBreak {
+		breakWidth = paddingWidth
+	}
 
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -158,25 +155,25 @@ func processFile(filename string, fileOut io.Writer) error {
 		}
 		logical := charset.decode(line)
 
-		var nl_found = ""
+		var nlFound = ""
 
 		/* Create a bidi string. */
-		base := input_base_direction
+		base := inputBaseDirection
 
-		out, _ := fribidi_log2vis(flags, logical, &base)
+		out, _ := LogicalToVisual(flags, logical, &base)
 		logToVis := out.LogicalToVisual()
 
-		if show_input {
-			fmt.Fprintf(fileOut, "%-*s => ", padding_width, line)
+		if showInput {
+			fmt.Fprintf(fileOut, "%-*s => ", paddingWidth, line)
 		}
 
 		/* Remove explicit marks, if asked for. */
-
 		if do_clean {
-			out.Str = fribidi_remove_bidi_marks(out.Str, logToVis, out.VisualToLogical, out.EmbeddingLevels)
+			out.Str = removeBidiMarks(out.Str, logToVis, out.VisualToLogical, out.EmbeddingLevels)
 		}
+
 		if show_visual {
-			fmt.Fprintf(fileOut, "%s", nl_found)
+			fmt.Fprintf(fileOut, "%s", nlFound)
 			// if bol_text {
 			// 	fmt.Fprintf(fileOut, "%s", bol_text)
 			// }
@@ -186,7 +183,7 @@ func processFile(filename string, fileOut io.Writer) error {
 			for idx := 0; idx < len(out.Str); {
 				var inlen int
 
-				wid := break_width
+				wid := breakWidth
 				st = idx
 				if _, isCapRTL := charset.(capRTLCharset); !isCapRTL {
 					for wid > 0 && idx < len(out.Str) {
@@ -208,16 +205,17 @@ func processFile(filename string, fileOut io.Writer) error {
 				}
 				inlen = idx - st
 
-				outstring := charset.encode(out.Str[st : inlen+st])
-				if base.IsRtl() {
-					var w int
-					if do_pad {
-						w = padding_width + len(outstring) - (break_width - wid)
-					}
-					fmt.Fprintf(fileOut, "%*s", w, outstring)
-				} else {
-					fmt.Fprintf(fileOut, "%s", outstring)
+				outBytes := charset.encode(out.Str[st : inlen+st])
+
+				var w int
+				if base.IsRtl() && doPad {
+					// careful: go * padding is counted in runes, not bytes...
+					w = paddingWidth + inlen - (breakWidth - wid)
 				}
+
+				fmt.Fprintf(fileOut, "%*s", w, outBytes)
+
+				// fmt.Println(idx, len(out.Str), w)
 				if idx < len(out.Str) {
 					fmt.Fprintln(fileOut)
 				}
@@ -226,40 +224,39 @@ func processFile(filename string, fileOut io.Writer) error {
 			// 	fmt.Fprintf(fileOut, "%s", eol_text)
 			// }
 
-			nl_found = "\n"
+			nlFound = "\n"
 		}
-		if show_basedir {
-			fmt.Fprintf(fileOut, "%s", nl_found)
-			if FRIBIDI_DIR_TO_LEVEL(base) != 0 {
+		if showBasedir {
+			fmt.Fprintf(fileOut, "%s", nlFound)
+			if dirToLevel(base) != 0 {
 				fmt.Fprintf(fileOut, "Base direction: %s", "R")
 			} else {
 				fmt.Fprintf(fileOut, "Base direction: %s", "L")
 			}
-			nl_found = "\n"
+			nlFound = "\n"
 		}
-		if show_ltov {
-			fmt.Fprintf(fileOut, "%s", nl_found)
+		if showLtov {
+			fmt.Fprintf(fileOut, "%s", nlFound)
 			for _, ltov := range logToVis {
 				fmt.Fprintf(fileOut, "%d ", ltov)
 			}
-			nl_found = "\n"
+			nlFound = "\n"
 		}
-		if show_vtol {
-			fmt.Fprintf(fileOut, "%s", nl_found)
+		if showVtol {
+			fmt.Fprintf(fileOut, "%s", nlFound)
 			for _, vtol := range out.VisualToLogical {
 				fmt.Fprintf(fileOut, "%d ", vtol)
 			}
-			nl_found = "\n"
+			nlFound = "\n"
 		}
-		if show_levels {
-			fmt.Fprintf(fileOut, "%s", nl_found)
+		if showLevels {
+			fmt.Fprintf(fileOut, "%s", nlFound)
 			for _, level := range out.EmbeddingLevels {
 				fmt.Fprintf(fileOut, "%d ", level)
 			}
-			nl_found = "\n"
+			nlFound = "\n"
 		}
-
-		if nl_found != "" {
+		if nlFound != "" {
 			fmt.Fprintln(fileOut)
 		}
 	}
@@ -268,17 +265,32 @@ func processFile(filename string, fileOut io.Writer) error {
 
 func Test1(t *testing.T) {
 	for _, file := range []string{
-		"test/test_CapRTL_explicit.input",
-		// "test/test_CapRTL_explicit.input",
-		// "test/test_CapRTL_implicit.input",
-		// "test/test_CapRTL_isolate.input",
-		// "test/test_ISO8859-8_hebrew.input",
-		// "test/test_UTF-8_persian.input",
-		// "test/test_UTF-8_reordernsm.input",
+		"test/test_CapRTL_explicit",
+		"test/test_CapRTL_explicit",
+		"test/test_CapRTL_implicit",
+		"test/test_CapRTL_isolate",
+		"test/test_ISO8859-8_hebrew",
+		"test/test_UTF-8_persian",
+		// "test/test_UTF-8_reordernsm",
 	} {
-		err := processFile(file, os.Stdout)
+		var out bytes.Buffer
+		err := processFile(file+".input", &out)
 		if err != nil {
 			t.Fatal("error in test file", file, err)
+		}
+
+		ref, err := ioutil.ReadFile(file + ".reference")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(ref) != out.String() {
+			b := out.Bytes()
+			for i, s := range ref {
+				if s != b[i] {
+					fmt.Println(i, s, b[i])
+				}
+			}
+			t.Errorf("file %s: expected\n%s\ngot\n%s", file, ref, out.String())
 		}
 	}
 }

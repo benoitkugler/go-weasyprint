@@ -43,7 +43,7 @@ func init() {
 
 			caprtl_to_unicode[i] = FRIBIDI_UNICODE_CHARS
 			mark[i] = false
-			if _, ok := fribidi_get_mirror_char(rune(i)); ok {
+			if _, ok := getMirrorChar(rune(i)); ok {
 				fmt.Println("warning: I could not map mirroring character map to itself in CapRTL")
 			}
 
@@ -63,7 +63,7 @@ func init() {
 		}
 	}
 	for i := 0; i < 0x10000 && count != 0; i++ { /* Assign BMP chars to CapRTL entries */
-		if _, ok := fribidi_get_mirror_char(rune(i)); !ok && !(i < len(capRTLCharTypes) && mark[i]) {
+		if _, ok := getMirrorChar(rune(i)); !ok && !(i < len(capRTLCharTypes) && mark[i]) {
 			var j, k int
 			t := GetBidiType(rune(i))
 			for j = 0; j < num_types; j++ {
@@ -107,27 +107,27 @@ func (capRTLCharset) decode(s []byte) []rune {
 			i++
 			switch s[i] {
 			case '>':
-				us = append(us, FRIBIDI_CHAR_LRM)
+				us = append(us, charLRM)
 			case '<':
-				us = append(us, FRIBIDI_CHAR_RLM)
+				us = append(us, charRLM)
 			case 'l':
-				us = append(us, FRIBIDI_CHAR_LRE)
+				us = append(us, charLRE)
 			case 'r':
-				us = append(us, FRIBIDI_CHAR_RLE)
+				us = append(us, charRLE)
 			case 'o':
-				us = append(us, FRIBIDI_CHAR_PDF)
+				us = append(us, charPDF)
 			case 'L':
-				us = append(us, FRIBIDI_CHAR_LRO)
+				us = append(us, charLRO)
 			case 'R':
-				us = append(us, FRIBIDI_CHAR_RLO)
+				us = append(us, charRLO)
 			case 'i':
-				us = append(us, FRIBIDI_CHAR_LRI)
+				us = append(us, charLRI)
 			case 'y':
-				us = append(us, FRIBIDI_CHAR_RLI)
+				us = append(us, charRLI)
 			case 'f':
-				us = append(us, FRIBIDI_CHAR_FSI)
+				us = append(us, charFSI)
 			case 'I':
-				us = append(us, FRIBIDI_CHAR_PDI)
+				us = append(us, charPDI)
 			case '_':
 				us = append(us, '_')
 			default:
@@ -154,32 +154,32 @@ func (capRTLCharset) encode(str []rune) []byte {
 	var s []byte
 	for _, ch := range str {
 		if bd := GetBidiType(ch); !bd.IsExplicit() && !bd.IsIsolate() &&
-			ch != '_' && ch != FRIBIDI_CHAR_LRM && ch != FRIBIDI_CHAR_RLM {
+			ch != '_' && ch != charLRM && ch != charRLM {
 			s = append(s, fribidi_unicode_to_cap_rtl_c(ch))
 		} else {
 			s = append(s, '_')
 			switch ch {
-			case FRIBIDI_CHAR_LRM:
+			case charLRM:
 				s = append(s, '>')
-			case FRIBIDI_CHAR_RLM:
+			case charRLM:
 				s = append(s, '<')
-			case FRIBIDI_CHAR_LRE:
+			case charLRE:
 				s = append(s, 'l')
-			case FRIBIDI_CHAR_RLE:
+			case charRLE:
 				s = append(s, 'r')
-			case FRIBIDI_CHAR_PDF:
+			case charPDF:
 				s = append(s, 'o')
-			case FRIBIDI_CHAR_LRO:
+			case charLRO:
 				s = append(s, 'L')
-			case FRIBIDI_CHAR_RLO:
+			case charRLO:
 				s = append(s, 'R')
-			case FRIBIDI_CHAR_LRI:
+			case charLRI:
 				s = append(s, 'i')
-			case FRIBIDI_CHAR_RLI:
+			case charRLI:
 				s = append(s, 'y')
-			case FRIBIDI_CHAR_FSI:
+			case charFSI:
 				s = append(s, 'f')
-			case FRIBIDI_CHAR_PDI:
+			case charPDI:
 				s = append(s, 'I')
 			case '_':
 				s = append(s, '_')
@@ -203,4 +203,9 @@ func TestCharsetCapRTL(t *testing.T) {
 	if !reflect.DeepEqual(runes, in) {
 		t.Errorf("expected %v, got %v", in, runes)
 	}
+}
+
+func TestR(t *testing.T) {
+	r := 1575
+	fmt.Println(r>>8, r&0xff+0x500)
 }

@@ -1,2 +1,4 @@
 .mypy_cache/**
 .idea/**
+fribidi/test/unicode-conformance/cpuprofile.prof
+fribidi/test/unicode-conformance/memprofile.prof
