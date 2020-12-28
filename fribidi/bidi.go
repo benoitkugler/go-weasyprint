@@ -455,7 +455,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	mainRunList.compact()
 
-	if debug {
+	if debugMode {
 		// mainRunList.printTypesRe()
 		// mainRunList.printResolvedLevels()
 		// mainRunList.printResolvedTypes()
@@ -541,7 +541,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 		}
 	}
 
-	if debug {
+	if debugMode {
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()
 		fmt.Println("4b. resolving weak types. W4 and W5")
@@ -636,7 +636,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	mainRunList.compactNeutrals()
 
-	if debug {
+	if debugMode {
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()
 		fmt.Println("5. Resolving Neutral Types - N0")
@@ -707,7 +707,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 	/* The list must now be sorted for the next algo to work! */
 	sortPairingNodes(&pairingNodes)
 
-	if debug {
+	if debugMode {
 		pairingNodes.print()
 	}
 
@@ -781,7 +781,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 	}
 	mainRunList.compactNeutrals()
 
-	if debug {
+	if debugMode {
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()
 		fmt.Println("resolving neutral types - N1+N2")
@@ -822,7 +822,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	mainRunList.compact()
 
-	if debug {
+	if debugMode {
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()
 		fmt.Println("6. Resolving implicit levels")
@@ -849,7 +849,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	mainRunList.compact()
 
-	if debug {
+	if debugMode {
 		fmt.Println(bidiTypes)
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()
@@ -876,7 +876,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 		}
 	}
 
-	if debug {
+	if debugMode {
 		mainRunList.printTypesRe()
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()
@@ -922,7 +922,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 	}
 	shadowRunList(mainRunList, list, false)
 
-	if debug {
+	if debugMode {
 		mainRunList.printTypesRe()
 		mainRunList.printResolvedLevels()
 		mainRunList.printResolvedTypes()

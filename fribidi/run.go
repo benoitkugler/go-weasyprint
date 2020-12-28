@@ -328,7 +328,7 @@ func assertT(b bool) {
 }
 
 func (runList *oneRun) validate() {
-	if debug {
+	if debugMode {
 		assertT(runList != nil)
 		assertT(runList.next != nil)
 		assertT(runList.next.prev == runList)

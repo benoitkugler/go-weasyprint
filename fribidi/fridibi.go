@@ -8,8 +8,8 @@ import (
 	"golang.org/x/text/unicode/bidi"
 )
 
-// controls whether we print debug info to stdout
-const debug = false
+// controls whether we print debugMode info to stdout
+const debugMode = false
 
 // Level is the embedding level in a paragraph
 type Level int8

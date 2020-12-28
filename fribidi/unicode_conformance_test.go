@@ -92,7 +92,7 @@ func parseTestLine(line []byte) (out testData, err error) {
 	return out, err
 }
 
-func parse() ([]testData, error) {
+func parseSimpleBidi() ([]testData, error) {
 	const filename = "test/unicode-conformance/BidiCharacterTest.txt"
 
 	b, err := ioutil.ReadFile(filename)
@@ -114,7 +114,7 @@ func parse() ([]testData, error) {
 	return out, nil
 }
 
-func runOneBidi(lineData testData) ([]Level, []int) {
+func runOneSimpleBidi(lineData testData) ([]Level, []int) {
 	bracketTypes := make([]BracketType, len(lineData.codePoints))
 	types := make([]CharType, len(lineData.codePoints))
 
@@ -163,7 +163,7 @@ func runOneBidi(lineData testData) ([]Level, []int) {
 func TestBidiCharacters(t *testing.T) {
 	ti := time.Now()
 
-	datas, err := parse()
+	datas, err := parseSimpleBidi()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestBidiCharacters(t *testing.T) {
 	ti = time.Now()
 
 	for _, lineData := range datas {
-		levels, ltor := runOneBidi(lineData)
+		levels, ltor := runOneSimpleBidi(lineData)
 
 		/* Compare */
 		for i, level := range levels {
@@ -334,6 +334,52 @@ func parseBidi() ([]bidiTest, error) {
 	return out, nil
 }
 
+func runOneComplexBidi(data bidiTest) (levelsList [][]Level, ltorList [][]int) {
+	for _, line := range data.data {
+		for baseDirMode := 0; baseDirMode < 3; baseDirMode++ {
+
+			if (line.baseDirFlag & (1 << baseDirMode)) == 0 {
+				continue
+			}
+
+			var baseDir ParType
+			switch baseDirMode {
+			case 0:
+				baseDir = ON
+			case 1:
+				baseDir = LTR
+			case 2:
+				baseDir = RTL
+			}
+
+			// Brackets are not used in the BidiTest.txt file
+			levels, _ := GetParEmbeddingLevels(line.types, nil, &baseDir)
+
+			ltor := make([]int, len(levels))
+			for i := range ltor {
+				ltor[i] = i
+			}
+
+			ReorderLine(0 /*FRIBIDI_FLAG_REORDER_NSM*/, line.types, len(line.types),
+				0, baseDir, levels,
+				nil, ltor)
+
+			j := 0
+			for _, lr := range ltor {
+				if !line.types[lr].isExplicitOrBn() {
+					ltor[j] = lr
+					j++
+				}
+			}
+			ltor = ltor[0:j] // slice to length
+
+			levelsList = append(levelsList, levels)
+			ltorList = append(ltorList, ltor)
+		}
+	}
+	return
+}
+
 func TestBidi(t *testing.T) {
 	ti := time.Now()
 	datas, err := parseBidi()
@@ -346,58 +392,25 @@ func TestBidi(t *testing.T) {
 
 	for index, data := range datas {
 		/* Test it */
-		for _, line := range data.data {
-			for baseDirMode := 0; baseDirMode < 3; baseDirMode++ {
+		levelsList, ltorList := runOneComplexBidi(data)
 
-				if (line.baseDirFlag & (1 << baseDirMode)) == 0 {
-					continue
+		/* Compare */
+		for j := range levelsList {
+			levels, ltor := levelsList[j], ltorList[j]
+
+			for i, level := range levels {
+				if exp := data.levels[i]; level != exp && exp != -1 {
+					t.Fatalf("failure on test %d: levels[%d]: expected %d, got %d", index+1, i, exp, level)
+					break
 				}
+			}
 
-				var baseDir ParType
-				switch baseDirMode {
-				case 0:
-					baseDir = ON
-				case 1:
-					baseDir = LTR
-				case 2:
-					baseDir = RTL
-				}
-
-				// Brackets are not used in the BidiTest.txt file
-				levels, _ := GetParEmbeddingLevels(line.types, nil, &baseDir)
-
-				ltor := make([]int, len(levels))
-				for i := range ltor {
-					ltor[i] = i
-				}
-
-				ReorderLine(0 /*FRIBIDI_FLAG_REORDER_NSM*/, line.types, len(line.types),
-					0, baseDir, levels,
-					nil, ltor)
-
-				j := 0
-				for _, lr := range ltor {
-					if !line.types[lr].isExplicitOrBn() {
-						ltor[j] = lr
-						j++
-					}
-				}
-				ltor = ltor[0:j] // slice to length
-				/* Compare */
-				for i, level := range levels {
-					if exp := data.levels[i]; level != exp && exp != -1 {
-						t.Fatalf("failure on test %d: levels[%d]: expected %d, got %d", index+1, i, exp, level)
-						break
-					}
-				}
-
-				if len(data.ltor) != len(ltor) {
+			if len(data.ltor) != len(ltor) {
+				t.Fatalf("failure on test %d: visual ordering: got %v, expected %v", index+1, ltor, data.ltor)
+			}
+			for i := range ltor {
+				if data.ltor[i] != ltor[i] {
 					t.Fatalf("failure on test %d: visual ordering: got %v, expected %v", index+1, ltor, data.ltor)
-				}
-				for i := range ltor {
-					if data.ltor[i] != ltor[i] {
-						t.Fatalf("failure on test %d: visual ordering: got %v, expected %v", index+1, ltor, data.ltor)
-					}
 				}
 			}
 		}
@@ -406,8 +419,8 @@ func TestBidi(t *testing.T) {
 	fmt.Println("test run in", time.Since(ti))
 }
 
-func BenchmarkMain(b *testing.B) {
-	datas, err := parse()
+func BenchmarkSimple(b *testing.B) {
+	datas, err := parseSimpleBidi()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -416,7 +429,20 @@ func BenchmarkMain(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, lineData := range datas {
-			runOneBidi(lineData)
+			runOneSimpleBidi(lineData)
+		}
+	}
+}
+
+func BenchmarkComplex(b *testing.B) {
+	datas, err := parseBidi()
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, lineData := range datas {
+			runOneComplexBidi(lineData)
 		}
 	}
 }
