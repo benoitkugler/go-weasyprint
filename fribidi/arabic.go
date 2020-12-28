@@ -5,10 +5,6 @@ func shapeArabic(flags Options, embeddingLevels []Level,
 	/* input and output */
 	arabProps []JoiningType, str []rune) {
 
-	if len(str) == 0 {
-		return
-	}
-
 	if flags&ShapeArabPres != 0 {
 		shapeArabicJoining(arabProps, str)
 	}
@@ -22,7 +18,7 @@ func shapeArabic(flags Options, embeddingLevels []Level,
 	// }
 }
 
-type PairMap struct {
+type pairMap struct {
 	pair [2]rune
 	to   rune
 }
@@ -35,14 +31,14 @@ func shapeArabicJoining(arabProps []JoiningType, str []rune /* input and output 
 	}
 }
 
-func compPairMap(a, b PairMap) int32 {
+func compPairMap(a, b pairMap) int32 {
 	if a.pair[0] != b.pair[0] {
 		return a.pair[0] - b.pair[0]
 	}
 	return a.pair[1] - b.pair[1]
 }
 
-func binarySearch(key PairMap, base []PairMap) (PairMap, bool) {
+func binarySearch(key pairMap, base []pairMap) (pairMap, bool) {
 	min, max := 0, len(base)-1
 	for min <= max {
 		mid := (min + max) / 2
@@ -56,11 +52,11 @@ func binarySearch(key PairMap, base []PairMap) (PairMap, bool) {
 			return p, true
 		}
 	}
-	return PairMap{}, false
+	return pairMap{}, false
 }
 
-func findPairMatch(table []PairMap, first, second rune) rune {
-	x := PairMap{
+func findPairMatch(table []pairMap, first, second rune) rune {
+	x := pairMap{
 		pair: [2]rune{first, second},
 	}
 	if match, ok := binarySearch(x, table); ok {
@@ -72,7 +68,7 @@ func findPairMatch(table []PairMap, first, second rune) rune {
 /* Char we place for a deleted slot, to delete later */
 const charFill = 0xFEFF
 
-func shapeArabicLigature(table []PairMap, embeddingLevels []Level,
+func shapeArabicLigature(table []pairMap, embeddingLevels []Level,
 	/* input and output */
 	arabProps []JoiningType, str []rune) {
 	// TODO: This doesn't form ligatures for even-level Arabic text. no big problem though. */
@@ -92,7 +88,7 @@ func shapeArabicLigature(table []PairMap, embeddingLevels []Level,
 	}
 }
 
-var mandatoryLigaTable = []PairMap{
+var mandatoryLigaTable = []pairMap{
 	{pair: [2]rune{0xFEDF, 0xFE82}, to: 0xFEF5},
 	{pair: [2]rune{0xFEDF, 0xFE84}, to: 0xFEF7},
 	{pair: [2]rune{0xFEDF, 0xFE88}, to: 0xFEF9},

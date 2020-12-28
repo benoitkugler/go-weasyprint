@@ -132,7 +132,7 @@ const (
 /* Return the minimum level of the direction, 0 for FRIBIDI_TYPE_LTR and
    1 for FRIBIDI_TYPE_RTL and FRIBIDI_TYPE_AL. */
 func dirToLevel(dir ParType) Level {
-	if dir.IsRtl() {
+	if dir.isRtl() {
 		return 1
 	}
 	return 0
@@ -150,7 +150,7 @@ func levelToDir(lev Level) CharType {
 /* Override status of an explicit mark:
  * LRO,LRE->LTR, RLO,RLE->RTL, otherwise->ON. */
 func explicitToOverrideDir(p CharType) CharType {
-	if p.IsOverride() {
+	if p.isOverride() {
 		return levelToDir(dirToLevel(p))
 	}
 	return ON
@@ -215,86 +215,63 @@ func (c CharType) String() string {
 	}
 }
 
-// IsStrong checks if `p` is string.
-func (p CharType) IsStrong() bool { return p&maskSTRONG != 0 }
+// isStrong checks if `p` is string.
+func (p CharType) isStrong() bool { return p&maskSTRONG != 0 }
 
 // IsRight checks is `p` is right to left: RTL, AL, RLE, RLO ?
-func (p CharType) IsRtl() bool { return p&maskRTL != 0 }
+func (p CharType) isRtl() bool { return p&maskRTL != 0 }
 
-// IsArabic checks is `p` is arabic : AL, AN ?
-func (p CharType) IsArabic() bool { return p&maskARABIC != 0 }
+// isNeutral checks is `p` is neutral ?
+func (p CharType) isNeutral() bool { return p&maskNEUTRAL != 0 }
 
-// IsWeak checks is `p` is weak ?
-func (p CharType) IsWeak() bool { return p&maskWEAK != 0 }
+// isLetter checks is `p` is letter : L, R, AL ?
+func (p CharType) isLetter() bool { return p&maskLETTER != 0 }
 
-// IsNeutral checks is `p` is neutral ?
-func (p CharType) IsNeutral() bool { return p&maskNEUTRAL != 0 }
-
-// IsSentinel checks is `p` is sentinel ?
-func (p CharType) IsSentinel() bool { return p&maskSENTINEL != 0 }
-
-// IsLetter checks is `p` is letter : L, R, AL ?
-func (p CharType) IsLetter() bool { return p&maskLETTER != 0 }
-
-// IsNumber checks is `p` is number : EN, AN ?
-func (p CharType) IsNumber() bool { return p&maskNUMBER != 0 }
+// isNumber checks is `p` is number : EN, AN ?
+func (p CharType) isNumber() bool { return p&maskNUMBER != 0 }
 
 // IsNumber checks is `p` is number  separator or terminator: ES, ET, CS ?
-func (p CharType) IsNumberSeparatorOrTerminator() bool { return p&maskNUMSEPTER != 0 }
+func (p CharType) isNumberSeparatorOrTerminator() bool { return p&maskNUMSEPTER != 0 }
 
-// IsSpace checks is `p` is space : BN, BS, SS, WS?
-func (p CharType) IsSpace() bool { return p&maskSPACE != 0 }
-
-// IsExplicit checks is `p` is explicit  mark: LRE, RLE, LRO, RLO, PDF ?
-func (p CharType) IsExplicit() bool { return p&maskEXPLICIT != 0 }
+// isExplicit checks is `p` is explicit  mark: LRE, RLE, LRO, RLO, PDF ?
+func (p CharType) isExplicit() bool { return p&maskEXPLICIT != 0 }
 
 // IsIsolator checks is `p` is isolator
-func (p CharType) IsIsolate() bool { return p&maskISOLATE != 0 }
+func (p CharType) isIsolate() bool { return p&maskISOLATE != 0 }
 
 // IsText checks is `p` is text  separator: BS, SS ?
-func (p CharType) IsSeparator() bool { return p&maskSEPARATOR != 0 }
+func (p CharType) isSeparator() bool { return p&maskSEPARATOR != 0 }
 
 // IsExplicit checks is `p` is explicit  override: LRO, RLO ?
-func (p CharType) IsOverride() bool { return p&maskOVERRIDE != 0 }
-
-// Some more:
-
-// IsLeft checks is `p` is left  to right letter: LTR ?
-func (p CharType) IsLtrLetter() bool { return p&(maskLETTER|maskRTL) == maskLETTER }
-
-// IsRight checks is `p` is right  to left letter: RTL, AL ?
-func (p CharType) IsRtlLetter() bool { return p&(maskLETTER|maskRTL) == (maskLETTER | maskRTL) }
+func (p CharType) isOverride() bool { return p&maskOVERRIDE != 0 }
 
 // IsES checks is `p` is eS  or CS: ES, CS ?
-func (p CharType) IsEsOrCs() bool { return p&(maskES|maskCS) != 0 }
+func (p CharType) isEsOrCs() bool { return p&(maskES|maskCS) != 0 }
 
 // IsExplicit checks is `p` is explicit  or BN: LRE, RLE, LRO, RLO, PDF, BN ?
-func (p CharType) IsExplicitOrBn() bool { return p&(maskEXPLICIT|maskBN) != 0 }
+func (p CharType) isExplicitOrBn() bool { return p&(maskEXPLICIT|maskBN) != 0 }
 
 // IsExplicit checks is `p` is explicit  or BN or NSM: LRE, RLE, LRO, RLO, PDF, BN, NSM ?
-func (p CharType) IsExplicitOrBnOrNsm() bool { return p&(maskEXPLICIT|maskBN|maskNSM) != 0 }
+func (p CharType) isExplicitOrBnOrNsm() bool { return p&(maskEXPLICIT|maskBN|maskNSM) != 0 }
 
 // IsExplicit checks is `p` is explicit  or BN or NSM: LRE, RLE, LRO, RLO, PDF, BN, NSM ?
-func (p CharType) IsExplicitOrIsolateOrBnOrNsm() bool {
+func (p CharType) isExplicitOrIsolateOrBnOrNsm() bool {
 	return p&(maskEXPLICIT|maskISOLATE|maskBN|maskNSM) != 0
 }
 
 // IsExplicit checks is `p` is explicit  or BN or WS: LRE, RLE, LRO, RLO, PDF, BN, WS ?
-func (p CharType) IsExplicitOrBnOrWs() bool { return p&(maskEXPLICIT|maskBN|maskWS) != 0 }
+func (p CharType) isExplicitOrBnOrWs() bool { return p&(maskEXPLICIT|maskBN|maskWS) != 0 }
 
 // IsExplicit checks is `p` is explicit  or separator or BN or WS: LRE, RLE, LRO, RLO, PDF, BS, SS, BN, WS ?
-func (p CharType) IsExplicitOrSeparatorOrBnOrWs() bool {
+func (p CharType) isExplicitOrSeparatorOrBnOrWs() bool {
 	return p&(maskEXPLICIT|maskSEPARATOR|maskBN|maskWS) != 0
 }
 
-// IsPrivate checks is `p` is a private-use type for application
-func (p CharType) IsPrivate() bool { return p&maskPRIVATE != 0 }
-
-//  /* Define some conversions. */
+//  Define some conversions.
 
 /* Change numbers to RTL: EN,AN -> RTL. */
 func (p CharType) changeNumberToRTL() CharType {
-	if p.IsNumber() {
+	if p.isNumber() {
 		return RTL
 	}
 	return p
@@ -377,6 +354,10 @@ type Options int
 
 // Define option flags that various functions use.
 const (
+	// Whether non-spacing marks for right-to-left parts of the text should be reordered to come after
+	// their base characters in the visual string or not.
+	// Most rendering engines expect this behavior, but console-based systems for example do not like it.
+	// It is on in DefaultFlags.
 	ReorderNSM Options = 1 << 1
 
 	ShapeMirroring Options = 1      // in DefaultFlags, do mirroring
@@ -389,8 +370,8 @@ const (
 	// NOT SUPPORTED YET
 	ShapeArabConsole Options = 1 << 10
 
-	RemoveBidi     Options = 1 << 16
-	RemoveJoining  Options = 1 << 17
+	// RemoveBidi     Options = 1 << 16
+	// RemoveJoining  Options = 1 << 17
 	RemoveSpecials Options = 1 << 18
 
 	// And their combinations
@@ -504,7 +485,7 @@ func removeBidiMarks(str []rune, positionsToThis, positionFromThis []int, embedd
 
 	var j int
 	for i, r := range str {
-		if bType := GetBidiType(r); !bType.IsExplicitOrBn() && !bType.IsIsolate() &&
+		if bType := GetBidiType(r); !bType.isExplicitOrBn() && !bType.isIsolate() &&
 			r != charLRM && r != charRLM {
 			str[j] = r
 			if hasLevels {

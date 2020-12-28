@@ -105,7 +105,7 @@ func joinArabic(bidiTypes []CharType, embeddingLevels []Level, arProps []Joining
 
 			//  FRIBIDI_CONSISTENT_LEVEL
 			var level Level = levelSentinel
-			if !bidiTypes[i].IsExplicitOrBn() {
+			if !bidiTypes[i].isExplicitOrBn() {
 				level = embeddingLevels[i]
 			}
 

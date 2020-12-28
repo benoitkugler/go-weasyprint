@@ -89,7 +89,7 @@ func encodeBidiTypes(bidiTypes []CharType, bracketTypes []BracketType) *oneRun {
 		}
 
 		if charType != last.type_ || bracketType != NoBracket || // Always separate bracket into single char runs!
-			last.bracketType != NoBracket || charType.IsIsolate() {
+			last.bracketType != NoBracket || charType.isIsolate() {
 			run := &oneRun{}
 			run.type_ = charType
 			run.pos = i
@@ -267,7 +267,7 @@ func (list *oneRun) compactNeutrals() {
 	for list = list.next; list.type_ != maskSENTINEL; list = list.next {
 		if list.prev.level == list.level &&
 			(list.prev.type_ == list.type_ ||
-				(list.prev.type_.IsNeutral() && list.type_.IsNeutral())) &&
+				(list.prev.type_.isNeutral() && list.type_.isNeutral())) &&
 			list.bracketType == NoBracket /* Don't join brackets! */ &&
 			list.prev.bracketType == NoBracket {
 			list = list.mergeWithPrev()
@@ -300,7 +300,7 @@ func (list *oneRun) getAdjacentRun(forward, skipNeutral bool) *oneRun {
 		   backwards, this is not necessary as the leading isolate
 		   run has already been assigned the resolved level. */
 		if ppp.isolateLevel > list.isolateLevel /* <- How can this be true? */ ||
-			(forward && pppType == PDI) || (skipNeutral && !pppType.IsStrong()) {
+			(forward && pppType == PDI) || (skipNeutral && !pppType.isStrong()) {
 			if forward {
 				ppp = ppp.nextIsolate
 			} else {

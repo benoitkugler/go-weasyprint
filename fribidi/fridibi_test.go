@@ -218,7 +218,7 @@ func processFile(filename string, fileOut io.Writer) error {
 				st = idx
 				if _, isCapRTL := charset.(capRTLCharset); !isCapRTL {
 					for wid > 0 && idx < len(out.Str) {
-						if GetBidiType(out.Str[idx]).IsExplicitOrIsolateOrBnOrNsm() {
+						if GetBidiType(out.Str[idx]).isExplicitOrIsolateOrBnOrNsm() {
 							wid -= 0
 						} else {
 							wid -= 1
@@ -238,7 +238,7 @@ func processFile(filename string, fileOut io.Writer) error {
 
 				outBytes := charset.encode(out.Str[st : inlen+st])
 				var w int
-				if base.IsRtl() && doPad {
+				if base.isRtl() && doPad {
 					w = paddingWidth + len(outBytes) - (breakWidth - wid)
 				}
 				fmt.Fprintf(fileOut, "%s%s", bytesPadding(outBytes, w), outBytes)
@@ -285,6 +285,16 @@ func TestShape(t *testing.T) {
 		}
 		if string(ref) != out.String() {
 			t.Errorf("file %s: expected\n%s\ngot\n%s", file, ref, out.String())
+		}
+	}
+}
+
+func TestTypes(t *testing.T) {
+	cs := [...]CharType{LTR, RTL, EN, ON, WLTR, WRTL, PDF, LRI, RLI, FSI, BS, NSM, AL, AN, CS, ET, PDI, LRO, RLO, RLE, LRE, WS, ES, BN}
+	csStrings := [...]string{"LTR", "RTL", "EN", "ON", "WLTR", "WRTL", "PDF", "LRI", "RLI", "FSI", "BS", "NSM", "AL", "AN", "CS", "ET", "PDI", "LRO", "RLO", "RLE", "LRE", "WS", "ES", "BN"}
+	for i, c := range cs {
+		if c.String() != csStrings[i] {
+			t.Error()
 		}
 	}
 }

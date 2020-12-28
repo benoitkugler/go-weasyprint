@@ -150,7 +150,7 @@ func runOneBidi(lineData testData) ([]Level, []int) {
 
 	j := 0
 	for _, lr := range ltor {
-		if !types[lr].IsExplicitOrBn() {
+		if !types[lr].isExplicitOrBn() {
 			ltor[j] = lr
 			j++
 		}
@@ -377,7 +377,7 @@ func TestBidi(t *testing.T) {
 
 				j := 0
 				for _, lr := range ltor {
-					if !line.types[lr].IsExplicitOrBn() {
+					if !line.types[lr].isExplicitOrBn() {
 						ltor[j] = lr
 						j++
 					}
