@@ -7,19 +7,18 @@ import (
 // BracketType is a rune value with its MSB is used to indicate an opening bracket
 type BracketType uint32
 
-const NoBracket BracketType = 0
-
 func (bt BracketType) isOpen() bool {
-	return bt&FRIBIDI_BRACKET_OPEN_MASK > 0
+	return bt&bracketOpenMask > 0
 }
 
 func (bt BracketType) id() BracketType {
-	return bt & FRIBIDI_BRACKET_ID_MASK
+	return bt & bracketIdMask
 }
 
 const (
-	FRIBIDI_BRACKET_OPEN_MASK BracketType = 1 << 31
-	FRIBIDI_BRACKET_ID_MASK               = ^FRIBIDI_BRACKET_OPEN_MASK
+	noBracket       BracketType = 0
+	bracketOpenMask BracketType = 1 << 31
+	bracketIdMask               = ^bracketOpenMask
 )
 
 // GetBracket finds the bracketed equivalent of a character as defined in
@@ -29,16 +28,16 @@ const (
 // If the input character is declared as a brackets character in the
 // Unicode standard and has a bracketed equivalent, the matching bracketed
 // character is returned, with its high bit set.
-// Otherwise `NoBracket` (zero) is returned.
+// Otherwise zero is returned.
 func GetBracket(ch rune) BracketType {
 	props, _ := bidi.LookupRune(ch)
 	if !props.IsBracket() {
-		return NoBracket
+		return noBracket
 	}
 	pair := BracketType(bracketsTable[ch])
-	pair &= FRIBIDI_BRACKET_ID_MASK
+	pair &= bracketIdMask
 	if props.IsOpeningBracket() {
-		pair |= FRIBIDI_BRACKET_OPEN_MASK
+		pair |= bracketOpenMask
 	}
 	return pair
 }

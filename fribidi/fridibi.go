@@ -363,20 +363,17 @@ const (
 	ShapeMirroring Options = 1      // in DefaultFlags, do mirroring
 	ShapeArabPres  Options = 1 << 8 // in DefaultFlags, shape Arabic characters to their presentation form glyphs
 	ShapeArabLiga  Options = 1 << 9 // in DefaultFlags, form mandatory Arabic ligatures
-	// Perform additional Arabic shaping
-	// suitable for text rendered on
-	// grid terminals with no mark
-	// rendering capabilities.
+
+	// Perform additional Arabic shaping suitable for text rendered on
+	// grid terminals with no mark rendering capabilities.
 	// NOT SUPPORTED YET
 	ShapeArabConsole Options = 1 << 10
 
-	// RemoveBidi     Options = 1 << 16
-	// RemoveJoining  Options = 1 << 17
-	RemoveSpecials Options = 1 << 18
+	removeSpecials Options = 1 << 18
 
 	// And their combinations
 
-	baseDefault = ShapeMirroring | ReorderNSM | RemoveSpecials
+	baseDefault = ShapeMirroring | ReorderNSM | removeSpecials
 
 	// recommended in any environment that doesn't have
 	// other means for doing Arabic shaping.

@@ -83,13 +83,13 @@ func encodeBidiTypes(bidiTypes []CharType, bracketTypes []BracketType) *oneRun {
 
 	/* Scan over the character types */
 	for i, charType := range bidiTypes {
-		bracketType := NoBracket
+		bracketType := noBracket
 		if hasBrackets {
 			bracketType = bracketTypes[i]
 		}
 
-		if charType != last.type_ || bracketType != NoBracket || // Always separate bracket into single char runs!
-			last.bracketType != NoBracket || charType.isIsolate() {
+		if charType != last.type_ || bracketType != noBracket || // Always separate bracket into single char runs!
+			last.bracketType != noBracket || charType.isIsolate() {
 			run := &oneRun{}
 			run.type_ = charType
 			run.pos = i
@@ -254,7 +254,7 @@ func (list *oneRun) compact() {
 	for list = list.next; list.type_ != maskSENTINEL; list = list.next {
 		/* Don't join brackets! */
 		if list.prev.type_ == list.type_ && list.prev.level == list.level &&
-			list.bracketType == NoBracket && list.prev.bracketType == NoBracket {
+			list.bracketType == noBracket && list.prev.bracketType == noBracket {
 			list = list.mergeWithPrev()
 		}
 	}
@@ -268,8 +268,8 @@ func (list *oneRun) compactNeutrals() {
 		if list.prev.level == list.level &&
 			(list.prev.type_ == list.type_ ||
 				(list.prev.type_.isNeutral() && list.type_.isNeutral())) &&
-			list.bracketType == NoBracket /* Don't join brackets! */ &&
-			list.prev.bracketType == NoBracket {
+			list.bracketType == noBracket /* Don't join brackets! */ &&
+			list.prev.bracketType == noBracket {
 			list = list.mergeWithPrev()
 		}
 	}

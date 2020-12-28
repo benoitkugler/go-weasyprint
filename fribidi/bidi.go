@@ -193,16 +193,15 @@ func sortPairingNodes(nodes **pairingNode) {
 // as defined by the Unicode Bidirectional Algorithm available at
 // http://www.unicode.org/reports/tr9/.  This function implements rules P2 to
 // I1 inclusive, and parts 1 to 3 of L1, except for rule X9 which is
-//  implemented in fribidi_remove_bidi_marks().  Part 4 of L1 is implemented
-//  in fribidi_reorder_line().
+// implemented in fribidi_remove_bidi_marks(). Part 4 of L1 is implemented
+// in ReorderLine().
 //
-// bidi_types is a list of bidi types as returned by fribidi_get_bidi_types()
-// bracketTypes is either empty or a list of bracket types as returned by fribidi_get_bracketTypes()
+// `bidiTypes` is a list of bidi types as returned by GetBidiTypes()
+// `bracketTypes` is either empty or a list of bracket types as returned by GetBracketTypes()
 //
-// Returns: a slice of same length as `bidi_types`, and the maximum level found plus one,
-// which is thus always >= 1
+// Returns a slice of same length as `bidiTypes`, and the maximum level found plus one,
+// which is thus always >= 1.
 func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
-	/* input and output */
 	pbaseDir *ParType) (embeddingLevels []Level, maxLevel Level) {
 
 	if len(bidiTypes) == 0 {
@@ -678,7 +677,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 			bracketStackSize[lastIsoLevel] = 0
 		}
 
-		if brackProp != NoBracket && pp.type_ == ON {
+		if brackProp != noBracket && pp.type_ == ON {
 			if brackProp.isOpen() {
 				if bracketStackSize[isoLevel] == maxNestedBracketPairs {
 					break
@@ -778,7 +777,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	/* Remove the bracket property and re-compact */
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-		pp.bracketType = NoBracket
+		pp.bracketType = noBracket
 	}
 	mainRunList.compactNeutrals()
 
@@ -891,7 +890,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 	      separator or paragraph separator, and
 	   4. any sequence of whitespace characters and/or isolate formatting
 	      characters at the end of the line.
-	   ... (to be continued in fribidi_reorder_line()). */
+	   ... (to be continued in ReorderLine()). */
 	list := newRunList()
 	q := list
 	state := true
@@ -971,7 +970,7 @@ func indexesReverse(arr []int) {
 // Note that the bidi types and embedding levels are not reordered.  You can
 // reorder these arrays using the map later.
 //
-// `visual_str` and `map_` must be either empty, or with same length as other inputs.
+// `visualStr` and `map_` must be either empty, or with same length as other inputs.
 //
 // See `Options` for more information.
 //
