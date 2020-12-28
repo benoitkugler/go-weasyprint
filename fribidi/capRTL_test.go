@@ -153,7 +153,7 @@ func fribidi_unicode_to_cap_rtl_c(uch rune) byte {
 func (capRTLCharset) encode(str []rune) []byte {
 	var s []byte
 	for _, ch := range str {
-		if bd := GetBidiType(ch); !bd.isExplicit() && !bd.isIsolate() &&
+		if bd := GetBidiType(ch); !bd.isExplicit() && !bd.IsIsolate() &&
 			ch != '_' && ch != charLRM && ch != charRLM {
 			s = append(s, fribidi_unicode_to_cap_rtl_c(ch))
 		} else {

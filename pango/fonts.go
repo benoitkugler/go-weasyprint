@@ -184,6 +184,14 @@ type Font interface {
 	// create_hb_font     () hb_font_t *
 }
 
+// pango_font_has_char returns whether the font provides a glyph for this character.
+// `font` must not be nil
+func pango_font_has_char(font Font, wc rune) bool {
+	coverage := font.get_coverage(pango_language_get_default())
+	result := coverage.get(wc)
+	return result != PANGO_COVERAGE_NONE
+}
+
 // FontDescription represents the description
 // of an ideal font. These structures are used both to list
 // what fonts are available on the system and also for specifying

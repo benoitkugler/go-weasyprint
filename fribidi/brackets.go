@@ -16,7 +16,7 @@ func (bt BracketType) id() BracketType {
 }
 
 const (
-	noBracket       BracketType = 0
+	NoBracket       BracketType = 0
 	bracketOpenMask BracketType = 1 << 31
 	bracketIdMask               = ^bracketOpenMask
 )
@@ -32,7 +32,7 @@ const (
 func GetBracket(ch rune) BracketType {
 	props, _ := bidi.LookupRune(ch)
 	if !props.IsBracket() {
-		return noBracket
+		return NoBracket
 	}
 	pair := BracketType(bracketsTable[ch])
 	pair &= bracketIdMask

@@ -12,6 +12,9 @@ import "unicode/utf8"
  * line-breaking, justification, alignment and ellipsization.
  */
 
+// Only one character has type G_UNICODE_LINE_SEPARATOR in Unicode 5.0: update this if that changes.
+const LINE_SEPARATOR = 0x2028
+
 // LayoutLine represents one of the lines resulting
 // from laying out a paragraph via `Layout`. `LayoutLine`
 // structures are obtained by calling pango_layout_get_line() and
@@ -466,7 +469,7 @@ func (layout *Layout) pango_layout_get_empty_extents_at_index(index int, logical
 		}
 	}
 
-	font := layout.context.pango_context_load_font(font_desc)
+	font := layout.context.pango_context_load_font(&font_desc)
 	if font != nil {
 		metrics := pango_font_get_metrics(font, layout.context.set_language)
 		// if metrics {

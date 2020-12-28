@@ -5,12 +5,12 @@ package pango
 type FontMap interface {
 	// Loads the font in the fontmap that is the closest match for `desc`.
 	// Returns nil if no font matched.
-	load_font(context *Context, desc FontDescription) Font
+	load_font(context *Context, desc *FontDescription) Font
 	// List all available families
 	list_families() []*FontFamily
 	// Load a set of fonts in the fontmap that can be used to render a font matching `desc`.
 	// Returns nil if no font matched.
-	load_fontset(context *Context, desc FontDescription, language Language) Fontset
+	load_fontset(context *Context, desc *FontDescription, language Language) Fontset
 
 	// const char     *shape_engine_type; the type of rendering-system-dependent engines that can handle fonts of this fonts loaded with this fontmap.
 

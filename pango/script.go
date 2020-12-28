@@ -14,8 +14,8 @@ import "unicode"
 
 // Script enumeration identifies different writing
 // systems. The values correspond to the names as defined in the
-// Unicode standard, and are directly linked to the
-// unicode.Scripts map defined in the standard library.
+// Unicode standard and used as keys in the unicode.Scripts map
+// defined in the standard library.
 type Script string
 
 const (

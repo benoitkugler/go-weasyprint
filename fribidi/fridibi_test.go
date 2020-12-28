@@ -238,7 +238,7 @@ func processFile(filename string, fileOut io.Writer) error {
 
 				outBytes := charset.encode(out.Str[st : inlen+st])
 				var w int
-				if base.isRtl() && doPad {
+				if base.IsRtl() && doPad {
 					w = paddingWidth + len(outBytes) - (breakWidth - wid)
 				}
 				fmt.Fprintf(fileOut, "%s%s", bytesPadding(outBytes, w), outBytes)

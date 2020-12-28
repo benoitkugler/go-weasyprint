@@ -167,7 +167,7 @@ func (a FontDescription) equals(other AttrData) bool {
 
 // AttrColor is used to represent a color in an uncalibrated RGB color-space.
 type AttrColor struct {
-	red, green, blue uint16
+	Red, Green, Blue uint16
 }
 
 func (a AttrColor) copy() AttrData             { return a }
@@ -176,7 +176,7 @@ func (a AttrColor) equals(other AttrData) bool { return a == other }
 // String returns a textual specification of the color in the hexadecimal form
 // '#rrrrggggbbbb', where r,g and b are hex digits representing
 // the red, green, and blue components respectively.
-func (a AttrColor) String() string { return fmt.Sprintf("#%04x%04x%04x", a.red, a.green, a.blue) }
+func (a AttrColor) String() string { return fmt.Sprintf("#%04x%04x%04x", a.Red, a.Green, a.Blue) }
 
 // AttrShape is used to represent attributes which impose shape restrictions.
 type AttrShape struct {
@@ -411,14 +411,14 @@ func pango_attr_family_new(family string) *Attribute {
 
 // Create a new foreground color attribute.
 func pango_attr_foreground_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_FOREGROUND, Data: AttrColor{red: red, green: green, blue: blue}}
+	out := Attribute{Type: ATTR_FOREGROUND, Data: AttrColor{Red: red, Green: green, Blue: blue}}
 	out.pango_attribute_init()
 	return &out
 }
 
 // Create a new background color attribute.
 func pango_attr_background_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_BACKGROUND, Data: AttrColor{red: red, green: green, blue: blue}}
+	out := Attribute{Type: ATTR_BACKGROUND, Data: AttrColor{Red: red, Green: green, Blue: blue}}
 	out.pango_attribute_init()
 	return &out
 }
@@ -427,7 +427,7 @@ func pango_attr_background_new(red, green, blue uint16) *Attribute {
 // modifies the color of underlines. If not set, underlines
 // will use the foreground color.
 func pango_attr_underline_color_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_UNDERLINE_COLOR, Data: AttrColor{red: red, green: green, blue: blue}}
+	out := Attribute{Type: ATTR_UNDERLINE_COLOR, Data: AttrColor{Red: red, Green: green, Blue: blue}}
 	out.pango_attribute_init()
 	return &out
 }
@@ -436,7 +436,7 @@ func pango_attr_underline_color_new(red, green, blue uint16) *Attribute {
 // modifies the color of overlines. If not set, overlines
 // will use the foreground color.
 func pango_attr_overline_color_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_OVERLINE_COLOR, Data: AttrColor{red: red, green: green, blue: blue}}
+	out := Attribute{Type: ATTR_OVERLINE_COLOR, Data: AttrColor{Red: red, Green: green, Blue: blue}}
 	out.pango_attribute_init()
 	return &out
 }
@@ -445,7 +445,7 @@ func pango_attr_overline_color_new(red, green, blue uint16) *Attribute {
 // modifies the color of strikethrough lines. If not set, strikethrough lines
 // will use the foreground color.
 func pango_attr_strikethrough_color_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_STRIKETHROUGH_COLOR, Data: AttrColor{red: red, green: green, blue: blue}}
+	out := Attribute{Type: ATTR_STRIKETHROUGH_COLOR, Data: AttrColor{Red: red, Green: green, Blue: blue}}
 	out.pango_attribute_init()
 	return &out
 }

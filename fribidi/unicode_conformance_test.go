@@ -125,7 +125,7 @@ func runOneSimpleBidi(lineData testData) ([]Level, []int) {
 		if types[i] == ON {
 			bracketTypes[i] = GetBracket(c)
 		} else {
-			bracketTypes[i] = noBracket
+			bracketTypes[i] = NoBracket
 		}
 	}
 

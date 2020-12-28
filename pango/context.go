@@ -1,6 +1,12 @@
 package pango
 
-import "log"
+import (
+	"log"
+	"sync"
+	"unicode"
+
+	"github.com/benoitkugler/go-weasyprint/fribidi"
+)
 
 // /**
 //  * SECTION:main
@@ -52,7 +58,7 @@ type Context struct {
 
 // pango_context_load_font loads the font in one of the fontmaps in the context
 // that is the closest match for `desc`, or nil if no font matched.
-func (context *Context) pango_context_load_font(desc FontDescription) Font {
+func (context *Context) pango_context_load_font(desc *FontDescription) Font {
 	if context == nil || context.font_map == nil {
 		return nil
 	}
@@ -62,33 +68,35 @@ func (context *Context) pango_context_load_font(desc FontDescription) Font {
 // pango_itemize_with_base_dir is like pango_itemize(), but the base direction to use when
 // computing bidirectional levels (see pango_context_set_base_dir ()),
 // is specified explicitly rather than gotten from the Context.
-// func (context *Context) pango_itemize_with_base_dir(base_dir Direction, text []rune,
-// 	//   start_index,   length int,
-// 	attrs AttrList, cached_iter *AttrIterator) []Item {
-// 	//    ItemizeState state;
+func (context *Context) pango_itemize_with_base_dir(base_dir Direction, text []rune,
+	start_index, length int,
+	attrs AttrList, cached_iter *AttrIterator) []*Item {
 
-// 	//    g_return_val_if_fail (context != nil, nil);
-// 	//    g_return_val_if_fail (start_index >= 0, nil);
-// 	//    g_return_val_if_fail (length >= 0, nil);
-// 	//    g_return_val_if_fail (length == 0 || text != nil, nil);
+	if context == nil || len(text) == 0 {
+		return nil
+	}
 
-// 	if context == nil || len(text) == 0 {
-// 		return nil
-// 	}
+	state := context.itemize_state_init(text, base_dir, start_index, length,
+		attrs, cached_iter, nil)
 
-// 	itemize_state_init(&state, context, text, base_dir, start_index, length,
-// 		attrs, cached_iter, nil)
+	do := true // do ... for
+	for do {
+		state.itemize_state_process_run()
+		do = state.itemize_state_next()
+	}
 
-// 	do := true // do ... for
-// 	for do {
-// 		itemize_state_process_run(&state)
-// 		do = itemize_state_next(&state)
-// 	}
+	state.itemize_state_finish()
 
-// 	itemize_state_finish(&state)
+	itemsReverse(state.result)
+	return state.result
+}
 
-// 	return g_list_reverse(state.result)
-// }
+func itemsReverse(str []*Item) {
+	for i := len(str)/2 - 1; i >= 0; i-- {
+		opp := len(str) - 1 - i
+		str[i], str[opp] = str[opp], str[i]
+	}
+}
 
 //  struct _ContextClass
 //  {
@@ -600,89 +608,33 @@ func (iterator *AttrIterator) advance_attr_iterator_to(start_index int) bool {
 	return true
 }
 
-//  /***************************************************************************
-//   * We cache the results of character,fontset => font in a hash table
-//   ***************************************************************************/
+/***************************************************************************
+ * We cache the results of character,fontset => font in a hash table
+ ***************************************************************************/
 
-//  typedef struct {
-//    GHashTable *hash;
-//  } FontCache;
+// we could maybe use a sync.Map ?
+type FontCache struct {
+	store map[rune]Font
+	lock  sync.RWMutex
+}
 
-//  typedef struct {
-//    PangoFont *font;
-//  } FontElement;
+// NewFontCache initialize a new font cache.
+func NewFontCache() *FontCache {
+	return &FontCache{store: make(map[rune]Font)}
+}
 
-//  static void
-//  font_cache_destroy (FontCache *cache)
-//  {
-//    g_hash_table_destroy (cache.hash);
-//    g_slice_free (FontCache, cache);
-//  }
+func (cache *FontCache) font_cache_get(wc rune) (Font, bool) {
+	cache.lock.RLock()
+	defer cache.lock.RUnlock()
+	f, b := cache.store[wc]
+	return f, b
+}
 
-//  static void
-//  font_element_destroy (FontElement *element)
-//  {
-//    if (element.font)
-// 	 g_object_unref (element.font);
-//    g_slice_free (FontElement, element);
-//  }
-
-//  static FontCache *
-//  get_font_cache (PangoFontset *fontset)
-//  {
-//    FontCache *cache;
-
-//    static GQuark cache_quark = 0; /* MT-safe */
-//    if (G_UNLIKELY (!cache_quark))
-// 	 cache_quark = g_quark_from_static_string ("pango-font-cache");
-
-//  retry:
-//    cache = g_object_get_qdata (G_OBJECT (fontset), cache_quark);
-//    if (G_UNLIKELY (!cache))
-// 	 {
-// 	   cache = g_slice_new (FontCache);
-// 	   cache.hash = g_hash_table_new_full (g_direct_hash, nil,
-// 						nil, (GDestroyNotify)font_element_destroy);
-// 	   if (!g_object_replace_qdata (G_OBJECT (fontset), cache_quark, nil,
-// 									cache, (GDestroyNotify)font_cache_destroy,
-// 									nil))
-// 		 {
-// 		   font_cache_destroy (cache);
-// 		   goto retry;
-// 		 }
-// 	 }
-
-//    return cache;
-//  }
-
-//  static bool
-//  font_cache_get (FontCache   *cache,
-// 		 gunichar     wc,
-// 		 PangoFont  **font)
-//  {
-//    FontElement *element;
-
-//    element = g_hash_table_lookup (cache.hash, GUINT_TO_POINTER (wc));
-//    if (element)
-// 	 {
-// 	   *font = element.font;
-
-// 	   return true;
-// 	 }
-//    else
-// 	 return false;
-//  }
-
-//  static void
-//  font_cache_insert (FontCache   *cache,
-// 			gunichar           wc,
-// 			PangoFont         *font)
-//  {
-//    FontElement *element = g_slice_new (FontElement);
-//    element.font = font ? g_object_ref (font) : nil;
-
-//    g_hash_table_insert (cache.hash, GUINT_TO_POINTER (wc), element);
-//  }
+func (cache *FontCache) font_cache_insert(wc rune, font Font) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+	cache.store[wc] = font
+}
 
 //  /**********************************************************************/
 
@@ -811,13 +763,13 @@ type ItemizeState struct {
 
 	run_start, run_end int // index in text
 
-	//    GList *result;
-	item *Item
+	result []*Item
+	item   *Item
 
-	embedding_levels     []uint8
+	embedding_levels     []fribidi.Level
 	embedding_end_offset int
 	embedding_end        int
-	embedding            uint8
+	embedding            fribidi.Level
 
 	gravity           Gravity
 	gravity_hint      GravityHint
@@ -843,11 +795,11 @@ type ItemizeState struct {
 	width_iter WidthIter
 	emoji_iter EmojiIter
 
-	derived_lang *Language
+	derived_lang Language
 
-	current_fonts *Fontset
-	// cache           *FontCache
-	base_font       *Font
+	current_fonts   Fontset
+	cache           *FontCache
+	base_font       Font
 	enable_fallback bool
 }
 
@@ -940,42 +892,187 @@ func (state *ItemizeState) update_end() {
 	}
 }
 
+func (state *ItemizeState) itemize_state_update_for_new_run() {
+	// This block should be moved to update_attr_iterator, but I'm too lazy to do it right now
+	if state.changed&(FONT_CHANGED|SCRIPT_CHANGED|WIDTH_CHANGED) != 0 {
+		/* Font-desc gravity overrides everything */
+		if state.font_desc_gravity != PANGO_GRAVITY_AUTO {
+			state.resolved_gravity = state.font_desc_gravity
+		} else {
+			gravity := state.gravity
+			gravity_hint := state.gravity_hint
+
+			if gravity == PANGO_GRAVITY_AUTO {
+				gravity = state.context.resolved_gravity
+			}
+
+			state.resolved_gravity = pango_gravity_get_for_script_and_width(state.script,
+				state.width_iter.upright, gravity, gravity_hint)
+		}
+
+		if state.font_desc_gravity != state.resolved_gravity {
+			state.font_desc.pango_font_description_set_gravity(state.resolved_gravity)
+			state.changed |= FONT_CHANGED
+		}
+	}
+
+	if state.changed&(SCRIPT_CHANGED|LANG_CHANGED) != 0 {
+		old_derived_lang := state.derived_lang
+		state.derived_lang = state.lang.compute_derived_language(state.script)
+		if old_derived_lang != state.derived_lang {
+			state.changed |= DERIVED_LANG_CHANGED
+		}
+	}
+
+	if state.changed&(EMOJI_CHANGED) != 0 {
+		state.changed |= FONT_CHANGED
+	}
+
+	if state.changed&(FONT_CHANGED|DERIVED_LANG_CHANGED) != 0 && state.current_fonts != nil {
+		state.current_fonts = nil
+		state.cache = nil
+	}
+
+	if state.current_fonts == nil {
+		is_emoji := state.emoji_iter.is_emoji
+		if is_emoji && state.emoji_font_desc == nil {
+			cp := *state.font_desc // copy
+			state.emoji_font_desc = &cp
+			state.emoji_font_desc.pango_font_description_set_family("emoji")
+		}
+		fontDescArg := state.font_desc
+		if is_emoji {
+			fontDescArg = state.emoji_font_desc
+		}
+		state.current_fonts = state.context.font_map.load_fontset(
+			state.context, fontDescArg, state.derived_lang)
+		state.cache = state.current_fonts.get_font_cache()
+	}
+
+	if (state.changed&FONT_CHANGED) != 0 && state.base_font != nil {
+		state.base_font = nil
+	}
+}
+
+func (state *ItemizeState) itemize_state_process_run() {
+	last_was_forced_break := false
+
+	state.itemize_state_update_for_new_run()
+
+	for pos, wc := range state.text[state.run_start:state.run_end] {
+		is_forced_break := (wc == '\t' || wc == LINE_SEPARATOR)
+		var font Font
+
+		// We don't want space characters to affect font selection; in general,
+		// it's always wrong to select a font just to render a space.
+		// We assume that all fonts have the ASCII space, and for other space
+		// characters if they don't, HarfBuzz will compatibility-decompose them
+		// to ASCII space...
+		// See bugs #355987 and #701652.
+		//
+		// We don't want to change fonts just for variation selectors.
+		// See bug #781123.
+		//
+		// Finally, don't change fonts for line or paragraph separators.
+		isIn := unicode.In(wc, unicode.Cc, unicode.Cf, unicode.Cs, unicode.Zl, unicode.Zp)
+		if isIn || (unicode.Is(unicode.Zs, wc) && wc != '\u1680' /* OGHAM SPACE MARK */) ||
+			(wc >= '\ufe00' && wc <= '\ufe0f') || (wc >= '\U000e0100' && wc <= '\U000e01ef') {
+			font = nil
+		} else {
+			font, _ = state.get_font(wc)
+		}
+
+		state.itemize_state_add_character(font, is_forced_break || last_was_forced_break, pos)
+
+		last_was_forced_break = is_forced_break
+	}
+
+	/* Finish the final item from the current segment */
+	state.item.length = state.run_end - state.item.offset
+	if state.item.analysis.font == nil {
+		font, ok := state.get_font(' ')
+		if !ok {
+			// TODO: the C implementation only warn once per fontmap/script pair
+			// fontmap := state.context.font_map
+			// script_tag := fmt.Sprintf("g-unicode-script-%s", state.script)
+			log.Printf("failed to choose a font for script %s: expect ugly output", state.script)
+		}
+		state.itemize_state_fill_font(font)
+	}
+	state.item = nil
+}
+
+type getFontInfo struct {
+	lang Language
+	wc   rune
+	font Font
+}
+
+func (info *getFontInfo) get_font_foreach(fontset Fontset, font Font) bool {
+	if font == nil {
+		return false
+	}
+
+	if pango_font_has_char(font, info.wc) {
+		info.font = font
+		return true
+	}
+
+	if fontset == nil {
+		info.font = font
+		return true
+	}
+
+	return false
+}
+
+func (state *ItemizeState) get_font(wc rune) (Font, bool) {
+	// We'd need a separate cache when fallback is disabled, but since lookup
+	// with fallback disabled is faster anyways, we just skip caching.
+	if state.enable_fallback {
+		if font, ok := state.cache.font_cache_get(wc); ok {
+			return font, true
+		}
+	}
+
+	info := getFontInfo{lang: state.derived_lang, wc: wc}
+
+	if state.enable_fallback {
+		state.current_fonts.foreach(info.get_font_foreach)
+	} else {
+		info.get_font_foreach(nil, state.get_base_font())
+	}
+
+	/* skip caching if fallback disabled (see above) */
+	if state.enable_fallback {
+		state.cache.font_cache_insert(wc, info.font)
+	}
+	return info.font, true
+}
+
 //  }
 
-//  static void
-//  width_iter_fini (PangoWidthIter* iter)
-//  {
-//  }
-
-func (context *Context) itemize_state_init(text []rune,
-	base_dir Direction,
+func (context *Context) itemize_state_init(text []rune, base_dir Direction,
 	start_index, length int,
-	attrs AttrList,
-	cached_iter *AttrIterator,
-	desc *FontDescription) *ItemizeState {
+	attrs AttrList, cached_iter *AttrIterator, desc *FontDescription) *ItemizeState {
 
 	var state ItemizeState
 	state.context = context
 	state.text = text
 	state.end = start_index + length
 
-	// state.result = nil
-	// state.item = nil
-
 	state.run_start = start_index
 	state.changed = EMBEDDING_CHANGED | SCRIPT_CHANGED | LANG_CHANGED |
 		FONT_CHANGED | WIDTH_CHANGED | EMOJI_CHANGED
 
 	// First, apply the bidirectional algorithm to break the text into directional runs.
-	// TODO:
-	// state.embedding_levels = pango_log2vis_get_embedding_levels(text+start_index, length, &base_dir)
+	base_dir, state.embedding_levels = pango_log2vis_get_embedding_levels(text[start_index:start_index+length], base_dir)
 
 	state.embedding_end_offset = 0
 	state.embedding_end = start_index
 	state.update_embedding_end()
 
-	/* Initialize the attribute iterator
-	 */
+	// Initialize the attribute iterator
 	if cached_iter != nil {
 		state.attr_iter = cached_iter
 	} else if len(attrs) != 0 {
@@ -1000,8 +1097,7 @@ func (context *Context) itemize_state_init(text []rune,
 		state.enable_fallback = true
 	}
 
-	/* Initialize the script iterator
-	 */
+	// Initialize the script iterator
 	state.script_iter._pango_script_iter_init(text[start_index:])
 	state.script_end, state.script = state.script_iter.script_end, state.script_iter.script_code
 
@@ -1024,460 +1120,143 @@ func (context *Context) itemize_state_init(text []rune,
 	state.centered_baseline = state.context.resolved_gravity.isVertical()
 	state.gravity_hint = state.context.gravity_hint
 	state.resolved_gravity = PANGO_GRAVITY_AUTO
-	// state.derived_lang = nil
-	// state.current_fonts = nil
-	// state.cache = nil
-	// state.base_font = nil
 
 	return &state
 }
 
-//  static bool
-//  itemize_state_next (ItemizeState *state)
-//  {
-//    if (state.run_end == state.end)
-// 	 return false;
-
-//    state.changed = 0;
-
-//    state.run_start = state.run_end;
-
-//    if (state.run_end == state.embedding_end)
-// 	 {
-// 	   update_embedding_end (state);
-// 	 }
-
-//    if (state.run_end == state.attr_end)
-// 	 {
-// 	   pango_attr_iterator_next (state.attr_iter);
-// 	   update_attr_iterator (state);
-// 	 }
-
-//    if (state.run_end == state.script_end)
-// 	 {
-// 	   pango_script_iter_next (&state.script_iter);
-// 	   pango_script_iter_get_range (&state.script_iter, nil,
-// 					&state.script_end, &state.script);
-// 	   state.changed |= SCRIPT_CHANGED;
-// 	 }
-//    if (state.run_end == state.emoji_iter.end)
-// 	 {
-// 	   _pango_emoji_iter_next (&state.emoji_iter);
-// 	   state.changed |= EMOJI_CHANGED;
-
-// 	   if (state.emoji_iter.is_emoji)
-// 		 state.width_iter.end = MAX (state.width_iter.end, state.emoji_iter.end);
-// 	 }
-//    if (state.run_end == state.width_iter.end)
-// 	 {
-// 	   width_iter_next (&state.width_iter);
-// 	   state.changed |= WIDTH_CHANGED;
-// 	 }
-
-//    update_end (state);
-
-//    return true;
-//  }
-
-//  static GSList *
-//  copy_attr_slist (GSList *attr_slist)
-//  {
-//    GSList *new_list = nil;
-//    GSList *l;
-
-//    for (l = attr_slist; l; l = l.next)
-// 	 new_list = g_slist_prepend (new_list, pango_attribute_copy (l.data));
-
-//    return g_slist_reverse (new_list);
-//  }
-
-//  static void
-//  itemize_state_fill_font (ItemizeState *state,
-// 			  PangoFont    *font)
-//  {
-//    GList *l;
-
-//    for (l = state.result; l; l = l.next)
-// 	 {
-// 	   PangoItem *item = l.data;
-// 	   if (item.analysis.font)
-// 		 break;
-// 	   if (font)
-// 	 item.analysis.font = g_object_ref (font);
-// 	 }
-//  }
-
-//  static void
-//  itemize_state_add_character (ItemizeState *state,
-// 				  PangoFont    *font,
-// 				  bool      force_break,
-// 				  const char   *pos)
-//  {
-//    if (state.item)
-// 	 {
-// 	   if (!state.item.analysis.font && font)
-// 	 {
-// 	   itemize_state_fill_font (state, font);
-// 	 }
-// 	   else if (state.item.analysis.font && !font)
-// 	 {
-// 	   font = state.item.analysis.font;
-// 	 }
-
-// 	   if (!force_break &&
-// 	   state.item.analysis.font == font)
-// 	 {
-// 	   state.item.num_chars++;
-// 	   return;
-// 	 }
-
-// 	   state.item.length = (pos - state.text) - state.item.offset;
-// 	 }
-
-//    state.item = pango_item_new ();
-//    state.item.offset = pos - state.text;
-//    state.item.length = 0;
-//    state.item.num_chars = 1;
-
-//    if (font)
-// 	 g_object_ref (font);
-//    state.item.analysis.font = font;
-
-//    state.item.analysis.level = state.embedding;
-//    state.item.analysis.gravity = state.resolved_gravity;
-
-//    /* The level vs. gravity dance:
-// 	*	- If gravity is SOUTH, leave level untouched.
-// 	*	- If gravity is NORTH, step level one up, to
-// 	*	  not get mirrored upside-down text.
-// 	*	- If gravity is EAST, step up to an even level, as
-// 	*	  it's a clockwise-rotated layout, so the rotated
-// 	*	  top is unrotated left.
-// 	*	- If gravity is WEST, step up to an odd level, as
-// 	*	  it's a counter-clockwise-rotated layout, so the rotated
-// 	*	  top is unrotated right.
-// 	*
-// 	* A similar dance is performed in pango-layout.c:
-// 	* line_set_resolved_dir().  Keep in synch.
-// 	*/
-//    switch (state.item.analysis.gravity)
-// 	 {
-// 	   case PANGO_GRAVITY_SOUTH:
-// 	   default:
-// 	 break;
-// 	   case PANGO_GRAVITY_NORTH:
-// 	 state.item.analysis.level++;
-// 	 break;
-// 	   case PANGO_GRAVITY_EAST:
-// 	 state.item.analysis.level += 1;
-// 	 state.item.analysis.level &= ~1;
-// 	 break;
-// 	   case PANGO_GRAVITY_WEST:
-// 	 state.item.analysis.level |= 1;
-// 	 break;
-// 	 }
-
-//    state.item.analysis.flags = state.centered_baseline ? PANGO_ANALYSIS_FLAG_CENTERED_BASELINE : 0;
-
-//    state.item.analysis.script = state.script;
-//    state.item.analysis.language = state.derived_lang;
-
-//    if (state.copy_extra_attrs)
-// 	 {
-// 	   state.item.analysis.extra_attrs = copy_attr_slist (state.extra_attrs);
-// 	 }
-//    else
-// 	 {
-// 	   state.item.analysis.extra_attrs = state.extra_attrs;
-// 	   state.copy_extra_attrs = true;
-// 	 }
-
-//    state.result = g_list_prepend (state.result, state.item);
-//  }
-
-//  typedef struct {
-//    PangoLanguage *lang;
-//    gunichar wc;
-//    PangoFont *font;
-//  } GetFontInfo;
-
-//  static bool
-//  get_font_foreach (PangoFontset *fontset,
-// 		   PangoFont    *font,
-// 		   gpointer      data)
-//  {
-//    GetFontInfo *info = data;
-
-//    if (G_UNLIKELY (!font))
-// 	 return false;
-
-//    if (pango_font_has_char (font, info.wc))
-// 	 {
-// 	   info.font = font;
-// 	   return true;
-// 	 }
-
-//    if (!fontset)
-// 	 {
-// 	   info.font = font;
-// 	   return true;
-// 	 }
-
-//    return false;
-//  }
-
-//  static PangoFont *
-//  get_base_font (ItemizeState *state)
-//  {
-//    if (!state.base_font)
-// 	 state.base_font = pango_font_map_load_font (state.context.font_map,
-// 						  state.context,
-// 						  state.font_desc);
-//    return state.base_font;
-//  }
-
-//  static bool
-//  get_font (ItemizeState  *state,
-// 		   gunichar       wc,
-// 		   PangoFont    **font)
-//  {
-//    GetFontInfo info;
-
-//    /* We'd need a separate cache when fallback is disabled, but since lookup
-// 	* with fallback disabled is faster anyways, we just skip caching */
-//    if (state.enable_fallback && font_cache_get (state.cache, wc, font))
-// 	 return true;
-
-//    info.lang = state.derived_lang;
-//    info.wc = wc;
-//    info.font = nil;
-
-//    if (state.enable_fallback)
-// 	 pango_fontset_foreach (state.current_fonts, get_font_foreach, &info);
-//    else
-// 	 get_font_foreach (nil, get_base_font (state), &info);
-
-//    *font = info.font;
-
-//    /* skip caching if fallback disabled (see above) */
-//    if (state.enable_fallback)
-// 	 font_cache_insert (state.cache, wc, *font);
-
-//    return true;
-//  }
-
-//  static PangoLanguage *
-//  compute_derived_language (PangoLanguage *lang,
-// 			   PangoScript    script)
-//  {
-//    PangoLanguage *derived_lang;
-
-//    /* Make sure the language tag is consistent with the derived
-// 	* script. There is no point in marking up a section of
-// 	* Arabic text with the "en" language tag.
-// 	*/
-//    if (lang && pango_language_includes_script (lang, script))
-// 	 derived_lang = lang;
-//    else
-// 	 {
-// 	   derived_lang = pango_script_get_sample_language (script);
-// 	   /* If we don't find a sample language for the script, we
-// 		* use a language tag that shouldn't actually be used
-// 		* anywhere. This keeps fontconfig (for the PangoFc*
-// 		* backend) from using the language tag to affect the
-// 		* sort order. I don't have a reference for 'xx' being
-// 		* safe here, though Keith Packard claims it is.
-// 		*/
-// 	   if (!derived_lang)
-// 	 derived_lang = pango_language_from_string ("xx");
-// 	 }
-
-//    return derived_lang;
-//  }
-
-//  static void
-//  itemize_state_update_for_new_run (ItemizeState *state)
-//  {
-//    /* This block should be moved to update_attr_iterator, but I'm too lazy to
-// 	* do it right now */
-//    if (state.changed & (FONT_CHANGED | SCRIPT_CHANGED | WIDTH_CHANGED))
-// 	 {
-// 	   /* Font-desc gravity overrides everything */
-// 	   if (state.font_desc_gravity != PANGO_GRAVITY_AUTO)
-// 	 {
-// 	   state.resolved_gravity = state.font_desc_gravity;
-// 	 }
-// 	   else
-// 	 {
-// 	   PangoGravity gravity = state.gravity;
-// 	   PangoGravityHint gravity_hint = state.gravity_hint;
-
-// 	   if (G_LIKELY (gravity == PANGO_GRAVITY_AUTO))
-// 		 gravity = state.context.resolved_gravity;
-
-// 	   state.resolved_gravity = pango_gravity_get_for_script_and_width (state.script,
-// 										 state.width_iter.upright,
-// 										 gravity,
-// 										 gravity_hint);
-// 	 }
-
-// 	   if (state.font_desc_gravity != state.resolved_gravity)
-// 	 {
-// 	   pango_font_description_set_gravity (state.font_desc, state.resolved_gravity);
-// 	   state.changed |= FONT_CHANGED;
-// 	 }
-// 	 }
-
-//    if (state.changed & (SCRIPT_CHANGED | LANG_CHANGED))
-// 	 {
-// 	   PangoLanguage *old_derived_lang = state.derived_lang;
-// 	   state.derived_lang = compute_derived_language (state.lang, state.script);
-// 	   if (old_derived_lang != state.derived_lang)
-// 	 state.changed |= DERIVED_LANG_CHANGED;
-// 	 }
-
-//    if (state.changed & (EMOJI_CHANGED))
-// 	 {
-// 	   state.changed |= FONT_CHANGED;
-// 	 }
-
-//    if (state.changed & (FONT_CHANGED | DERIVED_LANG_CHANGED) &&
-// 	   state.current_fonts)
-// 	 {
-// 	   g_object_unref (state.current_fonts);
-// 	   state.current_fonts = nil;
-// 	   state.cache = nil;
-// 	 }
-
-//    if (!state.current_fonts)
-// 	 {
-// 	   bool is_emoji = state.emoji_iter.is_emoji;
-// 	   if (is_emoji && !state.emoji_font_desc)
-// 	   {
-// 		 state.emoji_font_desc = pango_font_description_copy_static (state.font_desc);
-// 		 pango_font_description_set_family_static (state.emoji_font_desc, "emoji");
-// 	   }
-// 	   state.current_fonts = pango_font_map_load_fontset (state.context.font_map,
-// 							   state.context,
-// 							   is_emoji ? state.emoji_font_desc : state.font_desc,
-// 							   state.derived_lang);
-// 	   state.cache = get_font_cache (state.current_fonts);
-// 	 }
-
-//    if ((state.changed & FONT_CHANGED) && state.base_font)
-// 	 {
-// 	   g_object_unref (state.base_font);
-// 	   state.base_font = nil;
-// 	 }
-//  }
-
-//  static void
-//  itemize_state_process_run (ItemizeState *state)
-//  {
-//    const char *p;
-//    bool last_was_forced_break = false;
-
-//    /* Only one character has type G_UNICODE_LINE_SEPARATOR in Unicode 4.0;
-// 	* update this if that changes. */
-//  #define LINE_SEPARATOR 0x2028
-
-//    itemize_state_update_for_new_run (state);
-
-//    /* We should never get an empty run */
-//    g_assert (state.run_end != state.run_start);
-
-//    for (p = state.run_start;
-// 		p < state.run_end;
-// 		p = g_utf8_next_char (p))
-// 	 {
-// 	   gunichar wc = g_utf8_get_char (p);
-// 	   bool is_forced_break = (wc == '\t' || wc == LINE_SEPARATOR);
-// 	   PangoFont *font;
-// 	   GUnicodeType type;
-
-// 	   /* We don't want space characters to affect font selection; in general,
-// 		* it's always wrong to select a font just to render a space.
-// 		* We assume that all fonts have the ASCII space, and for other space
-// 		* characters if they don't, HarfBuzz will compatibility-decompose them
-// 		* to ASCII space...
-// 		* See bugs #355987 and #701652.
-// 		*
-// 		* We don't want to change fonts just for variation selectors.
-// 		* See bug #781123.
-// 		*
-// 		* Finally, don't change fonts for line or paragraph separators.
-// 		*/
-// 	   type = g_unichar_type (wc);
-// 	   if (G_UNLIKELY (type == G_UNICODE_CONTROL ||
-// 					   type == G_UNICODE_FORMAT ||
-// 					   type == G_UNICODE_SURROGATE ||
-// 					   type == G_UNICODE_LINE_SEPARATOR ||
-// 					   type == G_UNICODE_PARAGRAPH_SEPARATOR ||
-// 					   (type == G_UNICODE_SPACE_SEPARATOR && wc != 0x1680u /* OGHAM SPACE MARK */) ||
-// 					   (wc >= 0xfe00u && wc <= 0xfe0fu) ||
-// 					   (wc >= 0xe0100u && wc <= 0xe01efu)))
-// 		 {
-// 	   font = nil;
-// 		 }
-// 	   else
-// 		 {
-// 	   get_font (state, wc, &font);
-// 	 }
-
-// 	   itemize_state_add_character (state, font,
-// 					is_forced_break || last_was_forced_break,
-// 					p);
-
-// 	   last_was_forced_break = is_forced_break;
-// 	 }
-
-//    /* Finish the final item from the current segment */
-//    state.item.length = (p - state.text) - state.item.offset;
-//    if (!state.item.analysis.font)
-// 	 {
-// 	   PangoFont *font;
-
-// 	   if (G_UNLIKELY (!get_font (state, ' ', &font)))
-// 		 {
-// 		   /* If no font was found, warn once per fontmap/script pair */
-// 		   PangoFontMap *fontmap = state.context.font_map;
-// 		   char *script_tag = g_strdup_printf ("g-unicode-script-%d", state.script);
-
-// 		   if (!g_object_get_data (G_OBJECT (fontmap), script_tag))
-// 			 {
-// 			   g_warning ("failed to choose a font, expect ugly output. script='%d'",
-// 						  state.script);
-
-// 			   g_object_set_data_full (G_OBJECT (fontmap), script_tag,
-// 									   GINT_TO_POINTER (1), nil);
-// 			 }
-
-// 		   g_free (script_tag);
-
-// 		   font = nil;
-// 		 }
-// 	   itemize_state_fill_font (state, font);
-// 	 }
-//    state.item = nil;
-//  }
-
-//  static void
-//  itemize_state_finish (ItemizeState *state)
-//  {
-//    g_free (state.embedding_levels);
-//    if (state.free_attr_iter)
-// 	 pango_attr_iterator_destroy (state.attr_iter);
-//    _pango_script_iter_fini (&state.script_iter);
-//    pango_font_description_free (state.font_desc);
-//    pango_font_description_free (state.emoji_font_desc);
-//    width_iter_fini (&state.width_iter);
-//    _pango_emoji_iter_fini (&state.emoji_iter);
-
-//    if (state.current_fonts)
-// 	 g_object_unref (state.current_fonts);
-//    if (state.base_font)
-// 	 g_object_unref (state.base_font);
-//  }
+func (state *ItemizeState) itemize_state_next() bool {
+	if state.run_end == state.end {
+		return false
+	}
+
+	state.changed = 0
+
+	state.run_start = state.run_end
+
+	if state.run_end == state.embedding_end {
+		state.update_embedding_end()
+	}
+
+	if state.run_end == state.attr_end {
+		state.attr_iter.pango_attr_iterator_next()
+		state.update_attr_iterator()
+	}
+
+	if state.run_end == state.script_end {
+		state.script_iter.pango_script_iter_next()
+		state.script_end, state.script = state.script_iter.script_end, state.script_iter.script_code
+		state.changed |= SCRIPT_CHANGED
+	}
+	if state.run_end == state.emoji_iter.end {
+		state.emoji_iter._pango_emoji_iter_next()
+		state.changed |= EMOJI_CHANGED
+
+		if state.emoji_iter.is_emoji {
+			state.width_iter.end = max(state.width_iter.end, state.emoji_iter.end)
+		}
+	}
+	if state.run_end == state.width_iter.end {
+		state.width_iter.width_iter_next()
+		state.changed |= WIDTH_CHANGED
+	}
+
+	state.update_end()
+
+	return true
+}
+
+func (state *ItemizeState) itemize_state_fill_font(font Font) {
+	for _, item := range state.result {
+		if item.analysis.font != nil {
+			break
+		}
+		if font != nil {
+			item.analysis.font = font
+		}
+	}
+}
+
+// pos is the index into text
+func (state *ItemizeState) itemize_state_add_character(font Font, force_break bool, pos int) {
+	if item := state.item; item != nil {
+		if item.analysis.font == nil && font != nil {
+			state.itemize_state_fill_font(font)
+		} else if item.analysis.font != nil && font == nil {
+			font = item.analysis.font
+		}
+
+		if !force_break && item.analysis.font == font {
+			item.num_chars++
+			return
+		}
+
+		item.length = pos - item.offset
+	}
+
+	state.item = &Item{}
+	state.item.offset = pos
+	state.item.length = 0
+	state.item.num_chars = 1
+
+	state.item.analysis.font = font
+
+	state.item.analysis.level = state.embedding
+	state.item.analysis.gravity = state.resolved_gravity
+
+	/* The level vs. gravity dance:
+	*	- If gravity is SOUTH, leave level untouched.
+	*	- If gravity is NORTH, step level one up, to
+	*	  not get mirrored upside-down text.
+	*	- If gravity is EAST, step up to an even level, as
+	*	  it's a clockwise-rotated layout, so the rotated
+	*	  top is unrotated left.
+	*	- If gravity is WEST, step up to an odd level, as
+	*	  it's a counter-clockwise-rotated layout, so the rotated
+	*	  top is unrotated right.
+	*
+	* A similar dance is performed in pango-layout.c:
+	* line_set_resolved_dir().  Keep in synch.
+	 */
+	switch state.item.analysis.gravity {
+	case PANGO_GRAVITY_NORTH:
+		state.item.analysis.level++
+	case PANGO_GRAVITY_EAST:
+		state.item.analysis.level += 1
+		state.item.analysis.level &= ^1
+	case PANGO_GRAVITY_WEST:
+		state.item.analysis.level |= 1
+	}
+
+	if state.centered_baseline {
+		state.item.analysis.flags = PANGO_ANALYSIS_FLAG_CENTERED_BASELINE
+	} else {
+		state.item.analysis.flags = 0
+	}
+
+	state.item.analysis.script = state.script
+	state.item.analysis.language = state.derived_lang
+
+	if state.copy_extra_attrs {
+		state.item.analysis.extra_attrs = state.extra_attrs.pango_attr_list_copy()
+	} else {
+		state.item.analysis.extra_attrs = state.extra_attrs
+		state.copy_extra_attrs = true
+	}
+
+	// prepend
+	state.result = append(state.result, nil)
+	copy(state.result, state.result[1:])
+	state.result[0] = state.item
+}
+
+func (state *ItemizeState) get_base_font() Font {
+	if state.base_font == nil {
+		state.base_font = state.context.font_map.load_font(state.context, state.font_desc)
+	}
+	return state.base_font
+}
+
+func (state *ItemizeState) itemize_state_finish() {} // only memory cleanup
 
 //  static GList *
 //  itemize_with_font (Context               *context,

@@ -1,14 +1,12 @@
 package pango
 
-//  /**
-//   * PANGO_ANALYSIS_FLAG_CENTERED_BASELINE:
-//   *
-//   * Whether the segment should be shifted to center around the baseline.
-//   * Used in vertical writing directions mostly.
-//   *
-//   * Since: 1.16
-//   */
-//  #define PANGO_ANALYSIS_FLAG_CENTERED_BASELINE (1 << 0)
+import "github.com/benoitkugler/go-weasyprint/fribidi"
+
+const (
+	// Whether the segment should be shifted to center around the baseline.
+	// Used in vertical writing directions mostly.
+	PANGO_ANALYSIS_FLAG_CENTERED_BASELINE = 1 << 0
+)
 
 //  /**
 //   * PANGO_ANALYSIS_FLAG_IS_ELLIPSIS:
@@ -36,14 +34,14 @@ type Analysis struct {
 	// lang_engine  *PangoEngineLang
 	font Font // the font for this segment.
 
-	level   uint8 //  the bidirectional level for this segment.
-	gravity uint8 //  the glyph orientation for this segment (A #PangoGravity).
-	flags   uint8 //  boolean flags for this segment (Since: 1.16).
+	level   fribidi.Level //  the bidirectional level for this segment.
+	gravity Gravity       //  the glyph orientation for this segment (A #PangoGravity).
+	flags   uint8         //  boolean flags for this segment (Since: 1.16).
 
-	script   uint8     // the detected script for this segment (A #PangoScript) (Since: 1.18).
-	language *Language // the detected language for this segment.
+	script   Script   // the detected script for this segment (A #PangoScript) (Since: 1.18).
+	language Language // the detected language for this segment.
 
-	extra_attrs []interface{} // extra attributes for this segment.
+	extra_attrs AttrList // extra attributes for this segment.
 }
 
 // Item stores information about a segment of text.

@@ -136,7 +136,7 @@ const (
 /* Return the minimum level of the direction, 0 for FRIBIDI_TYPE_LTR and
    1 for FRIBIDI_TYPE_RTL and FRIBIDI_TYPE_AL. */
 func dirToLevel(dir ParType) Level {
-	if dir.isRtl() {
+	if dir.IsRtl() {
 		return 1
 	}
 	return 0
@@ -219,20 +219,20 @@ func (c CharType) String() string {
 	}
 }
 
-// isStrong checks if `p` is string.
-func (p CharType) isStrong() bool { return p&maskSTRONG != 0 }
+// IsStrong checks if `p` is string.
+func (p CharType) IsStrong() bool { return p&maskSTRONG != 0 }
 
 // IsRight checks is `p` is right to left: RTL, AL, RLE, RLO ?
-func (p CharType) isRtl() bool { return p&maskRTL != 0 }
+func (p CharType) IsRtl() bool { return p&maskRTL != 0 }
 
 // isNeutral checks is `p` is neutral ?
 func (p CharType) isNeutral() bool { return p&maskNEUTRAL != 0 }
 
-// isLetter checks is `p` is letter : L, R, AL ?
-func (p CharType) isLetter() bool { return p&maskLETTER != 0 }
+// IsLetter checks is `p` is letter : L, R, AL ?
+func (p CharType) IsLetter() bool { return p&maskLETTER != 0 }
 
-// isNumber checks is `p` is number : EN, AN ?
-func (p CharType) isNumber() bool { return p&maskNUMBER != 0 }
+// IsNumber checks is `p` is number : EN, AN ?
+func (p CharType) IsNumber() bool { return p&maskNUMBER != 0 }
 
 // IsNumber checks is `p` is number  separator or terminator: ES, ET, CS ?
 func (p CharType) isNumberSeparatorOrTerminator() bool { return p&maskNUMSEPTER != 0 }
@@ -241,7 +241,7 @@ func (p CharType) isNumberSeparatorOrTerminator() bool { return p&maskNUMSEPTER 
 func (p CharType) isExplicit() bool { return p&maskEXPLICIT != 0 }
 
 // IsIsolator checks is `p` is isolator
-func (p CharType) isIsolate() bool { return p&maskISOLATE != 0 }
+func (p CharType) IsIsolate() bool { return p&maskISOLATE != 0 }
 
 // IsText checks is `p` is text  separator: BS, SS ?
 func (p CharType) isSeparator() bool { return p&maskSEPARATOR != 0 }
@@ -271,11 +271,19 @@ func (p CharType) isExplicitOrSeparatorOrBnOrWs() bool {
 	return p&(maskEXPLICIT|maskSEPARATOR|maskBN|maskWS) != 0
 }
 
+// the following are used outside the pacakge
+
+// IsArabic checks if `p` is arabic: AL, AN?
+func (p CharType) IsArabic() bool { return p&maskARABIC != 0 }
+
+// IsWeak checks if `p` is weak
+func (p CharType) IsWeak() bool { return p&maskWEAK != 0 }
+
 //  Define some conversions.
 
 /* Change numbers to RTL: EN,AN -> RTL. */
 func (p CharType) changeNumberToRTL() CharType {
-	if p.isNumber() {
+	if p.IsNumber() {
 		return RTL
 	}
 	return p
@@ -486,7 +494,7 @@ func removeBidiMarks(str []rune, positionsToThis, positionFromThis []int, embedd
 
 	var j int
 	for i, r := range str {
-		if bType := GetBidiType(r); !bType.isExplicitOrBn() && !bType.isIsolate() &&
+		if bType := GetBidiType(r); !bType.isExplicitOrBn() && !bType.IsIsolate() &&
 			r != charLRM && r != charRLM {
 			str[j] = r
 			if hasLevels {

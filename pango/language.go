@@ -1,5 +1,11 @@
 package pango
 
+import (
+	"os"
+	"strings"
+	"sync"
+)
+
 // Language is used to represent a language.
 //
 // The actual value is the RFC-3066 format of the language
@@ -21,10 +27,10 @@ type Language string
 //  static void
 //  pango_language_private_init (PangoLanguagePrivate *priv)
 //  {
-//    priv->magic = PANGO_LANGUAGE_PRIVATE_MAGIC;
+//    priv.magic = PANGO_LANGUAGE_PRIVATE_MAGIC;
 
-//    priv->lang_info = (gconstpointer) -1;
-//    priv->script_for_lang = (gconstpointer) -1;
+//    priv.lang_info = (gconstpointer) -1;
+//    priv.script_for_lang = (gconstpointer) -1;
 //  }
 
 //  static PangoLanguagePrivate *
@@ -33,14 +39,14 @@ type Language string
 //    PangoLanguagePrivate *priv;
 
 //    if (!language)
-// 	 return NULL;
+// 	 return nil;
 
 //    priv = (PangoLanguagePrivate *)(void *)((char *)language - sizeof (PangoLanguagePrivate));
 
-//    if (G_UNLIKELY (priv->magic != PANGO_LANGUAGE_PRIVATE_MAGIC))
+//    if (G_UNLIKELY (priv.magic != PANGO_LANGUAGE_PRIVATE_MAGIC))
 // 	 {
 // 	   g_critical ("Invalid PangoLanguage.  Did you pass in a straight string instead of calling pango_language_from_string()?");
-// 	   return NULL;
+// 	   return nil;
 // 	 }
 
 //    return priv;
@@ -97,163 +103,67 @@ func lang_hash(key []byte) uint32 {
 	return h
 }
 
-//  /**
-//   * _pango_get_lc_ctype:
-//   *
-//   * Return the Unix-style locale string for the language currently in
-//   * effect. On Unix systems, this is the return value from
-//   * <literal>setlocale(LC_CTYPE, NULL)</literal>, and the user can
-//   * affect this through the environment variables LC_ALL, LC_CTYPE or
-//   * LANG (checked in that order). The locale strings typically is in
-//   * the form lang_COUNTRY, where lang is an ISO-639 language code, and
-//   * COUNTRY is an ISO-3166 country code. For instance, sv_FI for
-//   * Swedish as written in Finland or pt_BR for Portuguese as written in
-//   * Brazil.
-//   *
-//   * On Windows, the C library doesn't use any such environment
-//   * variables, and setting them won't affect the behavior of functions
-//   * like ctime(). The user sets the locale through the Regional Options
-//   * in the Control Panel. The C library (in the setlocale() function)
-//   * does not use country and language codes, but country and language
-//   * names spelled out in English.
-//   * However, this function does check the above environment
-//   * variables, and does return a Unix-style locale string based on
-//   * either said environment variables or the thread's current locale.
-//   *
-//   * Return value: a dynamically allocated string, free with g_free().
-//   */
-//  static gchar *
-//  _pango_get_lc_ctype (void)
-//  {
-//  #ifdef G_OS_WIN32
-//    /* Somebody might try to set the locale for this process using the
-// 	* LANG or LC_ environment variables. The Microsoft C library
-// 	* doesn't know anything about them. You set the locale in the
-// 	* Control Panel. Setting these env vars won't have any affect on
-// 	* locale-dependent C library functions like ctime(). But just for
-// 	* kicks, do obey LC_ALL, LC_CTYPE and LANG in Pango. (This also makes
-// 	* it easier to test GTK and Pango in various default languages, you
-// 	* don't have to clickety-click in the Control Panel, you can simply
-// 	* start the program with LC_ALL=something on the command line.)
-// 	*/
+// Return the Unix-style locale string for the language currently in
+// effect.
+// TODO: For now, we only check the  environment variables LC_ALL, LC_CTYPE or
+// LANG (in that order).
+func _pango_get_lc_ctype() string {
+	p, ok := os.LookupEnv("LC_ALL")
+	if ok {
+		return p
+	}
 
-//    gchar *p;
+	p, ok = os.LookupEnv("LC_CTYPE")
+	if ok {
+		return p
+	}
 
-//    p = getenv ("LC_ALL");
-//    if (p != NULL)
-// 	 return g_strdup (p);
+	p, ok = os.LookupEnv("LANG")
+	if ok {
+		return p
+	}
+	return "C"
+}
 
-//    p = getenv ("LC_CTYPE");
-//    if (p != NULL)
-// 	 return g_strdup (p);
+var (
+	defaultLanguage     Language
+	defaultLanguageOnce sync.Once
+)
 
-//    p = getenv ("LANG");
-//    if (p != NULL)
-// 	 return g_strdup (p);
+// pango_language_get_default returns the Language for the current locale of the process.
+// Note that this can change over the life of an application.
+//
+// On Unix systems, the return value is derived from
+// `setlocale(LC_CTYPE, nil)`, and the user can
+// affect this through the environment variables LC_ALL, LC_CTYPE or
+// LANG (checked in that order). The locale string typically is in
+// the form lang_COUNTRY, where lang is an ISO-639 language code, and
+// COUNTRY is an ISO-3166 country code. For instance, sv_FI for
+// Swedish as written in Finland or pt_BR for Portuguese as written in
+// Brazil.
+//
+// On Windows, the C library does not use any such environment
+// variables, and setting them won't affect the behavior of functions
+// like ctime(). The user sets the locale through the Regional Options
+// in the Control Panel. The C library (in the setlocale() function)
+// does not use country and language codes, but country and language
+// names spelled out in English.
+// However, this function does check the above environment
+// variables, and does return a Unix-style locale string based on
+// either said environment variables or the thread's current locale.
+//
+// Your application should call `setlocale(LC_ALL, "")`
+// for the user settings to take effect.  Gtk+ does this in its initialization
+// functions automatically (by calling gtk_set_locale()).
+// See <literal>man setlocale</literal> for more details.
+func pango_language_get_default() Language {
+	defaultLanguageOnce.Do(func() {
+		lc_ctype := _pango_get_lc_ctype()
+		defaultLanguage = pango_language_from_string(lc_ctype)
+	})
 
-//    return g_win32_getlocale ();
-//  #elif defined(HAVE_CORE_TEXT)
-//    CFArrayRef languages;
-//    CFStringRef language;
-//    gchar ret[16];
-//    gchar *p;
-
-//    /* Take the same approach as done for Windows above. First we check
-// 	* if somebody tried to set the locale through environment variables.
-// 	*/
-//    p = getenv ("LC_ALL");
-//    if (p != NULL)
-// 	 return g_strdup (p);
-
-//    p = getenv ("LC_CTYPE");
-//    if (p != NULL)
-// 	 return g_strdup (p);
-
-//    p = getenv ("LANG");
-//    if (p != NULL)
-// 	 return g_strdup (p);
-
-//    /* If the environment variables are not set, determine the locale
-// 	* through the platform-native API.
-// 	*/
-//    languages = CFLocaleCopyPreferredLanguages ();
-//    language = CFArrayGetValueAtIndex (languages, 0);
-
-//    if (!CFStringGetCString (language, ret, 16, kCFStringEncodingUTF8))
-// 	 {
-// 	   CFRelease (languages);
-// 	   return g_strdup (setlocale (LC_CTYPE, NULL));
-// 	 }
-
-//    CFRelease (languages);
-
-//    return g_strdup (ret);
-//  #else
-//    {
-// 	 gchar *lc_ctype = setlocale (LC_CTYPE, NULL);
-
-// 	 if (lc_ctype)
-// 	   return g_strdup (lc_ctype);
-// 	 else
-// 	   return g_strdup ("C");
-//    }
-//  #endif
-//  }
-
-//  /**
-//   * pango_language_get_default:
-//   *
-//   * Returns the #PangoLanguage for the current locale of the process.
-//   * Note that this can change over the life of an application.
-//   *
-//   * On Unix systems, this is the return value is derived from
-//   * <literal>setlocale(LC_CTYPE, NULL)</literal>, and the user can
-//   * affect this through the environment variables LC_ALL, LC_CTYPE or
-//   * LANG (checked in that order). The locale string typically is in
-//   * the form lang_COUNTRY, where lang is an ISO-639 language code, and
-//   * COUNTRY is an ISO-3166 country code. For instance, sv_FI for
-//   * Swedish as written in Finland or pt_BR for Portuguese as written in
-//   * Brazil.
-//   *
-//   * On Windows, the C library does not use any such environment
-//   * variables, and setting them won't affect the behavior of functions
-//   * like ctime(). The user sets the locale through the Regional Options
-//   * in the Control Panel. The C library (in the setlocale() function)
-//   * does not use country and language codes, but country and language
-//   * names spelled out in English.
-//   * However, this function does check the above environment
-//   * variables, and does return a Unix-style locale string based on
-//   * either said environment variables or the thread's current locale.
-//   *
-//   * Your application should call <literal>setlocale(LC_ALL, "");</literal>
-//   * for the user settings to take effect.  Gtk+ does this in its initialization
-//   * functions automatically (by calling gtk_set_locale()).
-//   * See <literal>man setlocale</literal> for more details.
-//   *
-//   * Return value: (transfer none): the default language as a
-//   *               #PangoLanguage, must not be freed.
-//   *
-//   * Since: 1.16
-//   **/
-//  PangoLanguage *
-//  pango_language_get_default (void)
-//  {
-//    static PangoLanguage *result = NULL; /* MT-safe */
-
-//    if (g_once_init_enter (&result))
-// 	 {
-// 	   gchar *lc_ctype;
-// 	   PangoLanguage *lang;
-
-// 	   lc_ctype = _pango_get_lc_ctype ();
-// 	   lang = pango_language_from_string (lc_ctype);
-// 	   g_free (lc_ctype);
-
-// 	   g_once_init_leave (&result, lang);
-// 	 }
-
-//    return result;
-//  }
+	return defaultLanguage
+}
 
 // var (
 // 	languageHashTable     = map[uint32]Language{}
@@ -291,147 +201,157 @@ func pango_language_from_string(language string) Language {
 	return Language(can)
 }
 
+func (lang Language) compute_derived_language(script Script) Language {
+	var derivedLang Language
+
+	/* Make sure the language tag is consistent with the derived
+	 * script. There is no point in marking up a section of
+	 * Arabic text with the "en" language tag.
+	 */
+	if lang != "" && lang.pango_language_includes_script(script) {
+		derivedLang = lang
+	} else {
+		derivedLang = script.pango_script_get_sample_language()
+		/* If we don't find a sample language for the script, we
+		 * use a language tag that shouldn't actually be used
+		 * anywhere. This keeps fontconfig (for the PangoFc*
+		 * backend) from using the language tag to affect the
+		 * sort order. I don't have a reference for 'xx' being
+		 * safe here, though Keith Packard claims it is.
+		 */
+		if derivedLang == "" {
+			derivedLang = "xx"
+		}
+	}
+
+	return derivedLang
+}
+
 /**
  * pango_language_matches:
- * @language: (nullable): a language tag (see pango_language_from_string()),
- *            %NULL is allowed and matches nothing but '*'
- * @range_list: a list of language ranges, separated by ';', ':',
+ * `language`: (nullable): a language tag (see pango_language_from_string()),
+ *            `nil` is allowed and matches nothing but '*'
+ * @rangeList: a list of language ranges, separated by ';', ':',
  *   ',', or space characters.
  *   Each element must either be '*', or a RFC 3066 language range
  *   canonicalized as by pango_language_from_string()
  *
- * Checks if a language tag matches one of the elements in a list of
+ * pango_language_matches checks if a language tag matches one of the elements in a list of
  * language ranges. A language tag is considered to match a range
  * in the list if the range is '*', the range is exactly the tag,
  * or the range is a prefix of the tag, and the character after it
  * in the tag is '-'.
- *
- * Return value: %TRUE if a match was found.
  **/
-//  gboolean
-//  pango_language_matches (PangoLanguage *language,
-// 			 const char    *range_list)
-//  {
-//    const char *lang_str = pango_language_to_string (language);
-//    const char *p = range_list;
-//    gboolean done = FALSE;
+// TODO: maybe simplify
+func pango_language_matches(language Language, rangeList string) bool {
+	langStr := string(language)
+	p := rangeList
+	done := false
 
-//    while (!done)
-// 	 {
-// 	   const char *end = strpbrk (p, languageSeparators);
-// 	   if (!end)
-// 	 {
-// 	   end = p + strlen (p);
-// 	   done = TRUE;
-// 	 }
+	for !done {
+		end := strings.IndexAny(p, languageSeparators)
+		if end == -1 {
+			end = len(p)
+			done = true
+		}
 
-// 	   if (strncmp (p, "*", 1) == 0 ||
-// 	   (lang_str && strncmp (lang_str, p, end - p) == 0 &&
-// 		(lang_str[end - p] == '\0' || lang_str[end - p] == '-')))
-// 	 return TRUE;
+		// truncate end if needed
+		endSafe := end
+		if len(langStr) < end {
+			endSafe = len(langStr)
+		}
 
-// 	   if (!done)
-// 	 p = end + 1;
-// 	 }
+		if len(p) == 0 || p[0] == '*' || (langStr != "" && langStr[:endSafe] == p[:endSafe] &&
+			len(langStr) == end || langStr[end] == '-') {
+			return true
+		}
 
-//    return FALSE;
-//  }
+		if !done {
+			p = p[end+1:]
+		}
+	}
 
-//  static int
-//  lang_compare_first_component (gconstpointer pa,
-// 				   gconstpointer pb)
-//  {
-//    const char *a = pa, *b = pb;
-//    unsigned int da, db;
-//    const char *p;
+	return false
+}
 
-//    p = strstr (a, "-");
-//    da = p ? (unsigned int) (p - a) : strlen (a);
+func lang_compare_first_component(ra, rb Language) int {
+	a, b := string(ra), string(rb)
+	p := strings.Index(a, "-")
+	da := len(a)
+	if p != -1 {
+		da = p
+	}
+	p = strings.Index(b, "-")
+	db := len(b)
+	if p != -1 {
+		db = p
+	}
+	total := max(da, db)
+	if total <= len(a) {
+		a = a[:total]
+	}
+	if total <= len(b) {
+		b = b[:total]
+	}
+	return strings.Compare(a, b)
+}
 
-//    p = strstr (b, "-");
-//    db = p ? (unsigned int) (p - b) : strlen (b);
+type record struct {
+	lang    Language
+	scripts [3]Script // 3 is the maximum number of possible script for a language
+}
 
-//    return strncmp (a, b, MAX (da, db));
-//  }
+// return the index into `base`
+func binarySearch(key Language, base []record) (int, bool) {
+	min, max := 0, len(base)-1
+	for min <= max {
+		mid := (min + max) / 2
+		p := base[mid]
+		c := lang_compare_first_component(key, p.lang)
+		if c < 0 {
+			max = mid - 1
+		} else if c > 0 {
+			min = mid + 1
+		} else {
+			return mid, true
+		}
+	}
+	return 0, false
+}
 
-//  /* Finds the best record for @language in an array of records.
-//   * Each record should start with the string representation of the language
-//   * code for the record (embedded, not a pointer), and the records must be
-//   * sorted on language code.
-//   */
-//  static gconstpointer
-//  find_best_lang_match (PangoLanguage *language,
-// 			   gconstpointer  records,
-// 			   guint          num_records,
-// 			   guint          record_size)
-//  {
-//    const char *lang_str;
-//    const char *record, *start, *end;
+// Finds the best record for `language` in an array of records.
+// Each record should start with the string representation of the language
+// code for the record (embedded, not a pointer), and the records must be
+// sorted on language code.
+func find_best_lang_match(language Language, records []record) (record, bool) {
 
-//    if (language == NULL)
-// 	 return NULL;
+	r, ok := binarySearch(language, records)
+	if !ok {
+		return record{}, false
+	}
 
-//    lang_str = pango_language_to_string (language);
+	/* find the best match among all those that have the same first-component */
 
-//    record = bsearch (lang_str,
-// 			 records, num_records, record_size,
-// 			 lang_compare_first_component);
-//    if (!record)
-// 	 return NULL;
+	/* go to the final one matching in the first component */
+	for r+1 < len(records) && lang_compare_first_component(language, records[r+1].lang) == 0 {
+		r += 1
+	}
 
-//    start = (const char *) records;
-//    end   = start + num_records * record_size;
+	/* go back, find which one matches completely */
+	for 0 <= r && lang_compare_first_component(language, records[r].lang) == 0 {
+		if pango_language_matches(language, string(records[r].lang)) {
+			return records[r], true
+		}
+		r -= 1
+	}
 
-//    /* find the best match among all those that have the same first-component */
+	return record{}, false
+}
 
-//    /* go to the final one matching in the first component */
-//    while (record < end - record_size &&
-// 	  lang_compare_first_component (lang_str, record + record_size) == 0)
-// 	 record += record_size;
-
-//    /* go back, find which one matches completely */
-//    while (start <= record &&
-// 	  lang_compare_first_component (lang_str, record) == 0)
-// 	 {
-// 	   if (pango_language_matches (language, record))
-// 		 return record;
-
-// 	   record -= record_size;
-// 	 }
-
-//    return NULL;
-//  }
-
-//  static gconstpointer
-//  find_best_lang_match_cached (PangoLanguage *language,
-// 				  gconstpointer *cache,
-// 				  gconstpointer  records,
-// 				  guint          num_records,
-// 				  guint          record_size)
-//  {
-//    gconstpointer result;
-
-//    if (G_LIKELY (cache && *cache != (gconstpointer) -1))
-// 	 return *cache;
-
-//    result = find_best_lang_match (language,
-// 				  records,
-// 				  num_records,
-// 				  record_size);
-
-//    if (cache)
-// 	 *cache = result;
-
-//    return result;
-//  }
-
-//  #define FIND_BEST_LANG_MATCH_CACHED(language, cache_key, records) \
-// 	 find_best_lang_match_cached ((language), \
-// 					  pango_language_get_private (language) ? \
-// 						&(pango_language_get_private (language)->cache_key) : NULL, \
-// 					  records, \
-// 					  G_N_ELEMENTS (records), \
-// 					  sizeof (*records));
+func FIND_BEST_LANG_MATCH_CACHED(language Language, records []record) (record, bool) {
+	// TODO: add caching
+	return find_best_lang_match(language, records)
+}
 
 //  typedef struct {
 //    char lang[6];
@@ -467,7 +387,7 @@ func pango_language_from_string(language string) Language {
 
 //  /**
 //   * pango_language_get_sample_string:
-//   * @language: (nullable): a #PangoLanguage, or %NULL
+//   * `language`: (nullable): a Language, or `nil`
 //   *
 //   * Get a string that is representative of the characters needed to
 //   * render a particular language.
@@ -477,10 +397,10 @@ func pango_language_from_string(language string) Language {
 //   * feature requirements unique to the language.  It is suitable for use
 //   * as sample text in a font selection dialog.
 //   *
-//   * If @language is %NULL, the default language as found by
+//   * If `language` is `nil`, the default language as found by
 //   * pango_language_get_default() is used.
 //   *
-//   * If Pango does not have a sample string for @language, the classic
+//   * If Pango does not have a sample string for `language`, the classic
 //   * "The quick brown fox..." is returned.  This can be detected by
 //   * comparing the returned pointer value to that returned for (non-existent)
 //   * language code "xx".  That is, compare to:
@@ -504,7 +424,7 @@ func pango_language_from_string(language string) Language {
 // 						lang_texts);
 
 //    if (lang_info)
-// 	 return lang_pool.str + lang_info->offset;
+// 	 return lang_pool.str + lang_info.offset;
 
 //    return "The quick brown fox jumps over the lazy dog.";
 //  }
@@ -515,223 +435,151 @@ func pango_language_from_string(language string) Language {
 
 //  #include "pango-script-lang-table.h"
 
-//  /**
-//   * pango_language_get_scripts:
-//   * @language: (allow-none): a #PangoLanguage, or %NULL
-//   * @num_scripts: (out caller-allocates) (allow-none): location to return number of scripts,
-//   *            or %NULL
-//   *
-//   * Determines the scripts used to to write @language.
-//   * If nothing is known about the language tag @language,
-//   * or if @language is %NULL, then %NULL is returned.
-//   * The list of scripts returned starts with the script that the
-//   * language uses most and continues to the one it uses least.
-//   *
-//   * The value @num_script points at will be set to the number
-//   * of scripts in the returned array (or zero if %NULL is returned).
-//   *
-//   * Most languages use only one script for writing, but there are
-//   * some that use two (Latin and Cyrillic for example), and a few
-//   * use three (Japanese for example).  Applications should not make
-//   * any assumptions on the maximum number of scripts returned
-//   * though, except that it is positive if the return value is not
-//   * %NULL, and it is a small number.
-//   *
-//   * The pango_language_includes_script() function uses this function
-//   * internally.
-//   *
-//   * Note: while the return value is declared as PangoScript, the
-//   * returned values are from the GUnicodeScript enumeration, which
-//   * may have more values. Callers need to handle unknown values.
-//   *
-//   * Return value: (array length=num_scripts) (nullable): An array of
-//   * #PangoScript values, with the number of entries in the array stored
-//   * in @num_scripts, or %NULL if Pango does not have any information
-//   * about this particular language tag (also the case if @language is
-//   * %NULL).  The returned array is owned by Pango and should not be
-//   * modified or freed.
+// pango_language_get_scripts determines the scripts used to to write `language`.
+// If nothing is known about the language tag `language`,
+// or if `language` is empty, then `nil` is returned.
+// The list of scripts returned starts with the script that the
+// language uses most and continues to the one it uses least.
+//
+// Most languages use only one script for writing, but there are
+// some that use two (Latin and Cyrillic for example), and a few
+// use three (Japanese for example). Applications should not make
+// any assumptions on the maximum number of scripts returned
+// though, except that it is positive if the return value is not
+// `nil`, and it is a small number.
+//
+// The pango_language_includes_script() function uses this function
+// internally.
+func (language Language) pango_language_get_scripts() []Script {
 
-//   * Since: 1.22
-//   **/
-//  const PangoScript *
-//  pango_language_get_scripts (PangoLanguage *language,
-// 				 int           *num_scripts)
-//  {
-//    const PangoScriptForLang *script_for_lang;
-//    unsigned int j;
+	script_for_lang, ok := FIND_BEST_LANG_MATCH_CACHED(language, pango_script_for_lang)
 
-//    script_for_lang = FIND_BEST_LANG_MATCH_CACHED (language,
-// 						  script_for_lang,
-// 						  pango_script_for_lang);
+	if !ok || script_for_lang.scripts[0] == "" {
+		return nil
+	}
 
-//    if (!script_for_lang || script_for_lang->scripts[0] == 0)
-// 	 {
-// 	   if (num_scripts)
-// 	 *num_scripts = 0;
+	for j, s := range script_for_lang.scripts {
+		if s == "" {
+			return script_for_lang.scripts[:j]
+		}
+	}
 
-// 	   return NULL;
-// 	 }
+	return nil
+}
 
-//    if (num_scripts)
-// 	 {
-// 	   for (j = 0; j < G_N_ELEMENTS (script_for_lang->scripts); j++)
-// 	 if (script_for_lang->scripts[j] == 0)
-// 	   break;
+// pango_language_includes_script determines if `script` is one of the scripts used to
+// write `language`. The returned value is conservative;
+// if nothing is known about the language tag `language`,
+// `true` will be returned, since, as far as Pango knows,
+// `script` might be used to write `language`.
+//
+// This routine is used in Pango's itemization process when
+// determining if a supplied language tag is relevant to
+// a particular section of text. It probably is not useful for
+// applications in most circumstances.
+//
+// This function uses pango_language_get_scripts() internally.
+//
+// Return value: `true` if `script` is one of the scripts used
+// to write `language` or if nothing is known about `language`
+// (including the case that `language` is `nil`),
+// `false` otherwise.
+func (language Language) pango_language_includes_script(script Script) bool {
+	if !script.isRealScript() {
+		return true
+	}
 
-// 	   g_assert (j > 0);
+	scripts := language.pango_language_get_scripts()
+	if len(scripts) == 0 {
+		return true
+	}
 
-// 	   *num_scripts = j;
-// 	 }
+	for _, s := range scripts {
+		if s == script {
+			return true
+		}
+	}
 
-//    return (const PangoScript *) script_for_lang->scripts;
-//  }
+	return false
+}
 
-//  /**
-//   * pango_language_includes_script:
-//   * @language: (nullable): a #PangoLanguage, or %NULL
-//   * @script: a #PangoScript
-//   *
-//   * Determines if @script is one of the scripts used to
-//   * write @language. The returned value is conservative;
-//   * if nothing is known about the language tag @language,
-//   * %TRUE will be returned, since, as far as Pango knows,
-//   * @script might be used to write @language.
-//   *
-//   * This routine is used in Pango's itemization process when
-//   * determining if a supplied language tag is relevant to
-//   * a particular section of text. It probably is not useful for
-//   * applications in most circumstances.
-//   *
-//   * This function uses pango_language_get_scripts() internally.
-//   *
-//   * Return value: %TRUE if @script is one of the scripts used
-//   * to write @language or if nothing is known about @language
-//   * (including the case that @language is %NULL),
-//   * %FALSE otherwise.
+/*
+ * From script to language
+ */
 
-//   * Since: 1.4
-//   **/
-//  gboolean
-//  pango_language_includes_script (PangoLanguage *language,
-// 				 PangoScript    script)
-//  {
-//    const PangoScript *scripts;
-//    int num_scripts, j;
+func parse_default_languages() []Language {
 
-//  /* copied from the one in pango-script.c */
-//  #define REAL_SCRIPT(script) \
-//    ((script) > PANGO_SCRIPT_INHERITED && (script) != PANGO_SCRIPT_UNKNOWN)
+	p, ok := os.LookupEnv("PANGO_LANGUAGE")
 
-//    if (!REAL_SCRIPT (script))
-// 	 return TRUE;
+	if !ok {
+		p, ok = os.LookupEnv("LANGUAGE")
+	}
 
-//  #undef REAL_SCRIPT
+	if !ok {
+		return nil
+	}
 
-//    scripts = pango_language_get_scripts (language, &num_scripts);
-//    if (!scripts)
-// 	 return TRUE;
+	var langs []Language
 
-//    for (j = 0; j < num_scripts; j++)
-// 	 if (scripts[j] == script)
-// 	   return TRUE;
+	done := false
+	for !done {
+		end := strings.IndexAny(p, languageSeparators)
+		if end == -1 {
+			end = len(p)
+			done = true
+		} else {
+			p = p[:end]
+		}
 
-//    return FALSE;
-//  }
+		/* skip empty languages, and skip the language 'C' */
+		if end != 0 && !(end == 1 && p[0] == 'C') {
+			l := pango_language_from_string(p)
+			langs = append(langs, l)
+		}
 
-//  /*
-//   * From script to language
-//   */
+		if !done {
+			p = p[end:]
+		}
+	}
 
-//  static PangoLanguage **
-//  parse_default_languages (void)
-//  {
-//    char *p, *p_copy;
-//    gboolean done = FALSE;
-//    GArray *langs;
+	return langs
+}
 
-//    p = getenv ("PANGO_LANGUAGE");
+var (
+	languagesLock sync.Mutex
+	languages     []Language          /* MT-safe */
+	hash          map[Script]Language /* MT-safe */
+)
 
-//    if (p == NULL)
-// 	 p = getenv ("LANGUAGE");
+func (script Script) pango_script_get_default_language() Language {
+	languagesLock.Lock()
+	defer languagesLock.Unlock()
 
-//    if (p == NULL)
-// 	 return NULL;
+	if hash == nil { // initialize
+		languages = parse_default_languages()
+		hash = make(map[Script]Language)
+	}
 
-//    p_copy = p = g_strdup (p);
+	if len(languages) == 0 {
+		return ""
+	}
 
-//    langs = g_array_new (TRUE, FALSE, sizeof (PangoLanguage *));
+	result, ok := hash[script]
+	if ok {
+		return result
+	}
 
-//    while (!done)
-// 	 {
-// 	   char *end = strpbrk (p, languageSeparators);
-// 	   if (!end)
-// 	 {
-// 	   end = p + strlen (p);
-// 	   done = TRUE;
-// 	 }
-// 	   else
-// 		 *end = '\0';
+	for _, p := range languages {
+		if p.pango_language_includes_script(script) {
+			result = p
+			break
+		}
+	}
 
-// 	   /* skip empty languages, and skip the language 'C' */
-// 	   if (p != end && !(p + 1 == end && *p == 'C'))
-// 		 {
-// 	   PangoLanguage *l = pango_language_from_string (p);
+	hash[script] = result
 
-// 	   g_array_append_val (langs, l);
-// 	 }
-
-// 	   if (!done)
-// 	 p = end + 1;
-// 	 }
-
-//    g_free (p_copy);
-
-//    return (PangoLanguage **) g_array_free (langs, FALSE);
-//  }
-
-//  G_LOCK_DEFINE_STATIC (languages);
-//  static gboolean initialized = FALSE; /* MT-safe */
-//  static PangoLanguage * const * languages = NULL; /* MT-safe */
-//  static GHashTable *hash = NULL; /* MT-safe */
-
-//  static PangoLanguage *
-//  _pango_script_get_default_language (PangoScript script)
-//  {
-//    PangoLanguage *result, * const * p;
-
-//    G_LOCK (languages);
-
-//    if (G_UNLIKELY (!initialized))
-// 	 {
-// 	   languages = parse_default_languages ();
-
-// 	   if (languages)
-// 	 hash = g_hash_table_new (NULL, NULL);
-
-// 	   initialized = TRUE;
-// 	 }
-
-//    if (!languages)
-// 	 {
-// 	   result = NULL;
-// 	   goto out;
-// 	 }
-
-//    if (g_hash_table_lookup_extended (hash, GINT_TO_POINTER (script), NULL, (gpointer *) (gpointer) &result))
-// 	 goto out;
-
-//    for (p = languages; *p; p++)
-// 	 if (pango_language_includes_script (*p, script))
-// 	   break;
-//    result = *p;
-
-//    g_hash_table_insert (hash, GINT_TO_POINTER (script), result);
-
-//  out:
-//    G_UNLOCK (languages);
-
-//    return result;
-//  }
+	return result
+}
 
 //  /**
 //   * pango_language_get_preferred:
@@ -746,7 +594,7 @@ func pango_language_from_string(language string) Language {
 //   * first try the default language, followed by the languages returned
 //   * by this function.
 //   *
-//   * Returns: (transfer none) (nullable): a %NULL-terminated array of
+//   * Returns: (transfer none) (nullable): a `nil`-terminated array of
 //   *    PangoLanguage*
 //   *
 //   * Since: 1.48
@@ -760,180 +608,156 @@ func pango_language_from_string(language string) Language {
 //    return languages;
 //  }
 
-//  /**
-//   * pango_script_get_sample_language:
-//   * @script: a #PangoScript
-//   *
-//   * Given a script, finds a language tag that is reasonably
-//   * representative of that script. This will usually be the
-//   * most widely spoken or used language written in that script:
-//   * for instance, the sample language for %PANGO_SCRIPT_CYRILLIC
-//   * is <literal>ru</literal> (Russian), the sample language
-//   * for %PANGO_SCRIPT_ARABIC is <literal>ar</literal>.
-//   *
-//   * For some
-//   * scripts, no sample language will be returned because there
-//   * is no language that is sufficiently representative. The best
-//   * example of this is %PANGO_SCRIPT_HAN, where various different
-//   * variants of written Chinese, Japanese, and Korean all use
-//   * significantly different sets of Han characters and forms
-//   * of shared characters. No sample language can be provided
-//   * for many historical scripts as well.
-//   *
-//   * As of 1.18, this function checks the environment variables
-//   * PANGO_LANGUAGE and LANGUAGE (checked in that order) first.
-//   * If one of them is set, it is parsed as a list of language tags
-//   * separated by colons or other separators.  This function
-//   * will return the first language in the parsed list that Pango
-//   * believes may use @script for writing.  This last predicate
-//   * is tested using pango_language_includes_script().  This can
-//   * be used to control Pango's font selection for non-primary
-//   * languages.  For example, a PANGO_LANGUAGE enviroment variable
-//   * set to "en:fa" makes Pango choose fonts suitable for Persian (fa)
-//   * instead of Arabic (ar) when a segment of Arabic text is found
-//   * in an otherwise non-Arabic text.  The same trick can be used to
-//   * choose a default language for %PANGO_SCRIPT_HAN when setting
-//   * context language is not feasible.
-//   *
-//   * Return value: (nullable): a #PangoLanguage that is representative
-//   * of the script, or %NULL if no such language exists.
-//   *
-//   * Since: 1.4
-//   **/
-//  PangoLanguage *
-//  pango_script_get_sample_language (PangoScript script)
-//  {
-//    /* Note that in the following, we want
-// 	* pango_language_includes_script() for the sample language
-// 	* to include the script, so alternate orthographies
-// 	* (Shavian for English, Osmanya for Somali, etc), typically
-// 	* have no sample language
-// 	*/
-//    static const char sample_languages[][4] = {
-// 	 "",    /* PANGO_SCRIPT_COMMON */
-// 	 "",    /* PANGO_SCRIPT_INHERITED */
-// 	 "ar",  /* PANGO_SCRIPT_ARABIC */
-// 	 "hy",  /* PANGO_SCRIPT_ARMENIAN */
-// 	 "bn",  /* PANGO_SCRIPT_BENGALI */
-// 	 /* Used primarily in Taiwan, but not part of the standard
-// 	  * zh-tw orthography  */
-// 	 "",    /* PANGO_SCRIPT_BOPOMOFO */
-// 	 "chr", /* PANGO_SCRIPT_CHEROKEE */
-// 	 "cop", /* PANGO_SCRIPT_COPTIC */
-// 	 "ru",  /* PANGO_SCRIPT_CYRILLIC */
-// 	 /* Deseret was used to write English */
-// 	 "",    /* PANGO_SCRIPT_DESERET */
-// 	 "hi",  /* PANGO_SCRIPT_DEVANAGARI */
-// 	 "am",  /* PANGO_SCRIPT_ETHIOPIC */
-// 	 "ka",  /* PANGO_SCRIPT_GEORGIAN */
-// 	 "",    /* PANGO_SCRIPT_GOTHIC */
-// 	 "el",  /* PANGO_SCRIPT_GREEK */
-// 	 "gu",  /* PANGO_SCRIPT_GUJARATI */
-// 	 "pa",  /* PANGO_SCRIPT_GURMUKHI */
-// 	 "",    /* PANGO_SCRIPT_HAN */
-// 	 "ko",  /* PANGO_SCRIPT_HANGUL */
-// 	 "he",  /* PANGO_SCRIPT_HEBREW */
-// 	 "ja",  /* PANGO_SCRIPT_HIRAGANA */
-// 	 "kn",  /* PANGO_SCRIPT_KANNADA */
-// 	 "ja",  /* PANGO_SCRIPT_KATAKANA */
-// 	 "km",  /* PANGO_SCRIPT_KHMER */
-// 	 "lo",  /* PANGO_SCRIPT_LAO */
-// 	 "en",  /* PANGO_SCRIPT_LATIN */
-// 	 "ml",  /* PANGO_SCRIPT_MALAYALAM */
-// 	 "mn",  /* PANGO_SCRIPT_MONGOLIAN */
-// 	 "my",  /* PANGO_SCRIPT_MYANMAR */
-// 	 /* Ogham was used to write old Irish */
-// 	 "",    /* PANGO_SCRIPT_OGHAM */
-// 	 "",    /* PANGO_SCRIPT_OLD_ITALIC */
-// 	 "or",  /* PANGO_SCRIPT_ORIYA */
-// 	 "",    /* PANGO_SCRIPT_RUNIC */
-// 	 "si",  /* PANGO_SCRIPT_SINHALA */
-// 	 "syr", /* PANGO_SCRIPT_SYRIAC */
-// 	 "ta",  /* PANGO_SCRIPT_TAMIL */
-// 	 "te",  /* PANGO_SCRIPT_TELUGU */
-// 	 "dv",  /* PANGO_SCRIPT_THAANA */
-// 	 "th",  /* PANGO_SCRIPT_THAI */
-// 	 "bo",  /* PANGO_SCRIPT_TIBETAN */
-// 	 "iu",  /* PANGO_SCRIPT_CANADIAN_ABORIGINAL */
-// 	 "",    /* PANGO_SCRIPT_YI */
-// 	 "tl",  /* PANGO_SCRIPT_TAGALOG */
-// 	 /* Phillipino languages/scripts */
-// 	 "hnn", /* PANGO_SCRIPT_HANUNOO */
-// 	 "bku", /* PANGO_SCRIPT_BUHID */
-// 	 "tbw", /* PANGO_SCRIPT_TAGBANWA */
+// pango_script_get_sample_language finds a language tag that is reasonably
+// representative of that script. This will usually be the
+// most widely spoken or used language written in that script:
+// for instance, the sample language for `SCRIPT_CYRILLIC`
+// is 'ru' (Russian), the sample language for `SCRIPT_ARABIC` is 'ar'.
+//
+// For some scripts, no sample language will be returned because there
+// is no language that is sufficiently representative. The best
+// example of this is `SCRIPT_HAN`, where various different
+// variants of written Chinese, Japanese, and Korean all use
+// significantly different sets of Han characters and forms
+// of shared characters. No sample language can be provided
+// for many historical scripts as well.
+//
+// As of 1.18, this function checks the environment variables
+// PANGO_LANGUAGE and LANGUAGE (checked in that order) first.
+// If one of them is set, it is parsed as a list of language tags
+// separated by colons or other separators.  This function
+// will return the first language in the parsed list that Pango
+// believes may use `script` for writing.  This last predicate
+// is tested using pango_language_includes_script().  This can
+// be used to control Pango's font selection for non-primary
+// languages.  For example, a PANGO_LANGUAGE enviroment variable
+// set to "en:fa" makes Pango choose fonts suitable for Persian (fa)
+// instead of Arabic (ar) when a segment of Arabic text is found
+// in an otherwise non-Arabic text.  The same trick can be used to
+// choose a default language for `SCRIPT_HAN` when setting
+// context language is not feasible.
+func (script Script) pango_script_get_sample_language() Language {
+	/* Note that in the following, we want
+	* pango_language_includes_script() for the sample language
+	* to include the script, so alternate orthographies
+	* (Shavian for English, Osmanya for Somali, etc), typically
+	* have no sample language
+	 */
 
-// 	 "",    /* PANGO_SCRIPT_BRAILLE */
-// 	 "",    /* PANGO_SCRIPT_CYPRIOT */
-// 	 "",    /* PANGO_SCRIPT_LIMBU */
-// 	 /* Used for Somali (so) in the past */
-// 	 "",    /* PANGO_SCRIPT_OSMANYA */
-// 	 /* The Shavian alphabet was designed for English */
-// 	 "",    /* PANGO_SCRIPT_SHAVIAN */
-// 	 "",    /* PANGO_SCRIPT_LINEAR_B */
-// 	 "",    /* PANGO_SCRIPT_TAI_LE */
-// 	 "uga", /* PANGO_SCRIPT_UGARITIC */
+	result := script.pango_script_get_default_language()
+	if result != "" {
+		return result
+	}
 
-// 	 "",    /* PANGO_SCRIPT_NEW_TAI_LUE */
-// 	 "bug", /* PANGO_SCRIPT_BUGINESE */
-// 	 /* The original script for Old Church Slavonic (chu), later
-// 	  * written with Cyrillic */
-// 	 "",    /* PANGO_SCRIPT_GLAGOLITIC */
-// 	 /* Used for for Berber (ber), but Arabic script is more common */
-// 	 "",    /* PANGO_SCRIPT_TIFINAGH */
-// 	 "syl", /* PANGO_SCRIPT_SYLOTI_NAGRI */
-// 	 "peo", /* PANGO_SCRIPT_OLD_PERSIAN */
-// 	 "",    /* PANGO_SCRIPT_KHAROSHTHI */
+	return sampleLanguages[script]
+}
 
-// 	 "",    /* PANGO_SCRIPT_UNKNOWN */
-// 	 "",    /* PANGO_SCRIPT_BALINESE */
-// 	 "",    /* PANGO_SCRIPT_CUNEIFORM */
-// 	 "",    /* PANGO_SCRIPT_PHOENICIAN */
-// 	 "",    /* PANGO_SCRIPT_PHAGS_PA */
-// 	 "nqo", /* PANGO_SCRIPT_NKO */
+var sampleLanguages = map[Script]Language{
+	SCRIPT_COMMON:    "",   /* PANGO_SCRIPT_COMMON */
+	SCRIPT_INHERITED: "",   /* PANGO_SCRIPT_INHERITED */
+	SCRIPT_ARABIC:    "ar", /* PANGO_SCRIPT_ARABIC */
+	SCRIPT_ARMENIAN:  "hy", /* PANGO_SCRIPT_ARMENIAN */
+	SCRIPT_BENGALI:   "bn", /* PANGO_SCRIPT_BENGALI */
+	/* Used primarily in Taiwan, but not part of the standard
+	 * zh-tw orthography  */
+	SCRIPT_BOPOMOFO: "",    /* PANGO_SCRIPT_BOPOMOFO */
+	SCRIPT_CHEROKEE: "chr", /* PANGO_SCRIPT_CHEROKEE */
+	SCRIPT_COPTIC:   "cop", /* PANGO_SCRIPT_COPTIC */
+	SCRIPT_CYRILLIC: "ru",  /* PANGO_SCRIPT_CYRILLIC */
+	/* Deseret was used to write English */
+	SCRIPT_DESERET:    "",   /* PANGO_SCRIPT_DESERET */
+	SCRIPT_DEVANAGARI: "hi", /* PANGO_SCRIPT_DEVANAGARI */
+	SCRIPT_ETHIOPIC:   "am", /* PANGO_SCRIPT_ETHIOPIC */
+	SCRIPT_GEORGIAN:   "ka", /* PANGO_SCRIPT_GEORGIAN */
+	SCRIPT_GOTHIC:     "",   /* PANGO_SCRIPT_GOTHIC */
+	SCRIPT_GREEK:      "el", /* PANGO_SCRIPT_GREEK */
+	SCRIPT_GUJARATI:   "gu", /* PANGO_SCRIPT_GUJARATI */
+	SCRIPT_GURMUKHI:   "pa", /* PANGO_SCRIPT_GURMUKHI */
+	SCRIPT_HAN:        "",   /* PANGO_SCRIPT_HAN */
+	SCRIPT_HANGUL:     "ko", /* PANGO_SCRIPT_HANGUL */
+	SCRIPT_HEBREW:     "he", /* PANGO_SCRIPT_HEBREW */
+	SCRIPT_HIRAGANA:   "ja", /* PANGO_SCRIPT_HIRAGANA */
+	SCRIPT_KANNADA:    "kn", /* PANGO_SCRIPT_KANNADA */
+	SCRIPT_KATAKANA:   "ja", /* PANGO_SCRIPT_KATAKANA */
+	SCRIPT_KHMER:      "km", /* PANGO_SCRIPT_KHMER */
+	SCRIPT_LAO:        "lo", /* PANGO_SCRIPT_LAO */
+	SCRIPT_LATIN:      "en", /* PANGO_SCRIPT_LATIN */
+	SCRIPT_MALAYALAM:  "ml", /* PANGO_SCRIPT_MALAYALAM */
+	SCRIPT_MONGOLIAN:  "mn", /* PANGO_SCRIPT_MONGOLIAN */
+	SCRIPT_MYANMAR:    "my", /* PANGO_SCRIPT_MYANMAR */
+	/* Ogham was used to write old Irish */
+	SCRIPT_OGHAM:               "",    /* PANGO_SCRIPT_OGHAM */
+	SCRIPT_OLD_ITALIC:          "",    /* PANGO_SCRIPT_OLD_ITALIC */
+	SCRIPT_ORIYA:               "or",  /* PANGO_SCRIPT_ORIYA */
+	SCRIPT_RUNIC:               "",    /* PANGO_SCRIPT_RUNIC */
+	SCRIPT_SINHALA:             "si",  /* PANGO_SCRIPT_SINHALA */
+	SCRIPT_SYRIAC:              "syr", /* PANGO_SCRIPT_SYRIAC */
+	SCRIPT_TAMIL:               "ta",  /* PANGO_SCRIPT_TAMIL */
+	SCRIPT_TELUGU:              "te",  /* PANGO_SCRIPT_TELUGU */
+	SCRIPT_THAANA:              "dv",  /* PANGO_SCRIPT_THAANA */
+	SCRIPT_THAI:                "th",  /* PANGO_SCRIPT_THAI */
+	SCRIPT_TIBETAN:             "bo",  /* PANGO_SCRIPT_TIBETAN */
+	SCRIPT_CANADIAN_ABORIGINAL: "iu",  /* PANGO_SCRIPT_CANADIAN_ABORIGINAL */
+	SCRIPT_YI:                  "",    /* PANGO_SCRIPT_YI */
+	SCRIPT_TAGALOG:             "tl",  /* PANGO_SCRIPT_TAGALOG */
+	/* Phillipino languages/scripts */
+	SCRIPT_HANUNOO:  "hnn", /* PANGO_SCRIPT_HANUNOO */
+	SCRIPT_BUHID:    "bku", /* PANGO_SCRIPT_BUHID */
+	SCRIPT_TAGBANWA: "tbw", /* PANGO_SCRIPT_TAGBANWA */
 
-// 	 /* Unicode-5.1 additions */
-// 	 "",    /* PANGO_SCRIPT_KAYAH_LI */
-// 	 "",    /* PANGO_SCRIPT_LEPCHA */
-// 	 "",    /* PANGO_SCRIPT_REJANG */
-// 	 "",    /* PANGO_SCRIPT_SUNDANESE */
-// 	 "",    /* PANGO_SCRIPT_SAURASHTRA */
-// 	 "",    /* PANGO_SCRIPT_CHAM */
-// 	 "",    /* PANGO_SCRIPT_OL_CHIKI */
-// 	 "",    /* PANGO_SCRIPT_VAI */
-// 	 "",    /* PANGO_SCRIPT_CARIAN */
-// 	 "",    /* PANGO_SCRIPT_LYCIAN */
-// 	 "",    /* PANGO_SCRIPT_LYDIAN */
+	SCRIPT_BRAILLE: "", /* PANGO_SCRIPT_BRAILLE */
+	SCRIPT_CYPRIOT: "", /* PANGO_SCRIPT_CYPRIOT */
+	SCRIPT_LIMBU:   "", /* PANGO_SCRIPT_LIMBU */
+	/* Used for Somali (so) in the past */
+	SCRIPT_OSMANYA: "", /* PANGO_SCRIPT_OSMANYA */
+	/* The Shavian alphabet was designed for English */
+	SCRIPT_SHAVIAN:  "",    /* PANGO_SCRIPT_SHAVIAN */
+	SCRIPT_LINEAR_B: "",    /* PANGO_SCRIPT_LINEAR_B */
+	SCRIPT_TAI_LE:   "",    /* PANGO_SCRIPT_TAI_LE */
+	SCRIPT_UGARITIC: "uga", /* PANGO_SCRIPT_UGARITIC */
 
-// 	 /* Unicode-6.0 additions */
-// 	 "",    /* PANGO_SCRIPT_BATAK */
-// 	 "",    /* PANGO_SCRIPT_BRAHMI */
-// 	 "",    /* PANGO_SCRIPT_MANDAIC */
+	SCRIPT_NEW_TAI_LUE: "",    /* PANGO_SCRIPT_NEW_TAI_LUE */
+	SCRIPT_BUGINESE:    "bug", /* PANGO_SCRIPT_BUGINESE */
+	/* The original script for Old Church Slavonic (chu), later
+	 * written with Cyrillic */
+	SCRIPT_GLAGOLITIC: "", /* PANGO_SCRIPT_GLAGOLITIC */
+	/* Used for for Berber (ber), but Arabic script is more common */
+	SCRIPT_TIFINAGH:     "",    /* PANGO_SCRIPT_TIFINAGH */
+	SCRIPT_SYLOTI_NAGRI: "syl", /* PANGO_SCRIPT_SYLOTI_NAGRI */
+	SCRIPT_OLD_PERSIAN:  "peo", /* PANGO_SCRIPT_OLD_PERSIAN */
+	SCRIPT_KHAROSHTHI:   "",    /* PANGO_SCRIPT_KHAROSHTHI */
 
-// 	 /* Unicode-6.1 additions */
-// 	 "",    /* PANGO_SCRIPT_CHAKMA */
-// 	 "",    /* PANGO_SCRIPT_MEROITIC_CURSIVE */
-// 	 "",    /* PANGO_SCRIPT_MEROITIC_HIEROGLYPHS */
-// 	 "",    /* PANGO_SCRIPT_MIAO */
-// 	 "",    /* PANGO_SCRIPT_SHARADA */
-// 	 "",    /* PANGO_SCRIPT_SORA_SOMPENG */
-// 	 "",    /* PANGO_SCRIPT_TAKRI */
-//    };
-//    const char *sample_language;
-//    PangoLanguage *result;
+	SCRIPT_UNKNOWN:    "",    /* PANGO_SCRIPT_UNKNOWN */
+	SCRIPT_BALINESE:   "",    /* PANGO_SCRIPT_BALINESE */
+	SCRIPT_CUNEIFORM:  "",    /* PANGO_SCRIPT_CUNEIFORM */
+	SCRIPT_PHOENICIAN: "",    /* PANGO_SCRIPT_PHOENICIAN */
+	SCRIPT_PHAGS_PA:   "",    /* PANGO_SCRIPT_PHAGS_PA */
+	SCRIPT_NKO:        "nqo", /* PANGO_SCRIPT_NKO */
 
-//    g_return_val_if_fail (script >= 0, NULL);
+	/* Unicode-5.1 additions */
+	SCRIPT_KAYAH_LI:   "", /* PANGO_SCRIPT_KAYAH_LI */
+	SCRIPT_LEPCHA:     "", /* PANGO_SCRIPT_LEPCHA */
+	SCRIPT_REJANG:     "", /* PANGO_SCRIPT_REJANG */
+	SCRIPT_SUNDANESE:  "", /* PANGO_SCRIPT_SUNDANESE */
+	SCRIPT_SAURASHTRA: "", /* PANGO_SCRIPT_SAURASHTRA */
+	SCRIPT_CHAM:       "", /* PANGO_SCRIPT_CHAM */
+	SCRIPT_OL_CHIKI:   "", /* PANGO_SCRIPT_OL_CHIKI */
+	SCRIPT_VAI:        "", /* PANGO_SCRIPT_VAI */
+	SCRIPT_CARIAN:     "", /* PANGO_SCRIPT_CARIAN */
+	SCRIPT_LYCIAN:     "", /* PANGO_SCRIPT_LYCIAN */
+	SCRIPT_LYDIAN:     "", /* PANGO_SCRIPT_LYDIAN */
 
-//    if ((guint)script >= G_N_ELEMENTS (sample_languages))
-// 	 return NULL;
+	/* Unicode-6.0 additions */
+	SCRIPT_BATAK:   "", /* PANGO_SCRIPT_BATAK */
+	SCRIPT_BRAHMI:  "", /* PANGO_SCRIPT_BRAHMI */
+	SCRIPT_MANDAIC: "", /* PANGO_SCRIPT_MANDAIC */
 
-//    result = _pango_script_get_default_language (script);
-//    if (result)
-// 	 return result;
-
-//    sample_language = sample_languages[script];
-
-//    if (!sample_language[0])
-// 	 return NULL;
-//    else
-// 	 return pango_language_from_string (sample_language);
-//  }
+	/* Unicode-6.1 additions */
+	SCRIPT_CHAKMA:               "", /* PANGO_SCRIPT_CHAKMA */
+	SCRIPT_MEROITIC_CURSIVE:     "", /* PANGO_SCRIPT_MEROITIC_CURSIVE */
+	SCRIPT_MEROITIC_HIEROGLYPHS: "", /* PANGO_SCRIPT_MEROITIC_HIEROGLYPHS */
+	SCRIPT_MIAO:                 "", /* PANGO_SCRIPT_MIAO */
+	SCRIPT_SHARADA:              "", /* PANGO_SCRIPT_SHARADA */
+	SCRIPT_SORA_SOMPENG:         "", /* PANGO_SCRIPT_SORA_SOMPENG */
+	SCRIPT_TAKRI:                "", /* PANGO_SCRIPT_TAKRI */
+}

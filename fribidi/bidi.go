@@ -217,7 +217,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 	/* If no strong base_dir was found, resort to the weak direction
 	   that was passed on input. */
 	baseLevel := dirToLevel(*pbaseDir)
-	if !pbaseDir.isStrong() {
+	if !pbaseDir.IsStrong() {
 		/* P2. P3. Search for first strong character and use its direction as
 		   base direction */
 		validIsolateCount := 0
@@ -227,9 +227,9 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 				if validIsolateCount > 0 {
 					validIsolateCount--
 				}
-			} else if pp.type_.isIsolate() {
+			} else if pp.type_.IsIsolate() {
 				validIsolateCount++
-			} else if validIsolateCount == 0 && pp.type_.isLetter() {
+			} else if validIsolateCount == 0 && pp.type_.IsLetter() {
 				baseLevel = dirToLevel(pp.type_)
 				*pbaseDir = levelToDir(baseLevel)
 				break
@@ -283,7 +283,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 		pp.isolateLevel = isolateLevel
 
 		if thisType.isExplicitOrBn() {
-			if thisType.isStrong() { /* LRE, RLE, LRO, RLO */
+			if thisType.IsStrong() { /* LRE, RLE, LRO, RLO */
 				/* 1. Explicit Embeddings */
 				/*   X2. With each RLE, compute the least greater odd
 				     embedding level. */
@@ -343,7 +343,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 					pp.level = level
 				}
 			}
-		} else if thisType.isIsolate() {
+		} else if thisType.IsIsolate() {
 			/* TBD support RL_LEN > 1 */
 			newOverride = ON
 			isolate = 1
@@ -364,9 +364,9 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 						if validIsolateCount < 0 {
 							break
 						}
-					} else if fsiPp.type_.isIsolate() {
+					} else if fsiPp.type_.IsIsolate() {
 						isolateCount++
-					} else if isolateCount == 0 && fsiPp.type_.isLetter() {
+					} else if isolateCount == 0 && fsiPp.type_.IsLetter() {
 						fsiBaseLevel = dirToLevel(fsiPp.type_)
 						break
 					}
@@ -495,7 +495,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 			nextType = levelToDir(maxL(pppNext.level, pp.level))
 		}
 
-		if prevType.isStrong() {
+		if prevType.IsStrong() {
 			lastStrongStack[isoLevel] = prevType
 		}
 
@@ -509,7 +509,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 		   adjacent ETs are in one Run. */
 		if thisType == NSM {
 			/* New rule in Unicode 6.3 */
-			if pp.prev.type_.isIsolate() {
+			if pp.prev.type_.IsIsolate() {
 				pp.type_ = ON
 			}
 
@@ -583,7 +583,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 			nextType = levelToDir(maxL(pppNext.level, pp.level))
 		}
 
-		if prevType.isStrong() {
+		if prevType.IsStrong() {
 			lastStrongStack[isoLevel] = prevType
 		}
 
@@ -601,7 +601,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 		   A single common separator between two numbers of the same type
 		   changes to that type. */
 		if w4 && pp.len == 1 && thisType.isEsOrCs() &&
-			prevTypeOrig.isNumber() && prevTypeOrig == nextType &&
+			prevTypeOrig.IsNumber() && prevTypeOrig == nextType &&
 			(prevTypeOrig == EN || thisType == CS) {
 			pp.type_ = prevType
 			thisType = pp.type_
@@ -677,7 +677,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 			bracketStackSize[lastIsoLevel] = 0
 		}
 
-		if brackProp != noBracket && pp.type_ == ON {
+		if brackProp != NoBracket && pp.type_ == ON {
 			if brackProp.isOpen() {
 				if bracketStackSize[isoLevel] == maxNestedBracketPairs {
 					break
@@ -727,7 +727,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 			thisLevel := ppn.level + (ppn.level.isRtl() ^ dirToLevel(thisType))
 
 			/* N0b */
-			if thisType.isStrong() && thisLevel == embeddingLevel {
+			if thisType.IsStrong() && thisLevel == embeddingLevel {
 				var l CharType = LTR
 				if thisLevel%2 != 0 {
 					l = RTL
@@ -747,7 +747,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 			isoLevel := ppairs.open.isolateLevel
 			for ppn = ppairs.open.prev; ppn.type_ != maskSENTINEL; ppn = ppn.prev {
 				thisType := ppn.typeAnEnAsRTL()
-				if thisType.isStrong() && ppn.isolateLevel == isoLevel {
+				if thisType.IsStrong() && ppn.isolateLevel == isoLevel {
 					precStrongLevel = ppn.level + (ppn.level.isRtl() ^ dirToLevel(thisType))
 					break
 				}
@@ -755,7 +755,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 			for ppn = ppairs.open; ppn != ppairs.close; ppn = ppn.next {
 				thisType := ppn.typeAnEnAsRTL()
-				if thisType.isStrong() && ppn.isolateLevel == isoLevel {
+				if thisType.IsStrong() && ppn.isolateLevel == isoLevel {
 					/* By constraint this is opposite the embedding direction,
 					   since we did not match the N0b rule. We must now
 					   compare with the preceding strong to establish whether
@@ -777,7 +777,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	/* Remove the bracket property and re-compact */
 	for pp = mainRunList.next; pp.type_ != maskSENTINEL; pp = pp.next {
-		pp.bracketType = noBracket
+		pp.bracketType = NoBracket
 	}
 	mainRunList.compactNeutrals()
 
@@ -836,7 +836,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 		/* I1. Even */
 		/* I2. Odd */
-		if thisType.isNumber() {
+		if thisType.IsNumber() {
 			pp.level = (level + 2) & ^1
 		} else {
 			pp.level = level + (level.isRtl() ^ dirToLevel(thisType))
@@ -909,7 +909,7 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 		if !state && charType.isSeparator() {
 			state = true
 			pos = j
-		} else if state && !(charType.isExplicitOrSeparatorOrBnOrWs() || charType.isIsolate()) {
+		} else if state && !(charType.isExplicitOrSeparatorOrBnOrWs() || charType.IsIsolate()) {
 			state = false
 			p = &oneRun{}
 			p.pos = j + 1
