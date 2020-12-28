@@ -1,5 +1,9 @@
-// Golang port of fribidi, using golang.org/x/text/unicode/bidi
-// as data source.
+// fribidi is a Golang port of the C/C++
+// Free Implementation of the Unicode Bidirectional Algorithm
+// (https://github.com/fribidi/fribidi).
+// It supports the main features required to do text layout.
+// It depends on golang.org/x/text/unicode/bidi to fetch
+// unicode properties of runes.
 package fribidi
 
 import (
