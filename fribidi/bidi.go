@@ -456,10 +456,12 @@ func GetParEmbeddingLevels(bidiTypes []CharType, bracketTypes []BracketType,
 
 	mainRunList.compact()
 
-	// mainRunList.printTypesRe() // DEBUG
-	// mainRunList.printResolvedLevels()
-	// mainRunList.printResolvedTypes()
-	// fmt.Println("resolving weak types")
+	if debug {
+		// mainRunList.printTypesRe()
+		// mainRunList.printResolvedLevels()
+		// mainRunList.printResolvedTypes()
+		// fmt.Println("resolving weak types")
+	}
 
 	/* 4. Resolving weak types. Also calculate the maximum isolate level */
 	var maxIsoLevel Level

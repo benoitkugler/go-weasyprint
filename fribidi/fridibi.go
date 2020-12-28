@@ -379,9 +379,14 @@ type Options int
 const (
 	ReorderNSM Options = 1 << 1
 
-	ShapeMirroring   Options = 1      // in DefaultFlags
-	ShapeArabPres    Options = 1 << 8 // in DefaultFlags
-	ShapeArabLiga    Options = 1 << 9 // in DefaultFlags
+	ShapeMirroring Options = 1      // in DefaultFlags, do mirroring
+	ShapeArabPres  Options = 1 << 8 // in DefaultFlags, shape Arabic characters to their presentation form glyphs
+	ShapeArabLiga  Options = 1 << 9 // in DefaultFlags, form mandatory Arabic ligatures
+	// Perform additional Arabic shaping
+	// suitable for text rendered on
+	// grid terminals with no mark
+	// rendering capabilities.
+	// NOT SUPPORTED YET
 	ShapeArabConsole Options = 1 << 10
 
 	RemoveBidi     Options = 1 << 16
@@ -391,7 +396,10 @@ const (
 	// And their combinations
 
 	baseDefault = ShapeMirroring | ReorderNSM | RemoveSpecials
-	arabic      = ShapeArabPres | ShapeArabLiga
+
+	// recommended in any environment that doesn't have
+	// other means for doing Arabic shaping.
+	arabic = ShapeArabPres | ShapeArabLiga
 
 	DefaultFlags = baseDefault | arabic
 )
@@ -450,11 +458,10 @@ func LogicalToVisual(flags Options, str []rune, paragraphBaseDir *ParType /* req
 	arProps := getJoiningTypes(str, bidiTypes)
 	joinArabic(bidiTypes, embeddingLevels, arProps)
 	Shape(flags, embeddingLevels, arProps, visualStr)
-
 	/* line breaking goes here, but we assume one line in this function */
 
 	/* and this should be called once per line, but again, we assume one
-	 * line in this deprecated function */
+	* line in this deprecated function */
 	ReorderLine(flags, bidiTypes, len(str), 0, *paragraphBaseDir,
 		embeddingLevels, visualStr, positionsVToL)
 
@@ -519,6 +526,5 @@ func removeBidiMarks(str []rune, positionsToThis, positionFromThis []int, embedd
 			positionsToThis[from] = i
 		}
 	}
-
 	return str[0:j]
 }

@@ -1,42 +1,22 @@
 package fribidi
 
-/* shapeArabic - do Arabic shaping
- *
- * The actual shaping that is done depends on the flags set.  Only flags
- * starting with FRIBIDI_FLAG_SHAPE_ARAB_ affect this function.
- * Currently these are:
- *
- *	* FRIBIDI_FLAG_SHAPE_MIRRORING: Do mirroring.
- *	* FRIBIDI_FLAG_SHAPE_ARAB_PRES: Shape Arabic characters to their
- *					presentation form glyphs.
- *	* FRIBIDI_FLAG_SHAPE_ARAB_LIGA: Form mandatory Arabic ligatures.
- *	* FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE: Perform additional Arabic shaping
- *					   suitable for text rendered on
- *					   grid terminals with no mark
- *					   rendering capabilities.
- *
- * Of the above, FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE is only used in special
- * cases, but the rest are recommended in any environment that doesn't have
- * other means for doing Arabic shaping.  The set of extra flags that enable
- * this level of Arabic support has a shortcut named FRIBIDI_FLAGS_ARABIC.
- */
-func shapeArabic(flags Options, embedding_levels []Level,
+// shapeArabic does Arabic shaping, depending on the flags set.
+func shapeArabic(flags Options, embeddingLevels []Level,
 	/* input and output */
-	ar_props []JoiningType, str []rune) {
+	arabProps []JoiningType, str []rune) {
 
 	if len(str) == 0 {
 		return
 	}
 
 	if flags&ShapeArabPres != 0 {
-		shapeArabicJoining(ar_props, str)
+		shapeArabicJoining(arabProps, str)
 	}
-
 	if flags&ShapeArabLiga != 0 {
-		shapeArabicLigature(mandatoryLigaTable, embedding_levels, ar_props, str)
+		shapeArabicLigature(mandatoryLigaTable, embeddingLevels, arabProps, str)
 	}
 
-	// if flags&FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE != 0 {
+	// if flags&FRIBIDI_FLAG_SHAPE_ARAB_CONSOLE != 0 { // TODO: ?
 	// 	fribidi_shape_arabic_ligature(console_liga_table, embedding_levels, len, ar_props, str)
 	// 	fribidi_shape_arabic_joining(FRIBIDI_GET_ARABIC_SHAPE_NSM, len, ar_props, str)
 	// }
@@ -47,8 +27,8 @@ type PairMap struct {
 	to   rune
 }
 
-func shapeArabicJoining(ar_props []JoiningType, str []rune /* input and output */) {
-	for i, ar := range ar_props {
+func shapeArabicJoining(arabProps []JoiningType, str []rune /* input and output */) {
+	for i, ar := range arabProps {
 		if ar.isArabShapes() {
 			str[i] = getArabicShapePres(str[i], ar.joinShape())
 		}
@@ -92,11 +72,11 @@ func findPairMatch(table []PairMap, first, second rune) rune {
 /* Char we place for a deleted slot, to delete later */
 const charFill = 0xFEFF
 
-func shapeArabicLigature(table []PairMap, embedding_levels []Level,
+func shapeArabicLigature(table []PairMap, embeddingLevels []Level,
 	/* input and output */
-	ar_props []JoiningType, str []rune) {
+	arabProps []JoiningType, str []rune) {
 	// TODO: This doesn't form ligatures for even-level Arabic text. no big problem though. */
-	L := len(embedding_levels)
+	L := len(embeddingLevels)
 	size := len(table)
 	for i := 0; i < L-1; i++ {
 		var c rune
@@ -104,9 +84,9 @@ func shapeArabicLigature(table []PairMap, embedding_levels []Level,
 			c = findPairMatch(table, str[i], str[i+1])
 		}
 
-		if embedding_levels[i].isRtl() != 0 && embedding_levels[i] == embedding_levels[i+1] && c != 0 {
+		if embeddingLevels[i].isRtl() != 0 && embeddingLevels[i] == embeddingLevels[i+1] && c != 0 {
 			str[i] = charFill
-			ar_props[i] |= ligatured
+			arabProps[i] |= ligatured
 			str[i+1] = c
 		}
 	}

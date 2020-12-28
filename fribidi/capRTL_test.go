@@ -204,8 +204,3 @@ func TestCharsetCapRTL(t *testing.T) {
 		t.Errorf("expected %v, got %v", in, runes)
 	}
 }
-
-func TestR(t *testing.T) {
-	r := 1575
-	fmt.Println(r>>8, r&0xff+0x500)
-}

@@ -1,7 +1,6 @@
 package fribidi
 
 import (
-	"fmt"
 	"testing"
 
 	"golang.org/x/text/unicode/bidi"
@@ -18,9 +17,4 @@ func TestBracketsTable(t *testing.T) {
 			t.Errorf("rune %d is not a bracket", p)
 		}
 	}
-}
-
-func Test(t *testing.T) {
-	r := 9001
-	fmt.Println(r&0x3f, r>>6)
 }

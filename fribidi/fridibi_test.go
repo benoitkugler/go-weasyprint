@@ -103,19 +103,51 @@ func parseCharset(filename string) charsetI {
 	}
 }
 
+func printDetails(nlFound string, fileOut io.Writer, base ParType, logToVis []int, out Visual) string {
+	fmt.Fprintf(fileOut, "%s", nlFound)
+	if dirToLevel(base) != 0 {
+		fmt.Fprintf(fileOut, "Base direction: %s", "R")
+	} else {
+		fmt.Fprintf(fileOut, "Base direction: %s", "L")
+	}
+	nlFound = "\n"
+	fmt.Fprintf(fileOut, "%s", nlFound)
+	for _, ltov := range logToVis {
+		fmt.Fprintf(fileOut, "%d ", ltov)
+	}
+	nlFound = "\n"
+	fmt.Fprintf(fileOut, "%s", nlFound)
+	for _, vtol := range out.VisualToLogical {
+		fmt.Fprintf(fileOut, "%d ", vtol)
+	}
+	nlFound = "\n"
+	fmt.Fprintf(fileOut, "%s", nlFound)
+	for _, level := range out.EmbeddingLevels {
+		fmt.Fprintf(fileOut, "%d ", level)
+	}
+	return "\n"
+}
+
+// go fmt uses length in runes to apply padding, not bytes,
+// so we need to emulate the C behavior
+func bytesPadding(v []byte, widthInBytes int) []byte {
+	if len(v) >= widthInBytes { // no padding needed
+		return nil
+	}
+	padding := bytes.Repeat([]byte{' '}, widthInBytes-len(v)) // convert to unicode points
+	return padding
+}
+
 func processFile(filename string, fileOut io.Writer) error {
 	const textWidth = 80
 
-	do_clean, do_reorder_nsm, do_mirror := true, true, true
+	doClean, doReorderNsm, doMirror := true, true, true
 	showInput := true
 	doBreak := false
 
 	doPad := true
-	show_visual := true
-	showBasedir := false
-	showLtov := false
-	showVtol := false
-	showLevels := false
+	showVisual := true
+	showDetails := false
 	// char_set := "UTF-8"
 	// bol_text := nil
 	// eol_text := nil
@@ -131,8 +163,8 @@ func processFile(filename string, fileOut io.Writer) error {
 
 	charset := parseCharset(filename)
 
-	flags := DefaultFlags.adjust(ShapeMirroring, do_mirror)
-	flags = flags.adjust(ReorderNSM, do_reorder_nsm)
+	flags := DefaultFlags.adjust(ShapeMirroring, doMirror)
+	flags = flags.adjust(ReorderNSM, doReorderNsm)
 
 	paddingWidth := textWidth
 	if showInput {
@@ -164,15 +196,14 @@ func processFile(filename string, fileOut io.Writer) error {
 		logToVis := out.LogicalToVisual()
 
 		if showInput {
-			fmt.Fprintf(fileOut, "%-*s => ", paddingWidth, line)
+			fmt.Fprintf(fileOut, "%s%s => ", line, bytesPadding(line, paddingWidth))
 		}
 
 		/* Remove explicit marks, if asked for. */
-		if do_clean {
+		if doClean {
 			out.Str = removeBidiMarks(out.Str, logToVis, out.VisualToLogical, out.EmbeddingLevels)
 		}
-
-		if show_visual {
+		if showVisual {
 			fmt.Fprintf(fileOut, "%s", nlFound)
 			// if bol_text {
 			// 	fmt.Fprintf(fileOut, "%s", bol_text)
@@ -206,16 +237,12 @@ func processFile(filename string, fileOut io.Writer) error {
 				inlen = idx - st
 
 				outBytes := charset.encode(out.Str[st : inlen+st])
-
 				var w int
 				if base.IsRtl() && doPad {
-					// careful: go * padding is counted in runes, not bytes...
-					w = paddingWidth + inlen - (breakWidth - wid)
+					w = paddingWidth + len(outBytes) - (breakWidth - wid)
 				}
+				fmt.Fprintf(fileOut, "%s%s", bytesPadding(outBytes, w), outBytes)
 
-				fmt.Fprintf(fileOut, "%*s", w, outBytes)
-
-				// fmt.Println(idx, len(out.Str), w)
 				if idx < len(out.Str) {
 					fmt.Fprintln(fileOut)
 				}
@@ -226,35 +253,8 @@ func processFile(filename string, fileOut io.Writer) error {
 
 			nlFound = "\n"
 		}
-		if showBasedir {
-			fmt.Fprintf(fileOut, "%s", nlFound)
-			if dirToLevel(base) != 0 {
-				fmt.Fprintf(fileOut, "Base direction: %s", "R")
-			} else {
-				fmt.Fprintf(fileOut, "Base direction: %s", "L")
-			}
-			nlFound = "\n"
-		}
-		if showLtov {
-			fmt.Fprintf(fileOut, "%s", nlFound)
-			for _, ltov := range logToVis {
-				fmt.Fprintf(fileOut, "%d ", ltov)
-			}
-			nlFound = "\n"
-		}
-		if showVtol {
-			fmt.Fprintf(fileOut, "%s", nlFound)
-			for _, vtol := range out.VisualToLogical {
-				fmt.Fprintf(fileOut, "%d ", vtol)
-			}
-			nlFound = "\n"
-		}
-		if showLevels {
-			fmt.Fprintf(fileOut, "%s", nlFound)
-			for _, level := range out.EmbeddingLevels {
-				fmt.Fprintf(fileOut, "%d ", level)
-			}
-			nlFound = "\n"
+		if showDetails {
+			nlFound = printDetails(nlFound, fileOut, base, logToVis, out)
 		}
 		if nlFound != "" {
 			fmt.Fprintln(fileOut)
@@ -263,7 +263,7 @@ func processFile(filename string, fileOut io.Writer) error {
 	return nil
 }
 
-func Test1(t *testing.T) {
+func TestShape(t *testing.T) {
 	for _, file := range []string{
 		"test/test_CapRTL_explicit",
 		"test/test_CapRTL_explicit",
@@ -271,7 +271,7 @@ func Test1(t *testing.T) {
 		"test/test_CapRTL_isolate",
 		"test/test_ISO8859-8_hebrew",
 		"test/test_UTF-8_persian",
-		// "test/test_UTF-8_reordernsm",
+		"test/test_UTF-8_reordernsm",
 	} {
 		var out bytes.Buffer
 		err := processFile(file+".input", &out)
@@ -284,12 +284,6 @@ func Test1(t *testing.T) {
 			t.Fatal(err)
 		}
 		if string(ref) != out.String() {
-			b := out.Bytes()
-			for i, s := range ref {
-				if s != b[i] {
-					fmt.Println(i, s, b[i])
-				}
-			}
 			t.Errorf("file %s: expected\n%s\ngot\n%s", file, ref, out.String())
 		}
 	}

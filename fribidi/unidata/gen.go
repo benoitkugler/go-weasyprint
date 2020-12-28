@@ -81,8 +81,8 @@ func parseUnicodeData() error {
 			return fmt.Errorf("invalid line %s: %s", line, err)
 		}
 
-		// shape table
-		if shape := isShape(tag); shape >= 0 {
+		// shape table: only single unshaped rune are considered
+		if shape := isShape(tag); shape >= 0 && len(chunks[5]) == len(tag)+5 {
 			shapingTable.table[unshaped][shape] = c
 			if unshaped < min {
 				min = unshaped
@@ -155,7 +155,7 @@ func parseBrackets() (map[rune]rune, error) {
 	return out, nil
 }
 
-func parseArabicShaping() (map[rune]fribidi.JoiningType, error) {
+func parseArabicJoining() (map[rune]fribidi.JoiningType, error) {
 	b, err := ioutil.ReadFile("ArabicShaping.txt")
 	if err != nil {
 		return nil, err
@@ -354,7 +354,7 @@ func main() {
 		log.Fatal("can't format: ", err)
 	}
 
-	m2, err := parseArabicShaping()
+	m2, err := parseArabicJoining()
 	if err != nil {
 		log.Fatal(err)
 	}
