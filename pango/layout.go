@@ -77,7 +77,7 @@ type Layout struct {
 	ink_rect_cached     bool // = true
 	//   Rectangle logical_rect;
 	//   Rectangle ink_rect;
-	tab_width GlyphUnit /* Cached width of a tab. -1 == not yet calculated */
+	tabWidth GlyphUnit /* Cached width of a tab. -1 == not yet calculated */
 
 	// logical attributes for layout's text, allocated
 	// once in check_lines; has length len(text)+1
@@ -125,7 +125,7 @@ func (layout *Layout) pango_layout_context_changed() {
 	}
 
 	layout.layout_changed()
-	layout.tab_width = -1
+	layout.tabWidth = -1
 }
 
 func (layout *Layout) layout_changed() {
@@ -161,7 +161,7 @@ func (layout *Layout) pango_layout_set_attributes(attrs AttrList) {
 	// whenever attrs changes.
 	layout.attrs = attrs
 	layout.layout_changed()
-	layout.tab_width = -1
+	layout.tabWidth = -1
 }
 
 // Sets the tabs to use for `layout`, overriding the default tabs
@@ -589,7 +589,7 @@ func (layout *Layout) pango_layout_get_empty_extents_at_index(index int, logical
 //    layout.lines = nil;
 //    layout.line_count = 0;
 
-//    layout.tab_width = -1;
+//    layout.tabWidth = -1;
 //    layout.unknown_glyphs_count = -1;
 
 //    layout.wrap = PANGO_WRAP_WORD;
@@ -1068,7 +1068,7 @@ func (layout *Layout) pango_layout_get_empty_extents_at_index(index int, logical
 // 	   layout.font_desc = desc ? pango_font_description_copy (desc) : nil;
 
 // 	   layout_changed (layout);
-// 	   layout.tab_width = -1;
+// 	   layout.tabWidth = -1;
 // 	 }
 //  }
 
@@ -3243,9 +3243,9 @@ func (layout *Layout) pango_layout_get_empty_extents_at_index(index int, logical
 //    return item;
 //  }
 
-// setup the cached value `tab_width` if not already defined
+// setup the cached value `tabWidth` if not already defined
 func (layout *Layout) ensure_tab_width() {
-	if layout.tab_width != -1 {
+	if layout.tabWidth != -1 {
 		return
 	}
 	// Find out how wide 8 spaces are in the context's default
@@ -3285,80 +3285,65 @@ func (layout *Layout) ensure_tab_width() {
 	item := items[0]
 	glyphs.pango_shape_with_flags([]rune("        "), []rune("        "), &item.analysis, shape_flags)
 
-	layout.tab_width = glyphs.pango_glyph_string_get_width()
+	layout.tabWidth = glyphs.pango_glyph_string_get_width()
 
-	// We need to make sure the tab_width is > 0 so finding tab positions
+	// We need to make sure the tabWidth is > 0 so finding tab positions
 	// terminates. This check should be necessary only under extreme
 	// problems with the font.
-	if layout.tab_width <= 0 {
-		layout.tab_width = 50 * pangoScale /* pretty much arbitrary */
+	if layout.tabWidth <= 0 {
+		layout.tabWidth = 50 * pangoScale /* pretty much arbitrary */
 	}
 }
 
 //  For now we only need the tab position, we assume
 //  all tabs are left-aligned.
-func (layout *Layout) get_tab_pos(int index, bool *is_default) int {
-	//    gint n_tabs;
-	//    bool in_pixels;
+func (layout *Layout) get_tab_pos(index int) (int, bool) {
+	var (
+		nTabs     int
+		inPixels  bool
+		isDefault = true
+	)
 
-	if layout.tabs {
-		n_tabs = pango_tab_array_get_size(layout.tabs)
-		in_pixels = pango_tab_array_get_positions_in_pixels(layout.tabs)
-		if is_default {
-			*is_default = false
-		}
-	} else {
-		n_tabs = 0
-		in_pixels = false
-		if is_default {
-			*is_default = true
-		}
+	if layout.tabs != nil {
+		nTabs = len(layout.tabs.tabs)
+		inPixels = layout.tabs.positions_in_pixels
+		isDefault = false
 	}
 
-	if index < n_tabs {
-		//    gint pos = 0;
-
-		pango_tab_array_get_tab(layout.tabs, index, nil, &pos)
-
-		if in_pixels {
-			return pos * pangoScale
+	if index < nTabs {
+		_, pos := layout.tabs.pango_tab_array_get_tab(index)
+		if inPixels {
+			return pos * pangoScale, isDefault
 		}
-		return pos
+		return pos, isDefault
 	}
 
-	if n_tabs > 0 {
-		/* Extrapolate tab position, repeating the last tab gap to
-		* infinity.
-		 */
-		//    int last_pos = 0;
-		//    int next_to_last_pos = 0;
-		//    int tab_width;
+	if nTabs > 0 {
+		// Extrapolate tab position, repeating the last tab gap to infinity.
 
-		pango_tab_array_get_tab(layout.tabs, n_tabs-1, nil, &last_pos)
+		_, lastPos := layout.tabs.pango_tab_array_get_tab(nTabs - 1)
 
-		if n_tabs > 1 {
-			pango_tab_array_get_tab(layout.tabs, n_tabs-2, nil, &next_to_last_pos)
+		var nextToLastPos int
+		if nTabs > 1 {
+			_, nextToLastPos = layout.tabs.pango_tab_array_get_tab(nTabs - 2)
+		}
+
+		if inPixels {
+			nextToLastPos *= pangoScale
+			lastPos *= pangoScale
+		}
+
+		var tabWidth int
+		if lastPos > nextToLastPos {
+			tabWidth = lastPos - nextToLastPos
 		} else {
-			next_to_last_pos = 0
+			tabWidth = int(layout.tabWidth)
 		}
 
-		if in_pixels {
-			next_to_last_pos *= pangoScale
-			last_pos *= pangoScale
-		}
-
-		if last_pos > next_to_last_pos {
-			tab_width = last_pos - next_to_last_pos
-		} else {
-			tab_width = layout.tab_width
-		}
-
-		return last_pos + tab_width*(index-n_tabs+1)
-	} else {
-		/* No tab array set, so use default tab width
-		 */
-		return layout.tab_width * index
+		return lastPos + tabWidth*(index-nTabs+1), isDefault
 	}
+	// No tab array set, so use default tab width
+	return int(layout.tabWidth) * index, isDefault
 }
 
 //  static inline bool

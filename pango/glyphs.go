@@ -86,7 +86,7 @@ type GlyphString struct {
 	// with size num_glyphs
 	glyphs []GlyphInfo
 
-	// logical cluster info, indexed by the byte index
+	// logical cluster info, indexed by the rune index
 	// within the text corresponding to the glyph string
 	log_clusters []int
 
@@ -275,5 +275,19 @@ func (glyphs *GlyphString) pango_shape_with_flags(item_text, paragraph_text []ru
 			glyphs.glyphs[i].geometry.x_offset = glyphs.glyphs[i].geometry.x_offset.PANGO_UNITS_ROUND()
 			glyphs.glyphs[i].geometry.y_offset = glyphs.glyphs[i].geometry.y_offset.PANGO_UNITS_ROUND()
 		}
+	}
+}
+
+func (glyphs *GlyphString) _pango_shape_shape(text []rune, shapeLogical *Rectangle) {
+
+	glyphs.pango_glyph_string_set_size(len(text))
+
+	for i := range text {
+		glyphs.glyphs[i].glyph = PANGO_GLYPH_EMPTY
+		glyphs.glyphs[i].geometry.x_offset = 0
+		glyphs.glyphs[i].geometry.y_offset = 0
+		glyphs.glyphs[i].geometry.width = GlyphUnit(shapeLogical.width)
+		glyphs.glyphs[i].attr.is_cluster_start = true
+		glyphs.log_clusters[i] = i
 	}
 }

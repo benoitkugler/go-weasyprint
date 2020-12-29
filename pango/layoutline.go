@@ -53,29 +53,24 @@ func (line *LayoutLine) shape_run(state *ParaBreakState, item *Item) *GlyphStrin
 	glyphs := &GlyphString{}
 
 	if layout.text[item.offset] == '\t' {
-		shape_tab(line, item, glyphs)
+		line.shape_tab(item, glyphs)
 	} else {
 		shape_flags := PANGO_SHAPE_NONE
 
-		if pango_context_get_round_glyph_positions(layout.context) {
+		if layout.context.round_glyph_positions {
 			shape_flags |= PANGO_SHAPE_ROUND_POSITIONS
 		}
 		if state.properties.shape_set {
-			_pango_shape_shape(layout.text+item.offset, item.num_chars,
-				state.properties.shape_ink_rect, state.properties.shape_logical_rect,
-				glyphs)
+			glyphs._pango_shape_shape(layout.text[item.offset:item.offset+item.num_chars], state.properties.shape_logical_rect)
 		} else {
-			glyphs.pango_shape_with_flags(layout.text+item.offset, item.length,
-				layout.text, layout.length,
-				&item.analysis, shape_flags)
+			glyphs.pango_shape_with_flags(layout.text[item.offset:item.offset+item.num_chars],
+				layout.text, &item.analysis, shape_flags)
 		}
 
-		if state.properties.letter_spacing {
-			//    PangoGlyphItem glyph_item;
+		if state.properties.letter_spacing != 0 {
 			//    int space_left, space_right;
 
-			glyph_item.item = item
-			glyph_item.glyphs = glyphs
+			glyph_item := GlyphItem{item: item, glyphs: glyphs}
 
 			pango_glyph_item_letter_space(&glyph_item,
 				layout.text,
@@ -110,23 +105,21 @@ func (line *LayoutLine) shape_tab(item *Item, glyphs *GlyphString) {
 	glyphs.log_clusters[0] = 0
 
 	line.layout.ensure_tab_width()
-	space_width := line.layout.tab_width / 8
+	space_width := line.layout.tabWidth / 8
 
 	for i := 0; ; i++ {
-		//    bool is_default;
-		tab_pos := get_tab_pos(line.layout, i, &is_default)
-		/* Make sure there is at least a space-width of space between
-		* tab-aligned text and the text before it.  However, only do
-		* this if no tab array is set on the layout, ie. using default
-		* tab positions.  If use has set tab positions, respect it to
-		* the pixel.
-		 */
-		sw := 1
+		tab_pos, is_default := line.layout.get_tab_pos(i)
+		// Make sure there is at least a space-width of space between
+		// tab-aligned text and the text before it.  However, only do
+		// this if no tab array is set on the layout, ie. using default
+		// tab positions. If user has set tab positions, respect it to
+		// the pixel.
+		var sw GlyphUnit = 1
 		if is_default {
 			sw = space_width
 		}
-		if tab_pos >= current_width+sw {
-			glyphs.glyphs[0].geometry.width = tab_pos - current_width
+		if GlyphUnit(tab_pos) >= current_width+sw {
+			glyphs.glyphs[0].geometry.width = GlyphUnit(tab_pos) - current_width
 			break
 		}
 	}

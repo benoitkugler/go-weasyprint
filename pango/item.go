@@ -56,7 +56,6 @@ func (analysis *Analysis) showing_space() bool {
 // Item stores information about a segment of text.
 type Item struct {
 	offset    int      // byte offset of the start of this item in text.
-	length    int      // length of this item in bytes.
 	num_chars int      // number of Unicode characters in the item.
 	analysis  Analysis // analysis results for the item.
 }
@@ -95,7 +94,7 @@ func (item *Item) pango_item_apply_attrs(iter *AttrIterator) {
 	for do := true; do; do = iter.pango_attr_iterator_next() {
 		start, end := iter.StartIndex, iter.EndIndex
 
-		if start >= item.offset+item.length {
+		if start >= item.offset+item.num_chars {
 			break
 		}
 
@@ -108,7 +107,7 @@ func (item *Item) pango_item_apply_attrs(iter *AttrIterator) {
 			}
 		}
 
-		if end >= item.offset+item.length {
+		if end >= item.offset+item.num_chars {
 			break
 		}
 	}

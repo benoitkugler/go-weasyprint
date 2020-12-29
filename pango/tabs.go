@@ -40,8 +40,8 @@ type TabArray struct {
 //  {
 //    while (start < end)
 // 	 {
-// 	   array->tabs[start].location = 0;
-// 	   array->tabs[start].alignment = PANGO_TAB_LEFT;
+// 	   array.tabs[start].location = 0;
+// 	   array.tabs[start].alignment = PANGO_TAB_LEFT;
 // 	   ++start;
 // 	 }
 //  }
@@ -66,24 +66,24 @@ type TabArray struct {
 
 //    g_return_val_if_fail (initial_size >= 0, NULL);
 
-//    /* alloc enough to treat array->tabs as an array of length
+//    /* alloc enough to treat array.tabs as an array of length
 // 	* size, though it's declared as an array of length 1.
 // 	* If we allowed tab array resizing we'd need to drop this
 // 	* optimization.
 // 	*/
 //    array = g_slice_new (TabArray);
-//    array->size = initial_size;
-//    array->allocated = initial_size;
+//    array.size = initial_size;
+//    array.allocated = initial_size;
 
-//    if (array->allocated > 0)
+//    if (array.allocated > 0)
 // 	 {
-// 	   array->tabs = g_new (Tab, array->allocated);
-// 	   init_tabs (array, 0, array->allocated);
+// 	   array.tabs = g_new (Tab, array.allocated);
+// 	   init_tabs (array, 0, array.allocated);
 // 	 }
 //    else
-// 	 array->tabs = NULL;
+// 	 array.tabs = NULL;
 
-//    array->positions_in_pixels = positions_in_pixels;
+//    array.positions_in_pixels = positions_in_pixels;
 
 //    return array;
 //  }
@@ -122,8 +122,8 @@ type TabArray struct {
 //    if (size == 0)
 // 	 return array;
 
-//    array->tabs[0].alignment = first_alignment;
-//    array->tabs[0].location = first_position;
+//    array.tabs[0].alignment = first_alignment;
+//    array.tabs[0].location = first_position;
 
 //    if (size == 1)
 // 	 return array;
@@ -136,8 +136,8 @@ type TabArray struct {
 // 	   TabAlign align = va_arg (args, TabAlign);
 // 	   int pos = va_arg (args, int);
 
-// 	   array->tabs[i].alignment = align;
-// 	   array->tabs[i].location = pos;
+// 	   array.tabs[i].alignment = align;
+// 	   array.tabs[i].location = pos;
 
 // 	   ++i;
 // 	 }
@@ -172,7 +172,7 @@ func (src *TabArray) pango_tab_array_copy() *TabArray {
 
 /**
  * pango_tab_array_resize:
- * @tab_array: a #TabArray
+ * @tabArray: a #TabArray
  * @new_size: new size of the array
  *
  * Resizes a tab array. You must subsequently initialize any tabs that
@@ -180,33 +180,33 @@ func (src *TabArray) pango_tab_array_copy() *TabArray {
  *
  **/
 //  void
-//  pango_tab_array_resize (TabArray *tab_array,
+//  pango_tab_array_resize (TabArray *tabArray,
 // 			 gint           new_size)
 //  {
-//    if (new_size > tab_array->allocated)
+//    if (new_size > tabArray.allocated)
 // 	 {
-// 	   gint current_end = tab_array->allocated;
+// 	   gint current_end = tabArray.allocated;
 
 // 	   /* Ratchet allocated size up above the index. */
-// 	   if (tab_array->allocated == 0)
-// 	 tab_array->allocated = 2;
+// 	   if (tabArray.allocated == 0)
+// 	 tabArray.allocated = 2;
 
-// 	   while (new_size > tab_array->allocated)
-// 	 tab_array->allocated = tab_array->allocated * 2;
+// 	   while (new_size > tabArray.allocated)
+// 	 tabArray.allocated = tabArray.allocated * 2;
 
-// 	   tab_array->tabs = g_renew (Tab, tab_array->tabs,
-// 				  tab_array->allocated);
+// 	   tabArray.tabs = g_renew (Tab, tabArray.tabs,
+// 				  tabArray.allocated);
 
-// 	   init_tabs (tab_array, current_end, tab_array->allocated);
+// 	   init_tabs (tabArray, current_end, tabArray.allocated);
 // 	 }
 
-//    tab_array->size = new_size;
+//    tabArray.size = new_size;
 //  }
 
 /**
  * pango_tab_array_set_tab:
- * @tab_array: a #TabArray
- * @tab_index: the index of a tab stop
+ * @tabArray: a #TabArray
+ * @tabIndex: the index of a tab stop
  * @alignment: tab alignment
  * @location: tab location in Pango units
  *
@@ -216,53 +216,31 @@ func (src *TabArray) pango_tab_array_copy() *TabArray {
  *
  **/
 //  void
-//  pango_tab_array_set_tab  (TabArray *tab_array,
-// 			   gint           tab_index,
+//  pango_tab_array_set_tab  (TabArray *tabArray,
+// 			   gint           tabIndex,
 // 			   TabAlign  alignment,
 // 			   gint           location)
 //  {
-//    g_return_if_fail (tab_array != NULL);
-//    g_return_if_fail (tab_index >= 0);
+//    g_return_if_fail (tabArray != NULL);
+//    g_return_if_fail (tabIndex >= 0);
 //    g_return_if_fail (alignment == PANGO_TAB_LEFT);
 //    g_return_if_fail (location >= 0);
 
-//    if (tab_index >= tab_array->size)
-// 	 pango_tab_array_resize (tab_array, tab_index + 1);
+//    if (tabIndex >= tabArray.size)
+// 	 pango_tab_array_resize (tabArray, tabIndex + 1);
 
-//    tab_array->tabs[tab_index].alignment = alignment;
-//    tab_array->tabs[tab_index].location = location;
+//    tabArray.tabs[tabIndex].alignment = alignment;
+//    tabArray.tabs[tabIndex].location = location;
 //  }
 
-/**
- * pango_tab_array_get_tab:
- * @tab_array: a #TabArray
- * @tab_index: tab stop index
- * @alignment: (out) (allow-none): location to store alignment, or %NULL
- * @location: (out) (allow-none): location to store tab position, or %NULL
- *
- * Gets the alignment and position of a tab stop.
- *
- **/
-//  void
-//  pango_tab_array_get_tab  (TabArray *tab_array,
-// 			   gint           tab_index,
-// 			   TabAlign *alignment,
-// 			   gint          *location)
-//  {
-//    g_return_if_fail (tab_array != NULL);
-//    g_return_if_fail (tab_index < tab_array->size);
-//    g_return_if_fail (tab_index >= 0);
-
-//    if (alignment)
-// 	 *alignment = tab_array->tabs[tab_index].alignment;
-
-//    if (location)
-// 	 *location = tab_array->tabs[tab_index].location;
-//  }
+//  pango_tab_array_get_tab gets the alignment and position of a tab stop.
+func (tabArray *TabArray) pango_tab_array_get_tab(tabIndex int) (TabAlign, int) {
+	return tabArray.tabs[tabIndex].alignment, tabArray.tabs[tabIndex].location
+}
 
 /**
  * pango_tab_array_get_tabs:
- * @tab_array: a #TabArray
+ * @tabArray: a #TabArray
  * @alignments: (out) (allow-none): location to store an array of tab
  *   stop alignments, or %NULL
  * @locations: (out) (allow-none) (array): location to store an array
@@ -274,27 +252,27 @@ func (src *TabArray) pango_tab_array_copy() *TabArray {
  *
  **/
 //  void
-//  pango_tab_array_get_tabs (TabArray *tab_array,
+//  pango_tab_array_get_tabs (TabArray *tabArray,
 // 			   TabAlign **alignments,
 // 			   gint          **locations)
 //  {
 //    gint i;
 
-//    g_return_if_fail (tab_array != NULL);
+//    g_return_if_fail (tabArray != NULL);
 
 //    if (alignments)
-// 	 *alignments = g_new (TabAlign, tab_array->size);
+// 	 *alignments = g_new (TabAlign, tabArray.size);
 
 //    if (locations)
-// 	 *locations = g_new (gint, tab_array->size);
+// 	 *locations = g_new (gint, tabArray.size);
 
 //    i = 0;
-//    while (i < tab_array->size)
+//    while (i < tabArray.size)
 // 	 {
 // 	   if (alignments)
-// 	 (*alignments)[i] = tab_array->tabs[i].alignment;
+// 	 (*alignments)[i] = tabArray.tabs[i].alignment;
 // 	   if (locations)
-// 	 (*locations)[i] = tab_array->tabs[i].location;
+// 	 (*locations)[i] = tabArray.tabs[i].location;
 
 // 	   ++i;
 // 	 }
@@ -302,7 +280,7 @@ func (src *TabArray) pango_tab_array_copy() *TabArray {
 
 /**
  * pango_tab_array_get_positions_in_pixels:
- * @tab_array: a #TabArray
+ * @tabArray: a #TabArray
  *
  * Returns %TRUE if the tab positions are in pixels, %FALSE if they are
  * in Pango units.
@@ -310,9 +288,9 @@ func (src *TabArray) pango_tab_array_copy() *TabArray {
  * Return value: whether positions are in pixels.
  **/
 //  gboolean
-//  pango_tab_array_get_positions_in_pixels (TabArray *tab_array)
+//  pango_tab_array_get_positions_in_pixels (TabArray *tabArray)
 //  {
-//    g_return_val_if_fail (tab_array != NULL, FALSE);
+//    g_return_val_if_fail (tabArray != NULL, FALSE);
 
-//    return tab_array->positions_in_pixels;
+//    return tabArray.positions_in_pixels;
 //  }
