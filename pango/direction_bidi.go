@@ -63,7 +63,7 @@ const (
  *
  * Since: 1.4
  */
-func pango_find_baseDir(text []rune) Direction {
+func pango_find_base_dir(text []rune) Direction {
 	dir := PANGO_DIRECTION_NEUTRAL
 	for _, wc := range text {
 		dir = pango_unichar_direction(wc)

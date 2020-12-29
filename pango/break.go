@@ -3,6 +3,7 @@ package pango
 import (
 	"unicode"
 
+	"github.com/benoitkugler/go-weasyprint/fribidi"
 	"github.com/benoitkugler/go-weasyprint/layout/text/unicodedata"
 )
 
@@ -323,8 +324,73 @@ const (
 	// but we handle that inline in the code.
 )
 
-func GetLogAttrs(text []rune) []CharAttr {
-	return pangoDefaultBreak(text)
+// GetLogAttrs computes a `CharAttr` for each character in `text`.
+//
+// The returned array has one `CharAttr` for each position in `text`: if
+// `text` contains N characters, it has N+1 positions, including the
+// last position at the end of the text.
+//
+// `text` should be an entire paragraph; logical attributes can't be computed without context
+// (for example you need to see spaces on either side of a word to know
+// the word is a word).
+//
+// `level` is the embedding level; pass -1 if unknown
+func GetLogAttrs(text []rune, level fribidi.Level) []CharAttr {
+	analysis := Analysis{level: level}
+
+	logAttrs := make([]CharAttr, len(text)+1)
+
+	pangoDefaultBreak(text, logAttrs)
+
+	var (
+		iter       ScriptIter
+		charOffset int
+	)
+	iter._pango_script_iter_init(text)
+	for do := true; do; do = iter.pango_script_iter_next() {
+		runStart, runEnd, script := iter.script_start, iter.script_end, iter.script_code
+		analysis.script = script
+		charsInRange := runEnd - runStart
+		pango_tailor_break(text[runStart:runEnd], &analysis, -1, logAttrs[charOffset:charOffset+charsInRange+1])
+		charOffset += charsInRange
+	}
+	// no-op: iter._pango_script_iter_fini()
+
+	return logAttrs
+}
+
+// pango_tailor_break:
+// @text: text to process. Must be valid UTF-8
+// @analysis:  #PangoAnalysis structure from pango_itemize() for @text
+// @offset: Byte offset of @text from the beginning of the
+//     paragraph, or -1 to ignore attributes from @analysis
+// @log_attrs: (array length=log_attrs_len): array with one #PangoLogAttr
+//   per character in @text, plus one extra, to be filled in
+//
+// Apply language-specific tailoring to the breaks in
+// @log_attrs, which are assumed to have been produced
+// by pangoDefaultBreak().
+//
+// If @offset is not -1, it is used to apply attributes
+// from @analysis that are relevant to line breaking.
+// TODO: for now, this function is a no-op
+// TODO: clarify the length needed
+func pango_tailor_break(text []rune, analysis *Analysis, offset int, log_attrs []CharAttr) {
+	//    PangoLogAttr *start = log_attrs;
+	//    PangoLogAttr attr_before = *start;
+
+	//    if (tailor_break (text, length, analysis, offset, log_attrs, log_attrs_len))
+	// 	 {
+	// 	   /* if tailored, we enforce some of the attrs from before
+	// 		* tailoring at the boundary
+	// 		*/
+
+	// 	  start.backspace_deletes_character  = attr_before.backspace_deletes_character;
+
+	// 	  start.is_line_break      |= attr_before.is_line_break;
+	// 	  start.is_mandatory_break |= attr_before.is_mandatory_break;
+	// 	  start.is_cursor_position |= attr_before.is_cursor_position;
+	// 	 }
 }
 
 func unicodeCategorie(r rune) *unicode.RangeTable {
@@ -369,15 +435,15 @@ func katakana(wc rune) bool { return wc >= 0x30A0 && wc <= 0x30FF }
 
 // This is the default break algorithm. It applies Unicode
 // rules without language-specific tailoring.
+// To avoid allocations, `attrs` must be passed, and must have a length of len(text)+1.
 //
 // See pango_tailor_break() for language-specific breaks.
-func pangoDefaultBreak(text []rune) []CharAttr {
+func pangoDefaultBreak(text []rune, attrs []CharAttr) {
 	// The rationale for all this is in section 5.15 of the Unicode 3.0 book,
 	// the line breaking stuff is also in TR14 on unicode.org
 	// This is a default break implementation that should work for nearly all
 	// languages. Language engines can override it optionally.
 
-	attrs := make([]CharAttr, len(text)+1)
 	var (
 		prevWc, nextWc rune
 
@@ -1495,7 +1561,6 @@ func pangoDefaultBreak(text []rune) []CharAttr {
 
 	attrs[i].setLineBreak(true /* Rule LB3 */)
 	attrs[0].setLineBreak(false) /* Rule LB2 */
-	return attrs
 }
 
 // pango_find_paragraph_boundary locates a paragraph boundary in `text`.

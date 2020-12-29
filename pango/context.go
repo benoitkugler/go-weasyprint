@@ -53,7 +53,7 @@ type Context struct {
 
 	font_map FontMap
 
-	//    bool round_glyph_positions;
+	round_glyph_positions bool
 }
 
 // pango_context_load_font loads the font in one of the fontmaps in the context
@@ -65,9 +65,32 @@ func (context *Context) pango_context_load_font(desc *FontDescription) Font {
 	return context.font_map.load_font(context, desc)
 }
 
-// pango_itemize_with_base_dir is like pango_itemize(), but the base direction to use when
-// computing bidirectional levels (see pango_context_set_base_dir ()),
-// is specified explicitly rather than gotten from the Context.
+// pango_itemize breaks a piece of text into segments with consistent
+// directional level and shaping engine, applying `attrs`.
+//
+//  Each rune of `text` will
+// be contained in exactly one of the items in the returned list;
+// the generated list of items will be in logical order (the start
+// offsets of the items are ascending).
+// `startIndex` is the first rune index in `text` to process, and `length`
+// the number of characters to process  after `startIndex`.
+//
+// `cachedIter` should be an iterator over `attrs` currently positioned at a
+// range before or containing `startIndex`; `cachedIter` will be advanced to
+// the range covering the position just after `startIndex` + `length`.
+// (i.e. if itemizing in a loop, just keep passing in the same `cachedIter`).
+func (context *Context) pango_itemize(text []rune, start_index int, length int,
+	attrs AttrList, cached_iter *AttrIterator) []*Item {
+	if context == nil || start_index < 0 || length < 0 {
+		return nil
+	}
+
+	return context.pango_itemize_with_base_dir(context.base_dir,
+		text, start_index, length, attrs, cached_iter)
+}
+
+// pango_itemize_with_base_dir is like `pango_itemize`, but the base direction to use when
+// computing bidirectional levels is specified explicitly rather than gotten from `context`.
 func (context *Context) pango_itemize_with_base_dir(base_dir Direction, text []rune,
 	start_index, length int,
 	attrs AttrList, cached_iter *AttrIterator) []*Item {
@@ -1280,51 +1303,6 @@ func (state *ItemizeState) itemize_state_finish() {} // only memory cleanup
 //    itemize_state_finish (&state);
 
 //    return g_list_reverse (state.result);
-//  }
-
-//  /**
-//   * pango_itemize:
-//   * `context`:   a structure holding information that affects
-// 			the itemization process.
-//   * @text:      the text to itemize. Must be valid UTF-8
-//   * @start_index: first byte in @text to process
-//   * @length:    the number of bytes (not characters) to process
-//   *             after @start_index.
-//   *             This must be >= 0.
-//   * @attrs:     the set of attributes that apply to @text.
-//   * @cached_iter: (allow-none): Cached attribute iterator, or %nil
-//   *
-//   * Breaks a piece of text into segments with consistent
-//   * directional level and shaping engine. Each byte of @text will
-//   * be contained in exactly one of the items in the returned list;
-//   * the generated list of items will be in logical order (the start
-//   * offsets of the items are ascending).
-//   *
-//   * @cached_iter should be an iterator over @attrs currently positioned at a
-//   * range before or containing @start_index; @cached_iter will be advanced to
-//   * the range covering the position just after @start_index + @length.
-//   * (i.e. if itemizing in a loop, just keep passing in the same @cached_iter).
-//   *
-//   * Return value: (transfer full) (element-type Pango.Item): a #GList of #PangoItem
-//   *               structures. The items should be freed using pango_item_free()
-//   *               probably in combination with g_list_foreach(), and the list itself
-//   *               using g_list_free().
-//   */
-//  GList *
-//  pango_itemize (Context      *context,
-// 			const char        *text,
-// 			int                start_index,
-// 			int                length,
-// 			PangoAttrList     *attrs,
-// 			PangoAttrIterator *cached_iter)
-//  {
-//    g_return_val_if_fail (context != nil, nil);
-//    g_return_val_if_fail (start_index >= 0, nil);
-//    g_return_val_if_fail (length >= 0, nil);
-//    g_return_val_if_fail (length == 0 || text != nil, nil);
-
-//    return pango_itemize_with_base_dir (context, context.base_dir,
-// 					   text, start_index, length, attrs, cached_iter);
 //  }
 
 //  static bool

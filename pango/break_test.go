@@ -34,7 +34,7 @@ func testFile(filename string) (string, error) {
 	}
 	text := []rune(lines)
 
-	attrs := GetLogAttrs(text)
+	attrs := GetLogAttrs(text, -1)
 	s1 := "Breaks: "
 	s2 := "Whitespace: "
 	s3 := "Words:"
@@ -269,7 +269,7 @@ func TestBoundaries(t *testing.T) {
 
 	text := []rune(string(b))
 
-	attrs := GetLogAttrs(text)
+	attrs := GetLogAttrs(text, -1)
 
 	logAttrForeach(t, text, attrs, checkLineChar) // line invariants
 }
@@ -350,7 +350,7 @@ func TestUCD(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := GetLogAttrs([]rune(s))
+			got := GetLogAttrs([]rune(s), -1)
 			assertEqualAttrs(t, bs, got, refs[i])
 		}
 	}

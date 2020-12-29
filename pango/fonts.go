@@ -7,6 +7,35 @@ import (
 	"strings"
 )
 
+const (
+	// The `PANGO_GLYPH_EMPTY` macro represents a `Glyph` value that has a
+	// special meaning, which is a zero-width empty glyph. This is useful for
+	// example in shaper modules, to use as the glyph for various zero-width
+	// Unicode characters (those passing pango_is_zero_width()).
+	PANGO_GLYPH_EMPTY Glyph = 0x0FFFFFFF
+	// The `PANGO_GLYPH_INVALID_INPUT` macro represents a `Glyph` value that has a
+	// special meaning of invalid input. `Layout` produces one such glyph
+	// per invalid input UTF-8 byte and such a glyph is rendered as a crossed
+	// box.
+	//
+	// Note that this value is defined such that it has the `PANGO_GLYPH_UNKNOWN_FLAG` on.
+	PANGO_GLYPH_INVALID_INPUT Glyph = 0xFFFFFFFF
+
+	// The `PANGO_GLYPH_UNKNOWN_FLAG` macro is a flag value that can be added to
+	// a rune value of a valid Unicode character, to produce a `Glyph`
+	// value, representing an unknown-character glyph for the respective rune.
+	PANGO_GLYPH_UNKNOWN_FLAG = 0x10000000
+)
+
+// PANGO_GET_UNKNOWN_GLYPH returns a `Glyph` value that means no glyph was found for `wc`.
+//
+// The way this unknown glyphs are rendered is backend specific.  For example,
+// a box with the hexadecimal Unicode code-point of the character written in it
+// is what is done in the most common backends.
+func PANGO_GET_UNKNOWN_GLYPH(wc rune) Glyph {
+	return Glyph(wc | PANGO_GLYPH_UNKNOWN_FLAG)
+}
+
 // contains acceptable strings value
 type enumMap []struct {
 	value int
