@@ -151,6 +151,8 @@ var overline_map = enumMap{
 	{value: int(PANGO_OVERLINE_SINGLE), str: "single"},
 }
 
+// AttrData stores the type specific value of
+// an attribute.
 type AttrData interface {
 	fmt.Stringer
 	copy() AttrData
@@ -210,9 +212,16 @@ func (a AttrShape) copy() AttrData             { return a }
 func (a AttrShape) equals(other AttrData) bool { return a == other }
 func (a AttrShape) String() string             { return "shape" }
 
+// Attribute are used as the input to the itemization process and also when
+// creating a `Layout`. The common portion of the attribute holds
+// the range to which the value applies.
+// By default an attribute will have an all-inclusive range of [0,maxInt].
 type Attribute struct {
-	Type                 AttrType
-	Data                 AttrData
+	Type AttrType
+	Data AttrData
+	// Indexes into the underlying rune slice (note that
+	// we diverge here from the C library, which works on byte slices).
+	// The character at `EndIndex` is not included in the range.
 	StartIndex, EndIndex int
 }
 
@@ -852,34 +861,17 @@ func (iterator AttrIterator) pango_attr_iterator_get_attrs() AttrList {
 	return attrs
 }
 
-/**
- * pango_attr_iterator_get:
- * @iterator: a #PangoAttrIterator
- * @type: the type of attribute to find.
- *
- * Find the current attribute of a particular type at the iterator
- * location. When multiple attributes of the same type overlap,
- * the attribute whose range starts closest to the current location
- * is used.
- *
- * Return value: (nullable) (transfer none): the current attribute of the given type,
- *               or %nil if no attribute of that type applies to the
- *               current location.
- **/
+// pango_attr_iterator_get finds the current attribute of a particular type at the iterator
+// location. When multiple attributes of the same type overlap,
+// the attribute whose range starts closest to the current location is used.
+// It returns `nil` if no attribute of that type applies to the current location.
 func (iterator AttrIterator) pango_attr_iterator_get(type_ AttrType) *Attribute {
-	if len(iterator.attribute_stack) == 0 {
-		return nil
-
-	}
-
 	for i := len(iterator.attribute_stack) - 1; i >= 0; i-- {
 		attr := iterator.attribute_stack[i]
-
 		if attr.Type == type_ {
 			return attr
 		}
 	}
-
 	return nil
 }
 
