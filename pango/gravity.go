@@ -52,6 +52,12 @@ const (
 	PANGO_GRAVITY_HINT_LINE
 )
 
+var gravityhint_map = enumMap{
+	{value: int(PANGO_GRAVITY_HINT_NATURAL), str: "natural"},
+	{value: int(PANGO_GRAVITY_HINT_STRONG), str: "strong"},
+	{value: int(PANGO_GRAVITY_HINT_LINE), str: "line"},
+}
+
 /**
  * pango_gravity_get_for_script_and_width:
  * @script: Script to query

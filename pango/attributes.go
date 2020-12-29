@@ -92,6 +92,13 @@ const (
 	PANGO_SHOW_IGNORABLES                        //  Render default-ignorable Unicode characters visibly
 )
 
+var showflags_map = enumMap{
+	{value: int(PANGO_SHOW_NONE), str: ""},
+	{value: int(PANGO_SHOW_SPACES), str: "spaces"},
+	{value: int(PANGO_SHOW_LINE_BREAKS), str: "line-breaks"},
+	{value: int(PANGO_SHOW_IGNORABLES), str: "ignorables"},
+}
+
 // Underline enumeration is used to specify
 // whether text should be underlined, and if so, the type
 // of underlining.
@@ -118,6 +125,17 @@ const (
 	PANGO_UNDERLINE_ERROR_LINE  // like PANGO_UNDERLINE_ERROR, but drawn continuously across multiple runs.
 )
 
+var underline_map = enumMap{
+	{value: int(PANGO_UNDERLINE_NONE), str: "none"},
+	{value: int(PANGO_UNDERLINE_SINGLE), str: "single"},
+	{value: int(PANGO_UNDERLINE_DOUBLE), str: "double"},
+	{value: int(PANGO_UNDERLINE_LOW), str: "low"},
+	{value: int(PANGO_UNDERLINE_ERROR), str: "error"},
+	{value: int(PANGO_UNDERLINE_SINGLE_LINE), str: "single-line"},
+	{value: int(PANGO_UNDERLINE_DOUBLE_LINE), str: "double-line"},
+	{value: int(PANGO_UNDERLINE_ERROR_LINE), str: "error-line"},
+}
+
 // Overline is used to specify
 // whether text should be overlined, and if so, the type
 // of line.
@@ -127,6 +145,11 @@ const (
 	PANGO_OVERLINE_NONE   Overline = iota // no overline should be drawn
 	PANGO_OVERLINE_SINGLE                 // Draw a single line above the ink extents of the text being underlined.
 )
+
+var overline_map = enumMap{
+	{value: int(PANGO_OVERLINE_NONE), str: "none"},
+	{value: int(PANGO_OVERLINE_SINGLE), str: "single"},
+}
 
 type AttrData interface {
 	fmt.Stringer
@@ -143,7 +166,7 @@ func (a AttrInt) equals(other AttrData) bool { return a == other }
 type AttrFloat float64
 
 func (a AttrFloat) copy() AttrData             { return a }
-func (a AttrFloat) String() string             { return fmt.Sprintf("%g", a) }
+func (a AttrFloat) String() string             { return fmt.Sprintf("%f", a) }
 func (a AttrFloat) equals(other AttrData) bool { return a == other }
 
 type AttrString string
@@ -193,7 +216,7 @@ type Attribute struct {
 	StartIndex, EndIndex int
 }
 
-// Initializes StartIndex to 0 and EndIndex to MaxUint
+// pango_attribute_init initializes StartIndex to 0 and EndIndex to maxInt
 // such that the attribute applies to the entire text by default.
 func (attr *Attribute) pango_attribute_init() {
 	attr.StartIndex = 0
@@ -332,6 +355,20 @@ func pango_attr_underline_new(underline Underline) *Attribute {
 	return &out
 }
 
+// Create a new foreground alpha attribute.
+func pango_attr_foreground_alpha_new(alpha uint16) *Attribute {
+	out := Attribute{Type: ATTR_FOREGROUND_ALPHA, Data: AttrInt(alpha)}
+	out.pango_attribute_init()
+	return &out
+}
+
+// Create a new background alpha attribute.
+func pango_attr_background_alpha_new(alpha uint16) *Attribute {
+	out := Attribute{Type: ATTR_BACKGROUND_ALPHA, Data: AttrInt(alpha)}
+	out.pango_attribute_init()
+	return &out
+}
+
 // Create a new overline-style attribute.
 func pango_attr_overline_new(overline Overline) *Attribute {
 	out := Attribute{Type: ATTR_OVERLINE, Data: AttrInt(overline)}
@@ -410,15 +447,15 @@ func pango_attr_family_new(family string) *Attribute {
 }
 
 // Create a new foreground color attribute.
-func pango_attr_foreground_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_FOREGROUND, Data: AttrColor{Red: red, Green: green, Blue: blue}}
+func pango_attr_foreground_new(color AttrColor) *Attribute {
+	out := Attribute{Type: ATTR_FOREGROUND, Data: color}
 	out.pango_attribute_init()
 	return &out
 }
 
 // Create a new background color attribute.
-func pango_attr_background_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_BACKGROUND, Data: AttrColor{Red: red, Green: green, Blue: blue}}
+func pango_attr_background_new(color AttrColor) *Attribute {
+	out := Attribute{Type: ATTR_BACKGROUND, Data: color}
 	out.pango_attribute_init()
 	return &out
 }
@@ -426,8 +463,8 @@ func pango_attr_background_new(red, green, blue uint16) *Attribute {
 // Create a new underline color attribute. This attribute
 // modifies the color of underlines. If not set, underlines
 // will use the foreground color.
-func pango_attr_underline_color_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_UNDERLINE_COLOR, Data: AttrColor{Red: red, Green: green, Blue: blue}}
+func pango_attr_underline_color_new(color AttrColor) *Attribute {
+	out := Attribute{Type: ATTR_UNDERLINE_COLOR, Data: color}
 	out.pango_attribute_init()
 	return &out
 }
@@ -435,8 +472,8 @@ func pango_attr_underline_color_new(red, green, blue uint16) *Attribute {
 // Create a new overline color attribute. This attribute
 // modifies the color of overlines. If not set, overlines
 // will use the foreground color.
-func pango_attr_overline_color_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_OVERLINE_COLOR, Data: AttrColor{Red: red, Green: green, Blue: blue}}
+func pango_attr_overline_color_new(color AttrColor) *Attribute {
+	out := Attribute{Type: ATTR_OVERLINE_COLOR, Data: color}
 	out.pango_attribute_init()
 	return &out
 }
@@ -444,8 +481,8 @@ func pango_attr_overline_color_new(red, green, blue uint16) *Attribute {
 // Create a new strikethrough color attribute. This attribute
 // modifies the color of strikethrough lines. If not set, strikethrough lines
 // will use the foreground color.
-func pango_attr_strikethrough_color_new(red, green, blue uint16) *Attribute {
-	out := Attribute{Type: ATTR_STRIKETHROUGH_COLOR, Data: AttrColor{Red: red, Green: green, Blue: blue}}
+func pango_attr_strikethrough_color_new(color AttrColor) *Attribute {
+	out := Attribute{Type: ATTR_STRIKETHROUGH_COLOR, Data: color}
 	out.pango_attribute_init()
 	return &out
 }
@@ -456,6 +493,13 @@ func pango_attr_strikethrough_color_new(red, green, blue uint16) *Attribute {
 // embedding a picture or a widget inside a `Layout`.
 func pango_attr_shape_new(ink, logical Rectangle) *Attribute {
 	out := Attribute{Type: ATTR_SHAPE, Data: AttrShape{ink: ink, logical: logical}}
+	out.pango_attribute_init()
+	return &out
+}
+
+// Create a new font features tag attribute, from a string with OpenType font features, in CSS syntax
+func pango_attr_font_features_new(features string) *Attribute {
+	out := Attribute{Type: ATTR_FONT_FEATURES, Data: AttrString(features)}
 	out.pango_attribute_init()
 	return &out
 }
@@ -534,7 +578,7 @@ func (list *AttrList) pango_attr_list_insert_before(attr *Attribute) {
 // for large lists). However, pango_attr_list_insert() is not
 // suitable for continually changing a set of attributes
 // since it never removes or combines existing attributes.
-func (list *AttrList) pango_attr_list_change(attr Attribute) {
+func (list *AttrList) pango_attr_list_change(attr *Attribute) {
 	if list == nil {
 		return
 	}
@@ -548,7 +592,7 @@ func (list *AttrList) pango_attr_list_change(attr Attribute) {
 	}
 
 	if len(*list) == 0 {
-		list.pango_attr_list_insert(&attr)
+		list.pango_attr_list_insert(attr)
 		return
 	}
 
@@ -558,7 +602,7 @@ func (list *AttrList) pango_attr_list_change(attr Attribute) {
 		tmp_attr := (*list)[i]
 
 		if tmp_attr.StartIndex > startIndex {
-			list.insert(i, &attr)
+			list.insert(i, attr)
 			inserted = true
 			break
 		}
@@ -574,14 +618,14 @@ func (list *AttrList) pango_attr_list_change(attr Attribute) {
 		// tmp_attr.StartIndex <= startIndex
 		// tmp_attr.EndIndex >= startIndex
 
-		if tmp_attr.pango_attribute_equal(attr) { // We can merge the new attribute with this attribute
+		if tmp_attr.pango_attribute_equal(*attr) { // We can merge the new attribute with this attribute
 			if tmp_attr.EndIndex >= endIndex {
 				// We are totally overlapping the previous attribute.
 				// No action is needed.
 				return
 			}
 			tmp_attr.EndIndex = endIndex
-			attr = *tmp_attr
+			attr = tmp_attr
 			inserted = true
 			break
 		} else { // Split, truncate, or remove the old attribute
@@ -601,7 +645,7 @@ func (list *AttrList) pango_attr_list_change(attr Attribute) {
 	}
 
 	if !inserted { // we didn't insert attr yet
-		list.pango_attr_list_insert(&attr)
+		list.pango_attr_list_insert(attr)
 		return
 	}
 
@@ -619,7 +663,7 @@ func (list *AttrList) pango_attr_list_change(attr Attribute) {
 			continue
 		}
 
-		if tmp_attr.EndIndex <= attr.EndIndex || tmp_attr.pango_attribute_equal(attr) {
+		if tmp_attr.EndIndex <= attr.EndIndex || tmp_attr.pango_attribute_equal(*attr) {
 			/* We can merge the new attribute with this attribute. */
 			attr.EndIndex = max(endIndex, tmp_attr.EndIndex)
 			list.remove(i)

@@ -81,8 +81,8 @@ var specs = [...]colorSpec{
 	{"#abcd", true, ALPHA, 0xaaaa, 0xbbbb, 0xcccc, 0xdddd},
 	{"#aabbccdd", true, ALPHA, 0xaaaa, 0xbbbb, 0xcccc, 0xdddd},
 	{"#aaaabbbbccccdddd", true, ALPHA, 0xaaaa, 0xbbbb, 0xcccc, 0xdddd},
-	{"grey100", true, COLOR, 255 * 255, 255 * 255, 255 * 255, 0xffff},
-	{"darkGrey", true, COLOR, 169 * 255, 169 * 255, 169 * 255, 0xffff},
+	{"grey100", true, COLOR, 0xffff, 0xffff, 0xffff, 0xffff},
+	{"darkGrey", true, COLOR, 169 * 65535 / 255, 169 * 65535 / 255, 169 * 65535 / 255, 0xffff},
 	{"invalidName", false, COLOR, 0, 0, 0, 0},
 }
 

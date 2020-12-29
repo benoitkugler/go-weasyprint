@@ -10,7 +10,7 @@ type Rectangle struct {
 	height int // height of the rectangle.
 }
 
-const maxInt = int(^uint(0) >> 1)
+const maxInt = int(^uint32(0) >> 1)
 
 func max(a, b int) int {
 	if a < b {

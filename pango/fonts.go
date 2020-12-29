@@ -32,6 +32,30 @@ func (e enumMap) toString(what string, v int) string {
 	return fmt.Sprintf("%s=%d", what, v)
 }
 
+func (map_ enumMap) parse_field(str string) (int, bool) {
+	if str == "" {
+		return 0, false
+	}
+
+	if field_matches("Normal", str) {
+		str = ""
+	}
+
+	v, found := map_.fromString(str)
+
+	return v, found
+}
+
+func (map_ enumMap) possibleValues() string {
+	var values []string
+	for _, v := range map_ {
+		if v.str != "" {
+			values = append(values, v.str)
+		}
+	}
+	return strings.Join(values, "/")
+}
+
 // Style specifies the various slant styles possible for a font.
 type Style uint8
 
@@ -293,8 +317,8 @@ func pango_font_description_from_string(str string) FontDescription {
 			word = strings.TrimSuffix(word, "px")
 		}
 		size, err := strconv.ParseFloat(word, 64)
-		if err != nil { // just ignore invalid floats
-			log.Println("invalid size format:", err)
+		if err != nil {
+			// just ignore invalid floats: they maybe do not refers to a size
 		} else if size < 0 || size > 1000000 {
 			log.Println("invalid size value:", size)
 		} else { // word is a valid float
@@ -359,11 +383,45 @@ func (desc *FontDescription) find_field_any(str string) bool {
 	return false
 }
 
+// pango_parse_style parses a font style. The allowed values are "normal",
+// "italic" and "oblique", case variations being
+// ignored.
+func pango_parse_style(str string) (Style, bool) {
+	i, b := style_map.parse_field(str)
+	return Style(i), b
+}
+
+// pango_parse_variant parses a font variant. The allowed values are "normal"
+// and "smallcaps" or "small_caps", case variations being
+// ignored.
+func pango_parse_variant(str string) (Variant, bool) {
+	i, b := variant_map.parse_field(str)
+	return Variant(i), b
+}
+
+// pango_parse_weight parses a font weight. The allowed values are "heavy",
+// "ultrabold", "bold", "normal", "light", "ultraleight"
+// and integers. Case variations are ignored.
+func pango_parse_weight(str string) (Weight, bool) {
+	i, b := weight_map.parse_field(str)
+	return Weight(i), b
+}
+
+// pango_parse_stretch parses a font stretch. The allowed values are
+// "ultra_condensed", "extra_condensed", "condensed",
+// "semi_condensed", "normal", "semi_expanded", "expanded",
+// "extra_expanded" and "ultra_expanded". Case variations are
+// ignored and the '_' characters may be omitted.
+func pango_parse_stretch(str string) (Stretch, bool) {
+	i, b := stretch_map.parse_field(str)
+	return Stretch(i), b
+}
+
 var hyphenStripper = strings.NewReplacer("-", "")
 
 // TODO: check this is correct
 func field_matches(s1, s2 string) bool {
-	return strings.ToLower(hyphenStripper.Replace(s1)) == strings.ToLower(hyphenStripper.Replace(s2))
+	return hyphenStripper.Replace(strings.ToLower(s1)) == hyphenStripper.Replace(strings.ToLower(s2))
 }
 
 // Creates a string representation of a font description.

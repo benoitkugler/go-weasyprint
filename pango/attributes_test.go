@@ -1,6 +1,7 @@
 package pango
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -13,8 +14,8 @@ func testCopy(t *testing.T, attr *Attribute) {
 func TestAttributesBasic(t *testing.T) {
 	testCopy(t, pango_attr_language_new(pango_language_from_string("ja-JP")))
 	testCopy(t, pango_attr_family_new("Times"))
-	testCopy(t, pango_attr_foreground_new(100, 200, 300))
-	testCopy(t, pango_attr_background_new(100, 200, 300))
+	testCopy(t, pango_attr_foreground_new(AttrColor{100, 200, 300}))
+	testCopy(t, pango_attr_background_new(AttrColor{100, 200, 300}))
 	testCopy(t, pango_attr_size_new(1024))
 	testCopy(t, pango_attr_size_new_absolute(1024))
 	testCopy(t, pango_attr_style_new(PANGO_STYLE_ITALIC))
@@ -24,11 +25,11 @@ func TestAttributesBasic(t *testing.T) {
 	testCopy(t, pango_attr_font_desc_new(pango_font_description_from_string("Computer Modern 12")))
 	testCopy(t, pango_attr_underline_new(PANGO_UNDERLINE_LOW))
 	testCopy(t, pango_attr_underline_new(PANGO_UNDERLINE_ERROR_LINE))
-	testCopy(t, pango_attr_underline_color_new(100, 200, 300))
+	testCopy(t, pango_attr_underline_color_new(AttrColor{100, 200, 300}))
 	testCopy(t, pango_attr_overline_new(PANGO_OVERLINE_SINGLE))
-	testCopy(t, pango_attr_overline_color_new(100, 200, 300))
+	testCopy(t, pango_attr_overline_color_new(AttrColor{100, 200, 300}))
 	testCopy(t, pango_attr_strikethrough_new(true))
-	testCopy(t, pango_attr_strikethrough_color_new(100, 200, 300))
+	testCopy(t, pango_attr_strikethrough_color_new(AttrColor{100, 200, 300}))
 	testCopy(t, pango_attr_rise_new(256))
 	testCopy(t, pango_attr_scale_new(2.56))
 	testCopy(t, pango_attr_fallback_new(false))
@@ -55,33 +56,23 @@ func TestAttributesEqual(t *testing.T) {
 	assertTrue(t, attr2.pango_attribute_equal(*attr3), "attribute equality")
 }
 
-// void
-// print_attr_list (PangoAttrList *attrs, GString *string)
-// {
-//   PangoAttrIterator *iter;
-
-//   if (!attrs)
-//     return;
-
-//   iter = pango_attr_list_get_iterator (attrs);
-//   do {
-//     gint start, end;
-//     GSList *list, *l;
-
-//     pango_attr_iterator_range (iter, &start, &end);
-//     g_string_append_printf (string, "range %d %d\n", start, end);
-//     list = pango_attr_iterator_get_attrs (iter);
-//     for (l = list; l; l = l.next)
-//       {
-//         PangoAttribute *attr = l.data;
-//         print_attribute (attr, string);
-//         g_string_append (string, "\n");
-//       }
-//     g_slist_free_full (list, (GDestroyNotify)pango_attribute_destroy);
-//   } while (pango_attr_iterator_next (iter));
-
-//   pango_attr_iterator_destroy (iter);
-// }
+func print_attr_list(attrs AttrList) string {
+	if len(attrs) == 0 {
+		return ""
+	}
+	var out string
+	iter := attrs.pango_attr_list_get_iterator()
+	do := true
+	for do {
+		out += fmt.Sprintf("range %d %d\n", iter.StartIndex, iter.EndIndex)
+		list := iter.pango_attr_iterator_get_attrs()
+		for _, attr := range list {
+			out += attr.String() + "\n"
+		}
+		do = iter.pango_attr_iterator_next()
+	}
+	return out
+}
 
 func print_attributes(attrs AttrList) string {
 	chunks := make([]string, len(attrs))
@@ -111,9 +102,9 @@ func TestList(t *testing.T) {
 	list.pango_attr_list_insert(pango_attr_size_new(20))
 	list.pango_attr_list_insert(pango_attr_size_new(30))
 
-	assert_attributes(t, list, "[0,-1]size=10\n"+
-		"[0,-1]size=20\n"+
-		"[0,-1]size=30\n")
+	assert_attributes(t, list, "[0,2147483647]size=10\n"+
+		"[0,2147483647]size=20\n"+
+		"[0,2147483647]size=30\n")
 
 	list = nil
 
@@ -129,8 +120,8 @@ func TestList(t *testing.T) {
 	attr.EndIndex = 40
 	list.pango_attr_list_insert_before(attr)
 
-	assert_attributes(t, list, "[0,-1]size=10\n"+
-		"[0,-1]size=30\n"+
+	assert_attributes(t, list, "[0,2147483647]size=10\n"+
+		"[0,2147483647]size=30\n"+
 		"[10,40]size=40\n"+
 		"[10,20]size=20\n")
 }
@@ -159,7 +150,7 @@ func TestListChange(t *testing.T) {
 	attr = pango_attr_variant_new(PANGO_VARIANT_SMALL_CAPS)
 	attr.StartIndex = 10
 	attr.EndIndex = 20
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,10]size=10\n"+
 		"[0,30]weight=700\n"+
@@ -170,7 +161,7 @@ func TestListChange(t *testing.T) {
 	attr = pango_attr_weight_new(PANGO_WEIGHT_LIGHT)
 	attr.StartIndex = 15
 	attr.EndIndex = 20
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,10]size=10\n"+
 		"[0,15]weight=700\n"+
@@ -183,7 +174,7 @@ func TestListChange(t *testing.T) {
 	attr = pango_attr_size_new(20)
 	attr.StartIndex = 5
 	attr.EndIndex = 20
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,5]size=10\n"+
 		"[0,15]weight=700\n"+
@@ -213,7 +204,7 @@ func TestListChange(t *testing.T) {
 //    attr.EndIndex = 30;
 //    pango_attr_list_insert (base, attr);
 
-//    assert_attributes (t,base, "[0,-1]size=10\n"
+//    assert_attributes (t,base, "[0,2147483647]size=10\n"
 // 						   "[10,15]weight=700\n"
 // 						   "[20,30]variant=1\n");
 
@@ -222,7 +213,7 @@ func TestListChange(t *testing.T) {
 //    other = pango_attr_list_new ();
 //    pango_attr_list_splice (list, other, 11, 5);
 
-//    assert_attributes (t,list, "[0,-1]size=10\n"
+//    assert_attributes (t,list, "[0,2147483647]size=10\n"
 // 						   "[10,20]weight=700\n"
 // 						   "[25,35]variant=1\n");
 
@@ -247,7 +238,7 @@ func TestListChange(t *testing.T) {
 // 						   "[10,20]weight=700\n"
 // 						   "[11,14]size=20\n"
 // 						   "[13,15]stretch=2\n"
-// 						   "[14,-1]size=10\n"
+// 						   "[14,2147483647]size=10\n"
 // 						   "[25,35]variant=1\n");
 
 //    pango_attr_list_unref (list);
@@ -276,14 +267,14 @@ func TestListChange(t *testing.T) {
 
 //    pango_attr_list_splice (list, other, 11, 5);
 
-//    assert_attributes (t,list, "[11,-1]size=10\n");
+//    assert_attributes (t,list, "[11,2147483647]size=10\n");
 
 //    pango_attr_list_unref (other);
 //    other = pango_attr_list_new ();
 
 //    pango_attr_list_splice (list, other, 11, 5);
 
-//    assert_attributes (t,list, "[11,-1]size=10\n");
+//    assert_attributes (t,list, "[11,2147483647]size=10\n");
 
 //    pango_attr_list_unref (other);
 //    pango_attr_list_unref (list);
@@ -310,9 +301,9 @@ func TestListFilter(t *testing.T) {
 	attr.StartIndex = 20
 	list.pango_attr_list_insert(attr)
 
-	assert_attributes(t, list, "[0,-1]size=10\n"+
+	assert_attributes(t, list, "[0,2147483647]size=10\n"+
 		"[10,20]stretch=2\n"+
-		"[20,-1]weight=700\n")
+		"[20,2147483647]weight=700\n")
 
 	out := list.pango_attr_list_filter(func(attr *Attribute) bool { return false })
 	if len(out) != 0 {
@@ -324,9 +315,9 @@ func TestListFilter(t *testing.T) {
 		t.Error("expected list, got 0 elements")
 	}
 
-	assert_attributes(t, list, "[0,-1]size=10\n"+
+	assert_attributes(t, list, "[0,2147483647]size=10\n"+
 		"[10,20]stretch=2\n")
-	assert_attributes(t, out, "[20,-1]weight=700\n")
+	assert_attributes(t, out, "[20,2147483647]weight=700\n")
 }
 
 // TODO: add copy test once it's implemented
@@ -464,8 +455,8 @@ func TestIterGetFont(t *testing.T) {
 	if lang != "" {
 		t.Errorf("expected no language got %s", lang)
 	}
-	assert_attributes(t, attrs, "[20,-1]rise=100\n"+
-		"[20,-1]fallback=0\n")
+	assert_attributes(t, attrs, "[20,2147483647]rise=100\n"+
+		"[20,2147483647]fallback=0\n")
 }
 
 func TestIterGetAttrs(t *testing.T) {
@@ -488,27 +479,27 @@ func TestIterGetAttrs(t *testing.T) {
 	list.pango_attr_list_insert(attr)
 
 	iter := list.pango_attr_list_get_iterator()
-	assert_attr_iterator(t, iter, "[0,-1]size=10240\n"+
-		"[0,-1]family=Times\n")
+	assert_attr_iterator(t, iter, "[0,2147483647]size=10240\n"+
+		"[0,2147483647]family=Times\n")
 
 	iter.pango_attr_iterator_next()
-	assert_attr_iterator(t, iter, "[0,-1]size=10240\n"+
-		"[0,-1]family=Times\n"+
+	assert_attr_iterator(t, iter, "[0,2147483647]size=10240\n"+
+		"[0,2147483647]family=Times\n"+
 		"[10,30]stretch=2\n"+
 		"[10,20]language=ja-jp\n")
 
 	iter.pango_attr_iterator_next()
-	assert_attr_iterator(t, iter, "[0,-1]size=10240\n"+
-		"[0,-1]family=Times\n"+
+	assert_attr_iterator(t, iter, "[0,2147483647]size=10240\n"+
+		"[0,2147483647]family=Times\n"+
 		"[10,30]stretch=2\n"+
-		"[20,-1]rise=100\n"+
-		"[20,-1]fallback=0\n")
+		"[20,2147483647]rise=100\n"+
+		"[20,2147483647]fallback=0\n")
 
 	iter.pango_attr_iterator_next()
-	assert_attr_iterator(t, iter, "[0,-1]size=10240\n"+
-		"[0,-1]family=Times\n"+
-		"[20,-1]rise=100\n"+
-		"[20,-1]fallback=0\n")
+	assert_attr_iterator(t, iter, "[0,2147483647]size=10240\n"+
+		"[0,2147483647]family=Times\n"+
+		"[20,2147483647]rise=100\n"+
+		"[20,2147483647]fallback=0\n")
 
 	iter.pango_attr_iterator_next()
 	if l := iter.pango_attr_iterator_get_attrs(); len(l) != 0 {
@@ -672,7 +663,7 @@ func TestInsert(t *testing.T) {
 	attr = pango_attr_family_new("Times")
 	attr.StartIndex = 10
 	attr.EndIndex = 25
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,200]rise=100\n"+
 		"[5,25]family=Times\n"+
@@ -743,7 +734,7 @@ func TestMerge(t *testing.T) {
 		"[40,50]size=12288\n")
 
 	list2.pango_attr_list_filter(func(attr *Attribute) bool {
-		list.pango_attr_list_change(*attr.pango_attribute_copy())
+		list.pango_attr_list_change(attr.pango_attribute_copy())
 		return false
 	})
 
@@ -764,7 +755,7 @@ func TestMerge2(t *testing.T) {
 	attr.StartIndex = 0
 	attr.EndIndex = 10
 	list.pango_attr_list_insert(attr)
-	attr = pango_attr_foreground_new(0, 0, 0xffff)
+	attr = pango_attr_foreground_new(AttrColor{0, 0, 0xffff})
 	attr.StartIndex = 0
 	attr.EndIndex = 10
 	list.pango_attr_list_insert(attr)
@@ -772,22 +763,22 @@ func TestMerge2(t *testing.T) {
 	assert_attributes(t, list, "[0,10]underline=1\n"+
 		"[0,10]foreground=#00000000ffff\n")
 
-	attr = pango_attr_foreground_new(0xffff, 0, 0)
+	attr = pango_attr_foreground_new(AttrColor{0xffff, 0, 0})
 	attr.StartIndex = 2
 	attr.EndIndex = 3
 
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,10]underline=1\n"+
 		"[0,2]foreground=#00000000ffff\n"+
 		"[2,3]foreground=#ffff00000000\n"+
 		"[3,10]foreground=#00000000ffff\n")
 
-	attr = pango_attr_foreground_new(0, 0xffff, 0)
+	attr = pango_attr_foreground_new(AttrColor{0, 0xffff, 0})
 	attr.StartIndex = 3
 	attr.EndIndex = 4
 
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,10]underline=1\n"+
 		"[0,2]foreground=#00000000ffff\n"+
@@ -795,11 +786,11 @@ func TestMerge2(t *testing.T) {
 		"[3,4]foreground=#0000ffff0000\n"+
 		"[4,10]foreground=#00000000ffff\n")
 
-	attr = pango_attr_foreground_new(0, 0, 0xffff)
+	attr = pango_attr_foreground_new(AttrColor{0, 0, 0xffff})
 	attr.StartIndex = 4
 	attr.EndIndex = 5
 
-	list.pango_attr_list_change(*attr)
+	list.pango_attr_list_change(attr)
 
 	assert_attributes(t, list, "[0,10]underline=1\n"+
 		"[0,2]foreground=#00000000ffff\n"+

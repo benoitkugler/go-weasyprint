@@ -151,9 +151,9 @@ func testFile(filename string) (string, error) {
 
 func TestBreaks(t *testing.T) {
 	files := [...]string{
-		"test/one",
-		"test/two",
-		"test/three",
+		"test/breaks/one",
+		"test/breaks/two",
+		"test/breaks/three",
 		// "test/four", we dont support language specific tailoring
 	}
 	for _, file := range files {
@@ -262,7 +262,7 @@ func checkLineChar(t *testing.T,
 }
 
 func TestBoundaries(t *testing.T) {
-	b, err := ioutil.ReadFile("test/boundaries.utf8")
+	b, err := ioutil.ReadFile("test/breaks/boundaries.utf8")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,12 +321,12 @@ func assertEqualAttrs(t *testing.T, bools []bool, attrs []CharAttr, ref CharAttr
 
 func TestUCD(t *testing.T) {
 	files := [...]string{
-		"test/GraphemeBreakTest.txt",
-		"test/EmojiBreakTest.txt",
-		"test/CharBreakTest.txt",
-		"test/WordBreakTest.txt",
-		"test/SentenceBreakTest.txt",
-		"test/LineBreakTest.txt",
+		"test/breaks/GraphemeBreakTest.txt",
+		"test/breaks/EmojiBreakTest.txt",
+		"test/breaks/CharBreakTest.txt",
+		"test/breaks/WordBreakTest.txt",
+		"test/breaks/SentenceBreakTest.txt",
+		"test/breaks/LineBreakTest.txt",
 	}
 	refs := [...]CharAttr{
 		CursorPosition,
