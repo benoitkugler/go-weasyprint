@@ -811,6 +811,41 @@ func pango_font_get_metrics(font Font, language Language) FontMetrics {
 	return font.get_metrics(language)
 }
 
+// func (metrics *FontMetrics) update_metrics_from_items(language Language, text []rune, items []*Item) {
+// 	// fontsSeen := map[]
+// 	//   PangoGlyphString *glyphs = pango_glyph_string_new ();
+// 	//   GList *l;
+// 	//   glong text_width;
+
+// 	// This should typically be called with a sample text string.
+// 	if len(text) == 0 {
+// 		return
+// 	}
+
+// 	metrics.approximate_char_width = 0
+
+// 	// TODO: add caching in map
+// 	for _, item := range items {
+// 		font := item.analysis.font
+
+// 		if font != nil {
+// 			rawMetrics := pango_font_get_metrics(font, language)
+// 			// g_hash_table_insert(fontsSeen, font, font)
+
+// 			/* metrics will already be initialized from the first font in the fontset */
+// 			metrics.ascent = max(metrics.ascent, rawMetrics.ascent)
+// 			metrics.descent = max(metrics.descent, rawMetrics.descent)
+// 			metrics.height = max(metrics.height, rawMetrics.height)
+// 		}
+
+// 		pango_shape_full(text+item.offset, item.length, text, text_len, &item.analysis, glyphs)
+// 		metrics.approximate_char_width += pango_glyph_string_get_width(glyphs)
+// 	}
+
+// 	textWidth = pango_utf8_strwidth(text)
+// 	metrics.approximate_char_width /= textWidth
+// }
+
 // FontFamily is used to represent a family of related
 // font faces. The faces in a family share a common design, but differ in
 // slant, weight, width and other aspects.

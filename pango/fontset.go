@@ -19,4 +19,4 @@ type Fontset interface {
 }
 
 // Returns `true` stops the iteration
-type FontsetForeachFunc = func(set Fontset, font Font) bool
+type FontsetForeachFunc = func(font Font) bool

@@ -228,7 +228,7 @@ func (lang Language) compute_derived_language(script Script) Language {
 }
 
 /**
- * pango_language_matches:
+ * pangoLanguageMatches:
  * `language`: (nullable): a language tag (see pango_language_from_string()),
  *            `nil` is allowed and matches nothing but '*'
  * @rangeList: a list of language ranges, separated by ';', ':',
@@ -236,14 +236,14 @@ func (lang Language) compute_derived_language(script Script) Language {
  *   Each element must either be '*', or a RFC 3066 language range
  *   canonicalized as by pango_language_from_string()
  *
- * pango_language_matches checks if a language tag matches one of the elements in a list of
+ * pangoLanguageMatches checks if a language tag matches one of the elements in a list of
  * language ranges. A language tag is considered to match a range
  * in the list if the range is '*', the range is exactly the tag,
  * or the range is a prefix of the tag, and the character after it
  * in the tag is '-'.
  **/
 // TODO: maybe simplify
-func pango_language_matches(language Language, rangeList string) bool {
+func pangoLanguageMatches(language Language, rangeList string) bool {
 	langStr := string(language)
 	p := rangeList
 	done := false
@@ -274,7 +274,7 @@ func pango_language_matches(language Language, rangeList string) bool {
 	return false
 }
 
-func lang_compare_first_component(ra, rb Language) int {
+func langCompareFirstComponent(ra, rb Language) int {
 	a, b := string(ra), string(rb)
 	p := strings.Index(a, "-")
 	da := len(a)
@@ -296,18 +296,30 @@ func lang_compare_first_component(ra, rb Language) int {
 	return strings.Compare(a, b)
 }
 
-type record struct {
+type recordScript struct {
 	lang    Language
 	scripts [3]Script // 3 is the maximum number of possible script for a language
 }
 
+type recordSample struct {
+	lang   Language
+	sample string
+}
+
+type languageRecord interface {
+	language() Language
+}
+
+func (r recordScript) language() Language { return r.lang }
+func (r recordSample) language() Language { return r.lang }
+
 // return the index into `base`
-func binarySearch(key Language, base []record) (int, bool) {
+func binarySearch(key Language, base []languageRecord) (int, bool) {
 	min, max := 0, len(base)-1
 	for min <= max {
 		mid := (min + max) / 2
 		p := base[mid]
-		c := lang_compare_first_component(key, p.lang)
+		c := langCompareFirstComponent(key, p.language())
 		if c < 0 {
 			max = mid - 1
 		} else if c > 0 {
@@ -319,121 +331,69 @@ func binarySearch(key Language, base []record) (int, bool) {
 	return 0, false
 }
 
-// Finds the best record for `language` in an array of records.
-// Each record should start with the string representation of the language
-// code for the record (embedded, not a pointer), and the records must be
-// sorted on language code.
-func find_best_lang_match(language Language, records []record) (record, bool) {
+// Finds the best record for `language` in an array of record,
+// which must be sorted on language code.
+func findBestLangMatch(language Language, records []languageRecord) languageRecord {
 
 	r, ok := binarySearch(language, records)
 	if !ok {
-		return record{}, false
+		return nil
 	}
 
 	/* find the best match among all those that have the same first-component */
 
 	/* go to the final one matching in the first component */
-	for r+1 < len(records) && lang_compare_first_component(language, records[r+1].lang) == 0 {
+	for r+1 < len(records) && langCompareFirstComponent(language, records[r+1].language()) == 0 {
 		r += 1
 	}
 
 	/* go back, find which one matches completely */
-	for 0 <= r && lang_compare_first_component(language, records[r].lang) == 0 {
-		if pango_language_matches(language, string(records[r].lang)) {
-			return records[r], true
+	for 0 <= r && langCompareFirstComponent(language, records[r].language()) == 0 {
+		if pangoLanguageMatches(language, string(records[r].language())) {
+			return records[r]
 		}
 		r -= 1
 	}
 
-	return record{}, false
+	return nil
 }
 
-func FIND_BEST_LANG_MATCH_CACHED(language Language, records []record) (record, bool) {
+func findBestLangMatchCached(language Language, records []languageRecord) languageRecord {
 	// TODO: add caching
-	return find_best_lang_match(language, records)
+	return findBestLangMatch(language, records)
 }
 
-//  typedef struct {
-//    char lang[6];
-//    guint16 offset;
-//  } LangInfo;
+// pango_language_get_sample_string get a string that is representative of the characters needed to
+// render a particular language.
+//
+// The sample text may be a pangram, but is not necessarily.  It is chosen to
+// be demonstrative of normal text in the language, as well as exposing font
+// feature requirements unique to the language.  It is suitable for use
+// as sample text in a font selection dialog.
+//
+// If `language` is empty, the default language as found by
+// pango_language_get_default() is used.
+//
+// If Pango does not have a sample string for `language`, the classic
+// "The quick brown fox..." is returned.
+func (language Language) pango_language_get_sample_string() string {
 
-//  /* Pure black magic, based on appendix of dsohowto.pdf */
-//  #define POOLSTRFIELD(line) POOLSTRFIELD1(line)
-//  #define POOLSTRFIELD1(line) str##line
-//  struct _LangPoolStruct {
-//    char str0[1];
-//  #define LANGUAGE(id, source, sample) char POOLSTRFIELD(__LINE__)[sizeof(sample)];
-//  #include "pango-language-sample-table.h"
-//  #undef LANGUAGE
-//  };
+	if language == "" {
+		language = pango_language_get_default()
+	}
 
-//  static const union _LangPool {
-//    struct _LangPoolStruct lang_pool_struct;
-//    const char str[1];
-//  } lang_pool = { {
-// 	 "",
-//  #define LANGUAGE(id, source, sample) sample,
-//  #include "pango-language-sample-table.h"
-//  #undef LANGUAGE
-//  } };
-//  static const LangInfo lang_texts[] = {
-//  #define LANGUAGE(id, source, sample) {G_STRINGIFY(id),	G_STRUCT_OFFSET(struct _LangPoolStruct, POOLSTRFIELD(__LINE__))},
-//  #include "pango-language-sample-table.h"
-//  #undef LANGUAGE
-//    /* One extra entry with no final comma, to make it C89-happy */
-//   {"~~",	0}
-//  };
+	lang_info := findBestLangMatchCached(language, lang_texts)
 
-//  /**
-//   * pango_language_get_sample_string:
-//   * `language`: (nullable): a Language, or `nil`
-//   *
-//   * Get a string that is representative of the characters needed to
-//   * render a particular language.
-//   *
-//   * The sample text may be a pangram, but is not necessarily.  It is chosen to
-//   * be demonstrative of normal text in the language, as well as exposing font
-//   * feature requirements unique to the language.  It is suitable for use
-//   * as sample text in a font selection dialog.
-//   *
-//   * If `language` is `nil`, the default language as found by
-//   * pango_language_get_default() is used.
-//   *
-//   * If Pango does not have a sample string for `language`, the classic
-//   * "The quick brown fox..." is returned.  This can be detected by
-//   * comparing the returned pointer value to that returned for (non-existent)
-//   * language code "xx".  That is, compare to:
-//   * <informalexample><programlisting>
-//   * pango_language_get_sample_string (pango_language_from_string ("xx"))
-//   * </programlisting></informalexample>
-//   *
-//   * Return value: the sample string. This value is owned by Pango
-//   *   and should not be freed.
-//   **/
-//  const char *
-//  pango_language_get_sample_string (PangoLanguage *language)
-//  {
-//    const LangInfo *lang_info;
+	if lang_info != nil {
+		return lang_info.(recordSample).sample
+	}
 
-//    if (!language)
-// 	 language = pango_language_get_default ();
+	return "The quick brown fox jumps over the lazy dog."
+}
 
-//    lang_info = FIND_BEST_LANG_MATCH_CACHED (language,
-// 						lang_info,
-// 						lang_texts);
-
-//    if (lang_info)
-// 	 return lang_pool.str + lang_info.offset;
-
-//    return "The quick brown fox jumps over the lazy dog.";
-//  }
-
-//  /*
-//   * From language to script
-//   */
-
-//  #include "pango-script-lang-table.h"
+/*
+ * From language to script
+ */
 
 // pango_language_get_scripts determines the scripts used to to write `language`.
 // If nothing is known about the language tag `language`,
@@ -452,12 +412,15 @@ func FIND_BEST_LANG_MATCH_CACHED(language Language, records []record) (record, b
 // internally.
 func (language Language) pango_language_get_scripts() []Script {
 
-	script_for_lang, ok := FIND_BEST_LANG_MATCH_CACHED(language, pango_script_for_lang)
+	scriptRec := findBestLangMatchCached(language, pango_script_for_lang)
 
-	if !ok || script_for_lang.scripts[0] == "" {
+	if scriptRec == nil {
 		return nil
 	}
-
+	script_for_lang := scriptRec.(recordScript)
+	if script_for_lang.scripts[0] == "" {
+		return nil
+	}
 	for j, s := range script_for_lang.scripts {
 		if s == "" {
 			return script_for_lang.scripts[:j]

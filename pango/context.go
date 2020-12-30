@@ -1057,7 +1057,9 @@ func (state *ItemizeState) get_font(wc rune) (Font, bool) {
 	info := getFontInfo{lang: state.derived_lang, wc: wc}
 
 	if state.enable_fallback {
-		state.current_fonts.foreach(info.get_font_foreach)
+		state.current_fonts.foreach(func(font Font) bool {
+			return info.get_font_foreach(state.current_fonts, font)
+		})
 	} else {
 		info.get_font_foreach(nil, state.get_base_font())
 	}
@@ -1276,63 +1278,36 @@ func (state *ItemizeState) get_base_font() Font {
 
 func (state *ItemizeState) itemize_state_finish() {} // only memory cleanup
 
-//  static GList *
-//  itemize_with_font (Context               *context,
-// 			const char                 *text,
-// 			int                         start_index,
-// 			int                         length,
-// 			const PangoFontDescription *desc)
-//  {
-//    ItemizeState state;
+func (context *Context) itemize_with_font(text []rune, desc *FontDescription) []*Item {
+	if len(text) == 0 {
+		return nil
+	}
 
-//    if (length == 0)
-// 	 return nil;
+	state := context.itemize_state_init(text, context.base_dir, 0, len(text), nil, nil, desc)
 
-//    itemize_state_init (&state, context, text, context.base_dir, start_index, length,
-// 			   nil, nil, desc);
+	for do := true; do; do = state.itemize_state_next() {
+		state.itemize_state_process_run()
+	}
 
-//    do
-// 	 itemize_state_process_run (&state);
-//    for (itemize_state_next (&state));
+	state.itemize_state_finish()
+	reverseItems(state.result)
+	return state.result
+}
 
-//    itemize_state_finish (&state);
+func getBaseMetrics(fontset Fontset) FontMetrics {
+	var metrics FontMetrics
 
-//    return g_list_reverse (state.result);
-//  }
+	language := fontset.get_language()
 
-//  static bool
-//  get_first_metrics_foreach (PangoFontset  *fontset,
-// 				PangoFont     *font,
-// 				gpointer       data)
-//  {
-//    PangoFontMetrics *fontset_metrics = data;
-//    PangoLanguage *language = PANGO_FONTSET_GET_CLASS (fontset).get_language (fontset);
-//    PangoFontMetrics *font_metrics = pango_font_get_metrics (font, language);
-//    guint save_ref_count;
+	// Initialize the metrics from the first font in the fontset
+	getFirstMetricsForeach := func(font Font) bool {
+		metrics = pango_font_get_metrics(font, language)
+		return true // Stops iteration
+	}
+	fontset.foreach(getFirstMetricsForeach)
 
-//    /* Initialize the fontset metrics to metrics of the first font in the
-// 	* fontset; saving the refcount and restoring it is a bit of hack but avoids
-// 	* having to update this code for each metrics addition.
-// 	*/
-//    save_ref_count = fontset_metrics.ref_count;
-//    *fontset_metrics = *font_metrics;
-//    fontset_metrics.ref_count = save_ref_count;
-
-//    pango_font_metrics_unref (font_metrics);
-
-//    return true;			/* Stops iteration */
-//  }
-
-//  static PangoFontMetrics *
-//  get_base_metrics (PangoFontset *fontset)
-//  {
-//    PangoFontMetrics *metrics = pango_font_metrics_new ();
-
-//    /* Initialize the metrics from the first font in the fontset */
-//    pango_fontset_foreach (fontset, get_first_metrics_foreach, metrics);
-
-//    return metrics;
-//  }
+	return metrics
+}
 
 //  static void
 //  update_metrics_from_items (PangoFontMetrics *metrics,
@@ -1383,68 +1358,60 @@ func (state *ItemizeState) itemize_state_finish() {} // only memory cleanup
 //    metrics.approximate_char_width /= text_width;
 //  }
 
-//  /**
-//   * pango_context_get_metrics:
-//   * `context`: a #Context
-//   * @desc: (allow-none): a #PangoFontDescription structure.  %nil means that the
-//   *            font description from the context will be used.
-//   * @language: (allow-none): language tag used to determine which script to get
-//   *            the metrics for. %nil means that the language tag from the context
-//   *            will be used. If no language tag is set on the context, metrics
-//   *            for the default language (as determined by pango_language_get_default())
-//   *            will be returned.
-//   *
-//   * Get overall metric information for a particular font
-//   * description.  Since the metrics may be substantially different for
-//   * different scripts, a language tag can be provided to indicate that
-//   * the metrics should be retrieved that correspond to the script(s)
-//   * used by that language.
-//   *
-//   * The #PangoFontDescription is interpreted in the same way as
-//   * by pango_itemize(), and the family name may be a comma separated
-//   * list of figures. If characters from multiple of these families
-//   * would be used to render the string, then the returned fonts would
-//   * be a composite of the metrics for the fonts loaded for the
-//   * individual families.
-//   *
-//   * Return value: a #PangoFontMetrics object. The caller must call pango_font_metrics_unref()
-//   *   when finished using the object.
-//   **/
-//  PangoFontMetrics *
-//  pango_context_get_metrics (Context                 *context,
-// 				const PangoFontDescription   *desc,
-// 				PangoLanguage                *language)
-//  {
-//    PangoFontset *current_fonts = nil;
-//    PangoFontMetrics *metrics;
-//    const char *sample_str;
-//    unsigned int text_len;
-//    GList *items;
+/**
+ * pango_context_get_metrics:
+ * `context`: a #Context
+ * @desc: (allow-none): a #PangoFontDescription structure.  %nil means that the
+ *            font description from the context will be used.
+ * @language: (allow-none): language tag used to determine which script to get
+ *            the metrics for. %nil means that the language tag from the context
+ *            will be used. If no language tag is set on the context, metrics
+ *            for the default language (as determined by pango_language_get_default())
+ *            will be returned.
+ *
+ * Get overall metric information for a particular font
+ * description.  Since the metrics may be substantially different for
+ * different scripts, a language tag can be provided to indicate that
+ * the metrics should be retrieved that correspond to the script(s)
+ * used by that language.
+ *
+ * The #PangoFontDescription is interpreted in the same way as
+ * by pango_itemize(), and the family name may be a comma separated
+ * list of figures. If characters from multiple of these families
+ * would be used to render the string, then the returned fonts would
+ * be a composite of the metrics for the fonts loaded for the
+ * individual families.
+ *
+ * Return value: a #PangoFontMetrics object.
+ **/
+func (context *Context) pango_context_get_metrics(desc *FontDescription, language Language) FontMetrics {
+	//    PangoFontset *current_fonts = nil;
+	//    PangoFontMetrics *metrics;
+	//    const char *sampleStr;
+	//    unsigned int text_len;
+	//    GList *items;
 
-//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), nil);
+	//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), nil);
 
-//    if (!desc)
-// 	 desc = context.font_desc;
+	if desc == nil {
+		desc = &context.font_desc
+	}
 
-//    if (!language)
-// 	 language = context.language;
+	if language == "" {
+		language = context.language
+	}
 
-//    current_fonts = pango_font_map_load_fontset (context.font_map, context, desc, language);
-//    metrics = get_base_metrics (current_fonts);
+	currentFonts := context.font_map.load_fontset(context, desc, language)
+	metrics := getBaseMetrics(currentFonts)
 
-//    sample_str = pango_language_get_sample_string (language);
-//    text_len = strlen (sample_str);
-//    items = itemize_with_font (context, sample_str, 0, text_len, desc);
+	// sampleStr := language.pango_language_get_sample_string()
+	// items := context.itemize_with_font([]rune(sampleStr), desc)
 
-//    update_metrics_from_items (metrics, language, sample_str, text_len, items);
+	// TODO:
+	// update_metrics_from_items(metrics, language, sampleStr, text_len, items)
 
-//    g_list_foreach (items, (GFunc)pango_item_free, nil);
-//    g_list_free (items);
-
-//    g_object_unref (current_fonts);
-
-//    return metrics;
-//  }
+	return metrics
+}
 
 //  static void
 //  context_changed  (Context *context)

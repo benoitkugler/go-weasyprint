@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-//  static PangoContext *context;
-
 func TestParse(t *testing.T) {
 	desc := pango_font_description_from_string("Cantarell 14")
 

@@ -63,8 +63,8 @@ func TestAttributesBasic(t *testing.T) {
 	testCopy(t, pango_attr_insert_hyphens_new(false))
 }
 
-/* check that pango_attribute_equal compares values, but not ranges */
 func TestAttributesEqual(t *testing.T) {
+	/* check that pango_attribute_equal compares values, but not ranges */
 	attr1 := pango_attr_size_new(10)
 	attr2 := pango_attr_size_new(20)
 	attr3 := pango_attr_size_new(20)
@@ -339,7 +339,6 @@ func TestListFilter(t *testing.T) {
 	assert_attributes(t, out, "[20,2147483647]weight=700\n")
 }
 
-// TODO: add copy test once it's implemented
 func TestIter(t *testing.T) {
 	var list AttrList
 	iter := list.pango_attr_list_get_iterator()
@@ -360,7 +359,7 @@ func TestIter(t *testing.T) {
 	list.pango_attr_list_insert(attr)
 
 	iter = list.pango_attr_list_get_iterator()
-	// copy = pango_attr_iterator_copy(iter)
+	copy := iter.pango_attr_iterator_copy()
 	assertEquals(t, int(iter.StartIndex), 0)
 	assertEquals(t, int(iter.EndIndex), 10)
 	assertTrue(t, iter.pango_attr_iterator_next(), "iterator has a next element")
@@ -377,10 +376,8 @@ func TestIter(t *testing.T) {
 	assertEquals(t, int(iter.EndIndex), maxInt)
 	assertTrue(t, !iter.pango_attr_iterator_next(), "iterator has no more element")
 
-	// pango_attr_iterator_range(copy, &start, &end)
-	// assertEquals(t, start, 0)
-	// assertEquals(t, end, 10)
-	// pango_attr_iterator_destroy(copy)
+	assertEquals(t, copy.StartIndex, 0)
+	assertEquals(t, copy.EndIndex, 10)
 }
 
 func TestIterGet(t *testing.T) {
