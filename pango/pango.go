@@ -1,6 +1,32 @@
 package pango
 
+import (
+	"fmt"
+	"log"
+
+	"github.com/benoitkugler/go-weasyprint/fribidi"
+	"golang.org/x/text/width"
+)
+
+// enables additional checks, to use only during developpement or testing
 const debugMode = false
+
+// assert is only used in debug mode
+func assert(b bool) {
+	if !b {
+		log.Fatal("assertion error")
+	}
+}
+
+func showDebug(where string, line *LayoutLine, state *ParaBreakState) {
+	line_width := line.pango_layout_line_get_width()
+
+	fmt.Printf("rem %d + line %d = %d		%s",
+		state.remaining_width,
+		line_width,
+		state.remaining_width+line_width,
+		where)
+}
 
 // Alignment describes how to align the lines of a `Layout` within the
 // available space. If the `Layout` is set to justify
@@ -39,6 +65,20 @@ func min(a, b int) int {
 	return a
 }
 
+func minL(a, b fribidi.Level) fribidi.Level {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func maxG(a, b GlyphUnit) GlyphUnit {
+	if a < b {
+		return b
+	}
+	return a
+}
+
 // pango_is_zero_width checks `ch` to see if it is a character that should not be
 // normally rendered on the screen.  This includes all Unicode characters
 // with "ZERO WIDTH" in their name, as well as bidi formatting characters, and
@@ -71,4 +111,14 @@ func pango_is_zero_width(ch rune) bool {
 		((ch >= 0x200B && ch <= 0x200F) || (ch >= 0x202A && ch <= 0x202E) ||
 			(ch >= 0x2060 && ch <= 0x2063) || (ch == 0x2028))) ||
 		(ch == 0x00AD || ch == 0x034F || ch == 0xFEFF)
+}
+
+// return true for east asian wide characters
+func isWide(r rune) bool {
+	switch width.LookupRune(r).Kind() {
+	case width.EastAsianFullwidth, width.EastAsianWide:
+		return true
+	default:
+		return false
+	}
 }

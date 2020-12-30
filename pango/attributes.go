@@ -212,6 +212,31 @@ func (a AttrShape) copy() AttrData             { return a }
 func (a AttrShape) equals(other AttrData) bool { return a == other }
 func (a AttrShape) String() string             { return "shape" }
 
+func (shape AttrShape) _pango_shape_get_extents(n_chars int, inkRect, logicalRect *Rectangle) {
+	if n_chars > 0 {
+		if inkRect != nil {
+			inkRect.x = min(shape.ink.x, shape.ink.x+shape.logical.width*(n_chars-1))
+			inkRect.width = max(shape.ink.width, shape.ink.width+shape.logical.width*(n_chars-1))
+			inkRect.y = shape.ink.y
+			inkRect.height = shape.ink.height
+		}
+		if logicalRect != nil {
+			logicalRect.x = min(shape.logical.x, shape.logical.x+shape.logical.width*(n_chars-1))
+			logicalRect.width = max(shape.logical.width, shape.logical.width+shape.logical.width*(n_chars-1))
+			logicalRect.y = shape.logical.y
+			logicalRect.height = shape.logical.height
+		}
+	} else {
+		if inkRect != nil {
+			inkRect.x, inkRect.y, inkRect.width, inkRect.height = 0, 0, 0, 0
+		}
+
+		if logicalRect != nil {
+			logicalRect.x, logicalRect.y, logicalRect.width, logicalRect.height = 0, 0, 0, 0
+		}
+	}
+}
+
 // Attribute are used as the input to the itemization process and also when
 // creating a `Layout`. The common portion of the attribute holds
 // the range to which the value applies.
@@ -515,7 +540,8 @@ func pango_attr_font_features_new(features string) *Attribute {
 
 type AttrList []*Attribute
 
-// Copy `list` and return an identical new list.
+// pango_attr_list_copy returns a deep copy of the list,
+// calling `pango_attribute_copy` for each element.
 func (list AttrList) pango_attr_list_copy() AttrList {
 	out := make(AttrList, len(list))
 	for i, v := range list {
@@ -771,9 +797,8 @@ type AttrIterator struct {
 
 	attribute_stack AttrList
 
-	attr_index int
-	StartIndex int
-	EndIndex   int
+	attr_index           int
+	StartIndex, EndIndex int // index into the underlying text
 }
 
 // pango_attr_list_get_iterator creates a iterator initialized to the beginning of the list.
@@ -789,6 +814,17 @@ func (list *AttrList) pango_attr_list_get_iterator() *AttrIterator {
 	}
 
 	return &iterator
+}
+
+// pango_attr_iterator_copy returns a copy of `iterator`.
+func (iterator *AttrIterator) pango_attr_iterator_copy() *AttrIterator {
+	if iterator == nil {
+		return nil
+	}
+	copy := *iterator
+	// dont deep copy the attributes themselves
+	copy.attribute_stack = append(AttrList{}, iterator.attribute_stack...)
+	return &copy
 }
 
 // pango_attr_iterator_next advances the iterator until the next change of style, and

@@ -68,8 +68,7 @@ func (context *Context) pango_context_load_font(desc *FontDescription) Font {
 // pango_itemize breaks a piece of text into segments with consistent
 // directional level and shaping engine, applying `attrs`.
 //
-//  Each rune of `text` will
-// be contained in exactly one of the items in the returned list;
+// Each rune of `text` will be contained in exactly one of the items in the returned list;
 // the generated list of items will be in logical order (the start
 // offsets of the items are ascending).
 // `startIndex` is the first rune index in `text` to process, and `length`
@@ -80,7 +79,7 @@ func (context *Context) pango_context_load_font(desc *FontDescription) Font {
 // the range covering the position just after `startIndex` + `length`.
 // (i.e. if itemizing in a loop, just keep passing in the same `cachedIter`).
 func (context *Context) pango_itemize(text []rune, start_index int, length int,
-	attrs AttrList, cached_iter *AttrIterator) []*Item {
+	attrs AttrList, cached_iter *AttrIterator) *itemList {
 	if context == nil || start_index < 0 || length < 0 {
 		return nil
 	}
@@ -93,7 +92,7 @@ func (context *Context) pango_itemize(text []rune, start_index int, length int,
 // computing bidirectional levels is specified explicitly rather than gotten from `context`.
 func (context *Context) pango_itemize_with_base_dir(base_dir Direction, text []rune,
 	start_index, length int,
-	attrs AttrList, cached_iter *AttrIterator) []*Item {
+	attrs AttrList, cached_iter *AttrIterator) *itemList {
 
 	if context == nil || len(text) == 0 {
 		return nil
@@ -110,15 +109,12 @@ func (context *Context) pango_itemize_with_base_dir(base_dir Direction, text []r
 
 	state.itemize_state_finish()
 
-	itemsReverse(state.result)
-	return state.result
-}
-
-func itemsReverse(str []*Item) {
-	for i := len(str)/2 - 1; i >= 0; i-- {
-		opp := len(str) - 1 - i
-		str[i], str[opp] = str[opp], str[i]
+	// convert to list and reverse
+	var out *itemList
+	for _, item := range state.result {
+		out = &itemList{data: item, next: out}
 	}
+	return out
 }
 
 //  struct _ContextClass
@@ -1011,7 +1007,7 @@ func (state *ItemizeState) itemize_state_process_run() {
 	}
 
 	/* Finish the final item from the current segment */
-	state.item.length = state.run_end - state.item.offset
+	state.item.num_chars = state.run_end - state.item.offset
 	if state.item.analysis.font == nil {
 		font, ok := state.get_font(' ')
 		if !ok {
@@ -1213,12 +1209,11 @@ func (state *ItemizeState) itemize_state_add_character(font Font, force_break bo
 			return
 		}
 
-		item.length = pos - item.offset
+		item.num_chars = pos - item.offset
 	}
 
 	state.item = &Item{}
 	state.item.offset = pos
-	state.item.length = 0
 	state.item.num_chars = 1
 
 	state.item.analysis.font = font

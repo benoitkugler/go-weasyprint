@@ -144,14 +144,14 @@ func (glyphs *GlyphString) fallback_shape(text []rune, analysis *Analysis) {
 			glyph = PANGO_GET_UNKNOWN_GLYPH(wc)
 		}
 
-		var logical_rect Rectangle
-		analysis.font.get_glyph_extents(glyph, nil, &logical_rect)
+		var logicalRect Rectangle
+		analysis.font.get_glyph_extents(glyph, nil, &logicalRect)
 
 		glyphs.glyphs[i].glyph = glyph
 
 		glyphs.glyphs[i].geometry.x_offset = 0
 		glyphs.glyphs[i].geometry.y_offset = 0
-		glyphs.glyphs[i].geometry.width = GlyphUnit(logical_rect.width)
+		glyphs.glyphs[i].geometry.width = GlyphUnit(logicalRect.width)
 
 		glyphs.log_clusters[i] = cluster
 	}
@@ -195,12 +195,8 @@ func (glyphs *GlyphString) pango_shape_with_flags(item_text, paragraph_text []ru
 		paragraph_text = item_text
 	}
 
-	// g_return_if_fail(paragraph_text <= item_text)
-	// g_return_if_fail(paragraph_text+paragraph_length >= item_text+item_length)
-
 	if analysis.font != nil {
-		pango_hb_shape(analysis.font, item_text, item_length,
-			analysis, glyphs, paragraph_text, paragraph_length)
+		pango_hb_shape(analysis.font, item_text, analysis, glyphs, paragraph_text)
 
 		if len(glyphs.glyphs) == 0 {
 			/* If a font has been correctly chosen, but no glyphs are output,
@@ -278,8 +274,7 @@ func (glyphs *GlyphString) pango_shape_with_flags(item_text, paragraph_text []ru
 	}
 }
 
-func (glyphs *GlyphString) _pango_shape_shape(text []rune, shapeLogical *Rectangle) {
-
+func (glyphs *GlyphString) _pango_shape_shape(text []rune, shapeLogical Rectangle) {
 	glyphs.pango_glyph_string_set_size(len(text))
 
 	for i := range text {
@@ -290,4 +285,120 @@ func (glyphs *GlyphString) _pango_shape_shape(text []rune, shapeLogical *Rectang
 		glyphs.glyphs[i].attr.is_cluster_start = true
 		glyphs.log_clusters[i] = i
 	}
+}
+
+func (glyphs *GlyphString) pad_glyphstring_right(state *ParaBreakState, adjustment GlyphUnit) {
+	glyph := len(glyphs.glyphs) - 1
+
+	for glyph >= 0 && glyphs.glyphs[glyph].geometry.width == 0 {
+		glyph--
+	}
+
+	if glyph < 0 {
+		return
+	}
+
+	state.remaining_width -= adjustment
+	glyphs.glyphs[glyph].geometry.width += adjustment
+	if glyphs.glyphs[glyph].geometry.width < 0 {
+		state.remaining_width += glyphs.glyphs[glyph].geometry.width
+		glyphs.glyphs[glyph].geometry.width = 0
+	}
+}
+
+func (glyphs *GlyphString) pad_glyphstring_left(state *ParaBreakState, adjustment GlyphUnit) {
+	glyph := 0
+
+	for glyph < len(glyphs.glyphs) && glyphs.glyphs[glyph].geometry.width == 0 {
+		glyph++
+	}
+
+	if glyph == len(glyphs.glyphs) {
+		return
+	}
+
+	state.remaining_width -= adjustment
+	glyphs.glyphs[glyph].geometry.width += adjustment
+	glyphs.glyphs[glyph].geometry.x_offset += adjustment
+}
+
+// pango_glyph_string_extents_range computes the extents of a sub-portion of a glyph string,
+// with indices such that start <= index < end.
+// The extents are relative to the start of the glyph string range (the origin of their
+// coordinate system is at the start of the range, not at the start of the entire
+// glyph string).
+func (glyphs *GlyphString) pango_glyph_string_extents_range(start, end int, font Font, inkRect, logicalRect *Rectangle) {
+	// Note that the handling of empty rectangles for ink
+	// and logical rectangles is different. A zero-height ink
+	// rectangle makes no contribution to the overall ink rect,
+	// while a zero-height logical rect still reserves horizontal
+	// width. Also, we may return zero-width, positive height
+	// logical rectangles, while we'll never do that for the
+	// ink rect.
+	if start > end {
+		return
+	}
+
+	if inkRect == nil && logicalRect == nil {
+		return
+	}
+
+	if inkRect != nil {
+		inkRect.x, inkRect.y, inkRect.width, inkRect.height = 0, 0, 0, 0
+	}
+
+	if logicalRect != nil {
+		logicalRect.x, logicalRect.y, logicalRect.width, logicalRect.height = 0, 0, 0, 0
+	}
+
+	var xPos int
+	for i := start; i < end; i++ {
+		var glyphInk, glyphLogical Rectangle
+
+		geometry := &glyphs.glyphs[i].geometry
+
+		font.get_glyph_extents(glyphs.glyphs[i].glyph, &glyphInk, &glyphLogical)
+
+		if inkRect != nil && glyphInk.width != 0 && glyphInk.height != 0 {
+			if inkRect.width == 0 || inkRect.height == 0 {
+				inkRect.x = xPos + glyphInk.x + int(geometry.x_offset)
+				inkRect.width = glyphInk.width
+				inkRect.y = glyphInk.y + int(geometry.y_offset)
+				inkRect.height = glyphInk.height
+			} else {
+				new_x := min(inkRect.x, xPos+glyphInk.x+int(geometry.x_offset))
+				inkRect.width = max(inkRect.x+inkRect.width,
+					xPos+glyphInk.x+glyphInk.width+int(geometry.x_offset)) - new_x
+				inkRect.x = new_x
+
+				new_y := min(inkRect.y, glyphInk.y+int(geometry.y_offset))
+				inkRect.height = max(inkRect.y+inkRect.height,
+					glyphInk.y+glyphInk.height+int(geometry.y_offset)) - new_y
+				inkRect.y = new_y
+			}
+		}
+
+		if logicalRect != nil {
+			logicalRect.width += int(geometry.width)
+
+			if i == start {
+				logicalRect.y = glyphLogical.y
+				logicalRect.height = glyphLogical.height
+			} else {
+				new_y := min(logicalRect.y, glyphLogical.y)
+				logicalRect.height = max(logicalRect.y+logicalRect.height,
+					glyphLogical.y+glyphLogical.height) - new_y
+				logicalRect.y = new_y
+			}
+		}
+
+		xPos += int(geometry.width)
+	}
+}
+
+// pango_glyph_string_extents compute the logical and ink extents of a glyph string. See the documentation
+// for pango_font_get_glyph_extents() for details about the interpretation
+// of the rectangles.
+func (glyphs *GlyphString) pango_glyph_string_extents(font Font, inkRect, logicalRect *Rectangle) {
+	glyphs.pango_glyph_string_extents_range(0, len(glyphs.glyphs), font, inkRect, logicalRect)
 }
