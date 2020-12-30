@@ -965,7 +965,7 @@ func (state *ItemizeState) itemize_state_update_for_new_run() {
 		}
 		state.current_fonts = state.context.font_map.load_fontset(
 			state.context, fontDescArg, state.derived_lang)
-		state.cache = state.current_fonts.get_font_cache()
+		state.cache = get_font_cache(state.current_fonts)
 	}
 
 	if (state.changed&FONT_CHANGED) != 0 && state.base_font != nil {
@@ -1011,10 +1011,10 @@ func (state *ItemizeState) itemize_state_process_run() {
 	if state.item.analysis.font == nil {
 		font, ok := state.get_font(' ')
 		if !ok {
-			// TODO: the C implementation only warn once per fontmap/script pair
-			// fontmap := state.context.font_map
-			// script_tag := fmt.Sprintf("g-unicode-script-%s", state.script)
-			log.Printf("failed to choose a font for script %s: expect ugly output", state.script)
+			// only warn once per fontmap/script pair
+			if shouldWarn(state.context.font_map, state.script) {
+				log.Printf("failed to choose a font for script %s: expect ugly output", state.script)
+			}
 		}
 		state.itemize_state_fill_font(font)
 	}

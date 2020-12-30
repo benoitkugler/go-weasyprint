@@ -226,10 +226,12 @@ var pfd_defaults = FontDescription{
 }
 
 // Font is used to represent a font in a rendering-system-independent matter.
+// The concretes types implementing this interface shouls be pointers, since
+// they will be used as map keys: they MUST at least be comparable types.
 type Font interface {
 	describe() FontDescription
 	get_coverage(language Language) Coverage
-	get_glyph_extents(glyph Glyph, ink_rect, logical_rect *Rectangle)
+	get_glyph_extents(glyph Glyph, inkRect, logicalRect *Rectangle)
 	get_metrics(language Language) FontMetrics
 	get_font_map() FontMap
 	describe_absolute() FontDescription
