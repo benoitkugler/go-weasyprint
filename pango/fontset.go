@@ -2,6 +2,22 @@ package pango
 
 import "sync"
 
+var (
+	fontsetCaches     = map[Fontset]*FontCache{}
+	fontsetCachesLock sync.Mutex
+
+	// TODO only one map per context ?
+	// it only for warnings anyway, probably not a big deal...
+	fontmapScriptWarnings = map[struct {
+		ft     FontMap
+		script Script
+	}]bool{}
+	fontmapScriptWarningsLock sync.Mutex
+
+	fontShapeFailWarnings     = map[Font]bool{}
+	fontShapeFailWarningsLock sync.Mutex
+)
+
 // Fontset represents a set of Font to use when rendering text.
 // It is the result of resolving a FontDescription against a particular Context.
 // The concretes types implementing this interface shouls be pointers, since
@@ -20,11 +36,6 @@ type Fontset interface {
 
 // Returns `true` stops the iteration
 type FontsetForeachFunc = func(font Font) bool
-
-var (
-	fontsetCaches     = map[Fontset]*FontCache{}
-	fontsetCachesLock sync.Mutex
-)
 
 func get_font_cache(fontset Fontset) *FontCache {
 	fontsetCachesLock.Lock()
@@ -80,16 +91,6 @@ type FontMap interface {
 	// Gets the FontFace to which `font` belongs.
 	get_face(font Font) *FontFace
 }
-
-// TODO only one map per context ?
-// it only for warnings anyway, probably not a big deal...
-var (
-	fontmapScriptWarnings = map[struct {
-		ft     FontMap
-		script Script
-	}]bool{}
-	fontmapScriptWarningsLock sync.Mutex
-)
 
 // return true if not already warned, and keep track of the anwser
 func shouldWarn(fontmap FontMap, script Script) bool {

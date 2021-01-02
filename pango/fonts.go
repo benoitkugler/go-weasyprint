@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -813,40 +814,72 @@ func pango_font_get_metrics(font Font, language Language) FontMetrics {
 	return font.get_metrics(language)
 }
 
-// func (metrics *FontMetrics) update_metrics_from_items(language Language, text []rune, items []*Item) {
-// 	// fontsSeen := map[]
-// 	//   PangoGlyphString *glyphs = pango_glyph_string_new ();
-// 	//   GList *l;
-// 	//   glong text_width;
+func (metrics *FontMetrics) update_metrics_from_items(language Language, text []rune, items []*Item) {
+	// This should typically be called with a sample text string.
+	if len(text) == 0 {
+		return
+	}
 
-// 	// This should typically be called with a sample text string.
-// 	if len(text) == 0 {
-// 		return
-// 	}
+	fontsSeen := map[Font]bool{}
+	metrics.approximate_char_width = 0
+	var glyphs GlyphString
 
-// 	metrics.approximate_char_width = 0
+	for _, item := range items {
+		font := item.analysis.font
 
-// 	// TODO: add caching in map
-// 	for _, item := range items {
-// 		font := item.analysis.font
+		if seen := fontsSeen[font]; font != nil && !seen {
+			rawMetrics := pango_font_get_metrics(font, language)
+			fontsSeen[font] = true
 
-// 		if font != nil {
-// 			rawMetrics := pango_font_get_metrics(font, language)
-// 			// g_hash_table_insert(fontsSeen, font, font)
+			// metrics will already be initialized from the first font in the fontset
+			metrics.ascent = max(metrics.ascent, rawMetrics.ascent)
+			metrics.descent = max(metrics.descent, rawMetrics.descent)
+			metrics.height = max(metrics.height, rawMetrics.height)
+		}
 
-// 			/* metrics will already be initialized from the first font in the fontset */
-// 			metrics.ascent = max(metrics.ascent, rawMetrics.ascent)
-// 			metrics.descent = max(metrics.descent, rawMetrics.descent)
-// 			metrics.height = max(metrics.height, rawMetrics.height)
-// 		}
+		glyphs.pango_shape_full(text[item.offset:item.offset+item.num_chars], text, &item.analysis)
+		metrics.approximate_char_width += int(glyphs.pango_glyph_string_get_width())
+	}
 
-// 		pango_shape_full(text+item.offset, item.length, text, text_len, &item.analysis, glyphs)
-// 		metrics.approximate_char_width += pango_glyph_string_get_width(glyphs)
-// 	}
+	textWidth := pangoStrWidth(text)
+	metrics.approximate_char_width /= textWidth
+}
 
-// 	textWidth = pango_utf8_strwidth(text)
-// 	metrics.approximate_char_width /= textWidth
-// }
+func pangoStrWidth(p []rune) int {
+	var out int
+
+	for _, c := range p {
+		if isZeroWidth(c) {
+			// + 0
+		} else if isWide(c) {
+			out += 2
+		} else {
+			out += 1
+		}
+	}
+
+	return out
+}
+
+// isZeroWidth determines if a given character typically takes zero width when rendered.
+// The return value is `true` for all non-spacing and enclosing marks
+// (e.g., combining accents), format characters, zero-width
+// space, but not U+00AD SOFT HYPHEN.
+func isZeroWidth(c rune) bool {
+	if c == 0x00AD {
+		return false
+	}
+
+	if unicode.In(c, unicode.Mn, unicode.Me, unicode.Cf) {
+		return true
+	}
+
+	if (c >= 0x1160 && c < 0x1200) || c == 0x200B {
+		return true
+	}
+
+	return false
+}
 
 // FontFamily is used to represent a family of related
 // font faces. The faces in a family share a common design, but differ in

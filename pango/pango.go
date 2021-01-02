@@ -3,6 +3,7 @@ package pango
 import (
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/benoitkugler/go-weasyprint/fribidi"
 	"golang.org/x/text/width"
@@ -121,4 +122,73 @@ func isWide(r rune) bool {
 	default:
 		return false
 	}
+}
+
+// Matrix is a transformation between user-space
+// coordinates and device coordinates. The transformation
+// is given by
+//
+// x_device = x_user * matrix.xx + y_user * matrix.xy + matrix.x0;
+// y_device = x_user * matrix.yx + y_user * matrix.yy + matrix.y0;
+type Matrix struct {
+	xx, xy, yx, yy, x0, y0 float64
+}
+
+var PANGO_MATRIX_INIT = Matrix{1, 0, 0, 1, 0, 0}
+
+/**
+ * pango_matrix_get_font_scale_factor:
+ * @matrix: (allow-none): a #PangoMatrix, may be %NULL
+ *
+ * Returns the scale factor of a matrix on the height of the font.
+ * That is, the scale factor in the direction perpendicular to the
+ * vector that the X coordinate is mapped to.  If the scale in the X
+ * coordinate is needed as well, use pango_matrix_get_font_scale_factors().
+ *
+ * Return value: the scale factor of @matrix on the height of the font,
+ * or 1.0 if @matrix is %NULL.
+ *
+ * Since: 1.12
+ **/
+func (matrix Matrix) pango_matrix_get_font_scale_factor() float64 {
+	_, yscale := matrix.pango_matrix_get_font_scale_factors()
+	return yscale
+}
+
+/**
+ * pango_matrix_get_font_scale_factors:
+ * @matrix: (nullable): a #PangoMatrix, or %NULL
+ * @xscale: (out) (allow-none): output scale factor in the x direction, or %NULL
+ * @yscale: (out) (allow-none): output scale factor perpendicular to the x direction, or %NULL
+ *
+ * Calculates the scale factor of a matrix on the width and height of the font.
+ * That is, @xscale is the scale factor in the direction of the X coordinate,
+ * and @yscale is the scale factor in the direction perpendicular to the
+ * vector that the X coordinate is mapped to.
+ *
+ * Note that output numbers will always be non-negative.
+ **/
+func (matrix Matrix) pango_matrix_get_font_scale_factors() (xscale, yscale float64) {
+	// Based on cairo-matrix.c:_cairo_matrix_compute_scale_factors()
+	// Copyright 2005, Keith Packard
+
+	x := matrix.xx
+	y := matrix.yx
+	xscale = math.Sqrt(x*x + y*y)
+
+	if xscale != 0 {
+		det := matrix.xx*matrix.yy - matrix.yx*matrix.xy
+
+		/*
+		* ignore mirroring
+		 */
+		if det < 0 {
+			det = -det
+		}
+
+		yscale = det / xscale
+	} else {
+		yscale = 0.
+	}
+	return
 }

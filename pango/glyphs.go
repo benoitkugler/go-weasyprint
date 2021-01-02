@@ -161,85 +161,69 @@ func (glyphs *GlyphString) fallback_shape(text []rune, analysis *Analysis) {
 	}
 }
 
-/**
- * pango_shape_with_flags:
- * @item_text: valid UTF-8 text to shape
- * @item_length: the length (in bytes) of @item_text.
- *     -1 means nul-terminated text.
- * @paragraph_text: (allow-none): text of the paragraph (see details).
- *     May be %NULL.
- * @paragraph_length: the length (in bytes) of @paragraph_text.
- *     -1 means nul-terminated text.
- * @analysis:  #PangoAnalysis structure from pango_itemize()
- * @glyphs: glyph string in which to store results
- * @flags: flags influencing the shaping process
- *
- * Given a segment of text and the corresponding
- * #PangoAnalysis structure returned from pango_itemize(),
- * convert the characters into glyphs. You may also pass
- * in only a substring of the item from pango_itemize().
- *
- * This is similar to pango_shape_full(), except it also takes
- * flags that can influence the shaping process.
- *
- * Note that the extra attributes in the @analyis that is returned from
- * pango_itemize() have indices that are relative to the entire paragraph,
- * so you do not pass the full paragraph text as @paragraph_text, you need
- * to subtract the item offset from their indices before calling
- * pango_shape_with_flags().
- */
-func (glyphs *GlyphString) pango_shape_with_flags(item_text, paragraph_text []rune, analysis *Analysis,
+// pango_shape_full convertc the characters into glyphs,
+// using a segment of text and the corresponding
+// `Analysis` structure returned from pango_itemize().
+// You may also pass in only a substring of the item from pango_itemize().
+//
+// This is similar to pango_shape(), except it also can optionally take
+// the full paragraph text as input, which will then be used to perform
+// certain cross-item shaping interactions.  If you have access to the broader
+// text of which `itemText` is part of, provide the broader text as
+// `paragraphText`.  If `paragraphText` is empty, item text is used instead.
+//
+// Note that the extra attributes in the @analyis that is returned from
+// pango_itemize() have indices that are relative to the entire paragraph,
+// so you do not pass the full paragraph text as @paragraphText, you need
+// to subtract the item offset from their indices before calling pango_shape_full().
+func (glyphs *GlyphString) pango_shape_full(itemText, paragraphText []rune, analysis *Analysis) {
+	glyphs.pango_shape_with_flags(itemText, paragraphText, analysis, PANGO_SHAPE_NONE)
+}
+
+// pango_shape_with_flags is similar to pango_shape_full(), except it also takes
+// flags that can influence the shaping process.
+func (glyphs *GlyphString) pango_shape_with_flags(itemText, paragraphText []rune, analysis *Analysis,
 	flags ShapeFlags) {
 
-	if len(paragraph_text) == 0 {
-		paragraph_text = item_text
+	if len(paragraphText) == 0 {
+		paragraphText = itemText
 	}
 
 	if analysis.font != nil {
-		pango_hb_shape(analysis.font, item_text, analysis, glyphs, paragraph_text)
+		pango_hb_shape(analysis.font, itemText, analysis, glyphs, paragraphText)
 
 		if len(glyphs.glyphs) == 0 {
-			/* If a font has been correctly chosen, but no glyphs are output,
-			* there's probably something wrong with the font.
-			*
-			* Trying to be informative, we print out the font description,
-			* and the text, but to not flood the terminal with
-			* zillions of the message, we set a flag to only err once per
-			* font.
-			 */
-			// TODO:
-			//    GQuark warned_quark = g_quark_from_static_string ("pango-shape-fail-warned");
+			// If a font has been correctly chosen, but no glyphs are output,
+			// there's probably something wrong with the font.
+			//
+			// Trying to be informative, we print out the font description,
+			// and the text, but to not flood the terminal with
+			// zillions of the message, we set a flag to only err once per
+			// font.
 
-			// if !g_object_get_qdata(G_OBJECT(analysis.font), warned_quark) {
-			// 	PangoFontDescription * desc
-			// 	char * font_name
+			if !fontShapeFailWarnings[analysis.font] {
+				fontName := analysis.font.describe().String()
 
-			// 	desc = pango_font_describe(analysis.font)
-			// 	font_name = pango_font_description_to_string(desc)
-			// 	pango_font_description_free(desc)
+				log.Printf("shaping failure, expect ugly output. font='%s', text='%s'", fontName, string(itemText))
 
-			// 	g_warning("shaping failure, expect ugly output. font='%s', text='%.*s'",
-			// 		font_name, item_length, item_text)
-
-			// 	g_free(font_name)
-
-			// 	g_object_set_qdata(G_OBJECT(analysis.font), warned_quark,
-			// 		GINT_TO_POINTER(1))
-			// }
+				fontShapeFailWarningsLock.Lock()
+				fontShapeFailWarnings[analysis.font] = true
+				fontShapeFailWarningsLock.Unlock()
+			}
 		}
 	}
 
 	if len(glyphs.glyphs) == 0 {
-		glyphs.fallback_shape(item_text, analysis)
+		glyphs.fallback_shape(itemText, analysis)
 		if len(glyphs.glyphs) == 0 {
 			return
 		}
 	}
 
-	/* make sure last_cluster is invalid */
+	// make sure last_cluster is invalid
 	last_cluster := glyphs.log_clusters[0] - 1
 	for i, lo := range glyphs.log_clusters {
-		/* Set glyphs[i].attr.is_cluster_start based on log_clusters[] */
+		// Set glyphs[i].attr.is_cluster_start based on log_clusters[]
 		if lo != last_cluster {
 			glyphs.glyphs[i].attr.is_cluster_start = true
 			last_cluster = lo
@@ -247,10 +231,8 @@ func (glyphs *GlyphString) pango_shape_with_flags(item_text, paragraph_text []ru
 			glyphs.glyphs[i].attr.is_cluster_start = false
 		}
 
-		/* Shift glyph if width is negative, and negate width.
-		* This is useful for rotated font matrices and shouldn't
-		* harm in normal cases.
-		 */
+		// Shift glyph if width is negative, and negate width.
+		// This is useful for rotated font matrices and shouldn't harm in normal cases.
 		if glyphs.glyphs[i].geometry.width < 0 {
 			glyphs.glyphs[i].geometry.width = -glyphs.glyphs[i].geometry.width
 			glyphs.glyphs[i].geometry.x_offset += glyphs.glyphs[i].geometry.width

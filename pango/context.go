@@ -49,7 +49,7 @@ type Context struct {
 
 	font_desc FontDescription
 
-	//    PangoMatrix *matrix;
+	matrix *Matrix
 
 	font_map FontMap
 
@@ -1358,41 +1358,25 @@ func getBaseMetrics(fontset Fontset) FontMetrics {
 //    metrics.approximate_char_width /= text_width;
 //  }
 
-/**
- * pango_context_get_metrics:
- * `context`: a #Context
- * @desc: (allow-none): a #PangoFontDescription structure.  %nil means that the
- *            font description from the context will be used.
- * @language: (allow-none): language tag used to determine which script to get
- *            the metrics for. %nil means that the language tag from the context
- *            will be used. If no language tag is set on the context, metrics
- *            for the default language (as determined by pango_language_get_default())
- *            will be returned.
- *
- * Get overall metric information for a particular font
- * description.  Since the metrics may be substantially different for
- * different scripts, a language tag can be provided to indicate that
- * the metrics should be retrieved that correspond to the script(s)
- * used by that language.
- *
- * The #PangoFontDescription is interpreted in the same way as
- * by pango_itemize(), and the family name may be a comma separated
- * list of figures. If characters from multiple of these families
- * would be used to render the string, then the returned fonts would
- * be a composite of the metrics for the fonts loaded for the
- * individual families.
- *
- * Return value: a #PangoFontMetrics object.
- **/
+// pango_context_get_metrics get overall metric information for a particular font
+// description.
+//
+// Since the metrics may be substantially different for
+// different scripts, a language tag can be provided to indicate that
+// the metrics should be retrieved that correspond to the script(s)
+// used by that language. Empty language means that the language tag from the context
+// will be used. If no language tag is set on the context, metrics
+// for the default language (as determined by pango_language_get_default())
+// will be returned.
+//
+// The `FontDescription` is interpreted in the same way as
+// by pango_itemize(), and the family name may be a comma separated
+// list of figures. If characters from multiple of these families
+// would be used to render the string, then the returned fonts would
+// be a composite of the metrics for the fonts loaded for the
+// individual families.
+// `nil` means that the font description from the context will be used.
 func (context *Context) pango_context_get_metrics(desc *FontDescription, language Language) FontMetrics {
-	//    PangoFontset *current_fonts = nil;
-	//    PangoFontMetrics *metrics;
-	//    const char *sampleStr;
-	//    unsigned int text_len;
-	//    GList *items;
-
-	//    g_return_val_if_fail (PANGO_IS_CONTEXT (context), nil);
-
 	if desc == nil {
 		desc = &context.font_desc
 	}
@@ -1404,11 +1388,10 @@ func (context *Context) pango_context_get_metrics(desc *FontDescription, languag
 	currentFonts := context.font_map.load_fontset(context, desc, language)
 	metrics := getBaseMetrics(currentFonts)
 
-	// sampleStr := language.pango_language_get_sample_string()
-	// items := context.itemize_with_font([]rune(sampleStr), desc)
+	sampleStr := []rune(language.pango_language_get_sample_string())
+	items := context.itemize_with_font(sampleStr, desc)
 
-	// TODO:
-	// update_metrics_from_items(metrics, language, sampleStr, text_len, items)
+	metrics.update_metrics_from_items(language, sampleStr, items)
 
 	return metrics
 }
