@@ -746,6 +746,15 @@ func (desc *FontDescription) pango_font_description_unset_fields(toUnset FontMas
 	desc.mask &= ^toUnset
 }
 
+// pango_font_description_hash returns a FontDescription suitable
+// to be used as map key. In particular, the family_name is lowered, and `mask`
+// is ignored.
+func (desc FontDescription) pango_font_description_hash() FontDescription {
+	desc.family_name = strings.ToLower(desc.family_name)
+	desc.mask = 0
+	return desc
+}
+
 // FontMetrics holds the overall metric information
 // for a font (possibly restricted to a script).
 // All values are expressed in Pango units.
