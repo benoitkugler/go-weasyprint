@@ -2,13 +2,16 @@ package fontconfig
 
 import "math"
 
-type FcFontSet struct {
-	nfont int
-	sfont int
-	fonts []FcPattern
-}
+const debugMode = false
+
+type FcFontSet []*FcPattern // with length nfont, and cap sfont
 
 type FcStrSet map[string]bool
+
+const (
+	FcSetSystem      = 0
+	FcSetApplication = 1
+)
 
 type FcConfig struct {
 	/*
@@ -57,7 +60,7 @@ type FcConfig struct {
 	 * except in the case of identical matches in which case earlier fonts
 	 * match preferrentially
 	 */
-	// FcFontSet	*fonts[FcSetApplication + 1];
+	fonts [FcSetApplication + 1]FcFontSet
 	/*
 	 * Fontconfig can periodically rescan the system configuration
 	 * and font directories.  This rescanning occurs when font
@@ -82,12 +85,6 @@ const (
 	FcResultTypeMismatch
 	FcResultNoId
 	FcResultOutOfMemory
-)
-
-const (
-	FcFalse = iota
-	FcTrue
-	FcDontCare
 )
 
 const (

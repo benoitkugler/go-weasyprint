@@ -1,6 +1,7 @@
 package pango
 
 import (
+	"container/list"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/pango/fontconfig"
@@ -82,7 +83,7 @@ const FONTSET_CACHE_SIZE = 256
  * This can be used to write fontconfig configuration rules to choose
  * different fonts for horizontal and vertical writing directions.
  */
-const PANGO_FC_GRAVITY = "pangogravity"
+const PANGO_FC_GRAVITY fontconfig.FcObject = "pangogravity"
 
 type PangoCairoFcFontMap struct {
 	parent_instance PangoFcFontMap
@@ -150,15 +151,15 @@ type PangoFcFont struct {
 //  #define PANGO_FC_IS_FONTSET(object)     (G_TYPE_CHECK_INSTANCE_TYPE ((object), PANGO_FC_TYPE_FONTSET))
 
 type PangoFcFontMapPrivate struct {
-	fontset_hash  map[PangoFcFontsetKey]*PangoFcFontset
-	fontset_cache []*PangoFcFontset /* Recently used fontsets */
+	fontset_hash  fontsetHash
+	fontset_cache *list.List // *PangoFcFontset /* Recently used fontsets */
 
-	font_hash map[PangoFcFontKey]*PangoFcFont // (GHashFunc)pango_fc_font_key_hash,  (GEqualFunc)pango_fc_font_key_equal
+	font_hash fontHash
 
 	patterns_hash map[*fontconfig.FcPattern]*PangoFcPatterns
 
 	// pattern_hash is used to make sure we only store one copy of each identical pattern. (Speeds up lookup).
-	pattern_hash map[*fontconfig.FcPattern]bool // (GHashFunc) FcPatternHash,   (GEqualFunc) FcPatternEqual,
+	pattern_hash fcPatternHash
 
 	font_face_data_hash map[PangoFcFontFaceData]bool /* Maps font file name/id . data */ // (GHashFunc)pango_fc_font_face_data_hash,  (GEqualFunc)pango_fc_font_face_data_equal,
 
@@ -222,7 +223,7 @@ type PangoFcFamily struct {
 //    gpointer               ddata;
 //  };
 
-//  static FcPattern *uniquify_pattern ( fcfontmap *PangoFcFontMap,
+//  static FcPattern *uniquifyPattern ( fcfontmap *PangoFcFontMap,
 // 					 pattern *FcPattern      );
 
 //  gpointer get_gravity_class (void);
@@ -244,7 +245,7 @@ type PangoFcFamily struct {
 //    return g_str_hash (key.filename) ^ key.id;
 //  }
 
-//  static gboolean
+//  static bool
 //  pango_fc_font_face_data_equal (PangoFcFontFaceData *key1,
 // 					PangoFcFontFaceData *key2)
 //  {
@@ -411,8 +412,7 @@ func (fcfontmap *PangoFcFontMap) newFontsetKey(context *Context, desc *FontDescr
 	key.resolution = fcfontmap.pango_fc_font_map_get_resolution(context)
 	key.language = language
 	key.variations = desc.variations
-	// use the "hash version"
-	key.desc = desc.pango_font_description_hash()
+	key.desc = *desc
 	key.desc.pango_font_description_unset_fields(PANGO_FONT_MASK_SIZE | PANGO_FONT_MASK_VARIATIONS)
 
 	if context != nil {
@@ -421,7 +421,7 @@ func (fcfontmap *PangoFcFontMap) newFontsetKey(context *Context, desc *FontDescr
 	return key
 }
 
-//  static gboolean
+//  static bool
 //  pango_fc_fontset_key_equal (const key *PangoFcFontsetKey_a,
 // 				 const key *PangoFcFontsetKey_b)
 //  {
@@ -441,7 +441,7 @@ func (fcfontmap *PangoFcFontMap) newFontsetKey(context *Context, desc *FontDescr
 // 		 return key_a.context_key == key_b.context_key;
 // 	 }
 //    else
-// 	 return FALSE;
+// 	 return false;
 //  }
 
 //  static void
@@ -455,28 +455,6 @@ func (fcfontmap *PangoFcFontMap) newFontsetKey(context *Context, desc *FontDescr
 // 								   key.context_key);
 
 //    g_slice_free (PangoFcFontsetKey, key);
-//  }
-
-//  static PangoFcFontsetKey *
-//  pango_fc_fontset_key_copy (const PangoFcFontsetKey *old)
-//  {
-//    key *PangoFcFontsetKey = g_slice_new (PangoFcFontsetKey);
-
-//    key.fontmap = old.fontmap;
-//    key.language = old.language;
-//    key.desc = pango_font_description_copy (old.desc);
-//    key.matrix = old.matrix;
-//    key.pixelsize = old.pixelsize;
-//    key.resolution = old.resolution;
-//    key.variations = g_strdup (old.variations);
-
-//    if (old.context_key)
-// 	 key.context_key = PANGO_FC_FONT_MAP_GET_CLASS (key.fontmap).context_key_copy (key.fontmap,
-// 											  old.context_key);
-//    else
-// 	 key.context_key = nil;
-
-//    return key;
 //  }
 
 //  /**
@@ -708,32 +686,27 @@ type PangoFcPatterns struct {
 
 	pattern *fontconfig.FcPattern
 	match   *fontconfig.FcPattern
-	fontset *fontconfig.FcFontSet
+	fontset fontconfig.FcFontSet
 }
 
-func (fontmap *PangoFcFontMap) pango_fc_patterns_new(pat fontconfig.FcPattern) *PangoFcPatterns {
-	pat = uniquify_pattern(fontmap, pat)
-	pats := g_hash_table_lookup(fontmap.priv.patterns_hash, pat)
-	if pats {
-		return pango_fc_patterns_ref(pats)
+func (fontmap *PangoFcFontMap) pango_fc_patterns_new(pat *fontconfig.FcPattern) *PangoFcPatterns {
+	pat = fontmap.uniquifyPattern(pat)
+
+	if pats := fontmap.priv.patterns_hash[pat]; pats != nil {
+		return pats
 	}
 
-	pats = g_slice_new0(PangoFcPatterns)
+	var pats PangoFcPatterns
 
 	pats.fontmap = fontmap
-
-	pats.ref_count = 1
-	FcPatternReference(pat)
 	pats.pattern = pat
+	fontmap.priv.patterns_hash[pats.pattern] = &pats
 
-	g_hash_table_insert(fontmap.priv.patterns_hash,
-		pats.pattern, pats)
-
-	return pats
+	return &pats
 }
 
 //  static PangoFcPatterns *
-//  pango_fc_patterns_ref (PangoFcPatterns *pats)
+//  pango_fc_patterns_ref (pats *PangoFcPatterns)
 //  {
 //    g_return_val_if_fail (pats.ref_count > 0, nil);
 
@@ -743,7 +716,7 @@ func (fontmap *PangoFcFontMap) pango_fc_patterns_new(pat fontconfig.FcPattern) *
 //  }
 
 //  static void
-//  pango_fc_patterns_unref (PangoFcPatterns *pats)
+//  pango_fc_patterns_unref (pats *PangoFcPatterns)
 //  {
 //    g_return_if_fail (pats.ref_count > 0);
 
@@ -771,198 +744,139 @@ func (fontmap *PangoFcFontMap) pango_fc_patterns_new(pat fontconfig.FcPattern) *
 //    g_slice_free (PangoFcPatterns, pats);
 //  }
 
-//  static FcPattern *
-//  pango_fc_patterns_get_pattern (PangoFcPatterns *pats)
-//  {
-//    return pats.pattern;
-//  }
+func pango_fc_is_supported_font_format(pattern *fontconfig.FcPattern) bool {
+	fontformat, res := FcPatternGetString(pattern, FC_FONTFORMAT, 0)
+	if res != fontconfig.FcResultMatch {
+		return false
+	}
 
-//  static gboolean
-//  pango_fc_is_supported_font_format (FcPattern* pattern)
-//  {
-//    FcResult res;
-//    const char *fontformat;
+	/* harfbuzz supports only SFNT fonts. */
+	/* FIXME: "CFF" is used for both CFF in OpenType and bare CFF files, but
+	* HarfBuzz does not support the later and FontConfig does not seem
+	* to have a way to tell them apart.
+	 */
+	return fontformat == "TrueType" || fontformat == "CFF"
+}
 
-//    res = FcPatternGetString (pattern, FC_FONTFORMAT, 0, (FcChar8 **)(void*)&fontformat);
-//    if (res != FcResultMatch)
-// 	 return FALSE;
+func filter_fontset_by_format(fontset fontconfig.FcFontSet) fontconfig.FcFontSet {
+	var result fontconfig.FcFontSet
 
-//    /* harfbuzz supports only SFNT fonts. */
-//    /* FIXME: "CFF" is used for both CFF in OpenType and bare CFF files, but
-// 	* HarfBuzz does not support the later and FontConfig does not seem
-// 	* to have a way to tell them apart.
-// 	*/
-//    if (g_ascii_strcasecmp (fontformat, "TrueType") == 0 ||
-// 	   g_ascii_strcasecmp (fontformat, "CFF") == 0)
-// 	 return TRUE;
-//    return FALSE;
-//  }
+	for _, fontPattern := range fontset {
+		if pango_fc_is_supported_font_format(fontPattern) {
+			result = append(result, fontPattern)
+		}
+	}
 
-//  static FcFontSet *
-//  filter_fontset_by_format (FcFontSet *fontset)
-//  {
-//    FcFontSet *result;
-//    int i;
+	return result
+}
 
-//    result = FcFontSetCreate ();
+func (pats *PangoFcPatterns) pango_fc_patterns_get_font_pattern(i int) (*fontconfig.FcPattern, bool) {
+	if i == 0 {
+		if pats.match == nil && pats.fontset == nil {
+			pats.match, _ = FcFontMatch(pats.fontmap.priv.config, pats.pattern)
+		}
 
-//    for (i = 0; i < fontset.nfont; i++)
-// 	 {
-// 	   if (pango_fc_is_supported_font_format (fontset.fonts[i]))
-// 		 {
-// 		   FcPatternReference (fontset.fonts[i]);
-// 		   FcFontSetAdd (result, fontset.fonts[i]);
-// 		 }
-// 	 }
+		if pats.match != nil && pango_fc_is_supported_font_format(pats.match) {
+			return pats.match, false
+		}
+	}
 
-//    return result;
-//  }
+	if pats.fontset == nil {
+		var (
+			filtered [2]fontconfig.FcFontSet
+			n        int
+		)
 
-//  static FcPattern *
-//  pango_fc_patterns_get_font_pattern (PangoFcPatterns *pats, int i, gboolean *prepare)
-//  {
-//    if (i == 0)
-// 	 {
-// 	   FcResult result;
-// 	   if (!pats.match && !pats.fontset)
-// 	 pats.match = FcFontMatch (pats.fontmap.priv.config, pats.pattern, &result);
+		for i := range filtered {
+			fonts := FcConfigGetFonts(pats.fontmap.priv.config, i)
+			if fonts != nil {
+				filtered[n] = filter_fontset_by_format(fonts)
+				n++
+			}
+		}
 
-// 	   if (pats.match && pango_fc_is_supported_font_format (pats.match))
-// 	 {
-// 	   *prepare = FALSE;
-// 	   return pats.match;
-// 	 }
-// 	 }
+		pats.fontset, _ = FcFontSetSort(pats.fontmap.priv.config, filtered, n, pats.pattern, FcTrue, nil)
 
-//    if (!pats.fontset)
-// 	 {
-// 	   FcResult result;
-// 	   FcFontSet *filtered[2] = { nil, };
-// 	   int i, n = 0;
+		if pats.match != nil {
+			pats.match = nil
+		}
+	}
 
-// 	   for (i = 0; i < 2; i++)
-// 		 {
-// 		   FcFontSet *fonts = FcConfigGetFonts (pats.fontmap.priv.config, i);
-// 		   if (fonts)
-// 			 filtered[n++] = filter_fontset_by_format (fonts);
-// 		 }
+	if i < len(pats.fontset) {
+		return pats.fontset[i], true
+	}
+	return nil, true
+}
 
-// 	   pats.fontset = FcFontSetSort (pats.fontmap.priv.config, filtered, n, pats.pattern, FcTrue, nil, &result);
-
-// 	   for (i = 0; i < n; i++)
-// 		 FcFontSetDestroy (filtered[i]);
-
-// 	   if (pats.match)
-// 		 {
-// 		   FcPatternDestroy (pats.match);
-// 		   pats.match = nil;
-// 		 }
-// 	 }
-
-//    *prepare = TRUE;
-//    if (pats.fontset && i < pats.fontset.nfont)
-// 	 return pats.fontset.fonts[i];
-//    else
-// 	 return nil;
-//  }
-
-//  /*
-//   * PangoFcFontset
-//   */
-
-//  static void              pango_fc_fontset_finalize     (GObject                 *object);
-//  static PangoLanguage *   pango_fc_fontset_get_language (PangoFontset            *fontset);
-//  static  PangoFont *      pango_fc_fontset_get_font     (PangoFontset            *fontset,
-// 							 guint                    wc);
-//  static void              pango_fc_fontset_foreach      (PangoFontset            *fontset,
-// 							 PangoFontsetForeachFunc  func,
-// 							 gpointer                 data);
+/*
+ * PangoFcFontset
+ */
 
 type PangoFcFontset struct {
 	parent_instance Fontset
 
 	key *PangoFcFontsetKey
 
-	patterns []PangoFcPatterns
-	// int             patterns_i
+	patterns   *PangoFcPatterns
+	patterns_i int
 
 	fonts     []Font
 	coverages []Coverage
 
-	// GList *cache_link
+	cache_link *list.Element
 }
 
 //  typedef PangoFontsetClass PangoFcFontsetClass;
 
 //  G_DEFINE_TYPE (PangoFcFontset, pango_fc_fontset, PANGO_TYPE_FONTSET)
 
-//  static PangoFcFontset *
-//  pango_fc_fontset_new (key *PangoFcFontsetKey,
-// 			   PangoFcPatterns   *patterns)
-//  {
-//    PangoFcFontset *fontset;
+func pango_fc_fontset_new(key PangoFcFontsetKey, patterns *PangoFcPatterns) *PangoFcFontset {
+	var fontset PangoFcFontset
 
-//    fontset = g_object_new (PANGO_FC_TYPE_FONTSET, nil);
+	fontset.key = &key
+	fontset.patterns = patterns
 
-//    fontset.key = pango_fc_fontset_key_copy (key);
-//    fontset.patterns = pango_fc_patterns_ref (patterns);
+	return &fontset
+}
 
-//    return fontset;
-//  }
+func (fontset *PangoFcFontset) pango_fc_fontset_load_next_font() Font {
 
-//  static PangoFcFontsetKey *
-//  pango_fc_fontset_get_key (PangoFcFontset *fontset)
-//  {
-//    return fontset.key;
-//  }
+	pattern := fontset.patterns.pattern
+	font_pattern, prepare := fontset.patterns.pango_fc_patterns_get_font_pattern(fontset.patterns_i)
+	fontset.patterns_i++
+	if font_pattern == nil {
+		return nil
+	}
 
-//  static PangoFont *
-//  pango_fc_fontset_load_next_font (PangoFcFontset *fontset)
-//  {
-//    FcPattern *pattern, *font_pattern;
-//    PangoFont *font;
-//    gboolean prepare;
+	if prepare {
+		font_pattern = FcFontRenderPrepare(nil, pattern, font_pattern)
+		if font_pattern == nil {
+			return nil
+		}
+	}
 
-//    pattern = pango_fc_patterns_get_pattern (fontset.patterns);
-//    font_pattern = pango_fc_patterns_get_font_pattern (fontset.patterns,
-// 							  fontset.patterns_i++,
-// 							  &prepare);
-//    if (G_UNLIKELY (!font_pattern))
-// 	 return nil;
+	font := pango_fc_font_map_new_font(fontset.key.fontmap,
+		fontset.key, font_pattern)
 
-//    if (prepare)
-// 	 {
-// 	   font_pattern = FcFontRenderPrepare (nil, pattern, font_pattern);
+	if prepare {
+		FcPatternDestroy(font_pattern)
+	}
 
-// 	   if (G_UNLIKELY (!font_pattern))
-// 	 return nil;
-// 	 }
+	return font
+}
 
-//    font = pango_fc_font_map_new_font (fontset.key.fontmap,
-// 									  fontset.key,
-// 									  font_pattern);
+func (fontset *PangoFcFontset) pango_fc_fontset_get_font_at(i int) Font {
+	for i >= len(fontset.fonts) {
+		font := pango_fc_fontset_load_next_font(fontset)
+		g_ptr_array_add(fontset.fonts, font)
+		g_ptr_array_add(fontset.coverages, nil)
+		if !font {
+			return nil
+		}
+	}
 
-//    if (prepare)
-// 	 FcPatternDestroy (font_pattern);
-
-//    return font;
-//  }
-
-//  static PangoFont *
-//  pango_fc_fontset_get_font_at (PangoFcFontset *fontset,
-// 				   unsigned int    i)
-//  {
-//    while (i >= fontset.fonts.len)
-// 	 {
-// 	   PangoFont *font = pango_fc_fontset_load_next_font (fontset);
-// 	   g_ptr_array_add (fontset.fonts, font);
-// 	   g_ptr_array_add (fontset.coverages, nil);
-// 	   if (!font)
-// 		 return nil;
-// 	 }
-
-//    return g_ptr_array_index (fontset.fonts, i);
-//  }
+	return g_ptr_array_index(fontset.fonts, i)
+}
 
 //  static void
 //  pango_fc_fontset_class_init (PangoFcFontsetClass *class)
@@ -978,7 +892,7 @@ type PangoFcFontset struct {
 //  }
 
 //  static void
-//  pango_fc_fontset_init (PangoFcFontset *fontset)
+//  pango_fc_fontset_init (fontset *PangoFcFontset)
 //  {
 //    fontset.fonts = g_ptr_array_new ();
 //    fontset.coverages = g_ptr_array_new ();
@@ -987,7 +901,7 @@ type PangoFcFontset struct {
 //  static void
 //  pango_fc_fontset_finalize (GObject *object)
 //  {
-//    PangoFcFontset *fontset = PANGO_FC_FONTSET (object);
+//    fontset *PangoFcFontset = PANGO_FC_FONTSET (object);
 //    unsigned int i;
 
 //    for (i = 0; i < fontset.fonts.len; i++)
@@ -996,7 +910,7 @@ type PangoFcFontset struct {
 // 	 if (font)
 // 	   g_object_unref (font);
 //    }
-//    g_ptr_array_free (fontset.fonts, TRUE);
+//    g_ptr_array_free (fontset.fonts, true);
 
 //    for (i = 0; i < fontset.coverages.len; i++)
 // 	 {
@@ -1004,7 +918,7 @@ type PangoFcFontset struct {
 // 	   if (coverage)
 // 	 pango_coverage_unref (coverage);
 // 	 }
-//    g_ptr_array_free (fontset.coverages, TRUE);
+//    g_ptr_array_free (fontset.coverages, true);
 
 //    if (fontset.key)
 // 	 pango_fc_fontset_key_free (fontset.key);
@@ -1067,23 +981,18 @@ type PangoFcFontset struct {
 //    return g_object_ref (font);
 //  }
 
-//  static void
-//  pango_fc_fontset_foreach (PangoFontset           *fontset,
-// 			   PangoFontsetForeachFunc func,
-// 			   gpointer                data)
-//  {
-//    PangoFcFontset *fcfontset = PANGO_FC_FONTSET (fontset);
-//    PangoFont *font;
-//    unsigned int i;
+func (fcfontset *PangoFcFontset) foreach(fn FontsetForeachFunc) {
+	//    PangoFont *font;
+	//    unsigned int i;
 
-//    for (i = 0;
-// 		(font = pango_fc_fontset_get_font_at (fcfontset, i));
-// 		i++)
-// 	 {
-// 	   if ((*func) (fontset, font, data))
-// 	 return;
-// 	 }
-//  }
+	// TODO:
+	for i := 0; ; i++ {
+		font := pango_fc_fontset_get_font_at(fcfontset, i)
+		if fn(font) {
+			return
+		}
+	}
+}
 
 //  /*
 //   * PangoFcFontMap
@@ -1136,13 +1045,13 @@ type PangoFcFontset struct {
 func pango_fc_font_map_init() *PangoFcFontMap {
 	var priv PangoFcFontMapPrivate
 
-	priv.font_hash = make(map[PangoFcFontKey]*PangoFcFont)
+	priv.font_hash = make(fontHash)
 
-	priv.fontset_hash = make(map[PangoFcFontsetKey]*PangoFcFontset)
+	priv.fontset_hash = make(fontsetHash)
 
 	priv.patterns_hash = make(map[*fontconfig.FcPattern]*PangoFcPatterns)
 
-	priv.pattern_hash = make(map[*fontconfig.FcPattern]bool)
+	priv.pattern_hash = make(fcPatternHash)
 
 	priv.font_face_data_hash = make(map[PangoFcFontFaceData]bool)
 	priv.dpi = -1
@@ -1300,13 +1209,13 @@ func pango_fc_font_map_init() *PangoFcFontMap {
 //    family.fontmap = fcfontmap;
 //    family.family_name = g_strdup (family_name);
 //    family.spacing = spacing;
-//    family.variable = FALSE;
+//    family.variable = false;
 //    family.patterns = FcFontSetCreate ();
 
 //    return family;
 //  }
 
-//  static gboolean
+//  static bool
 //  is_alias_family (const char *family_name)
 //  {
 //    switch (family_name[0])
@@ -1327,7 +1236,7 @@ func pango_fc_font_map_init() *PangoFcFontMap {
 // 		   g_ascii_strcasecmp (family_name, "system-ui") == 0);
 // 	 }
 
-//    return FALSE;
+//    return false;
 //  }
 
 //  static void
@@ -1387,12 +1296,12 @@ func pango_fc_font_map_init() *PangoFcFontMap {
 
 // 	   if (temp_family)
 // 		 {
-// 			   variable = FALSE;
+// 			   variable = false;
 //  #ifdef FC_VARIABLE
 // 			   variable = FcPatternGetBool (fontset.fonts[i], FC_VARIABLE, 0, &variable);
 //  #endif
 // 			   if (variable)
-// 				 temp_family.variable = TRUE;
+// 				 temp_family.variable = true;
 
 // 		   FcPatternReference (fontset.fonts[i]);
 // 		   FcFontSetAdd (temp_family.patterns, fontset.fonts[i]);
@@ -1499,16 +1408,13 @@ func pango_fc_convert_width_to_fc(pangoStretch Stretch) int {
 	}
 }
 
-func (fcfontmap *PangoFcFontMap) uniquify_pattern(pattern *FcPattern) *FcPattern {
+func (fcfontmap *PangoFcFontMap) uniquifyPattern(pattern *fontconfig.FcPattern) *fontconfig.FcPattern {
 	priv := fcfontmap.priv
-	old_pattern := g_hash_table_lookup(priv.pattern_hash, pattern)
-	if old_pattern {
+	if old_pattern := priv.pattern_hash.lookup(*pattern); old_pattern != nil {
 		return old_pattern
-	} else {
-		FcPatternReference(pattern)
-		g_hash_table_insert(priv.pattern_hash, pattern, pattern)
-		return pattern
 	}
+	priv.pattern_hash.insert(pattern)
+	return pattern
 }
 
 //  static PangoFont *
@@ -1525,7 +1431,7 @@ func (fcfontmap *PangoFcFontMap) uniquify_pattern(pattern *FcPattern) *FcPattern
 //    if (priv.closed)
 // 	 return nil;
 
-//    match = uniquify_pattern (fcfontmap, match);
+//    match = uniquifyPattern (fcfontmap, match);
 
 //    pango_fc_font_key_init (&key, fcfontmap, fontset_key, match);
 
@@ -1560,7 +1466,7 @@ func (fcfontmap *PangoFcFontMap) uniquify_pattern(pattern *FcPattern) *FcPattern
 // 	   FcPatternDel (pattern, FC_MATRIX);
 // 	   FcPatternAddMatrix (pattern, FC_MATRIX, &fc_matrix);
 
-// 	   fcfont = class.new_font (fcfontmap, uniquify_pattern (fcfontmap, pattern));
+// 	   fcfont = class.new_font (fcfontmap, uniquifyPattern (fcfontmap, pattern));
 
 // 	   FcPatternDestroy (pattern);
 // 	 }
@@ -1656,23 +1562,21 @@ func (fcfontmap *PangoFcFontMap) pango_fc_font_map_get_resolution(context *Conte
 	return fcfontmap.priv.dpi
 }
 
-func (fcfontmap *PangoFcFontMap) pango_fc_font_map_get_patterns(key *PangoFcFontsetKey) []PangoFcPatterns {
+func (fcfontmap *PangoFcFontMap) pango_fc_font_map_get_patterns(key *PangoFcFontsetKey) *PangoFcPatterns {
 	pattern := key.pango_fc_fontset_key_make_pattern()
 	key.pango_fc_default_substitute(fcfontmap, pattern)
 
-	patterns := pango_fc_patterns_new(pattern, fcfontmap)
-
-	return patterns
+	return fcfontmap.pango_fc_patterns_new(pattern)
 }
 
-//  static gboolean
+//  static bool
 //  get_first_font (PangoFontset  *fontset G_GNUC_UNUSED,
 // 		 PangoFont     *font,
 // 		 gpointer       data)
 //  {
 //    *(PangoFont **)data = font;
 
-//    return TRUE;
+//    return true;
 //  }
 
 //  static PangoFont *
@@ -1704,69 +1608,53 @@ func (fcfontmap *PangoFcFontMap) pango_fc_font_map_get_patterns(key *PangoFcFont
 //    return font;
 //  }
 
-//  static void
-//  pango_fc_fontset_cache (PangoFcFontset *fontset,
-// 			  fcfontmap *PangoFcFontMap)
-//  {
-//    PangoFcFontMapPrivate *priv = fcfontmap.priv;
-//    GQueue *cache = priv.fontset_cache;
+func (fcfontmap *PangoFcFontMap) pango_fc_fontset_cache(fontset *PangoFcFontset) {
+	priv := fcfontmap.priv
+	cache := priv.fontset_cache
 
-//    if (fontset.cache_link)
-// 	 {
-// 	   if (fontset.cache_link == cache.head)
-// 		 return;
+	if fontset.cache_link != nil {
+		if fontset.cache_link == cache.Front() {
+			return
+		}
+		// Already in cache, move to head
+		// if fontset.cache_link == cache.Back() {
+		// 	cache.tail = fontset.cache_link.prev
+		// }
+		cache.Remove(fontset.cache_link)
+	} else {
+		// Add to cache initially
+		if cache.Len() == FONTSET_CACHE_SIZE {
+			tmp_fontset := cache.Remove(cache.Front()).(*PangoFcFontset)
+			tmp_fontset.cache_link = nil
+			priv.fontset_hash.remove(*tmp_fontset.key)
+		}
 
-// 	   /* Already in cache, move to head
-// 		*/
-// 	   if (fontset.cache_link == cache.tail)
-// 	 cache.tail = fontset.cache_link.prev;
+		fontset.cache_link = &list.Element{Value: fontset}
+	}
 
-// 	   cache.head = g_list_remove_link (cache.head, fontset.cache_link);
-// 	   cache.length--;
-// 	 }
-//    else
-// 	 {
-// 	   /* Add to cache initially
-// 		*/
-// 	   if (cache.length == FONTSET_CACHE_SIZE)
-// 	 {
-// 	   PangoFcFontset *tmp_fontset = g_queue_pop_tail (cache);
-// 	   tmp_fontset.cache_link = nil;
-// 	   g_hash_table_remove (priv.fontset_hash, tmp_fontset.key);
-// 	 }
-
-// 	   fontset.cache_link = g_list_prepend (nil, fontset);
-// 	 }
-
-//    g_queue_push_head_link (cache, fontset.cache_link);
-//  }
+	cache.PushFront(fontset.cache_link.Value)
+}
 
 func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescription, language Language) Fontset {
 	priv := fcfontmap.priv
-	//    PangoFcFontset *fontset;
-	//    PangoFcFontsetKey key;
 
 	key := fcfontmap.newFontsetKey(context, desc, language)
 
-	fontset := priv.fontset_hash[key]
+	fontset := priv.fontset_hash.lookup(key)
 	if fontset == nil {
-		patterns := pango_fc_font_map_get_patterns(fontmap, &key)
+		patterns := fcfontmap.pango_fc_font_map_get_patterns(&key)
 
-		if !patterns {
+		if patterns == nil {
 			return nil
 		}
 
-		fontset = pango_fc_fontset_new(&key, patterns)
-		g_hash_table_insert(priv.fontset_hash, pango_fc_fontset_get_key(fontset), fontset)
-
-		pango_fc_patterns_unref(patterns)
+		fontset = pango_fc_fontset_new(key, patterns)
+		priv.fontset_hash.insert(*fontset.key, fontset)
 	}
 
-	pango_fc_fontset_cache(fontset, fcfontmap)
+	fcfontmap.pango_fc_fontset_cache(fontset)
 
-	pango_font_description_free(key.desc)
-
-	return g_object_ref(PANGO_FONTSET(fontset))
+	return fontset
 }
 
 //  /**
@@ -2053,7 +1941,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //    FcChar8 *s;
 //    GArray *langs;
 
-//    langs = g_array_new (TRUE, FALSE, sizeof (PangoLanguage *));
+//    langs = g_array_new (true, false, sizeof (PangoLanguage *));
 
 //    strset = FcLangSetGetLangs (langset);
 //    list = FcStrListCreate (strset);
@@ -2068,7 +1956,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //    FcStrListDone (list);
 //    FcStrSetDestroy (strset);
 
-//    return (PangoLanguage **) g_array_free (langs, FALSE);
+//    return (PangoLanguage **) g_array_free (langs, false);
 //  }
 
 //  PangoLanguage **
@@ -2170,7 +2058,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 	   priv.findfuncs = g_slist_delete_link (priv.findfuncs, priv.findfuncs);
 // 	 }
 
-//    priv.closed = TRUE;
+//    priv.closed = true;
 //  }
 
 //  static PangoWeight
@@ -2230,7 +2118,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //  /**
 //   * pango_fc_font_description_from_pattern:
 //   * @pattern: a #FcPattern
-//   * @include_size: if %TRUE, the pattern will include the size from
+//   * @include_size: if %true, the pattern will include the size from
 //   *   the @pattern; otherwise the resulting pattern will be unsized.
 //   *   (only %FC_SIZE is examined, not %FC_PIXEL_SIZE)
 //   *
@@ -2245,7 +2133,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //   * Since: 1.4
 //   **/
 //  FontDescription *
-//  pango_fc_font_description_from_pattern (FcPattern *pattern, gboolean include_size)
+//  pango_fc_font_description_from_pattern (FcPattern *pattern, bool include_size)
 //  {
 //    FontDescription *desc;
 //    PangoStyle style;
@@ -2321,8 +2209,8 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 
 //  static FontDescription *
 //  make_alias_description (PangoFcFamily *fcfamily,
-// 			 gboolean        bold,
-// 			 gboolean        italic)
+// 			 bool        bold,
+// 			 bool        italic)
 //  {
 //    FontDescription *desc = pango_font_description_new ();
 
@@ -2346,17 +2234,17 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //    if (fcface.fake)
 // 	 {
 // 	   if (strcmp (fcface.style, "Regular") == 0)
-// 	 return make_alias_description (fcfamily, FALSE, FALSE);
+// 	 return make_alias_description (fcfamily, false, false);
 // 	   else if (strcmp (fcface.style, "Bold") == 0)
-// 	 return make_alias_description (fcfamily, TRUE, FALSE);
+// 	 return make_alias_description (fcfamily, true, false);
 // 	   else if (strcmp (fcface.style, "Italic") == 0)
-// 	 return make_alias_description (fcfamily, FALSE, TRUE);
+// 	 return make_alias_description (fcfamily, false, true);
 // 	   else			/* Bold Italic */
-// 	 return make_alias_description (fcfamily, TRUE, TRUE);
+// 	 return make_alias_description (fcfamily, true, true);
 // 	 }
 
 //    g_assert (fcface.pattern);
-//    desc = pango_fc_font_description_from_pattern (fcface.pattern, FALSE);
+//    desc = pango_fc_font_description_from_pattern (fcface.pattern, false);
 
 //    return desc;
 //  }
@@ -2414,7 +2302,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 	   float64 size, dpi = -1.0;
 // 	   int i, size_i, j;
 
-// 	   size_array = g_array_new (FALSE, FALSE, sizeof (int));
+// 	   size_array = g_array_new (false, false, sizeof (int));
 
 // 	   for (i = 0; i < fontset.nfont; i++)
 // 	 {
@@ -2437,7 +2325,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 	   *n_sizes = 0;
 // 	   if (sizes)
 // 		 *sizes = nil;
-// 	   g_array_free (size_array, TRUE);
+// 	   g_array_free (size_array, true);
 // 	 }
 // 	   else
 // 	 {
@@ -2445,10 +2333,10 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 	   if (sizes)
 // 		 {
 // 		   *sizes = (int *) size_array.data;
-// 		   g_array_free (size_array, FALSE);
+// 		   g_array_free (size_array, false);
 // 		 }
 // 	   else
-// 		 g_array_free (size_array, TRUE);
+// 		 g_array_free (size_array, true);
 // 	 }
 
 // 	   FcFontSetDestroy (fontset);
@@ -2464,7 +2352,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //    FcObjectSetDestroy (objectset);
 //  }
 
-//  static gboolean
+//  static bool
 //  pango_fc_face_is_synthesized (PangoFontFace *face)
 //  {
 //    PangoFcFace *fcface = PANGO_FC_FACE (face);
@@ -2563,7 +2451,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //  create_face (PangoFcFamily *fcfamily,
 // 		  const char    *style,
 // 		  FcPattern     *pattern,
-// 		  gboolean       fake)
+// 		  bool       fake)
 //  {
 //    PangoFcFace *face = g_object_new (PANGO_FC_TYPE_FACE, nil);
 //    face.style = g_strdup (style);
@@ -2619,10 +2507,10 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 	   fcfamily.faces = g_new (PangoFcFace *, fcfamily.n_faces);
 
 // 	   i = 0;
-// 	   fcfamily.faces[i++] = create_face (fcfamily, "Regular", nil, TRUE);
-// 	   fcfamily.faces[i++] = create_face (fcfamily, "Bold", nil, TRUE);
-// 	   fcfamily.faces[i++] = create_face (fcfamily, "Italic", nil, TRUE);
-// 	   fcfamily.faces[i++] = create_face (fcfamily, "Bold Italic", nil, TRUE);
+// 	   fcfamily.faces[i++] = create_face (fcfamily, "Regular", nil, true);
+// 	   fcfamily.faces[i++] = create_face (fcfamily, "Bold", nil, true);
+// 	   fcfamily.faces[i++] = create_face (fcfamily, "Italic", nil, true);
+// 	   fcfamily.faces[i++] = create_face (fcfamily, "Bold Italic", nil, true);
 // 		   fcfamily.faces[0].regular = 1;
 // 	 }
 // 	   else
@@ -2634,7 +2522,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 		 BOLD_ITALIC
 // 	   };
 // 	   /* Regular, Italic, Bold, Bold Italic */
-// 	   gboolean has_face [4] = { FALSE, FALSE, FALSE, FALSE };
+// 	   bool has_face [4] = { false, false, false, false };
 // 	   PangoFcFace **faces;
 // 	   gint num = 0;
 // 		   int regular_weight;
@@ -2661,9 +2549,9 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 
 //  #ifdef FC_VARIABLE
 // 			   {
-// 				 gboolean variable;
+// 				 bool variable;
 // 				 if (FcPatternGetBool(fontset.fonts[i], FC_VARIABLE, 0, &variable) != FcResultMatch)
-// 				   variable = FALSE;
+// 				   variable = false;
 // 				 if (variable) /* skip the variable face */
 // 				   continue;
 // 			   }
@@ -2682,7 +2570,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 		 {
 // 		   if (slant == FC_SLANT_ROMAN)
 // 			 {
-// 			   has_face[REGULAR] = TRUE;
+// 			   has_face[REGULAR] = true;
 // 			   style = "Regular";
 // 					   if (weight > regular_weight)
 // 						 {
@@ -2692,7 +2580,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 			 }
 // 		   else
 // 			 {
-// 			   has_face[ITALIC] = TRUE;
+// 			   has_face[ITALIC] = true;
 // 			   style = "Italic";
 // 			 }
 // 		 }
@@ -2700,31 +2588,31 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 		 {
 // 		   if (slant == FC_SLANT_ROMAN)
 // 			 {
-// 			   has_face[BOLD] = TRUE;
+// 			   has_face[BOLD] = true;
 // 			   style = "Bold";
 // 			 }
 // 		   else
 // 			 {
-// 			   has_face[BOLD_ITALIC] = TRUE;
+// 			   has_face[BOLD_ITALIC] = true;
 // 			   style = "Bold Italic";
 // 			 }
 // 		 }
 
 // 		   if (!font_style)
 // 		 font_style = style;
-// 		   faces[num++] = create_face (fcfamily, font_style, fontset.fonts[i], FALSE);
+// 		   faces[num++] = create_face (fcfamily, font_style, fontset.fonts[i], false);
 // 		 }
 
 // 	   if (has_face[REGULAR])
 // 		 {
 // 		   if (!has_face[ITALIC])
-// 		 faces[num++] = create_face (fcfamily, "Italic", nil, TRUE);
+// 		 faces[num++] = create_face (fcfamily, "Italic", nil, true);
 // 		   if (!has_face[BOLD])
-// 		 faces[num++] = create_face (fcfamily, "Bold", nil, TRUE);
+// 		 faces[num++] = create_face (fcfamily, "Bold", nil, true);
 
 // 		 }
 // 	   if ((has_face[REGULAR] || has_face[ITALIC] || has_face[BOLD]) && !has_face[BOLD_ITALIC])
-// 		 faces[num++] = create_face (fcfamily, "Bold Italic", nil, TRUE);
+// 		 faces[num++] = create_face (fcfamily, "Bold Italic", nil, true);
 
 // 		   if (regular_idx != -1)
 // 			 faces[regular_idx].regular = 1;
@@ -2793,7 +2681,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 //    return fcfamily.family_name;
 //  }
 
-//  static gboolean
+//  static bool
 //  pango_fc_family_is_monospace (PangoFontFamily *family)
 //  {
 //    PangoFcFamily *fcfamily = PANGO_FC_FAMILY (family);
@@ -2803,7 +2691,7 @@ func (fcfontmap *PangoFcFontMap) load_fontset(context *Context, desc *FontDescri
 // 	  fcfamily.spacing == FC_CHARCELL;
 //  }
 
-//  static gboolean
+//  static bool
 //  pango_fc_family_is_variable (PangoFontFamily *family)
 //  {
 //    PangoFcFamily *fcfamily = PANGO_FC_FAMILY (family);

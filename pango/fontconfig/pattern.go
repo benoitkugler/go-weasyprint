@@ -1,5 +1,10 @@
 package fontconfig
 
+import (
+	"fmt"
+	"sort"
+)
+
 // An FcPattern holds a set of names with associated value lists; each name refers to a
 // property of a font. FcPatterns are used as inputs to the matching code as
 // well as holding information about specific fonts. Each property can hold
@@ -34,6 +39,41 @@ func (p FcPattern) FcPatternAdd(object FcObject, value interface{}) {
 	e := p.elts[object]
 	e = append(e, newV)
 	p.elts[object] = e
+}
+
+// Hash returns a value, usable as map key, and
+// defining the pattern in terms of equality:
+// two patterns with the same hash are considered equal.
+func (p FcPattern) Hash() string {
+	keys := make([]string, 0, len(p.elts))
+	for r := range p.elts {
+		keys = append(keys, string(r))
+	}
+	sort.Strings(keys)
+
+	var hash []byte
+	for _, object := range keys {
+		v := p.elts[FcObject(object)]
+		hash = append(append(hash, object...), v.Hash()...)
+	}
+	return string(hash)
+}
+
+// String returns a human friendly representation,
+// mainly used for debugging.
+func (p *FcPattern) String() string {
+	// TODO: check this
+
+	if p == nil {
+		return "Null pattern"
+	}
+	s := fmt.Sprintf("Pattern has %d elts\n", len(p.elts))
+
+	for obj, vs := range p.elts {
+		s += fmt.Sprintf("\t%s:", obj)
+		s += fmt.Sprintln(vs)
+	}
+	return s
 }
 
 type PatternElement struct {
