@@ -364,22 +364,22 @@ func (key *PangoFcFontsetKey) pango_fc_fontset_key_make_pattern() *fontconfig.Fc
 	}...)
 
 	if key.variations != "" {
-		pattern.FcPatternAdd(fontconfig.FC_FONT_VARIATIONS, key.variations)
+		pattern.Add(fontconfig.FC_FONT_VARIATIONS, key.variations)
 	}
 
 	if key.desc.family_name != "" {
 		families := strings.Split(key.desc.family_name, ",")
 		for _, fam := range families {
-			pattern.FcPatternAdd(fontconfig.FC_FAMILY, fam)
+			pattern.Add(fontconfig.FC_FAMILY, fam)
 		}
 	}
 
 	if key.language != "" {
-		pattern.FcPatternAdd(fontconfig.FC_LANG, string(key.language))
+		pattern.Add(fontconfig.FC_LANG, string(key.language))
 	}
 
 	if gravity != PANGO_GRAVITY_SOUTH {
-		pattern.FcPatternAdd(PANGO_FC_GRAVITY, gravity_map.toString("gravity", int(gravity)))
+		pattern.Add(PANGO_FC_GRAVITY, gravity_map.toString("gravity", int(gravity)))
 	}
 
 	return pattern

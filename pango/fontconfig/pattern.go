@@ -17,14 +17,25 @@ type FcPattern struct {
 	elts map[FcObject]FcValueList
 }
 
-// we only support append = true
-func (p FcPattern) FcPatternAdd(object FcObject, value interface{}) {
+// Add adds the given value for the given object, with a strong binding.
+// `appendMode` controls the location of insertion in the current list.
+func (p FcPattern) Add(object FcObject, value interface{}, appendMode bool) {
+	p.addWithBinding(object, value, FcValueBindingStrong, appendMode)
+}
+
+func (p FcPattern) addWithBinding(object FcObject, value interface{}, binding FcValueBinding, appendMode bool) {
+	newV := valueElt{value: value, binding: binding}
+	p.AddList(object, FcValueList{newV}, appendMode)
+}
+
+// Add adds the given list of values for the given object.
+// `appendMode` controls the location of insertion in the current list.
+func (p FcPattern) AddList(object FcObject, list FcValueList, appendMode bool) {
 	//  FcPatternObjectAddWithBinding(p, FcObjectFromName(object), value, FcValueBindingStrong, append)
 	// object := FcObject(objectS)
 
-	binding := FcValueBindingStrong
-
 	// Make sure the stored type is valid for built-in objects
+	// TODO:
 	// if (!FcObjectValidType (object, value.type)) {
 	// fprintf (stderr,
 	// 	 "Fontconfig warning: FcPattern object %s does not accept value",
@@ -34,27 +45,34 @@ func (p FcPattern) FcPatternAdd(object FcObject, value interface{}) {
 	// goto bail1;
 	// }
 
-	newV := valueElt{value: value, binding: binding}
-
 	e := p.elts[object]
-	e = append(e, newV)
+	if appendMode {
+		e = append(e, list...)
+	} else {
+		e = e.prepend(list...)
+	}
 	p.elts[object] = e
+}
+
+func (p FcPattern) del(obj FcObject) { delete(p.elts, obj) }
+
+func (p FcPattern) sortedKeys() []FcObject {
+	keys := make([]FcObject, 0, len(p.elts))
+	for r := range p.elts {
+		keys = append(keys, r)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
 }
 
 // Hash returns a value, usable as map key, and
 // defining the pattern in terms of equality:
 // two patterns with the same hash are considered equal.
 func (p FcPattern) Hash() string {
-	keys := make([]string, 0, len(p.elts))
-	for r := range p.elts {
-		keys = append(keys, string(r))
-	}
-	sort.Strings(keys)
-
 	var hash []byte
-	for _, object := range keys {
-		v := p.elts[FcObject(object)]
-		hash = append(append(hash, object...), v.Hash()...)
+	for _, object := range p.sortedKeys() {
+		v := p.elts[object]
+		hash = append(append(hash, byte(object), ':'), v.Hash()...)
 	}
 	return string(hash)
 }
@@ -76,15 +94,51 @@ func (p *FcPattern) String() string {
 	return s
 }
 
+func (p FcPattern) FcPatternObjectGet(object FcObject, id int) (interface{}, FcResult) {
+	e := p.elts[object]
+	if e == nil {
+		return nil, FcResultNoMatch
+	}
+	if id >= len(e) {
+		return nil, FcResultNoId
+	}
+	return e[id].value, FcResultMatch
+}
+
+func (p FcPattern) FcPatternObjectGetBool(object FcObject, id int) (FcBool, FcResult) {
+	v, r := p.FcPatternObjectGet(object, id)
+	if r != FcResultMatch {
+		return 0, r
+	}
+	out, ok := v.(FcBool)
+	if !ok {
+		return 0, FcResultTypeMismatch
+	}
+	return out, FcResultMatch
+}
+
+func (p FcPattern) FcPatternObjectGetString(object FcObject, id int) (string, FcResult) {
+	v, r := p.FcPatternObjectGet(object, id)
+	if r != FcResultMatch {
+		return "", r
+	}
+	out, ok := v.(string)
+	if !ok {
+		return "", FcResultTypeMismatch
+	}
+	return out, FcResultMatch
+}
+
 type PatternElement struct {
 	Object FcObject
 	Value  interface{}
 }
 
+// TODO: check the pointer types in values
 func FcPatternBuild(elements ...PatternElement) *FcPattern {
 	p := FcPattern{elts: make(map[FcObject]FcValueList, len(elements))}
 	for _, el := range elements {
-		p.FcPatternAdd(el.Object, el.Value)
+		p.Add(el.Object, el.Value, true)
 	}
 	return &p
 }

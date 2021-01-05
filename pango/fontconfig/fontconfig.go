@@ -1,6 +1,9 @@
 package fontconfig
 
-import "math"
+import (
+	"math"
+	"os"
+)
 
 const debugMode = false
 
@@ -8,74 +11,15 @@ type FcFontSet []*FcPattern // with length nfont, and cap sfont
 
 type FcStrSet map[string]bool
 
+type FcStrList struct {
+	set FcStrSet
+	n   int
+}
+
 const (
 	FcSetSystem      = 0
 	FcSetApplication = 1
 )
-
-type FcConfig struct {
-	/*
-	 * File names loaded from the configuration -- saved here as the
-	 * cache file must be consulted before the directories are scanned,
-	 * and those directives may occur in any order
-	 */
-	configDirs    FcStrSet /* directories to scan for fonts */
-	configMapDirs FcStrSet /* mapped names to generate cache entries */
-	/*
-	 * List of directories containing fonts,
-	 * built by recursively scanning the set
-	 * of configured directories
-	 */
-	fontDirs FcStrSet
-	/*
-	 * List of directories containing cache files.
-	 */
-	cacheDirs FcStrSet
-	/*
-	 * Names of all of the configuration files used
-	 * to create this configuration
-	 */
-	configFiles FcStrSet /* config files loaded */
-	/*
-	 * Substitution instructions for patterns and fonts;
-	 * maxObjects is used to allocate appropriate intermediate storage
-	 * while performing a whole set of substitutions
-	 *
-	 * 0.. substitutions for patterns
-	 * 1.. substitutions for fonts
-	 * 2.. substitutions for scanned fonts
-	 */
-	// FcPtrList	*subst[FcMatchKindEnd];
-	// int		maxObjects;	    /* maximum number of tests in all substs */
-	/*
-	 * List of patterns used to control font file selection
-	 */
-	acceptGlobs    FcStrSet
-	rejectGlobs    FcStrSet
-	acceptPatterns *FcFontSet
-	rejectPatterns *FcFontSet
-	/*
-	 * The set of fonts loaded from the listed directories; the
-	 * order within the set does not determine the font selection,
-	 * except in the case of identical matches in which case earlier fonts
-	 * match preferrentially
-	 */
-	fonts [FcSetApplication + 1]FcFontSet
-	/*
-	 * Fontconfig can periodically rescan the system configuration
-	 * and font directories.  This rescanning occurs when font
-	 * listing requests are made, but no more often than rescanInterval
-	 * seconds apart.
-	 */
-	// time_t rescanTime     /* last time information was scanned */
-	// int    rescanInterval /* interval between scans */
-
-	// FcExprPage *expr_pool /* pool of FcExpr's */
-
-	sysRoot          string   /* override the system root directory */
-	availConfigFiles FcStrSet /* config files available */
-	// FcPtrList        *rulesetList /* List of rulesets being installed */
-}
 
 type FcResult uint8
 
@@ -152,21 +96,69 @@ func lerp(x, x1, x2, y1, y2 float64) float64 {
 	return y1 + (x-x1)*dy/dx
 }
 
-func FcWeightFromOpenTypeDouble(ot_weight float64) float64 {
-	if ot_weight < 0 {
+func FcWeightFromOpenTypeDouble(otWeight float64) float64 {
+	if otWeight < 0 {
 		return -1
 	}
 
-	ot_weight = math.Min(ot_weight, weightMap[len(weightMap)-1].ot)
+	otWeight = math.Min(otWeight, weightMap[len(weightMap)-1].ot)
 
 	var i int
-	for i = 1; ot_weight > weightMap[i].ot; i++ {
+	for i = 1; otWeight > weightMap[i].ot; i++ {
 	}
 
-	if ot_weight == weightMap[i].ot {
+	if otWeight == weightMap[i].ot {
 		return weightMap[i].fc
 	}
 
 	// interpolate between two items
-	return lerp(ot_weight, weightMap[i-1].ot, weightMap[i].ot, weightMap[i-1].fc, weightMap[i].fc)
+	return lerp(otWeight, weightMap[i-1].ot, weightMap[i].ot, weightMap[i-1].fc, weightMap[i].fc)
+}
+
+func FcWeightToOpenTypeDouble(fcWeight float64) float64 {
+	if fcWeight < 0 || fcWeight > FC_WEIGHT_EXTRABLACK {
+		return -1
+	}
+
+	var i int
+	for i = 1; fcWeight > weightMap[i].fc; i++ {
+	}
+
+	if fcWeight == weightMap[i].fc {
+		return weightMap[i].ot
+	}
+
+	// interpolate between two items.
+	return lerp(fcWeight, weightMap[i-1].fc, weightMap[i].fc, weightMap[i-1].ot, weightMap[i].ot)
+}
+
+func FcGetDefaultLangs() map[string]bool {
+	// TODO: the C implementation caches the result
+
+	result := make(map[string]bool)
+
+	langs := os.Getenv("FC_LANG")
+	if langs == "" {
+		langs = os.Getenv("LC_ALL")
+	}
+	if langs == "" {
+		langs = os.Getenv("LC_CTYPE")
+	}
+	if langs == "" {
+		langs = os.Getenv("LANG")
+	}
+	if langs != "" {
+		if ok := FcStrSetAddLangs(result, langs); !ok {
+			result["en"] = true
+		}
+	} else {
+		result["en"] = true
+	}
+
+	return result
+}
+
+func FcGetPrgname() string {
+	e, _ := os.Executable()
+	return e
 }

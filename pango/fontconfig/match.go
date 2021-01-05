@@ -8,6 +8,16 @@ import (
 
 // ported from fontconfig/src/fcmatch.c Copyright © 2000 Keith Packard
 
+type FcMatchKind uint8
+
+const (
+	FcMatchPattern FcMatchKind = iota
+	FcMatchFont
+	FcMatchScan
+	FcMatchKindEnd
+	FcMatchKindBegin = FcMatchPattern
+)
+
 func FcCompareNumber(value1, value2 interface{}) (interface{}, float64) {
 	var v1, v2 float64
 	switch value := value1.(type) {
@@ -42,7 +52,11 @@ func FcCompareString(v1, v2 interface{}) (interface{}, float64) {
 	return bestValue, 1
 }
 
+// returns 0 for empty strings
 func FcToLower(s string) byte {
+	if s == "" {
+		return 0
+	}
 	if 0101 <= s[0] && s[0] <= 0132 {
 		return s[0] - 0101 + 0141
 	}
@@ -103,49 +117,41 @@ func FcComparePostScript(v1, v2 interface{}) (interface{}, float64) {
 	return bestValue, float64(length-n) / float64(length)
 }
 
-// func FcCompareLang (v1,v2 interface{}) (interface{}, float64)
-//  {
-// 	 FcLangResult    result;
-
-// 	 switch ((int) v1.type) {
-// 	 case FcTypeLangSet:
-// 	 switch ((int) v2.type) {
-// 	 case FcTypeLangSet:
-// 		 result = FcLangSetCompare (FcValueLangSet (v1), FcValueLangSet (v2));
-// 		 break;
-// 	 case FcTypeString:
-// 		 result = FcLangSetHasLang (FcValueLangSet (v1), FcValueString (v2));
-// 		 break;
-// 	 default:
-// 		 return -1.0;
-// 	 }
-// 	 break;
-// 	 case FcTypeString:
-// 	 switch ((int) v2.type) {
-// 	 case FcTypeLangSet:
-// 		 result = FcLangSetHasLang (FcValueLangSet (v2), FcValueString (v1));
-// 		 break;
-// 	 case FcTypeString:
-// 		 result = FcLangCompare (FcValueString (v1), FcValueString (v2));
-// 		 break;
-// 	 default:
-// 		 return -1.0;
-// 	 }
-// 	 break;
-// 	 default:
-// 	 return -1.0;
-// 	 }
-// 	 *bestValue = FcValueCanonicalize (v2);
-// 	 switch (result) {
-// 	 case FcLangEqual:
-// 	 return 0;
-// 	 case FcLangDifferentCountry:
-// 	 return 1;
-// 	 case FcLangDifferentLang:
-// 	 default:
-// 	 return 2;
-// 	 }
-//  }
+func FcCompareLang(val1, val2 interface{}) (interface{}, float64) {
+	var result FcLangResult
+	switch v1 := val1.(type) {
+	case *FcLangSet:
+		switch v2 := val2.(type) {
+		case *FcLangSet:
+			result = FcLangSetCompare(v1, v2)
+		case string:
+			result = v1.hasLang(v2)
+		default:
+			return nil, -1.0
+		}
+	case string:
+		switch v2 := val2.(type) {
+		case *FcLangSet:
+			result = v2.hasLang(v1)
+		case string:
+			result = FcLangCompare(v1, v2)
+		default:
+			return nil, -1.0
+		}
+		break
+	default:
+		return nil, -1.0
+	}
+	bestValue := val2
+	switch result {
+	case FcLangEqual:
+		return bestValue, 0
+	case FcLangDifferentCountry:
+		return bestValue, 1
+	default:
+		return bestValue, 2
+	}
+}
 
 func FcCompareBool(val1, val2 interface{}) (interface{}, float64) {
 	v1, ok1 := val1.(FcBool)
@@ -167,11 +173,10 @@ func FcCompareBool(val1, val2 interface{}) (interface{}, float64) {
 	return bestValue, 1
 }
 
-// func FcCompareCharSet (v1,v2 interface{}) (interface{}, float64)
-//  {
-// 	 *bestValue = FcValueCanonicalize (v2); /* TODO Improve. */
-// 	 return float64 FcCharSetSubtractCount (FcValueCharSet(v1), FcValueCharSet(v2));
-//  }
+func FcCompareCharSet(v1, v2 interface{}) (interface{}, float64) {
+	bestValue := v2
+	return bestValue, float64(FcCharSetSubtractCount(v1.(FcCharSet), v2.(FcCharSet)))
+}
 
 func FcCompareRange(v1, v2 interface{}) (interface{}, float64) {
 	var b1, e1, b2, e2, d float64
@@ -408,7 +413,7 @@ type FcMatcher struct {
 // Order is significant, it defines the precedence of
 // each value, earlier values are more significant than
 // later values
-var _FcMatchers = [...]FcMatcher{
+var fcMatchers = [...]FcMatcher{
 	{FC_INVALID, nil, -1, -1},
 	{FC_FAMILY, FcCompareFamily, PRI_FAMILY_STRONG, PRI_FAMILY_WEAK},
 	{FC_FAMILYLANG, nil, -1, -1},
@@ -464,124 +469,95 @@ var _FcMatchers = [...]FcMatcher{
 	{FC_ORDER, FcCompareNumber, PRI_ORDER_STRONG, PRI_ORDER_WEAK},
 }
 
-//  static const FcMatcher*
-//  FcObjectToMatcher (FcObject object,
-// 			FcBool   include_lang)
-//  {
-// 	 if (include_lang)
-// 	 {
-// 	 switch (object) {
-// 	 case FC_FAMILYLANG:
-// 	 case FC_STYLELANG:
-// 	 case FC_FULLNAMELANG:
-// 		 object = FC_LANG;
-// 		 break;
-// 	 }
-// 	 }
-// 	 if (object > FC_MAX_BASE ||
-// 	 !_FcMatchers[object].compare ||
-// 	 _FcMatchers[object].strong == -1 ||
-// 	 _FcMatchers[object].weak == -1)
-// 	 return nil;
+func (object FcObject) toMatcher(includeLang bool) *FcMatcher {
+	if includeLang {
+		switch object {
+		case FC_FAMILYLANG, FC_STYLELANG, FC_FULLNAMELANG:
+			object = FC_LANG
+		}
+	}
+	if int(object) >= len(fcMatchers) ||
+		fcMatchers[object].compare == nil ||
+		fcMatchers[object].strong == -1 ||
+		fcMatchers[object].weak == -1 {
+		return nil
+	}
 
-// 	 return _FcMatchers + object;
-//  }
+	return &fcMatchers[object]
+}
 
-//  static FcBool
-//  FcCompareValueList (FcObject	     object,
-// 			 const FcMatcher *match,
-// 			 FcValueListPtr   v1orig,	/* pattern */
-// 			 FcValueListPtr   v2orig,	/* target */
-// 			 FcValue         *bestValue,
-// 			 double          *value,
-// 			 int             *n,
-// 			 FcResult        *result)
-//  {
-// 	 FcValueListPtr  v1, v2;
-// 	 double    	    v, best, bestStrong, bestWeak;
-// 	 int		    j, k, pos = 0;
-// 	 int weak, strong;
+func compareValueList(object FcObject, match *FcMatcher,
+	v1orig FcValueList, /* pattern */
+	v2orig FcValueList, /* target */
+	value []float64) (interface{}, FcResult, int, bool) {
 
-// 	 if (!match)
-// 	 {
-// 	 if (bestValue)
-// 		 *bestValue = FcValueCanonicalize(&v2orig.value);
-// 	 if (n)
-// 		 *n = 0;
-// 	 return true;
-// 	 }
+	if match == nil {
+		return v2orig[0].value, 0, 0, true
+	}
+	var (
+		result    FcResult
+		bestValue interface{}
+		pos       int
+	)
+	weak := match.weak
+	strong := match.strong
 
-// 	 weak    = match.weak;
-// 	 strong  = match.strong;
+	best := 1e99
+	bestStrong := 1e99
+	bestWeak := 1e99
+	for j, v1 := range v1orig {
+		for k, v2 := range v2orig {
+			matchValue, v := match.compare(v1.value, v2.value)
+			if v < 0 {
+				result = FcResultTypeMismatch
+				return nil, result, 0, false
+			}
+			v = v*1000 + float64(j)
+			if v < best {
+				bestValue = matchValue
+				best = v
+				pos = k
+			}
+			if weak == strong {
+				// found the best possible match
+				if best < 1000 {
+					goto done
+				}
+			} else if v1.binding == FcValueBindingStrong {
+				if v < bestStrong {
+					bestStrong = v
+				}
+			} else {
+				if v < bestWeak {
+					bestWeak = v
+				}
+			}
+		}
+	}
+done:
 
-// 	 best = 1e99;
-// 	 bestStrong = 1e99;
-// 	 bestWeak = 1e99;
-// 	 for (v1 = v1orig, j = 0; v1; v1 = FcValueListNext(v1), j++)
-// 	 {
-// 	 for (v2 = v2orig, k = 0; v2; v2 = FcValueListNext(v2), k++)
-// 	 {
-// 		 FcValue matchValue;
-// 		 v = (match.compare) (&v1.value, &v2.value, &matchValue);
-// 		 if (v < 0)
-// 		 {
-// 		 *result = FcResultTypeMismatch;
-// 		 return false;
-// 		 }
-// 		 v = v * 1000 + j;
-// 		 if (v < best)
-// 		 {
-// 		 if (bestValue)
-// 			 *bestValue = matchValue;
-// 		 best = v;
-// 		 pos = k;
-// 		 }
-// 			 if (weak == strong)
-// 			 {
-// 				 /* found the best possible match */
-// 				 if (best < 1000)
-// 					 goto done;
-// 			 }
-// 			 else if (v1.binding == FcValueBindingStrong)
-// 		 {
-// 		 if (v < bestStrong)
-// 			 bestStrong = v;
-// 		 }
-// 		 else
-// 		 {
-// 		 if (v < bestWeak)
-// 			 bestWeak = v;
-// 		 }
-// 	 }
-// 	 }
-//  done:
-// 	 if (FcDebug () & FC_DBG_MATCHV)
-// 	 {
-// 	 printf (" %s: %g ", FcObjectName (object), best);
-// 	 FcValueListPrint (v1orig);
-// 	 printf (", ");
-// 	 FcValueListPrint (v2orig);
-// 	 printf ("\n");
-// 	 }
-// 	 if (value)
-// 	 {
-// 	 if (weak == strong)
-// 		 value[strong] += best;
-// 	 else
-// 	 {
-// 		 value[weak] += bestWeak;
-// 		 value[strong] += bestStrong;
-// 	 }
-// 	 }
-// 	 if (n)
-// 	 *n = pos;
+	if debugMode {
+		fmt.Printf(" %s: %g ", object, best)
+		fmt.Println(v1orig)
+		fmt.Print(", ")
+		fmt.Println(v2orig)
+		fmt.Println()
+	}
 
-// 	 return true;
-//  }
+	if value != nil {
+		if weak == strong {
+			value[strong] += best
+		} else {
+			value[weak] += bestWeak
+			value[strong] += bestStrong
+		}
+	}
+	return bestValue, result, pos, true
+}
 
 type FcCompareData = FcHashTable
 
-func (pat *FcPattern) FcCompareDataInit() FcCompareData {
+func (pat *FcPattern) newCompareData() FcCompareData {
 	table := make(FcHashTable)
 
 	elt := pat.elts[FC_FAMILY]
@@ -629,12 +605,13 @@ func (table FcHashTable) FcCompareFamilies(v2orig FcValueList, value []float64) 
 	value[PRI_FAMILY_WEAK] = weak_value
 }
 
-// FcCompare returns a value indicating the distance between the two lists of values
-func (data FcCompareData) FcCompare(pat, fnt *FcPattern, value []float64) (bool, FcResult) {
+// compare returns a value indicating the distance between the two lists of values
+func (data FcCompareData) compare(pat, fnt *FcPattern, value []float64) (bool, FcResult) {
 	for i := range value {
 		value[i] = 0.0
 	}
 
+	var result FcResult
 	for i1, elt_i1 := range pat.elts {
 		elt_i2, ok := fnt.elts[i1]
 		if !ok {
@@ -644,221 +621,157 @@ func (data FcCompareData) FcCompare(pat, fnt *FcPattern, value []float64) (bool,
 		if i1 == FC_FAMILY && data != nil {
 			data.FcCompareFamilies(elt_i2, value)
 		} else {
-			match := FcObjectToMatcher(elt_i1.object, false)
-			if !FcCompareValueList(elt_i1.object, match,
-				FcPatternEltValues(elt_i1),
-				FcPatternEltValues(elt_i2),
-				nil, value, nil, result) {
-				return false
+			match := i1.toMatcher(false)
+			_, result, _, ok = compareValueList(i1, match, elt_i1, elt_i2, value)
+			if !ok {
+				return false, result
 			}
 		}
 	}
-	return true
+	return true, result
 }
 
-//  FcPattern *
-//  FcFontRenderPrepare (FcConfig	    *config,
-// 			  FcPattern	    *pat,
-// 			  FcPattern	    *font)
-//  {
-// 	 FcPattern	    *new;
-// 	 int		    i;
-// 	 FcPatternElt    *fe, *pe;
-// 	 FcValue	    v;
-// 	 FcResult	    result;
-// 	 FcBool	    variable = false;
-// 	 FcStrBuf        variations;
+// FcFontRenderPrepare creates a new pattern consisting of elements of `font` not appearing
+// in `pat`, elements of `pat` not appearing in `font` and the best matching
+// value from `pat` for elements appearing in both.  The result is passed to
+// FcConfigSubstituteWithPat with `kind` FcMatchFont and then returned.
+func (config *FcConfig) FcFontRenderPrepare(pat, font *FcPattern) *FcPattern {
+	//  FcPattern	    *new;
+	//  int		    i;
+	//  FcPatternElt    *fe, *pe;
+	//  FcBool	    variable = false;
+	var (
+		variations strings.Builder
+		v          interface{}
+	)
 
-// 	 assert (pat != nil);
-// 	 assert (font != nil);
+	variable, _ := font.FcPatternObjectGetBool(FC_VARIABLE, 0)
 
-// 	 FcPatternObjectGetBool (font, FC_VARIABLE, 0, &variable);
-// 	 assert (variable != FcDontCare);
-// 	 if (variable)
-// 	 FcStrBufInit (&variations, nil, 0);
+	new := FcPattern{elts: make(map[FcObject]FcValueList)}
 
-// 	 new = FcPatternCreate ();
-// 	 if (!new)
-// 	 return nil;
-// 	 for (i = 0; i < font.num; i++)
-// 	 {
-// 	 fe = &FcPatternElts(font)[i];
-// 	 if (fe.object == FC_FAMILYLANG ||
-// 		 fe.object == FC_STYLELANG ||
-// 		 fe.object == FC_FULLNAMELANG)
-// 	 {
-// 		 /* ignore those objects. we need to deal with them
-// 		  * another way */
-// 		 continue;
-// 	 }
-// 	 if (fe.object == FC_FAMILY ||
-// 		 fe.object == FC_STYLE ||
-// 		 fe.object == FC_FULLNAME)
-// 	 {
-// 		 FcPatternElt    *fel, *pel;
+	for _, obj := range font.sortedKeys() {
+		fe := font.elts[obj]
+		if obj == FC_FAMILYLANG || obj == FC_STYLELANG || obj == FC_FULLNAMELANG {
+			// ignore those objects. we need to deal with them another way
+			continue
+		}
+		if obj == FC_FAMILY || obj == FC_STYLE || obj == FC_FULLNAME {
+			// using the fact that FC_FAMILY + 1 == FC_FAMILYLANG,
+			// FC_STYLE + 1 == FC_STYLELANG,  FC_FULLNAME + 1 == FC_FULLNAMELANG
+			lObject := obj + 1
+			fel, pel := font.elts[lObject], pat.elts[lObject]
 
-// 		 FC_ASSERT_STATIC ((FC_FAMILY + 1) == FC_FAMILYLANG);
-// 		 FC_ASSERT_STATIC ((FC_STYLE + 1) == FC_STYLELANG);
-// 		 FC_ASSERT_STATIC ((FC_FULLNAME + 1) == FC_FULLNAMELANG);
+			if fel != nil && pel != nil {
+				// The font has name languages, and pattern asks for specific language(s).
+				// Match on language and and prefer that result.
+				// Note:  Currently the code only give priority to first matching language.
+				var (
+					n  int
+					ok bool
+				)
+				match := lObject.toMatcher(true)
+				_, _, n, ok = compareValueList(lObject, match, pel, fel, nil)
+				if !ok {
+					return nil
+				}
 
-// 		 fel = FcPatternObjectFindElt (font, fe.object + 1);
-// 		 pel = FcPatternObjectFindElt (pat, fe.object + 1);
+				var ln, ll FcValueList
+				//  j = 0, l1 = FcPatternEltValues (fe), l2 = FcPatternEltValues (fel);
+				// 	  l1 != nil || l2 != nil;
+				// 	  j++, l1 = l1 ? FcValueListNext (l1) : nil, l2 = l2 ? FcValueListNext (l2) : nil)
+				for j := 0; j < len(fe) || j < len(fel); j++ {
+					if j == n {
+						if j < len(fe) {
+							ln = ln.prepend(valueElt{value: fe[j].value, binding: FcValueBindingStrong})
+						}
+						if j < len(fel) {
+							ll = ll.prepend(valueElt{value: fel[j].value, binding: FcValueBindingStrong})
+						}
+					} else {
+						if j < len(fe) {
+							ln = append(ln, valueElt{value: fe[j].value, binding: FcValueBindingStrong})
+						}
+						if j < len(fel) {
+							ll = append(ll, valueElt{value: fel[j].value, binding: FcValueBindingStrong})
+						}
+					}
+				}
+				new.AddList(obj, ln, false)
+				new.AddList(lObject, ll, false)
 
-// 		 if (fel && pel)
-// 		 {
-// 		 /* The font has name languages, and pattern asks for specific language(s).
-// 		  * Match on language and and prefer that result.
-// 		  * Note:  Currently the code only give priority to first matching language.
-// 		  */
-// 		 int n = 1, j;
-// 		 FcValueListPtr l1, l2, ln = nil, ll = nil;
-// 		 const FcMatcher *match = FcObjectToMatcher (pel.object, true);
+				continue
+			} else if fel != nil {
+				//  Pattern doesn't ask for specific language.  Copy all for name and lang
+				new.AddList(obj, fe.duplicate(), false)
+				new.AddList(lObject, fel.duplicate(), false)
 
-// 		 if (!FcCompareValueList (pel.object, match,
-// 					  FcPatternEltValues (pel),
-// 					  FcPatternEltValues (fel), nil, nil, &n, &result))
-// 		 {
-// 			 FcPatternDestroy (new);
-// 			 return nil;
-// 		 }
+				continue
+			}
+		}
 
-// 		 for (j = 0, l1 = FcPatternEltValues (fe), l2 = FcPatternEltValues (fel);
-// 			  l1 != nil || l2 != nil;
-// 			  j++, l1 = l1 ? FcValueListNext (l1) : nil, l2 = l2 ? FcValueListNext (l2) : nil)
-// 		 {
-// 			 if (j == n)
-// 			 {
-// 			 if (l1)
-// 				 ln = FcValueListPrepend (ln,
-// 							  FcValueCanonicalize (&l1.value),
-// 							  FcValueBindingStrong);
-// 			 if (l2)
-// 				 ll = FcValueListPrepend (ll,
-// 							  FcValueCanonicalize (&l2.value),
-// 							  FcValueBindingStrong);
-// 			 }
-// 			 else
-// 			 {
-// 			 if (l1)
-// 				 ln = FcValueListAppend (ln,
-// 							 FcValueCanonicalize (&l1.value),
-// 							 FcValueBindingStrong);
-// 			 if (l2)
-// 				 ll = FcValueListAppend (ll,
-// 							 FcValueCanonicalize (&l2.value),
-// 							 FcValueBindingStrong);
-// 			 }
-// 		 }
-// 		 FcPatternObjectListAdd (new, fe.object, ln, false);
-// 		 FcPatternObjectListAdd (new, fel.object, ll, false);
+		pe := pat.elts[obj]
+		if pe != nil {
+			match := obj.toMatcher(false)
+			var ok bool
+			v, _, _, ok = compareValueList(obj, match, pe, fe, nil)
+			if !ok {
+				return nil
+			}
+			new.Add(obj, v, false)
 
-// 		 continue;
-// 		 }
-// 		 else if (fel)
-// 		 {
-// 		 /* Pattern doesn't ask for specific language.  Copy all for name and
-// 		  * lang. */
-// 		 FcValueListPtr l1, l2;
+			// Set font-variations settings for standard axes in variable fonts.
+			if _, isRange := fe[0].value.(FcRange); variable != 0 && isRange &&
+				(obj == FC_WEIGHT || obj == FC_WIDTH || obj == FC_SIZE) {
+				//  double num;
+				//  FcChar8 temp[128];
+				tag := "    "
+				num := v.(float64) //  v.type == FcTypeDouble
+				if variations.Len() != 0 {
+					variations.WriteByte(',')
+				}
+				switch obj {
+				case FC_WEIGHT:
+					tag = "wght"
+					num = FcWeightToOpenTypeDouble(num)
+				case FC_WIDTH:
+					tag = "wdth"
+				case FC_SIZE:
+					tag = "opsz"
+				}
+				fmt.Fprintf(&variations, "%4s=%g", tag, num)
+			}
+		} else {
+			new.AddList(obj, fe.duplicate(), true)
+		}
+	}
+	for _, obj := range pat.sortedKeys() {
+		pe := pat.elts[obj]
+		fe := font.elts[obj]
+		if fe == nil &&
+			obj != FC_FAMILYLANG && obj != FC_STYLELANG && obj != FC_FULLNAMELANG {
+			new.AddList(obj, pe.duplicate(), false)
+		}
+	}
 
-// 		 l1 = FcValueListDuplicate (FcPatternEltValues (fe));
-// 		 l2 = FcValueListDuplicate (FcPatternEltValues (fel));
-// 		 FcPatternObjectListAdd (new, fe.object, l1, false);
-// 		 FcPatternObjectListAdd (new, fel.object, l2, false);
+	if variable != 0 && variations.Len() != 0 {
+		if vars, res := new.FcPatternObjectGetString(FC_FONT_VARIATIONS, 0); res == FcResultMatch {
+			variations.WriteByte(',')
+			variations.WriteString(vars)
+			new.del(FC_FONT_VARIATIONS)
+		}
 
-// 		 continue;
-// 		 }
-// 	 }
+		new.Add(FC_FONT_VARIATIONS, variations.String(), true)
+	}
 
-// 	 pe = FcPatternObjectFindElt (pat, fe.object);
-// 	 if (pe)
-// 	 {
-// 		 const FcMatcher *match = FcObjectToMatcher (pe.object, false);
-// 		 if (!FcCompareValueList (pe.object, match,
-// 					  FcPatternEltValues(pe),
-// 					  FcPatternEltValues(fe), &v, nil, nil, &result))
-// 		 {
-// 		 FcPatternDestroy (new);
-// 		 return nil;
-// 		 }
-// 		 FcPatternObjectAdd (new, fe.object, v, false);
+	FcConfigSubstituteWithPat(config, new, pat, FcMatchFont)
+	return &new
+}
 
-// 		 /* Set font-variations settings for standard axes in variable fonts. */
-// 		 if (variable &&
-// 		 FcPatternEltValues(fe).value.type == FcTypeRange &&
-// 		 (fe.object == FC_WEIGHT ||
-// 		  fe.object == FC_WIDTH ||
-// 		  fe.object == FC_SIZE))
-// 		 {
-// 		 double num;
-// 		 FcChar8 temp[128];
-// 		 const char *tag = "    ";
-// 		 assert (v.type == FcTypeDouble);
-// 		 num = v.u.d;
-// 		 if (variations.len)
-// 			 FcStrBufChar (&variations, ',');
-// 		 switch (fe.object)
-// 		 {
-// 			 case FC_WEIGHT:
-// 			 tag = "wght";
-// 			 num = FcWeightToOpenType (num);
-// 			 break;
-
-// 			 case FC_WIDTH:
-// 			 tag = "wdth";
-// 			 break;
-
-// 			 case FC_SIZE:
-// 			 tag = "opsz";
-// 			 break;
-// 		 }
-// 		 sprintf ((char *) temp, "%4s=%g", tag, num);
-// 		 FcStrBufString (&variations, temp);
-// 		 }
-// 	 }
-// 	 else
-// 	 {
-// 		 FcPatternObjectListAdd (new, fe.object,
-// 					 FcValueListDuplicate (FcPatternEltValues (fe)),
-// 					 true);
-// 	 }
-// 	 }
-// 	 for (i = 0; i < pat.num; i++)
-// 	 {
-// 	 pe = &FcPatternElts(pat)[i];
-// 	 fe = FcPatternObjectFindElt (font, pe.object);
-// 	 if (!fe &&
-// 		 pe.object != FC_FAMILYLANG &&
-// 		 pe.object != FC_STYLELANG &&
-// 		 pe.object != FC_FULLNAMELANG)
-// 	 {
-// 		 FcPatternObjectListAdd (new, pe.object,
-// 					 FcValueListDuplicate (FcPatternEltValues(pe)),
-// 					 false);
-// 	 }
-// 	 }
-
-// 	 if (variable && variations.len)
-// 	 {
-// 	 FcChar8 *vars = nil;
-// 	 if (FcPatternObjectGetString (new, FC_FONT_VARIATIONS, 0, &vars) == FcResultMatch)
-// 	 {
-// 		 FcStrBufChar (&variations, ',');
-// 		 FcStrBufString (&variations, vars);
-// 		 FcPatternObjectDel (new, FC_FONT_VARIATIONS);
-// 	 }
-
-// 	 FcPatternObjectAddString (new, FC_FONT_VARIATIONS, FcStrBufDoneStatic (&variations));
-// 	 FcStrBufDestroy (&variations);
-// 	 }
-
-// 	 FcConfigSubstituteWithPat (config, new, pat, FcMatchFont);
-// 	 return new;
-//  }
-
-func (p *FcPattern) FcFontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult) {
+func (p *FcPattern) fontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult) {
 	var (
 		score, bestscore [PRI_END]float64
 		best             *FcPattern
+		result           FcResult
 	)
 
 	if debugMode {
@@ -866,7 +779,7 @@ func (p *FcPattern) FcFontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResu
 		fmt.Println(p.String())
 	}
 
-	data := p.FcCompareDataInit()
+	data := p.newCompareData()
 
 	for _, s := range sets {
 		if s == nil {
@@ -876,7 +789,9 @@ func (p *FcPattern) FcFontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResu
 			if debugMode {
 				fmt.Printf("Font %d %s", f, pat)
 			}
-			if !FcCompare(p, pat, score, result, &data) {
+			var ok bool
+			ok, result = data.compare(p, pat, score[:])
+			if !ok {
 				return nil, result
 			}
 			if debugMode {
@@ -901,7 +816,6 @@ func (p *FcPattern) FcFontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResu
 		fmt.Printf("Best score %v\n", bestscore)
 	}
 
-	result := FcResultNoMatch
 	if best != nil {
 		result = FcResultMatch
 	}
@@ -927,7 +841,7 @@ func (p *FcPattern) FcFontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResu
 // 	 config = FcConfigReference (config);
 // 	 if (!config)
 // 		 return nil;
-// 	 best = FcFontSetMatchInternal (sets, nsets, p, result);
+// 	 best = fontSetMatchInternal (sets, nsets, p, result);
 // 	 if (best)
 // 	 ret = FcFontRenderPrepare (config, p, best);
 
@@ -937,28 +851,18 @@ func (p *FcPattern) FcFontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResu
 //  }
 
 func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
-	//  int		nsets;
-	//  FcPattern   *best, *ret = nil;
-
-	result := FcResultNoMatch
-
-	var (
-		sets  [2]FcFontSet
-		nsets = 0
-	)
+	var sets []FcFontSet
 	if config.fonts[FcSetSystem] != nil {
-		sets[nsets] = config.fonts[FcSetSystem]
-		nsets++
+		sets = append(sets, config.fonts[FcSetSystem])
 	}
 	if config.fonts[FcSetApplication] != nil {
-		sets[nsets] = config.fonts[FcSetApplication]
-		nsets++
+		sets = append(sets, config.fonts[FcSetApplication])
 	}
 
 	var ret *FcPattern
-	best := FcFontSetMatchInternal(sets, nsets, p, result)
-	if best {
-		ret = FcFontRenderPrepare(config, p, best)
+	best, result := p.fontSetMatchInternal(sets)
+	if best != nil {
+		ret = config.FcFontRenderPrepare(p, best)
 	}
 
 	return ret, result
@@ -1126,7 +1030,7 @@ func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
 // 	 nodeps = (FcSortNode **) (nodes + nnodes);
 // 	 patternLangSat = (FcBool *) (nodeps + nnodes);
 
-// 	 FcCompareDataInit (p, &data);
+// 	 newCompareData (p, &data);
 
 // 	 new = nodes;
 // 	 nodep = nodeps;
@@ -1143,7 +1047,7 @@ func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
 // 		 FcPatternPrint (s.fonts[f]);
 // 		 }
 // 		 new.pattern = s.fonts[f];
-// 		 if (!FcCompare (p, new.pattern, new.score, result, &data))
+// 		 if (!compare (p, new.pattern, new.score, result, &data))
 // 		 goto bail1;
 // 		 if (FcDebug () & FC_DBG_MATCHV)
 // 		 {

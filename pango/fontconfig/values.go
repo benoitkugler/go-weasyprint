@@ -4,66 +4,64 @@ import (
 	"fmt"
 )
 
-// the C implementation usee a refined string->int lookup function
-type FcObject string
+// the C implementation use a refined string->int lookup function
+type FcObject uint8
 
+// The order is part of the cache signature.
 const (
-	FC_INVALID         = ""
-	FC_FAMILY          = "family"         /* String */
-	FC_STYLE           = "style"          /* String */
-	FC_SLANT           = "slant"          /* Int */
-	FC_WEIGHT          = "weight"         /* Int */
-	FC_SIZE            = "size"           /* Range (double) */
-	FC_ASPECT          = "aspect"         /* Double */
-	FC_PIXEL_SIZE      = "pixelsize"      /* Double */
-	FC_SPACING         = "spacing"        /* Int */
-	FC_FOUNDRY         = "foundry"        /* String */
-	FC_ANTIALIAS       = "antialias"      /* Bool (depends) */
-	FC_HINTING         = "hinting"        /* Bool (true) */
-	FC_HINT_STYLE      = "hintstyle"      /* Int */
-	FC_VERTICAL_LAYOUT = "verticallayout" /* Bool (false) */
-	FC_AUTOHINT        = "autohint"       /* Bool (false) */
-	/* FC_GLOBAL_ADVANCE is deprecated. this is simply ignored on freetype 2.4.5 or later */
-	FC_GLOBAL_ADVANCE  = "globaladvance"  /* Bool (true) */
-	FC_WIDTH           = "width"          /* Int */
-	FC_FILE            = "file"           /* String */
-	FC_INDEX           = "index"          /* Int */
-	FC_FT_FACE         = "ftface"         /* FT_Face */
-	FC_RASTERIZER      = "rasterizer"     /* String (deprecated) */
-	FC_OUTLINE         = "outline"        /* Bool */
-	FC_SCALABLE        = "scalable"       /* Bool */
-	FC_COLOR           = "color"          /* Bool */
-	FC_VARIABLE        = "variable"       /* Bool */
-	FC_SCALE           = "scale"          /* double (deprecated) */
-	FC_SYMBOL          = "symbol"         /* Bool */
-	FC_DPI             = "dpi"            /* double */
-	FC_RGBA            = "rgba"           /* Int */
-	FC_MINSPACE        = "minspace"       /* Bool use minimum line spacing */
-	FC_SOURCE          = "source"         /* String (deprecated) */
-	FC_CHARSET         = "charset"        /* CharSet */
-	FC_LANG            = "lang"           /* LangSet Set of RFC 3066 langs */
-	FC_FONTVERSION     = "fontversion"    /* Int from 'head' table */
-	FC_FULLNAME        = "fullname"       /* String */
-	FC_FAMILYLANG      = "familylang"     /* String RFC 3066 langs */
-	FC_STYLELANG       = "stylelang"      /* String RFC 3066 langs */
-	FC_FULLNAMELANG    = "fullnamelang"   /* String RFC 3066 langs */
-	FC_CAPABILITY      = "capability"     /* String */
-	FC_FONTFORMAT      = "fontformat"     /* String */
-	FC_EMBOLDEN        = "embolden"       /* Bool - true if emboldening needed*/
-	FC_EMBEDDED_BITMAP = "embeddedbitmap" /* Bool - true to enable embedded bitmaps */
-	FC_DECORATIVE      = "decorative"     /* Bool - true if style is a decorative variant */
-	FC_LCD_FILTER      = "lcdfilter"      /* Int */
-	FC_FONT_FEATURES   = "fontfeatures"   /* String */
-	FC_FONT_VARIATIONS = "fontvariations" /* String */
-	FC_NAMELANG        = "namelang"       /* String RFC 3866 langs */
-	FC_PRGNAME         = "prgname"        /* String */
-	FC_HASH            = "hash"           /* String (deprecated) */
-	FC_POSTSCRIPT_NAME = "postscriptname" /* String */
-	FC_FONT_HAS_HINT   = "fonthashint"    /* Bool - true if font has hinting */
-	FC_ORDER           = "order"          /* Integer */
-	FC_CHARWIDTH       = "charwidth"      /* Int */
-	FC_CHAR_HEIGHT     = "charheight"     /* Int */
-	FC_MATRIX          = "matrix"         /* FcMatrix */
+	FC_INVALID         FcObject = iota
+	FC_FAMILY                   // String
+	FC_FAMILYLANG               // String
+	FC_STYLE                    // String
+	FC_STYLELANG                // String
+	FC_FULLNAME                 // String
+	FC_FULLNAMELANG             // String
+	FC_SLANT                    // Integer
+	FC_WEIGHT                   // Range
+	FC_WIDTH                    // Range
+	FC_SIZE                     // Range
+	FC_ASPECT                   // Double
+	FC_PIXEL_SIZE               // Double
+	FC_SPACING                  // Integer
+	FC_FOUNDRY                  // String
+	FC_ANTIALIAS                // Bool
+	FC_HINT_STYLE               // Integer
+	FC_HINTING                  // Bool
+	FC_VERTICAL_LAYOUT          // Bool
+	FC_AUTOHINT                 // Bool
+	FC_GLOBAL_ADVANCE           // Bool
+	FC_FILE                     // String
+	FC_INDEX                    // Integer
+	FC_RASTERIZER               // String
+	FC_OUTLINE                  // Bool
+	FC_SCALABLE                 // Bool
+	FC_DPI                      // Double
+	FC_RGBA                     // Integer
+	FC_SCALE                    // Double
+	FC_MINSPACE                 // Bool
+	FC_CHARWIDTH                // Integer
+	FC_CHAR_HEIGHT              // Integer
+	FC_MATRIX                   // Matrix
+	FC_CHARSET                  // CharSet
+	FC_LANG                     // LangSet
+	FC_FONTVERSION              // Integer
+	FC_CAPABILITY               // String
+	FC_FONTFORMAT               // String
+	FC_EMBOLDEN                 // Bool
+	FC_EMBEDDED_BITMAP          // Bool
+	FC_DECORATIVE               // Bool
+	FC_LCD_FILTER               // Integer
+	FC_NAMELANG                 // String
+	FC_FONT_FEATURES            // String
+	FC_PRGNAME                  // String
+	FC_HASH                     // String
+	FC_POSTSCRIPT_NAME          // String
+	FC_COLOR                    // Bool
+	FC_SYMBOL                   // Bool
+	FC_FONT_VARIATIONS          // String
+	FC_VARIABLE                 // Bool
+	FC_FONT_HAS_HINT            // Bool
+	FC_ORDER                    // Integer
 )
 
 type FcBool uint8
@@ -113,4 +111,17 @@ func (vs FcValueList) Hash() []byte {
 		hash = append(hash, v.hash()...)
 	}
 	return hash
+}
+
+func (l FcValueList) prepend(v ...valueElt) FcValueList {
+	l = append(l, make(FcValueList, len(v))...)
+	copy(l[len(v):], l)
+	copy(l, v)
+	return l
+}
+
+// returns a deep copy
+func (l FcValueList) duplicate() FcValueList {
+	// TODO: check the pointer types
+	return append(FcValueList(nil), l...)
 }
