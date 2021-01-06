@@ -364,22 +364,22 @@ func (key *PangoFcFontsetKey) pango_fc_fontset_key_make_pattern() *fontconfig.Fc
 	}...)
 
 	if key.variations != "" {
-		pattern.Add(fontconfig.FC_FONT_VARIATIONS, key.variations)
+		pattern.Add(fontconfig.FC_FONT_VARIATIONS, key.variations, true)
 	}
 
 	if key.desc.family_name != "" {
 		families := strings.Split(key.desc.family_name, ",")
 		for _, fam := range families {
-			pattern.Add(fontconfig.FC_FAMILY, fam)
+			pattern.Add(fontconfig.FC_FAMILY, fam, true)
 		}
 	}
 
 	if key.language != "" {
-		pattern.Add(fontconfig.FC_LANG, string(key.language))
+		pattern.Add(fontconfig.FC_LANG, string(key.language), true)
 	}
 
 	if gravity != PANGO_GRAVITY_SOUTH {
-		pattern.Add(PANGO_FC_GRAVITY, gravity_map.toString("gravity", int(gravity)))
+		pattern.Add(PANGO_FC_GRAVITY, gravity_map.toString("gravity", int(gravity)), true)
 	}
 
 	return pattern
@@ -745,7 +745,7 @@ func (fontmap *PangoFcFontMap) pango_fc_patterns_new(pat *fontconfig.FcPattern) 
 //  }
 
 func pango_fc_is_supported_font_format(pattern *fontconfig.FcPattern) bool {
-	fontformat, res := FcPatternGetString(pattern, FC_FONTFORMAT, 0)
+	fontformat, res := pattern.FcPatternObjectGetString(fontconfig.FC_FONTFORMAT, 0)
 	if res != fontconfig.FcResultMatch {
 		return false
 	}
@@ -773,7 +773,7 @@ func filter_fontset_by_format(fontset fontconfig.FcFontSet) fontconfig.FcFontSet
 func (pats *PangoFcPatterns) pango_fc_patterns_get_font_pattern(i int) (*fontconfig.FcPattern, bool) {
 	if i == 0 {
 		if pats.match == nil && pats.fontset == nil {
-			pats.match, _ = FcFontMatch(pats.fontmap.priv.config, pats.pattern)
+			pats.match, _ = pats.fontmap.priv.config.FcFontMatch(pats.pattern)
 		}
 
 		if pats.match != nil && pango_fc_is_supported_font_format(pats.match) {
@@ -788,7 +788,7 @@ func (pats *PangoFcPatterns) pango_fc_patterns_get_font_pattern(i int) (*fontcon
 		)
 
 		for i := range filtered {
-			fonts := FcConfigGetFonts(pats.fontmap.priv.config, i)
+			fonts := pats.fontmap.priv.config.FcConfigGetFonts(fontconfig.FcSetName(i))
 			if fonts != nil {
 				filtered[n] = filter_fontset_by_format(fonts)
 				n++

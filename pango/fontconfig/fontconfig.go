@@ -31,9 +31,11 @@ type FcStrList struct {
 	n   int
 }
 
+type FcSetName uint8
+
 const (
-	FcSetSystem      = 0
-	FcSetApplication = 1
+	FcSetSystem FcSetName = iota
+	FcSetApplication
 )
 
 type FcResult uint8

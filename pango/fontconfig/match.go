@@ -3,6 +3,7 @@ package fontconfig
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 )
 
@@ -823,6 +824,131 @@ func (p *FcPattern) fontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult
 	return best, result
 }
 
+// Returns the list of fonts from `sets` sorted by closeness to `pattern`.
+// If `trim` is true,
+// elements in the list which don't include Unicode coverage not provided by
+// earlier elements in the list are elided.  The union of Unicode coverage of
+// all of the fonts is returned in `csp`, if `csp` is not nil.  This function
+// should be called only after FcConfigSubstitute and FcDefaultSubstitute have
+// been called for `p`;
+// otherwise the results will not be correct.
+// The returned FcFontSet references FcPattern structures which may be shared
+// by the return value from multiple FcFontSort calls, applications cannot
+// modify these patterns. Instead, they should be passed, along with
+// `pattern` to FcFontRenderPrepare() which combines them into a complete pattern.
+func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcCharSet, FcResult) {
+	//  assert (p != nil);
+
+	// There are some implementation that relying on the result of
+	// "result" to check if the return value of FcFontSetSort
+	// is valid or not.
+	// So we should initialize it to the conservative way since
+	// this function doesn't return nil anymore.
+	result := FcResultNoMatch
+
+	if debugMode {
+		fmt.Println("Sort ", p.String())
+	}
+	nnodes := 0
+	for _, s := range sets {
+		nnodes += len(s)
+	}
+	if nnodes == 0 {
+		return nil, FcCharSet{}, result
+	}
+
+	var (
+		patternLang  FcValue
+		nPatternLang = 0
+	)
+	for res := FcResultMatch; res == FcResultMatch; nPatternLang++ {
+		patternLang, res = p.FcPatternObjectGet(FC_LANG, nPatternLang)
+	}
+
+	/* freed below */
+	//  nodes = malloc (nnodes * sizeof (FcSortNode) +
+	// 		 nnodes * sizeof (FcSortNode *) +
+	// 		 nPatternLang * sizeof (FcBool));
+	//  nodeps = (FcSortNode **) (nodes + nnodes);
+	nodes := make([]FcSortNode, nnodes)
+	nodeps := make([]*FcSortNode, nnodes)
+	patternLangSat := make([]bool, nPatternLang)
+
+	data := p.newCompareData()
+
+	new := nodes
+	nodep := nodeps
+	for _, s := range sets {
+		for f, font := range s {
+			if debugMode {
+				fmt.Printf("Font %d: %s\n", f, font)
+			}
+			new.pattern = font
+			var ok bool
+			ok, result = data.compare(p, new.pattern, new.score)
+			if !ok {
+				return nil, FcCharSet{}, result
+			}
+			if debugMode {
+				fmt.Println("Score", new.score)
+			}
+			*nodep = new
+			new++
+			nodep++
+		}
+	}
+
+	nnodes = new - nodes
+
+	// until nnodes
+	sort.Slice(nodeps, func(i, j int) bool { return sortCompare(nodeps[i], nodeps[j]) })
+
+	for f := 0; f < nnodes; f++ {
+		satisfies := false
+		//  If this node matches any language, go check which ones and satisfy those entries
+		if nodeps[f].score[PRI_LANG] < 2000 {
+			for i, pls := range patternLangSat {
+				//  FcValue	    nodeLang;
+
+				if !pls &&
+					FcPatternGet(p, FC_LANG, i, &patternLang) == FcResultMatch &&
+					FcPatternGet(nodeps[f].pattern, FC_LANG, 0, &nodeLang) == FcResultMatch {
+					//  FcValue matchValue;
+					compare := FcCompareLang(&patternLang, &nodeLang, &matchValue)
+					if compare >= 0 && compare < 2 {
+						if debugMode {
+							if FcPatternGetString(nodeps[f].pattern, FC_FAMILY, 0, &family) == FcResultMatch &&
+								FcPatternGetString(nodeps[f].pattern, FC_STYLE, 0, &style) == FcResultMatch {
+								fmt.Printf("Font %s:%s matches language %d\n", family, style, i)
+							}
+						}
+						patternLangSat[i] = true
+						satisfies = true
+						break
+					}
+				}
+			}
+		}
+		if !satisfies {
+			nodeps[f].score[PRI_LANG] = 10000.0
+		}
+	}
+
+	///  Re-sort once the language issues have been settled
+	// until nnodes
+	sort.Slice(nodeps, func(i, j int) bool { return sortCompare(nodeps[i], nodeps[j]) })
+
+	var ret FcFontSet
+
+	csp := FcSortWalk(nodeps, &ret, trim)
+
+	if len(ret) != 0 {
+		result = FcResultMatch
+	}
+
+	return ret, csp, result
+}
+
 //  FcPattern *
 //  FcFontSetMatch (FcConfig    *config,
 // 		 FcFontSet   **sets,
@@ -850,7 +976,19 @@ func (p *FcPattern) fontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult
 // 	 return ret;
 //  }
 
+// FcFontMatch finds the font in `sets` most closely matching
+// `pattern` and returns the result of
+// `FcFontRenderPrepare` for that font and the provided
+// pattern. This function should be called only after
+// `FcConfigSubstitute` and  `FcDefaultSubstitute` have been called for
+// `p`; otherwise the results will not be correct.
+// If `config` is nil, the current configuration is used.
 func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
+	config = fallbackConfig(config)
+	if config == nil {
+		return nil, FcResultNoMatch
+	}
+
 	var sets []FcFontSet
 	if config.fonts[FcSetSystem] != nil {
 		sets = append(sets, config.fonts[FcSetSystem])
@@ -868,286 +1006,56 @@ func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
 	return ret, result
 }
 
-//  typedef struct _FcSortNode {
-// 	 pattern *FcPattern;
-// 	 double	score[PRI_END];
-//  } FcSortNode;
+type FcSortNode struct {
+	pattern *FcPattern
+	score   [PRI_END]float64
+}
 
-//  static int
-//  FcSortCompare (const void *aa, const void *ab)
-//  {
-// 	 FcSortNode  *a = *(FcSortNode **) aa;
-// 	 FcSortNode  *b = *(FcSortNode **) ab;
-// 	 double	*as = &a.score[0];
-// 	 double	*bs = &b.score[0];
-// 	 double	ad = 0, bd = 0;
-// 	 int         i;
+func sortCompare(a, b *FcSortNode) bool {
+	ad, bd := 0., 0.
 
-// 	 i = PRI_END;
-// 	 for (i-- && (ad = *as++) == (bd = *bs++))
-// 	 ;
-// 	 return ad < bd ? -1 : ad > bd ? 1 : 0;
-//  }
+	for i := range a.score {
+		ad, bd = a.score[i], b.score[i]
+		if ad != bd {
+			break
+		}
+	}
 
-//  static FcBool
-//  FcSortWalk (FcSortNode **n, int nnode, FcFontSet *fs, FcCharSet **csp, FcBool trim)
-//  {
-// 	 FcBool ret = false;
-// 	 FcCharSet *cs;
-// 	 int i;
+	return ad < bd
+}
 
-// 	 cs = 0;
-// 	 if (trim || csp)
-// 	 {
-// 	 cs = FcCharSetCreate ();
-// 	 if (cs == nil)
-// 		 goto bail;
-// 	 }
+func FcSortWalk(n []*FcSortNode, fs *FcFontSet, trim bool) FcCharSet {
+	var csp FcCharSet
 
-// 	 for (i = 0; i < nnode; i++)
-// 	 {
-// 	 FcSortNode	*node = *n++;
-// 	 FcBool		adds_chars = false;
+	for i, node := range n {
+		//  FcSortNode	*node = *n++;
+		addsChars := false
 
-// 	 /*
-// 	  * Only fetch node charset if we'd need it
-// 	  */
-// 	 if (cs)
-// 	 {
-// 		 FcCharSet	*ncs;
+		// Only fetch node charset if we'd need it
+		if trim {
+			ncs, res := node.pattern.FcPatternObjectGetCharSet(FC_CHARSET, 0)
+			if res != FcResultMatch {
+				continue
+			}
+			addsChars = csp.merge(ncs)
+		}
 
-// 		 if (FcPatternGetCharSet (node.pattern, FC_CHARSET, 0, &ncs) !=
-// 		 FcResultMatch)
-// 			 continue;
+		// If this font isn't a subset of the previous fonts, add it to the list
+		if i == 0 || !trim || addsChars {
+			if debugMode {
+				fmt.Println("Add ", node.pattern.String())
+			}
+			*fs = append(*fs, node.pattern)
+		}
+	}
 
-// 		 if (!FcCharSetMerge (cs, ncs, &adds_chars))
-// 		 goto bail;
-// 	 }
-
-// 	 /*
-// 	  * If this font isn't a subset of the previous fonts,
-// 	  * add it to the list
-// 	  */
-// 	 if (!i || !trim || adds_chars)
-// 	 {
-// 		 FcPatternReference (node.pattern);
-// 		 if (FcDebug () & FC_DBG_MATCHV)
-// 		 {
-// 		 printf ("Add ");
-// 		 FcPatternPrint (node.pattern);
-// 		 }
-// 		 if (!FcFontSetAdd (fs, node.pattern))
-// 		 {
-// 		 FcPatternDestroy (node.pattern);
-// 		 goto bail;
-// 		 }
-// 	 }
-// 	 }
-// 	 if (csp)
-// 	 {
-// 	 *csp = cs;
-// 	 cs = 0;
-// 	 }
-
-// 	 ret = true;
-
-//  bail:
-// 	 if (cs)
-// 	 FcCharSetDestroy (cs);
-
-// 	 return ret;
-//  }
+	return csp
+}
 
 //  void
 //  FcFontSetSortDestroy (FcFontSet *fs)
 //  {
 // 	 FcFontSetDestroy (fs);
-//  }
-
-//  FcFontSet *
-//  FcFontSetSort (FcConfig	    *config FC_UNUSED,
-// 			FcFontSet    **sets,
-// 			int	    nsets,
-// 			FcPattern    *p,
-// 			FcBool	    trim,
-// 			FcCharSet    **csp,
-// 			FcResult	    *result)
-//  {
-// 	 FcFontSet	    *ret;
-// 	 FcFontSet	    *s;
-// 	 FcSortNode	    *nodes;
-// 	 FcSortNode	    **nodeps, **nodep;
-// 	 int		    nnodes;
-// 	 FcSortNode	    *new;
-// 	 int		    set;
-// 	 int		    f;
-// 	 int		    i;
-// 	 int		    nPatternLang;
-// 	 FcBool    	    *patternLangSat;
-// 	 FcValue	    patternLang;
-// 	 FcCompareData   data;
-
-// 	 assert (sets != nil);
-// 	 assert (p != nil);
-// 	 assert (result != nil);
-
-// 	 /* There are some implementation that relying on the result of
-// 	  * "result" to check if the return value of FcFontSetSort
-// 	  * is valid or not.
-// 	  * So we should initialize it to the conservative way since
-// 	  * this function doesn't return nil anymore.
-// 	  */
-// 	 if (result)
-// 	 *result = FcResultNoMatch;
-
-// 	 if (FcDebug () & FC_DBG_MATCH)
-// 	 {
-// 	 printf ("Sort ");
-// 	 FcPatternPrint (p);
-// 	 }
-// 	 nnodes = 0;
-// 	 for (set = 0; set < nsets; set++)
-// 	 {
-// 	 s = sets[set];
-// 	 if (!s)
-// 		 continue;
-// 	 nnodes += s.nfont;
-// 	 }
-// 	 if (!nnodes)
-// 	 return FcFontSetCreate ();
-
-// 	 for (nPatternLang = 0;
-// 	  FcPatternGet (p, FC_LANG, nPatternLang, &patternLang) == FcResultMatch;
-// 	  nPatternLang++)
-// 	 ;
-
-// 	 /* freed below */
-// 	 nodes = malloc (nnodes * sizeof (FcSortNode) +
-// 			 nnodes * sizeof (FcSortNode *) +
-// 			 nPatternLang * sizeof (FcBool));
-// 	 if (!nodes)
-// 	 goto bail0;
-// 	 nodeps = (FcSortNode **) (nodes + nnodes);
-// 	 patternLangSat = (FcBool *) (nodeps + nnodes);
-
-// 	 newCompareData (p, &data);
-
-// 	 new = nodes;
-// 	 nodep = nodeps;
-// 	 for (set = 0; set < nsets; set++)
-// 	 {
-// 	 s = sets[set];
-// 	 if (!s)
-// 		 continue;
-// 	 for (f = 0; f < s.nfont; f++)
-// 	 {
-// 		 if (FcDebug () & FC_DBG_MATCHV)
-// 		 {
-// 		 printf ("Font %d ", f);
-// 		 FcPatternPrint (s.fonts[f]);
-// 		 }
-// 		 new.pattern = s.fonts[f];
-// 		 if (!compare (p, new.pattern, new.score, result, &data))
-// 		 goto bail1;
-// 		 if (FcDebug () & FC_DBG_MATCHV)
-// 		 {
-// 		 printf ("Score");
-// 		 for (i = 0; i < PRI_END; i++)
-// 		 {
-// 			 printf (" %g", new.score[i]);
-// 		 }
-// 		 printf ("\n");
-// 		 }
-// 		 *nodep = new;
-// 		 new++;
-// 		 nodep++;
-// 	 }
-// 	 }
-
-// 	 FcCompareDataClear (&data);
-
-// 	 nnodes = new - nodes;
-
-// 	 qsort (nodeps, nnodes, sizeof (FcSortNode *),
-// 		FcSortCompare);
-
-// 	 for (i = 0; i < nPatternLang; i++)
-// 	 patternLangSat[i] = false;
-
-// 	 for (f = 0; f < nnodes; f++)
-// 	 {
-// 	 FcBool	satisfies = false;
-// 	 /*
-// 	  * If this node matches any language, go check
-// 	  * which ones and satisfy those entries
-// 	  */
-// 	 if (nodeps[f].score[PRI_LANG] < 2000)
-// 	 {
-// 		 for (i = 0; i < nPatternLang; i++)
-// 		 {
-// 		 FcValue	    nodeLang;
-
-// 		 if (!patternLangSat[i] &&
-// 			 FcPatternGet (p, FC_LANG, i, &patternLang) == FcResultMatch &&
-// 			 FcPatternGet (nodeps[f].pattern, FC_LANG, 0, &nodeLang) == FcResultMatch)
-// 		 {
-// 			 FcValue matchValue;
-// 			 double  compare = FcCompareLang (&patternLang, &nodeLang, &matchValue);
-// 			 if (compare >= 0 && compare < 2)
-// 			 {
-// 			 if (FcDebug () & FC_DBG_MATCHV)
-// 			 {
-// 				 FcChar8 *family;
-// 				 FcChar8 *style;
-
-// 				 if (FcPatternGetString (nodeps[f].pattern, FC_FAMILY, 0, &family) == FcResultMatch &&
-// 				 FcPatternGetString (nodeps[f].pattern, FC_STYLE, 0, &style) == FcResultMatch)
-// 				 printf ("Font %s:%s matches language %d\n", family, style, i);
-// 			 }
-// 			 patternLangSat[i] = true;
-// 			 satisfies = true;
-// 			 break;
-// 			 }
-// 		 }
-// 		 }
-// 	 }
-// 	 if (!satisfies)
-// 	 {
-// 		 nodeps[f].score[PRI_LANG] = 10000.0;
-// 	 }
-// 	 }
-
-// 	 /*
-// 	  * Re-sort once the language issues have been settled
-// 	  */
-// 	 qsort (nodeps, nnodes, sizeof (FcSortNode *),
-// 		FcSortCompare);
-
-// 	 ret = FcFontSetCreate ();
-// 	 if (!ret)
-// 	 goto bail1;
-
-// 	 if (!FcSortWalk (nodeps, nnodes, ret, csp, trim))
-// 	 goto bail2;
-
-// 	 free (nodes);
-
-// 	 if (FcDebug() & FC_DBG_MATCH)
-// 	 {
-// 	 printf ("First font ");
-// 	 FcPatternPrint (ret.fonts[0]);
-// 	 }
-// 	 if (ret.nfont > 0)
-// 	 *result = FcResultMatch;
-
-// 	 return ret;
-
-//  bail2:
-// 	 FcFontSetDestroy (ret);
-//  bail1:
-// 	 free (nodes);
-//  bail0:
-// 	 return 0;
 //  }
 
 //  FcFontSet *

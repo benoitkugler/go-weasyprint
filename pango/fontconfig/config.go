@@ -323,6 +323,16 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 	return true
 }
 
+func (config *FcConfig) FcConfigGetFonts(set FcSetName) FcFontSet {
+	if config == nil {
+		config = FcConfigGetCurrent()
+	}
+	if config == nil {
+		return nil
+	}
+	return config.fonts[set]
+}
+
 /* Objects MT-safe for readonly access. */
 
 // #if defined (_WIN32) && !defined (R_OK)
@@ -379,25 +389,6 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 //     }
 // }
 
-// static FcConfig *
-// FcConfigEnsure (void)
-// {
-//     FcConfig	*config;
-// retry:
-//     config = fc_atomic_ptr_get (&_fcConfig);
-//     if (!config)
-//     {
-// 	config = FcInitLoadConfigAndFonts ();
-
-// 	if (!config || !fc_atomic_ptr_cmpexch (&_fcConfig, nil, config)) {
-// 	    if (config)
-// 		FcConfigDestroy (config);
-// 	    goto retry;
-// 	}
-//     }
-//     return config;
-// }
-
 // static void
 // FcDestroyAsRule (void *data)
 // {
@@ -413,7 +404,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 // FcBool
 // FcConfigInit (void)
 // {
-//   return FcConfigEnsure () ? true : false;
+//   return ensure () ? true : false;
 // }
 
 // void
@@ -453,7 +444,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 // FcConfigCreate (void)
 // {
 //     FcSetName	set;
-//     FcConfig	*config;
+//     config *FcConfig;
 //     FcMatchKind	k;
 //     FcBool	err = false;
 
@@ -669,6 +660,26 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 	// unlock_config ();
 
 	return config
+}
+
+// FcConfigGetCurrent returns the current default configuration.
+func FcConfigGetCurrent() *FcConfig { return ensure() }
+
+func ensure() *FcConfig {
+	// TODO:
+	// retry:
+	//     config = fc_atomic_ptr_get (&_fcConfig);
+	//     if (!config)
+	//     {
+	// 	config = FcInitLoadConfigAndFonts ();
+
+	// 	if (!config || !fc_atomic_ptr_cmpexch (&_fcConfig, nil, config)) {
+	// 	    if (config)
+	// 		FcConfigDestroy (config);
+	// 	    goto retry;
+	// 	}
+	//     }
+	return nil
 }
 
 // void
@@ -907,12 +918,6 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 //     return true;
 // }
 
-// FcConfig *
-// FcConfigGetCurrent (void)
-// {
-//     return FcConfigEnsure ();
-// }
-
 // FcBool
 // FcConfigAddConfigDir (FcConfig	    *config,
 // 		      const FcChar8 *d)
@@ -965,7 +970,7 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 // }
 
 // FcStrList *
-// FcConfigGetFontDirs (FcConfig	*config)
+// FcConfigGetFontDirs (config *FcConfig)
 // {
 //     FcStrList *ret;
 
@@ -1108,21 +1113,8 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 //     return nil;
 // }
 
-// FcFontSet *
-// FcConfigGetFonts (FcConfig	*config,
-// 		  FcSetName	set)
-// {
-//     if (!config)
-//     {
-// 	config = FcConfigGetCurrent ();
-// 	if (!config)
-// 	    return 0;
-//     }
-//     return config.fonts[set];
-// }
-
 // void
-// FcConfigSetFonts (FcConfig	*config,
+// FcConfigSetFonts (config *FcConfig,
 // 		  FcFontSet	*fonts,
 // 		  FcSetName	set)
 // {
@@ -1159,14 +1151,14 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 // }
 
 // FcBlanks *
-// FcConfigGetBlanks (FcConfig	*config FC_UNUSED)
+// FcConfigGetBlanks (config *FcConfig FC_UNUSED)
 // {
 //     /* Deprecated. */
 //     return nil;
 // }
 
 // FcBool
-// FcConfigAddBlank (FcConfig	*config FC_UNUSED,
+// FcConfigAddBlank (config *FcConfig FC_UNUSED,
 // 		  FcChar32    	blank FC_UNUSED)
 // {
 //     /* Deprecated. */
@@ -1215,7 +1207,7 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 // }
 
 // FcBool
-// FcConfigAddRule (FcConfig	*config,
+// FcConfigAddRule (config *FcConfig,
 // 		 FcRule		*rule,
 // 		 FcMatchKind	kind)
 // {
@@ -1363,7 +1355,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 }
 
 // FcBool
-// FcConfigSubstitute (FcConfig	*config,
+// FcConfigSubstitute (config *FcConfig,
 // 		    FcPattern	*p,
 // 		    FcMatchKind	kind)
 // {
@@ -1926,7 +1918,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //  */
 
 // FcBool
-// FcConfigGlobAdd (FcConfig	*config,
+// FcConfigGlobAdd (config *FcConfig,
 // 		 const FcChar8  *glob,
 // 		 FcBool		accept)
 // {
@@ -1948,7 +1940,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // }
 
 // FcBool
-// FcConfigAcceptFilename (FcConfig	*config,
+// FcConfigAcceptFilename (config *FcConfig,
 // 			const FcChar8	*filename)
 // {
 //     if (FcConfigGlobsMatch (config.acceptGlobs, filename))
@@ -1963,7 +1955,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //  */
 
 // FcBool
-// FcConfigPatternsAdd (FcConfig	*config,
+// FcConfigPatternsAdd (config *FcConfig,
 // 		     FcPattern	*pattern,
 // 		     FcBool	accept)
 // {

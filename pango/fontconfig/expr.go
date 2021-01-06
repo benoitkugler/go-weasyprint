@@ -417,10 +417,10 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 		switch op {
 		case FcOpContains, FcOpListing:
 			// left contains right if right is a subset of left
-			ret = r.FcCharSetIsSubset(l)
+			ret = r.isSubset(l)
 		case FcOpNotContains:
 			// left contains right if right is a subset of left
-			ret = !r.FcCharSetIsSubset(l)
+			ret = !r.isSubset(l)
 		case FcOpEqual:
 			ret = FcCharSetEqual(l, r)
 		case FcOpNotEqual:

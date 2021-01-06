@@ -93,7 +93,7 @@ func FcCharSetEqual(a, b FcCharSet) bool {
 }
 
 // return true iff a is a subset of b
-func (a FcCharSet) FcCharSetIsSubset(b FcCharSet) bool {
+func (a FcCharSet) isSubset(b FcCharSet) bool {
 	ai, bi := 0, 0
 	for ai < len(a.numbers) && bi < len(b.numbers) {
 		an := a.numbers[ai]
@@ -418,59 +418,52 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 return operate (a, b, FcCharSetIntersectLeaf, false, false);
 //  }
 
-//  FcBool
-//  FcCharSetMerge (FcCharSet *a, const FcCharSet *b, FcBool *changed)
-//  {
-// 	 int		ai = 0, bi = 0;
-// 	 FcChar16	an, bn;
+// Adds all chars in `b` to `a`.
+// In other words, this is an in-place version of FcCharSetUnion.
+// It returns whether any new chars from `b` were added to `a`.
+func (a *FcCharSet) merge(b FcCharSet) bool {
+	//  int		ai = 0, bi = 0;
+	//  FcChar16	an, bn;
 
-// 	 if (!a || !b)
-// 	 return false;
+	if a == nil {
+		return false
+	}
 
-// 	 if (FcRefIsConst (&a.ref)) {
-// 	 if (changed)
-// 		 *changed = false;
-// 	 return false;
-// 	 }
+	changed := !b.isSubset(*a)
+	if !changed {
+		return changed
+	}
 
-// 	 if (changed) {
-// 	 *changed = !FcCharSetIsSubset(b, a);
-// 	 if (!*changed)
-// 		 return true;
-// 	 }
+	for ai, bi := 0, 0; bi < len(b.numbers); {
+		an := ^uint16(0)
+		if ai < len(a.numbers) {
+			an = a.numbers[ai]
+		}
+		bn := b.numbers[bi]
 
-// 	 for (bi < b.num)
-// 	 {
-// 	 an = ai < a.num ? FcCharSetNumbers(a)[ai] : ~0;
-// 	 bn = FcCharSetNumbers(b)[bi];
+		if an < bn {
+			ai = a.findLeafForward(ai+1, bn)
+			if ai < 0 {
+				ai = -ai - 1
+			}
+		} else {
+			bl := b.leaves[bi]
+			if bn < an {
+				if !a.addLeaf(uint32(bn)<<8, bl) {
+					return false
+				}
+			} else {
+				al := a.leaves[ai]
+				unionLeaf(al, al, bl)
+			}
 
-// 	 if (an < bn)
-// 	 {
-// 		 ai = findLeafForward (a, ai + 1, bn);
-// 		 if (ai < 0)
-// 		 ai = -ai - 1;
-// 	 }
-// 	 else
-// 	 {
-// 		 FcCharLeaf *bl = FcCharSetLeaf(b, bi);
-// 		 if (bn < an)
-// 		 {
-// 		 if (!addLeaf (a, bn << 8, bl))
-// 			 return false;
-// 		 }
-// 		 else
-// 		 {
-// 		 FcCharLeaf *al = FcCharSetLeaf(a, ai);
-// 		 unionLeaf (al, al, bl);
-// 		 }
+			ai++
+			bi++
+		}
+	}
 
-// 		 ai++;
-// 		 bi++;
-// 	 }
-// 	 }
-
-// 	 return true;
-//  }
+	return changed
+}
 
 //  FcBool
 //  FcCharSetHasChar (fcs *FcCharSet, ucs4 uint32 )

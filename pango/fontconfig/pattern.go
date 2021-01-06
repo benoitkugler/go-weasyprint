@@ -127,6 +127,18 @@ func (p FcPattern) FcPatternObjectGetString(object FcObject, id int) (string, Fc
 	return out, FcResultMatch
 }
 
+func (p FcPattern) FcPatternObjectGetCharSet(object FcObject, id int) (FcCharSet, FcResult) {
+	v, r := p.FcPatternObjectGet(object, id)
+	if r != FcResultMatch {
+		return FcCharSet{}, r
+	}
+	out, ok := v.(FcCharSet)
+	if !ok {
+		return FcCharSet{}, FcResultTypeMismatch
+	}
+	return out, FcResultMatch
+}
+
 type PatternElement struct {
 	Object FcObject
 	Value  FcValue
