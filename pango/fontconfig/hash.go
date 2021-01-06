@@ -5,6 +5,20 @@ import (
 	"unicode"
 )
 
+func FcStrCmpIgnoreCase(s1, s2 string) int {
+	return strings.Compare(strings.ToLower(s1), strings.ToLower(s2))
+}
+
+func FcStrCmpIgnoreBlanksAndCase(s1, s2 string) int {
+	return strings.Compare(ignoreBlanksAndCase(s1), ignoreBlanksAndCase(s2))
+}
+
+// Returns the location of `substr` in  `s`, ignoring case.
+// Returns -1 if `substr` is not present in `s`.
+func FcStrStrIgnoreCase(s, substr string) int {
+	return strings.Index(strings.ToLower(s), strings.ToLower(substr))
+}
+
 // The bulk of the time in FcFontMatch and FcFontSort goes to
 // walking long lists of family names. We speed this up with a
 // hash table.
@@ -30,6 +44,44 @@ func (h FcHashTable) lookup(s string) (*FamilyEntry, bool) {
 func (h FcHashTable) add(s string, v *FamilyEntry) {
 	s = ignoreBlanksAndCase(s)
 	h[s] = v
+}
+
+// IgnoreBlanksAndCase
+type familyBlankHash map[string]int
+
+func (h familyBlankHash) lookup(s string) (int, bool) {
+	s = ignoreBlanksAndCase(s)
+	e, ok := h[s]
+	return e, ok
+}
+
+func (h familyBlankHash) add(s string, v int) {
+	s = ignoreBlanksAndCase(s)
+	h[s] = v
+}
+
+func (h familyBlankHash) del(s string) {
+	s = ignoreBlanksAndCase(s)
+	delete(h, s)
+}
+
+// IgnoreCase
+type familyHash map[string]int
+
+func (h familyHash) lookup(s string) (int, bool) {
+	s = strings.ToLower(s)
+	e, ok := h[s]
+	return e, ok
+}
+
+func (h familyHash) add(s string, v int) {
+	s = strings.ToLower(s)
+	h[s] = v
+}
+
+func (h familyHash) del(s string) {
+	s = strings.ToLower(s)
+	delete(h, s)
 }
 
 // const FC_HASH_SIZE = 227

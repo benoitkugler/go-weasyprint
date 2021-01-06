@@ -74,6 +74,170 @@ func FcCharSetSubtractCount(a, b FcCharSet) uint32 {
 	return count
 }
 
+// Returns whether `a` and `b` contain the same set of Unicode chars.
+func FcCharSetEqual(a, b FcCharSet) bool {
+	var ai, bi FcCharSetIter
+	ai.start(a)
+	bi.start(b)
+	for ai.leaf != nil && bi.leaf != nil {
+		if ai.ucs4 != bi.ucs4 {
+			return false
+		}
+		if *ai.leaf != *bi.leaf {
+			return false
+		}
+		ai.next(a)
+		bi.next(b)
+	}
+	return ai.leaf == bi.leaf
+}
+
+// return true iff a is a subset of b
+func (a FcCharSet) FcCharSetIsSubset(b FcCharSet) bool {
+	ai, bi := 0, 0
+	for ai < len(a.numbers) && bi < len(b.numbers) {
+		an := a.numbers[ai]
+		bn := b.numbers[ai]
+		// Check matching pages
+		if an == bn {
+			am := *a.leaves[ai]
+			bm := *b.leaves[ai]
+
+			if am != bm {
+				//  Does am have any bits not in bm?
+				for j, av := range am {
+					if av & ^bm[j] != 0 {
+						return false
+					}
+				}
+			}
+			ai++
+			bi++
+		} else if an < bn { // Does a have any pages not in b?
+			return false
+		} else {
+			bi = b.findLeafForward(bi+1, an)
+			if bi < 0 {
+				bi = -bi - 1
+			}
+		}
+	}
+	//  did we look at every page?
+	return ai >= len(a.numbers)
+}
+
+// Locate the leaf containing the specified char, creating it if desired
+func (fcs *FcCharSet) findLeafCreate(ucs4 uint32) *FcCharLeaf {
+	pos := fcs.findLeafPos(ucs4)
+	if pos >= 0 {
+		return fcs.leaves[pos]
+	}
+
+	leaf := new(FcCharLeaf)
+
+	pos = -pos - 1
+	if !fcs.putLeaf(ucs4, leaf, pos) {
+		return nil
+	}
+	return leaf
+}
+
+// insert at pos
+func (fcs *FcCharSet) putLeaf(ucs4 uint32, leaf *FcCharLeaf, pos int) bool {
+	leaves := fcs.leaves
+	numbers := fcs.numbers
+
+	ucs4 >>= 8
+	if ucs4 >= 0x10000 {
+		return false
+	}
+
+	numbers = append(numbers, 0)
+	leaves = append(leaves, nil)
+	copy(numbers[pos+1:], numbers[pos:])
+	copy(leaves[pos+1:], leaves[pos:])
+	numbers[pos] = uint16(ucs4)
+	leaves[pos] = leaf
+	return true
+}
+
+func (fcs *FcCharSet) addLeaf(ucs4 uint32, leaf *FcCharLeaf) bool {
+	new := fcs.findLeafCreate(ucs4)
+	if new == nil {
+		return false
+	}
+	*new = *leaf
+	return true
+}
+
+func FcCharSetUnion(a, b FcCharSet) *FcCharSet {
+	return operate(a, b, unionLeaf, true, true)
+}
+
+func operate(a, b FcCharSet, overlap func(result, al, bl *FcCharLeaf) bool,
+	aonly, bonly bool) *FcCharSet {
+	var ai, bi FcCharSetIter
+	var fcs FcCharSet
+	ai.start(a)
+	bi.start(b)
+	for (ai.leaf != nil || (bonly && bi.leaf != nil)) && (bi.leaf != nil || (aonly && ai.leaf != nil)) {
+		if ai.ucs4 < bi.ucs4 {
+			if aonly {
+				if !fcs.addLeaf(ai.ucs4, ai.leaf) {
+					return nil
+				}
+				ai.next(a)
+			} else {
+				ai.ucs4 = bi.ucs4
+				ai.set(a)
+			}
+		} else if bi.ucs4 < ai.ucs4 {
+			if bonly {
+				if !fcs.addLeaf(bi.ucs4, bi.leaf) {
+					return nil
+				}
+				bi.next(b)
+			} else {
+				bi.ucs4 = ai.ucs4
+				bi.set(b)
+			}
+		} else {
+			var leaf FcCharLeaf
+			if overlap(&leaf, ai.leaf, bi.leaf) {
+				if !fcs.addLeaf(ai.ucs4, &leaf) {
+					return nil
+				}
+			}
+			ai.next(a)
+			bi.next(b)
+		}
+	}
+	return &fcs
+}
+
+func unionLeaf(result, al, bl *FcCharLeaf) bool {
+	for i := range result {
+		result[i] = al[i] | bl[i]
+	}
+	return true
+}
+
+func subtractLeaf(result, al, bl *FcCharLeaf) bool {
+	nonempty := false
+	for i := range result {
+		v := al[i] & ^bl[i]
+		result[i] = v
+		if v != 0 {
+			nonempty = true
+		}
+	}
+	return nonempty
+}
+
+func FcCharSetSubtract(a, b FcCharSet) *FcCharSet {
+	return operate(a, b, subtractLeaf, true, false)
+}
+
 // FcCharSetIter is an iterator for the leaves of a charset
 type FcCharSetIter struct {
 	leaf *FcCharLeaf
@@ -125,24 +289,9 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 if (!fcs)
 // 	 return 0;
 // 	 FcRefInit (&fcs.ref, 1);
-// 	 fcs.num = 0;
+// 	 len(fcs.numbers) = 0;
 // 	 fcs.leaves_offset = 0;
 // 	 fcs.numbers_offset = 0;
-// 	 return fcs;
-//  }
-
-//  FcCharSet *
-//  FcCharSetPromote (FcValuePromotionBuffer *vbuf)
-//  {
-// 	 FcCharSet *fcs = (FcCharSet *) vbuf;
-
-// 	 FC_ASSERT_STATIC (sizeof (FcCharSet) <= sizeof (FcValuePromotionBuffer));
-
-// 	 FcRefSetConst (&fcs.ref);
-// 	 fcs.num = 0;
-// 	 fcs.leaves_offset = 0;
-// 	 fcs.numbers_offset = 0;
-
 // 	 return fcs;
 //  }
 
@@ -166,9 +315,9 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 }
 // 	 if (FcRefDec (&fcs.ref) != 1)
 // 		 return;
-// 	 for (i = 0; i < fcs.num; i++)
+// 	 for (i = 0; i < len(fcs.numbers); i++)
 // 		 free (FcCharSetLeaf (fcs, i));
-// 	 if (fcs.num)
+// 	 if (len(fcs.numbers))
 // 	 {
 // 		 free (FcCharSetLeaves (fcs));
 // 		 free (FcCharSetNumbers (fcs));
@@ -186,109 +335,6 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 return 0;
 //  }
 
-//  #define FC_IS_ZERO_OR_POWER_OF_TWO(x) (!((x) & ((x)-1)))
-
-//  static FcBool
-//  FcCharSetPutLeaf (FcCharSet	*fcs,
-// 		   uint32	ucs4,
-// 		   FcCharLeaf	*leaf,
-// 		   int		pos)
-//  {
-// 	 intptr_t	*leaves = FcCharSetLeaves (fcs);
-// 	 FcChar16	*numbers = FcCharSetNumbers (fcs);
-
-// 	 ucs4 >>= 8;
-// 	 if (ucs4 >= 0x10000)
-// 	 return false;
-
-// 	 if (FC_IS_ZERO_OR_POWER_OF_TWO (fcs.num))
-// 	 {
-// 	   if (!fcs.num)
-// 	   {
-// 		 unsigned int alloced = 8;
-// 	 leaves = malloc (alloced * sizeof (*leaves));
-// 	 numbers = malloc (alloced * sizeof (*numbers));
-// 	 if (!leaves || !numbers)
-// 	 {
-// 		 if (leaves)
-// 		 free (leaves);
-// 		 if (numbers)
-// 		 free (numbers);
-// 		 return false;
-// 	 }
-// 	   }
-// 	   else
-// 	   {
-// 		 unsigned int alloced = fcs.num;
-// 	 intptr_t *new_leaves, distance;
-
-// 	 alloced *= 2;
-// 	 new_leaves = realloc (leaves, alloced * sizeof (*leaves));
-// 	 if (!new_leaves)
-// 		 return false;
-// 	 numbers = realloc (numbers, alloced * sizeof (*numbers));
-// 	 if (!numbers)
-// 	 {
-// 		 /* Revert the reallocation of leaves */
-// 		 leaves = realloc (new_leaves, (alloced / 2) * sizeof (*new_leaves));
-// 		 /* unlikely to fail though */
-// 		 if (!leaves)
-// 		 return false;
-// 		 fcs.leaves_offset = FcPtrToOffset (fcs, leaves);
-// 		 return false;
-// 	 }
-// 	 distance = (intptr_t) new_leaves - (intptr_t) leaves;
-// 	 if (new_leaves && distance)
-// 	 {
-// 		 int i;
-// 		 for (i = 0; i < fcs.num; i++)
-// 		 new_leaves[i] -= distance;
-// 	 }
-// 	 leaves = new_leaves;
-// 	   }
-
-// 	   fcs.leaves_offset = FcPtrToOffset (fcs, leaves);
-// 	   fcs.numbers_offset = FcPtrToOffset (fcs, numbers);
-// 	 }
-
-// 	 memmove (leaves + pos + 1, leaves + pos,
-// 		  (fcs.num - pos) * sizeof (*leaves));
-// 	 memmove (numbers + pos + 1, numbers + pos,
-// 		  (fcs.num - pos) * sizeof (*numbers));
-// 	 numbers[pos] = (FcChar16) ucs4;
-// 	 leaves[pos] = FcPtrToOffset (leaves, leaf);
-// 	 fcs.num++;
-// 	 return true;
-//  }
-
-//  /*
-//   * Locate the leaf containing the specified char, creating it
-//   * if desired
-//   */
-
-//  FcCharLeaf *
-//  FcCharSetFindLeafCreate (FcCharSet *fcs, ucs4 uint32 )
-//  {
-// 	 int			pos;
-// 	 FcCharLeaf		*leaf;
-
-// 	 pos = findLeafPos (fcs, ucs4);
-// 	 if (pos >= 0)
-// 	 return fcs.leaves[pos];
-
-// 	 leaf = calloc (1, sizeof (FcCharLeaf));
-// 	 if (!leaf)
-// 	 return 0;
-
-// 	 pos = -pos - 1;
-// 	 if (!FcCharSetPutLeaf (fcs, ucs4, leaf, pos))
-// 	 {
-// 	 free (leaf);
-// 	 return 0;
-// 	 }
-// 	 return leaf;
-//  }
-
 //  static FcBool
 //  FcCharSetInsertLeaf (FcCharSet *fcs, ucs4 uint32 , FcCharLeaf *leaf)
 //  {
@@ -303,18 +349,18 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 return true;
 // 	 }
 // 	 pos = -pos - 1;
-// 	 return FcCharSetPutLeaf (fcs, ucs4, leaf, pos);
+// 	 return putLeaf (fcs, ucs4, leaf, pos);
 //  }
 
 //  FcBool
 //  FcCharSetAddChar (FcCharSet *fcs, ucs4 uint32 )
 //  {
-// 	 FcCharLeaf	*leaf;
+// 	 leaf *FcCharLeaf;
 // 	 uint32	*b;
 
 // 	 if (fcs == NULL || FcRefIsConst (&fcs.ref))
 // 	 return false;
-// 	 leaf = FcCharSetFindLeafCreate (fcs, ucs4);
+// 	 leaf = findLeafCreate (fcs, ucs4);
 // 	 if (!leaf)
 // 	 return false;
 // 	 b = &leaf.map_[(ucs4 & 0xff) >> 5];
@@ -325,7 +371,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 //  FcBool
 //  FcCharSetDelChar (FcCharSet *fcs, ucs4 uint32 )
 //  {
-// 	 FcCharLeaf	*leaf;
+// 	 leaf *FcCharLeaf;
 // 	 uint32	*b;
 
 // 	 if (fcs == NULL || FcRefIsConst (&fcs.ref))
@@ -352,110 +398,6 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 return src;
 //  }
 
-//  FcBool
-//  FcCharSetEqual (const FcCharSet *a, const FcCharSet *b)
-//  {
-// 	 FcCharSetIter   ai, bi;
-// 	 int		    i;
-
-// 	 if (a == b)
-// 	 return true;
-// 	 if (!a || !b)
-// 	 return false;
-// 	 for (start (a, &ai), start (b, &bi);
-// 	  ai.leaf && bi.leaf;
-// 	  next (a, &ai), next (b, &bi))
-// 	 {
-// 	 if (ai.ucs4 != bi.ucs4)
-// 		 return false;
-// 	 for (i = 0; i < 256/32; i++)
-// 		 if (ai.leaf.map_[i] != bi.leaf.map_[i])
-// 		 return false;
-// 	 }
-// 	 return ai.leaf == bi.leaf;
-//  }
-
-//  static FcBool
-//  FcCharSetAddLeaf (FcCharSet	*fcs,
-// 		   uint32	ucs4,
-// 		   FcCharLeaf	*leaf)
-//  {
-// 	 FcCharLeaf   *new = FcCharSetFindLeafCreate (fcs, ucs4);
-// 	 if (!new)
-// 	 return false;
-// 	 *new = *leaf;
-// 	 return true;
-//  }
-
-//  static FcCharSet *
-//  FcCharSetOperate (const FcCharSet   *a,
-// 		   const FcCharSet   *b,
-// 		   FcBool	    (*overlap) (FcCharLeaf	    *result,
-// 						 const FcCharLeaf    *al,
-// 						 const FcCharLeaf    *bl),
-// 		   FcBool	aonly,
-// 		   FcBool	bonly)
-//  {
-// 	 FcCharSet	    *fcs;
-// 	 FcCharSetIter   ai, bi;
-
-// 	 if (!a || !b)
-// 	 goto bail0;
-// 	 fcs = FcCharSetCreate ();
-// 	 if (!fcs)
-// 	 goto bail0;
-// 	 start (a, &ai);
-// 	 start (b, &bi);
-// 	 for ((ai.leaf || (bonly && bi.leaf)) && (bi.leaf || (aonly && ai.leaf)))
-// 	 {
-// 	 if (ai.ucs4 < bi.ucs4)
-// 	 {
-// 		 if (aonly)
-// 		 {
-// 		 if (!FcCharSetAddLeaf (fcs, ai.ucs4, ai.leaf))
-// 			 goto bail1;
-// 		 next (a, &ai);
-// 		 }
-// 		 else
-// 		 {
-// 		 ai.ucs4 = bi.ucs4;
-// 		 set (a, &ai);
-// 		 }
-// 	 }
-// 	 else if (bi.ucs4 < ai.ucs4 )
-// 	 {
-// 		 if (bonly)
-// 		 {
-// 		 if (!FcCharSetAddLeaf (fcs, bi.ucs4, bi.leaf))
-// 			 goto bail1;
-// 		 next (b, &bi);
-// 		 }
-// 		 else
-// 		 {
-// 		 bi.ucs4 = ai.ucs4;
-// 		 set (b, &bi);
-// 		 }
-// 	 }
-// 	 else
-// 	 {
-// 		 FcCharLeaf  leaf;
-
-// 		 if ((*overlap) (&leaf, ai.leaf, bi.leaf))
-// 		 {
-// 		 if (!FcCharSetAddLeaf (fcs, ai.ucs4, &leaf))
-// 			 goto bail1;
-// 		 }
-// 		 next (a, &ai);
-// 		 next (b, &bi);
-// 	 }
-// 	 }
-// 	 return fcs;
-//  bail1:
-// 	 FcCharSetDestroy (fcs);
-//  bail0:
-// 	 return 0;
-//  }
-
 //  static FcBool
 //  FcCharSetIntersectLeaf (FcCharLeaf *result,
 // 			 const FcCharLeaf *al,
@@ -473,25 +415,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 //  FcCharSet *
 //  FcCharSetIntersect (const FcCharSet *a, const FcCharSet *b)
 //  {
-// 	 return FcCharSetOperate (a, b, FcCharSetIntersectLeaf, false, false);
-//  }
-
-//  static FcBool
-//  FcCharSetUnionLeaf (FcCharLeaf *result,
-// 			 const FcCharLeaf *al,
-// 			 const FcCharLeaf *bl)
-//  {
-// 	 int	i;
-
-// 	 for (i = 0; i < 256/32; i++)
-// 	 result.map_[i] = al.map_[i] | bl.map_[i];
-// 	 return true;
-//  }
-
-//  FcCharSet *
-//  FcCharSetUnion (const FcCharSet *a, const FcCharSet *b)
-//  {
-// 	 return FcCharSetOperate (a, b, FcCharSetUnionLeaf, true, true);
+// 	 return operate (a, b, FcCharSetIntersectLeaf, false, false);
 //  }
 
 //  FcBool
@@ -531,13 +455,13 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 		 FcCharLeaf *bl = FcCharSetLeaf(b, bi);
 // 		 if (bn < an)
 // 		 {
-// 		 if (!FcCharSetAddLeaf (a, bn << 8, bl))
+// 		 if (!addLeaf (a, bn << 8, bl))
 // 			 return false;
 // 		 }
 // 		 else
 // 		 {
 // 		 FcCharLeaf *al = FcCharSetLeaf(a, ai);
-// 		 FcCharSetUnionLeaf (al, al, bl);
+// 		 unionLeaf (al, al, bl);
 // 		 }
 
 // 		 ai++;
@@ -548,30 +472,10 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 return true;
 //  }
 
-//  static FcBool
-//  FcCharSetSubtractLeaf (FcCharLeaf *result,
-// 				const FcCharLeaf *al,
-// 				const FcCharLeaf *bl)
-//  {
-// 	 int	    i;
-// 	 FcBool  nonempty = false;
-
-// 	 for (i = 0; i < 256/32; i++)
-// 	 if ((result.map_[i] = al.map_[i] & ~bl.map_[i]))
-// 		 nonempty = true;
-// 	 return nonempty;
-//  }
-
-//  FcCharSet *
-//  FcCharSetSubtract (const FcCharSet *a, const FcCharSet *b)
-//  {
-// 	 return FcCharSetOperate (a, b, FcCharSetSubtractLeaf, true, false);
-//  }
-
 //  FcBool
 //  FcCharSetHasChar (fcs *FcCharSet, ucs4 uint32 )
 //  {
-// 	 FcCharLeaf	*leaf;
+// 	 leaf *FcCharLeaf;
 
 // 	 if (!fcs)
 // 	 return false;
@@ -635,64 +539,6 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 }
 // 	 }
 // 	 return count;
-//  }
-
-//  /*
-//   * return true iff a is a subset of b
-//   */
-//  FcBool
-//  FcCharSetIsSubset (const FcCharSet *a, const FcCharSet *b)
-//  {
-// 	 int		ai, bi;
-// 	 FcChar16	an, bn;
-
-// 	 if (a == b)
-// 	 return true;
-// 	 if (!a || !b)
-// 	 return false;
-// 	 bi = 0;
-// 	 ai = 0;
-// 	 for (ai < a.num && bi < b.num)
-// 	 {
-// 	 an = FcCharSetNumbers(a)[ai];
-// 	 bn = FcCharSetNumbers(b)[bi];
-// 	 /*
-// 	  * Check matching pages
-// 	  */
-// 	 if (an == bn)
-// 	 {
-// 		 uint32	*am = FcCharSetLeaf(a, ai).map_;
-// 		 uint32	*bm = FcCharSetLeaf(b, bi).map_;
-
-// 		 if (am != bm)
-// 		 {
-// 		 int	i = 256/32;
-// 		 /*
-// 		  * Does am have any bits not in bm?
-// 		  */
-// 		 for (i--)
-// 			 if (*am++ & ~*bm++)
-// 			 return false;
-// 		 }
-// 		 ai++;
-// 		 bi++;
-// 	 }
-// 	 /*
-// 	  * Does a have any pages not in b?
-// 	  */
-// 	 else if (an < bn)
-// 		 return false;
-// 	 else
-// 	 {
-// 		 bi = findLeafForward (b, bi + 1, an);
-// 		 if (bi < 0)
-// 		 bi = -bi - 1;
-// 	 }
-// 	 }
-// 	 /*
-// 	  * did we look at every page?
-// 	  */
-// 	 return ai >= a.num;
 //  }
 
 //  /*
@@ -1041,10 +887,10 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 int		i;
 
 // 	 /* hash in leaves */
-// 	 for (i = 0; i < fcs.num; i++)
+// 	 for (i = 0; i < len(fcs.numbers); i++)
 // 	 hash = ((hash << 1) | (hash >> 31)) ^ FcCharLeafHash (FcCharSetLeaf(fcs,i));
 // 	 /* hash in numbers */
-// 	 for (i = 0; i < fcs.num; i++)
+// 	 for (i = 0; i < len(fcs.numbers); i++)
 // 	 hash = ((hash << 1) | (hash >> 31)) ^ fcs.numbers[i];
 // 	 return hash;
 //  }
@@ -1077,15 +923,15 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 for (ent = *bucket; ent; ent = ent.next)
 // 	 {
 // 	 if (ent.hash == hash &&
-// 		 ent.set.num == fcs.num &&
+// 		 ent.set.num == len(fcs.numbers) &&
 // 		 !memcmp (FcCharSetNumbers(&ent.set),
 // 			  fcs.numbers,
-// 			  fcs.num * sizeof (FcChar16)))
+// 			  len(fcs.numbers) * sizeof (FcChar16)))
 // 	 {
 // 		 FcBool ok = true;
 // 		 int i;
 
-// 		 for (i = 0; i < fcs.num; i++)
+// 		 for (i = 0; i < len(fcs.numbers); i++)
 // 		 if (FcCharSetLeaf(&ent.set, i) != FcCharSetLeaf(fcs, i))
 // 			 ok = false;
 // 		 if (ok)
@@ -1094,8 +940,8 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 }
 
 // 	 size = (sizeof (FcCharSetEnt) +
-// 		 fcs.num * sizeof (FcCharLeaf *) +
-// 		 fcs.num * sizeof (FcChar16));
+// 		 len(fcs.numbers) * sizeof (FcCharLeaf *) +
+// 		 len(fcs.numbers) * sizeof (FcChar16));
 // 	 ent = malloc (size);
 // 	 if (!ent)
 // 	 return 0;
@@ -1103,22 +949,22 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 freezer.charsets_allocated++;
 
 // 	 FcRefSetConst (&ent.set.ref);
-// 	 ent.set.num = fcs.num;
-// 	 if (fcs.num)
+// 	 ent.set.num = len(fcs.numbers);
+// 	 if (len(fcs.numbers))
 // 	 {
 // 	 intptr_t    *ent_leaves;
 
 // 	 ent.set.leaves_offset = sizeof (ent.set);
 // 	 ent.set.numbers_offset = (ent.set.leaves_offset +
-// 					fcs.num * sizeof (intptr_t));
+// 					len(fcs.numbers) * sizeof (intptr_t));
 
 // 	 ent_leaves = FcCharSetLeaves (&ent.set);
-// 	 for (i = 0; i < fcs.num; i++)
+// 	 for (i = 0; i < len(fcs.numbers); i++)
 // 		 ent_leaves[i] = FcPtrToOffset (ent_leaves,
 // 						FcCharSetLeaf (fcs, i));
 // 	 memcpy (FcCharSetNumbers (&ent.set),
 // 		 FcCharSetNumbers (fcs),
-// 		 fcs.num * sizeof (FcChar16));
+// 		 len(fcs.numbers) * sizeof (FcChar16));
 // 	 }
 // 	 else
 // 	 {
@@ -1156,7 +1002,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 b = FcCharSetCreate ();
 // 	 if (!b)
 // 	 goto bail0;
-// 	 for (i = 0; i < fcs.num; i++)
+// 	 for (i = 0; i < len(fcs.numbers); i++)
 // 	 {
 // 	 l = FcCharSetFreezeLeaf (freezer, FcCharSetLeaf(fcs, i));
 // 	 if (!l)
@@ -1171,7 +1017,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 goto bail1;
 // 	 }
 // 	 freezer.charsets_seen++;
-// 	 freezer.leaves_seen += fcs.num;
+// 	 freezer.leaves_seen += len(fcs.numbers);
 //  bail1:
 // 	 if (b.num)
 // 	 free (FcCharSetLeaves (b));
@@ -1272,7 +1118,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 // 	 FcCharSet	*cs_serialized;
 // 	 intptr_t	*leaves, *leaves_serialized;
 // 	 FcChar16	*numbers, *numbers_serialized;
-// 	 FcCharLeaf	*leaf, *leaf_serialized;
+// 	 leaf *FcCharLeaf, *leaf_serialized;
 // 	 int		i;
 
 // 	 if (!FcRefIsConst (&cs.ref) && serialize.cs_freezer)

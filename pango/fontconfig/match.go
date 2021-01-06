@@ -763,7 +763,7 @@ func (config *FcConfig) FcFontRenderPrepare(pat, font *FcPattern) *FcPattern {
 		new.Add(FC_FONT_VARIATIONS, variations.String(), true)
 	}
 
-	FcConfigSubstituteWithPat(config, new, pat, FcMatchFont)
+	config.FcConfigSubstituteWithPat(&new, pat, FcMatchFont)
 	return &new
 }
 

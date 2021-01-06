@@ -190,9 +190,8 @@ func leavesEqual(leaf1, leaf2 []uint32) bool {
 }
 
 func main() {
-	output := flag.String("output", "", "output_file")
+	output := flag.String("output", "", "output file")
 	flag.Parse()
-
 	var (
 		err             error
 		totalLeaves     = 0
@@ -205,7 +204,7 @@ func main() {
 	outputFile := os.Stdout
 	// Open output file
 	if *output != "" {
-		outputFile, err = os.Create(*output)
+		outputFile, err = os.Create(*output + ".go")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -301,8 +300,6 @@ func main() {
 	fmt.Fprintln(outputFile, "//define NUM(s,n)    (NUM0 + n * sizeof (FcChar16) - SET(s))")
 	fmt.Fprintln(outputFile, "//define LEAF(o,l)   (LEAF0 + l * sizeof (FcCharLeaf) - (OFF0 + o * sizeof (intptr_t)))")
 	fmt.Fprintln(outputFile, "var fcLangCharSets = fcLangData.langCharSets")
-	fmt.Fprintln(outputFile, "var fcLangCharSetIndices = fcLangData.langIndices")
-	fmt.Fprintln(outputFile, "var fcLangCharSetIndicesInv = fcLangData.langIndicesInv")
 
 	assert(len(sets) < 256) // FIXME: need to change index type to 16-bit below then
 
@@ -312,9 +309,7 @@ func main() {
         langCharSets [%d]FcLangCharSet
         leaves [%d]FcCharLeaf
         numbers [%d]uint16
-        langIndices [%d]byte
-        langIndicesInv [%d]byte
-	}{`, len(sets), len(leaves), tn, len(sets), len(sets))
+	}{`, len(sets), len(leaves), tn)
 	fmt.Fprintln(outputFile)
 
 	// Dump sets
@@ -324,8 +319,7 @@ func main() {
 		if duplicate[i] != 0 {
 			j = duplicate[i]
 		}
-		fmt.Fprintf(outputFile, `    { %q,  FcCharSet{%d, OFF(%d,%d), NUM(%d,%d) } }, // %d `,
-			langs[i], len(sets[j].leaves), i, off[j], i, off[j], i)
+		fmt.Fprintf(outputFile, `    { %q,  }, // %d `, langs[i], len(sets[j].leaves))
 		fmt.Fprintln(outputFile)
 	}
 	fmt.Fprintln(outputFile, "},")
@@ -399,17 +393,18 @@ func main() {
 		}
 	}
 	fmt.Fprintln(outputFile, "},")
+	fmt.Fprintln(outputFile, "};\n")
 
 	// langIndices
-	fmt.Fprintln(outputFile, "[...]byte{")
+	fmt.Fprintln(outputFile, "var fcLangCharSetIndices = [...]byte{")
 	for i := range sets {
 		fn := fmt.Sprintf("%s.orth", names[i])
 		fmt.Fprintf(outputFile, "    %d, /* %s */\n", orthEntries[fn], names[i])
 	}
-	fmt.Fprintln(outputFile, "},")
+	fmt.Fprintln(outputFile, "}")
 
 	// langIndicesInv
-	fmt.Fprintln(outputFile, "[...]byte{")
+	fmt.Fprintln(outputFile, "var fcLangCharSetIndicesInv = [...]byte{")
 	for k := range orthEntries {
 		name := getName(k)
 		idx := -1
@@ -421,8 +416,7 @@ func main() {
 		}
 		fmt.Fprintf(outputFile, "    %d, /* %s */\n", idx, name)
 	}
-	fmt.Fprintln(outputFile, "},")
-	fmt.Fprintln(outputFile, "};\n")
+	fmt.Fprintln(outputFile, "}")
 
 	fmt.Fprintf(outputFile, "const NUM_LANG_CHAR_SET = %d \n", len(sets))
 	num_lang_set_map := (len(sets) + 31) / 32
@@ -470,7 +464,7 @@ func main() {
 
 	if *output != "" {
 		outputFile.Close()
-		exec.Command("goimports", "-w", *output).Run()
+		exec.Command("goimports", "-w", *output+".go").Run()
 	}
 }
 

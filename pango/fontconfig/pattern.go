@@ -2,6 +2,7 @@ package fontconfig
 
 import (
 	"fmt"
+	"log"
 	"sort"
 )
 
@@ -35,15 +36,12 @@ func (p FcPattern) AddList(object FcObject, list FcValueList, appendMode bool) {
 	// object := FcObject(objectS)
 
 	// Make sure the stored type is valid for built-in objects
-	// TODO:
-	// if (!FcObjectValidType (object, value.type)) {
-	// fprintf (stderr,
-	// 	 "Fontconfig warning: FcPattern object %s does not accept value",
-	// 	 FcObjectName (object));
-	// FcValuePrintFile (stderr, value);
-	// fprintf (stderr, "\n");
-	// goto bail1;
-	// }
+	for _, value := range list {
+		if !object.hasValidType(value.value) {
+			log.Printf("fontconfig: pattern object %s does not accept value %v", object, value.value)
+			return
+		}
+	}
 
 	e := p.elts[object]
 	if appendMode {
@@ -131,7 +129,7 @@ func (p FcPattern) FcPatternObjectGetString(object FcObject, id int) (string, Fc
 
 type PatternElement struct {
 	Object FcObject
-	Value  interface{}
+	Value  FcValue
 }
 
 // TODO: check the pointer types in values
@@ -141,4 +139,31 @@ func FcPatternBuild(elements ...PatternElement) *FcPattern {
 		p.Add(el.Object, el.Value, true)
 	}
 	return &p
+}
+
+func (p *FcPattern) FcConfigPatternAdd(object FcObject, list FcValueList, append bool, table *FamilyTable) {
+	e := p.elts[object]
+	e.insert(-1, append, list, object, table)
+	p.elts[object] = e
+}
+
+// Delete all values associated with a field
+func (p *FcPattern) FcConfigPatternDel(object FcObject, table *FamilyTable) {
+	e := p.elts[object]
+
+	if object == FC_FAMILY && table != nil {
+		for _, v := range e {
+			table.del(v.value.(string))
+		}
+	}
+
+	delete(p.elts, object)
+}
+
+// remove the empty lists
+func (p *FcPattern) canon(object FcObject) {
+	e := p.elts[object]
+	if len(e) == 0 {
+		delete(p.elts, object)
+	}
 }

@@ -11,6 +11,21 @@ type FcFontSet []*FcPattern // with length nfont, and cap sfont
 
 type FcStrSet map[string]bool
 
+// Returns whether `a` contains precisely the same
+// strings as `b`. Ordering of strings within the two
+// sets is not considered.
+func FcStrSetEqual(a, b FcStrSet) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for sa := range a {
+		if !b[sa] {
+			return false
+		}
+	}
+	return true
+}
+
 type FcStrList struct {
 	set FcStrSet
 	n   int
@@ -35,9 +50,7 @@ const (
 	FC_SLANT_ROMAN   = 0
 	FC_SLANT_ITALIC  = 100
 	FC_SLANT_OBLIQUE = 110
-)
 
-const (
 	FC_WIDTH_ULTRACONDENSED = 50
 	FC_WIDTH_EXTRACONDENSED = 63
 	FC_WIDTH_CONDENSED      = 75
@@ -47,6 +60,31 @@ const (
 	FC_WIDTH_EXPANDED       = 125
 	FC_WIDTH_EXTRAEXPANDED  = 150
 	FC_WIDTH_ULTRAEXPANDED  = 200
+
+	FC_PROPORTIONAL = 0
+	FC_DUAL         = 90
+	FC_MONO         = 100
+	FC_CHARCELL     = 110
+
+	/* sub-pixel order */
+	FC_RGBA_UNKNOWN = 0
+	FC_RGBA_RGB     = 1
+	FC_RGBA_BGR     = 2
+	FC_RGBA_VRGB    = 3
+	FC_RGBA_VBGR    = 4
+	FC_RGBA_NONE    = 5
+
+	/* hinting style */
+	FC_HINT_NONE   = 0
+	FC_HINT_SLIGHT = 1
+	FC_HINT_MEDIUM = 2
+	FC_HINT_FULL   = 3
+
+	/* LCD filter */
+	FC_LCD_NONE    = 0
+	FC_LCD_DEFAULT = 1
+	FC_LCD_LIGHT   = 2
+	FC_LCD_LEGACY  = 3
 )
 
 const (
