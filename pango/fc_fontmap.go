@@ -795,7 +795,7 @@ func (pats *PangoFcPatterns) pango_fc_patterns_get_font_pattern(i int) (*fontcon
 			}
 		}
 
-		pats.fontset, _ = FcFontSetSort(pats.fontmap.priv.config, filtered, n, pats.pattern, FcTrue, nil)
+		pats.fontset, _, _ = fontconfig.FcFontSetSort(filtered[:], pats.pattern, true)
 
 		if pats.match != nil {
 			pats.match = nil
@@ -849,18 +849,13 @@ func (fontset *PangoFcFontset) pango_fc_fontset_load_next_font() Font {
 	}
 
 	if prepare {
-		font_pattern = FcFontRenderPrepare(nil, pattern, font_pattern)
+		font_pattern = pattern.FcFontRenderPrepare(font_pattern, nil)
 		if font_pattern == nil {
 			return nil
 		}
 	}
 
-	font := pango_fc_font_map_new_font(fontset.key.fontmap,
-		fontset.key, font_pattern)
-
-	if prepare {
-		FcPatternDestroy(font_pattern)
-	}
+	font := pango_fc_font_map_new_font(fontset.key.fontmap, fontset.key, font_pattern)
 
 	return font
 }

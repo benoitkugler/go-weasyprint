@@ -1,12 +1,94 @@
 package fontconfig
 
-import "math/bits"
+import (
+	"fmt"
+	"math/bits"
+	"strconv"
+	"strings"
+)
 
 // ported from fontconfig/src/fccharset.c   Copyright © 2001 Keith Packard
 
 type FcCharSet struct {
 	leaves  []*FcCharLeaf // same size 'num'
 	numbers []uint16      // same size 'num'
+}
+
+// func  parseCharRange (str []byte) ([]byte, uint32, uint32, bool) {
+// 	//  char *s = (char *) *string;
+// 	//  char *t;
+// 	//  long first, last;
+
+// 	str = bytes.TrimLeftFunc(str, unicode.IsSpace)
+
+// 	 t = s;
+// 	 errno = 0;
+// 	 first = last = strtol (s, &s, 16);
+// 	strconv.ParseInt (string())
+
+// 	 if (errno)
+// 		 return false;
+// 	 for (isspace(*s))
+// 		 s++;
+// 	 if (*s == '-')
+// 	 {
+// 		 s++;
+// 		 errno = 0;
+// 		 last = strtol (s, &s, 16);
+// 		 if (errno)
+// 		 return false;
+// 	 }
+
+// 	 if (s == t || first < 0 || last < 0 || last < first || last > 0x10ffff)
+// 		  return false;
+
+// 	 *string = (FcChar8 *) s;
+// 	 *pfirst = first;
+// 	 *plast = last;
+// 	 return true;
+//  }
+
+func FcNameParseCharSet(str string) (FcCharSet, error) {
+	fields := strings.Fields(str)
+
+	var out FcCharSet
+	for len(fields) != 0 {
+		// either the separator is surrounded by space or not
+		chunks := strings.Split(fields[0], "-")
+		firstS, lastS := fields[0], ""
+		if len(chunks) == 2 {
+			firstS, lastS = chunks[0], chunks[1]
+			fields = fields[1:]
+		} else if strings.HasSuffix(fields[0], "-") && len(fields) >= 2 {
+			firstS = strings.TrimSuffix(firstS, "-")
+			lastS = fields[1]
+			fields = fields[2:]
+		} else if len(fields) >= 3 && fields[1] == "-" {
+			lastS = fields[2]
+			fields = fields[3:]
+		}
+
+		first, err := strconv.ParseInt(firstS, 16, 32)
+		if err != nil {
+			return out, fmt.Errorf("fontconfig: invalid charset: invalid first element %s: %s", firstS, err)
+		}
+		last := first
+		if lastS != "" {
+			last, err = strconv.ParseInt(lastS, 16, 32)
+			if err != nil {
+				return out, fmt.Errorf("fontconfig: invalid charset: invalid last element %s: %s", lastS, err)
+			}
+		}
+
+		if first < 0 || last < 0 || last < first || last > 0x10ffff {
+			return out, fmt.Errorf("invalid charset range %s %s", firstS, lastS)
+		}
+
+		for u := uint32(first); u < uint32(last+1); u++ {
+			out.addChar(u)
+		}
+	}
+	return out, nil
 }
 
 // Search for the leaf containing with the specified num.
@@ -170,6 +252,16 @@ func (fcs *FcCharSet) addLeaf(ucs4 uint32, leaf *FcCharLeaf) bool {
 	return true
 }
 
+func (fcs *FcCharSet) addChar(ucs4 uint32) bool {
+	leaf := fcs.findLeafCreate(ucs4)
+	if leaf == nil {
+		return false
+	}
+	b := &leaf[(ucs4&0xff)>>5]
+	*b |= (1 << (ucs4 & 0x1f))
+	return true
+}
+
 func FcCharSetUnion(a, b FcCharSet) *FcCharSet {
 	return operate(a, b, unionLeaf, true, true)
 }
@@ -302,7 +394,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 //  }
 
 //  void
-//  FcCharSetDestroy (FcCharSet *fcs)
+//  FcCharSetDestroy (fcs *FcCharSet)
 //  {
 // 	 int i;
 
@@ -336,7 +428,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 //  }
 
 //  static FcBool
-//  FcCharSetInsertLeaf (FcCharSet *fcs, ucs4 uint32 , FcCharLeaf *leaf)
+//  FcCharSetInsertLeaf (fcs *FcCharSet, ucs4 uint32 , FcCharLeaf *leaf)
 //  {
 // 	 int		    pos;
 
@@ -353,23 +445,7 @@ func (iter *FcCharSetIter) next(fcs FcCharSet) {
 //  }
 
 //  FcBool
-//  FcCharSetAddChar (FcCharSet *fcs, ucs4 uint32 )
-//  {
-// 	 leaf *FcCharLeaf;
-// 	 uint32	*b;
-
-// 	 if (fcs == NULL || FcRefIsConst (&fcs.ref))
-// 	 return false;
-// 	 leaf = findLeafCreate (fcs, ucs4);
-// 	 if (!leaf)
-// 	 return false;
-// 	 b = &leaf.map_[(ucs4 & 0xff) >> 5];
-// 	 *b |= (1U << (ucs4 & 0x1f));
-// 	 return true;
-//  }
-
-//  FcBool
-//  FcCharSetDelChar (FcCharSet *fcs, ucs4 uint32 )
+//  FcCharSetDelChar (fcs *FcCharSet, ucs4 uint32 )
 //  {
 // 	 leaf *FcCharLeaf;
 // 	 uint32	*b;
@@ -602,66 +678,6 @@ func (a *FcCharSet) merge(b FcCharSet) bool {
 // 	 return page;
 //  }
 
-//  static FcBool
-//  FcNameParseRange (FcChar8 **string, uint32 *pfirst, uint32 *plast)
-//  {
-// 	 char *s = (char *) *string;
-// 	 char *t;
-// 	 long first, last;
-
-// 	 for (isspace(*s))
-// 		 s++;
-// 	 t = s;
-// 	 errno = 0;
-// 	 first = last = strtol (s, &s, 16);
-// 	 if (errno)
-// 		 return false;
-// 	 for (isspace(*s))
-// 		 s++;
-// 	 if (*s == '-')
-// 	 {
-// 		 s++;
-// 		 errno = 0;
-// 		 last = strtol (s, &s, 16);
-// 		 if (errno)
-// 		 return false;
-// 	 }
-
-// 	 if (s == t || first < 0 || last < 0 || last < first || last > 0x10ffff)
-// 		  return false;
-
-// 	 *string = (FcChar8 *) s;
-// 	 *pfirst = first;
-// 	 *plast = last;
-// 	 return true;
-//  }
-
-//  FcCharSet *
-//  FcNameParseCharSet (FcChar8 *string)
-//  {
-// 	 FcCharSet	*c;
-// 	 uint32	first, last;
-
-// 	 c = FcCharSetCreate ();
-// 	 if (!c)
-// 	 goto bail0;
-// 	 for (*string)
-// 	 {
-// 	 uint32 u;
-
-// 	 if (!FcNameParseRange (&string, &first, &last))
-// 		 goto bail1;
-
-// 	 for (u = first; u < last + 1; u++)
-// 		 FcCharSetAddChar (c, u);
-// 	 }
-// 	 return c;
-//  bail1:
-// 	 FcCharSetDestroy (c);
-//  bail0:
-// 	 return NULL;
-//  }
-
 //  static void
 //  FcNameUnparseUnicode (FcStrBuf *buf, uint32 u)
 //  {
@@ -874,7 +890,7 @@ func (a *FcCharSet) merge(b FcCharSet) bool {
 //  }
 
 //  static uint32
-//  FcCharSetHash (FcCharSet *fcs)
+//  FcCharSetHash (fcs *FcCharSet)
 //  {
 // 	 uint32	hash = 0;
 // 	 int		i;
@@ -905,7 +921,7 @@ func (a *FcCharSet) merge(b FcCharSet) bool {
 //  }
 
 //  static FcCharSet *
-//  FcCharSetFreezeBase (FcCharSetFreezer *freezer, FcCharSet *fcs)
+//  FcCharSetFreezeBase (FcCharSetFreezer *freezer, fcs *FcCharSet)
 //  {
 // 	 uint32		hash = FcCharSetHash (fcs);
 // 	 FcCharSetEnt	**bucket = &freezer.set_hash_table[hash % FC_CHAR_SET_HASH_SIZE];

@@ -68,9 +68,66 @@ const (
 	fcEnd
 )
 
-// TODO:
+var ObjectNames = [...]string{
+	FC_FAMILY:          "family",
+	FC_FAMILYLANG:      "familylang",
+	FC_STYLE:           "style",
+	FC_STYLELANG:       "stylelang",
+	FC_FULLNAME:        "fullname",
+	FC_FULLNAMELANG:    "fullnamelang",
+	FC_SLANT:           "slant",
+	FC_WEIGHT:          "weight",
+	FC_WIDTH:           "width",
+	FC_SIZE:            "size",
+	FC_ASPECT:          "aspect",
+	FC_PIXEL_SIZE:      "pixelsize",
+	FC_SPACING:         "spacing",
+	FC_FOUNDRY:         "foundry",
+	FC_ANTIALIAS:       "antialias",
+	FC_HINT_STYLE:      "hintstyle",
+	FC_HINTING:         "hinting",
+	FC_VERTICAL_LAYOUT: "verticallayout",
+	FC_AUTOHINT:        "autohint",
+	FC_GLOBAL_ADVANCE:  "globaladvance",
+	FC_FILE:            "file",
+	FC_INDEX:           "index",
+	FC_RASTERIZER:      "rasterizer",
+	FC_OUTLINE:         "outline",
+	FC_SCALABLE:        "scalable",
+	FC_DPI:             "dpi",
+	FC_RGBA:            "rgba",
+	FC_SCALE:           "scale",
+	FC_MINSPACE:        "minspace",
+	FC_CHARWIDTH:       "charwidth",
+	FC_CHAR_HEIGHT:     "charheight",
+	FC_MATRIX:          "matrix",
+	FC_CHARSET:         "charset",
+	FC_LANG:            "lang",
+	FC_FONTVERSION:     "fontversion",
+	FC_CAPABILITY:      "capability",
+	FC_FONTFORMAT:      "fontformat",
+	FC_EMBOLDEN:        "embolden",
+	FC_EMBEDDED_BITMAP: "embeddedbitmap",
+	FC_DECORATIVE:      "decorative",
+	FC_LCD_FILTER:      "lcdfilter",
+	FC_NAMELANG:        "namelang",
+	FC_FONT_FEATURES:   "fontfeatures",
+	FC_PRGNAME:         "prgname",
+	FC_HASH:            "hash",
+	FC_POSTSCRIPT_NAME: "postscriptname",
+	FC_COLOR:           "color",
+	FC_SYMBOL:          "symbol",
+	FC_FONT_VARIATIONS: "fontvariations",
+	FC_VARIABLE:        "variable",
+	FC_FONT_HAS_HINT:   "fonthashint",
+	FC_ORDER:           "order",
+}
+
 func (object FcObject) String() string {
-	return fmt.Sprintf("%d", object)
+	if int(object) >= len(ObjectNames) {
+		return fmt.Sprintf("invalid_object_%d", object)
+	}
+	return ObjectNames[object]
 }
 
 type FcBool uint8

@@ -92,7 +92,7 @@ func (p *FcPattern) String() string {
 	return s
 }
 
-func (p FcPattern) FcPatternObjectGet(object FcObject, id int) (interface{}, FcResult) {
+func (p FcPattern) FcPatternObjectGet(object FcObject, id int) (FcValue, FcResult) {
 	e := p.elts[object]
 	if e == nil {
 		return nil, FcResultNoMatch

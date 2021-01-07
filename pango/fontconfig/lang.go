@@ -161,6 +161,26 @@ func (lsa FcLangSet) FcLangSetContains(lsb FcLangSet) bool {
 	return true
 }
 
+func FcNameParseLangSet(str string) FcLangSet {
+	var ls FcLangSet
+	for _, lang := range strings.Split(str, "|") {
+		ls.add(lang)
+	}
+	return ls
+}
+
+// copy creates a new FcLangSet object and
+// populates it with the contents of `ls`.
+func (ls FcLangSet) copy() FcLangSet {
+	var new FcLangSet
+	new.map_ = ls.map_
+	new.extra = make(FcStrSet, len(ls.extra))
+	for e := range ls.extra {
+		new.extra[e] = true
+	}
+	return new
+}
+
 func FcStrSetAddLangs(strs FcStrSet, languages string) bool {
 	var ret bool
 	ls := strings.Split(languages, ":")
@@ -492,18 +512,6 @@ func langContains(super, sub string) bool {
 // 	 free (ls);
 //  }
 
-// copy creates a new FcLangSet object and
-// populates it with the contents of `ls`.
-func (ls FcLangSet) copy() FcLangSet {
-	var new FcLangSet
-	new.map_ = ls.map_
-	new.extra = make(FcStrSet, len(ls.extra))
-	for e := range ls.extra {
-		new.extra[e] = true
-	}
-	return new
-}
-
 /* When the language isn't found, the return value r is such that:
  *  1) r < 0
  *  2) -r -1 is the index of the first language in fcLangCharSets that comes
@@ -712,39 +720,6 @@ func FcLangSetPromote(lang string) FcLangSet {
 // 	 if (ls.extra)
 // 	 h ^= ls.extra.num;
 // 	 return h;
-//  }
-
-//  FcLangSet *
-//  FcNameParseLangSet (const FcChar8 *string)
-//  {
-// 	 FcChar8	    lang[32], c = 0;
-// 	 int i;
-// 	 FcLangSet	    *ls;
-
-// 	 ls = FcLangSetCreate ();
-// 	 if (!ls)
-// 	 goto bail0;
-
-// 	 for(;;)
-// 	 {
-// 	 for(i = 0; i < 31;i++)
-// 	 {
-// 		 c = *string++;
-// 		 if(c == '\0' || c == '|')
-// 		 break; /* end of this code */
-// 		 lang[i] = c;
-// 	 }
-// 	 lang[i] = '\0';
-// 	 if (!add (ls, lang))
-// 		 goto bail1;
-// 	 if(c == '\0')
-// 		 break;
-// 	 }
-// 	 return ls;
-//  bail1:
-// 	 FcLangSetDestroy (ls);
-//  bail0:
-// 	 return 0;
 //  }
 
 //  FcBool

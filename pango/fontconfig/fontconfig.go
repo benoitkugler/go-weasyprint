@@ -1,13 +1,52 @@
 package fontconfig
 
 import (
+	"errors"
 	"math"
 	"os"
+	"path/filepath"
+	"runtime"
 )
 
-const debugMode = false
+const (
+	debugMode   = false
+	homeEnabled = true
+)
+
+// FcConfigHome returns the current user's home directory, if it is available, and if using it
+// is enabled, and "" otherwise.
+func FcConfigHome() string {
+	if homeEnabled {
+		home := os.Getenv("HOME")
+
+		if home == "" && runtime.GOOS == "windows" {
+			home = os.Getenv("USERPROFILE")
+		}
+
+		return home
+	}
+	return ""
+}
 
 type FcFontSet []*FcPattern // with length nfont, and cap sfont
+
+// FcStrCopyFilename constructs an absolute pathname from
+// `s`. It converts any leading '~' characters in
+// to the value of the HOME environment variable, and any relative paths are
+// converted to absolute paths using the current working directory. Sequences
+// of '/' characters are converted to a single '/', and names containing the
+// current directory '.' or parent directory '..' are correctly reconstructed.
+// Returns "" if '~' is the leading character and HOME is unset or disabled
+func toAbsPath(s string) (string, error) {
+	if usesHome(s) {
+		home := FcConfigHome()
+		if home == "" {
+			return "", errors.New("home is disabled")
+		}
+		s = filepath.Join(home, s[1:])
+	}
+	return filepath.Abs(s)
+}
 
 type FcStrSet map[string]bool
 

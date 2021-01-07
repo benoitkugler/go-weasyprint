@@ -2,6 +2,7 @@ package fontconfig
 
 import (
 	"fmt"
+	"strings"
 )
 
 // ported from fontconfig/src/fccfg.c Copyright © 2000 Keith Packard
@@ -39,55 +40,41 @@ type FcRuleSet struct {
 }
 
 type FcConfig struct {
-	/*
-	 * File names loaded from the configuration -- saved here as the
-	 * cache file must be consulted before the directories are scanned,
-	 * and those directives may occur in any order
-	 */
-	configDirs    FcStrSet /* directories to scan for fonts */
-	configMapDirs FcStrSet /* mapped names to generate cache entries */
-	/*
-	 * List of directories containing fonts,
-	 * built by recursively scanning the set
-	 * of configured directories
-	 */
-	fontDirs FcStrSet
-	/*
-	 * List of directories containing cache files.
-	 */
-	cacheDirs FcStrSet
-	/*
-	 * Names of all of the configuration files used
-	 * to create this configuration
-	 */
+	// File names loaded from the configuration -- saved here as the
+	// cache file must be consulted before the directories are scanned,
+	// and those directives may occur in any order
+	configDirs    FcStrSet // directories to scan for fonts
+	configMapDirs FcStrSet // mapped names to generate cache entries
+	// List of directories containing fonts,
+	// built by recursively scanning the set
+	// of configured directories
+	fontDirs  FcStrSet
+	cacheDirs FcStrSet // List of directories containing cache files.
+	// Names of all of the configuration files used to create this configuration
 	configFiles FcStrSet /* config files loaded */
 
-	/*
-	 * Substitution instructions for patterns and fonts;
-	 * maxObjects is used to allocate appropriate intermediate storage
-	 * for performing a whole set of substitutions
-	 *
-	 * 0.. substitutions for patterns
-	 * 1.. substitutions for fonts
-	 * 2.. substitutions for scanned fonts
-	 */
+	// Substitution instructions for patterns and fonts;
+	// maxObjects is used to allocate appropriate intermediate storage
+	// for performing a whole set of substitutions
+	//
+	// 0.. substitutions for patterns
+	// 1.. substitutions for fonts
+	// 2.. substitutions for scanned fonts
 	subst      [FcMatchKindEnd][]*FcRuleSet
 	maxObjects int /* maximum number of tests in all substs */
 
-	/*
-	 * List of patterns used to control font file selection
-	 */
+	// List of patterns used to control font file selection
 	acceptGlobs    FcStrSet
 	rejectGlobs    FcStrSet
 	acceptPatterns *FcFontSet
 	rejectPatterns *FcFontSet
-	/*
-	 * The set of fonts loaded from the listed directories; the
-	 * order within the set does not determine the font selection,
-	 * except in the case of identical matches in which case earlier fonts
-	 * match preferrentially
-	 */
+
+	// The set of fonts loaded from the listed directories; the
+	// order within the set does not determine the font selection,
+	// except in the case of identical matches in which case earlier fonts
+	// match preferrentially
 	fonts [FcSetApplication + 1]FcFontSet
+
 	/*
 	 * Fontconfig can periodically rescan the system configuration
 	 * and font directories.  This rescanning occurs when font
@@ -919,7 +906,7 @@ func ensure() *FcConfig {
 // }
 
 // FcBool
-// FcConfigAddConfigDir (FcConfig	    *config,
+// FcConfigAddConfigDir (config *FcConfig,
 // 		      const FcChar8 *d)
 // {
 //     return FcStrSetAddFilename (config.configDirs, d);
@@ -939,25 +926,38 @@ func ensure() *FcConfig {
 //     return ret;
 // }
 
-// FcBool
-// FcConfigAddFontDir (FcConfig	    *config,
-// 		    const FcChar8   *d,
-// 		    const FcChar8   *m,
-// 		    const FcChar8   *salt)
-// {
-//     if (FcDebug() & FC_DBG_CACHE)
-//     {
-// 	if (m)
-// 	{
-// 	    printf ("%s . %s%s%s%s\n", d, m, salt ? " (salt: " : "", salt ? (const char *)salt : "", salt ? ")" : "");
-// 	}
-// 	else if (salt)
-// 	{
-// 	    printf ("%s%s%s%s\n", d, salt ? " (salt: " : "", salt ? (const char *)salt : "", salt ? ")" : "");
-// 	}
-//     }
-//     return FcStrSetAddFilenamePairWithSalt (config.fontDirs, d, m, salt);
-// }
+func (config *FcConfig) addFontDir(d, m, salt string) error {
+	if debugMode {
+		if m != "" {
+			fmt.Printf("%s . %s %s\n", d, m, salt)
+		} else if salt != "" {
+			fmt.Printf("%s %s\n", d, salt)
+		}
+	}
+	return addFilenamePairWithSalt(config.fontDirs, d, m, salt)
+}
+
+func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
+	var err error
+	a, err = toAbsPath(a)
+	if err != nil {
+		return err
+	}
+	b, err = toAbsPath(b)
+	if err != nil {
+		return err
+	}
+
+	// override maps with new one if exists
+	c := a + b
+	for s := range set {
+		if strings.HasPrefix(s, c) {
+			delete(set, s)
+		}
+	}
+	set[c+salt] = true
+	return nil
+}
 
 // FcBool
 // FcConfigResetFontDirs (FcConfig *config)
@@ -1058,7 +1058,7 @@ func ensure() *FcConfig {
 // }
 
 // FcBool
-// FcConfigAddCacheDir (FcConfig	    *config,
+// FcConfigAddCacheDir (config *FcConfig,
 // 		     const FcChar8  *d)
 // {
 //     return FcStrSetAddFilename (config.cacheDirs, d);
@@ -1079,7 +1079,7 @@ func ensure() *FcConfig {
 // }
 
 // FcBool
-// FcConfigAddConfigFile (FcConfig	    *config,
+// FcConfigAddConfigFile (config *FcConfig,
 // 		       const FcChar8   *f)
 // {
 //     FcBool	ret;
@@ -1549,12 +1549,12 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //     free (path);
 // }
 
-// static FcBool	_FcConfigHomeEnabled = true; /* MT-goodenough */
+// static FcBool	homeEnabled = true; /* MT-goodenough */
 
 // FcChar8 *
 // FcConfigHome (void)
 // {
-//     if (_FcConfigHomeEnabled)
+//     if (homeEnabled)
 //     {
 //         char *home = getenv ("HOME");
 
@@ -1574,7 +1574,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //     const char *env = getenv ("XDG_CACHE_HOME");
 //     FcChar8 *ret = nil;
 
-//     if (!_FcConfigHomeEnabled)
+//     if (!homeEnabled)
 // 	return nil;
 //     if (env && env[0])
 // 	ret = FcStrCopy ((const FcChar8 *)env);
@@ -1602,7 +1602,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //     const char *env = getenv ("XDG_CONFIG_HOME");
 //     FcChar8 *ret = nil;
 
-//     if (!_FcConfigHomeEnabled)
+//     if (!homeEnabled)
 // 	return nil;
 //     if (env)
 // 	ret = FcStrCopy ((const FcChar8 *)env);
@@ -1630,7 +1630,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //     const char *env = getenv ("XDG_DATA_HOME");
 //     FcChar8 *ret = nil;
 
-//     if (!_FcConfigHomeEnabled)
+//     if (!homeEnabled)
 // 	return nil;
 //     if (env)
 // 	ret = FcStrCopy ((const FcChar8 *)env);
@@ -1655,8 +1655,8 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // FcBool
 // FcConfigEnableHome (FcBool enable)
 // {
-//     FcBool  prev = _FcConfigHomeEnabled;
-//     _FcConfigHomeEnabled = enable;
+//     FcBool  prev = homeEnabled;
+//     homeEnabled = enable;
 //     return prev;
 // }
 
@@ -1855,7 +1855,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // }
 
 // FcBool
-// FcConfigAppFontAddDir (FcConfig	    *config,
+// FcConfigAppFontAddDir (config *FcConfig,
 // 		       const FcChar8   *dir)
 // {
 //     FcFontSet	*set;
@@ -1902,7 +1902,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // }
 
 // void
-// FcConfigAppFontClear (FcConfig	    *config)
+// FcConfigAppFontClear (config *FcConfig)
 // {
 //     config = fallbackConfig (config);
 //     if (!config)
@@ -1977,7 +1977,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // }
 
 // FcBool
-// FcConfigAcceptFont (FcConfig	    *config,
+// FcConfigAcceptFont (config *FcConfig,
 // 		    const FcPattern *font)
 // {
 //     if (FcConfigPatternsMatch (config.acceptPatterns, font))

@@ -635,8 +635,9 @@ func (data FcCompareData) compare(pat, fnt *FcPattern, value []float64) (bool, F
 // FcFontRenderPrepare creates a new pattern consisting of elements of `font` not appearing
 // in `pat`, elements of `pat` not appearing in `font` and the best matching
 // value from `pat` for elements appearing in both.  The result is passed to
-// FcConfigSubstituteWithPat with `kind` FcMatchFont and then returned.
-func (config *FcConfig) FcFontRenderPrepare(pat, font *FcPattern) *FcPattern {
+// FcConfigSubstituteWithPat with `kind` FcMatchFont and then returned. As in `FcConfigSubstituteWithPat`,
+// a nil config may be used, defaulting to the current configuration.
+func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *FcPattern {
 	//  FcPattern	    *new;
 	//  int		    i;
 	//  FcPatternElt    *fe, *pe;
@@ -865,63 +866,45 @@ func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcChar
 		patternLang, res = p.FcPatternObjectGet(FC_LANG, nPatternLang)
 	}
 
-	/* freed below */
-	//  nodes = malloc (nnodes * sizeof (FcSortNode) +
-	// 		 nnodes * sizeof (FcSortNode *) +
-	// 		 nPatternLang * sizeof (FcBool));
-	//  nodeps = (FcSortNode **) (nodes + nnodes);
-	nodes := make([]FcSortNode, nnodes)
-	nodeps := make([]*FcSortNode, nnodes)
+	nodes := make([]*FcSortNode, nnodes)
 	patternLangSat := make([]bool, nPatternLang)
 
 	data := p.newCompareData()
 
-	new := nodes
-	nodep := nodeps
+	index := 0
 	for _, s := range sets {
 		for f, font := range s {
 			if debugMode {
 				fmt.Printf("Font %d: %s\n", f, font)
 			}
-			new.pattern = font
+			newPtr := new(FcSortNode)
+			newPtr.pattern = font
 			var ok bool
-			ok, result = data.compare(p, new.pattern, new.score)
+			ok, result = data.compare(p, newPtr.pattern, newPtr.score[:])
 			if !ok {
 				return nil, FcCharSet{}, result
 			}
 			if debugMode {
-				fmt.Println("Score", new.score)
+				fmt.Println("Score", newPtr.score)
 			}
-			*nodep = new
-			new++
-			nodep++
+			nodes[index] = newPtr
+			index++
 		}
 	}
 
-	nnodes = new - nodes
+	sort.Slice(nodes, func(i, j int) bool { return sortCompare(nodes[i], nodes[j]) })
 
-	// until nnodes
-	sort.Slice(nodeps, func(i, j int) bool { return sortCompare(nodeps[i], nodeps[j]) })
-
-	for f := 0; f < nnodes; f++ {
+	for _, node := range nodes {
 		satisfies := false
-		//  If this node matches any language, go check which ones and satisfy those entries
-		if nodeps[f].score[PRI_LANG] < 2000 {
+		//  if this node matches any language, check which ones and satisfy those entries
+		if node.score[PRI_LANG] < 2000 {
 			for i, pls := range patternLangSat {
-				//  FcValue	    nodeLang;
-
-				if !pls &&
-					FcPatternGet(p, FC_LANG, i, &patternLang) == FcResultMatch &&
-					FcPatternGet(nodeps[f].pattern, FC_LANG, 0, &nodeLang) == FcResultMatch {
-					//  FcValue matchValue;
-					compare := FcCompareLang(&patternLang, &nodeLang, &matchValue)
+				var res1 FcResult
+				patternLang, res1 = p.FcPatternObjectGet(FC_LANG, i)
+				nodeLang, res2 := node.pattern.FcPatternObjectGet(FC_LANG, 0)
+				if !pls && res1 == FcResultMatch && res2 == FcResultMatch {
+					_, compare := FcCompareLang(patternLang, nodeLang)
 					if compare >= 0 && compare < 2 {
-						if debugMode {
-							if FcPatternGetString(nodeps[f].pattern, FC_FAMILY, 0, &family) == FcResultMatch &&
-								FcPatternGetString(nodeps[f].pattern, FC_STYLE, 0, &style) == FcResultMatch {
-								fmt.Printf("Font %s:%s matches language %d\n", family, style, i)
-							}
-						}
 						patternLangSat[i] = true
 						satisfies = true
 						break
@@ -930,17 +913,16 @@ func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcChar
 			}
 		}
 		if !satisfies {
-			nodeps[f].score[PRI_LANG] = 10000.0
+			node.score[PRI_LANG] = 10000
 		}
 	}
 
-	///  Re-sort once the language issues have been settled
-	// until nnodes
-	sort.Slice(nodeps, func(i, j int) bool { return sortCompare(nodeps[i], nodeps[j]) })
+	// re-sort once the language issues have been settled
+	sort.Slice(nodes, func(i, j int) bool { return sortCompare(nodes[i], nodes[j]) })
 
 	var ret FcFontSet
 
-	csp := FcSortWalk(nodeps, &ret, trim)
+	csp := FcSortWalk(nodes, &ret, trim)
 
 	if len(ret) != 0 {
 		result = FcResultMatch
@@ -1000,7 +982,7 @@ func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
 	var ret *FcPattern
 	best, result := p.fontSetMatchInternal(sets)
 	if best != nil {
-		ret = config.FcFontRenderPrepare(p, best)
+		ret = p.FcFontRenderPrepare(best, config)
 	}
 
 	return ret, result

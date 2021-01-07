@@ -1,5 +1,15 @@
 package fontconfig
 
+import (
+	"bytes"
+	"encoding/xml"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
 // import (
 // 	"bytes"
 // 	"encoding/xml"
@@ -8,436 +18,552 @@ package fontconfig
 // 	"strings"
 // )
 
-// type FcElement uint8
+type FcElement uint8
 
-// const (
-// 	FcElementNone FcElement = iota
-// 	FcElementFontconfig
-// 	FcElementDir
-// 	FcElementCacheDir
-// 	FcElementCache
-// 	FcElementInclude
-// 	FcElementConfig
-// 	FcElementMatch
-// 	FcElementAlias
-// 	FcElementDescription
-// 	FcElementRemapDir
-// 	FcElementResetDirs
+const (
+	FcElementNone FcElement = iota
+	FcElementFontconfig
+	FcElementDir
+	FcElementCacheDir
+	FcElementCache
+	FcElementInclude
+	FcElementConfig
+	FcElementMatch
+	FcElementAlias
+	FcElementDescription
+	FcElementRemapDir
+	FcElementResetDirs
 
-// 	FcElementRescan
+	FcElementRescan
 
-// 	FcElementPrefer
-// 	FcElementAccept
-// 	FcElementDefault
-// 	FcElementFamily
+	FcElementPrefer
+	FcElementAccept
+	FcElementDefault
+	FcElementFamily
 
-// 	FcElementSelectfont
-// 	FcElementAcceptfont
-// 	FcElementRejectfont
-// 	FcElementGlob
-// 	FcElementPattern
-// 	FcElementPatelt
+	FcElementSelectfont
+	FcElementAcceptfont
+	FcElementRejectfont
+	FcElementGlob
+	FcElementPattern
+	FcElementPatelt
 
-// 	FcElementTest
-// 	FcElementEdit
-// 	FcElementInt
-// 	FcElementDouble
-// 	FcElementString
-// 	FcElementMatrix
-// 	FcElementRange
-// 	FcElementBool
-// 	FcElementCharSet
-// 	FcElementLangSet
-// 	FcElementName
-// 	FcElementConst
-// 	FcElementOr
-// 	FcElementAnd
-// 	FcElementEq
-// 	FcElementNotEq
-// 	FcElementLess
-// 	FcElementLessEq
-// 	FcElementMore
-// 	FcElementMoreEq
-// 	FcElementContains
-// 	FcElementNotContains
-// 	FcElementPlus
-// 	FcElementMinus
-// 	FcElementTimes
-// 	FcElementDivide
-// 	FcElementNot
-// 	FcElementIf
-// 	FcElementFloor
-// 	FcElementCeil
-// 	FcElementRound
-// 	FcElementTrunc
-// 	FcElementUnknown
-// )
+	FcElementTest
+	FcElementEdit
+	FcElementInt
+	FcElementDouble
+	FcElementString
+	FcElementMatrix
+	FcElementRange
+	FcElementBool
+	FcElementCharSet
+	FcElementLangSet
+	FcElementName
+	FcElementConst
+	FcElementOr
+	FcElementAnd
+	FcElementEq
+	FcElementNotEq
+	FcElementLess
+	FcElementLessEq
+	FcElementMore
+	FcElementMoreEq
+	FcElementContains
+	FcElementNotContains
+	FcElementPlus
+	FcElementMinus
+	FcElementTimes
+	FcElementDivide
+	FcElementNot
+	FcElementIf
+	FcElementFloor
+	FcElementCeil
+	FcElementRound
+	FcElementTrunc
+	FcElementUnknown
+)
 
-// var fcElementMap = [...]struct {
-// 	name    string
-// 	element FcElement
-// }{
-// 	{"fontconfig", FcElementFontconfig},
-// 	{"dir", FcElementDir},
-// 	{"cachedir", FcElementCacheDir},
-// 	{"cache", FcElementCache},
-// 	{"include", FcElementInclude},
-// 	{"config", FcElementConfig},
-// 	{"match", FcElementMatch},
-// 	{"alias", FcElementAlias},
-// 	{"description", FcElementDescription},
-// 	{"remap-dir", FcElementRemapDir},
-// 	{"reset-dirs", FcElementResetDirs},
+var fcElementMap = [...]string{
+	FcElementFontconfig:  "fontconfig",
+	FcElementDir:         "dir",
+	FcElementCacheDir:    "cachedir",
+	FcElementCache:       "cache",
+	FcElementInclude:     "include",
+	FcElementConfig:      "config",
+	FcElementMatch:       "match",
+	FcElementAlias:       "alias",
+	FcElementDescription: "description",
+	FcElementRemapDir:    "remap-dir",
+	FcElementResetDirs:   "reset-dirs",
 
-// 	{"rescan", FcElementRescan},
+	FcElementRescan: "rescan",
 
-// 	{"prefer", FcElementPrefer},
-// 	{"accept", FcElementAccept},
-// 	{"default", FcElementDefault},
-// 	{"family", FcElementFamily},
+	FcElementPrefer:  "prefer",
+	FcElementAccept:  "accept",
+	FcElementDefault: "default",
+	FcElementFamily:  "family",
 
-// 	{"selectfont", FcElementSelectfont},
-// 	{"acceptfont", FcElementAcceptfont},
-// 	{"rejectfont", FcElementRejectfont},
-// 	{"glob", FcElementGlob},
-// 	{"pattern", FcElementPattern},
-// 	{"patelt", FcElementPatelt},
+	FcElementSelectfont: "selectfont",
+	FcElementAcceptfont: "acceptfont",
+	FcElementRejectfont: "rejectfont",
+	FcElementGlob:       "glob",
+	FcElementPattern:    "pattern",
+	FcElementPatelt:     "patelt",
 
-// 	{"test", FcElementTest},
-// 	{"edit", FcElementEdit},
-// 	{"int", FcElementInt},
-// 	{"double", FcElementDouble},
-// 	{"string", FcElementString},
-// 	{"matrix", FcElementMatrix},
-// 	{"range", FcElementRange},
-// 	{"bool", FcElementBool},
-// 	{"charset", FcElementCharSet},
-// 	{"langset", FcElementLangSet},
-// 	{"name", FcElementName},
-// 	{"const", FcElementConst},
-// 	{"or", FcElementOr},
-// 	{"and", FcElementAnd},
-// 	{"eq", FcElementEq},
-// 	{"not_eq", FcElementNotEq},
-// 	{"less", FcElementLess},
-// 	{"less_eq", FcElementLessEq},
-// 	{"more", FcElementMore},
-// 	{"more_eq", FcElementMoreEq},
-// 	{"contains", FcElementContains},
-// 	{"not_contains", FcElementNotContains},
-// 	{"plus", FcElementPlus},
-// 	{"minus", FcElementMinus},
-// 	{"times", FcElementTimes},
-// 	{"divide", FcElementDivide},
-// 	{"not", FcElementNot},
-// 	{"if", FcElementIf},
-// 	{"floor", FcElementFloor},
-// 	{"ceil", FcElementCeil},
-// 	{"round", FcElementRound},
-// 	{"trunc", FcElementTrunc},
-// }
+	FcElementTest:        "test",
+	FcElementEdit:        "edit",
+	FcElementInt:         "int",
+	FcElementDouble:      "double",
+	FcElementString:      "string",
+	FcElementMatrix:      "matrix",
+	FcElementRange:       "range",
+	FcElementBool:        "bool",
+	FcElementCharSet:     "charset",
+	FcElementLangSet:     "langset",
+	FcElementName:        "name",
+	FcElementConst:       "const",
+	FcElementOr:          "or",
+	FcElementAnd:         "and",
+	FcElementEq:          "eq",
+	FcElementNotEq:       "not_eq",
+	FcElementLess:        "less",
+	FcElementLessEq:      "less_eq",
+	FcElementMore:        "more",
+	FcElementMoreEq:      "more_eq",
+	FcElementContains:    "contains",
+	FcElementNotContains: "not_contains",
+	FcElementPlus:        "plus",
+	FcElementMinus:       "minus",
+	FcElementTimes:       "times",
+	FcElementDivide:      "divide",
+	FcElementNot:         "not",
+	FcElementIf:          "if",
+	FcElementFloor:       "floor",
+	FcElementCeil:        "ceil",
+	FcElementRound:       "round",
+	FcElementTrunc:       "trunc",
+}
 
-// var fcElementIgnoreName = [...]string{
-// 	"its:",
-// }
+var fcElementIgnoreName = [...]string{
+	"its:",
+}
 
-// func FcElementMap(name string) FcElement {
-// 	for _, elem := range fcElementMap {
-// 		if name == elem.name {
-// 			return elem.element
-// 		}
-// 	}
-// 	for _, ignoreName := range fcElementIgnoreName {
-// 		if strings.HasPrefix(name, ignoreName) {
-// 			return FcElementNone
-// 		}
-// 	}
-// 	return FcElementUnknown
-// }
+func FcElementMap(name string) FcElement {
+	for i, elem := range fcElementMap {
+		if name == elem {
+			return FcElement(i)
+		}
+	}
+	for _, ignoreName := range fcElementIgnoreName {
+		if strings.HasPrefix(name, ignoreName) {
+			return FcElementNone
+		}
+	}
+	return FcElementUnknown
+}
 
-// type FcPStack struct {
-// 	// struct _FcPStack   *prev;
-// 	element FcElement
-// 	attr    []xml.Attr
-// 	str     *bytes.Buffer
-// 	// attr_buf_static [16]byte
-// }
+func (e FcElement) String() string {
+	if int(e) >= len(fcElementMap) {
+		return fmt.Sprintf("invalid element %d", e)
+	}
+	return fcElementMap[e]
+}
 
-// type FcVStackTag uint8
+type FcPStack struct {
+	// struct _FcPStack   *prev;
+	element FcElement
+	attr    []xml.Attr
+	str     *bytes.Buffer
+	// attr_buf_static [16]byte
+}
 
-// const (
-// 	FcVStackNone FcVStackTag = iota
+type FcVStackTag uint8
 
-// 	FcVStackString
-// 	FcVStackFamily
-// 	FcVStackConstant
-// 	FcVStackGlob
-// 	FcVStackName
-// 	FcVStackPattern
+const (
+	FcVStackNone FcVStackTag = iota
 
-// 	FcVStackPrefer
-// 	FcVStackAccept
-// 	FcVStackDefault
+	FcVStackString
+	FcVStackFamily
+	FcVStackConstant
+	FcVStackGlob
+	FcVStackName
+	FcVStackPattern
 
-// 	FcVStackInteger
-// 	FcVStackDouble
-// 	FcVStackMatrix
-// 	FcVStackRange
-// 	FcVStackBool
-// 	FcVStackCharSet
-// 	FcVStackLangSet
+	FcVStackPrefer
+	FcVStackAccept
+	FcVStackDefault
 
-// 	FcVStackTest
-// 	FcVStackExpr
-// 	FcVStackEdit
-// )
+	FcVStackInteger
+	FcVStackDouble
+	FcVStackMatrix
+	FcVStackRange
+	FcVStackBool
+	FcVStackCharSet
+	FcVStackLangSet
 
-// type FcVStack struct {
-// 	// struct _FcVStack	*prev;
-// 	pstack *FcPStack /* related parse element */
-// 	tag    FcVStackTag
-// 	// union {
-// 	// FcChar8		*string;
+	FcVStackTest
+	FcVStackExpr
+	FcVStackEdit
+)
 
-// 	// int		integer;
-// 	// double		_double;
-// 	// FcExprMatrix	*matrix;
-// 	// FcRange		*range;
-// 	// FcBool		bool_;
-// 	// FcCharSet	*charset;
-// 	// FcLangSet	*langset;
-// 	// FcExprName	name;
+type FcVStack struct {
+	// struct _FcVStack	*prev;
+	pstack *FcPStack /* related parse element */
+	tag    FcVStackTag
+	// union {
+	// FcChar8		*string;
 
-// 	// FcTest		*test;
-// 	// FcQual		qual;
-// 	// FcOp		op;
-// 	// FcExpr		*expr;
-// 	// FcEdit		*edit;
+	// int		integer;
+	// double		_double;
+	// FcExprMatrix	*matrix;
+	// FcRange		*range;
+	// FcBool		bool_;
+	// FcCharSet	*charset;
+	// FcLangSet	*langset;
+	// FcExprName	name;
 
-// 	// FcPattern	*pattern;
-// 	// }
-// 	u interface{}
-// }
+	// FcTest		*test;
+	// FcQual		qual;
+	// FcOp		op;
+	// FcExpr		*expr;
+	// FcEdit		*edit;
 
-// const (
-// 	FcSevereInfo uint8 = iota
-// 	FcSevereWarning
-// )
+	// FcPattern	*pattern;
+	// }
+	u interface{}
+}
 
-// type FcConfigParse struct {
-// 	logger io.Writer
+const (
+	FcSevereInfo uint8 = iota
+	FcSevereWarning
+)
 
-// 	pstack  []FcPStack
-// 	vstack  []FcVStack
-// 	name    string
-// 	config  *FcConfig
-// 	ruleset *FcRuleSet
-// 	// parser   XML_Parser
-// 	scanOnly bool
-// }
+type FcConfigParse struct {
+	logger io.Writer
 
-// func (parse FcConfigParse) message(severe uint8, args ...interface{}) {
-// 	s := "unknown"
-// 	switch severe {
-// 	case FcSevereInfo:
-// 		s = "info"
-// 	case FcSevereWarning:
-// 		s = "warning"
-// 	}
+	pstack  []FcPStack
+	vstack  []FcVStack
+	name    string
+	config  *FcConfig
+	ruleset *FcRuleSet
+	// parser   XML_Parser
+	scanOnly bool
+}
 
-// 	if parse.name != "" {
-// 		fmt.Fprintf(parse.logger, "fontconfig %s: \"%s\": ", s, parse.name)
-// 	} else {
-// 		fmt.Fprintf(parse.logger, "fontconfig %s: ", s)
-// 	}
-// 	fmt.Fprintln(parse.logger, args...)
-// }
+func (parse FcConfigParse) message(severe uint8, format string, args ...interface{}) {
+	s := "unknown"
+	switch severe {
+	case FcSevereInfo:
+		s = "info"
+	case FcSevereWarning:
+		s = "warning"
+	}
 
-// func (parse *FcConfigParse) FcStartElement(name string, attr []xml.Attr) {
-// 	element := FcElementMap(name)
+	if parse.name != "" {
+		fmt.Fprintf(parse.logger, "fontconfig %s: \"%s\": ", s, parse.name)
+	} else {
+		fmt.Fprintf(parse.logger, "fontconfig %s: ", s)
+	}
+	fmt.Fprintf(parse.logger, format, args...)
+}
 
-// 	if element == FcElementUnknown {
-// 		parse.message(FcSevereWarning, "unknown element", name)
-// 	}
+// do not check the stack is not empty
+func (parse *FcConfigParse) p() *FcPStack {
+	return &parse.pstack[len(parse.pstack)-1]
+}
 
-// 	parse.pstackPush(element, attr)
-// }
+func (parse *FcConfigParse) FcStartElement(name string, attr []xml.Attr) {
+	element := FcElementMap(name)
 
-// // push at the end of the slice
-// func (parse *FcConfigParse) pstackPush(element FcElement, attr []xml.Attr) {
-// 	new := FcPStack{
-// 		element: element,
-// 		attr:    attr,
-// 		str:     &bytes.Buffer{},
-// 	}
-// 	parse.pstack = append(parse.pstack, new)
-// }
+	if element == FcElementUnknown {
+		parse.message(FcSevereWarning, "unknown element %s", name)
+	}
 
-// func (parse *FcConfigParse) pstackPop() {
-// 	// the encoding/xml package makes sur tag are matching
-// 	// so parse.pstack has at least one element
+	parse.pstackPush(element, attr)
+}
 
-// 	// Don't check the attributes for FcElementNone
-// 	if last := parse.pstack[len(parse.pstack)-1]; last.element != FcElementNone {
-// 		// Warn about unused attrs.
-// 		for _, attr := range last.attr {
-// 			parse.message(FcSevereWarning, "invalid attribute", attr.Name.Local)
-// 		}
-// 	}
+// push at the end of the slice
+func (parse *FcConfigParse) pstackPush(element FcElement, attr []xml.Attr) {
+	new := FcPStack{
+		element: element,
+		attr:    attr,
+		str:     &bytes.Buffer{},
+	}
+	parse.pstack = append(parse.pstack, new)
+}
 
-// 	parse.vstack = nil
-// 	parse.pstack = parse.pstack[:len(parse.pstack)-1]
-// }
+func (parse *FcConfigParse) pstackPop() {
+	// the encoding/xml package makes sur tag are matching
+	// so parse.pstack has at least one element
 
-// func (parse *FcConfigParse) FcEndElement() {
-// 	if len(parse.pstack) == 0 {
-// 		return
-// 	}
-// 	last := parse.pstack[len(parse.pstack)-1]
-// 	switch last.element {
-// 	case FcElementDir:
-// 		FcParseDir(parse)
-// 	case FcElementCacheDir:
-// 		FcParseCacheDir(parse)
-// 	case FcElementCache:
-// 		data = FcStrBufDoneStatic(&parse.pstack.str)
-// 		// discard this data; no longer used
-// 		FcStrBufDestroy(&parse.pstack.str)
-// 	case FcElementInclude:
-// 		FcParseInclude(parse)
-// 	case FcElementMatch:
-// 		FcParseMatch(parse)
-// 	case FcElementAlias:
-// 		FcParseAlias(parse)
-// 	case FcElementDescription:
-// 		FcParseDescription(parse)
-// 	case FcElementRemapDir:
-// 		FcParseRemapDir(parse)
-// 	case FcElementResetDirs:
-// 		FcParseResetDirs(parse)
+	// Don't check the attributes for FcElementNone
+	if last := parse.p(); last.element != FcElementNone {
+		// Warn about unused attrs.
+		for _, attr := range last.attr {
+			parse.message(FcSevereWarning, "invalid attribute %s", attr.Name.Local)
+		}
+	}
 
-// 	case FcElementRescan:
-// 		FcParseRescan(parse)
+	parse.vstack = nil
+	parse.pstack = parse.pstack[:len(parse.pstack)-1]
+}
 
-// 	case FcElementPrefer:
-// 		FcParseFamilies(parse, FcVStackPrefer)
-// 	case FcElementAccept:
-// 		FcParseFamilies(parse, FcVStackAccept)
-// 	case FcElementDefault:
-// 		FcParseFamilies(parse, FcVStackDefault)
-// 	case FcElementFamily:
-// 		FcParseFamily(parse)
+func (parse *FcConfigParse) FcEndElement() error {
+	if len(parse.pstack) == 0 { // nothing to do
+		return nil
+	}
+	var err error
+	last := parse.p()
+	switch last.element {
+	case FcElementDir:
+		err = parse.FcParseDir()
+		// 	case FcElementCacheDir:
+		// 		FcParseCacheDir(parse)
+		// 	case FcElementCache:
+		// 		data = FcStrBufDoneStatic(&parse.pstack.str)
+		// 		// discard this data; no longer used
+		// 		FcStrBufDestroy(&parse.pstack.str)
+		// 	case FcElementInclude:
+		// 		FcParseInclude(parse)
+		// 	case FcElementMatch:
+		// 		FcParseMatch(parse)
+		// 	case FcElementAlias:
+		// 		FcParseAlias(parse)
+		// 	case FcElementDescription:
+		// 		FcParseDescription(parse)
+		// 	case FcElementRemapDir:
+		// 		FcParseRemapDir(parse)
+		// 	case FcElementResetDirs:
+		// 		FcParseResetDirs(parse)
 
-// 	case FcElementTest:
-// 		FcParseTest(parse)
-// 	case FcElementEdit:
-// 		FcParseEdit(parse)
+		// 	case FcElementRescan:
+		// 		FcParseRescan(parse)
 
-// 	case FcElementInt:
-// 		FcParseInt(parse)
-// 	case FcElementDouble:
-// 		FcParseDouble(parse)
-// 	case FcElementString:
-// 		FcParseString(parse, FcVStackString)
-// 	case FcElementMatrix:
-// 		FcParseMatrix(parse)
-// 	case FcElementRange:
-// 		FcParseRange(parse)
-// 	case FcElementBool:
-// 		FcParseBool(parse)
-// 	case FcElementCharSet:
-// 		FcParseCharSet(parse)
-// 	case FcElementLangSet:
-// 		FcParseLangSet(parse)
-// 	case FcElementSelectfont:
-// 	case FcElementAcceptfont, FcElementRejectfont:
-// 		FcParseAcceptRejectFont(parse, parse.pstack.element)
-// 	case FcElementGlob:
-// 		FcParseString(parse, FcVStackGlob)
-// 	case FcElementPattern:
-// 		FcParsePattern(parse)
-// 	case FcElementPatelt:
-// 		FcParsePatelt(parse)
-// 	case FcElementName:
-// 		FcParseName(parse)
-// 	case FcElementConst:
-// 		FcParseString(parse, FcVStackConstant)
-// 	case FcElementOr:
-// 		FcParseBinary(parse, FcOpOr)
-// 	case FcElementAnd:
-// 		FcParseBinary(parse, FcOpAnd)
-// 	case FcElementEq:
-// 		FcParseBinary(parse, FcOpEqual)
-// 	case FcElementNotEq:
-// 		FcParseBinary(parse, FcOpNotEqual)
-// 	case FcElementLess:
-// 		FcParseBinary(parse, FcOpLess)
-// 	case FcElementLessEq:
-// 		FcParseBinary(parse, FcOpLessEqual)
-// 	case FcElementMore:
-// 		FcParseBinary(parse, FcOpMore)
-// 	case FcElementMoreEq:
-// 		FcParseBinary(parse, FcOpMoreEqual)
-// 	case FcElementContains:
-// 		FcParseBinary(parse, FcOpContains)
-// 	case FcElementNotContains:
-// 		FcParseBinary(parse, FcOpNotContains)
-// 	case FcElementPlus:
-// 		FcParseBinary(parse, FcOpPlus)
-// 	case FcElementMinus:
-// 		FcParseBinary(parse, FcOpMinus)
-// 	case FcElementTimes:
-// 		FcParseBinary(parse, FcOpTimes)
-// 	case FcElementDivide:
-// 		FcParseBinary(parse, FcOpDivide)
-// 	case FcElementNot:
-// 		FcParseUnary(parse, FcOpNot)
-// 	case FcElementIf:
-// 		FcParseBinary(parse, FcOpQuest)
-// 	case FcElementFloor:
-// 		FcParseUnary(parse, FcOpFloor)
-// 	case FcElementCeil:
-// 		FcParseUnary(parse, FcOpCeil)
-// 	case FcElementRound:
-// 		FcParseUnary(parse, FcOpRound)
-// 	case FcElementTrunc:
-// 		FcParseUnary(parse, FcOpTrunc)
-// 	}
-// 	parse.pstackPop()
-// }
+		// 	case FcElementPrefer:
+		// 		FcParseFamilies(parse, FcVStackPrefer)
+		// 	case FcElementAccept:
+		// 		FcParseFamilies(parse, FcVStackAccept)
+		// 	case FcElementDefault:
+		// 		FcParseFamilies(parse, FcVStackDefault)
+		// 	case FcElementFamily:
+		// 		FcParseFamily(parse)
 
-// func (parse *FcConfigParse) getAttr(attr string) string {
-// 	if len(parse.pstack) == 0 {
-// 		return ""
-// 	}
+		// 	case FcElementTest:
+		// 		FcParseTest(parse)
+		// 	case FcElementEdit:
+		// 		FcParseEdit(parse)
 
-// 	attrs := parse.pstack[len(parse.pstack)-1].attr
+		// 	case FcElementInt:
+		// 		FcParseInt(parse)
+		// 	case FcElementDouble:
+		// 		FcParseDouble(parse)
+		// 	case FcElementString:
+		// 		FcParseString(parse, FcVStackString)
+		// 	case FcElementMatrix:
+		// 		FcParseMatrix(parse)
+		// 	case FcElementRange:
+		// 		FcParseRange(parse)
+		// 	case FcElementBool:
+		// 		FcParseBool(parse)
+		// 	case FcElementCharSet:
+		// 		FcParseCharSet(parse)
+		// 	case FcElementLangSet:
+		// 		FcParseLangSet(parse)
+		// 	case FcElementSelectfont:
+		// 	case FcElementAcceptfont, FcElementRejectfont:
+		// 		FcParseAcceptRejectFont(parse, parse.pstack.element)
+		// 	case FcElementGlob:
+		// 		FcParseString(parse, FcVStackGlob)
+		// 	case FcElementPattern:
+		// 		FcParsePattern(parse)
+		// 	case FcElementPatelt:
+		// 		FcParsePatelt(parse)
+		// 	case FcElementName:
+		// 		FcParseName(parse)
+		// 	case FcElementConst:
+		// 		FcParseString(parse, FcVStackConstant)
+		// 	case FcElementOr:
+		// 		FcParseBinary(parse, FcOpOr)
+		// 	case FcElementAnd:
+		// 		FcParseBinary(parse, FcOpAnd)
+		// 	case FcElementEq:
+		// 		FcParseBinary(parse, FcOpEqual)
+		// 	case FcElementNotEq:
+		// 		FcParseBinary(parse, FcOpNotEqual)
+		// 	case FcElementLess:
+		// 		FcParseBinary(parse, FcOpLess)
+		// 	case FcElementLessEq:
+		// 		FcParseBinary(parse, FcOpLessEqual)
+		// 	case FcElementMore:
+		// 		FcParseBinary(parse, FcOpMore)
+		// 	case FcElementMoreEq:
+		// 		FcParseBinary(parse, FcOpMoreEqual)
+		// 	case FcElementContains:
+		// 		FcParseBinary(parse, FcOpContains)
+		// 	case FcElementNotContains:
+		// 		FcParseBinary(parse, FcOpNotContains)
+		// 	case FcElementPlus:
+		// 		FcParseBinary(parse, FcOpPlus)
+		// 	case FcElementMinus:
+		// 		FcParseBinary(parse, FcOpMinus)
+		// 	case FcElementTimes:
+		// 		FcParseBinary(parse, FcOpTimes)
+		// 	case FcElementDivide:
+		// 		FcParseBinary(parse, FcOpDivide)
+		// 	case FcElementNot:
+		// 		FcParseUnary(parse, FcOpNot)
+		// 	case FcElementIf:
+		// 		FcParseBinary(parse, FcOpQuest)
+		// 	case FcElementFloor:
+		// 		FcParseUnary(parse, FcOpFloor)
+		// 	case FcElementCeil:
+		// 		FcParseUnary(parse, FcOpCeil)
+		// 	case FcElementRound:
+		// 		FcParseUnary(parse, FcOpRound)
+		// 	case FcElementTrunc:
+		// 		FcParseUnary(parse, FcOpTrunc)
+	}
+	parse.pstackPop()
+	return err
+}
 
-// 	for i, attrXml := range attrs {
-// 		if attr == attrXml.Name.Local {
-// 			attrs[i].Name.Local == "" // Mark as used.
-// 			return attrXml.Value
-// 		}
-// 	}
-// 	return ""
-// }
+func (parse *FcConfigParse) getAttr(attr string) string {
+	if len(parse.pstack) == 0 {
+		return ""
+	}
 
-// func (parse *FcConfigParse) FcParseDir() {
-// 	data := parse.pstack[len(parse.pstack)-1].str
+	attrs := parse.p().attr
 
-// 	if data.Len() == 0 {
-// 		parse.message(FcSevereWarning, "empty font directory name ignored")
-// 		return
-// 	}
-// 	attr := parse.getAttr("prefix")
-// 	salt := parse.getAttr("salt")
-// 	prefix := _get_real_path_from_prefix(parse, data, attr)
-// 	if prefix == "" {
-// 		// nop
-// 	} else if !parse.scanOnly && (!FcStrUsesHome(prefix) || FcConfigHome()) {
-// 		if !FcConfigAddFontDir(parse.config, prefix, nil, salt) {
-// 			parse.message(FcSevereError, "out of memory; cannot add directory", prefix)
-// 		}
-// 	}
-// 	parse.pstack[len(parse.pstack)-1].str = nil
-// }
+	for i, attrXml := range attrs {
+		if attr == attrXml.Name.Local {
+			attrs[i].Name.Local = "" // Mark as used.
+			return attrXml.Value
+		}
+	}
+	return ""
+}
+
+func (parse *FcConfigParse) FcParseDir() error {
+	data := parse.p().str
+	if data.Len() == 0 {
+		parse.message(FcSevereWarning, "empty font directory name ignored")
+		return nil
+	}
+	attr := parse.getAttr("prefix")
+	salt := parse.getAttr("salt")
+	prefix, err := parse.getRealPathFromPrefix(data.String(), attr)
+	if err != nil {
+		return err
+	}
+	if prefix == "" {
+		// nop
+	} else if !parse.scanOnly && (!usesHome(prefix) || FcConfigHome() != "") {
+		if err := parse.config.addFontDir(prefix, "", salt); err != nil {
+			return fmt.Errorf("fontconfig: cannot add directory %s: %s", prefix, err)
+		}
+	}
+	parse.p().str.Reset()
+	return nil
+}
+
+func usesHome(str string) bool { return strings.HasPrefix(str, "~") }
+
+func xdgDataHome() string {
+	env := os.Getenv("XDG_DATA_HOME")
+	if !homeEnabled {
+		return ""
+	}
+	if env != "" {
+		return env
+	}
+	home := FcConfigHome()
+	return filepath.Join(home, ".local", "share")
+}
+
+func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string) (string, error) {
+	var parent string
+	switch prefix {
+	case "xdg":
+		parent := xdgDataHome()
+		if parent == "" { // Home directory might be disabled
+			return "", nil
+		}
+	case "default", "cwd":
+		// Nothing to do
+	case "relative":
+		parent = filepath.Dir(parse.name)
+		if parent == "." {
+			return "", nil
+		}
+
+	// #ifndef _WIN32
+	// /* For Win32, check this later for dealing with special cases */
+	default:
+		if !filepath.IsAbs(path) && path[0] != '~' {
+			parse.message(FcSevereWarning,
+				"Use of ambiguous path in <%s> element. please add prefix=\"cwd\" if current behavior is desired.",
+				parse.p().element)
+		}
+		// #else
+	}
+
+	// TODO: support windows
+	//     if  path ==  "CUSTOMFONTDIR"  {
+	// 	// FcChar8 *p;
+	// 	// path = buffer;
+	// 	if (!GetModuleFileName (nil, (LPCH) buffer, sizeof (buffer) - 20)) 	{
+	// 	    parse.message ( FcSevereError, "GetModuleFileName failed");
+	// 	    return ""
+	// 	}
+	// 	/*
+	// 	 * Must use the multi-byte aware function to search
+	// 	 * for backslash because East Asian double-byte code
+	// 	 * pages have characters with backslash as the second
+	// 	 * byte.
+	// 	 */
+	// 	p = _mbsrchr (path, '\\');
+	// 	if (p) *p = '\0';
+	// 	strcat ((char *) path, "\\fonts");
+	//     }
+	//     else if (strcmp ((const char *) path, "APPSHAREFONTDIR") == 0)
+	//     {
+	// 	FcChar8 *p;
+	// 	path = buffer;
+	// 	if (!GetModuleFileName (nil, (LPCH) buffer, sizeof (buffer) - 20))
+	// 	{
+	// 	    parse.message ( FcSevereError, "GetModuleFileName failed");
+	// 	    return nil;
+	// 	}
+	// 	p = _mbsrchr (path, '\\');
+	// 	if (p) *p = '\0';
+	// 	strcat ((char *) path, "\\..\\share\\fonts");
+	//     }
+	//     else if (strcmp ((const char *) path, "WINDOWSFONTDIR") == 0)
+	//     {
+	// 	int rc;
+	// 	path = buffer;
+	// 	rc = pGetSystemWindowsDirectory ((LPSTR) buffer, sizeof (buffer) - 20);
+	// 	if (rc == 0 || rc > sizeof (buffer) - 20)
+	// 	{
+	// 	    parse.message ( FcSevereError, "GetSystemWindowsDirectory failed");
+	// 	    return nil;
+	// 	}
+	// 	if (path [strlen ((const char *) path) - 1] != '\\')
+	// 	    strcat ((char *) path, "\\");
+	// 	strcat ((char *) path, "fonts");
+	//     }
+	//     else
+	//     {
+	// 	if (!prefix)
+	// 	{
+	// 	    if (!FcStrIsAbsoluteFilename (path) && path[0] != '~')
+	// 		parse.message ( FcSevereWarning, "Use of ambiguous path in <%s> element. please add prefix=\"cwd\" if current behavior is desired.", FcElementReverseMap (parse.pstack.element));
+	// 	}
+	//     }
+	// #endif
+
+	if parent != "" {
+		return filepath.Join(parent, path), nil
+	}
+	return path, nil
+}

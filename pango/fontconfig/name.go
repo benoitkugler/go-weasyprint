@@ -1,6 +1,79 @@
 package fontconfig
 
+import (
+	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+)
+
 // ported from fontconfig/src/fcname.c Copyright © 2000 Keith Packard
+
+// used to identify a type
+type nameParser interface {
+	parse(str string, object FcObject) (FcValue, error)
+}
+
+type FcObjectType struct {
+	object FcObject // exposed name of the object
+	parser nameParser
+}
+
+var objects = map[string]FcObjectType{
+	ObjectNames[FC_FAMILY]:          {object: FC_FAMILY, parser: convertString{}},          // String
+	ObjectNames[FC_FAMILYLANG]:      {object: FC_FAMILYLANG, parser: convertString{}},      // String
+	ObjectNames[FC_STYLE]:           {object: FC_STYLE, parser: convertString{}},           // String
+	ObjectNames[FC_STYLELANG]:       {object: FC_STYLELANG, parser: convertString{}},       // String
+	ObjectNames[FC_FULLNAME]:        {object: FC_FULLNAME, parser: convertString{}},        // String
+	ObjectNames[FC_FULLNAMELANG]:    {object: FC_FULLNAMELANG, parser: convertString{}},    // String
+	ObjectNames[FC_SLANT]:           {object: FC_SLANT, parser: convertInteger{}},          // Integer
+	ObjectNames[FC_WEIGHT]:          {object: FC_WEIGHT, parser: convertRange{}},           // Range
+	ObjectNames[FC_WIDTH]:           {object: FC_WIDTH, parser: convertRange{}},            // Range
+	ObjectNames[FC_SIZE]:            {object: FC_SIZE, parser: convertRange{}},             // Range
+	ObjectNames[FC_ASPECT]:          {object: FC_ASPECT, parser: convertFloat{}},           // Double
+	ObjectNames[FC_PIXEL_SIZE]:      {object: FC_PIXEL_SIZE, parser: convertFloat{}},       // Double
+	ObjectNames[FC_SPACING]:         {object: FC_SPACING, parser: convertInteger{}},        // Integer
+	ObjectNames[FC_FOUNDRY]:         {object: FC_FOUNDRY, parser: convertString{}},         // String
+	ObjectNames[FC_ANTIALIAS]:       {object: FC_ANTIALIAS, parser: convertBool{}},         // Bool
+	ObjectNames[FC_HINT_STYLE]:      {object: FC_HINT_STYLE, parser: convertInteger{}},     // Integer
+	ObjectNames[FC_HINTING]:         {object: FC_HINTING, parser: convertBool{}},           // Bool
+	ObjectNames[FC_VERTICAL_LAYOUT]: {object: FC_VERTICAL_LAYOUT, parser: convertBool{}},   // Bool
+	ObjectNames[FC_AUTOHINT]:        {object: FC_AUTOHINT, parser: convertBool{}},          // Bool
+	ObjectNames[FC_GLOBAL_ADVANCE]:  {object: FC_GLOBAL_ADVANCE, parser: convertBool{}},    // Bool
+	ObjectNames[FC_FILE]:            {object: FC_FILE, parser: convertString{}},            // String
+	ObjectNames[FC_INDEX]:           {object: FC_INDEX, parser: convertInteger{}},          // Integer
+	ObjectNames[FC_RASTERIZER]:      {object: FC_RASTERIZER, parser: convertString{}},      // String
+	ObjectNames[FC_OUTLINE]:         {object: FC_OUTLINE, parser: convertBool{}},           // Bool
+	ObjectNames[FC_SCALABLE]:        {object: FC_SCALABLE, parser: convertBool{}},          // Bool
+	ObjectNames[FC_DPI]:             {object: FC_DPI, parser: convertFloat{}},              // Double
+	ObjectNames[FC_RGBA]:            {object: FC_RGBA, parser: convertInteger{}},           // Integer
+	ObjectNames[FC_SCALE]:           {object: FC_SCALE, parser: convertFloat{}},            // Double
+	ObjectNames[FC_MINSPACE]:        {object: FC_MINSPACE, parser: convertBool{}},          // Bool
+	ObjectNames[FC_CHARWIDTH]:       {object: FC_CHARWIDTH, parser: convertInteger{}},      // Integer
+	ObjectNames[FC_CHAR_HEIGHT]:     {object: FC_CHAR_HEIGHT, parser: convertInteger{}},    // Integer
+	ObjectNames[FC_MATRIX]:          {object: FC_MATRIX, parser: convertMatrix{}},          // Matrix
+	ObjectNames[FC_CHARSET]:         {object: FC_CHARSET, parser: convertCharSet{}},        // CharSet
+	ObjectNames[FC_LANG]:            {object: FC_LANG, parser: convertLangSet{}},           // LangSet
+	ObjectNames[FC_FONTVERSION]:     {object: FC_FONTVERSION, parser: convertInteger{}},    // Integer
+	ObjectNames[FC_CAPABILITY]:      {object: FC_CAPABILITY, parser: convertString{}},      // String
+	ObjectNames[FC_FONTFORMAT]:      {object: FC_FONTFORMAT, parser: convertString{}},      // String
+	ObjectNames[FC_EMBOLDEN]:        {object: FC_EMBOLDEN, parser: convertBool{}},          // Bool
+	ObjectNames[FC_EMBEDDED_BITMAP]: {object: FC_EMBEDDED_BITMAP, parser: convertBool{}},   // Bool
+	ObjectNames[FC_DECORATIVE]:      {object: FC_DECORATIVE, parser: convertBool{}},        // Bool
+	ObjectNames[FC_LCD_FILTER]:      {object: FC_LCD_FILTER, parser: convertInteger{}},     // Integer
+	ObjectNames[FC_NAMELANG]:        {object: FC_NAMELANG, parser: convertString{}},        // String
+	ObjectNames[FC_FONT_FEATURES]:   {object: FC_FONT_FEATURES, parser: convertString{}},   // String
+	ObjectNames[FC_PRGNAME]:         {object: FC_PRGNAME, parser: convertString{}},         // String
+	ObjectNames[FC_HASH]:            {object: FC_HASH, parser: convertString{}},            // String
+	ObjectNames[FC_POSTSCRIPT_NAME]: {object: FC_POSTSCRIPT_NAME, parser: convertString{}}, // String
+	ObjectNames[FC_COLOR]:           {object: FC_COLOR, parser: convertBool{}},             // Bool
+	ObjectNames[FC_SYMBOL]:          {object: FC_SYMBOL, parser: convertBool{}},            // Bool
+	ObjectNames[FC_FONT_VARIATIONS]: {object: FC_FONT_VARIATIONS, parser: convertString{}}, // String
+	ObjectNames[FC_VARIABLE]:        {object: FC_VARIABLE, parser: convertBool{}},          // Bool
+	ObjectNames[FC_FONT_HAS_HINT]:   {object: FC_FONT_HAS_HINT, parser: convertBool{}},     // Bool
+	ObjectNames[FC_ORDER]:           {object: FC_ORDER, parser: convertInteger{}},          // Integer
+}
 
 //  static const FcObjectType FcObjects[] = {
 //  #define FC_OBJECT(NAME, Type, Cmp) { FC_##NAME, Type },
@@ -32,16 +105,14 @@ package fontconfig
 // 	 return false;
 //  }
 
-//  const FcObjectType *
-//  FcNameGetObjectType (const char *object)
-//  {
-// 	 int id = FcObjectLookupBuiltinIdByName (object);
-
-// 	 if (!id)
-// 	 return FcObjectLookupOtherTypeByName (object);
-
-// 	 return &FcObjects[id - 1];
-//  }
+// Return the object type for the pattern element named object
+func getObjectType(object string) (FcObjectType, error) {
+	if builtin, ok := objects[object]; ok {
+		return builtin, nil
+	}
+	// TODO: support custom objects
+	return FcObjectType{}, fmt.Errorf("fontconfig: invalid object name %s", object)
+}
 
 //  FcBool
 //  hasValidType (FcObject object, FcType type)
@@ -109,74 +180,75 @@ package fontconfig
 
 type FcConstant struct {
 	name   string
-	object string
+	object FcObject
 	value  int
 }
 
 var baseConstants = [...]FcConstant{
-	{"thin", "weight", FC_WEIGHT_THIN},
-	{"extralight", "weight", FC_WEIGHT_EXTRALIGHT},
-	{"ultralight", "weight", FC_WEIGHT_EXTRALIGHT},
-	{"demilight", "weight", FC_WEIGHT_DEMILIGHT},
-	{"semilight", "weight", FC_WEIGHT_DEMILIGHT},
-	{"light", "weight", FC_WEIGHT_LIGHT},
-	{"book", "weight", FC_WEIGHT_BOOK},
-	{"regular", "weight", FC_WEIGHT_REGULAR},
-	{"medium", "weight", FC_WEIGHT_MEDIUM},
-	{"demibold", "weight", FC_WEIGHT_DEMIBOLD},
-	{"semibold", "weight", FC_WEIGHT_DEMIBOLD},
-	{"bold", "weight", FC_WEIGHT_BOLD},
-	{"extrabold", "weight", FC_WEIGHT_EXTRABOLD},
-	{"ultrabold", "weight", FC_WEIGHT_EXTRABOLD},
-	{"black", "weight", FC_WEIGHT_BLACK},
-	{"heavy", "weight", FC_WEIGHT_HEAVY},
+	{"thin", FC_WEIGHT, FC_WEIGHT_THIN},
+	{"extralight", FC_WEIGHT, FC_WEIGHT_EXTRALIGHT},
+	{"ultralight", FC_WEIGHT, FC_WEIGHT_EXTRALIGHT},
+	{"demilight", FC_WEIGHT, FC_WEIGHT_DEMILIGHT},
+	{"semilight", FC_WEIGHT, FC_WEIGHT_DEMILIGHT},
+	{"light", FC_WEIGHT, FC_WEIGHT_LIGHT},
+	{"book", FC_WEIGHT, FC_WEIGHT_BOOK},
+	{"regular", FC_WEIGHT, FC_WEIGHT_REGULAR},
+	{"medium", FC_WEIGHT, FC_WEIGHT_MEDIUM},
+	{"demibold", FC_WEIGHT, FC_WEIGHT_DEMIBOLD},
+	{"semibold", FC_WEIGHT, FC_WEIGHT_DEMIBOLD},
+	{"bold", FC_WEIGHT, FC_WEIGHT_BOLD},
+	{"extrabold", FC_WEIGHT, FC_WEIGHT_EXTRABOLD},
+	{"ultrabold", FC_WEIGHT, FC_WEIGHT_EXTRABOLD},
+	{"black", FC_WEIGHT, FC_WEIGHT_BLACK},
+	{"heavy", FC_WEIGHT, FC_WEIGHT_HEAVY},
 
-	{"roman", "slant", FC_SLANT_ROMAN},
-	{"italic", "slant", FC_SLANT_ITALIC},
-	{"oblique", "slant", FC_SLANT_OBLIQUE},
+	{"roman", FC_SLANT, FC_SLANT_ROMAN},
+	{"italic", FC_SLANT, FC_SLANT_ITALIC},
+	{"oblique", FC_SLANT, FC_SLANT_OBLIQUE},
 
-	{"ultracondensed", "width", FC_WIDTH_ULTRACONDENSED},
-	{"extracondensed", "width", FC_WIDTH_EXTRACONDENSED},
-	{"condensed", "width", FC_WIDTH_CONDENSED},
-	{"semicondensed", "width", FC_WIDTH_SEMICONDENSED},
-	{"normal", "width", FC_WIDTH_NORMAL},
-	{"semiexpanded", "width", FC_WIDTH_SEMIEXPANDED},
-	{"expanded", "width", FC_WIDTH_EXPANDED},
-	{"extraexpanded", "width", FC_WIDTH_EXTRAEXPANDED},
-	{"ultraexpanded", "width", FC_WIDTH_ULTRAEXPANDED},
+	{"ultracondensed", FC_WIDTH, FC_WIDTH_ULTRACONDENSED},
+	{"extracondensed", FC_WIDTH, FC_WIDTH_EXTRACONDENSED},
+	{"condensed", FC_WIDTH, FC_WIDTH_CONDENSED},
+	{"semicondensed", FC_WIDTH, FC_WIDTH_SEMICONDENSED},
+	{"normal", FC_WIDTH, FC_WIDTH_NORMAL},
+	{"semiexpanded", FC_WIDTH, FC_WIDTH_SEMIEXPANDED},
+	{"expanded", FC_WIDTH, FC_WIDTH_EXPANDED},
+	{"extraexpanded", FC_WIDTH, FC_WIDTH_EXTRAEXPANDED},
+	{"ultraexpanded", FC_WIDTH, FC_WIDTH_ULTRAEXPANDED},
 
-	{"proportional", "spacing", FC_PROPORTIONAL},
-	{"dual", "spacing", FC_DUAL},
-	{"mono", "spacing", FC_MONO},
-	{"charcell", "spacing", FC_CHARCELL},
+	{"proportional", FC_SPACING, FC_PROPORTIONAL},
+	{"dual", FC_SPACING, FC_DUAL},
+	{"mono", FC_SPACING, FC_MONO},
+	{"charcell", FC_SPACING, FC_CHARCELL},
 
-	{"unknown", "rgba", FC_RGBA_UNKNOWN},
-	{"rgb", "rgba", FC_RGBA_RGB},
-	{"bgr", "rgba", FC_RGBA_BGR},
-	{"vrgb", "rgba", FC_RGBA_VRGB},
-	{"vbgr", "rgba", FC_RGBA_VBGR},
-	{"none", "rgba", FC_RGBA_NONE},
+	{"unknown", FC_RGBA, FC_RGBA_UNKNOWN},
+	{"rgb", FC_RGBA, FC_RGBA_RGB},
+	{"bgr", FC_RGBA, FC_RGBA_BGR},
+	{"vrgb", FC_RGBA, FC_RGBA_VRGB},
+	{"vbgr", FC_RGBA, FC_RGBA_VBGR},
+	{"none", FC_RGBA, FC_RGBA_NONE},
 
-	{"hintnone", "hintstyle", FC_HINT_NONE},
-	{"hintslight", "hintstyle", FC_HINT_SLIGHT},
-	{"hintmedium", "hintstyle", FC_HINT_MEDIUM},
-	{"hintfull", "hintstyle", FC_HINT_FULL},
+	{"hintnone", FC_HINT_STYLE, FC_HINT_NONE},
+	{"hintslight", FC_HINT_STYLE, FC_HINT_SLIGHT},
+	{"hintmedium", FC_HINT_STYLE, FC_HINT_MEDIUM},
+	{"hintfull", FC_HINT_STYLE, FC_HINT_FULL},
 
-	{"antialias", "antialias", 1},
-	{"hinting", "hinting", 1},
-	{"verticallayout", "verticallayout", 1},
-	{"autohint", "autohint", 1},
-	{"globaladvance", "globaladvance", 1}, /* deprecated */
-	{"outline", "outline", 1},
-	{"scalable", "scalable", 1},
-	{"minspace", "minspace", 1},
-	{"embolden", "embolden", 1},
-	{"embeddedbitmap", "embeddedbitmap", 1},
-	{"decorative", "decorative", 1},
-	{"lcdnone", "lcdfilter", FC_LCD_NONE},
-	{"lcddefault", "lcdfilter", FC_LCD_DEFAULT},
-	{"lcdlight", "lcdfilter", FC_LCD_LIGHT},
-	{"lcdlegacy", "lcdfilter", FC_LCD_LEGACY},
+	{"antialias", FC_ANTIALIAS, 1},
+	{"hinting", FC_HINTING, 1},
+	{"verticallayout", FC_VERTICAL_LAYOUT, 1},
+	{"autohint", FC_AUTOHINT, 1},
+	{"globaladvance", FC_GLOBAL_ADVANCE, 1}, /* deprecated */
+	{"outline", FC_OUTLINE, 1},
+	{"scalable", FC_SCALABLE, 1},
+	{"minspace", FC_MINSPACE, 1},
+	{"embolden", FC_EMBOLDEN, 1},
+	{"embeddedbitmap", FC_EMBEDDED_BITMAP, 1},
+	{"decorative", FC_DECORATIVE, 1},
+
+	{"lcdnone", FC_LCD_FILTER, FC_LCD_NONE},
+	{"lcddefault", FC_LCD_FILTER, FC_LCD_DEFAULT},
+	{"lcdlight", FC_LCD_FILTER, FC_LCD_LIGHT},
+	{"lcdlegacy", FC_LCD_FILTER, FC_LCD_LEGACY},
 }
 
 //  #define NUM_FC_CONSTANTS   (sizeof baseConstants/sizeof baseConstants[0])
@@ -211,68 +283,221 @@ func FcNameConstant(str string) (int, bool) {
 	return 0, false
 }
 
-//  FcBool
-//  FcNameConstantWithObjectCheck (const FcChar8 *string, const char *object, int *result)
-//  {
-// 	 const FcConstant	*c;
+// FcNameParse converts `name` from the standard text format described above into a pattern.
+func FcNameParse(name []byte) (*FcPattern, error) {
+	var (
+		delim byte
+		save  string
+		pat   = FcPattern{elts: make(map[FcObject]FcValueList)}
+	)
 
-// 	 if ((c = FcNameGetConstant(string)))
-// 	 {
-// 	 if (strcmp (c.object, object) != 0)
-// 	 {
-// 		 fprintf (stderr, "Fontconfig error: Unexpected constant name `%s' used for object `%s': should be `%s'\n", string, object, c.object);
-// 		 return false;
-// 	 }
-// 	 *result = c.value;
-// 	 return true;
-// 	 }
-// 	 return false;
-//  }
+	for {
+		delim, name, save = nameFindNext(name, "-,:")
+		if len(save) != 0 {
+			pat.Add(FC_FAMILY, save, true)
+		}
+		if delim != ',' {
+			break
+		}
+	}
+	if delim == '-' {
+		for {
+			delim, name, save = nameFindNext(name, "-,:")
+			d, err := strconv.ParseFloat(save, 64)
+			if err == nil {
+				pat.Add(FC_SIZE, d, true)
+			}
+			if delim != ',' {
+				break
+			}
+		}
+	}
+	for delim == ':' {
+		delim, name, save = nameFindNext(name, "=_:")
+		if len(save) != 0 {
+			if delim == '=' || delim == '_' {
+				t, err := getObjectType(save)
+				if err != nil {
+					return nil, err
+				}
+				for {
+					delim, name, save = nameFindNext(name, ":,")
+					v, err := t.parser.parse(save, t.object)
+					if err != nil {
+						return nil, err
+					}
+					pat.Add(t.object, v, true)
+					if delim != ',' {
+						break
+					}
+				}
+			} else {
+				if c := FcNameGetConstant(save); c != nil {
+					t, err := getObjectType(ObjectNames[c.object])
+					if err != nil {
+						return nil, err
+					}
 
-//  FcBool
-//  FcNameBool (const FcChar8 *v, FcBool *result)
-//  {
-// 	 char    c0, c1;
+					switch t.parser.(type) {
+					case convertInteger, convertFloat, convertRange:
+						pat.Add(c.object, c.value, true)
+					case convertBool:
+						pat.Add(c.object, FcBool(c.value), true)
+					}
+				}
+			}
+		}
+	}
 
-// 	 c0 = *v;
-// 	 c0 = FcToLower (c0);
-// 	 if (c0 == 't' || c0 == 'y' || c0 == '1')
-// 	 {
-// 	 *result = true;
-// 	 return true;
-// 	 }
-// 	 if (c0 == 'f' || c0 == 'n' || c0 == '0')
-// 	 {
-// 	 *result = false;
-// 	 return true;
-// 	 }
-// 	 if (c0 == 'd' || c0 == 'x' || c0 == '2')
-// 	 {
-// 	 *result = FcDontCare;
-// 	 return true;
-// 	 }
-// 	 if (c0 == 'o')
-// 	 {
-// 	 c1 = v[1];
-// 	 c1 = FcToLower (c1);
-// 	 if (c1 == 'n')
-// 	 {
-// 		 *result = true;
-// 		 return true;
-// 	 }
-// 	 if (c1 == 'f')
-// 	 {
-// 		 *result = false;
-// 		 return true;
-// 	 }
-// 	 if (c1 == 'r')
-// 	 {
-// 		 *result = FcDontCare;
-// 		 return true;
-// 	 }
-// 	 }
-// 	 return false;
-//  }
+	return &pat, nil
+}
+
+func nameFindNext(cur []byte, delim string) (byte, []byte, string) {
+	cur = bytes.TrimLeftFunc(cur, unicode.IsSpace)
+	i := 0
+	var save []byte
+	for i < len(cur) {
+		if cur[i] == '\\' {
+			i++
+			if i == len(cur) {
+				break
+			}
+		} else if strings.IndexByte(delim, cur[i]) != -1 {
+			break
+		}
+		save = append(save, cur[i])
+		i++
+	}
+	var last byte
+	if i < len(cur) {
+		last = cur[i]
+		i++
+	}
+	return last, cur[i:], string(save)
+}
+
+func constantWithObjectCheck(str string, object FcObject) (int, bool, error) {
+	c := FcNameGetConstant(str)
+	if c != nil {
+		if c.object != object {
+			return 0, false, fmt.Errorf("fontconfig : unexpected constant name %s used for object %s: should be %s\n", str, object, c.object)
+		}
+		return c.value, true, nil
+	}
+	return 0, false, nil
+}
+
+func nameBool(v string) (FcBool, error) {
+	c0 := FcToLower(v)
+	if c0 == 't' || c0 == 'y' || c0 == '1' {
+		return FcTrue, nil
+	}
+	if c0 == 'f' || c0 == 'n' || c0 == '0' {
+		return FcFalse, nil
+	}
+	if c0 == 'd' || c0 == 'x' || c0 == '2' {
+		return FcDontCare, nil
+	}
+	if c0 == 'o' {
+		c1 := FcToLower(v[1:])
+		if c1 == 'n' {
+			return FcTrue, nil
+		}
+		if c1 == 'f' {
+			return FcFalse, nil
+		}
+		if c1 == 'r' {
+			return FcDontCare, nil
+		}
+	}
+	return 0, fmt.Errorf("fontconfig: unknown boolean %s", v)
+}
+
+type convertInteger struct{}
+
+func (convertInteger) parse(str string, object FcObject) (FcValue, error) {
+	v, builtin, err := constantWithObjectCheck(str, object)
+	if err != nil {
+		return nil, err
+	}
+	if !builtin {
+		v, err = strconv.Atoi(str)
+	}
+	return v, err
+}
+
+type convertString struct{}
+
+func (convertString) parse(str string, object FcObject) (FcValue, error) { return str, nil }
+
+type convertBool struct{}
+
+func (convertBool) parse(str string, object FcObject) (FcValue, error) { return nameBool(str) }
+
+type convertFloat struct{}
+
+func (convertFloat) parse(str string, object FcObject) (FcValue, error) {
+	return strconv.ParseFloat(str, 64)
+}
+
+type convertMatrix struct{}
+
+func (convertMatrix) parse(str string, object FcObject) (FcValue, error) {
+	var m FcMatrix
+	_, err := fmt.Sscanf(str, "%g %g %g %g", &m.xx, &m.xy, &m.yx, &m.yy)
+	return m, err
+}
+
+type convertCharSet struct{}
+
+func (convertCharSet) parse(str string, object FcObject) (FcValue, error) {
+	return FcNameParseCharSet(str)
+}
+
+type convertLangSet struct{}
+
+func (convertLangSet) parse(str string, object FcObject) (FcValue, error) {
+	return FcNameParseLangSet(str), nil
+}
+
+type convertRange struct{}
+
+func (convertRange) parse(str string, object FcObject) (FcValue, error) {
+	var b, e float64
+	n, _ := fmt.Sscanf(str, "[%g %g]", &b, &e)
+	if n == 2 {
+		return FcRange{Begin: b, End: e}, nil
+	}
+
+	var sc, ec string
+	n, _ = fmt.Sscanf(strings.TrimSuffix(str, "]"), "[%s %s", &sc, &ec)
+	if n == 2 {
+		si, oks, err := constantWithObjectCheck(sc, object)
+		if err != nil {
+			return nil, err
+		}
+		ei, oke, err := constantWithObjectCheck(ec, object)
+		if err != nil {
+			return nil, err
+		}
+		if oks && oke {
+			return FcRange{Begin: float64(si), End: float64(ei)}, nil
+		}
+	}
+
+	si, ok, err := constantWithObjectCheck(str, object)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return float64(si), nil
+	}
+	v, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
 
 //  static FcValue
 //  FcNameConvert (FcType type, const char *object, FcChar8 *string)
@@ -285,7 +510,7 @@ func FcNameConstant(str string) (int, bool) {
 // 	 v.type = type;
 // 	 switch ((int) v.type) {
 // 	 case FcTypeInteger:
-// 	 if (!FcNameConstantWithObjectCheck (string, object, &v.u.i))
+// 	 if (!constantWithObjectCheck (string, object, &v.u.i))
 // 		 v.u.i = atoi ((char *) string);
 // 	 break;
 // 	 case FcTypeString:
@@ -294,7 +519,7 @@ func FcNameConstant(str string) (int, bool) {
 // 		 v.type = FcTypeVoid;
 // 	 break;
 // 	 case FcTypeBool:
-// 	 if (!FcNameBool (string, &v.u.b))
+// 	 if (!nameBool (string, &v.u.b))
 // 		 v.u.b = false;
 // 	 break;
 // 	 case FcTypeDouble:
@@ -326,8 +551,8 @@ func FcNameConstant(str string) (int, bool) {
 // 		 ec = malloc (len + 1);
 // 		 if (sc && ec && sscanf ((char *) string, "[%s %[^]]]", sc, ec) == 2)
 // 		 {
-// 		 if (FcNameConstantWithObjectCheck ((const FcChar8 *) sc, object, &si) &&
-// 			 FcNameConstantWithObjectCheck ((const FcChar8 *) ec, object, &ei))
+// 		 if (constantWithObjectCheck ((const FcChar8 *) sc, object, &si) &&
+// 			 constantWithObjectCheck ((const FcChar8 *) ec, object, &ei))
 // 			 v.u.r =  FcRangeCreateDouble (si, ei);
 // 		 else
 // 			 goto bail1;
@@ -336,7 +561,7 @@ func FcNameConstant(str string) (int, bool) {
 // 		 {
 // 		 bail1:
 // 		 v.type = FcTypeDouble;
-// 		 if (FcNameConstantWithObjectCheck (string, object, &si))
+// 		 if (constantWithObjectCheck (string, object, &si))
 // 		 {
 // 			 v.u.d = (double) si;
 // 		 } else {
@@ -359,154 +584,13 @@ func FcNameConstant(str string) (int, bool) {
 // 	 return v;
 //  }
 
-//  static const FcChar8 *
-//  FcNameFindNext (const FcChar8 *cur, const char *delim, FcChar8 *save, FcChar8 *last)
-//  {
-// 	 FcChar8    c;
-
-// 	 while ((c = *cur))
-// 	 {
-// 	 if (!isspace (c))
-// 		 break;
-// 	 ++cur;
-// 	 }
-// 	 while ((c = *cur))
-// 	 {
-// 	 if (c == '\\')
-// 	 {
-// 		 ++cur;
-// 		 if (!(c = *cur))
-// 		 break;
-// 	 }
-// 	 else if (strchr (delim, c))
-// 		 break;
-// 	 ++cur;
-// 	 *save++ = c;
-// 	 }
-// 	 *save = 0;
-// 	 *last = *cur;
-// 	 if (*cur)
-// 	 cur++;
-// 	 return cur;
-//  }
-
-//  FcPattern *
-//  FcNameParse (const FcChar8 *name)
-//  {
-// 	 FcChar8		*save;
-// 	 FcPattern		*pat;
-// 	 double		d;
-// 	 FcChar8		*e;
-// 	 FcChar8		delim;
-// 	 FcValue		v;
-// 	 const FcObjectType	*t;
-// 	 const FcConstant	*c;
-
-// 	 /* freed below */
-// 	 save = malloc (strlen ((char *) name) + 1);
-// 	 if (!save)
-// 	 goto bail0;
-// 	 pat = FcPatternCreate ();
-// 	 if (!pat)
-// 	 goto bail1;
-
-// 	 for (;;)
-// 	 {
-// 	 name = FcNameFindNext (name, "-,:", save, &delim);
-// 	 if (save[0])
-// 	 {
-// 		 if (!FcPatternObjectAddString (pat, FC_FAMILY_OBJECT, save))
-// 		 goto bail2;
-// 	 }
-// 	 if (delim != ',')
-// 		 break;
-// 	 }
-// 	 if (delim == '-')
-// 	 {
-// 	 for (;;)
-// 	 {
-// 		 name = FcNameFindNext (name, "-,:", save, &delim);
-// 		 d = strtod ((char *) save, (char **) &e);
-// 		 if (e != save)
-// 		 {
-// 		 if (!FcPatternObjectAddDouble (pat, FC_SIZE_OBJECT, d))
-// 			 goto bail2;
-// 		 }
-// 		 if (delim != ',')
-// 		 break;
-// 	 }
-// 	 }
-// 	 while (delim == ':')
-// 	 {
-// 	 name = FcNameFindNext (name, "=_:", save, &delim);
-// 	 if (save[0])
-// 	 {
-// 		 if (delim == '=' || delim == '_')
-// 		 {
-// 		 t = FcNameGetObjectType ((char *) save);
-// 		 for (;;)
-// 		 {
-// 			 name = FcNameFindNext (name, ":,", save, &delim);
-// 			 if (t)
-// 			 {
-// 			 v = FcNameConvert (t.type, t.object, save);
-// 			 if (!FcPatternAdd (pat, t.object, v, true))
-// 			 {
-// 				 FcValueDestroy (v);
-// 				 goto bail2;
-// 			 }
-// 			 FcValueDestroy (v);
-// 			 }
-// 			 if (delim != ',')
-// 			 break;
-// 		 }
-// 		 }
-// 		 else
-// 		 {
-// 		 if ((c = FcNameGetConstant (save)))
-// 		 {
-// 			 t = FcNameGetObjectType ((char *) c.object);
-// 			 if (t == NULL)
-// 			 goto bail2;
-// 			 switch ((int) t.type) {
-// 			 case FcTypeInteger:
-// 			 case FcTypeDouble:
-// 			 if (!FcPatternAddInteger (pat, c.object, c.value))
-// 				 goto bail2;
-// 			 break;
-// 			 case FcTypeBool:
-// 			 if (!FcPatternAddBool (pat, c.object, c.value))
-// 				 goto bail2;
-// 			 break;
-// 			 case FcTypeRange:
-// 			 if (!FcPatternAddInteger (pat, c.object, c.value))
-// 				 goto bail2;
-// 			 break;
-// 			 default:
-// 			 break;
-// 			 }
-// 		 }
-// 		 }
-// 	 }
-// 	 }
-
-// 	 free (save);
-// 	 return pat;
-
-//  bail2:
-// 	 FcPatternDestroy (pat);
-//  bail1:
-// 	 free (save);
-//  bail0:
-// 	 return 0;
-//  }
 //  static FcBool
 //  FcNameUnparseString (FcStrBuf	    *buf,
 // 			  const FcChar8  *string,
 // 			  const FcChar8  *escape)
 //  {
 // 	 FcChar8 c;
-// 	 while ((c = *string++))
+// 	 for ((c = *string++))
 // 	 {
 // 	 if (escape && strchr ((char *) escape, (char) c))
 // 	 {
@@ -566,7 +650,7 @@ func FcNameConstant(str string) (int, bool) {
 // 			 FcValueListPtr	v,
 // 			 FcChar8		*escape)
 //  {
-// 	 while (v)
+// 	 for (v)
 // 	 {
 // 	 if (!FcNameUnparseValue (buf, &v.value, escape))
 // 		 return false;
