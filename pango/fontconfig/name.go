@@ -11,68 +11,68 @@ import (
 // ported from fontconfig/src/fcname.c Copyright © 2000 Keith Packard
 
 // used to identify a type
-type nameParser interface {
+type typeMeta interface {
 	parse(str string, object FcObject) (FcValue, error)
 }
 
 type FcObjectType struct {
 	object FcObject // exposed name of the object
-	parser nameParser
+	parser typeMeta
 }
 
 var objects = map[string]FcObjectType{
-	ObjectNames[FC_FAMILY]:          {object: FC_FAMILY, parser: convertString{}},          // String
-	ObjectNames[FC_FAMILYLANG]:      {object: FC_FAMILYLANG, parser: convertString{}},      // String
-	ObjectNames[FC_STYLE]:           {object: FC_STYLE, parser: convertString{}},           // String
-	ObjectNames[FC_STYLELANG]:       {object: FC_STYLELANG, parser: convertString{}},       // String
-	ObjectNames[FC_FULLNAME]:        {object: FC_FULLNAME, parser: convertString{}},        // String
-	ObjectNames[FC_FULLNAMELANG]:    {object: FC_FULLNAMELANG, parser: convertString{}},    // String
-	ObjectNames[FC_SLANT]:           {object: FC_SLANT, parser: convertInteger{}},          // Integer
-	ObjectNames[FC_WEIGHT]:          {object: FC_WEIGHT, parser: convertRange{}},           // Range
-	ObjectNames[FC_WIDTH]:           {object: FC_WIDTH, parser: convertRange{}},            // Range
-	ObjectNames[FC_SIZE]:            {object: FC_SIZE, parser: convertRange{}},             // Range
-	ObjectNames[FC_ASPECT]:          {object: FC_ASPECT, parser: convertFloat{}},           // Double
-	ObjectNames[FC_PIXEL_SIZE]:      {object: FC_PIXEL_SIZE, parser: convertFloat{}},       // Double
-	ObjectNames[FC_SPACING]:         {object: FC_SPACING, parser: convertInteger{}},        // Integer
-	ObjectNames[FC_FOUNDRY]:         {object: FC_FOUNDRY, parser: convertString{}},         // String
-	ObjectNames[FC_ANTIALIAS]:       {object: FC_ANTIALIAS, parser: convertBool{}},         // Bool
-	ObjectNames[FC_HINT_STYLE]:      {object: FC_HINT_STYLE, parser: convertInteger{}},     // Integer
-	ObjectNames[FC_HINTING]:         {object: FC_HINTING, parser: convertBool{}},           // Bool
-	ObjectNames[FC_VERTICAL_LAYOUT]: {object: FC_VERTICAL_LAYOUT, parser: convertBool{}},   // Bool
-	ObjectNames[FC_AUTOHINT]:        {object: FC_AUTOHINT, parser: convertBool{}},          // Bool
-	ObjectNames[FC_GLOBAL_ADVANCE]:  {object: FC_GLOBAL_ADVANCE, parser: convertBool{}},    // Bool
-	ObjectNames[FC_FILE]:            {object: FC_FILE, parser: convertString{}},            // String
-	ObjectNames[FC_INDEX]:           {object: FC_INDEX, parser: convertInteger{}},          // Integer
-	ObjectNames[FC_RASTERIZER]:      {object: FC_RASTERIZER, parser: convertString{}},      // String
-	ObjectNames[FC_OUTLINE]:         {object: FC_OUTLINE, parser: convertBool{}},           // Bool
-	ObjectNames[FC_SCALABLE]:        {object: FC_SCALABLE, parser: convertBool{}},          // Bool
-	ObjectNames[FC_DPI]:             {object: FC_DPI, parser: convertFloat{}},              // Double
-	ObjectNames[FC_RGBA]:            {object: FC_RGBA, parser: convertInteger{}},           // Integer
-	ObjectNames[FC_SCALE]:           {object: FC_SCALE, parser: convertFloat{}},            // Double
-	ObjectNames[FC_MINSPACE]:        {object: FC_MINSPACE, parser: convertBool{}},          // Bool
-	ObjectNames[FC_CHARWIDTH]:       {object: FC_CHARWIDTH, parser: convertInteger{}},      // Integer
-	ObjectNames[FC_CHAR_HEIGHT]:     {object: FC_CHAR_HEIGHT, parser: convertInteger{}},    // Integer
-	ObjectNames[FC_MATRIX]:          {object: FC_MATRIX, parser: convertMatrix{}},          // Matrix
-	ObjectNames[FC_CHARSET]:         {object: FC_CHARSET, parser: convertCharSet{}},        // CharSet
-	ObjectNames[FC_LANG]:            {object: FC_LANG, parser: convertLangSet{}},           // LangSet
-	ObjectNames[FC_FONTVERSION]:     {object: FC_FONTVERSION, parser: convertInteger{}},    // Integer
-	ObjectNames[FC_CAPABILITY]:      {object: FC_CAPABILITY, parser: convertString{}},      // String
-	ObjectNames[FC_FONTFORMAT]:      {object: FC_FONTFORMAT, parser: convertString{}},      // String
-	ObjectNames[FC_EMBOLDEN]:        {object: FC_EMBOLDEN, parser: convertBool{}},          // Bool
-	ObjectNames[FC_EMBEDDED_BITMAP]: {object: FC_EMBEDDED_BITMAP, parser: convertBool{}},   // Bool
-	ObjectNames[FC_DECORATIVE]:      {object: FC_DECORATIVE, parser: convertBool{}},        // Bool
-	ObjectNames[FC_LCD_FILTER]:      {object: FC_LCD_FILTER, parser: convertInteger{}},     // Integer
-	ObjectNames[FC_NAMELANG]:        {object: FC_NAMELANG, parser: convertString{}},        // String
-	ObjectNames[FC_FONT_FEATURES]:   {object: FC_FONT_FEATURES, parser: convertString{}},   // String
-	ObjectNames[FC_PRGNAME]:         {object: FC_PRGNAME, parser: convertString{}},         // String
-	ObjectNames[FC_HASH]:            {object: FC_HASH, parser: convertString{}},            // String
-	ObjectNames[FC_POSTSCRIPT_NAME]: {object: FC_POSTSCRIPT_NAME, parser: convertString{}}, // String
-	ObjectNames[FC_COLOR]:           {object: FC_COLOR, parser: convertBool{}},             // Bool
-	ObjectNames[FC_SYMBOL]:          {object: FC_SYMBOL, parser: convertBool{}},            // Bool
-	ObjectNames[FC_FONT_VARIATIONS]: {object: FC_FONT_VARIATIONS, parser: convertString{}}, // String
-	ObjectNames[FC_VARIABLE]:        {object: FC_VARIABLE, parser: convertBool{}},          // Bool
-	ObjectNames[FC_FONT_HAS_HINT]:   {object: FC_FONT_HAS_HINT, parser: convertBool{}},     // Bool
-	ObjectNames[FC_ORDER]:           {object: FC_ORDER, parser: convertInteger{}},          // Integer
+	ObjectNames[FC_FAMILY]:          {object: FC_FAMILY, parser: typeString{}},          // String
+	ObjectNames[FC_FAMILYLANG]:      {object: FC_FAMILYLANG, parser: typeString{}},      // String
+	ObjectNames[FC_STYLE]:           {object: FC_STYLE, parser: typeString{}},           // String
+	ObjectNames[FC_STYLELANG]:       {object: FC_STYLELANG, parser: typeString{}},       // String
+	ObjectNames[FC_FULLNAME]:        {object: FC_FULLNAME, parser: typeString{}},        // String
+	ObjectNames[FC_FULLNAMELANG]:    {object: FC_FULLNAMELANG, parser: typeString{}},    // String
+	ObjectNames[FC_SLANT]:           {object: FC_SLANT, parser: typeInteger{}},          // Integer
+	ObjectNames[FC_WEIGHT]:          {object: FC_WEIGHT, parser: typeRange{}},           // Range
+	ObjectNames[FC_WIDTH]:           {object: FC_WIDTH, parser: typeRange{}},            // Range
+	ObjectNames[FC_SIZE]:            {object: FC_SIZE, parser: typeRange{}},             // Range
+	ObjectNames[FC_ASPECT]:          {object: FC_ASPECT, parser: typeFloat{}},           // Double
+	ObjectNames[FC_PIXEL_SIZE]:      {object: FC_PIXEL_SIZE, parser: typeFloat{}},       // Double
+	ObjectNames[FC_SPACING]:         {object: FC_SPACING, parser: typeInteger{}},        // Integer
+	ObjectNames[FC_FOUNDRY]:         {object: FC_FOUNDRY, parser: typeString{}},         // String
+	ObjectNames[FC_ANTIALIAS]:       {object: FC_ANTIALIAS, parser: typeBool{}},         // Bool
+	ObjectNames[FC_HINT_STYLE]:      {object: FC_HINT_STYLE, parser: typeInteger{}},     // Integer
+	ObjectNames[FC_HINTING]:         {object: FC_HINTING, parser: typeBool{}},           // Bool
+	ObjectNames[FC_VERTICAL_LAYOUT]: {object: FC_VERTICAL_LAYOUT, parser: typeBool{}},   // Bool
+	ObjectNames[FC_AUTOHINT]:        {object: FC_AUTOHINT, parser: typeBool{}},          // Bool
+	ObjectNames[FC_GLOBAL_ADVANCE]:  {object: FC_GLOBAL_ADVANCE, parser: typeBool{}},    // Bool
+	ObjectNames[FC_FILE]:            {object: FC_FILE, parser: typeString{}},            // String
+	ObjectNames[FC_INDEX]:           {object: FC_INDEX, parser: typeInteger{}},          // Integer
+	ObjectNames[FC_RASTERIZER]:      {object: FC_RASTERIZER, parser: typeString{}},      // String
+	ObjectNames[FC_OUTLINE]:         {object: FC_OUTLINE, parser: typeBool{}},           // Bool
+	ObjectNames[FC_SCALABLE]:        {object: FC_SCALABLE, parser: typeBool{}},          // Bool
+	ObjectNames[FC_DPI]:             {object: FC_DPI, parser: typeFloat{}},              // Double
+	ObjectNames[FC_RGBA]:            {object: FC_RGBA, parser: typeInteger{}},           // Integer
+	ObjectNames[FC_SCALE]:           {object: FC_SCALE, parser: typeFloat{}},            // Double
+	ObjectNames[FC_MINSPACE]:        {object: FC_MINSPACE, parser: typeBool{}},          // Bool
+	ObjectNames[FC_CHARWIDTH]:       {object: FC_CHARWIDTH, parser: typeInteger{}},      // Integer
+	ObjectNames[FC_CHAR_HEIGHT]:     {object: FC_CHAR_HEIGHT, parser: typeInteger{}},    // Integer
+	ObjectNames[FC_MATRIX]:          {object: FC_MATRIX, parser: typeMatrix{}},          // Matrix
+	ObjectNames[FC_CHARSET]:         {object: FC_CHARSET, parser: typeCharSet{}},        // CharSet
+	ObjectNames[FC_LANG]:            {object: FC_LANG, parser: typeLangSet{}},           // LangSet
+	ObjectNames[FC_FONTVERSION]:     {object: FC_FONTVERSION, parser: typeInteger{}},    // Integer
+	ObjectNames[FC_CAPABILITY]:      {object: FC_CAPABILITY, parser: typeString{}},      // String
+	ObjectNames[FC_FONTFORMAT]:      {object: FC_FONTFORMAT, parser: typeString{}},      // String
+	ObjectNames[FC_EMBOLDEN]:        {object: FC_EMBOLDEN, parser: typeBool{}},          // Bool
+	ObjectNames[FC_EMBEDDED_BITMAP]: {object: FC_EMBEDDED_BITMAP, parser: typeBool{}},   // Bool
+	ObjectNames[FC_DECORATIVE]:      {object: FC_DECORATIVE, parser: typeBool{}},        // Bool
+	ObjectNames[FC_LCD_FILTER]:      {object: FC_LCD_FILTER, parser: typeInteger{}},     // Integer
+	ObjectNames[FC_NAMELANG]:        {object: FC_NAMELANG, parser: typeString{}},        // String
+	ObjectNames[FC_FONT_FEATURES]:   {object: FC_FONT_FEATURES, parser: typeString{}},   // String
+	ObjectNames[FC_PRGNAME]:         {object: FC_PRGNAME, parser: typeString{}},         // String
+	ObjectNames[FC_HASH]:            {object: FC_HASH, parser: typeString{}},            // String
+	ObjectNames[FC_POSTSCRIPT_NAME]: {object: FC_POSTSCRIPT_NAME, parser: typeString{}}, // String
+	ObjectNames[FC_COLOR]:           {object: FC_COLOR, parser: typeBool{}},             // Bool
+	ObjectNames[FC_SYMBOL]:          {object: FC_SYMBOL, parser: typeBool{}},            // Bool
+	ObjectNames[FC_FONT_VARIATIONS]: {object: FC_FONT_VARIATIONS, parser: typeString{}}, // String
+	ObjectNames[FC_VARIABLE]:        {object: FC_VARIABLE, parser: typeBool{}},          // Bool
+	ObjectNames[FC_FONT_HAS_HINT]:   {object: FC_FONT_HAS_HINT, parser: typeBool{}},     // Bool
+	ObjectNames[FC_ORDER]:           {object: FC_ORDER, parser: typeInteger{}},          // Integer
 }
 
 //  static const FcObjectType FcObjects[] = {
@@ -339,9 +339,9 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 					}
 
 					switch t.parser.(type) {
-					case convertInteger, convertFloat, convertRange:
+					case typeInteger, typeFloat, typeRange:
 						pat.Add(c.object, c.value, true)
-					case convertBool:
+					case typeBool:
 						pat.Add(c.object, FcBool(c.value), true)
 					}
 				}
@@ -413,9 +413,9 @@ func nameBool(v string) (FcBool, error) {
 	return 0, fmt.Errorf("fontconfig: unknown boolean %s", v)
 }
 
-type convertInteger struct{}
+type typeInteger struct{}
 
-func (convertInteger) parse(str string, object FcObject) (FcValue, error) {
+func (typeInteger) parse(str string, object FcObject) (FcValue, error) {
 	v, builtin, err := constantWithObjectCheck(str, object)
 	if err != nil {
 		return nil, err
@@ -426,43 +426,43 @@ func (convertInteger) parse(str string, object FcObject) (FcValue, error) {
 	return v, err
 }
 
-type convertString struct{}
+type typeString struct{}
 
-func (convertString) parse(str string, object FcObject) (FcValue, error) { return str, nil }
+func (typeString) parse(str string, object FcObject) (FcValue, error) { return str, nil }
 
-type convertBool struct{}
+type typeBool struct{}
 
-func (convertBool) parse(str string, object FcObject) (FcValue, error) { return nameBool(str) }
+func (typeBool) parse(str string, object FcObject) (FcValue, error) { return nameBool(str) }
 
-type convertFloat struct{}
+type typeFloat struct{}
 
-func (convertFloat) parse(str string, object FcObject) (FcValue, error) {
+func (typeFloat) parse(str string, object FcObject) (FcValue, error) {
 	return strconv.ParseFloat(str, 64)
 }
 
-type convertMatrix struct{}
+type typeMatrix struct{}
 
-func (convertMatrix) parse(str string, object FcObject) (FcValue, error) {
+func (typeMatrix) parse(str string, object FcObject) (FcValue, error) {
 	var m FcMatrix
 	_, err := fmt.Sscanf(str, "%g %g %g %g", &m.xx, &m.xy, &m.yx, &m.yy)
 	return m, err
 }
 
-type convertCharSet struct{}
+type typeCharSet struct{}
 
-func (convertCharSet) parse(str string, object FcObject) (FcValue, error) {
+func (typeCharSet) parse(str string, object FcObject) (FcValue, error) {
 	return FcNameParseCharSet(str)
 }
 
-type convertLangSet struct{}
+type typeLangSet struct{}
 
-func (convertLangSet) parse(str string, object FcObject) (FcValue, error) {
+func (typeLangSet) parse(str string, object FcObject) (FcValue, error) {
 	return FcNameParseLangSet(str), nil
 }
 
-type convertRange struct{}
+type typeRange struct{}
 
-func (convertRange) parse(str string, object FcObject) (FcValue, error) {
+func (typeRange) parse(str string, object FcObject) (FcValue, error) {
 	var b, e float64
 	n, _ := fmt.Sscanf(str, "[%g %g]", &b, &e)
 	if n == 2 {

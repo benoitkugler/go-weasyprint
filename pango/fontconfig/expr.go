@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-type FcOp uint8
+type FcOp uint
 
 const (
 	FcOpInteger FcOp = iota
@@ -52,6 +52,14 @@ const (
 	FcOpInvalid
 )
 
+func opWithFlags(x FcOp, f int) FcOp {
+	return x | FcOp(f)<<16
+}
+
+func (x FcOp) getOp() FcOp {
+	return x & 0xffff
+}
+
 func (x FcOp) getFlags() int {
 	return (int(x) & 0xffff0000) >> 16
 }
@@ -93,10 +101,14 @@ type FcExpr struct {
 // } tree;
 // } u;
 
+func newExprOp(left, right *FcExpr, op FcOp) *FcExpr {
+	return &FcExpr{op: op, u: exprTree{left: left, right: right}}
+}
+
 func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue {
 	var v FcValue
-
-	switch e.op {
+	op := e.op.getOp()
+	switch op {
 	case FcOpInteger, FcOpDouble, FcOpString, FcOpCharSet, FcOpLangSet, FcOpRange, FcOpBool:
 		v = e.u
 	case FcOpMatrix:
@@ -170,7 +182,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			if !sameType {
 				break
 			}
-			switch e.op {
+			switch op {
 			case FcOpPlus:
 				v = vle + vre
 			case FcOpMinus:
@@ -188,7 +200,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			if !sameType {
 				break
 			}
-			switch e.op {
+			switch op {
 			case FcOpOr:
 				v = vle | vre
 			case FcOpAnd:
@@ -199,7 +211,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			if !sameType {
 				break
 			}
-			switch e.op {
+			switch op {
 			case FcOpPlus:
 				v = vle + vre
 			}
@@ -208,7 +220,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			if !sameType {
 				break
 			}
-			switch e.op {
+			switch op {
 			case FcOpTimes:
 				v = vle.multiply(vre)
 			}
@@ -217,7 +229,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			if !sameType {
 				break
 			}
-			switch e.op {
+			switch op {
 			case FcOpPlus:
 				if uc := FcCharSetUnion(vle, vre); uc != nil {
 					v = *uc
@@ -232,7 +244,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			if !sameType {
 				break
 			}
-			switch e.op {
+			switch op {
 			case FcOpPlus:
 				v = FcLangSetUnion(vle, vre)
 			case FcOpMinus:
@@ -252,7 +264,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 		case int:
 			v = vl
 		case float64:
-			switch e.op {
+			switch op {
 			case FcOpFloor:
 				v = int(math.Floor(vl))
 			case FcOpCeil:
@@ -265,6 +277,91 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 		}
 	}
 	return v
+}
+
+func (parser *FcConfigParse) typecheckValue(value, type_ typeMeta) {
+	if (value == typeInteger{}) {
+		value = typeFloat{}
+	}
+	if (type_ == typeInteger{}) {
+		type_ = typeFloat{}
+	}
+	if value != type_ {
+		if (value == typeLangSet{} && type_ == typeString{}) ||
+			(value == typeString{} && type_ == typeLangSet{}) ||
+			(value == typeFloat{} && type_ == typeRange{}) {
+			return
+		}
+		if type_ == nil {
+			return
+		}
+		/* It's perfectly fine to use user-define elements in expressions,
+		 * so don't warn in that case. */
+		if value == nil {
+			return
+		}
+		parser.message(FcSevereWarning, "saw %T, expected %T", value, type_)
+	}
+}
+
+func (parser *FcConfigParse) typecheckExpr(expr *FcExpr, type_ typeMeta) {
+	// If parsing the expression failed, some nodes may be nil
+	if expr == nil {
+		return
+	}
+
+	switch expr.op.getOp() {
+	case FcOpInteger, FcOpDouble:
+		parser.typecheckValue(typeFloat{}, type_)
+	case FcOpString:
+		parser.typecheckValue(typeString{}, type_)
+	case FcOpMatrix:
+		parser.typecheckValue(typeMatrix{}, type_)
+	case FcOpBool:
+		parser.typecheckValue(typeBool{}, type_)
+	case FcOpCharSet:
+		parser.typecheckValue(typeCharSet{}, type_)
+	case FcOpLangSet:
+		parser.typecheckValue(typeLangSet{}, type_)
+	case FcOpRange:
+		parser.typecheckValue(typeRange{}, type_)
+	case FcOpField:
+		name := expr.u.(FcExprName)
+		o, ok := objects[name.object.String()]
+		if ok {
+			parser.typecheckValue(o.parser, type_)
+		}
+	case FcOpConst:
+		c := FcNameGetConstant(expr.u.(string))
+		if c != nil {
+			o, ok := objects[c.object.String()]
+			if ok {
+				parser.typecheckValue(o.parser, type_)
+			}
+		} else {
+			parser.message(FcSevereWarning, "invalid constant used : %s", expr.u.(string))
+		}
+	case FcOpQuest:
+		tree := expr.u.(exprTree)
+		parser.typecheckExpr(tree.left, typeBool{})
+		rightTree := tree.right.u.(exprTree)
+		parser.typecheckExpr(rightTree.left, type_)
+		parser.typecheckExpr(rightTree.right, type_)
+	case FcOpEqual, FcOpNotEqual, FcOpLess, FcOpLessEqual, FcOpMore, FcOpMoreEqual, FcOpContains, FcOpNotContains, FcOpListing:
+		parser.typecheckValue(typeBool{}, type_)
+	case FcOpComma, FcOpOr, FcOpAnd, FcOpPlus, FcOpMinus, FcOpTimes, FcOpDivide:
+		tree := expr.u.(exprTree)
+		parser.typecheckExpr(tree.left, type_)
+		parser.typecheckExpr(tree.right, type_)
+	case FcOpNot:
+		tree := expr.u.(exprTree)
+		parser.typecheckValue(typeBool{}, type_)
+		parser.typecheckExpr(tree.left, typeBool{})
+	case FcOpFloor, FcOpCeil, FcOpRound, FcOpTrunc:
+		tree := expr.u.(exprTree)
+		parser.typecheckValue(typeFloat{}, type_)
+		parser.typecheckExpr(tree.left, typeFloat{})
+	}
 }
 
 // the C implemention use a pre-allocated buffer to avoid allocations
@@ -301,7 +398,7 @@ func promoteFloat64(val float64, u FcValue) FcValue {
 
 func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 	flags := op.getFlags()
-
+	op = op.getOp()
 	retNoMatchingType := false
 	if op == FcOpNotEqual || op == FcOpNotContains {
 		retNoMatchingType = true
@@ -477,7 +574,7 @@ func (e *FcExpr) FcConfigValues(p, p_pat *FcPattern, kind FcMatchKind, binding F
 	}
 
 	var l FcValueList
-	if e.op == FcOpComma {
+	if e.op.getOp() == FcOpComma {
 		tree := e.u.(exprTree)
 		v := tree.left.FcConfigEvaluate(p, p_pat, kind)
 		next := tree.right.FcConfigValues(p, p_pat, kind, binding)

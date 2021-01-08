@@ -9,10 +9,11 @@ import (
 
 // ported from fontconfig/src/fcmatch.c Copyright © 2000 Keith Packard
 
-type FcMatchKind uint8
+type FcMatchKind int8
 
 const (
-	FcMatchPattern FcMatchKind = iota
+	FcMatchDefault FcMatchKind = iota - 1
+	FcMatchPattern
 	FcMatchFont
 	FcMatchScan
 	FcMatchKindEnd

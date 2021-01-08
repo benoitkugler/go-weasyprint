@@ -2,6 +2,9 @@ package fontconfig
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -31,12 +34,59 @@ type FcEdit struct {
 
 type FcRule interface{} // *Test Or Edit
 
+func revertRules(arr []FcRule) {
+	for i := len(arr)/2 - 1; i >= 0; i-- {
+		opp := len(arr) - 1 - i
+		arr[i], arr[opp] = arr[opp], arr[i]
+	}
+}
+
 type FcRuleSet struct {
 	name        string
 	description string
 	domain      string
 	enabled     bool
 	subst       [FcMatchKindEnd][][]FcRule
+}
+
+func FcRuleSetCreate(name string) *FcRuleSet {
+	var ret FcRuleSet
+	ret.name = name
+	return &ret
+}
+
+func (rs *FcRuleSet) add(rules []FcRule, kind FcMatchKind) int {
+	rs.subst[kind] = append(rs.subst[kind], rules)
+
+	var n FcObject
+	for _, r := range rules {
+		switch r := r.(type) {
+		case *FcTest:
+			if r != nil {
+				if r.kind == FcMatchDefault {
+					r.kind = kind
+				}
+				if n < r.object {
+					n = r.object
+				}
+			}
+		case FcEdit:
+			if n < r.object {
+				n = r.object
+			}
+		}
+	}
+
+	if debugMode {
+		fmt.Printf("Add Rule(kind:%d, name: %s) ", kind, rs.name)
+		fmt.Println(rules)
+	}
+
+	ret := n - fcEnd
+	if ret < 0 {
+		return 0
+	}
+	return int(ret)
 }
 
 type FcConfig struct {
@@ -244,7 +294,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 						elt[object] = p.elts[tst[object].object]
 					}
 
-					switch r.op {
+					switch r.op.getOp() {
 					case FcOpAssign:
 						// If there was a test, then replace the matched value with the newList list of values
 						if valuePos[object] != -1 {
@@ -318,6 +368,80 @@ func (config *FcConfig) FcConfigGetFonts(set FcSetName) FcFontSet {
 		return nil
 	}
 	return config.fonts[set]
+}
+
+func (config *FcConfig) FcConfigAddCacheDir(d string) error {
+	return addFilename(config.cacheDirs, d)
+}
+
+// GetFilename returns the filename associated to an external entity name.
+// This provides applications a way to convert various configuration file
+// references into filename form.
+//
+// An empty `name` indicates that the default configuration file should
+// be used; which file this references can be overridden with the
+// FONTCONFIG_FILE environment variable.
+// Next, if the name starts with `~`, it refers to a file in the current users home directory.
+// Otherwise if the name doesn't start with '/', it refers to a file in the default configuration
+// directory; the built-in default directory can be overridden with the
+// FONTCONFIG_PATH environment variable.
+//
+// The result of this function is affected by the FONTCONFIG_SYSROOT environment variable or equivalent functionality.
+func (config *FcConfig) GetFilename(url string) string {
+	config = fallbackConfig(config)
+
+	sysroot := config.getSysRoot()
+
+	if url == "" {
+		url = os.Getenv("FONTCONFIG_FILE")
+		if url == "" {
+			url = FONTCONFIG_FILE
+		}
+	}
+	if filepath.IsAbs(url) {
+		if sysroot != "" {
+			// Workaround to avoid adding sysroot repeatedly
+			if url == sysroot {
+				sysroot = ""
+			}
+		}
+		return fileExists(sysroot, url)
+	}
+
+	file := ""
+	if usesHome(url) {
+		if dir := FcConfigHome(); dir != "" {
+			s := dir
+			if sysroot != "" {
+				s = filepath.Join(sysroot, dir)
+			}
+			file = fileExists(s, url[1:])
+		}
+	} else {
+		paths := getPaths()
+		for _, p := range paths {
+			s := p
+			if sysroot != "" {
+				s = filepath.Join(sysroot, p)
+			}
+			file = fileExists(s, url)
+			if file != "" {
+				break
+			}
+		}
+	}
+
+	return file
+}
+
+func (config *FcConfig) getSysRoot() string {
+	if config == nil {
+		config = FcConfigGetCurrent()
+		if config == nil {
+			return ""
+		}
+	}
+	return config.sysRoot
 }
 
 /* Objects MT-safe for readonly access. */
@@ -424,7 +548,7 @@ func (config *FcConfig) FcConfigGetFonts(set FcSetName) FcFontSet {
 // #endif
 //     if (resolved_ret)
 // 	path = (FcChar8 *) resolved_ret;
-//     return FcStrCopyFilename(path);
+//     return toAbsPath(path);
 // }
 
 // FcConfig *
@@ -617,7 +741,7 @@ func (config *FcConfig) FcConfigGetFonts(set FcSetName) FcFontSet {
 //     return config.expr_pool.next++;
 // }
 
-// fallback to the current global configuratio if `config` is nil
+// fallback to the current global configuration if `config` is nil
 func fallbackConfig(config *FcConfig) *FcConfig {
 	if config != nil {
 		return config
@@ -748,7 +872,7 @@ func ensure() *FcConfig {
 // 		if (relocated)
 // 		  {
 // 		    FcChar8 *slash = FcStrLastSlash (font_file);
-// 		    relocated_font_file = FcStrBuildFilename (forDir, slash + 1, nil);
+// 		    relocated_font_file = filepath.Join (forDir, slash + 1, nil);
 // 		    font_file = relocated_font_file;
 // 		  }
 
@@ -797,7 +921,7 @@ func ensure() *FcConfig {
 // 	    if (relocated)
 // 	    {
 // 		FcChar8 *base = FcStrBasename (dir);
-// 		dir = s = FcStrBuildFilename (forDir, base, nil);
+// 		dir = s = filepath.Join (forDir, base, nil);
 // 		FcStrFree (base);
 // 	    }
 // 	    if (FcConfigAcceptFilename (config, dir))
@@ -926,6 +1050,17 @@ func ensure() *FcConfig {
 //     return ret;
 // }
 
+// Adds `s` to `set`, applying toAbsPath so that leading '~' values are replaced
+// with the value of the HOME environment variable.
+func addFilename(set FcStrSet, s string) error {
+	s, err := toAbsPath(s)
+	if err != nil {
+		return err
+	}
+	set[s] = true
+	return nil
+}
+
 func (config *FcConfig) addFontDir(d, m, salt string) error {
 	if debugMode {
 		if m != "" {
@@ -1025,7 +1160,7 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 //     rpath = path + strlen ((char *) dir);
 //     for (*rpath == '/')
 // 	rpath++;
-//     retval = FcStrBuildFilename(map, rpath, nil);
+//     retval = filepath.Join(map, rpath, nil);
 //     if (retval)
 //     {
 // 	size_t len = strlen ((const char *) retval);
@@ -1038,7 +1173,7 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 // }
 
 // const FcChar8 *
-// FcConfigMapSalt (FcConfig      *config,
+// FcConfigMapSalt (config *FcConfig      ,
 // 		 const FcChar8 *path)
 // {
 //     FcStrList *list;
@@ -1055,13 +1190,6 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 // 	return nil;
 
 //     return FcStrTripleThird (dir);
-// }
-
-// FcBool
-// FcConfigAddCacheDir (config *FcConfig,
-// 		     const FcChar8  *d)
-// {
-//     return FcStrSetAddFilename (config.cacheDirs, d);
 // }
 
 // FcStrList *
@@ -1083,7 +1211,7 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 // 		       const FcChar8   *f)
 // {
 //     FcBool	ret;
-//     FcChar8	*file = FcConfigGetFilename (config, f);
+//     FcChar8	*file = GetFilename (config, f);
 
 //     if (!file)
 // 	return false;
@@ -1309,7 +1437,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 
 	for e != nil {
 		// Compute the value of the match expression
-		if e.op == FcOpComma {
+		if e.op.getOp() == FcOpComma {
 			tree := e.u.(exprTree)
 			value = tree.left.FcConfigEvaluate(p, pPat, kind)
 			e = tree.right
@@ -1319,13 +1447,14 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 		}
 
 		if t.object == FC_FAMILY && table != nil {
-			if t.op == FcOpEqual || t.op == FcOpListing {
+			op := t.op.getOp()
+			if op == FcOpEqual || op == FcOpListing {
 				if !table.lookup(t.op, value.(string)) {
 					ret = -1
 					continue
 				}
 			}
-			if t.op == FcOpNotEqual && t.qual == FcQualAll {
+			if op == FcOpNotEqual && t.qual == FcQualAll {
 				ret = -1
 				if !table.lookup(t.op, value.(string)) {
 					ret = 0
@@ -1423,121 +1552,34 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // #define FONTCONFIG_FILE	"fonts.conf"
 // #endif
 
-// static FcChar8 *
-// FcConfigFileExists (const FcChar8 *dir, const FcChar8 *file)
-// {
-//     FcChar8    *path;
-//     int         size, osize;
+// join the path, check it, and returns it if valid
+func fileExists(dir, file string) string {
+	path := filepath.Join(dir, file)
+	// we do a basic error checking, not taking into account the
+	// various failure possible; but it should be enough ?
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+	return path
+}
 
-//     if (!dir)
-// 	dir = (FcChar8 *) "";
+func getPaths() []string {
+	env := os.Getenv("FONTCONFIG_PATH")
+	paths := filepath.SplitList(env)
 
-//     osize = strlen ((char *) dir) + 1 + strlen ((char *) file) + 1;
-//     /*
-//      * workaround valgrind warning because glibc takes advantage of how it knows memory is
-//      * allocated to implement strlen by reading in groups of 4
-//      */
-//     size = (osize + 3) & ~3;
+	// is used to override the default configuration directory.
+	fontConfig := "/usr/local/etc/fonts"
+	if runtime.GOOS == "windows" {
+		fcPath, err := os.Executable()
+		if err != nil {
+			return paths
+		}
+		fontConfig = filepath.Join(fcPath, "fonts")
+	}
 
-//     path = malloc (size);
-//     if (!path)
-// 	return 0;
-
-//     strcpy ((char *) path, (const char *) dir);
-//     /* make sure there's a single separator */
-// #ifdef _WIN32
-//     if ((!path[0] || (path[strlen((char *) path)-1] != '/' &&
-// 		      path[strlen((char *) path)-1] != '\\')) &&
-// 	!(file[0] == '/' ||
-// 	  file[0] == '\\' ||
-// 	  (isalpha (file[0]) && file[1] == ':' && (file[2] == '/' || file[2] == '\\'))))
-// 	strcat ((char *) path, "\\");
-// #else
-//     if ((!path[0] || path[strlen((char *) path)-1] != '/') && file[0] != '/')
-// 	strcat ((char *) path, "/");
-//     else
-// 	osize--;
-// #endif
-//     strcat ((char *) path, (char *) file);
-
-//     if (access ((char *) path, R_OK) == 0)
-// 	return path;
-
-//     FcStrFree (path);
-
-//     return 0;
-// }
-
-// static FcChar8 **
-// FcConfigGetPath (void)
-// {
-//     FcChar8    **path;
-//     FcChar8    *env, *e, *colon;
-//     FcChar8    *dir;
-//     int	    npath;
-//     int	    i;
-
-//     npath = 2;	/* default dir + null */
-//     env = (FcChar8 *) getenv ("FONTCONFIG_PATH");
-//     if (env)
-//     {
-// 	e = env;
-// 	npath++;
-// 	for (*e)
-// 	    if (*e++ == FC_SEARCH_PATH_SEPARATOR)
-// 		npath++;
-//     }
-//     path = calloc (npath, sizeof (FcChar8 *));
-//     if (!path)
-// 	goto bail0;
-//     i = 0;
-
-//     if (env)
-//     {
-// 	e = env;
-// 	for (*e)
-// 	{
-// 	    colon = (FcChar8 *) strchr ((char *) e, FC_SEARCH_PATH_SEPARATOR);
-// 	    if (!colon)
-// 		colon = e + strlen ((char *) e);
-// 	    path[i] = malloc (colon - e + 1);
-// 	    if (!path[i])
-// 		goto bail1;
-// 	    strncpy ((char *) path[i], (const char *) e, colon - e);
-// 	    path[i][colon - e] = '\0';
-// 	    if (*colon)
-// 		e = colon + 1;
-// 	    else
-// 		e = colon;
-// 	    i++;
-// 	}
-//     }
-
-// #ifdef _WIN32
-// 	if (fontconfig_path[0] == '\0')
-// 	{
-// 		char *p;
-// 		if(!GetModuleFileName(nil, (LPCH) fontconfig_path, sizeof(fontconfig_path)))
-// 			goto bail1;
-// 		p = strrchr ((const char *) fontconfig_path, '\\');
-// 		if (p) *p = '\0';
-// 		strcat ((char *) fontconfig_path, "\\fonts");
-// 	}
-// #endif
-//     dir = (FcChar8 *) FONTCONFIG_PATH;
-//     path[i] = malloc (strlen ((char *) dir) + 1);
-//     if (!path[i])
-// 	goto bail1;
-//     strcpy ((char *) path[i], (const char *) dir);
-//     return path;
-
-// bail1:
-//     for (i = 0; path[i]; i++)
-// 	free (path[i]);
-//     free (path);
-// bail0:
-//     return 0;
-// }
+	paths = append(paths, fontConfig)
+	return paths
+}
 
 // static void
 // FcConfigFreePath (FcChar8 **path)
@@ -1597,34 +1639,6 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // }
 
 // FcChar8 *
-// FcConfigXdgConfigHome (void)
-// {
-//     const char *env = getenv ("XDG_CONFIG_HOME");
-//     FcChar8 *ret = nil;
-
-//     if (!homeEnabled)
-// 	return nil;
-//     if (env)
-// 	ret = FcStrCopy ((const FcChar8 *)env);
-//     else
-//     {
-// 	const FcChar8 *home = FcConfigHome ();
-// 	size_t len = home ? strlen ((const char *)home) : 0;
-
-// 	ret = malloc (len + 8 + 1);
-// 	if (ret)
-// 	{
-// 	    if (home)
-// 		memcpy (ret, home, len);
-// 	    memcpy (&ret[len], FC_DIR_SEPARATOR_S ".config", 8);
-// 	    ret[len + 8] = 0;
-// 	}
-//     }
-
-//     return ret;
-// }
-
-// FcChar8 *
 // FcConfigXdgDataHome (void)
 // {
 //     const char *env = getenv ("XDG_DATA_HOME");
@@ -1661,97 +1675,16 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // }
 
 // FcChar8 *
-// FcConfigGetFilename (FcConfig      *config,
-// 		     const FcChar8 *url)
-// {
-//     FcChar8    *file, *dir, **path, **p;
-//     const FcChar8 *sysroot;
-
-//     config = fallbackConfig (config);
-//     if (!config)
-// 	return nil;
-//     sysroot = FcConfigGetSysRoot (config);
-//     if (!url || !*url)
-//     {
-// 	url = (FcChar8 *) getenv ("FONTCONFIG_FILE");
-// 	if (!url)
-// 	    url = (FcChar8 *) FONTCONFIG_FILE;
-//     }
-//     file = 0;
-
-//     if (FcStrIsAbsoluteFilename(url))
-//     {
-// 	if (sysroot)
-// 	{
-// 	    size_t len = strlen ((const char *) sysroot);
-
-// 	    /* Workaround to avoid adding sysroot repeatedly */
-// 	    if (strncmp ((const char *) url, (const char *) sysroot, len) == 0)
-// 		sysroot = nil;
-// 	}
-// 	file = FcConfigFileExists (sysroot, url);
-// 	goto bail;
-//     }
-
-//     if (*url == '~')
-//     {
-// 	dir = FcConfigHome ();
-// 	if (dir)
-// 	{
-// 	    FcChar8 *s;
-
-// 	    if (sysroot)
-// 		s = FcStrBuildFilename (sysroot, dir, nil);
-// 	    else
-// 		s = dir;
-// 	    file = FcConfigFileExists (s, url + 1);
-// 	    if (sysroot)
-// 		FcStrFree (s);
-// 	}
-// 	else
-// 	    file = 0;
-//     }
-//     else
-//     {
-// 	path = FcConfigGetPath ();
-// 	if (!path)
-// 	{
-// 	    file = nil;
-// 	    goto bail;
-// 	}
-// 	for (p = path; *p; p++)
-// 	{
-// 	    FcChar8 *s;
-
-// 	    if (sysroot)
-// 		s = FcStrBuildFilename (sysroot, *p, nil);
-// 	    else
-// 		s = *p;
-// 	    file = FcConfigFileExists (s, url);
-// 	    if (sysroot)
-// 		FcStrFree (s);
-// 	    if (file)
-// 		break;
-// 	}
-// 	FcConfigFreePath (path);
-//     }
-// bail:
-//     FcConfigDestroy (config);
-
-//     return file;
-// }
-
-// FcChar8 *
 // FcConfigFilename (const FcChar8 *url)
 // {
-//     return FcConfigGetFilename (nil, url);
+//     return GetFilename (nil, url);
 // }
 
 // FcChar8 *
 // FcConfigRealFilename (FcConfig		*config,
 // 		      const FcChar8	*url)
 // {
-//     FcChar8 *n = FcConfigGetFilename (config, url);
+//     FcChar8 *n = GetFilename (config, url);
 
 //     if (n)
 //     {
@@ -1776,7 +1709,7 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 // 		if (!dirname)
 // 		    return nil;
 
-// 		FcChar8 *path = FcStrBuildFilename (dirname, buf, nil);
+// 		FcChar8 *path = filepath.Join (dirname, buf, nil);
 // 		FcStrFree (dirname);
 // 		if (!path)
 // 		    return nil;
@@ -1987,20 +1920,8 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //     return true;
 // }
 
-// const FcChar8 *
-// FcConfigGetSysRoot (const FcConfig *config)
-// {
-//     if (!config)
-//     {
-// 	config = FcConfigGetCurrent ();
-// 	if (!config)
-// 	    return nil;
-//     }
-//     return config.sysRoot;
-// }
-
 // void
-// FcConfigSetSysRoot (FcConfig      *config,
+// FcConfigSetSysRoot (config *FcConfig      ,
 // 		    const FcChar8 *sysroot)
 // {
 //     FcChar8 *s = nil;
@@ -2058,31 +1979,6 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 //     }
 // }
 
-// FcRuleSet *
-// FcRuleSetCreate (const FcChar8 *name)
-// {
-//     FcRuleSet *ret = (FcRuleSet *) malloc (sizeof (FcRuleSet));
-//     FcMatchKind k;
-//     const FcChar8 *p;
-
-//     if (!name)
-// 	p = (const FcChar8 *)"";
-//     else
-// 	p = name;
-
-//     if (ret)
-//     {
-// 	ret.name = FcStrdup (p);
-// 	ret.description = nil;
-// 	ret.domain = nil;
-// 	for (k = FcMatchKindBegin; k < FcMatchKindEnd; k++)
-// 	    ret.subst[k] = FcPtrListCreate (FcDestroyAsRule);
-// 	FcRefInit (&ret.ref, 1);
-//     }
-
-//     return ret;
-// }
-
 // void
 // FcRuleSetDestroy (FcRuleSet *rs)
 // {
@@ -2138,53 +2034,6 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 
 //     rs.domain = domain ? FcStrdup (domain) : nil;
 //     rs.description = description ? FcStrdup (description) : nil;
-// }
-
-// int
-// FcRuleSetAdd (FcRuleSet		*rs,
-// 	      FcRule		*rule,
-// 	      FcMatchKind	kind)
-// {
-//     FcPtrListIter iter;
-//     FcRule *r;
-//     int n = 0, ret;
-
-//     if (!rs ||
-//        kind < FcMatchKindBegin || kind >= FcMatchKindEnd)
-// 	return -1;
-//     FcPtrListIterInitAtLast (rs.subst[kind], &iter);
-//     if (!FcPtrListIterAdd (rs.subst[kind], &iter, rule))
-// 	return -1;
-
-//     for (r = rule; r; r = r.next)
-//     {
-// 	switch (r.type_)
-// 	{
-// 	case FcRuleTest:
-// 	    if (r.u.test)
-// 	    {
-// 		if (r.u.test.kind == FcMatchDefault)
-// 		    r.u.test.kind = kind;
-// 		if (n < r.u.test.object)
-// 		    n = r.u.test.object;
-// 	    }
-// 	    break;
-// 	case FcRuleEdit:
-// 	    if (n < r.u.edit.object)
-// 		n = r.u.edit.object;
-// 	    break;
-// 	default:
-// 	    break;
-// 	}
-//     }
-//     if debugMode
-//     {
-// 	printf ("Add Rule(kind:%d, name: %s) ", kind, rs.name);
-// 	FcRulePrint (rule);
-//     }
-//     ret = FC_OBJ_ID (n) - FC_MAX_BASE;
-
-//     return ret < 0 ? 0 : ret;
 // }
 
 // void

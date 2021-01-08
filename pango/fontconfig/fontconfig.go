@@ -11,6 +11,8 @@ import (
 const (
 	debugMode   = false
 	homeEnabled = true
+	// FONTCONFIG_FILE is used to override the default configuration file.
+	FONTCONFIG_FILE = "fonts.conf"
 )
 
 // FcConfigHome returns the current user's home directory, if it is available, and if using it
@@ -30,7 +32,7 @@ func FcConfigHome() string {
 
 type FcFontSet []*FcPattern // with length nfont, and cap sfont
 
-// FcStrCopyFilename constructs an absolute pathname from
+// toAbsPath constructs an absolute pathname from
 // `s`. It converts any leading '~' characters in
 // to the value of the HOME environment variable, and any relative paths are
 // converted to absolute paths using the current working directory. Sequences
