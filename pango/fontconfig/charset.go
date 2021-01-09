@@ -130,7 +130,7 @@ func popCount(c1 uint32) uint32 { return uint32(bits.OnesCount32(c1)) }
 func FcCharSetSubtractCount(a, b FcCharSet) uint32 {
 	var (
 		count  uint32
-		ai, bi FcCharSetIter
+		ai, bi charSetIter
 	)
 	ai.start(a)
 	bi.start(b)
@@ -139,11 +139,11 @@ func FcCharSetSubtractCount(a, b FcCharSet) uint32 {
 			am := *ai.leaf
 			if ai.ucs4 == bi.ucs4 {
 				bm := *bi.leaf
-				for i := range am { // ; i != 0; i--
+				for i := range am {
 					count += popCount(am[i] & ^bm[i]) // *am++ & ~*bm++
 				}
 			} else {
-				for i := range am { //; i != 0; i--
+				for i := range am {
 					count += popCount(am[i])
 				}
 			}
@@ -158,7 +158,7 @@ func FcCharSetSubtractCount(a, b FcCharSet) uint32 {
 
 // Returns whether `a` and `b` contain the same set of Unicode chars.
 func FcCharSetEqual(a, b FcCharSet) bool {
-	var ai, bi FcCharSetIter
+	var ai, bi charSetIter
 	ai.start(a)
 	bi.start(b)
 	for ai.leaf != nil && bi.leaf != nil {
@@ -262,13 +262,13 @@ func (fcs *FcCharSet) addChar(ucs4 uint32) bool {
 	return true
 }
 
-func FcCharSetUnion(a, b FcCharSet) *FcCharSet {
+func charSetUnion(a, b FcCharSet) *FcCharSet {
 	return operate(a, b, unionLeaf, true, true)
 }
 
 func operate(a, b FcCharSet, overlap func(result, al, bl *FcCharLeaf) bool,
 	aonly, bonly bool) *FcCharSet {
-	var ai, bi FcCharSetIter
+	var ai, bi charSetIter
 	var fcs FcCharSet
 	ai.start(a)
 	bi.start(b)
@@ -326,19 +326,19 @@ func subtractLeaf(result, al, bl *FcCharLeaf) bool {
 	return nonempty
 }
 
-func FcCharSetSubtract(a, b FcCharSet) *FcCharSet {
+func charSetSubtract(a, b FcCharSet) *FcCharSet {
 	return operate(a, b, subtractLeaf, true, false)
 }
 
-// FcCharSetIter is an iterator for the leaves of a charset
-type FcCharSetIter struct {
+// charSetIter is an iterator for the leaves of a charset
+type charSetIter struct {
 	leaf *FcCharLeaf
 	ucs4 uint32
 	pos  int
 }
 
 // Set iter.leaf to the leaf containing iter.ucs4 or higher
-func (iter *FcCharSetIter) set(fcs FcCharSet) {
+func (iter *charSetIter) set(fcs FcCharSet) {
 	pos := fcs.findLeafPos(iter.ucs4)
 
 	if pos < 0 {
@@ -354,13 +354,13 @@ func (iter *FcCharSetIter) set(fcs FcCharSet) {
 	iter.pos = pos
 }
 
-func (iter *FcCharSetIter) start(fcs FcCharSet) {
+func (iter *charSetIter) start(fcs FcCharSet) {
 	iter.ucs4 = 0
 	iter.pos = 0
 	iter.set(fcs)
 }
 
-func (iter *FcCharSetIter) next(fcs FcCharSet) {
+func (iter *charSetIter) next(fcs FcCharSet) {
 	pos := iter.pos + 1
 	if pos >= len(fcs.numbers) {
 		iter.ucs4 = ^uint32(0)

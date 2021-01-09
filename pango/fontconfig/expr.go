@@ -301,7 +301,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			}
 		}
 	case FcOpConst:
-		if ct, ok := FcNameConstant(e.u.(string)); ok {
+		if ct, ok := nameConstant(e.u.(string)); ok {
 			v = ct
 		} else {
 			v = nil
@@ -390,11 +390,11 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			}
 			switch op {
 			case FcOpPlus:
-				if uc := FcCharSetUnion(vle, vre); uc != nil {
+				if uc := charSetUnion(vle, vre); uc != nil {
 					v = *uc
 				}
 			case FcOpMinus:
-				if sc := FcCharSetSubtract(vle, vre); sc != nil {
+				if sc := charSetSubtract(vle, vre); sc != nil {
 					v = sc
 				}
 			}
@@ -405,9 +405,9 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			}
 			switch op {
 			case FcOpPlus:
-				v = FcLangSetUnion(vle, vre)
+				v = langSetUnion(vle, vre)
 			case FcOpMinus:
-				v = FcLangSetSubtract(vle, vre)
+				v = langSetSubtract(vle, vre)
 			}
 		}
 	case FcOpNot:
@@ -438,7 +438,7 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 	return v
 }
 
-func (parser *FcConfigParse) typecheckValue(value, type_ typeMeta) {
+func (parser *configParser) typecheckValue(value, type_ typeMeta) {
 	if (value == typeInteger{}) {
 		value = typeFloat{}
 	}
@@ -463,7 +463,7 @@ func (parser *FcConfigParse) typecheckValue(value, type_ typeMeta) {
 	}
 }
 
-func (parser *FcConfigParse) typecheckExpr(expr *FcExpr, type_ typeMeta) {
+func (parser *configParser) typecheckExpr(expr *FcExpr, type_ typeMeta) {
 	// If parsing the expression failed, some nodes may be nil
 	if expr == nil {
 		return
@@ -491,7 +491,7 @@ func (parser *FcConfigParse) typecheckExpr(expr *FcExpr, type_ typeMeta) {
 			parser.typecheckValue(o.parser, type_)
 		}
 	case FcOpConst:
-		c := FcNameGetConstant(expr.u.(string))
+		c := nameGetConstant(expr.u.(string))
 		if c != nil {
 			o, ok := objects[c.object.String()]
 			if ok {
@@ -536,13 +536,13 @@ func FcConfigPromote(v, u FcValue) FcValue {
 		case FcMatrix:
 			v = FcIdentityMatrix
 		case FcLangSet:
-			v = FcLangSetPromote("")
+			v = langSetPromote("")
 		case FcCharSet:
 			v = FcCharSet{}
 		}
 	case string:
 		if _, ok := u.(FcLangSet); ok {
-			v = FcLangSetPromote(val)
+			v = langSetPromote(val)
 		}
 	}
 	return v

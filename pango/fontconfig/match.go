@@ -568,28 +568,28 @@ done:
 	return bestValue, result, pos, true
 }
 
-type FcCompareData = FcHashTable
+type FcCompareData = blankCaseMap
 
 func (pat *FcPattern) newCompareData() FcCompareData {
-	table := make(FcHashTable)
+	table := make(blankCaseMap)
 
 	elt := pat.elts[FC_FAMILY]
 	for i, l := range elt {
 		key := string(l.hash()) // l must have type string, but we are cautious
 		e, ok := table.lookup(key)
 		if !ok {
-			e = new(FamilyEntry)
-			e.strong_value = 1e99
-			e.weak_value = 1e99
+			e = new(familyEntry)
+			e.strongValue = 1e99
+			e.weakValue = 1e99
 			table.add(key, e)
 		}
 		if l.binding == FcValueBindingWeak {
-			if i := float64(i); i < e.weak_value {
-				e.weak_value = i
+			if i := float64(i); i < e.weakValue {
+				e.weakValue = i
 			}
 		} else {
-			if i := float64(i); i < e.strong_value {
-				e.strong_value = i
+			if i := float64(i); i < e.strongValue {
+				e.strongValue = i
 			}
 		}
 	}
@@ -597,7 +597,7 @@ func (pat *FcPattern) newCompareData() FcCompareData {
 	return table
 }
 
-func (table FcHashTable) FcCompareFamilies(v2orig FcValueList, value []float64) {
+func (table blankCaseMap) FcCompareFamilies(v2orig FcValueList, value []float64) {
 	strong_value := 1e99
 	weak_value := 1e99
 
@@ -605,11 +605,11 @@ func (table FcHashTable) FcCompareFamilies(v2orig FcValueList, value []float64) 
 		key := string(v2.hash()) // should be string, but we are cautious
 		e, ok := table.lookup(key)
 		if ok {
-			if e.strong_value < strong_value {
-				strong_value = e.strong_value
+			if e.strongValue < strong_value {
+				strong_value = e.strongValue
 			}
-			if e.weak_value < weak_value {
-				weak_value = e.weak_value
+			if e.weakValue < weak_value {
+				weak_value = e.weakValue
 			}
 		}
 	}

@@ -84,10 +84,11 @@ func (config *FcConfig) parseAndLoadDir(logger io.Writer, dir string, load bool)
 	return nil
 }
 
-type FcElement uint8
+// compact form of the tag
+type elemTag uint8
 
 const (
-	FcElementNone FcElement = iota
+	FcElementNone elemTag = iota
 	FcElementFontconfig
 	FcElementDir
 	FcElementCacheDir
@@ -214,10 +215,10 @@ var fcElementIgnoreName = [...]string{
 	"its:",
 }
 
-func FcElementMap(name string) FcElement {
+func elemFromName(name string) elemTag {
 	for i, elem := range fcElementMap {
 		if name == elem {
-			return FcElement(i)
+			return elemTag(i)
 		}
 	}
 	for _, ignoreName := range fcElementIgnoreName {
@@ -228,74 +229,56 @@ func FcElementMap(name string) FcElement {
 	return FcElementUnknown
 }
 
-func (e FcElement) String() string {
+func (e elemTag) String() string {
 	if int(e) >= len(fcElementMap) {
 		return fmt.Sprintf("invalid element %d", e)
 	}
 	return fcElementMap[e]
 }
 
-// FcPStack is one XML containing tag
-type FcPStack struct {
-	element FcElement // compact form of the tag
+// pStack is one XML containing tag
+type pStack struct {
+	element elemTag
 	attr    []xml.Attr
 	str     *bytes.Buffer // inner text content
-	values  []FcVStack
+	values  []vstack
 }
 
-type FcVStackTag uint8
+// kind of the value: sometimes the type is not enough
+// to distinguish
+type vstackTag uint8
 
 const (
-	FcVStackNone FcVStackTag = iota
+	vstackNone vstackTag = iota
 
-	FcVStackString
-	FcVStackFamily
-	FcVStackConstant
-	FcVStackGlob
-	FcVStackName
-	FcVStackPattern
+	vstackString
+	vstackFamily
+	vstackConstant
+	vstackGlob
+	vstackName
+	vstackPattern
 
-	FcVStackPrefer
-	FcVStackAccept
-	FcVStackDefault
+	vstackPrefer
+	vstackAccept
+	vstackDefault
 
-	FcVStackInteger
-	FcVStackDouble
-	FcVStackMatrix
-	FcVStackRange
-	FcVStackBool
-	FcVStackCharSet
-	FcVStackLangSet
+	vstackInteger
+	vstackDouble
+	vstackMatrix
+	vstackRange
+	vstackBool
+	vstackCharSet
+	vstackLangSet
 
-	FcVStackTest
-	FcVStackExpr
-	FcVStackEdit
+	vstackTest
+	vstackExpr
+	vstackEdit
 )
 
 // parse value
-type FcVStack struct {
-	tag FcVStackTag
-	// union {
-	// FcChar8		*string;
-
-	// int		integer;
-	// double		_double;
-	// FcExprMatrix	*matrix;
-	// FcRange		*range;
-	// FcBool		bool_;
-	// FcCharSet	*charset;
-	// FcLangSet	*langset;
-	// FcExprName	name;
-
-	// FcTest		*test;
-	// FcQual		qual;
-	// FcOp		op;
-	// FcExpr		*expr;
-	// FcEdit		*edit;
-
-	// FcPattern	*pattern;
-	// }
-	u interface{}
+type vstack struct {
+	tag vstackTag
+	u   interface{}
 }
 
 const (
@@ -350,21 +333,21 @@ func (config *FcConfig) parseConfig(logger io.Writer, name string, load bool) er
 	return err
 }
 
-type FcConfigParse struct {
+type configParser struct {
 	logger io.Writer
 
 	name     string
 	scanOnly bool
 
-	pstack []FcPStack // the top of the stack is at the end of the slice
-	// vstack []FcVStack // idem
+	pstack []pStack // the top of the stack is at the end of the slice
+	// vstack []vstack // idem
 
 	config  *FcConfig
 	ruleset *FcRuleSet
 }
 
-func newConfigParser(logger io.Writer, name string, config *FcConfig, enabled bool) *FcConfigParse {
-	var parser FcConfigParse
+func newConfigParser(logger io.Writer, name string, config *FcConfig, enabled bool) *configParser {
+	var parser configParser
 
 	if logger == nil {
 		logger = ioutil.Discard
@@ -379,7 +362,7 @@ func newConfigParser(logger io.Writer, name string, config *FcConfig, enabled bo
 	return &parser
 }
 
-func (parse *FcConfigParse) message(severe uint8, format string, args ...interface{}) {
+func (parse *configParser) message(severe uint8, format string, args ...interface{}) {
 	s := "unknown"
 	switch severe {
 	case FcSevereInfo:
@@ -396,7 +379,7 @@ func (parse *FcConfigParse) message(severe uint8, format string, args ...interfa
 	fmt.Fprintf(parse.logger, format+"\n", args...)
 }
 
-func (parser *FcConfigParse) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (parser *configParser) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	// start by handling the new element
 	parser.startElement(start.Name.Local, start.Attr)
 	// then process the inner content: text or kid element
@@ -427,7 +410,7 @@ func (parser *FcConfigParse) UnmarshalXML(d *xml.Decoder, start xml.StartElement
 }
 
 // return value may be nil if the stack is empty
-func (parse *FcConfigParse) p() *FcPStack {
+func (parse *configParser) p() *pStack {
 	if len(parse.pstack) == 0 {
 		return nil
 	}
@@ -435,14 +418,14 @@ func (parse *FcConfigParse) p() *FcPStack {
 }
 
 // return value may be nil if the stack is empty
-func (parse *FcConfigParse) v() *FcVStack {
+func (parse *configParser) v() *vstack {
 	if last := parse.p(); last != nil && len(last.values) != 0 {
 		return &last.values[len(last.values)-1]
 	}
 	return nil
 }
 
-func (parser *FcConfigParse) text(s []byte) {
+func (parser *configParser) text(s []byte) {
 	p := parser.p()
 	if p == nil {
 		return
@@ -451,17 +434,17 @@ func (parser *FcConfigParse) text(s []byte) {
 }
 
 // add a value to the previous p element, or discard it
-func (parser *FcConfigParse) createVAndPush() *FcVStack {
+func (parser *configParser) createVAndPush() *vstack {
 	if len(parser.pstack) >= 2 {
 		ps := &parser.pstack[len(parser.pstack)-2]
-		ps.values = append(ps.values, FcVStack{})
+		ps.values = append(ps.values, vstack{})
 		return &ps.values[len(ps.values)-1]
 	}
 	return nil
 }
 
-func (parse *FcConfigParse) startElement(name string, attr []xml.Attr) {
-	element := FcElementMap(name)
+func (parse *configParser) startElement(name string, attr []xml.Attr) {
+	element := elemFromName(name)
 
 	if element == FcElementUnknown {
 		parse.message(FcSevereWarning, "unknown element %s", name)
@@ -471,8 +454,8 @@ func (parse *FcConfigParse) startElement(name string, attr []xml.Attr) {
 }
 
 // push at the end of the slice
-func (parse *FcConfigParse) pstackPush(element FcElement, attr []xml.Attr) {
-	new := FcPStack{
+func (parse *configParser) pstackPush(element elemTag, attr []xml.Attr) {
+	new := pStack{
 		element: element,
 		attr:    attr,
 		str:     new(bytes.Buffer),
@@ -480,7 +463,7 @@ func (parse *FcConfigParse) pstackPush(element FcElement, attr []xml.Attr) {
 	parse.pstack = append(parse.pstack, new)
 }
 
-func (parse *FcConfigParse) pstackPop() {
+func (parse *configParser) pstackPop() {
 	// the encoding/xml package makes sur tag are matching
 	// so parse.pstack has at least one element
 
@@ -498,7 +481,7 @@ func (parse *FcConfigParse) pstackPop() {
 }
 
 // pop from the last vstack
-func (parse *FcConfigParse) vstackPop() {
+func (parse *configParser) vstackPop() {
 	last := parse.p()
 	if last == nil || len(last.values) == 0 {
 		return
@@ -506,7 +489,7 @@ func (parse *FcConfigParse) vstackPop() {
 	last.values = last.values[:len(last.values)-1]
 }
 
-func (parser *FcConfigParse) endElement() error {
+func (parser *configParser) endElement() error {
 	last := parser.p()
 	if last == nil { // nothing to do
 		return nil
@@ -536,11 +519,11 @@ func (parser *FcConfigParse) endElement() error {
 		parser.parseRescan()
 
 	case FcElementPrefer:
-		parser.parseFamilies(FcVStackPrefer)
+		parser.parseFamilies(vstackPrefer)
 	case FcElementAccept:
-		parser.parseFamilies(FcVStackAccept)
+		parser.parseFamilies(vstackAccept)
 	case FcElementDefault:
-		parser.parseFamilies(FcVStackDefault)
+		parser.parseFamilies(vstackDefault)
 	case FcElementFamily:
 		parser.parseFamily()
 
@@ -554,7 +537,7 @@ func (parser *FcConfigParse) endElement() error {
 	case FcElementDouble:
 		err = parser.parseFloat()
 	case FcElementString:
-		parser.parseString(FcVStackString)
+		parser.parseString(vstackString)
 	case FcElementMatrix:
 		err = parser.parseMatrix()
 	case FcElementRange:
@@ -568,7 +551,7 @@ func (parser *FcConfigParse) endElement() error {
 	case FcElementSelectfont, FcElementAcceptfont, FcElementRejectfont:
 		parser.parseAcceptRejectFont(last.element)
 	case FcElementGlob:
-		parser.parseString(FcVStackGlob)
+		parser.parseString(vstackGlob)
 	case FcElementPattern:
 		parser.parsePattern()
 	case FcElementPatelt:
@@ -576,7 +559,7 @@ func (parser *FcConfigParse) endElement() error {
 	case FcElementName:
 		parser.parseName()
 	case FcElementConst:
-		parser.parseString(FcVStackConstant)
+		parser.parseString(vstackConstant)
 	case FcElementOr:
 		parser.parseBinary(FcOpOr)
 	case FcElementAnd:
@@ -622,7 +605,7 @@ func (parser *FcConfigParse) endElement() error {
 	return err
 }
 
-func (last *FcPStack) getAttr(attr string) string {
+func (last *pStack) getAttr(attr string) string {
 	if last == nil {
 		return ""
 	}
@@ -638,7 +621,7 @@ func (last *FcPStack) getAttr(attr string) string {
 	return ""
 }
 
-func (parse *FcConfigParse) parseDir() error {
+func (parse *configParser) parseDir() error {
 	var s string
 	last := parse.p()
 	if last != nil {
@@ -704,7 +687,7 @@ func xdgConfigHome() string {
 	return filepath.Join(home, ".config")
 }
 
-func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string, element FcElement) (string, error) {
+func (parse *configParser) getRealPathFromPrefix(path, prefix string, element elemTag) (string, error) {
 	var parent string
 	switch prefix {
 	case "xdg":
@@ -792,7 +775,7 @@ func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string, element F
 	return path, nil
 }
 
-func (parse *FcConfigParse) parseCacheDir() error {
+func (parse *configParser) parseCacheDir() error {
 	var prefix, data string
 	last := parse.p()
 	if last != nil {
@@ -867,7 +850,7 @@ func (parse *FcConfigParse) parseCacheDir() error {
 	return nil
 }
 
-func (parser *FcConfigParse) lexBool(bool_ string) FcBool {
+func (parser *configParser) lexBool(bool_ string) FcBool {
 	result, err := nameBool(bool_)
 	if err != nil {
 		parser.message(FcSevereWarning, "\"%s\" is not known boolean", bool_)
@@ -875,7 +858,7 @@ func (parser *FcConfigParse) lexBool(bool_ string) FcBool {
 	return result
 }
 
-func (parser *FcConfigParse) lexBinding(bindingString string) (FcValueBinding, bool) {
+func (parser *configParser) lexBinding(bindingString string) (FcValueBinding, bool) {
 	switch bindingString {
 	case "", "weak":
 		return FcValueBindingWeak, true
@@ -942,7 +925,7 @@ func getUserconf(s string) string {
 	return userconf
 }
 
-func (parse *FcConfigParse) parseInclude() error {
+func (parse *configParser) parseInclude() error {
 	var (
 		ignoreMissing, deprecated bool
 		prefix, userdir, userconf string
@@ -1037,7 +1020,7 @@ func (parse *FcConfigParse) parseInclude() error {
 	return nil
 }
 
-func (parse *FcConfigParse) parseMatch() error {
+func (parse *configParser) parseMatch() error {
 	var kind FcMatchKind
 	kindName := parse.p().getAttr("target")
 	switch kindName {
@@ -1057,17 +1040,17 @@ func (parse *FcConfigParse) parseMatch() error {
 	var rules []FcRule
 	for _, vstack := range parse.p().values {
 		switch vstack.tag {
-		case FcVStackTest:
+		case vstackTest:
 			r := vstack.u
 			rules = append(rules, r)
-			vstack.tag = FcVStackNone
-		case FcVStackEdit:
+			vstack.tag = vstackNone
+		case vstackEdit:
 			edit := vstack.u.(FcEdit)
 			if kind == FcMatchScan && edit.object >= fcEnd {
 				return fmt.Errorf("<match target=\"scan\"> cannot edit user-defined object \"%s\"", edit.object)
 			}
 			rules = append(rules, edit)
-			vstack.tag = FcVStackNone
+			vstack.tag = vstackNone
 		default:
 			parse.message(FcSevereWarning, "invalid match element")
 		}
@@ -1085,7 +1068,7 @@ func (parse *FcConfigParse) parseMatch() error {
 	return nil
 }
 
-func (parser *FcConfigParse) parseAlias() error {
+func (parser *configParser) parseAlias() error {
 	var (
 		family, accept, prefer, def *FcExpr
 		rules                       []FcRule // we append, then reverse
@@ -1100,7 +1083,7 @@ func (parser *FcConfigParse) parseAlias() error {
 	for i := range vals {
 		vstack := vals[len(vals)-i-1]
 		switch vstack.tag {
-		case FcVStackFamily:
+		case vstackFamily:
 			expr := vstack.u.(*FcExpr)
 			if family != nil {
 				parser.message(FcSevereWarning, "Having multiple <family> in <alias> isn't supported and may not work as expected")
@@ -1108,19 +1091,19 @@ func (parser *FcConfigParse) parseAlias() error {
 			} else {
 				family = expr
 			}
-			vstack.tag = FcVStackNone
-		case FcVStackPrefer:
+			vstack.tag = vstackNone
+		case vstackPrefer:
 			prefer = vstack.u.(*FcExpr)
-			vstack.tag = FcVStackNone
-		case FcVStackAccept:
+			vstack.tag = vstackNone
+		case vstackAccept:
 			accept = vstack.u.(*FcExpr)
-			vstack.tag = FcVStackNone
-		case FcVStackDefault:
+			vstack.tag = vstackNone
+		case vstackDefault:
 			def = vstack.u.(*FcExpr)
-			vstack.tag = FcVStackNone
-		case FcVStackTest:
+			vstack.tag = vstackNone
+		case vstackTest:
 			rules = append(rules, vstack.u.(*FcTest))
-			vstack.tag = FcVStackNone
+			vstack.tag = vstackNone
 		default:
 			parser.message(FcSevereWarning, "bad alias")
 		}
@@ -1136,20 +1119,20 @@ func (parser *FcConfigParse) parseAlias() error {
 		return nil
 	}
 
-	t := parser.FcTestCreate(FcMatchPattern, FcQualAny, FC_FAMILY,
+	t := parser.newTest(FcMatchPattern, FcQualAny, FC_FAMILY,
 		opWithFlags(FcOpEqual, FcOpFlagIgnoreBlanks), family)
 	rules = append(rules, t)
 
 	if prefer != nil {
-		edit := parser.FcEditCreate(FC_FAMILY, FcOpPrepend, prefer, binding)
+		edit := parser.newEdit(FC_FAMILY, FcOpPrepend, prefer, binding)
 		rules = append(rules, edit)
 	}
 	if accept != nil {
-		edit := parser.FcEditCreate(FC_FAMILY, FcOpAppend, accept, binding)
+		edit := parser.newEdit(FC_FAMILY, FcOpAppend, accept, binding)
 		rules = append(rules, edit)
 	}
 	if def != nil {
-		edit := parser.FcEditCreate(FC_FAMILY, FcOpAppendLast, def, binding)
+		edit := parser.newEdit(FC_FAMILY, FcOpAppendLast, def, binding)
 		rules = append(rules, edit)
 	}
 	n := parser.ruleset.add(rules, FcMatchPattern)
@@ -1159,7 +1142,7 @@ func (parser *FcConfigParse) parseAlias() error {
 	return nil
 }
 
-func (parser *FcConfigParse) FcTestCreate(kind FcMatchKind, qual uint8,
+func (parser *configParser) newTest(kind FcMatchKind, qual uint8,
 	object FcObject, compare FcOp, expr *FcExpr) *FcTest {
 	test := FcTest{kind: kind, qual: qual, op: FcOp(compare), expr: expr}
 	o := objects[object.String()]
@@ -1170,7 +1153,7 @@ func (parser *FcConfigParse) FcTestCreate(kind FcMatchKind, qual uint8,
 	return &test
 }
 
-func (parser *FcConfigParse) FcEditCreate(object FcObject, op FcOp, expr *FcExpr, binding FcValueBinding) FcEdit {
+func (parser *configParser) newEdit(object FcObject, op FcOp, expr *FcExpr, binding FcValueBinding) FcEdit {
 	e := FcEdit{object: object, op: op, expr: expr, binding: binding}
 	if o := objects[object.String()]; o.parser != nil {
 		parser.typecheckExpr(expr, o.parser)
@@ -1178,39 +1161,39 @@ func (parser *FcConfigParse) FcEditCreate(object FcObject, op FcOp, expr *FcExpr
 	return e
 }
 
-func (parser *FcConfigParse) popExpr() *FcExpr {
+func (parser *configParser) popExpr() *FcExpr {
 	var expr *FcExpr
 	vstack := parser.v()
 	if vstack == nil {
 		return nil
 	}
 	switch vstack.tag {
-	case FcVStackString, FcVStackFamily:
+	case vstackString, vstackFamily:
 		expr = &FcExpr{op: FcOpString, u: vstack.u}
-	case FcVStackName:
+	case vstackName:
 		expr = &FcExpr{op: FcOpField, u: vstack.u}
-	case FcVStackConstant:
+	case vstackConstant:
 		expr = &FcExpr{op: FcOpConst, u: vstack.u}
-	case FcVStackPrefer, FcVStackAccept, FcVStackDefault:
+	case vstackPrefer, vstackAccept, vstackDefault:
 		expr = vstack.u.(*FcExpr)
-		vstack.tag = FcVStackNone
-	case FcVStackInteger:
+		vstack.tag = vstackNone
+	case vstackInteger:
 		expr = &FcExpr{op: FcOpInteger, u: vstack.u}
-	case FcVStackDouble:
+	case vstackDouble:
 		expr = &FcExpr{op: FcOpDouble, u: vstack.u}
-	case FcVStackMatrix:
+	case vstackMatrix:
 		expr = &FcExpr{op: FcOpMatrix, u: vstack.u}
-	case FcVStackRange:
+	case vstackRange:
 		expr = &FcExpr{op: FcOpRange, u: vstack.u}
-	case FcVStackBool:
+	case vstackBool:
 		expr = &FcExpr{op: FcOpBool, u: vstack.u}
-	case FcVStackCharSet:
+	case vstackCharSet:
 		expr = &FcExpr{op: FcOpCharSet, u: vstack.u}
-	case FcVStackLangSet:
+	case vstackLangSet:
 		expr = &FcExpr{op: FcOpLangSet, u: vstack.u}
-	case FcVStackTest, FcVStackExpr:
+	case vstackTest, vstackExpr:
 		expr = vstack.u.(*FcExpr)
-		vstack.tag = FcVStackNone
+		vstack.tag = vstackNone
 	}
 	parser.vstackPop()
 	return expr
@@ -1223,7 +1206,7 @@ func (parser *FcConfigParse) popExpr() *FcExpr {
 //
 // This code reduces in that case to returning that
 // operand.
-func (parser *FcConfigParse) popBinary(op FcOp) *FcExpr {
+func (parser *configParser) popBinary(op FcOp) *FcExpr {
 	var expr *FcExpr
 
 	for left := parser.popExpr(); left != nil; left = parser.popExpr() {
@@ -1236,29 +1219,29 @@ func (parser *FcConfigParse) popBinary(op FcOp) *FcExpr {
 	return expr
 }
 
-func (parser *FcConfigParse) pushExpr(tag FcVStackTag, expr *FcExpr) {
+func (parser *configParser) pushExpr(tag vstackTag, expr *FcExpr) {
 	vstack := parser.createVAndPush()
 	vstack.u = expr
 	vstack.tag = tag
 }
 
-func (parser *FcConfigParse) parseBinary(op FcOp) {
+func (parser *configParser) parseBinary(op FcOp) {
 	expr := parser.popBinary(op)
 	if expr != nil {
-		parser.pushExpr(FcVStackExpr, expr)
+		parser.pushExpr(vstackExpr, expr)
 	}
 }
 
 // This builds a a unary operator, it consumes only a single operand
-func (parser *FcConfigParse) parseUnary(op FcOp) {
+func (parser *configParser) parseUnary(op FcOp) {
 	operand := parser.popExpr()
 	if operand != nil {
 		expr := newExprOp(operand, nil, op)
-		parser.pushExpr(FcVStackExpr, expr)
+		parser.pushExpr(vstackExpr, expr)
 	}
 }
 
-func (parser *FcConfigParse) parseInteger() error {
+func (parser *configParser) parseInteger() error {
 	last := parser.p()
 	if last == nil {
 		return nil
@@ -1273,11 +1256,11 @@ func (parser *FcConfigParse) parseInteger() error {
 
 	vstack := parser.createVAndPush()
 	vstack.u = d
-	vstack.tag = FcVStackInteger
+	vstack.tag = vstackInteger
 	return nil
 }
 
-func (parser *FcConfigParse) parseFloat() error {
+func (parser *configParser) parseFloat() error {
 	last := parser.p()
 	if last == nil {
 		return nil
@@ -1292,11 +1275,11 @@ func (parser *FcConfigParse) parseFloat() error {
 
 	vstack := parser.createVAndPush()
 	vstack.u = d
-	vstack.tag = FcVStackDouble
+	vstack.tag = vstackDouble
 	return nil
 }
 
-func (parser *FcConfigParse) parseString(tag FcVStackTag) {
+func (parser *configParser) parseString(tag vstackTag) {
 	last := parser.p()
 	if last == nil {
 		return
@@ -1306,10 +1289,10 @@ func (parser *FcConfigParse) parseString(tag FcVStackTag) {
 
 	vstack := parser.createVAndPush()
 	vstack.u = s
-	vstack.tag = FcVStackString
+	vstack.tag = vstackString
 }
 
-func (parser *FcConfigParse) parseBool() {
+func (parser *configParser) parseBool() {
 	last := parser.p()
 	if last == nil {
 		return
@@ -1319,10 +1302,10 @@ func (parser *FcConfigParse) parseBool() {
 
 	vstack := parser.createVAndPush()
 	vstack.u = parser.lexBool(s)
-	vstack.tag = FcVStackBool
+	vstack.tag = vstackBool
 }
 
-func (parser *FcConfigParse) parseName() error {
+func (parser *configParser) parseName() error {
 	var kind FcMatchKind
 	last := parser.p()
 
@@ -1350,11 +1333,11 @@ func (parser *FcConfigParse) parseName() error {
 
 	vstack := parser.createVAndPush()
 	vstack.u = FcExprName{object: object.object, kind: kind}
-	vstack.tag = FcVStackName
+	vstack.tag = vstackName
 	return nil
 }
 
-func (parser *FcConfigParse) parseMatrix() error {
+func (parser *configParser) parseMatrix() error {
 	var m FcExprMatrix
 
 	m.yy = parser.popExpr()
@@ -1372,11 +1355,11 @@ func (parser *FcConfigParse) parseMatrix() error {
 
 	vstack := parser.createVAndPush()
 	vstack.u = m
-	vstack.tag = FcVStackMatrix
+	vstack.tag = vstackMatrix
 	return nil
 }
 
-func (parser *FcConfigParse) parseRange() error {
+func (parser *configParser) parseRange() error {
 	var (
 		n     [2]int
 		d     [2]float64
@@ -1388,13 +1371,13 @@ func (parser *FcConfigParse) parseRange() error {
 	}
 	for i, vstack := range values {
 		switch vstack.tag {
-		case FcVStackInteger:
+		case vstackInteger:
 			if dflag {
 				d[i] = float64(vstack.u.(int))
 			} else {
 				n[i] = vstack.u.(int)
 			}
-		case FcVStackDouble:
+		case vstackDouble:
 			if i == 0 && !dflag {
 				d[1] = float64(n[1])
 			}
@@ -1420,11 +1403,11 @@ func (parser *FcConfigParse) parseRange() error {
 	}
 	vstack := parser.createVAndPush()
 	vstack.u = r
-	vstack.tag = FcVStackRange
+	vstack.tag = vstackRange
 	return nil
 }
 
-func (parser *FcConfigParse) parseCharSet() error {
+func (parser *configParser) parseCharSet() error {
 	var (
 		charset FcCharSet
 		n       = 0
@@ -1433,14 +1416,14 @@ func (parser *FcConfigParse) parseCharSet() error {
 	last := parser.p()
 	for _, vstack := range last.values {
 		switch vstack.tag {
-		case FcVStackInteger:
+		case vstackInteger:
 			r := uint32(vstack.u.(int))
 			if !charset.addChar(r) {
 				parser.message(FcSevereWarning, "invalid character: 0x%04x", r)
 			} else {
 				n++
 			}
-		case FcVStackRange:
+		case vstackRange:
 			ra := vstack.u.(FcRange)
 			if ra.Begin <= ra.End {
 				for r := uint32(ra.Begin); r <= uint32(ra.End); r++ {
@@ -1459,12 +1442,12 @@ func (parser *FcConfigParse) parseCharSet() error {
 	if n > 0 {
 		vstack := parser.createVAndPush()
 		vstack.u = charset
-		vstack.tag = FcVStackCharSet
+		vstack.tag = vstackCharSet
 	}
 	return nil
 }
 
-func (parser *FcConfigParse) parseLangSet() error {
+func (parser *configParser) parseLangSet() error {
 	var (
 		langset FcLangSet
 		n       = 0
@@ -1472,7 +1455,7 @@ func (parser *FcConfigParse) parseLangSet() error {
 
 	for _, vstack := range parser.p().values {
 		switch vstack.tag {
-		case FcVStackString:
+		case vstackString:
 			s := vstack.u.(string)
 			langset.add(s)
 			n++
@@ -1484,23 +1467,23 @@ func (parser *FcConfigParse) parseLangSet() error {
 	if n > 0 {
 		vstack := parser.createVAndPush()
 		vstack.u = langset
-		vstack.tag = FcVStackLangSet
+		vstack.tag = vstackLangSet
 	}
 	return nil
 }
 
-func (parser *FcConfigParse) parseFamilies(tag FcVStackTag) {
+func (parser *configParser) parseFamilies(tag vstackTag) {
 	var expr *FcExpr
 
 	val := parser.p().values
 	for i := range val {
 		vstack := val[len(val)-1-i]
-		if vstack.tag != FcVStackFamily {
+		if vstack.tag != vstackFamily {
 			parser.message(FcSevereWarning, "non-family")
 			continue
 		}
 		left := vstack.u.(*FcExpr)
-		vstack.tag = FcVStackNone
+		vstack.tag = vstackNone
 		if expr != nil {
 			expr = newExprOp(left, expr, FcOpComma)
 		} else {
@@ -1513,7 +1496,7 @@ func (parser *FcConfigParse) parseFamilies(tag FcVStackTag) {
 	}
 }
 
-func (parser *FcConfigParse) parseFamily() {
+func (parser *configParser) parseFamily() {
 	last := parser.p()
 	if last == nil {
 		return
@@ -1522,10 +1505,10 @@ func (parser *FcConfigParse) parseFamily() {
 	last.str.Reset()
 
 	expr := &FcExpr{op: FcOpString, u: s}
-	parser.pushExpr(FcVStackFamily, expr)
+	parser.pushExpr(vstackFamily, expr)
 }
 
-func (parser *FcConfigParse) parseDescription() {
+func (parser *configParser) parseDescription() {
 	last := parser.p()
 	if last == nil {
 		return
@@ -1536,7 +1519,7 @@ func (parser *FcConfigParse) parseDescription() {
 	parser.ruleset.domain, parser.ruleset.description = domain, desc
 }
 
-func (parser *FcConfigParse) parseRemapDir() error {
+func (parser *configParser) parseRemapDir() error {
 	last := parser.p()
 	var data string
 	if last != nil {
@@ -1569,13 +1552,13 @@ func (parser *FcConfigParse) parseRemapDir() error {
 	return nil
 }
 
-func (parser *FcConfigParse) parseResetDirs() {
+func (parser *configParser) parseResetDirs() {
 	if !parser.scanOnly {
 		parser.config.fontDirs.reset()
 	}
 }
 
-func (parser *FcConfigParse) parseTest() error {
+func (parser *configParser) parseTest() error {
 	var (
 		kind    FcMatchKind
 		qual    uint8
@@ -1652,15 +1635,15 @@ func (parser *FcConfigParse) parseTest() error {
 	if expr.op == FcOpComma {
 		parser.message(FcSevereWarning, "Having multiple values in <test> isn't supported and may not work as expected")
 	}
-	test := parser.FcTestCreate(kind, qual, object, opWithFlags(compare, flags), expr)
+	test := parser.newTest(kind, qual, object, opWithFlags(compare, flags), expr)
 
 	vstack := parser.createVAndPush()
 	vstack.u = test
-	vstack.tag = FcVStackTest
+	vstack.tag = vstackTest
 	return nil
 }
 
-func (parser *FcConfigParse) parseEdit() error {
+func (parser *configParser) parseEdit() error {
 	var (
 		mode   FcOp
 		last   = parser.p()
@@ -1699,17 +1682,17 @@ func (parser *FcConfigParse) parseEdit() error {
 		parser.message(FcSevereWarning, "Expression doesn't take any effects for delete and delete_all")
 		expr = nil
 	}
-	edit := parser.FcEditCreate(object, mode, expr, binding)
+	edit := parser.newEdit(object, mode, expr, binding)
 
 	vstack := parser.createVAndPush()
 	vstack.u = edit
-	vstack.tag = FcVStackEdit
+	vstack.tag = vstackEdit
 	return nil
 }
 
-func (parser *FcConfigParse) parseRescan() {
+func (parser *configParser) parseRescan() {
 	for _, v := range parser.p().values {
-		if v.tag != FcVStackInteger {
+		if v.tag != vstackInteger {
 			parser.message(FcSevereWarning, "non-integer rescan")
 		} else {
 			parser.config.rescanInterval = v.u.(int)
@@ -1717,14 +1700,14 @@ func (parser *FcConfigParse) parseRescan() {
 	}
 }
 
-func (parser *FcConfigParse) parseAcceptRejectFont(element FcElement) {
+func (parser *configParser) parseAcceptRejectFont(element elemTag) {
 	for _, vstack := range parser.p().values {
 		switch vstack.tag {
-		case FcVStackGlob:
+		case vstackGlob:
 			if !parser.scanOnly {
 				parser.config.globAdd(vstack.u.(string), element == FcElementAcceptfont)
 			}
-		case FcVStackPattern:
+		case vstackPattern:
 			if !parser.scanOnly {
 				parser.config.patternsAdd(vstack.u.(*FcPattern), element == FcElementAcceptfont)
 			}
@@ -1735,13 +1718,13 @@ func (parser *FcConfigParse) parseAcceptRejectFont(element FcElement) {
 	parser.p().values = nil
 }
 
-func (parser *FcConfigParse) parsePattern() {
+func (parser *configParser) parsePattern() {
 	var pattern FcPattern
 
 	//  TODO: fix this if the order matter
 	for _, vstack := range parser.p().values {
 		switch vstack.tag {
-		case FcVStackPattern:
+		case vstackPattern:
 			pattern.append(vstack.u.(*FcPattern))
 		default:
 			parser.message(FcSevereWarning, "unknown pattern element")
@@ -1751,10 +1734,10 @@ func (parser *FcConfigParse) parsePattern() {
 
 	vstack := parser.createVAndPush()
 	vstack.u = &pattern
-	vstack.tag = FcVStackPattern
+	vstack.tag = vstackPattern
 }
 
-func (parser *FcConfigParse) parsePatelt() error {
+func (parser *configParser) parsePatelt() error {
 	// FcValue	value;
 	// const char	*name;
 	var pattern FcPattern
@@ -1778,11 +1761,11 @@ func (parser *FcConfigParse) parsePatelt() error {
 
 	vstack := parser.createVAndPush()
 	vstack.u = &pattern
-	vstack.tag = FcVStackPattern
+	vstack.tag = vstackPattern
 	return nil
 }
 
-func (parser *FcConfigParse) popValue() FcValue {
+func (parser *configParser) popValue() FcValue {
 	vstack := parser.v()
 	if vstack == nil {
 		return nil
@@ -1790,11 +1773,11 @@ func (parser *FcConfigParse) popValue() FcValue {
 	var value FcValue
 
 	switch vstack.tag {
-	case FcVStackString, FcVStackInteger, FcVStackDouble, FcVStackBool,
-		FcVStackCharSet, FcVStackLangSet, FcVStackRange:
+	case vstackString, vstackInteger, vstackDouble, vstackBool,
+		vstackCharSet, vstackLangSet, vstackRange:
 		value = vstack.u
-	case FcVStackConstant:
-		if i, ok := FcNameConstant(vstack.u.(string)); ok {
+	case vstackConstant:
+		if i, ok := nameConstant(vstack.u.(string)); ok {
 			value = i
 		}
 	default:

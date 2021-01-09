@@ -15,12 +15,12 @@ type typeMeta interface {
 	parse(str string, object FcObject) (FcValue, error)
 }
 
-type FcObjectType struct {
-	object FcObject // exposed name of the object
+type objectType struct {
+	object FcObject
 	parser typeMeta
 }
 
-var objects = map[string]FcObjectType{
+var objects = map[string]objectType{
 	ObjectNames[FC_FAMILY]:          {object: FC_FAMILY, parser: typeString{}},          // String
 	ObjectNames[FC_FAMILYLANG]:      {object: FC_FAMILYLANG, parser: typeString{}},      // String
 	ObjectNames[FC_STYLE]:           {object: FC_STYLE, parser: typeString{}},           // String
@@ -107,12 +107,12 @@ var objects = map[string]FcObjectType{
 //  }
 
 // Return the object type for the pattern element named object
-func getObjectType(object string) (FcObjectType, error) {
+func getObjectType(object string) (objectType, error) {
 	if builtin, ok := objects[object]; ok {
 		return builtin, nil
 	}
 	// TODO: support custom objects
-	return FcObjectType{}, fmt.Errorf("fontconfig: invalid object name %s", object)
+	return objectType{}, fmt.Errorf("fontconfig: invalid object name %s", object)
 }
 
 //  FcBool
@@ -179,13 +179,13 @@ func getObjectType(object string) (FcObjectType, error) {
 // 	 return FcObjectLookupOtherNameById (object);
 //  }
 
-type FcConstant struct {
+type constant struct {
 	name   string
 	object FcObject
 	value  int
 }
 
-var baseConstants = [...]FcConstant{
+var baseConstants = [...]constant{
 	{"thin", FC_WEIGHT, FC_WEIGHT_THIN},
 	{"extralight", FC_WEIGHT, FC_WEIGHT_EXTRALIGHT},
 	{"ultralight", FC_WEIGHT, FC_WEIGHT_EXTRALIGHT},
@@ -252,8 +252,6 @@ var baseConstants = [...]FcConstant{
 	{"lcdlegacy", FC_LCD_FILTER, FC_LCD_LEGACY},
 }
 
-//  #define NUM_FC_CONSTANTS   (sizeof baseConstants/sizeof baseConstants[0])
-
 //  FcBool
 //  FcNameRegisterConstants (const FcConstant *consts, int nconsts)
 //  {
@@ -268,7 +266,7 @@ var baseConstants = [...]FcConstant{
 // 	 return false;
 //  }
 
-func FcNameGetConstant(str string) *FcConstant {
+func nameGetConstant(str string) *constant {
 	for i := range baseConstants {
 		if FcStrCmpIgnoreCase(str, baseConstants[i].name) == 0 {
 			return &baseConstants[i]
@@ -277,8 +275,8 @@ func FcNameGetConstant(str string) *FcConstant {
 	return nil
 }
 
-func FcNameConstant(str string) (int, bool) {
-	if c := FcNameGetConstant(str); c != nil {
+func nameConstant(str string) (int, bool) {
+	if c := nameGetConstant(str); c != nil {
 		return c.value, true
 	}
 	return 0, false
@@ -333,7 +331,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 					}
 				}
 			} else {
-				if c := FcNameGetConstant(save); c != nil {
+				if c := nameGetConstant(save); c != nil {
 					t, err := getObjectType(ObjectNames[c.object])
 					if err != nil {
 						return nil, err
@@ -378,7 +376,7 @@ func nameFindNext(cur []byte, delim string) (byte, []byte, string) {
 }
 
 func constantWithObjectCheck(str string, object FcObject) (int, bool, error) {
-	c := FcNameGetConstant(str)
+	c := nameGetConstant(str)
 	if c != nil {
 		if c.object != object {
 			return 0, false, fmt.Errorf("fontconfig : unexpected constant name %s used for object %s: should be %s\n", str, object, c.object)

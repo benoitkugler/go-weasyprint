@@ -1249,14 +1249,14 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 // } FamilyTableEntry;
 
 type FamilyTable struct {
-	family_blank_hash familyBlankHash
-	family_hash       familyHash
+	family_blank_hash familyBlankMap
+	family_hash       familyMap
 }
 
 func newFamilyTable(p *FcPattern) FamilyTable {
 	table := FamilyTable{
-		family_blank_hash: make(familyBlankHash),
-		family_hash:       make(familyHash),
+		family_blank_hash: make(familyBlankMap),
+		family_hash:       make(familyMap),
 	}
 
 	e := p.elts[FC_FAMILY]

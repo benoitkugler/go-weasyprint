@@ -710,15 +710,15 @@ func langSetOperate(a, b FcLangSet, fn func(ls *FcLangSet, s string)) FcLangSet 
 	return langset
 }
 
-func FcLangSetUnion(a, b FcLangSet) FcLangSet {
+func langSetUnion(a, b FcLangSet) FcLangSet {
 	return langSetOperate(a, b, (*FcLangSet).add)
 }
 
-func FcLangSetSubtract(a, b FcLangSet) FcLangSet {
+func langSetSubtract(a, b FcLangSet) FcLangSet {
 	return langSetOperate(a, b, (*FcLangSet).del)
 }
 
-func FcLangSetPromote(lang string) FcLangSet {
+func langSetPromote(lang string) FcLangSet {
 	var ls FcLangSet
 	if lang != "" {
 		id := FcLangSetIndex(lang)
@@ -729,6 +729,36 @@ func FcLangSetPromote(lang string) FcLangSet {
 		}
 	}
 	return ls
+}
+
+// Returns a string set of all languages in `ls`.
+func (ls FcLangSet) getLangs() FcStrSet {
+	langs := make(FcStrSet)
+
+	for i, lg := range fcLangCharSets {
+		if ls.bitGet(i) {
+			langs[lg.lang] = true
+		}
+	}
+
+	for extra := range ls.extra {
+		langs[extra] = true
+	}
+
+	return langs
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 //  FcChar32
@@ -818,33 +848,3 @@ func FcLangSetPromote(lang string) FcLangSet {
 // 	 l_serialize.extra = NULL; /* We don't serialize ls.extra */
 // 	 return l_serialize;
 //  }
-
-// Returns a string set of all languages in `ls`.
-func (ls FcLangSet) getLangs() FcStrSet {
-	langs := make(FcStrSet)
-
-	for i, lg := range fcLangCharSets {
-		if ls.bitGet(i) {
-			langs[lg.lang] = true
-		}
-	}
-
-	for extra := range ls.extra {
-		langs[extra] = true
-	}
-
-	return langs
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
