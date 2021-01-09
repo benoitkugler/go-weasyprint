@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
+	"unicode"
 )
 
 // An FcPattern holds a set of names with associated value lists; each name refers to a
@@ -16,6 +18,19 @@ import (
 // using a sorted list of (FcObject,FcValueList) pairs.
 type FcPattern struct {
 	elts map[FcObject]FcValueList
+}
+
+// Duplicate returns a new pattern that matches
+// `p`. Each pattern may be modified without affecting the other.
+func (p *FcPattern) Duplicate() *FcPattern {
+	if p == nil {
+		return nil
+	}
+	out := FcPattern{elts: make(map[FcObject]FcValueList, len(p.elts))}
+	for o, l := range p.elts {
+		out.elts[o] = l.duplicate()
+	}
+	return &out
 }
 
 // Add adds the given value for the given object, with a strong binding.
@@ -78,16 +93,13 @@ func (p FcPattern) Hash() string {
 // String returns a human friendly representation,
 // mainly used for debugging.
 func (p *FcPattern) String() string {
-	// TODO: check this
-
 	if p == nil {
-		return "Null pattern"
+		return "Nil pattern"
 	}
-	s := fmt.Sprintf("Pattern has %d elts\n", len(p.elts))
+	s := fmt.Sprintf("%d elements pattern:\n", len(p.elts))
 
 	for obj, vs := range p.elts {
-		s += fmt.Sprintf("\t%s:", obj)
-		s += fmt.Sprintln(vs)
+		s += fmt.Sprintf("\t%s: %v\n", obj, vs)
 	}
 	return s
 }
@@ -137,6 +149,72 @@ func (p FcPattern) FcPatternObjectGetCharSet(object FcObject, id int) (FcCharSet
 		return FcCharSet{}, FcResultTypeMismatch
 	}
 	return out, FcResultMatch
+}
+
+// Add all of the elements in 's' to 'p'
+func (p *FcPattern) append(s *FcPattern) {
+	for object, list := range s.elts {
+		for _, v := range list {
+			p.addWithBinding(object, v.value, v.binding, true)
+		}
+	}
+}
+
+func (pat *FcPattern) addFullname() bool {
+	b, res := pat.FcPatternObjectGetBool(FC_VARIABLE, 0)
+	if res == FcResultMatch && b != FcFalse {
+		return true
+	}
+
+	var (
+		lang, style string
+		n           int
+	)
+	lang, res = pat.FcPatternObjectGetString(FC_FAMILYLANG, n)
+	for ; res == FcResultMatch; lang, res = pat.FcPatternObjectGetString(FC_FAMILYLANG, n) {
+		if lang == "en" {
+			break
+		}
+		n++
+		lang = ""
+	}
+	if lang == "" {
+		n = 0
+	}
+	family, res := pat.FcPatternObjectGetString(FC_FAMILY, n)
+	if res != FcResultMatch {
+		return false
+	}
+	family = strings.TrimRightFunc(family, unicode.IsSpace)
+	lang = ""
+	lang, res = pat.FcPatternObjectGetString(FC_STYLELANG, n)
+	for ; res == FcResultMatch; lang, res = pat.FcPatternObjectGetString(FC_STYLELANG, n) {
+		if lang == "en" {
+			break
+		}
+		n++
+		lang = ""
+	}
+	if lang == "" {
+		n = 0
+	}
+	style, res = pat.FcPatternObjectGetString(FC_STYLE, n)
+	if res != FcResultMatch {
+		return false
+	}
+
+	style = strings.TrimLeftFunc(style, unicode.IsSpace)
+	sbuf := []byte(family)
+	if FcStrCmpIgnoreBlanksAndCase(style, "Regular") != 0 {
+		sbuf = append(sbuf, ' ')
+		sbuf = append(sbuf, style...)
+	}
+	pat.del(FC_FULLNAME)
+	pat.Add(FC_FULLNAME, string(sbuf), true)
+	pat.del(FC_FULLNAMELANG)
+	pat.Add(FC_FULLNAMELANG, "en", true)
+
+	return true
 }
 
 type PatternElement struct {

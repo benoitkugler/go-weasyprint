@@ -73,6 +73,7 @@ var objects = map[string]FcObjectType{
 	ObjectNames[FC_VARIABLE]:        {object: FC_VARIABLE, parser: typeBool{}},          // Bool
 	ObjectNames[FC_FONT_HAS_HINT]:   {object: FC_FONT_HAS_HINT, parser: typeBool{}},     // Bool
 	ObjectNames[FC_ORDER]:           {object: FC_ORDER, parser: typeInteger{}},          // Integer
+	ObjectNames[fcTestResult]:       {object: fcTestResult, parser: typeBool{}},         // Integer
 }
 
 //  static const FcObjectType FcObjects[] = {

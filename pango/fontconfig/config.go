@@ -25,11 +25,42 @@ type FcTest struct {
 	expr   *FcExpr
 }
 
+// String returns a human friendly representation of a Test
+func (test FcTest) String() string {
+	out := ""
+	switch test.kind {
+	case FcMatchPattern:
+		out += "pattern "
+	case FcMatchFont:
+		out += "font "
+	case FcMatchScan:
+		out += "scan "
+	case FcMatchKindEnd: // shouldn't be reached
+		return out
+	}
+	switch test.qual {
+	case FcQualAny:
+		out += "any "
+	case FcQualAll:
+		out += "all "
+	case FcQualFirst:
+		out += "first "
+	case FcQualNotFirst:
+		out += "not_first "
+	}
+	out += fmt.Sprintf("%s %s %s", test.object, test.op, test.expr)
+	return out
+}
+
 type FcEdit struct {
 	object  FcObject
 	op      FcOp
 	expr    *FcExpr
 	binding FcValueBinding
+}
+
+func (edit FcEdit) String() string {
+	return fmt.Sprintf("%s %s %s", edit.object, edit.op, edit.expr)
 }
 
 type FcRule interface{} // *Test Or Edit
@@ -116,8 +147,8 @@ type FcConfig struct {
 	// List of patterns used to control font file selection
 	acceptGlobs    FcStrSet
 	rejectGlobs    FcStrSet
-	acceptPatterns *FcFontSet
-	rejectPatterns *FcFontSet
+	acceptPatterns FcFontSet
+	rejectPatterns FcFontSet
 
 	// The set of fonts loaded from the listed directories; the
 	// order within the set does not determine the font selection,
@@ -125,24 +156,44 @@ type FcConfig struct {
 	// match preferrentially
 	fonts [FcSetApplication + 1]FcFontSet
 
-	/*
-	 * Fontconfig can periodically rescan the system configuration
-	 * and font directories.  This rescanning occurs when font
-	 * listing requests are made, but no more often than rescanInterval
-	 * seconds apart.
-	 */
+	// Fontconfig can periodically rescan the system configuration
+	// and font directories.  This rescanning occurs when font
+	// listing requests are made, but no more often than rescanInterval
+	// seconds apart.
+	rescanInterval int // interval between scans, in seconds
 	// time_t rescanTime     /* last time information was scanned */
-	// int    rescanInterval /* interval between scans */
 
 	// FcExprPage *expr_pool /* pool of FcExpr's */
 
-	sysRoot          string   /* override the system root directory */
-	availConfigFiles FcStrSet /* config files available */
-	// FcPtrList        *rulesetList /* List of rulesets being installed */
+	sysRoot          string       /* override the system root directory */
+	availConfigFiles FcStrSet     /* config files available */
+	rulesetList      []*FcRuleSet /* List of rulesets being installed */
 }
 
-// FcConfigSubstituteWithPat performs the sequence of pattern modification operations. If `kind` is
-// FcMatchPattern, then those tagged as pattern operations are applied, else
+// NewFcConfig returns a new empty configuration
+func NewFcConfig() *FcConfig {
+	var config FcConfig
+
+	config.configDirs = make(FcStrSet)
+	config.configMapDirs = make(FcStrSet)
+	config.configFiles = make(FcStrSet)
+	config.fontDirs = make(FcStrSet)
+	config.acceptGlobs = make(FcStrSet)
+	config.rejectGlobs = make(FcStrSet)
+	config.cacheDirs = make(FcStrSet)
+
+	config.rescanInterval = 30
+
+	// TODO: maybe this is not enough
+	config.sysRoot, _ = filepath.Abs(os.Getenv("FONTCONFIG_SYSROOT"))
+
+	config.availConfigFiles = make(FcStrSet)
+
+	return &config
+}
+
+// FcConfigSubstituteWithPat performs the sequence of pattern modification operations.
+// If `kind` is FcMatchPattern, then those tagged as pattern operations are applied, else
 // if `kind` is FcMatchFont, those tagged as font operations are applied and
 // `pPat` is used for test; elements with target=pattern. Returns `false`
 // if the substitution cannot be performed.
@@ -209,7 +260,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 	tst := make([]*FcTest, nobjs)
 
 	if debugMode {
-		fmt.Println("FcConfigSubstitute ")
+		fmt.Println("FcConfigSubstitute with pattern:")
 		fmt.Println(p.String())
 	}
 
@@ -237,7 +288,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 				case *FcTest:
 					// Check the tests to see if they all match the pattern
 					if debugMode {
-						fmt.Println("FcConfigSubstitute test ", r)
+						fmt.Println("FcConfigSubstitute test", r)
 					}
 					if kind == FcMatchFont && r.kind == FcMatchPattern {
 						m = pPat
@@ -285,8 +336,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 				case FcEdit:
 					object := r.object
 					if debugMode {
-						fmt.Println("Substitute ", r)
-						fmt.Println()
+						fmt.Println("FcConfigSubstitute edit", r)
 					}
 					// Evaluate the list of expressions
 					l := r.expr.FcConfigValues(p, pPat, kind, r.binding)
@@ -374,6 +424,29 @@ func (config *FcConfig) FcConfigAddCacheDir(d string) error {
 	return addFilename(config.cacheDirs, d)
 }
 
+func (config *FcConfig) addConfigDir(d string) error {
+	return addFilename(config.configDirs, d)
+}
+
+// TODO:
+func (config *FcConfig) addDirList(set FcSetName, dirSet FcStrSet) {
+	// FcStrList	    *dirlist;
+	// FcChar8	    *dir;
+	// FcCache	    *cache;
+
+	for dir := range dirSet {
+		if debugMode {
+			fmt.Printf("adding fonts from %s\n", dir)
+		}
+		cache := FcDirCacheRead(dir, false, config)
+		if cache == "" {
+			continue
+		}
+		// FcConfigAddCache(config, cache, set, dirSet, dir)
+		// FcDirCacheUnload(cache)
+	}
+}
+
 // GetFilename returns the filename associated to an external entity name.
 // This provides applications a way to convert various configuration file
 // references into filename form.
@@ -434,6 +507,20 @@ func (config *FcConfig) GetFilename(url string) string {
 	return file
 }
 
+func realFilename(resolvedName string) string {
+	dest, err := os.Readlink(resolvedName)
+	if err != nil {
+		return resolvedName
+	}
+
+	out, err := filepath.Abs(dest)
+	if err != nil {
+		out = dest
+	}
+
+	return out
+}
+
 func (config *FcConfig) getSysRoot() string {
 	if config == nil {
 		config = FcConfigGetCurrent()
@@ -442,6 +529,40 @@ func (config *FcConfig) getSysRoot() string {
 		}
 	}
 	return config.sysRoot
+}
+
+func (config *FcConfig) globAdd(glob string, accept bool) {
+	set := config.rejectGlobs
+	if accept {
+		set = config.acceptGlobs
+	}
+	set[glob] = true
+}
+
+func (config *FcConfig) patternsAdd(pattern *FcPattern, accept bool) {
+	set := &config.rejectPatterns
+	if accept {
+		set = &config.acceptPatterns
+	}
+	*set = append(*set, pattern)
+}
+
+func (config *FcConfig) FcConfigSubstitute(p *FcPattern, kind FcMatchKind) bool {
+	return config.FcConfigSubstituteWithPat(p, nil, kind)
+}
+
+// FcConfigBuildFonts scans the current list of directories in the configuration
+// and build the set of available fonts.
+// TODO: this is broken
+func (config *FcConfig) FcConfigBuildFonts() {
+	config = fallbackConfig(config)
+
+	config.fonts[FcSetSystem] = nil
+	config.addDirList(FcSetSystem, config.fontDirs)
+
+	if debugMode {
+		fmt.Println(config.fonts[FcSetSystem])
+	}
 }
 
 /* Objects MT-safe for readonly access. */
@@ -551,114 +672,6 @@ func (config *FcConfig) getSysRoot() string {
 //     return toAbsPath(path);
 // }
 
-// FcConfig *
-// FcConfigCreate (void)
-// {
-//     FcSetName	set;
-//     config *FcConfig;
-//     FcMatchKind	k;
-//     FcBool	err = false;
-
-//     config = malloc (sizeof (FcConfig));
-//     if (!config)
-// 	goto bail0;
-
-//     config.configDirs = FcStrSetCreate ();
-//     if (!config.configDirs)
-// 	goto bail1;
-
-//     config.configMapDirs = FcStrSetCreate();
-//     if (!config.configMapDirs)
-// 	goto bail1_5;
-
-//     config.configFiles = FcStrSetCreate ();
-//     if (!config.configFiles)
-// 	goto bail2;
-
-//     config.fontDirs = FcStrSetCreate ();
-//     if (!config.fontDirs)
-// 	goto bail3;
-
-//     config.acceptGlobs = FcStrSetCreate ();
-//     if (!config.acceptGlobs)
-// 	goto bail4;
-
-//     config.rejectGlobs = FcStrSetCreate ();
-//     if (!config.rejectGlobs)
-// 	goto bail5;
-
-//     config.acceptPatterns = FcFontSetCreate ();
-//     if (!config.acceptPatterns)
-// 	goto bail6;
-
-//     config.rejectPatterns = FcFontSetCreate ();
-//     if (!config.rejectPatterns)
-// 	goto bail7;
-
-//     config.cacheDirs = FcStrSetCreate ();
-//     if (!config.cacheDirs)
-// 	goto bail8;
-
-//     for (k = FcMatchKindBegin; k < FcMatchKindEnd; k++)
-//     {
-// 	config.subst[k] = FcPtrListCreate (FcDestroyAsRuleSet);
-// 	if (!config.subst[k])
-// 	    err = true;
-//     }
-//     if (err)
-// 	goto bail9;
-
-//     config.maxObjects = 0;
-//     for (set = FcSetSystem; set <= FcSetApplication; set++)
-// 	config.fonts[set] = 0;
-
-//     config.rescanTime = time(0);
-//     config.rescanInterval = 30;
-
-//     config.expr_pool = nil;
-
-//     config.sysRoot = FcConfigRealPath((const FcChar8 *) getenv("FONTCONFIG_SYSROOT"));
-
-//     config.rulesetList = FcPtrListCreate (FcDestroyAsRuleSet);
-//     if (!config.rulesetList)
-// 	goto bail9;
-//     config.availConfigFiles = FcStrSetCreate ();
-//     if (!config.availConfigFiles)
-// 	goto bail10;
-
-//     FcRefInit (&config.ref, 1);
-
-//     return config;
-
-// bail10:
-//     FcPtrListDestroy (config.rulesetList);
-// bail9:
-//     for (k = FcMatchKindBegin; k < FcMatchKindEnd; k++)
-// 	if (config.subst[k])
-// 	    FcPtrListDestroy (config.subst[k]);
-//     FcStrSetDestroy (config.cacheDirs);
-// bail8:
-//     FcFontSetDestroy (config.rejectPatterns);
-// bail7:
-//     FcFontSetDestroy (config.acceptPatterns);
-// bail6:
-//     FcStrSetDestroy (config.rejectGlobs);
-// bail5:
-//     FcStrSetDestroy (config.acceptGlobs);
-// bail4:
-//     FcStrSetDestroy (config.fontDirs);
-// bail3:
-//     FcStrSetDestroy (config.configFiles);
-// bail2:
-//     FcStrSetDestroy (config.configMapDirs);
-// bail1_5:
-//     FcStrSetDestroy (config.configDirs);
-// bail1:
-//     free (config);
-// bail0:
-//     return 0;
-// }
-
 // static FcFileTime
 // FcConfigNewestFile (FcStrSet *files)
 // {
@@ -682,7 +695,7 @@ func (config *FcConfig) getSysRoot() string {
 // }
 
 // FcBool
-// FcConfigUptoDate (FcConfig *config)
+// FcConfigUptoDate (config *FcConfig)
 // {
 //     FcFileTime	config_time, config_dir_time, font_time;
 //     time_t	now = time(0);
@@ -723,7 +736,7 @@ func (config *FcConfig) getSysRoot() string {
 // }
 
 // FcExpr *
-// FcConfigAllocExpr (FcConfig *config)
+// FcConfigAllocExpr (config *FcConfig)
 // {
 //     if (!config.expr_pool || config.expr_pool.next == config.expr_pool.end)
 //     {
@@ -794,7 +807,7 @@ func ensure() *FcConfig {
 }
 
 // void
-// FcConfigDestroy (FcConfig *config)
+// FcConfigDestroy (config *FcConfig)
 // {
 //     FcSetName	set;
 //     FcExprPage	*page;
@@ -841,7 +854,7 @@ func ensure() *FcConfig {
 //  */
 
 // FcBool
-// FcConfigAddCache (FcConfig *config, FcCache *cache,
+// FcConfigAddCache (config *FcConfig, FcCache *cache,
 // 		  FcSetName set, FcStrSet *dirSet, FcChar8 *forDir)
 // {
 //     FcFontSet	*fs;
@@ -933,70 +946,8 @@ func ensure() *FcConfig {
 //     return true;
 // }
 
-// static FcBool
-// FcConfigAddDirList (FcConfig *config, FcSetName set, FcStrSet *dirSet)
-// {
-//     FcStrList	    *dirlist;
-//     FcChar8	    *dir;
-//     FcCache	    *cache;
-
-//     dirlist = FcStrListCreate (dirSet);
-//     if (!dirlist)
-//         return false;
-
-//     for ((dir = FcStrListNext (dirlist)))
-//     {
-// 	if (FcDebug () & FC_DBG_FONTSET)
-// 	    printf ("adding fonts from %s\n", dir);
-// 	cache = FcDirCacheRead (dir, false, config);
-// 	if (!cache)
-// 	    continue;
-// 	FcConfigAddCache (config, cache, set, dirSet, dir);
-// 	FcDirCacheUnload (cache);
-//     }
-//     FcStrListDone (dirlist);
-//     return true;
-// }
-
-// /*
-//  * Scan the current list of directories in the configuration
-//  * and build the set of available fonts.
-//  */
-
 // FcBool
-// FcConfigBuildFonts (FcConfig *config)
-// {
-//     FcFontSet	    *fonts;
-//     FcBool	    ret = true;
-
-//     config = fallbackConfig (config);
-//     if (!config)
-// 	return false;
-
-//     fonts = FcFontSetCreate ();
-//     if (!fonts)
-//     {
-// 	ret = false;
-// 	goto bail;
-//     }
-
-//     FcConfigSetFonts (config, fonts, FcSetSystem);
-
-//     if (!FcConfigAddDirList (config, FcSetSystem, config.fontDirs))
-//     {
-// 	ret = false;
-// 	goto bail;
-//     }
-//     if (FcDebug () & FC_DBG_FONTSET)
-// 	FcFontSetPrint (fonts);
-// bail:
-//     FcConfigDestroy (config);
-
-//     return ret;
-// }
-
-// FcBool
-// FcConfigSetCurrent (FcConfig *config)
+// FcConfigSetCurrent (config *FcConfig)
 // {
 //     FcConfig *cfg;
 
@@ -1095,7 +1046,7 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 }
 
 // FcBool
-// FcConfigResetFontDirs (FcConfig *config)
+// FcConfigResetFontDirs (config *FcConfig)
 // {
 //     if (FcDebug() & FC_DBG_CACHE)
 //     {
@@ -1136,64 +1087,8 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 //     }
 // }
 
-// FcChar8 *
-// FcConfigMapFontPath(FcConfig		*config,
-// 		    const FcChar8	*path)
-// {
-//     FcStrList	*list;
-//     FcChar8	*dir;
-//     const FcChar8 *map, *rpath;
-//     FcChar8     *retval;
-
-//     list = FcConfigGetFontDirs(config);
-//     if (!list)
-// 	return 0;
-//     for ((dir = FcStrListNext(list)))
-// 	if (FcConfigPathStartsWith(path, dir))
-// 	    break;
-//     FcStrListDone(list);
-//     if (!dir)
-// 	return 0;
-//     map = FcStrTripleSecond(dir);
-//     if (!map)
-// 	return 0;
-//     rpath = path + strlen ((char *) dir);
-//     for (*rpath == '/')
-// 	rpath++;
-//     retval = filepath.Join(map, rpath, nil);
-//     if (retval)
-//     {
-// 	size_t len = strlen ((const char *) retval);
-// 	for (len > 0 && retval[len-1] == '/')
-// 	    len--;
-// 	/* trim the last slash */
-// 	retval[len] = 0;
-//     }
-//     return retval;
-// }
-
-// const FcChar8 *
-// FcConfigMapSalt (config *FcConfig      ,
-// 		 const FcChar8 *path)
-// {
-//     FcStrList *list;
-//     FcChar8 *dir;
-
-//     list = FcConfigGetFontDirs (config);
-//     if (!list)
-// 	return nil;
-//     for ((dir = FcStrListNext (list)))
-// 	if (FcConfigPathStartsWith (path, dir))
-// 	    break;
-//     FcStrListDone (list);
-//     if (!dir)
-// 	return nil;
-
-//     return FcStrTripleThird (dir);
-// }
-
 // FcStrList *
-// FcConfigGetCacheDirs (FcConfig *config)
+// FcConfigGetCacheDirs (config *FcConfig)
 // {
 //     FcStrList *ret;
 
@@ -1294,7 +1189,7 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 // }
 
 // int
-// FcConfigGetRescanInterval (FcConfig *config)
+// FcConfigGetRescanInterval (config *FcConfig)
 // {
 //     int ret;
 
@@ -1308,7 +1203,7 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 // }
 
 // FcBool
-// FcConfigSetRescanInterval (FcConfig *config, int rescanInterval)
+// FcConfigSetRescanInterval (config *FcConfig, int rescanInterval)
 // {
 //     config = fallbackConfig (config);
 //     if (!config)
@@ -1323,13 +1218,13 @@ func addFilenamePairWithSalt(set FcStrSet, a, b, salt string) error {
 //  * A couple of typos escaped into the library
 //  */
 // int
-// FcConfigGetRescanInverval (FcConfig *config)
+// FcConfigGetRescanInverval (config *FcConfig)
 // {
 //     return FcConfigGetRescanInterval (config);
 // }
 
 // FcBool
-// FcConfigSetRescanInverval (FcConfig *config, int rescanInterval)
+// FcConfigSetRescanInverval (config *FcConfig, int rescanInterval)
 // {
 //     return FcConfigSetRescanInterval (config, rescanInterval);
 // }
@@ -1482,14 +1377,6 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 	}
 	return ret
 }
-
-// FcBool
-// FcConfigSubstitute (config *FcConfig,
-// 		    FcPattern	*p,
-// 		    FcMatchKind	kind)
-// {
-//     return FcConfigSubstituteWithPat (config, p, 0, kind);
-// }
 
 // #if defined (_WIN32)
 
@@ -1821,7 +1708,7 @@ func getPaths() []string {
 
 //     FcStrSetAddFilename (dirs, dir);
 
-//     if (!FcConfigAddDirList (config, FcSetApplication, dirs))
+//     if (!addDirList (config, FcSetApplication, dirs))
 //     {
 // 	FcStrSetDestroy (dirs);
 // 	ret = false;
@@ -1850,16 +1737,6 @@ func getPaths() []string {
 //  * Manage filename-based font source selectors
 //  */
 
-// FcBool
-// FcConfigGlobAdd (config *FcConfig,
-// 		 const FcChar8  *glob,
-// 		 FcBool		accept)
-// {
-//     FcStrSet	*set = accept ? config.acceptGlobs : config.rejectGlobs;
-
-//     return FcStrSetAdd (set, glob);
-// }
-
 // static FcBool
 // FcConfigGlobsMatch (const FcStrSet	*globs,
 // 		    const FcChar8	*string)
@@ -1886,16 +1763,6 @@ func getPaths() []string {
 // /*
 //  * Manage font-pattern based font source selectors
 //  */
-
-// FcBool
-// FcConfigPatternsAdd (config *FcConfig,
-// 		     FcPattern	*pattern,
-// 		     FcBool	accept)
-// {
-//     FcFontSet	*set = accept ? config.acceptPatterns : config.rejectPatterns;
-
-//     return FcFontSetAdd (set, pattern);
-// }
 
 // static FcBool
 // FcConfigPatternsMatch (const FcFontSet	*patterns,

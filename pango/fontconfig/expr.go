@@ -1,6 +1,7 @@
 package fontconfig
 
 import (
+	"fmt"
 	"log"
 	"math"
 )
@@ -64,7 +65,121 @@ func (x FcOp) getFlags() int {
 	return (int(x) & 0xffff0000) >> 16
 }
 
+func (x FcOp) String() string {
+	flagsString := ""
+	if x.getFlags()&FcOpFlagIgnoreBlanks != 0 {
+		flagsString = " (ignore blanks)"
+	}
+	switch x.getOp() {
+	case FcOpInteger:
+		return "Integer"
+	case FcOpDouble:
+		return "Double"
+	case FcOpString:
+		return "String"
+	case FcOpMatrix:
+		return "Matrix"
+	case FcOpRange:
+		return "Range"
+	case FcOpBool:
+		return "Bool"
+	case FcOpCharSet:
+		return "CharSet"
+	case FcOpLangSet:
+		return "LangSet"
+	case FcOpField:
+		return "Field"
+	case FcOpConst:
+		return "Const"
+	case FcOpAssign:
+		return "Assign"
+	case FcOpAssignReplace:
+		return "AssignReplace"
+	case FcOpPrepend:
+		return "Prepend"
+	case FcOpPrependFirst:
+		return "PrependFirst"
+	case FcOpAppend:
+		return "Append"
+	case FcOpAppendLast:
+		return "AppendLast"
+	case FcOpDelete:
+		return "Delete"
+	case FcOpDeleteAll:
+		return "DeleteAll"
+	case FcOpQuest:
+		return "Quest"
+	case FcOpOr:
+		return "Or"
+	case FcOpAnd:
+		return "And"
+	case FcOpEqual:
+		return "Equal" + flagsString
+	case FcOpNotEqual:
+		return "NotEqual" + flagsString
+	case FcOpLess:
+		return "Less"
+	case FcOpLessEqual:
+		return "LessEqual"
+	case FcOpMore:
+		return "More"
+	case FcOpMoreEqual:
+		return "MoreEqual"
+	case FcOpContains:
+		return "Contains"
+	case FcOpNotContains:
+		return "NotContains"
+	case FcOpPlus:
+		return "Plus"
+	case FcOpMinus:
+		return "Minus"
+	case FcOpTimes:
+		return "Times"
+	case FcOpDivide:
+		return "Divide"
+	case FcOpNot:
+		return "Not"
+	case FcOpNil:
+		return "Nil"
+	case FcOpComma:
+		return "Comma"
+	case FcOpFloor:
+		return "Floor"
+	case FcOpCeil:
+		return "Ceil"
+	case FcOpRound:
+		return "Round"
+	case FcOpTrunc:
+		return "Trunc"
+	case FcOpListing:
+		return "Listing" + flagsString
+	default:
+		return "Invalid"
+	}
+}
+
 const FcOpFlagIgnoreBlanks = 1
+
+var fcCompareOps = map[string]FcOp{
+	"eq":           FcOpEqual,
+	"not_eq":       FcOpNotEqual,
+	"less":         FcOpLess,
+	"less_eq":      FcOpLessEqual,
+	"more":         FcOpMore,
+	"more_eq":      FcOpMoreEqual,
+	"contains":     FcOpContains,
+	"not_contains": FcOpNotContains,
+}
+var fcModeOps = map[string]FcOp{
+	"assign":         FcOpAssign,
+	"assign_replace": FcOpAssignReplace,
+	"prepend":        FcOpPrepend,
+	"prepend_first":  FcOpPrependFirst,
+	"append":         FcOpAppend,
+	"append_last":    FcOpAppendLast,
+	"delete":         FcOpDelete,
+	"delete_all":     FcOpDeleteAll,
+}
 
 type FcExprMatrix struct {
 	xx, xy, yx, yy *FcExpr
@@ -103,6 +218,50 @@ type FcExpr struct {
 
 func newExprOp(left, right *FcExpr, op FcOp) *FcExpr {
 	return &FcExpr{op: op, u: exprTree{left: left, right: right}}
+}
+
+func (expr *FcExpr) String() string {
+	if expr == nil {
+		return "nil"
+	}
+
+	switch expr.op.getOp() {
+	case FcOpInteger, FcOpDouble, FcOpString, FcOpRange, FcOpBool, FcOpConst:
+		return fmt.Sprintf("%s", expr.u)
+	case FcOpMatrix:
+		m := expr.u.(FcExprMatrix)
+		return fmt.Sprintf("[%s %s; %s %s]", m.xx, m.xy, m.yx, m.yy)
+	case FcOpCharSet:
+		return "charset"
+	case FcOpLangSet:
+		return fmt.Sprintf("langset: %s", expr.u.(FcLangSet))
+	case FcOpNil:
+		return ("nil")
+	case FcOpField:
+		name := expr.u.(FcExprName)
+		return fmt.Sprintf("%s (%s)", name.object, name.kind)
+	case FcOpQuest:
+		tree := expr.u.(exprTree)
+		treeRight := tree.right.u.(exprTree)
+		return fmt.Sprintf("%s quest %s colon %s", tree.left, treeRight.left, treeRight.right)
+	case FcOpAssign, FcOpAssignReplace, FcOpPrependFirst, FcOpPrepend, FcOpAppend, FcOpAppendLast, FcOpOr,
+		FcOpAnd, FcOpEqual, FcOpNotEqual, FcOpLess, FcOpLessEqual, FcOpMore, FcOpMoreEqual, FcOpContains, FcOpListing,
+		FcOpNotContains, FcOpPlus, FcOpMinus, FcOpTimes, FcOpDivide, FcOpComma:
+		tree := expr.u.(exprTree)
+		return fmt.Sprintf("%s %s %s", tree.left, expr.op, tree.right)
+	case FcOpNot:
+		return fmt.Sprintf("Not %s", expr.u.(exprTree).left)
+	case FcOpFloor:
+		return fmt.Sprintf("Floor %s", expr.u.(exprTree).left)
+	case FcOpCeil:
+		return fmt.Sprintf("Ceil %s", expr.u.(exprTree).left)
+	case FcOpRound:
+		return fmt.Sprintf("Round %s", expr.u.(exprTree).left)
+	case FcOpTrunc:
+		return fmt.Sprintf("Trunc %s", expr.u.(exprTree).left)
+	default:
+		return "<invalid expr>"
+	}
 }
 
 func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue {

@@ -40,6 +40,26 @@ type FcLangSet struct {
 	map_  [NUM_LANG_SET_MAP]uint32
 }
 
+func (ls FcLangSet) String() string {
+	var chunks []string
+
+	for i, bits := range ls.map_ {
+		if bits != 0 {
+			for bit := 0; bit <= 31; bit++ {
+				if bits&(1<<bit) != 0 {
+					id := (i << 5) | bit
+					chunks = append(chunks, fcLangCharSets[fcLangCharSetIndicesInv[id]].lang)
+				}
+			}
+		}
+	}
+
+	for extra := range ls.extra {
+		chunks = append(chunks, extra)
+	}
+	return strings.Join(chunks, "|")
+}
+
 func (ls *FcLangSet) bitSet(id int) {
 	id = int(fcLangCharSetIndices[id])
 	bucket := id >> 5
@@ -571,6 +591,9 @@ func FcLangSetIndex(lang string) int {
 	return -(mid + 1)
 }
 
+// add adds `lang` to `ls`.
+// `lang` should be of the form Ll-Tt where Ll is a
+// two or three letter language from ISO 639 and Tt is a territory from ISO 3166.
 func (ls *FcLangSet) add(lang string) {
 	id := FcLangSetIndex(lang)
 	if id >= 0 {
@@ -642,7 +665,7 @@ func (ls *FcLangSet) compareStrSet(set FcStrSet) FcLangResult {
 	return best
 }
 
-func FcLangSetCompare(lsa, lsb *FcLangSet) FcLangResult {
+func FcLangSetCompare(lsa, lsb FcLangSet) FcLangResult {
 	var aInCountrySet, bInCountrySet uint32
 
 	for i := range lsa.map_ {

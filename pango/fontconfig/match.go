@@ -20,7 +20,18 @@ const (
 	FcMatchKindBegin = FcMatchPattern
 )
 
-func FcCompareNumber(value1, value2 interface{}) (interface{}, float64) {
+func (k FcMatchKind) String() string {
+	switch k {
+	case FcMatchPattern:
+		return "pattern"
+	case FcMatchFont:
+		return "font"
+	default:
+		return fmt.Sprintf("match kind <%d>", k)
+	}
+}
+
+func FcCompareNumber(value1, value2 FcValue) (FcValue, float64) {
 	var v1, v2 float64
 	switch value := value1.(type) {
 	case int:
@@ -46,7 +57,7 @@ func FcCompareNumber(value1, value2 interface{}) (interface{}, float64) {
 	return value2, v
 }
 
-func FcCompareString(v1, v2 interface{}) (interface{}, float64) {
+func FcCompareString(v1, v2 FcValue) (FcValue, float64) {
 	bestValue := v2
 	if strings.EqualFold(v1.(string), v2.(string)) {
 		return bestValue, 0
@@ -65,7 +76,7 @@ func FcToLower(s string) byte {
 	return s[0]
 }
 
-func FcCompareFamily(v1, v2 interface{}) (interface{}, float64) {
+func FcCompareFamily(v1, v2 FcValue) (FcValue, float64) {
 	// rely on the guarantee in FcPatternObjectAddWithBinding that
 	// families are always FcTypeString.
 	v1_string := v1.(string)
@@ -102,7 +113,7 @@ func matchIgnoreCaseAndDelims(s1, s2 string) int {
 	return i
 }
 
-func FcComparePostScript(v1, v2 interface{}) (interface{}, float64) {
+func FcComparePostScript(v1, v2 FcValue) (FcValue, float64) {
 	v1_string := v1.(string)
 	v2_string := v2.(string)
 
@@ -119,12 +130,12 @@ func FcComparePostScript(v1, v2 interface{}) (interface{}, float64) {
 	return bestValue, float64(length-n) / float64(length)
 }
 
-func FcCompareLang(val1, val2 interface{}) (interface{}, float64) {
+func FcCompareLang(val1, val2 FcValue) (FcValue, float64) {
 	var result FcLangResult
 	switch v1 := val1.(type) {
-	case *FcLangSet:
+	case FcLangSet:
 		switch v2 := val2.(type) {
-		case *FcLangSet:
+		case FcLangSet:
 			result = FcLangSetCompare(v1, v2)
 		case string:
 			result = v1.hasLang(v2)
@@ -155,7 +166,7 @@ func FcCompareLang(val1, val2 interface{}) (interface{}, float64) {
 	}
 }
 
-func FcCompareBool(val1, val2 interface{}) (interface{}, float64) {
+func FcCompareBool(val1, val2 FcValue) (FcValue, float64) {
 	v1, ok1 := val1.(FcBool)
 	v2, ok2 := val2.(FcBool)
 	if !ok1 || !ok2 {
@@ -175,12 +186,12 @@ func FcCompareBool(val1, val2 interface{}) (interface{}, float64) {
 	return bestValue, 1
 }
 
-func FcCompareCharSet(v1, v2 interface{}) (interface{}, float64) {
+func FcCompareCharSet(v1, v2 FcValue) (FcValue, float64) {
 	bestValue := v2
 	return bestValue, float64(FcCharSetSubtractCount(v1.(FcCharSet), v2.(FcCharSet)))
 }
 
-func FcCompareRange(v1, v2 interface{}) (interface{}, float64) {
+func FcCompareRange(v1, v2 FcValue) (FcValue, float64) {
 	var b1, e1, b2, e2, d float64
 
 	switch value1 := v1.(type) {
@@ -227,7 +238,7 @@ func FcCompareRange(v1, v2 interface{}) (interface{}, float64) {
 	return bestValue, 0.0
 }
 
-func FcCompareSize(v1, v2 interface{}) (interface{}, float64) {
+func FcCompareSize(v1, v2 FcValue) (FcValue, float64) {
 	var b1, e1, b2, e2 float64
 
 	switch value1 := v1.(type) {
@@ -310,7 +321,7 @@ func strGlobMatch(glob, st string) bool {
 	return str == len(st)
 }
 
-func FcCompareFilename(v1, v2 interface{}) (interface{}, float64) {
+func FcCompareFilename(v1, v2 FcValue) (FcValue, float64) {
 	s1, s2 := v1.(string), v2.(string)
 	bestValue := s2
 	if s1 == s2 {
@@ -408,7 +419,7 @@ const (
 
 type FcMatcher struct {
 	object       FcObject
-	compare      func(v1, v2 interface{}) (interface{}, float64)
+	compare      func(v1, v2 FcValue) (FcValue, float64)
 	strong, weak FcMatcherPriority
 }
 

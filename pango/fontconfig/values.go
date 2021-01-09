@@ -65,6 +65,7 @@ const (
 	FC_VARIABLE                 // Bool
 	FC_FONT_HAS_HINT            // Bool
 	FC_ORDER                    // Integer
+	fcTestResult                // Bool
 	fcEnd
 )
 
@@ -121,6 +122,7 @@ var ObjectNames = [...]string{
 	FC_VARIABLE:        "variable",
 	FC_FONT_HAS_HINT:   "fonthashint",
 	FC_ORDER:           "order",
+	fcTestResult:       "testresult",
 }
 
 func (object FcObject) String() string {
@@ -137,6 +139,19 @@ const (
 	FcTrue
 	FcDontCare
 )
+
+func (b FcBool) String() string {
+	switch b {
+	case FcFalse:
+		return "false"
+	case FcTrue:
+		return "true"
+	case FcDontCare:
+		return "dont-care"
+	default:
+		return fmt.Sprintf("bool <%d>", b)
+	}
+}
 
 type FcRange struct {
 	Begin, End float64

@@ -3,22 +3,86 @@ package fontconfig
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
 
-// import (
-// 	"bytes"
-// 	"encoding/xml"
-// 	"fmt"
-// 	"io"
-// 	"strings"
-// )
+// Walks the configuration in `buffer` and constructs the internal representation
+// in `config`. Any includes files referenced from within `memory` will be loaded
+// and parsed. Warning messages will be output to `logger`: pass `nil` to supress them.
+func (config *FcConfig) ParseAndLoadFromMemory(buffer []byte, logger io.Writer) error {
+	return config.parseAndLoadFromMemory(logger, "memory", buffer, true)
+}
+
+func (config *FcConfig) parseAndLoadFromMemory(logger io.Writer, filename string, buffer []byte, load bool) error {
+	if debugMode {
+		fmt.Printf("\tProcessing config file from %s, load: %v\n", filename, load)
+	}
+
+	parser := newConfigParser(logger, filename, config, load)
+
+	err := xml.Unmarshal(buffer, parser)
+	if err != nil {
+		return fmt.Errorf("cannot process config file from %s: %s", filename, err)
+	}
+
+	if load {
+		for k := FcMatchKindBegin; k < FcMatchKindEnd; k++ {
+			config.subst[k] = append(config.subst[k], parser.ruleset)
+		}
+	}
+	config.rulesetList = append(config.rulesetList, parser.ruleset)
+
+	return nil
+}
+
+func (config *FcConfig) parseAndLoadDir(logger io.Writer, dir string, load bool) error {
+	d, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("fontconfig: cannot open config dir %s : %s", dir, err)
+	}
+
+	if debugMode {
+		fmt.Printf("\tScanning config dir %s\n", dir)
+	}
+
+	if load {
+		err = config.addConfigDir(dir)
+		if err != nil {
+			return err
+		}
+	}
+
+	var files []string
+	const tail = ".conf"
+	for _, e := range d {
+		/// Add all files of the form [0-9]*.conf
+		if name := e.Name(); name != "" && '0' <= name[0] && name[0] <= '9' && strings.HasSuffix(name, tail) {
+			file := dir + "/" + name
+			files = append(files, file)
+		}
+	}
+
+	sort.Strings(files)
+
+	for _, file := range files {
+		err := config.parseConfig(logger, file, load)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 type FcElement uint8
 
@@ -171,12 +235,12 @@ func (e FcElement) String() string {
 	return fcElementMap[e]
 }
 
+// FcPStack is one XML containing tag
 type FcPStack struct {
-	// struct _FcPStack   *prev;
-	element FcElement
+	element FcElement // compact form of the tag
 	attr    []xml.Attr
-	str     *bytes.Buffer
-	// attr_buf_static [16]byte
+	str     *bytes.Buffer // inner text content
+	values  []FcVStack
 }
 
 type FcVStackTag uint8
@@ -208,10 +272,9 @@ const (
 	FcVStackEdit
 )
 
+// parse value
 type FcVStack struct {
-	// struct _FcVStack	*prev;
-	pstack *FcPStack /* related parse element */
-	tag    FcVStackTag
+	tag FcVStackTag
 	// union {
 	// FcChar8		*string;
 
@@ -240,17 +303,8 @@ const (
 	FcSevereWarning
 )
 
-func parseConfig(config *FcConfig, name string, complain, load bool) error {
-	// TODO:
-	//     FcChar8	    *filename = nil, *realfilename = nil;
-	//     int		    fd;
-	//     int		    len;
-	//     FcStrBuf	    sbuf;
-	//     char            buf[BUFSIZ];
-	//     FcBool	    ret = FcFalse, complain_again = complain;
-	//     FcStrBuf	    reason;
-
-	//     FcStrBufInit (&reason, nil, 0);
+func (config *FcConfig) parseConfig(logger io.Writer, name string, load bool) error {
+	// TODO: support windows
 	// #ifdef _WIN32
 	//     if (!pGetSystemWindowsDirectory)
 	//     {
@@ -267,116 +321,65 @@ func parseConfig(config *FcConfig, name string, complain, load bool) error {
 	//     }
 	// #endif
 
-	//     filename = GetFilename (config, name);
-	//     if (!filename)
-	//     {
-	// 	FcStrBufString (&reason, (FcChar8 *)"No such file: ");
-	// 	FcStrBufString (&reason, name ? name : (FcChar8 *)"(null)");
-	// 	goto bail0;
-	//     }
-	//     realfilename = FcConfigRealFilename (config, name);
-	//     if (!realfilename)
-	//     {
-	// 	FcStrBufString (&reason, (FcChar8 *)"No such realfile: ");
-	// 	FcStrBufString (&reason, name ? name : (FcChar8 *)"(null)");
-	// 	goto bail0;
-	//     }
-	//     if (FcStrSetMember (config.availConfigFiles, realfilename))
-	//     {
-	//         FcStrFree (filename);
-	// 	FcStrFree (realfilename);
-	//         return true;
-	//     }
+	filename := config.GetFilename(name)
+	if filename == "" {
+		return fmt.Errorf("fontconfig: no such file: %s", name)
+	}
 
-	//     if (load)
-	//     {
-	// 	if (!FcStrSetAdd (config.configFiles, filename))
-	// 	    goto bail0;
-	//     }
-	//     if (!FcStrSetAdd (config.availConfigFiles, realfilename))
-	// 	goto bail0;
+	realfilename := realFilename(filename)
 
-	//     if (isDir (realfilename))
-	//     {
-	// 	ret = FcConfigParseAndLoadDir (config, name, realfilename, complain, load);
-	// 	FcStrFree (filename);
-	// 	FcStrFree (realfilename);
-	// 	return ret;
-	//     }
+	if config.availConfigFiles[realfilename] {
+		return nil
+	}
 
-	//     FcStrBufInit (&sbuf, nil, 0);
+	if load {
+		config.configFiles[filename] = true
+	}
+	config.availConfigFiles[realfilename] = true
 
-	//     fd = FcOpen ((char *) realfilename, O_RDONLY);
-	//     if (fd == -1)
-	//     {
-	// 	FcStrBufString (&reason, (FcChar8 *)"Unable to open ");
-	// 	FcStrBufString (&reason, realfilename);
-	// 	goto bail1;
-	//     }
+	if isDir(realfilename) {
+		return config.parseAndLoadDir(logger, realfilename, load)
+	}
 
-	//     do {
-	// 	len = read (fd, buf, BUFSIZ);
-	// 	if (len < 0)
-	// 	{
-	// 	    int errno_ = errno;
-	// 	    char ebuf[BUFSIZ+1];
+	content, err := ioutil.ReadFile(realfilename)
+	if err != nil {
+		return fmt.Errorf("fontconfig: can't open such file %s: %s", realfilename, err)
+	}
 
-	// #if HAVE_STRERROR_R
-	// 	    strerror_r (errno_, ebuf, BUFSIZ);
-	// #elif HAVE_STRERROR
-	// 	    char *tmp = strerror (errno_);
-	// 	    size_t len = strlen (tmp);
-	// 	    memcpy (ebuf, tmp, FC_MIN (BUFSIZ, len));
-	// 	    ebuf[FC_MIN (BUFSIZ, len)] = 0;
-	// #else
-	// 	    ebuf[0] = 0;
-	// #endif
-	// 	    message (0, FcSevereError, "failed reading config file: %s: %s (errno %d)", realfilename, ebuf, errno_);
-	// 	    close (fd);
-	// 	    goto bail1;
-	// 	}
-	// 	FcStrBufData (&sbuf, (const FcChar8 *)buf, len);
-	//     } while (len != 0);
-	//     close (fd);
-
-	//     ret = FcConfigParseAndLoadFromMemoryInternal (config, filename, FcStrBufDoneStatic (&sbuf), complain, load);
-	//     complain_again = FcFalse; /* no need to reclaim here */
-	// bail1:
-	//     FcStrBufDestroy (&sbuf);
-	// bail0:
-	//     if (filename)
-	// 	FcStrFree (filename);
-	//     if (realfilename)
-	// 	FcStrFree (realfilename);
-	//     if (!complain)
-	// 	return true;
-	//     if (!ret && complain_again)
-	//     {
-	// 	if (name)
-	// 	    message (0, FcSevereError, "Cannot %s config file \"%s\": %s", load ? "load" : "scan", name, FcStrBufDoneStatic (&reason));
-	// 	else
-	// 	    message (0, FcSevereError, "Cannot %s default config file: %s", load ? "load" : "scan", FcStrBufDoneStatic (&reason));
-	// 	FcStrBufDestroy (&reason);
-	// 	return FcFalse;
-	//     }
-	//     FcStrBufDestroy (&reason);
-	//     return ret;
-	return nil
+	err = config.parseAndLoadFromMemory(logger, filename, content, load)
+	return err
 }
 
 type FcConfigParse struct {
 	logger io.Writer
 
-	pstack  []FcPStack // the top of the stack is at the end of the slice
-	vstack  []FcVStack // idem
-	name    string
+	name     string
+	scanOnly bool
+
+	pstack []FcPStack // the top of the stack is at the end of the slice
+	// vstack []FcVStack // idem
+
 	config  *FcConfig
 	ruleset *FcRuleSet
-	// parser   XML_Parser
-	scanOnly bool
 }
 
-func (parse FcConfigParse) message(severe uint8, format string, args ...interface{}) {
+func newConfigParser(logger io.Writer, name string, config *FcConfig, enabled bool) *FcConfigParse {
+	var parser FcConfigParse
+
+	if logger == nil {
+		logger = ioutil.Discard
+	}
+	parser.logger = logger
+	parser.name = name
+	parser.config = config
+	parser.ruleset = FcRuleSetCreate(name)
+	parser.scanOnly = !enabled
+	parser.ruleset.enabled = enabled
+
+	return &parser
+}
+
+func (parse *FcConfigParse) message(severe uint8, format string, args ...interface{}) {
 	s := "unknown"
 	switch severe {
 	case FcSevereInfo:
@@ -390,36 +393,74 @@ func (parse FcConfigParse) message(severe uint8, format string, args ...interfac
 	} else {
 		fmt.Fprintf(parse.logger, "fontconfig %s: ", s)
 	}
-	fmt.Fprintf(parse.logger, format, args...)
+	fmt.Fprintf(parse.logger, format+"\n", args...)
 }
 
-// do not check if the stack is not empty
+func (parser *FcConfigParse) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	// start by handling the new element
+	parser.startElement(start.Name.Local, start.Attr)
+	// then process the inner content: text or kid element
+	for {
+		next, err := d.Token()
+		if err != nil {
+			return err
+		}
+		// Token is one of StartElement, EndElement, CharData, Comment, ProcInst, or Directive
+		switch next := next.(type) {
+		case xml.CharData:
+			// handle text and keep going
+			parser.text(next)
+		case xml.EndElement:
+			// closing current element: return after processing
+			err := parser.endElement()
+			return err
+		case xml.StartElement:
+			// new kid: recurse and keep going for other kids or text
+			err := parser.UnmarshalXML(d, next)
+			if err != nil {
+				return err
+			}
+		default:
+			// ignored, just keep going
+		}
+	}
+}
+
+// return value may be nil if the stack is empty
 func (parse *FcConfigParse) p() *FcPStack {
+	if len(parse.pstack) == 0 {
+		return nil
+	}
 	return &parse.pstack[len(parse.pstack)-1]
 }
 
-// return value may be nil
+// return value may be nil if the stack is empty
 func (parse *FcConfigParse) v() *FcVStack {
-	if len(parse.vstack) == 0 {
-		return nil
-	}
-	vstack := &parse.vstack[len(parse.vstack)-1]
-	if vstack.pstack == parse.p() {
-		return vstack
+	if last := parse.p(); last != nil && len(last.values) != 0 {
+		return &last.values[len(last.values)-1]
 	}
 	return nil
 }
 
-func (parser *FcConfigParse) createVAndPush() *FcVStack {
-	var v FcVStack
-	if len(parser.pstack) >= 2 {
-		v.pstack = &parser.pstack[len(parser.pstack)-2]
+func (parser *FcConfigParse) text(s []byte) {
+	p := parser.p()
+	if p == nil {
+		return
 	}
-	parser.vstack = append(parser.vstack, v)
-	return &v
+	p.str.Write(s)
 }
 
-func (parse *FcConfigParse) FcStartElement(name string, attr []xml.Attr) {
+// add a value to the previous p element, or discard it
+func (parser *FcConfigParse) createVAndPush() *FcVStack {
+	if len(parser.pstack) >= 2 {
+		ps := &parser.pstack[len(parser.pstack)-2]
+		ps.values = append(ps.values, FcVStack{})
+		return &ps.values[len(ps.values)-1]
+	}
+	return nil
+}
+
+func (parse *FcConfigParse) startElement(name string, attr []xml.Attr) {
 	element := FcElementMap(name)
 
 	if element == FcElementUnknown {
@@ -434,7 +475,7 @@ func (parse *FcConfigParse) pstackPush(element FcElement, attr []xml.Attr) {
 	new := FcPStack{
 		element: element,
 		attr:    attr,
-		str:     &bytes.Buffer{},
+		str:     new(bytes.Buffer),
 	}
 	parse.pstack = append(parse.pstack, new)
 }
@@ -447,144 +488,146 @@ func (parse *FcConfigParse) pstackPop() {
 	if last := parse.p(); last.element != FcElementNone {
 		// Warn about unused attrs.
 		for _, attr := range last.attr {
-			parse.message(FcSevereWarning, "invalid attribute %s", attr.Name.Local)
+			if attr.Name.Local != "" {
+				parse.message(FcSevereWarning, "invalid attribute %s", attr.Name.Local)
+			}
 		}
 	}
 
-	parse.vstack = nil
 	parse.pstack = parse.pstack[:len(parse.pstack)-1]
 }
 
+// pop from the last vstack
 func (parse *FcConfigParse) vstackPop() {
-	if len(parse.vstack) == 0 {
+	last := parse.p()
+	if last == nil || len(last.values) == 0 {
 		return
 	}
-	parse.vstack = parse.vstack[:len(parse.vstack)-1]
+	last.values = last.values[:len(last.values)-1]
 }
 
-func (parser *FcConfigParse) FcEndElement() error {
-	if len(parser.pstack) == 0 { // nothing to do
+func (parser *FcConfigParse) endElement() error {
+	last := parser.p()
+	if last == nil { // nothing to do
 		return nil
 	}
 	var err error
-	last := parser.p()
 	switch last.element {
 	case FcElementDir:
-		err = parser.FcParseDir()
+		err = parser.parseDir()
 	case FcElementCacheDir:
-		err = parser.FcParseCacheDir()
+		err = parser.parseCacheDir()
 	case FcElementCache:
-		parser.p().str.Reset() // discard this data; no longer used
+		last.str.Reset() // discard this data; no longer used
 	case FcElementInclude:
-		err = parser.FcParseInclude()
+		err = parser.parseInclude()
 	case FcElementMatch:
-		err = parser.FcParseMatch()
+		err = parser.parseMatch()
 	case FcElementAlias:
-		err = parser.FcParseAlias()
-		// 	case FcElementDescription:
-		// 		FcParseDescription(parser)
-		// 	case FcElementRemapDir:
-		// 		FcParseRemapDir(parser)
-		// 	case FcElementResetDirs:
-		// 		FcParseResetDirs(parser)
+		err = parser.parseAlias()
+	case FcElementDescription:
+		parser.parseDescription()
+	case FcElementRemapDir:
+		err = parser.parseRemapDir()
+	case FcElementResetDirs:
+		parser.parseResetDirs()
 
-		// 	case FcElementRescan:
-		// 		FcParseRescan(parser)
+	case FcElementRescan:
+		parser.parseRescan()
 
-		// 	case FcElementPrefer:
-		// 		FcParseFamilies(parser, FcVStackPrefer)
-		// 	case FcElementAccept:
-		// 		FcParseFamilies(parser, FcVStackAccept)
-		// 	case FcElementDefault:
-		// 		FcParseFamilies(parser, FcVStackDefault)
-		// 	case FcElementFamily:
-		// 		FcParseFamily(parser)
+	case FcElementPrefer:
+		parser.parseFamilies(FcVStackPrefer)
+	case FcElementAccept:
+		parser.parseFamilies(FcVStackAccept)
+	case FcElementDefault:
+		parser.parseFamilies(FcVStackDefault)
+	case FcElementFamily:
+		parser.parseFamily()
 
-		// 	case FcElementTest:
-		// 		FcParseTest(parser)
-		// 	case FcElementEdit:
-		// 		FcParseEdit(parser)
+	case FcElementTest:
+		err = parser.parseTest()
+	case FcElementEdit:
+		err = parser.parseEdit()
 
-		// 	case FcElementInt:
-		// 		FcParseInt(parser)
-		// 	case FcElementDouble:
-		// 		FcParseDouble(parser)
-		// 	case FcElementString:
-		// 		FcParseString(parser, FcVStackString)
-		// 	case FcElementMatrix:
-		// 		FcParseMatrix(parser)
-		// 	case FcElementRange:
-		// 		FcParseRange(parser)
-		// 	case FcElementBool:
-		// 		FcParseBool(parser)
-		// 	case FcElementCharSet:
-		// 		FcParseCharSet(parser)
-		// 	case FcElementLangSet:
-		// 		FcParseLangSet(parser)
-		// 	case FcElementSelectfont:
-		// 	case FcElementAcceptfont, FcElementRejectfont:
-		// 		FcParseAcceptRejectFont(parser, parser.pstack.element)
-		// 	case FcElementGlob:
-		// 		FcParseString(parser, FcVStackGlob)
-		// 	case FcElementPattern:
-		// 		FcParsePattern(parser)
-		// 	case FcElementPatelt:
-		// 		FcParsePatelt(parser)
-		// 	case FcElementName:
-		// 		FcParseName(parser)
-		// 	case FcElementConst:
-		// 		FcParseString(parser, FcVStackConstant)
+	case FcElementInt:
+		err = parser.parseInteger()
+	case FcElementDouble:
+		err = parser.parseFloat()
+	case FcElementString:
+		parser.parseString(FcVStackString)
+	case FcElementMatrix:
+		err = parser.parseMatrix()
+	case FcElementRange:
+		err = parser.parseRange()
+	case FcElementBool:
+		parser.parseBool()
+	case FcElementCharSet:
+		err = parser.parseCharSet()
+	case FcElementLangSet:
+		err = parser.parseLangSet()
+	case FcElementSelectfont, FcElementAcceptfont, FcElementRejectfont:
+		parser.parseAcceptRejectFont(last.element)
+	case FcElementGlob:
+		parser.parseString(FcVStackGlob)
+	case FcElementPattern:
+		parser.parsePattern()
+	case FcElementPatelt:
+		err = parser.parsePatelt()
+	case FcElementName:
+		parser.parseName()
+	case FcElementConst:
+		parser.parseString(FcVStackConstant)
 	case FcElementOr:
-		parser.FcParseBinary(FcOpOr)
+		parser.parseBinary(FcOpOr)
 	case FcElementAnd:
-		parser.FcParseBinary(FcOpAnd)
+		parser.parseBinary(FcOpAnd)
 	case FcElementEq:
-		parser.FcParseBinary(FcOpEqual)
+		parser.parseBinary(FcOpEqual)
 	case FcElementNotEq:
-		parser.FcParseBinary(FcOpNotEqual)
+		parser.parseBinary(FcOpNotEqual)
 	case FcElementLess:
-		parser.FcParseBinary(FcOpLess)
+		parser.parseBinary(FcOpLess)
 	case FcElementLessEq:
-		parser.FcParseBinary(FcOpLessEqual)
+		parser.parseBinary(FcOpLessEqual)
 	case FcElementMore:
-		parser.FcParseBinary(FcOpMore)
+		parser.parseBinary(FcOpMore)
 	case FcElementMoreEq:
-		parser.FcParseBinary(FcOpMoreEqual)
+		parser.parseBinary(FcOpMoreEqual)
 	case FcElementContains:
-		parser.FcParseBinary(FcOpContains)
+		parser.parseBinary(FcOpContains)
 	case FcElementNotContains:
-		parser.FcParseBinary(FcOpNotContains)
+		parser.parseBinary(FcOpNotContains)
 	case FcElementPlus:
-		parser.FcParseBinary(FcOpPlus)
+		parser.parseBinary(FcOpPlus)
 	case FcElementMinus:
-		parser.FcParseBinary(FcOpMinus)
+		parser.parseBinary(FcOpMinus)
 	case FcElementTimes:
-		parser.FcParseBinary(FcOpTimes)
+		parser.parseBinary(FcOpTimes)
 	case FcElementDivide:
-		parser.FcParseBinary(FcOpDivide)
+		parser.parseBinary(FcOpDivide)
 	case FcElementIf:
-		parser.FcParseBinary(FcOpQuest)
+		parser.parseBinary(FcOpQuest)
 	case FcElementNot:
-		parser.FcParseUnary(FcOpNot)
+		parser.parseUnary(FcOpNot)
 	case FcElementFloor:
-		parser.FcParseUnary(FcOpFloor)
+		parser.parseUnary(FcOpFloor)
 	case FcElementCeil:
-		parser.FcParseUnary(FcOpCeil)
+		parser.parseUnary(FcOpCeil)
 	case FcElementRound:
-		parser.FcParseUnary(FcOpRound)
+		parser.parseUnary(FcOpRound)
 	case FcElementTrunc:
-		parser.FcParseUnary(FcOpTrunc)
+		parser.parseUnary(FcOpTrunc)
 	}
 	parser.pstackPop()
 	return err
 }
 
-func (parse *FcConfigParse) getAttr(attr string) string {
-	if len(parse.pstack) == 0 {
+func (last *FcPStack) getAttr(attr string) string {
+	if last == nil {
 		return ""
 	}
 
-	attrs := parse.p().attr
+	attrs := last.attr
 
 	for i, attrXml := range attrs {
 		if attr == attrXml.Name.Local {
@@ -595,15 +638,20 @@ func (parse *FcConfigParse) getAttr(attr string) string {
 	return ""
 }
 
-func (parse *FcConfigParse) FcParseDir() error {
-	data := parse.p().str
-	if data.Len() == 0 {
+func (parse *FcConfigParse) parseDir() error {
+	var s string
+	last := parse.p()
+	if last != nil {
+		s = last.str.String()
+		last.str.Reset()
+	}
+	if len(s) == 0 {
 		parse.message(FcSevereWarning, "empty font directory name ignored")
 		return nil
 	}
-	attr := parse.getAttr("prefix")
-	salt := parse.getAttr("salt")
-	prefix, err := parse.getRealPathFromPrefix(data.String(), attr)
+	attr := last.getAttr("prefix")
+	salt := last.getAttr("salt")
+	prefix, err := parse.getRealPathFromPrefix(s, attr, last.element)
 	if err != nil {
 		return err
 	}
@@ -614,7 +662,6 @@ func (parse *FcConfigParse) FcParseDir() error {
 			return fmt.Errorf("fontconfig: cannot add directory %s: %s", prefix, err)
 		}
 	}
-	parse.p().str.Reset()
 	return nil
 }
 
@@ -657,7 +704,7 @@ func xdgConfigHome() string {
 	return filepath.Join(home, ".config")
 }
 
-func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string) (string, error) {
+func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string, element FcElement) (string, error) {
 	var parent string
 	switch prefix {
 	case "xdg":
@@ -679,7 +726,7 @@ func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string) (string, 
 		if !filepath.IsAbs(path) && path[0] != '~' {
 			parse.message(FcSevereWarning,
 				"Use of ambiguous path in <%s> element. please add prefix=\"cwd\" if current behavior is desired.",
-				parse.p().element)
+				element)
 		}
 		// #else
 	}
@@ -745,20 +792,24 @@ func (parse *FcConfigParse) getRealPathFromPrefix(path, prefix string) (string, 
 	return path, nil
 }
 
-func (parse *FcConfigParse) FcParseCacheDir() error {
-	var prefix string
-	attr := parse.getAttr("prefix")
-	if attr != "" && attr == "xdg" {
+func (parse *FcConfigParse) parseCacheDir() error {
+	var prefix, data string
+	last := parse.p()
+	if last != nil {
+		data = last.str.String()
+		last.str.Reset()
+	}
+	if data == "" {
+		parse.message(FcSevereWarning, "empty cache directory name ignored")
+		return nil
+	}
+
+	if attr := last.getAttr("prefix"); attr != "" && attr == "xdg" {
 		prefix = xdgCacheHome()
 		// home directory might be disabled.: simply ignore this element.
 		if prefix == "" {
 			return nil
 		}
-	}
-	data := parse.p().str.String()
-	if data == "" {
-		parse.message(FcSevereWarning, "empty cache directory name ignored")
-		return nil
 	}
 	if prefix != "" {
 		data = filepath.Join(prefix, data)
@@ -813,7 +864,6 @@ func (parse *FcConfigParse) FcParseCacheDir() error {
 			return fmt.Errorf("fontconfig: cannot add cache directory %s: %s", data, err)
 		}
 	}
-	parse.p().str.Reset()
 	return nil
 }
 
@@ -892,22 +942,27 @@ func getUserconf(s string) string {
 	return userconf
 }
 
-func (parse *FcConfigParse) FcParseInclude() error {
+func (parse *FcConfigParse) parseInclude() error {
 	var (
 		ignoreMissing, deprecated bool
 		prefix, userdir, userconf string
+		last                      = parse.p()
 	)
+	if last == nil {
+		return nil
+	}
 
-	s := parse.p().str.String()
-	attr := parse.getAttr("ignore_missing")
+	s := last.str.String()
+	last.str.Reset()
+	attr := last.getAttr("ignore_missing")
 	if attr != "" && parse.lexBool(attr) == FcTrue {
 		ignoreMissing = true
 	}
-	attr = parse.getAttr("deprecated")
+	attr = last.getAttr("deprecated")
 	if attr != "" && parse.lexBool(attr) == FcTrue {
 		deprecated = true
 	}
-	attr = parse.getAttr("prefix")
+	attr = last.getAttr("prefix")
 	if attr == "xdg" {
 		prefix = xdgConfigHome()
 		// home directory might be disabled: simply ignore this element.
@@ -942,7 +997,8 @@ func (parse *FcConfigParse) FcParseInclude() error {
 		parse.config.subst[k] = append(parse.config.subst[k], ruleset)
 	}
 
-	if err := parseConfig(parse.config, s, !ignoreMissing, !parse.scanOnly); err != nil {
+	err := parse.config.parseConfig(parse.logger, s, !parse.scanOnly)
+	if err != nil && !ignoreMissing {
 		return err
 	}
 
@@ -978,13 +1034,12 @@ func (parse *FcConfigParse) FcParseInclude() error {
 
 	}
 
-	parse.p().str.Reset()
 	return nil
 }
 
-func (parse *FcConfigParse) FcParseMatch() error {
+func (parse *FcConfigParse) parseMatch() error {
 	var kind FcMatchKind
-	kindName := parse.getAttr("target")
+	kindName := parse.p().getAttr("target")
 	switch kindName {
 	case "pattern":
 		kind = FcMatchPattern
@@ -999,8 +1054,8 @@ func (parse *FcConfigParse) FcParseMatch() error {
 		return nil
 	}
 
-	var rules []FcRule // we append, then reverse
-	for vstack := parse.v(); vstack != nil; vstack = parse.v() {
+	var rules []FcRule
+	for _, vstack := range parse.p().values {
 		switch vstack.tag {
 		case FcVStackTest:
 			r := vstack.u
@@ -1016,9 +1071,8 @@ func (parse *FcConfigParse) FcParseMatch() error {
 		default:
 			parse.message(FcSevereWarning, "invalid match element")
 		}
-		parse.vstackPop()
 	}
-	revertRules(rules)
+	parse.p().values = nil
 
 	if len(rules) == 0 {
 		parse.message(FcSevereWarning, "No <test> nor <edit> elements in <match>")
@@ -1031,17 +1085,20 @@ func (parse *FcConfigParse) FcParseMatch() error {
 	return nil
 }
 
-func (parser *FcConfigParse) FcParseAlias() error {
+func (parser *FcConfigParse) parseAlias() error {
 	var (
 		family, accept, prefer, def *FcExpr
 		rules                       []FcRule // we append, then reverse
+		last                        = parser.p()
 	)
-	binding, ok := parser.lexBinding(parser.getAttr("binding"))
+	binding, ok := parser.lexBinding(last.getAttr("binding"))
 	if !ok {
 		return nil
 	}
 
-	for vstack := parser.v(); vstack != nil; vstack = parser.v() {
+	vals := last.values
+	for i := range vals {
+		vstack := vals[len(vals)-i-1]
 		switch vstack.tag {
 		case FcVStackFamily:
 			expr := vstack.u.(*FcExpr)
@@ -1067,9 +1124,9 @@ func (parser *FcConfigParse) FcParseAlias() error {
 		default:
 			parser.message(FcSevereWarning, "bad alias")
 		}
-		parser.vstackPop()
 	}
 	revertRules(rules)
+	last.values = nil
 
 	if family == nil {
 		return fmt.Errorf("missing family in alias")
@@ -1166,7 +1223,7 @@ func (parser *FcConfigParse) popExpr() *FcExpr {
 //
 // This code reduces in that case to returning that
 // operand.
-func (parser *FcConfigParse) FcPopBinary(op FcOp) *FcExpr {
+func (parser *FcConfigParse) popBinary(op FcOp) *FcExpr {
 	var expr *FcExpr
 
 	for left := parser.popExpr(); left != nil; left = parser.popExpr() {
@@ -1179,24 +1236,571 @@ func (parser *FcConfigParse) FcPopBinary(op FcOp) *FcExpr {
 	return expr
 }
 
-func (parser *FcConfigParse) FcVStackPushExpr(tag FcVStackTag, expr *FcExpr) {
+func (parser *FcConfigParse) pushExpr(tag FcVStackTag, expr *FcExpr) {
 	vstack := parser.createVAndPush()
 	vstack.u = expr
 	vstack.tag = tag
 }
 
-func (parser *FcConfigParse) FcParseBinary(op FcOp) {
-	expr := parser.FcPopBinary(op)
+func (parser *FcConfigParse) parseBinary(op FcOp) {
+	expr := parser.popBinary(op)
 	if expr != nil {
-		parser.FcVStackPushExpr(FcVStackExpr, expr)
+		parser.pushExpr(FcVStackExpr, expr)
 	}
 }
 
 // This builds a a unary operator, it consumes only a single operand
-func (parser *FcConfigParse) FcParseUnary(op FcOp) {
+func (parser *FcConfigParse) parseUnary(op FcOp) {
 	operand := parser.popExpr()
 	if operand != nil {
 		expr := newExprOp(operand, nil, op)
-		parser.FcVStackPushExpr(FcVStackExpr, expr)
+		parser.pushExpr(FcVStackExpr, expr)
 	}
+}
+
+func (parser *FcConfigParse) parseInteger() error {
+	last := parser.p()
+	if last == nil {
+		return nil
+	}
+	s := last.str.String()
+	last.str.Reset()
+
+	d, err := strconv.Atoi(s)
+	if err != nil {
+		return fmt.Errorf("\"%s\": not a valid integer", s)
+	}
+
+	vstack := parser.createVAndPush()
+	vstack.u = d
+	vstack.tag = FcVStackInteger
+	return nil
+}
+
+func (parser *FcConfigParse) parseFloat() error {
+	last := parser.p()
+	if last == nil {
+		return nil
+	}
+	s := last.str.String()
+	last.str.Reset()
+
+	d, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("\"%s\": not a valid float", s)
+	}
+
+	vstack := parser.createVAndPush()
+	vstack.u = d
+	vstack.tag = FcVStackDouble
+	return nil
+}
+
+func (parser *FcConfigParse) parseString(tag FcVStackTag) {
+	last := parser.p()
+	if last == nil {
+		return
+	}
+	s := last.str.String()
+	last.str.Reset()
+
+	vstack := parser.createVAndPush()
+	vstack.u = s
+	vstack.tag = FcVStackString
+}
+
+func (parser *FcConfigParse) parseBool() {
+	last := parser.p()
+	if last == nil {
+		return
+	}
+	s := last.str.String()
+	last.str.Reset()
+
+	vstack := parser.createVAndPush()
+	vstack.u = parser.lexBool(s)
+	vstack.tag = FcVStackBool
+}
+
+func (parser *FcConfigParse) parseName() error {
+	var kind FcMatchKind
+	last := parser.p()
+
+	switch kindString := last.getAttr("target"); kindString {
+	case "pattern":
+		kind = FcMatchPattern
+	case "font":
+		kind = FcMatchFont
+	case "", "default":
+		kind = FcMatchDefault
+	default:
+		parser.message(FcSevereWarning, "invalid name target \"%s\"", kindString)
+		return nil
+	}
+
+	if last == nil {
+		return nil
+	}
+	s := last.str.String()
+	last.str.Reset()
+	object, err := getObjectType(s)
+	if err != nil {
+		return err
+	}
+
+	vstack := parser.createVAndPush()
+	vstack.u = FcExprName{object: object.object, kind: kind}
+	vstack.tag = FcVStackName
+	return nil
+}
+
+func (parser *FcConfigParse) parseMatrix() error {
+	var m FcExprMatrix
+
+	m.yy = parser.popExpr()
+	m.yx = parser.popExpr()
+	m.xy = parser.popExpr()
+	m.xx = parser.popExpr()
+
+	if m.yy == nil || m.yx == nil || m.xy == nil || m.xx == nil {
+		parser.message(FcSevereWarning, "Missing values in matrix element")
+		return nil
+	}
+	if parser.popExpr() != nil {
+		return errors.New("wrong number of matrix elements")
+	}
+
+	vstack := parser.createVAndPush()
+	vstack.u = m
+	vstack.tag = FcVStackMatrix
+	return nil
+}
+
+func (parser *FcConfigParse) parseRange() error {
+	var (
+		n     [2]int
+		d     [2]float64
+		dflag = false
+	)
+	values := parser.p().values
+	if len(values) != 2 {
+		return fmt.Errorf("wrong numbers %d of elements in range", len(values))
+	}
+	for i, vstack := range values {
+		switch vstack.tag {
+		case FcVStackInteger:
+			if dflag {
+				d[i] = float64(vstack.u.(int))
+			} else {
+				n[i] = vstack.u.(int)
+			}
+		case FcVStackDouble:
+			if i == 0 && !dflag {
+				d[1] = float64(n[1])
+			}
+			d[i] = vstack.u.(float64)
+			dflag = true
+		default:
+			return errors.New("invalid element in range")
+		}
+	}
+	parser.p().values = nil
+
+	var r FcRange
+	if dflag {
+		if d[0] > d[1] {
+			return errors.New("invalid range")
+		}
+		r = FcRange{Begin: d[0], End: d[1]}
+	} else {
+		if n[0] > n[1] {
+			return errors.New("invalid range")
+		}
+		r = FcRange{Begin: float64(n[0]), End: float64(n[1])}
+	}
+	vstack := parser.createVAndPush()
+	vstack.u = r
+	vstack.tag = FcVStackRange
+	return nil
+}
+
+func (parser *FcConfigParse) parseCharSet() error {
+	var (
+		charset FcCharSet
+		n       = 0
+	)
+
+	last := parser.p()
+	for _, vstack := range last.values {
+		switch vstack.tag {
+		case FcVStackInteger:
+			r := uint32(vstack.u.(int))
+			if !charset.addChar(r) {
+				parser.message(FcSevereWarning, "invalid character: 0x%04x", r)
+			} else {
+				n++
+			}
+		case FcVStackRange:
+			ra := vstack.u.(FcRange)
+			if ra.Begin <= ra.End {
+				for r := uint32(ra.Begin); r <= uint32(ra.End); r++ {
+					if !charset.addChar(r) {
+						parser.message(FcSevereWarning, "invalid character: 0x%04x", r)
+					} else {
+						n++
+					}
+				}
+			}
+		default:
+			return errors.New("invalid element in charset")
+		}
+	}
+	last.values = nil
+	if n > 0 {
+		vstack := parser.createVAndPush()
+		vstack.u = charset
+		vstack.tag = FcVStackCharSet
+	}
+	return nil
+}
+
+func (parser *FcConfigParse) parseLangSet() error {
+	var (
+		langset FcLangSet
+		n       = 0
+	)
+
+	for _, vstack := range parser.p().values {
+		switch vstack.tag {
+		case FcVStackString:
+			s := vstack.u.(string)
+			langset.add(s)
+			n++
+		default:
+			return errors.New("invalid element in langset")
+		}
+	}
+	parser.p().values = nil
+	if n > 0 {
+		vstack := parser.createVAndPush()
+		vstack.u = langset
+		vstack.tag = FcVStackLangSet
+	}
+	return nil
+}
+
+func (parser *FcConfigParse) parseFamilies(tag FcVStackTag) {
+	var expr *FcExpr
+
+	val := parser.p().values
+	for i := range val {
+		vstack := val[len(val)-1-i]
+		if vstack.tag != FcVStackFamily {
+			parser.message(FcSevereWarning, "non-family")
+			continue
+		}
+		left := vstack.u.(*FcExpr)
+		vstack.tag = FcVStackNone
+		if expr != nil {
+			expr = newExprOp(left, expr, FcOpComma)
+		} else {
+			expr = left
+		}
+	}
+	parser.p().values = nil
+	if expr != nil {
+		parser.pushExpr(tag, expr)
+	}
+}
+
+func (parser *FcConfigParse) parseFamily() {
+	last := parser.p()
+	if last == nil {
+		return
+	}
+	s := last.str.String()
+	last.str.Reset()
+
+	expr := &FcExpr{op: FcOpString, u: s}
+	parser.pushExpr(FcVStackFamily, expr)
+}
+
+func (parser *FcConfigParse) parseDescription() {
+	last := parser.p()
+	if last == nil {
+		return
+	}
+	desc := last.str.String()
+	last.str.Reset()
+	domain := last.getAttr("domain")
+	parser.ruleset.domain, parser.ruleset.description = domain, desc
+}
+
+func (parser *FcConfigParse) parseRemapDir() error {
+	last := parser.p()
+	var data string
+	if last != nil {
+		data = last.str.String()
+		last.str.Reset()
+	}
+
+	if data == "" {
+		parser.message(FcSevereWarning, "empty font directory name for remap ignored")
+		return nil
+	}
+	path := last.getAttr("as-path")
+	if path == "" {
+		parser.message(FcSevereWarning, "Missing as-path in remap-dir")
+		return nil
+	}
+	attr := last.getAttr("prefix")
+	salt := last.getAttr("salt")
+	prefix, err := parser.getRealPathFromPrefix(data, attr, last.element)
+	if err != nil {
+		return err
+	}
+	if prefix == "" {
+		/* nop */
+	} else if !parser.scanOnly && (!usesHome(prefix) || FcConfigHome() != "") {
+		if err := parser.config.addFontDir(prefix, path, salt); err != nil {
+			return fmt.Errorf("fontconfig: cannot create remap data for %s as %s: %s", prefix, path, err)
+		}
+	}
+	return nil
+}
+
+func (parser *FcConfigParse) parseResetDirs() {
+	if !parser.scanOnly {
+		parser.config.fontDirs.reset()
+	}
+}
+
+func (parser *FcConfigParse) parseTest() error {
+	var (
+		kind    FcMatchKind
+		qual    uint8
+		compare FcOp
+		flags   int
+		object  FcObject
+		last    = parser.p()
+	)
+
+	switch kindString := last.getAttr("target"); kindString {
+	case "pattern":
+		kind = FcMatchPattern
+	case "font":
+		kind = FcMatchFont
+	case "scan":
+		kind = FcMatchScan
+	case "", "default":
+		kind = FcMatchDefault
+	default:
+		parser.message(FcSevereWarning, "invalid test target \"%s\"", kindString)
+		return nil
+	}
+
+	switch qualString := last.getAttr("qual"); qualString {
+	case "", "any":
+		qual = FcQualAny
+	case "all":
+		qual = FcQualAll
+	case "first":
+		qual = FcQualFirst
+	case "not_first":
+		qual = FcQualNotFirst
+	default:
+		parser.message(FcSevereWarning, "invalid test qual \"%s\"", qualString)
+		return nil
+	}
+	name := last.getAttr("name")
+	if name == "" {
+		parser.message(FcSevereWarning, "missing test name")
+		return nil
+	} else {
+		ot, err := getObjectType(name)
+		if err != nil {
+			return err
+		}
+		object = ot.object
+	}
+	compareString := last.getAttr("compare")
+	if compareString == "" {
+		compare = FcOpEqual
+	} else {
+		var ok bool
+		compare, ok = fcCompareOps[compareString]
+		if !ok {
+			parser.message(FcSevereWarning, "invalid test compare \"%s\"", compareString)
+			return nil
+		}
+	}
+
+	if iblanksString := last.getAttr("ignore-blanks"); iblanksString != "" {
+		f, err := nameBool(iblanksString)
+		if err != nil {
+			parser.message(FcSevereWarning, "invalid test ignore-blanks \"%s\"", iblanksString)
+		}
+		if f != 0 {
+			flags |= FcOpFlagIgnoreBlanks
+		}
+	}
+	expr := parser.popBinary(FcOpComma)
+	if expr == nil {
+		parser.message(FcSevereWarning, "missing test expression")
+		return nil
+	}
+	if expr.op == FcOpComma {
+		parser.message(FcSevereWarning, "Having multiple values in <test> isn't supported and may not work as expected")
+	}
+	test := parser.FcTestCreate(kind, qual, object, opWithFlags(compare, flags), expr)
+
+	vstack := parser.createVAndPush()
+	vstack.u = test
+	vstack.tag = FcVStackTest
+	return nil
+}
+
+func (parser *FcConfigParse) parseEdit() error {
+	var (
+		mode   FcOp
+		last   = parser.p()
+		object FcObject
+	)
+
+	name := last.getAttr("name")
+	if name == "" {
+		parser.message(FcSevereWarning, "missing edit name")
+		return nil
+	} else {
+		ot, err := getObjectType(name)
+		if err != nil {
+			return err
+		}
+		object = ot.object
+	}
+	modeString := last.getAttr("mode")
+	if modeString == "" {
+		mode = FcOpAssign
+	} else {
+		var ok bool
+		mode, ok = fcModeOps[modeString]
+		if !ok {
+			parser.message(FcSevereWarning, "invalid edit mode \"%s\"", modeString)
+			return nil
+		}
+	}
+	binding, ok := parser.lexBinding(last.getAttr("binding"))
+	if !ok {
+		return nil
+	}
+
+	expr := parser.popBinary(FcOpComma)
+	if (mode == FcOpDelete || mode == FcOpDeleteAll) && expr != nil {
+		parser.message(FcSevereWarning, "Expression doesn't take any effects for delete and delete_all")
+		expr = nil
+	}
+	edit := parser.FcEditCreate(object, mode, expr, binding)
+
+	vstack := parser.createVAndPush()
+	vstack.u = edit
+	vstack.tag = FcVStackEdit
+	return nil
+}
+
+func (parser *FcConfigParse) parseRescan() {
+	for _, v := range parser.p().values {
+		if v.tag != FcVStackInteger {
+			parser.message(FcSevereWarning, "non-integer rescan")
+		} else {
+			parser.config.rescanInterval = v.u.(int)
+		}
+	}
+}
+
+func (parser *FcConfigParse) parseAcceptRejectFont(element FcElement) {
+	for _, vstack := range parser.p().values {
+		switch vstack.tag {
+		case FcVStackGlob:
+			if !parser.scanOnly {
+				parser.config.globAdd(vstack.u.(string), element == FcElementAcceptfont)
+			}
+		case FcVStackPattern:
+			if !parser.scanOnly {
+				parser.config.patternsAdd(vstack.u.(*FcPattern), element == FcElementAcceptfont)
+			}
+		default:
+			parser.message(FcSevereWarning, "bad font selector")
+		}
+	}
+	parser.p().values = nil
+}
+
+func (parser *FcConfigParse) parsePattern() {
+	var pattern FcPattern
+
+	//  TODO: fix this if the order matter
+	for _, vstack := range parser.p().values {
+		switch vstack.tag {
+		case FcVStackPattern:
+			pattern.append(vstack.u.(*FcPattern))
+		default:
+			parser.message(FcSevereWarning, "unknown pattern element")
+		}
+	}
+	parser.p().values = nil
+
+	vstack := parser.createVAndPush()
+	vstack.u = &pattern
+	vstack.tag = FcVStackPattern
+}
+
+func (parser *FcConfigParse) parsePatelt() error {
+	// FcValue	value;
+	// const char	*name;
+	var pattern FcPattern
+
+	name := parser.p().getAttr("name")
+	if name == "" {
+		parser.message(FcSevereWarning, "missing pattern element name")
+		return nil
+	}
+	ot, err := getObjectType(name)
+	if err != nil {
+		return err
+	}
+	for {
+		value := parser.popValue()
+		if value == nil {
+			break
+		}
+		pattern.Add(ot.object, value, true)
+	}
+
+	vstack := parser.createVAndPush()
+	vstack.u = &pattern
+	vstack.tag = FcVStackPattern
+	return nil
+}
+
+func (parser *FcConfigParse) popValue() FcValue {
+	vstack := parser.v()
+	if vstack == nil {
+		return nil
+	}
+	var value FcValue
+
+	switch vstack.tag {
+	case FcVStackString, FcVStackInteger, FcVStackDouble, FcVStackBool,
+		FcVStackCharSet, FcVStackLangSet, FcVStackRange:
+		value = vstack.u
+	case FcVStackConstant:
+		if i, ok := FcNameConstant(vstack.u.(string)); ok {
+			value = i
+		}
+	default:
+		parser.message(FcSevereWarning, "unknown pattern element %d", vstack.tag)
+	}
+	parser.vstackPop()
+
+	return value
 }

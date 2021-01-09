@@ -67,6 +67,12 @@ func FcStrSetEqual(a, b FcStrSet) bool {
 	return true
 }
 
+func (set FcStrSet) reset() {
+	for k := range set {
+		delete(set, k)
+	}
+}
+
 type FcStrList struct {
 	set FcStrSet
 	n   int
