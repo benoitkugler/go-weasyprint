@@ -20,6 +20,10 @@ type FcPattern struct {
 	elts map[FcObject]FcValueList
 }
 
+func NewFcPattern() *FcPattern {
+	return &FcPattern{elts: make(map[FcObject]FcValueList)}
+}
+
 // Duplicate returns a new pattern that matches
 // `p`. Each pattern may be modified without affecting the other.
 func (p *FcPattern) Duplicate() *FcPattern {
@@ -42,6 +46,15 @@ func (p FcPattern) Add(object FcObject, value interface{}, appendMode bool) {
 func (p FcPattern) addWithBinding(object FcObject, value interface{}, binding FcValueBinding, appendMode bool) {
 	newV := valueElt{value: value, binding: binding}
 	p.AddList(object, FcValueList{newV}, appendMode)
+}
+
+func (p FcPattern) FcPatternObjectAddBool(object FcObject, value bool)   { p.Add(object, value, true) }
+func (p FcPattern) FcPatternObjectAddInteger(object FcObject, value int) { p.Add(object, value, true) }
+func (p FcPattern) FcPatternObjectAddDouble(object FcObject, value float64) {
+	p.Add(object, value, true)
+}
+func (p FcPattern) FcPatternObjectAddString(object FcObject, value string) {
+	p.Add(object, value, true)
 }
 
 // Add adds the given list of values for the given object.

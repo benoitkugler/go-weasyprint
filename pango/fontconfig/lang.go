@@ -218,92 +218,75 @@ func FcStrSetAddLangs(strs FcStrSet, languages string) bool {
 	return ret
 }
 
-//  FcLangSet *
-//  FcFreeTypeLangSet (const FcCharSet  *charset,
-// 			const FcChar8    *exclusiveLang)
-//  {
-// 	 int		    i, j;
-// 	 FcChar32	    missing;
-// 	 const FcCharSet *exclusiveCharset = 0;
-// 	 FcLangSet	    *ls;
+func buildLangSet(charset FcCharSet, exclusiveLang string) FcLangSet {
+	//  int		    i, j;
+	//  FcChar32	    missing;
+	//  const FcCharSet *exclusiveCharset = 0;
+	//  FcLangSet	    *ls;
 
-// 	 if (exclusiveLang)
-// 	 exclusiveCharset = FcLangGetCharSet (exclusiveLang);
-// 	 ls = FcLangSetCreate ();
-// 	 if (!ls)
-// 	 return 0;
-// 	 if (FcDebug() & FC_DBG_LANGSET)
-// 	 {
-// 	 printf ("font charset");
-// 	 FcCharSetPrint (charset);
-// 	 printf ("\n");
-// 	 }
-// 	 for (i = 0; i < NUM_LANG_CHAR_SET; i++)
-// 	 {
-// 	 if (FcDebug() & FC_DBG_LANGSET)
-// 	 {
-// 		 printf ("%s charset", fcLangCharSets[i].lang);
-// 		 FcCharSetPrint (&fcLangCharSets[i].charset);
-// 		 printf ("\n");
-// 	 }
+	if exclusiveLang != "" {
+		exclusiveCharset = FcLangGetCharSet(exclusiveLang)
+	}
 
-// 	 /*
-// 	  * Check for Han charsets to make fonts
-// 	  * which advertise support for a single language
-// 	  * not support other Han languages
-// 	  */
-// 	 if (exclusiveCharset &&
-// 		 FcFreeTypeIsExclusiveLang (fcLangCharSets[i].lang))
-// 	 {
-// 		 if (fcLangCharSets[i].charset.num != exclusiveCharset.num)
-// 		 continue;
+	var ls FcLangSet
 
-// 		 for (j = 0; j < fcLangCharSets[i].charset.num; j++)
-// 		 if (FcCharSetLeaf(&fcLangCharSets[i].charset, j) !=
-// 			 FcCharSetLeaf(exclusiveCharset, j))
-// 			 continue;
-// 	 }
-// 	 missing = FcCharSetSubtractCount (&fcLangCharSets[i].charset, charset);
-// 		 if (FcDebug() & FC_DBG_SCANV)
-// 	 {
-// 		 if (missing && missing < 10)
-// 		 {
-// 		 FcCharSet   *missed = FcCharSetSubtract (&fcLangCharSets[i].charset,
-// 							  charset);
-// 		 FcChar32    ucs4;
-// 		 FcChar32    map_[FC_CHARSET_MAP_SIZE];
-// 		 FcChar32    next;
+	if debugMode {
+		fmt.Printf("font charset %s \n", charset)
+	}
+	for i = 0; i < NUM_LANG_CHAR_SET; i++ {
+		if debugMode {
+			fmt.Printf("%s charset %s\n", fcLangCharSets[i].lang, fcLangCharSets[i].charset)
+		}
 
-// 		 printf ("\n%s(%u) ", fcLangCharSets[i].lang, missing);
-// 		 printf ("{");
-// 		 for (ucs4 = FcCharSetFirstPage (missed, map_, &next);
-// 			  ucs4 != FC_CHARSET_DONE;
-// 			  ucs4 = FcCharSetNextPage (missed, map_, &next))
-// 		 {
-// 			 int	    i, j;
-// 			 for (i = 0; i < FC_CHARSET_MAP_SIZE; i++)
-// 			 if (map_[i])
-// 			 {
-// 				 for (j = 0; j < 32; j++)
-// 				 if (map_[i] & (1U << j))
-// 					 printf (" %04x", ucs4 + i * 32 + j);
-// 			 }
-// 		 }
-// 		 printf (" }\n\t");
-// 		 FcCharSetDestroy (missed);
-// 		 }
-// 		 else
-// 		 printf ("%s(%u) ", fcLangCharSets[i].lang, missing);
-// 	 }
-// 	 if (!missing)
-// 		 bitSet (ls, i);
-// 	 }
+		/*
+		 * Check for Han charsets to make fonts
+		 * which advertise support for a single language
+		 * not support other Han languages
+		 */
+		if exclusiveCharset && FcFreeTypeIsExclusiveLang(fcLangCharSets[i].lang) {
+			if fcLangCharSets[i].charset.num != exclusiveCharset.num {
+				continue
+			}
 
-// 	 if (FcDebug() & FC_DBG_SCANV)
-// 	 printf ("\n");
+			for j = 0; j < fcLangCharSets[i].charset.num; j++ {
+				if FcCharSetLeaf(&fcLangCharSets[i].charset, j) != FcCharSetLeaf(exclusiveCharset, j) {
+					continue
+				}
+			}
+		}
+		missing = FcCharSetSubtractCount(&fcLangCharSets[i].charset, charset)
+		if debugMode {
+			if missing && missing < 10 {
+				missed := FcCharSetSubtract(&fcLangCharSets[i].charset, charset)
+				//  FcChar32    ucs4;
+				//  FcChar32    map_[FC_CHARSET_MAP_SIZE];
+				//  FcChar32    next;
 
-// 	 return ls;
-//  }
+				fmt.Printf("\n%s(%u) {", fcLangCharSets[i].lang, missing)
+				for ucs4 = FcCharSetFirstPage(missed, map_, &next); ucs4 != FC_CHARSET_DONE; ucs4 = FcCharSetNextPage(missed, map_, &next) {
+					//  int	    i, j;
+					for i = 0; i < FC_CHARSET_MAP_SIZE; i++ {
+						if map_[i] {
+							for j = 0; j < 32; j++ {
+								if map_[i] & (1 << j) {
+									fmt.Printf(" %04x", ucs4+i*32+j)
+								}
+							}
+						}
+					}
+				}
+				fmt.Printf(" }\n\t")
+			} else {
+				fmt.Printf("%s(%u) ", fcLangCharSets[i].lang, missing)
+			}
+		}
+		if !missing {
+			bitSet(ls, i)
+		}
+	}
+
+	return ls
+}
 
 func FcLangNormalize(lang string) string {
 	var (

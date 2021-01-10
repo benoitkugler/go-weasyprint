@@ -124,12 +124,12 @@ func (fcs FcCharSet) findLeafPos(ucs4 uint32) int {
 	return fcs.findLeafForward(0, uint16(ucs4>>8))
 }
 
-func popCount(c1 uint32) uint32 { return uint32(bits.OnesCount32(c1)) }
+func popCount(c1 uint32) int { return bits.OnesCount32(c1) }
 
 // Returns the number of chars that are in `a` but not in `b`.
 func FcCharSetSubtractCount(a, b FcCharSet) uint32 {
 	var (
-		count  uint32
+		count  int
 		ai, bi charSetIter
 	)
 	ai.start(a)
@@ -153,7 +153,7 @@ func FcCharSetSubtractCount(a, b FcCharSet) uint32 {
 			bi.set(b)
 		}
 	}
-	return count
+	return uint32(count)
 }
 
 // Returns whether `a` and `b` contain the same set of Unicode chars.
@@ -260,6 +260,81 @@ func (fcs *FcCharSet) addChar(ucs4 uint32) bool {
 	b := &leaf[(ucs4&0xff)>>5]
 	*b |= (1 << (ucs4 & 0x1f))
 	return true
+}
+
+// Adds all chars in `b` to `a`.
+// In other words, this is an in-place version of FcCharSetUnion.
+// It returns whether any new chars from `b` were added to `a`.
+func (a *FcCharSet) merge(b FcCharSet) bool {
+	//  int		ai = 0, bi = 0;
+	//  FcChar16	an, bn;
+
+	if a == nil {
+		return false
+	}
+
+	changed := !b.isSubset(*a)
+	if !changed {
+		return changed
+	}
+
+	for ai, bi := 0, 0; bi < len(b.numbers); {
+		an := ^uint16(0)
+		if ai < len(a.numbers) {
+			an = a.numbers[ai]
+		}
+		bn := b.numbers[bi]
+
+		if an < bn {
+			ai = a.findLeafForward(ai+1, bn)
+			if ai < 0 {
+				ai = -ai - 1
+			}
+		} else {
+			bl := b.leaves[bi]
+			if bn < an {
+				if !a.addLeaf(uint32(bn)<<8, bl) {
+					return false
+				}
+			} else {
+				al := a.leaves[ai]
+				unionLeaf(al, al, bl)
+			}
+
+			ai++
+			bi++
+		}
+	}
+
+	return changed
+}
+
+func (fcs *FcCharSet) findLeaf(ucs4 uint32) *FcCharLeaf {
+	pos := fcs.findLeafPos(ucs4)
+	if pos >= 0 {
+		return fcs.leaves[pos]
+	}
+	return nil
+}
+
+func (fcs *FcCharSet) hasChar(ucs4 uint32) bool {
+	leaf := fcs.findLeaf(ucs4)
+	if leaf == nil {
+		return false
+	}
+	return leaf[(ucs4&0xff)>>5]&(1<<(ucs4&0x1f)) != 0
+}
+
+func (a FcCharSet) count() int {
+	count := 0
+	var ai charSetIter
+
+	for ai.start(a); ai.leaf != nil; ai.next(a) {
+		for _, am := range ai.leaf {
+			count += popCount(am)
+		}
+	}
+	return count
 }
 
 func charSetUnion(a, b FcCharSet) *FcCharSet {
@@ -418,15 +493,6 @@ func (iter *charSetIter) next(fcs FcCharSet) {
 // 	 }
 //  }
 
-//  static FcCharLeaf *
-//  FcCharSetFindLeaf (fcs *FcCharSet, ucs4 uint32 )
-//  {
-// 	 int	pos = findLeafPos (fcs, ucs4);
-// 	 if (pos >= 0)
-// 	 return fcs.leaves[pos];
-// 	 return 0;
-//  }
-
 //  static FcBool
 //  FcCharSetInsertLeaf (fcs *FcCharSet, ucs4 uint32 , FcCharLeaf *leaf)
 //  {
@@ -494,66 +560,6 @@ func (iter *charSetIter) next(fcs FcCharSet) {
 // 	 return operate (a, b, FcCharSetIntersectLeaf, false, false);
 //  }
 
-// Adds all chars in `b` to `a`.
-// In other words, this is an in-place version of FcCharSetUnion.
-// It returns whether any new chars from `b` were added to `a`.
-func (a *FcCharSet) merge(b FcCharSet) bool {
-	//  int		ai = 0, bi = 0;
-	//  FcChar16	an, bn;
-
-	if a == nil {
-		return false
-	}
-
-	changed := !b.isSubset(*a)
-	if !changed {
-		return changed
-	}
-
-	for ai, bi := 0, 0; bi < len(b.numbers); {
-		an := ^uint16(0)
-		if ai < len(a.numbers) {
-			an = a.numbers[ai]
-		}
-		bn := b.numbers[bi]
-
-		if an < bn {
-			ai = a.findLeafForward(ai+1, bn)
-			if ai < 0 {
-				ai = -ai - 1
-			}
-		} else {
-			bl := b.leaves[bi]
-			if bn < an {
-				if !a.addLeaf(uint32(bn)<<8, bl) {
-					return false
-				}
-			} else {
-				al := a.leaves[ai]
-				unionLeaf(al, al, bl)
-			}
-
-			ai++
-			bi++
-		}
-	}
-
-	return changed
-}
-
-//  FcBool
-//  FcCharSetHasChar (fcs *FcCharSet, ucs4 uint32 )
-//  {
-// 	 leaf *FcCharLeaf;
-
-// 	 if (!fcs)
-// 	 return false;
-// 	 leaf = FcCharSetFindLeaf (fcs, ucs4);
-// 	 if (!leaf)
-// 	 return false;
-// 	 return (leaf.map_[(ucs4 & 0xff) >> 5] & (1U << (ucs4 & 0x1f))) != 0;
-//  }
-
 //  uint32
 //  FcCharSetIntersectCount (const FcCharSet *a, const FcCharSet *b)
 //  {
@@ -585,26 +591,6 @@ func (a *FcCharSet) merge(b FcCharSet) bool {
 // 		 bi.ucs4 = ai.ucs4;
 // 		 set (b, &bi);
 // 		 }
-// 	 }
-// 	 }
-// 	 return count;
-//  }
-
-//  uint32
-//  FcCharSetCount (const FcCharSet *a)
-//  {
-// 	 FcCharSetIter   ai;
-// 	 uint32	    count = 0;
-
-// 	 if (a)
-// 	 {
-// 	 for (start (a, &ai); ai.leaf; next (a, &ai))
-// 	 {
-// 		 int		    i = 256/32;
-// 		 uint32	    *am = ai.leaf.map_;
-
-// 		 for (i--)
-// 		 count += popCount (*am++);
 // 	 }
 // 	 }
 // 	 return count;
