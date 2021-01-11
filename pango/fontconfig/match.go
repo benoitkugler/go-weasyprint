@@ -188,7 +188,7 @@ func FcCompareBool(val1, val2 FcValue) (FcValue, float64) {
 
 func FcCompareCharSet(v1, v2 FcValue) (FcValue, float64) {
 	bestValue := v2
-	return bestValue, float64(FcCharSetSubtractCount(v1.(FcCharSet), v2.(FcCharSet)))
+	return bestValue, float64(charsetSubtractCount(v1.(FcCharset), v2.(FcCharset)))
 }
 
 func FcCompareRange(v1, v2 FcValue) (FcValue, float64) {
@@ -849,7 +849,7 @@ func (p *FcPattern) fontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult
 // by the return value from multiple FcFontSort calls, applications cannot
 // modify these patterns. Instead, they should be passed, along with
 // `pattern` to FcFontRenderPrepare() which combines them into a complete pattern.
-func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcCharSet, FcResult) {
+func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcCharset, FcResult) {
 	//  assert (p != nil);
 
 	// There are some implementation that relying on the result of
@@ -867,7 +867,7 @@ func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcChar
 		nnodes += len(s)
 	}
 	if nnodes == 0 {
-		return nil, FcCharSet{}, result
+		return nil, FcCharset{}, result
 	}
 
 	var (
@@ -894,7 +894,7 @@ func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcChar
 			var ok bool
 			ok, result = data.compare(p, newPtr.pattern, newPtr.score[:])
 			if !ok {
-				return nil, FcCharSet{}, result
+				return nil, FcCharset{}, result
 			}
 			if debugMode {
 				fmt.Println("Score", newPtr.score)
@@ -1018,8 +1018,8 @@ func sortCompare(a, b *FcSortNode) bool {
 	return ad < bd
 }
 
-func FcSortWalk(n []*FcSortNode, fs *FcFontSet, trim bool) FcCharSet {
-	var csp FcCharSet
+func FcSortWalk(n []*FcSortNode, fs *FcFontSet, trim bool) FcCharset {
+	var csp FcCharset
 
 	for i, node := range n {
 		//  FcSortNode	*node = *n++;
@@ -1056,7 +1056,7 @@ func FcSortWalk(n []*FcSortNode, fs *FcFontSet, trim bool) FcCharSet {
 //  FcFontSort (config *FcConfig,
 // 		 p *FcPattern,
 // 		 FcBool	trim,
-// 		 FcCharSet	**csp,
+// 		 FcCharset	**csp,
 // 		 result *FcResult)
 //  {
 // 	 FcFontSet	*sets[2], *ret;

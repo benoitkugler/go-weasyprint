@@ -152,14 +152,14 @@ func (p FcPattern) FcPatternObjectGetString(object FcObject, id int) (string, Fc
 	return out, FcResultMatch
 }
 
-func (p FcPattern) FcPatternObjectGetCharSet(object FcObject, id int) (FcCharSet, FcResult) {
+func (p FcPattern) FcPatternObjectGetCharSet(object FcObject, id int) (FcCharset, FcResult) {
 	v, r := p.FcPatternObjectGet(object, id)
 	if r != FcResultMatch {
-		return FcCharSet{}, r
+		return FcCharset{}, r
 	}
-	out, ok := v.(FcCharSet)
+	out, ok := v.(FcCharset)
 	if !ok {
-		return FcCharSet{}, FcResultTypeMismatch
+		return FcCharset{}, FcResultTypeMismatch
 	}
 	return out, FcResultMatch
 }

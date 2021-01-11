@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/benoitkugler/image/math/fixed"
 	"github.com/benoitkugler/pdf/fonts/bitmap"
 	"github.com/benoitkugler/pdf/fonts/truetype"
 	"github.com/benoitkugler/pdf/fonts/type1"
+	"golang.org/x/image/math/fixed"
 )
 
 // ported from fontconfig/src/fcdir.c and fcfreetype.c   2000 Keith Packard
@@ -85,30 +85,6 @@ func FcFileScanConfig(set *FcFontSet, dirs FcStrSet, file string, config *FcConf
 func FcFreeTypeQueryAll(file string, id int, set *FcFontSet) (int, bool) {
 	return 0, false
 }
-
-// Keep Han languages separated by eliminating languages that the codePageRange bits says aren't supported
-var codePageRange = [...]struct {
-	bit  byte
-	lang string
-}{
-	{17, "ja"},
-	{18, "zh-cn"},
-	{19, "ko"},
-	{20, "zh-tw"},
-}
-
-//  FcBool
-//  FcFreeTypeIsExclusiveLang (const FcChar8  *lang)
-//  {
-// 	 int	    i;
-
-// 	 for (i = 0; i < NUM_CODE_PAGE_RANGE; i++)
-// 	 {
-// 	 if (FcLangCompare (lang, codePageRange[i].lang) == FcLangEqual)
-// 		 return true;
-// 	 }
-// 	 return false;
-//  }
 
 //  typedef struct {
 // 	 const FT_UShort	PlatformID;
@@ -915,7 +891,7 @@ var fcFtLanguage = [...]FcFtLanguage{
 //  hasHint (FT_Face face);
 
 //  static int
-//  FcFreeTypeSpacing (FT_Face face);
+//  getSpacing (FT_Face face);
 
 //   NUM_FC_MAC_ROMAN_FAKE	(int) (sizeof (fcMacRomanFake) / sizeof (fcMacRomanFake[0]))
 
@@ -1788,6 +1764,14 @@ func FT_Load_Glyph(face FT_Face, glyph truetype.GlyphIndex, loadFlags LoadFlags)
 	return &GlyphMetric{}
 }
 
+// TODO:
+func FT_Get_Advance(face FT_Face, glyph truetype.GlyphIndex, loadFlags LoadFlags) (fixed.Int26_6, bool) {
+	return 0, false
+}
+
+// TODO:
+func FT_Select_Size(face FT_Face, strikeIndex int) {}
+
 const (
 	TrueType = "TrueType"
 	Type1    = "Type 1"
@@ -1805,37 +1789,12 @@ func FT_Get_X11_Font_Format(face FT_Face) string {
 	return ""
 }
 
-func queryFace(face FT_Face, file string, id int,
-	cs_share **FcCharSet, ls_share **FcLangSet, nm_share **nameMapping) *FcPattern {
-	//  FcPattern	    *pat;
-	//  int		    slant = -1;
-	//  double	    weight = -1;
-	//  double	    width = -1;
-	//  FcBool	    decorative = false;
-	//  FcBool	    variable = false;
-	//  FcCharSet       *cs;
-	//  FcLangSet       *ls;
-	//  nameMapping   *nameMapping = nil;
-	//  FcChar8	    *complexFeats, *foundry_ = nil;
-	//  const FcChar8   *foundry = 0;
-	//  int		    spacing;
-
-	//  TT_OS2	    *os2;
-	//  PS_FontInfoRec  psfontinfo;
-	//  BDF_PropertyRec prop;
-	//  TT_Header	    *head;
-
-	//  unsigned int    p, n;
-
-	//  FcChar8	    *style = 0;
-	//  int		    st;
-
+func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, FcCharset, FcLangSet) {
 	var (
 		variableWeight, variableWidth, variableSize, variable bool
 		weight, width                                         = -1., -1.
 
-		/* Support for glyph-variation named-instances. */
-		//  FT_MM_Var       *master = nil;
+		// Support for glyph-variation named-instances.
 		instance              *FT_Var_Named_Style
 		weightMult, widthMult = 1., 1.
 
@@ -1862,11 +1821,11 @@ func queryFace(face FT_Face, file string, id int,
 	if id>>16 != 0 {
 		master := FT_Get_MM_Var(face)
 		if master == nil {
-			return nil
+			return nil, nil, FcCharset{}, FcLangSet{}
 		}
 
 		if id>>16 == 0x8000 {
-			/* Query variable font itself. */
+			// Query variable font itself.
 
 			for _, axis := range master.axis {
 				minValue := axis.minimum / float64(1<<16)
@@ -1884,17 +1843,17 @@ func queryFace(face FT_Face, file string, id int,
 					minValue = FcWeightFromOpenTypeDouble(minValue)
 					maxValue = FcWeightFromOpenTypeDouble(maxValue)
 					variableWeight = true
-					weight = 0 /* To stop looking for weight. */
+					weight = 0 // To stop looking for weight.
 
 				case wdth:
 					obj = FC_WIDTH
-					/* Values in 'wdth' match Fontconfig FC_WIDTH_* scheme directly. */
+					// Values in 'wdth' match Fontconfig FC_WIDTH_* scheme directly.
 					variableWidth = true
-					width = 0 /* To stop looking for width. */
+					width = 0 // To stop looking for width.
 
 				case opsz:
 					obj = FC_SIZE
-					/* Values in 'opsz' match Fontconfig FC_SIZE, both are in points. */
+					// Values in 'opsz' match Fontconfig FC_SIZE, both are in points.
 					variableSize = true
 				}
 
@@ -1906,12 +1865,12 @@ func queryFace(face FT_Face, file string, id int,
 			}
 
 			if !variable {
-				return nil
+				return nil, nil, FcCharset{}, FcLangSet{}
 			}
 
 			id &= 0xFFFF
 		} else if index := (id >> 16) - 1; index < len(master.namedstyle) {
-			/* Pull out weight and width from named-instance. */
+			// Pull out weight and width from named-instance.
 
 			instance = &master.namedstyle[index]
 
@@ -1934,7 +1893,7 @@ func queryFace(face FT_Face, file string, id int,
 				}
 			}
 		} else {
-			return nil
+			return nil, nil, FcCharset{}, FcLangSet{}
 		}
 	}
 
@@ -2167,7 +2126,7 @@ func queryFace(face FT_Face, file string, id int,
 
 			family, res := pat.FcPatternObjectGetString(FC_FAMILY, n)
 			if res != FcResultMatch {
-				return nil
+				return nil, nil, FcCharset{}, FcLangSet{}
 			}
 			psname = strings.Map(func(r rune) rune {
 				switch r {
@@ -2410,12 +2369,12 @@ func queryFace(face FT_Face, file string, id int,
 	//  Compute the unicode coverage for the font
 	cs, enc := getCharSet(face)
 	if enc == -1 {
-		return nil
+		return nil, nil, FcCharset{}, FcLangSet{}
 	}
 	// getCharSet() chose the encoding; test it for symbol.
 	symbol := enc == EncMsSymbol
 	pat.FcPatternObjectAddBool(FC_SYMBOL, symbol)
-	spacing := FcFreeTypeSpacing(face)
+	spacing := getSpacing(face)
 
 	// For PCF fonts, override the computed spacing with the one from the property
 	prop := FT_Get_BDF_Property(face, "SPACING")
@@ -2439,7 +2398,7 @@ func queryFace(face FT_Face, file string, id int,
 	 */
 	if cs.count() == 0 {
 		if prop := FT_Get_BDF_Property(face, "PIXEL_SIZE"); prop != nil {
-			return nil
+			return nil, nil, FcCharset{}, FcLangSet{}
 		}
 	}
 
@@ -2447,10 +2406,7 @@ func queryFace(face FT_Face, file string, id int,
 
 	var ls FcLangSet
 	if !symbol {
-		ls = FcFreeTypeLangSet(cs, exclusiveLang)
-		if !ls {
-			goto bail2
-		}
+		ls = buildLangSet(cs, exclusiveLang)
 	} else {
 		/* Symbol fonts don't cover any language, even though they
 		 * claim to support Latin1 range. */
@@ -2478,7 +2434,7 @@ func queryFace(face FT_Face, file string, id int,
 		pat.FcPatternObjectAddString(FC_FONTFORMAT, fontFormat)
 	}
 
-	return pat
+	return pat, nameMappings, cs, ls
 }
 
 func weightFromBFD(value int32) float64 {
@@ -2551,7 +2507,7 @@ func weightFromBFD(value int32) float64 {
 //  {
 // 	 FT_Face face = nil;
 // 	 FT_Library ftLibrary = nil;
-// 	 FcCharSet *cs = nil;
+// 	 FcCharset *cs = nil;
 // 	 FcLangSet *ls = nil;
 // 	 nameMapping  *nm = nil;
 // 	 FT_MM_Var *mm_var = nil;
@@ -2636,7 +2592,7 @@ func weightFromBFD(value int32) float64 {
 // 		 nm = nil;
 // 		 FcLangSetDestroy (ls);
 // 		 ls = nil;
-// 		 FcCharSetDestroy (cs);
+// 		 FcCharsetDestroy (cs);
 // 		 cs = nil;
 // 		 FT_Done_Face (face);
 // 		 face = nil;
@@ -2656,7 +2612,7 @@ func weightFromBFD(value int32) float64 {
 // 	 free (mm_var);
 //  #endif
 // 	 FcLangSetDestroy (ls);
-// 	 FcCharSetDestroy (cs);
+// 	 FcCharsetDestroy (cs);
 // 	 if (face)
 // 	 FT_Done_Face (face);
 // 	 FT_Done_FreeType (ftLibrary);
@@ -2738,86 +2694,82 @@ var fcFontEncodings = [...]int{
 // 	 return 0;
 //  }
 
-//  static inline int fc_min (int a, int b) { return a <= b ? a : b; }
-//  static inline int fc_max (int a, int b) { return a >= b ? a : b; }
-//  static inline FcBool fc_approximately_equal (int x, int y)
-//  { return abs (x - y) * 33 <= fc_max (abs (x), abs (y)); }
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
 
-//  static int
-//  FcFreeTypeSpacing (FT_Face face)
-//  {
-// 	 FT_Int	    loadFlags = FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH | FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING;
-// 	 FT_Pos	    advances[3] = {0};
-// 	 unsigned int    num_advances = 0;
-// 	 int		    o;
+func approximatelyEqual(x, y int) bool { return abs(x-y)*33 <= max(abs(x), abs(y)) }
 
-// 	 /* When using scalable fonts, only report those glyphs
-// 	  * which can be scaled; otherwise those fonts will
-// 	  * only be available at some sizes, and never when
-// 	  * transformed.  Avoid this by simply reporting bitmap-only
-// 	  * glyphs as missing
-// 	  */
-// 	 if (face.face_flags & FT_FACE_FLAG_SCALABLE)
-// 	 loadFlags |= FT_LOAD_NO_BITMAP;
+func getSpacing(face FT_Face) int {
+	loadFlags := FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH | FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING
+	var advances []int
+	//  unsigned int    numAdvances = 0;
+	//  int		    o;
 
-// 	 if (!(face.face_flags & FT_FACE_FLAG_SCALABLE) &&
-// 	 face.num_fixed_sizes > 0 &&
-// 	 FT_Get_Sfnt_Table (face, ft_sfnt_head))
-// 	 {
-// 	 FT_Int strike_index = 0, i;
-// 	 /* Select the face closest to 16 pixels tall */
-// 	 for (i = 1; i < face.num_fixed_sizes; i++)
-// 	 {
-// 		 if (abs (face.available_sizes[i].height - 16) <
-// 		 abs (face.available_sizes[strike_index].height - 16))
-// 		 strike_index = i;
-// 	 }
+	/* When using scalable fonts, only report those glyphs
+	 * which can be scaled; otherwise those fonts will
+	 * only be available at some sizes, and never when
+	 * transformed. Avoid this by simply reporting bitmap-only
+	 * glyphs as missing */
+	if (face.face_flags & FT_FACE_FLAG_SCALABLE) != 0 {
+		loadFlags |= FT_LOAD_NO_BITMAP
+	}
 
-// 	 FT_Select_Size (face, strike_index);
-// 	 }
+	if head := getTableHead; face.face_flags&FT_FACE_FLAG_SCALABLE == 0 && len(face.available_sizes) > 0 && head != nil {
+		var strikeIndex int
+		// Select the face closest to 16 pixels tall
+		for i := 1; i < len(face.available_sizes); i++ {
+			if abs(int(face.available_sizes[i].Height-16)) < abs(int(face.available_sizes[strikeIndex].Height-16)) {
+				strikeIndex = i
+			}
+		}
 
-// 	 for (o = 0; o < NUM_DECODE; o++)
-// 	 {
-// 	 FcChar32        ucs4;
-// 	 FT_UInt	 	glyph;
+		// TODO: this influence the later Get_Advance call
+		FT_Select_Size(face, strikeIndex)
+	}
 
-// 	 if (FT_Select_Charmap (face, fcFontEncodings[o]) != 0)
-// 		 continue;
+	for _, enc := range fcFontEncodings {
+		cmap := FT_Select_Charmap(face, enc)
+		if cmap == nil {
+			continue
+		}
 
-// 	 ucs4 = FT_Get_First_Char (face, &glyph);
-// 	 while (glyph != 0 && num_advances < 3)
-// 	 {
-// 		 FT_Pos advance = 0;
-// 		 if (!FT_Get_Advance (face, glyph, loadFlags, &advance) && advance)
-// 		 {
-// 		 unsigned int j;
-// 		 for (j = 0; j < num_advances; j++)
-// 		   if (fc_approximately_equal (advance, advances[j]))
-// 			 break;
-// 		 if (j == num_advances)
-// 		   advances[num_advances++] = advance;
-// 		 }
+		iter := cmap.Iter()
+		for iter.Next() && len(advances) < 3 {
+			_, glyph := iter.Char()
+			advance, ok := FT_Get_Advance(face, glyph, loadFlags)
+			if ok && advance != 0 {
+				var j int
+				for j = 0; j < len(advances); j++ {
+					if approximatelyEqual(int(advance), advances[j]) {
+						break
+					}
+				}
+				if j == len(advances) {
+					advances = append(advances, int(advance))
+				}
+			}
+		}
+		break
+	}
 
-// 		 ucs4 = FT_Get_Next_Char (face, ucs4, &glyph);
-// 	 }
-// 	 break;
-// 	 }
-
-// 	 if (num_advances <= 1)
-// 	 return FC_MONO;
-// 	 else if (num_advances == 2 &&
-// 		  fc_approximately_equal (fc_min (advances[0], advances[1]) * 2,
-// 					  fc_max (advances[0], advances[1])))
-// 	 return FC_DUAL;
-// 	 else
-// 	 return FC_PROPORTIONAL;
-//  }
+	if len(advances) <= 1 {
+		return FC_MONO
+	} else if len(advances) == 2 && approximatelyEqual(min(advances[0], advances[1])*2,
+		max(advances[0], advances[1])) {
+		return FC_DUAL
+	}
+	return FC_PROPORTIONAL
+}
 
 // also returns the selected encoding
-func getCharSet(face FT_Face) (FcCharSet, int) {
+func getCharSet(face FT_Face) (FcCharset, int) {
 	loadFlags := FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH | FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING
 
-	var fcs FcCharSet
+	var fcs FcCharset
 
 	for _, enc := range fcFontEncodings {
 		cmap := FT_Select_Charmap(face, enc)
@@ -2826,11 +2778,13 @@ func getCharSet(face FT_Face) (FcCharSet, int) {
 		}
 
 		var (
-			leaf *FcCharLeaf
-			page = ^uint32(0)
+			leaf *charPage
+			page = ^uint16(0)
 			off  uint32
 		)
-		for ucs4, glyph := range cmap.Compile() {
+		iter := cmap.Iter()
+		for iter.Next() {
+			ucs4, glyph := iter.Char()
 
 			/* CID fonts built by Adobe used to make ASCII control chars to cid1
 			 * (space glyph). As such, always check contour for those characters. */
@@ -2843,12 +2797,12 @@ func getCharSet(face FT_Face) (FcCharSet, int) {
 				}
 			}
 
-			fcs.addChar(uint32(ucs4))
-			if pa := uint32(ucs4) >> 8; pa != page {
+			fcs.addChar(ucs4)
+			if pa := uint16(ucs4 >> 8); pa != page {
 				page = pa
-				leaf = fcs.findLeafCreate(uint32(ucs4))
+				leaf = fcs.findLeafCreate(pa)
 				if leaf == nil {
-					return FcCharSet{}, -1
+					return FcCharset{}, -1
 				}
 			}
 			off = uint32(ucs4) & 0xff
@@ -2864,7 +2818,7 @@ func getCharSet(face FT_Face) (FcCharSet, int) {
 			 * See thread with subject "Webdings and other MS symbol
 			 * fonts don't display" on mailing list from May 2015.
 			 */
-			for ucs4 := uint32(0xF000); ucs4 < 0xF100; ucs4++ {
+			for ucs4 := rune(0xF000); ucs4 < 0xF100; ucs4++ {
 				if fcs.hasChar(ucs4) {
 					fcs.addChar(ucs4 - 0xF000)
 				}
@@ -2876,12 +2830,12 @@ func getCharSet(face FT_Face) (FcCharSet, int) {
 	return fcs, -1
 }
 
-//  FcCharSet *
+//  FcCharset *
 //  getCharSetAndSpacing (FT_Face face, FcBlanks *blanks FC_UNUSED, int *spacing)
 //  {
 
 // 	 if (spacing)
-// 	 *spacing = FcFreeTypeSpacing (face);
+// 	 *spacing = getSpacing (face);
 
 // 	 return getCharSet (face, blanks);
 //  }

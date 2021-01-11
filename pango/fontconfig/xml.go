@@ -1409,7 +1409,7 @@ func (parser *configParser) parseRange() error {
 
 func (parser *configParser) parseCharSet() error {
 	var (
-		charset FcCharSet
+		charset FcCharset
 		n       = 0
 	)
 
@@ -1417,19 +1417,21 @@ func (parser *configParser) parseCharSet() error {
 	for _, vstack := range last.values {
 		switch vstack.tag {
 		case vstackInteger:
-			r := uint32(vstack.u.(int))
-			if !charset.addChar(r) {
+			r := rune(vstack.u.(int))
+			if r > maxCharsetRune {
 				parser.message(FcSevereWarning, "invalid character: 0x%04x", r)
 			} else {
+				charset.addChar(r)
 				n++
 			}
 		case vstackRange:
 			ra := vstack.u.(FcRange)
 			if ra.Begin <= ra.End {
-				for r := uint32(ra.Begin); r <= uint32(ra.End); r++ {
-					if !charset.addChar(r) {
+				for r := rune(ra.Begin); r <= rune(ra.End); r++ {
+					if r > maxCharsetRune {
 						parser.message(FcSevereWarning, "invalid character: 0x%04x", r)
 					} else {
+						charset.addChar(r)
 						n++
 					}
 				}

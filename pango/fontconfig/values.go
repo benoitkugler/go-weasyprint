@@ -239,7 +239,7 @@ func (object FcObject) hasValidType(val FcValue) bool {
 		_, isMatrix := val.(FcMatrix)
 		return isMatrix
 	case FC_CHARSET: // CharSet
-		_, isCharSet := val.(FcCharSet)
+		_, isCharSet := val.(FcCharset)
 		return isCharSet
 	case FC_LANG: // LangSet
 		_, isLangSet := val.(FcLangSet)

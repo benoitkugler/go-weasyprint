@@ -19,11 +19,9 @@ const (
 
 /* Objects MT-safe for readonly access. */
 
-type FcCharLeaf [8]uint32
-
 type FcLangCharSet struct {
-	lang string
-	// charset FcCharSet
+	lang    string
+	charset FcCharset
 }
 
 type FcLangCharSetRange struct {
@@ -37,255 +35,26 @@ type FcLangCharSetRange struct {
 // languages except for MS, NA, PA, PS, QU, RN, RW, SD, SG, SN, SU and ZA.
 type FcLangSet struct {
 	extra FcStrSet
-	map_  [NUM_LANG_SET_MAP]uint32
+	page  [langPageSize]uint32
 }
 
-func (ls FcLangSet) String() string {
-	var chunks []string
+func newCharSetFromLang(lang string) *FcCharset {
+	country := -1
 
-	for i, bits := range ls.map_ {
-		if bits != 0 {
-			for bit := 0; bit <= 31; bit++ {
-				if bits&(1<<bit) != 0 {
-					id := (i << 5) | bit
-					chunks = append(chunks, fcLangCharSets[fcLangCharSetIndicesInv[id]].lang)
-				}
+	for i, lcs := range fcLangCharSets {
+		switch FcLangCompare(lang, lcs.lang) {
+		case FcLangEqual:
+			return &lcs.charset
+		case FcLangDifferentTerritory:
+			if country == -1 {
+				country = i
 			}
 		}
 	}
-
-	for extra := range ls.extra {
-		chunks = append(chunks, extra)
+	if country == -1 {
+		return nil
 	}
-	return strings.Join(chunks, "|")
-}
-
-func (ls *FcLangSet) bitSet(id int) {
-	id = int(fcLangCharSetIndices[id])
-	bucket := id >> 5
-	if bucket >= NUM_LANG_SET_MAP { // shouldn't happen really
-		return
-	}
-
-	ls.map_[bucket] |= 1 << (id & 0x1f)
-}
-
-func (ls FcLangSet) bitGet(id int) bool {
-	id = int(fcLangCharSetIndices[id])
-	bucket := id >> 5
-	if bucket >= NUM_LANG_SET_MAP {
-		return false
-	}
-
-	return (ls.map_[bucket]>>(id&0x1f))&1 != 0
-}
-
-func (ls *FcLangSet) bitReset(id int) {
-	id = int(fcLangCharSetIndices[id])
-	bucket := id >> 5
-	if bucket >= NUM_LANG_SET_MAP { // shouldn't happen really
-		return
-	}
-	ls.map_[bucket] &= ^(1 << (id & 0x1f))
-}
-
-func FcLangSetEqual(lsa, lsb FcLangSet) bool {
-	if lsa.map_ != lsb.map_ {
-		return false
-	}
-	if lsa.extra == nil && lsb.extra == nil {
-		return true
-	}
-	if lsa.extra != nil && lsb.extra != nil {
-		return FcStrSetEqual(lsa.extra, lsb.extra)
-	}
-	return false
-}
-
-func (ls FcLangSet) containsLang(lang string) bool {
-	id := FcLangSetIndex(lang)
-	if id < 0 {
-		id = -id - 1
-	} else if ls.bitGet(id) {
-		return true
-	}
-	// search up and down among equal languages for a match
-	for i := id - 1; i >= 0; i-- {
-		if FcLangCompare(fcLangCharSets[i].lang, lang) == FcLangDifferentLang {
-			break
-		}
-		if ls.bitGet(i) && langContains(fcLangCharSets[i].lang, lang) {
-			return true
-		}
-	}
-	for i := id; i < NUM_LANG_CHAR_SET; i++ {
-		if FcLangCompare(fcLangCharSets[i].lang, lang) == FcLangDifferentLang {
-			break
-		}
-		if ls.bitGet(i) && langContains(fcLangCharSets[i].lang, lang) {
-			return true
-		}
-	}
-
-	var extra string
-	for extra = range ls.extra {
-		if langContains(extra, lang) {
-			break
-		}
-	}
-	if extra != "" {
-		return true
-	}
-	return false
-}
-
-// return true if lsa contains every language in lsb
-func (lsa FcLangSet) FcLangSetContains(lsb FcLangSet) bool {
-	//  int		    i, j, count;
-	//  FcChar32	    missing;
-
-	if debugMode {
-		fmt.Println("FcLangSet ", lsa)
-		fmt.Println(" contains ", lsb)
-		fmt.Println("")
-	}
-	// check bitmaps for missing language support
-	for i := range lsb.map_ {
-		missing := lsb.map_[i] & ^lsa.map_[i]
-		if missing != 0 {
-			for j := 0; j < 32; j++ {
-				if missing&(1<<j) != 0 {
-					tmpL := fcLangCharSets[fcLangCharSetIndicesInv[i*32+j]].lang
-					if !lsa.containsLang(tmpL) {
-						if debugMode {
-							fmt.Printf("\tMissing bitmap %s\n", tmpL)
-						}
-						return false
-					}
-				}
-			}
-		}
-	}
-	var extra string
-	for extra := range lsb.extra {
-		if !lsa.containsLang(extra) {
-			if debugMode {
-				fmt.Printf("\tMissing string %s\n", extra)
-			}
-			break
-		}
-	}
-	if extra != "" {
-		return false
-	}
-	return true
-}
-
-func FcNameParseLangSet(str string) FcLangSet {
-	var ls FcLangSet
-	for _, lang := range strings.Split(str, "|") {
-		ls.add(lang)
-	}
-	return ls
-}
-
-// copy creates a new FcLangSet object and
-// populates it with the contents of `ls`.
-func (ls FcLangSet) copy() FcLangSet {
-	var new FcLangSet
-	new.map_ = ls.map_
-	new.extra = make(FcStrSet, len(ls.extra))
-	for e := range ls.extra {
-		new.extra[e] = true
-	}
-	return new
-}
-
-func FcStrSetAddLangs(strs FcStrSet, languages string) bool {
-	var ret bool
-	ls := strings.Split(languages, ":")
-	for _, lang := range ls {
-		if lang == "" { // ignore an empty item
-			continue
-		}
-		normalizedLang := FcLangNormalize(lang)
-		if normalizedLang != "" {
-			strs[normalizedLang] = true
-			ret = true
-		}
-	}
-
-	return ret
-}
-
-func buildLangSet(charset FcCharSet, exclusiveLang string) FcLangSet {
-	//  int		    i, j;
-	//  FcChar32	    missing;
-	//  const FcCharSet *exclusiveCharset = 0;
-	//  FcLangSet	    *ls;
-
-	if exclusiveLang != "" {
-		exclusiveCharset = FcLangGetCharSet(exclusiveLang)
-	}
-
-	var ls FcLangSet
-
-	if debugMode {
-		fmt.Printf("font charset %s \n", charset)
-	}
-	for i = 0; i < NUM_LANG_CHAR_SET; i++ {
-		if debugMode {
-			fmt.Printf("%s charset %s\n", fcLangCharSets[i].lang, fcLangCharSets[i].charset)
-		}
-
-		/*
-		 * Check for Han charsets to make fonts
-		 * which advertise support for a single language
-		 * not support other Han languages
-		 */
-		if exclusiveCharset && FcFreeTypeIsExclusiveLang(fcLangCharSets[i].lang) {
-			if fcLangCharSets[i].charset.num != exclusiveCharset.num {
-				continue
-			}
-
-			for j = 0; j < fcLangCharSets[i].charset.num; j++ {
-				if FcCharSetLeaf(&fcLangCharSets[i].charset, j) != FcCharSetLeaf(exclusiveCharset, j) {
-					continue
-				}
-			}
-		}
-		missing = FcCharSetSubtractCount(&fcLangCharSets[i].charset, charset)
-		if debugMode {
-			if missing && missing < 10 {
-				missed := FcCharSetSubtract(&fcLangCharSets[i].charset, charset)
-				//  FcChar32    ucs4;
-				//  FcChar32    map_[FC_CHARSET_MAP_SIZE];
-				//  FcChar32    next;
-
-				fmt.Printf("\n%s(%u) {", fcLangCharSets[i].lang, missing)
-				for ucs4 = FcCharSetFirstPage(missed, map_, &next); ucs4 != FC_CHARSET_DONE; ucs4 = FcCharSetNextPage(missed, map_, &next) {
-					//  int	    i, j;
-					for i = 0; i < FC_CHARSET_MAP_SIZE; i++ {
-						if map_[i] {
-							for j = 0; j < 32; j++ {
-								if map_[i] & (1 << j) {
-									fmt.Printf(" %04x", ucs4+i*32+j)
-								}
-							}
-						}
-					}
-				}
-				fmt.Printf(" }\n\t")
-			} else {
-				fmt.Printf("%s(%u) ", fcLangCharSets[i].lang, missing)
-			}
-		}
-		if !missing {
-			bitSet(ls, i)
-		}
-	}
-
-	return ls
+	return &fcLangCharSets[country].charset
 }
 
 func FcLangNormalize(lang string) string {
@@ -360,7 +129,7 @@ func FcLangNormalize(lang string) string {
 		if debugMode {
 			fmt.Printf("Checking the existence of %s.orth\n", lang+"_"+tm)
 		}
-		if FcLangSetIndex(lang+"_"+tm) < 0 {
+		if findLangIndex(lang+"_"+tm) < 0 {
 		} else {
 			return lang + "_" + tm
 		}
@@ -369,7 +138,7 @@ func FcLangNormalize(lang string) string {
 		if debugMode {
 			fmt.Printf("Checking the existence of %s.orth\n", lang+"@"+modifier)
 		}
-		if FcLangSetIndex(lang+"@"+modifier) < 0 {
+		if findLangIndex(lang+"@"+modifier) < 0 {
 		} else {
 			return lang + "@" + modifier
 		}
@@ -377,7 +146,7 @@ func FcLangNormalize(lang string) string {
 	if debugMode {
 		fmt.Printf("Checking the existence of %s.orth\n", lang)
 	}
-	if FcLangSetIndex(lang) < 0 {
+	if findLangIndex(lang) < 0 {
 		// there seems no languages matched in orth. add the language as is for fallback.
 		result = orig
 	} else {
@@ -450,30 +219,6 @@ func langContains(super, sub string) bool {
 	}
 }
 
-//  const FcCharSet *
-//  FcLangGetCharSet (const FcChar8 *lang)
-//  {
-// 	 int		i;
-// 	 int		country = -1;
-
-// 	 for (i = 0; i < NUM_LANG_CHAR_SET; i++)
-// 	 {
-// 	 switch (FcLangCompare (lang, fcLangCharSets[i].lang)) {
-// 	 case FcLangEqual:
-// 		 return &fcLangCharSets[i].charset;
-// 	 case FcLangDifferentTerritory:
-// 		 if (country == -1)
-// 		 country = i;
-// 	 case FcLangDifferentLang:
-// 	 default:
-// 		 break;
-// 	 }
-// 	 }
-// 	 if (country == -1)
-// 	 return 0;
-// 	 return &fcLangCharSets[country].charset;
-//  }
-
 //  FcStrSet *
 //  FcGetLangs (void)
 //  {
@@ -524,7 +269,7 @@ func langContains(super, sub string) bool {
  *  wouldn't be able to distinguish between “language found, id is 0” and
  *  “language not found, sorts right before the language with id 0”).
  */
-func FcLangSetIndex(lang string) int {
+func findLangIndex(lang string) int {
 	firstChar := FcToLower(lang)
 	var secondChar byte
 	if firstChar != 0 {
@@ -537,7 +282,7 @@ func FcLangSetIndex(lang string) int {
 		high = fcLangCharSetRanges[0].begin
 	} else if firstChar > 'z' {
 		low = fcLangCharSetRanges[25].begin
-		high = NUM_LANG_CHAR_SET - 1
+		high = len(fcLangCharSets) - 1
 	} else {
 		low = fcLangCharSetRanges[firstChar-'a'].begin
 		high = fcLangCharSetRanges[firstChar-'a'].end
@@ -578,7 +323,7 @@ func FcLangSetIndex(lang string) int {
 // `lang` should be of the form Ll-Tt where Ll is a
 // two or three letter language from ISO 639 and Tt is a territory from ISO 3166.
 func (ls *FcLangSet) add(lang string) {
-	id := FcLangSetIndex(lang)
+	id := findLangIndex(lang)
 	if id >= 0 {
 		ls.bitSet(id)
 		return
@@ -589,8 +334,246 @@ func (ls *FcLangSet) add(lang string) {
 	ls.extra[lang] = true
 }
 
+func (ls FcLangSet) String() string {
+	var chunks []string
+
+	for i, bits := range ls.page {
+		if bits != 0 {
+			for bit := 0; bit <= 31; bit++ {
+				if bits&(1<<bit) != 0 {
+					id := (i << 5) | bit
+					chunks = append(chunks, fcLangCharSets[fcLangCharSetIndicesInv[id]].lang)
+				}
+			}
+		}
+	}
+
+	for extra := range ls.extra {
+		chunks = append(chunks, extra)
+	}
+	return strings.Join(chunks, "|")
+}
+
+func (ls *FcLangSet) bitSet(id int) {
+	by := fcLangCharSetIndices[id]
+	bucket := by >> 5
+	ls.page[bucket] |= 1 << (by & 0x1f)
+}
+
+func (ls FcLangSet) bitGet(id int) bool {
+	by := fcLangCharSetIndices[id]
+	bucket := by >> 5
+	return (ls.page[bucket]>>(by&0x1f))&1 != 0
+}
+
+func (ls *FcLangSet) bitReset(id int) {
+	by := fcLangCharSetIndices[id]
+	bucket := by >> 5
+	ls.page[bucket] &= ^(1 << (by & 0x1f))
+}
+
+func FcLangSetEqual(lsa, lsb FcLangSet) bool {
+	if lsa.page != lsb.page {
+		return false
+	}
+	return FcStrSetEqual(lsa.extra, lsb.extra)
+}
+
+func (ls FcLangSet) containsLang(lang string) bool {
+	id := findLangIndex(lang)
+	if id < 0 {
+		id = -id - 1
+	} else if ls.bitGet(id) {
+		return true
+	}
+	// search up and down among equal languages for a match
+	for i := id - 1; i >= 0; i-- {
+		if FcLangCompare(fcLangCharSets[i].lang, lang) == FcLangDifferentLang {
+			break
+		}
+		if ls.bitGet(i) && langContains(fcLangCharSets[i].lang, lang) {
+			return true
+		}
+	}
+	for i := id; i < len(fcLangCharSets); i++ {
+		if FcLangCompare(fcLangCharSets[i].lang, lang) == FcLangDifferentLang {
+			break
+		}
+		if ls.bitGet(i) && langContains(fcLangCharSets[i].lang, lang) {
+			return true
+		}
+	}
+
+	var extra string
+	for extra = range ls.extra {
+		if langContains(extra, lang) {
+			break
+		}
+	}
+	return extra != ""
+}
+
+// return true if lsa contains every language in lsb
+func (lsa FcLangSet) FcLangSetContains(lsb FcLangSet) bool {
+	if debugMode {
+		fmt.Println("FcLangSet ", lsa)
+		fmt.Println(" contains ", lsb)
+		fmt.Println("")
+	}
+	// check bitmaps for missing language support
+	for i := range lsb.page {
+		missing := lsb.page[i] & ^lsa.page[i]
+		if missing != 0 {
+			for j := 0; j < 32; j++ {
+				if missing&(1<<j) != 0 {
+					tmpL := fcLangCharSets[fcLangCharSetIndicesInv[i*32+j]].lang
+					if !lsa.containsLang(tmpL) {
+						if debugMode {
+							fmt.Printf("\tMissing bitmap %s\n", tmpL)
+						}
+						return false
+					}
+				}
+			}
+		}
+	}
+	var extra string
+	for extra := range lsb.extra {
+		if !lsa.containsLang(extra) {
+			if debugMode {
+				fmt.Printf("\tMissing string %s\n", extra)
+			}
+			break
+		}
+	}
+	if extra != "" {
+		return false
+	}
+	return true
+}
+
+func FcNameParseLangSet(str string) FcLangSet {
+	var ls FcLangSet
+	for _, lang := range strings.Split(str, "|") {
+		ls.add(lang)
+	}
+	return ls
+}
+
+// copy creates a new FcLangSet object and
+// populates it with the contents of `ls`.
+func (ls FcLangSet) copy() FcLangSet {
+	var new FcLangSet
+	new.page = ls.page
+	new.extra = make(FcStrSet, len(ls.extra))
+	for e := range ls.extra {
+		new.extra[e] = true
+	}
+	return new
+}
+
+func FcStrSetAddLangs(strs FcStrSet, languages string) bool {
+	var ret bool
+	ls := strings.Split(languages, ":")
+	for _, lang := range ls {
+		if lang == "" { // ignore an empty item
+			continue
+		}
+		normalizedLang := FcLangNormalize(lang)
+		if normalizedLang != "" {
+			strs[normalizedLang] = true
+			ret = true
+		}
+	}
+
+	return ret
+}
+
+// Keep Han languages separated by eliminating languages that the codePageRange bits says aren't supported
+var codePageRange = [...]struct {
+	bit  byte
+	lang string
+}{
+	{17, "ja"},
+	{18, "zh-cn"},
+	{19, "ko"},
+	{20, "zh-tw"},
+}
+
+func isExclusiveLang(lang string) bool {
+	for _, cp := range codePageRange {
+		if FcLangCompare(lang, cp.lang) == FcLangEqual {
+			return true
+		}
+	}
+	return false
+}
+
+func buildLangSet(charset FcCharset, exclusiveLang string) FcLangSet {
+	var exclusiveCharset *FcCharset
+	if exclusiveLang != "" {
+		exclusiveCharset = newCharSetFromLang(exclusiveLang)
+	}
+
+	var ls FcLangSet
+
+	if debugMode {
+		fmt.Printf("font charset %v \n", charset)
+	}
+
+mainLoop:
+	for i, langCharset := range fcLangCharSets {
+		if debugMode {
+			fmt.Printf("%s charset %v\n", langCharset.lang, langCharset.charset)
+		}
+
+		/*
+		 * Check for Han charsets to make fonts
+		 * which advertise support for a single language
+		 * not support other Han languages
+		 */
+		if exclusiveCharset != nil && isExclusiveLang(langCharset.lang) {
+			if len(langCharset.charset.pageNumbers) != len(exclusiveCharset.pageNumbers) {
+				continue
+			}
+
+			for j, leaf := range langCharset.charset.pages {
+				if leaf != exclusiveCharset.pages[j] {
+					continue mainLoop
+				}
+			}
+		}
+
+		missing := charsetSubtractCount(langCharset.charset, charset)
+		if debugMode {
+			if missing != 0 && missing < 10 {
+				missed := charsetSubtract(langCharset.charset, charset)
+				fmt.Printf("\n%s(%d) {", langCharset.lang, missing)
+				for pos, page := range missed.pages {
+					ucs4 := int(missed.pageNumbers[pos] << 8)
+					for i, v := range page {
+						for j := 0; j < 32; j++ {
+							if v&(1<<j) != 0 {
+								fmt.Printf(" %04x", ucs4+i*32+j)
+							}
+						}
+					}
+				}
+				fmt.Printf(" }\n\t")
+			} else {
+				fmt.Printf("%s(%d) ", langCharset.lang, missing)
+			}
+		}
+		if missing == 0 {
+			ls.bitSet(i)
+		}
+	}
+
+	return ls
+}
+
 func (ls *FcLangSet) del(lang string) {
-	id := FcLangSetIndex(lang)
+	id := findLangIndex(lang)
 	if id >= 0 {
 		ls.bitReset(id)
 	} else {
@@ -599,7 +582,7 @@ func (ls *FcLangSet) del(lang string) {
 }
 
 func (ls *FcLangSet) hasLang(lang string) FcLangResult {
-	id := FcLangSetIndex(lang)
+	id := findLangIndex(lang)
 	if id < 0 {
 		id = -id - 1
 	} else if ls.bitGet(id) {
@@ -615,7 +598,7 @@ func (ls *FcLangSet) hasLang(lang string) FcLangResult {
 			best = r
 		}
 	}
-	for i := id; i < NUM_LANG_CHAR_SET; i++ {
+	for i := id; i < len(fcLangCharSets); i++ {
 		r := FcLangCompare(lang, fcLangCharSets[i].lang)
 		if r == FcLangDifferentLang {
 			break
@@ -651,19 +634,19 @@ func (ls *FcLangSet) compareStrSet(set FcStrSet) FcLangResult {
 func FcLangSetCompare(lsa, lsb FcLangSet) FcLangResult {
 	var aInCountrySet, bInCountrySet uint32
 
-	for i := range lsa.map_ {
-		if lsa.map_[i]&lsb.map_[i] != 0 {
+	for i := range lsa.page {
+		if lsa.page[i]&lsb.page[i] != 0 {
 			return FcLangEqual
 		}
 	}
 	best := FcLangDifferentLang
-	for j := 0; j < NUM_COUNTRY_SET; j++ {
+	for _, langCountry := range fcLangCountrySets {
 		aInCountrySet = 0
 		bInCountrySet = 0
 
-		for i := range lsa.map_ {
-			aInCountrySet |= lsa.map_[i] & fcLangCountrySets[j][i]
-			bInCountrySet |= lsb.map_[i] & fcLangCountrySets[j][i]
+		for i := range lsa.page {
+			aInCountrySet |= lsa.page[i] & langCountry[i]
+			bInCountrySet |= lsb.page[i] & langCountry[i]
 
 			if aInCountrySet != 0 && bInCountrySet != 0 {
 				best = FcLangDifferentTerritory
@@ -704,7 +687,7 @@ func langSetSubtract(a, b FcLangSet) FcLangSet {
 func langSetPromote(lang string) FcLangSet {
 	var ls FcLangSet
 	if lang != "" {
-		id := FcLangSetIndex(lang)
+		id := findLangIndex(lang)
 		if id >= 0 {
 			ls.bitSet(id)
 		} else {

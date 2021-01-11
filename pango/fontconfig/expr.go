@@ -205,7 +205,7 @@ type FcExpr struct {
 // const FcChar8	*sval;
 // FcExprMatrix	*mexpr;
 // FcBool		bval;
-// FcCharSet	*cval;
+// FcCharset	*cval;
 // FcLangSet	*lval;
 // FcRange		*rval;
 
@@ -383,20 +383,16 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			case FcOpTimes:
 				v = vle.multiply(vre)
 			}
-		case FcCharSet:
-			vre, sameType := vre.(FcCharSet)
+		case FcCharset:
+			vre, sameType := vre.(FcCharset)
 			if !sameType {
 				break
 			}
 			switch op {
 			case FcOpPlus:
-				if uc := charSetUnion(vle, vre); uc != nil {
-					v = *uc
-				}
+				v = charsetUnion(vle, vre)
 			case FcOpMinus:
-				if sc := charSetSubtract(vle, vre); sc != nil {
-					v = sc
-				}
+				v = charsetSubtract(vle, vre)
 			}
 		case FcLangSet:
 			vre, sameType := vre.(FcLangSet)
@@ -537,8 +533,8 @@ func FcConfigPromote(v, u FcValue) FcValue {
 			v = FcIdentityMatrix
 		case FcLangSet:
 			v = langSetPromote("")
-		case FcCharSet:
-			v = FcCharSet{}
+		case FcCharset:
+			v = FcCharset{}
 		}
 	case string:
 		if _, ok := u.(FcLangSet); ok {
@@ -665,8 +661,8 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 		case FcOpNotEqual, FcOpNotContains:
 			ret = !(l == r)
 		}
-	case FcCharSet:
-		r, sameType := right_o.(FcCharSet)
+	case FcCharset:
+		r, sameType := right_o.(FcCharset)
 		if !sameType {
 			return retNoMatchingType
 		}
@@ -678,9 +674,9 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 			// left contains right if right is a subset of left
 			ret = !r.isSubset(l)
 		case FcOpEqual:
-			ret = FcCharSetEqual(l, r)
+			ret = FcCharsetEqual(l, r)
 		case FcOpNotEqual:
-			ret = !FcCharSetEqual(l, r)
+			ret = !FcCharsetEqual(l, r)
 		}
 	case FcLangSet:
 		r, sameType := right_o.(FcLangSet)
