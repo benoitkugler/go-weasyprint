@@ -20,6 +20,7 @@ type FcPattern struct {
 	elts map[FcObject]FcValueList
 }
 
+// NewFcPattern returns an empty, initalized pattern
 func NewFcPattern() *FcPattern {
 	return &FcPattern{elts: make(map[FcObject]FcValueList)}
 }

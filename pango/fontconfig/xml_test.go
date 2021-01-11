@@ -1,7 +1,10 @@
 package fontconfig
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -24,5 +27,28 @@ func TestParse(t *testing.T) {
 	}
 	if err := cfg.ParseAndLoadFromMemory(doc2, os.Stdout); err == nil {
 		t.Error("expected error on invalid include")
+	}
+}
+
+func TestParseConfs(t *testing.T) {
+	const dir = "test/confs"
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".conf") {
+			continue
+		}
+		b, err := ioutil.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := NewFcConfig()
+
+		if err := cfg.parseAndLoadFromMemory(os.Stdout, file.Name(), b, true); err != nil {
+			t.Errorf("file %s: %s", file.Name(), err)
+		}
 	}
 }

@@ -1289,7 +1289,7 @@ func (parser *configParser) parseString(tag vstackTag) {
 
 	vstack := parser.createVAndPush()
 	vstack.u = s
-	vstack.tag = vstackString
+	vstack.tag = tag
 }
 
 func (parser *configParser) parseBool() {
@@ -1721,7 +1721,7 @@ func (parser *configParser) parseAcceptRejectFont(element elemTag) {
 }
 
 func (parser *configParser) parsePattern() {
-	var pattern FcPattern
+	pattern := NewFcPattern()
 
 	//  TODO: fix this if the order matter
 	for _, vstack := range parser.p().values {
@@ -1735,14 +1735,12 @@ func (parser *configParser) parsePattern() {
 	parser.p().values = nil
 
 	vstack := parser.createVAndPush()
-	vstack.u = &pattern
+	vstack.u = pattern
 	vstack.tag = vstackPattern
 }
 
 func (parser *configParser) parsePatelt() error {
-	// FcValue	value;
-	// const char	*name;
-	var pattern FcPattern
+	pattern := NewFcPattern()
 
 	name := parser.p().getAttr("name")
 	if name == "" {
@@ -1762,7 +1760,7 @@ func (parser *configParser) parsePatelt() error {
 	}
 
 	vstack := parser.createVAndPush()
-	vstack.u = &pattern
+	vstack.u = pattern
 	vstack.tag = vstackPattern
 	return nil
 }

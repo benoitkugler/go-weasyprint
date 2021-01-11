@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -167,8 +168,48 @@ func readOrthFile(fileName string) []lineData {
 }
 
 func main() {
-	output := flag.String("output", "", "output file")
+	table := flag.String("table", "", "output table file")
+	conf := flag.String("conf", "", "output conf dir")
 	flag.Parse()
+
+	generateLangTable(*table)
+	generate35Conf(*conf)
+}
+
+func generate35Conf(confDir string) {
+	var orthList []string
+	for _, o := range orthFiles {
+		o = strings.Split(o, ".")[0] // strip filename suffix
+		if strings.IndexByte(o, '_') == -1 {
+			orthList = append(orthList, o) // ignore those with an underscore
+		}
+	}
+
+	sort.Strings(orthList)
+
+	output, err := os.Create(filepath.Join(confDir, "35-lang-normalize.conf"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer output.Close()
+
+	fmt.Fprintln(output, `<?xml version="1.0"?>\`)
+	fmt.Fprintln(output, `<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">`)
+	fmt.Fprintln(output, "<fontconfig>")
+
+	for _, o := range orthList {
+		fmt.Fprintf(output, "  <!-- %s* -> %s -->\n", o, o)
+		fmt.Fprintln(output, "  <match>")
+		fmt.Fprintf(output, `    <test name="lang" compare="contains"><string>%s</string></test>`, o)
+		fmt.Fprintf(output, `    <edit name="lang" mode="assign" binding="same"><string>%s</string></edit>`, o)
+		fmt.Fprintln(output, "  </match>")
+	}
+
+	fmt.Fprintln(output, "</fontconfig>")
+}
+
+func generateLangTable(output string) {
+
 	var (
 		err             error
 		sets            []charset
@@ -179,8 +220,8 @@ func main() {
 
 	outputFile := os.Stdout
 	// Open output file
-	if *output != "" {
-		outputFile, err = os.Create(*output + ".go")
+	if output != "" {
+		outputFile, err = os.Create(output + ".go")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -188,7 +229,7 @@ func main() {
 
 	var sortedKeys []string
 	orthEntries := map[string]int{}
-	for i, fn := range orth_files {
+	for i, fn := range orthFiles {
 		orthEntries[fn] = i
 		sortedKeys = append(sortedKeys, fn)
 	}
@@ -315,9 +356,9 @@ func main() {
 	}
 	fmt.Fprintln(outputFile, "};")
 
-	if *output != "" {
+	if output != "" {
 		outputFile.Close()
-		exec.Command("goimports", "-w", *output+".go").Run()
+		exec.Command("goimports", "-w", output+".go").Run()
 	}
 }
 
@@ -335,7 +376,7 @@ func max(a, b int) int {
 }
 
 // Do not reorder, magic
-var orth_files = []string{
+var orthFiles = []string{
 	"aa.orth",
 	"ab.orth",
 	"af.orth",
