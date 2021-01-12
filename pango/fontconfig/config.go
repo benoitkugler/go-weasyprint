@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 // ported from fontconfig/src/fccfg.c Copyright © 2000 Keith Packard
@@ -420,7 +421,7 @@ func (config *FcConfig) FcConfigGetFonts(set FcSetName) FcFontSet {
 	return config.fonts[set]
 }
 
-func (config *FcConfig) FcConfigAddCacheDir(d string) error {
+func (config *FcConfig) addCacheDir(d string) error {
 	return addFilename(config.cacheDirs, d)
 }
 
@@ -531,6 +532,21 @@ func (config *FcConfig) getSysRoot() string {
 	return config.sysRoot
 }
 
+// Set 'sysroot' as the system root directory. All file paths used or created with
+// this 'config' (including file properties in patterns) will be considered or
+// made relative to this 'sysroot'. This allows a host to generate caches for
+// targets at build time. This also allows a cache to be re-targeted to a
+// different base directory if 'getSysRoot' is used to resolve file paths.
+func (config *FcConfig) setSysRoot(sysroot string) {
+	s := sysroot
+	// if sysroot != "" {
+	// TODO:
+	// 	s = getRealPath(sysroot)
+	// }
+
+	config.sysRoot = s
+}
+
 func (config *FcConfig) globAdd(glob string, accept bool) {
 	set := config.rejectGlobs
 	if accept {
@@ -552,8 +568,9 @@ func (config *FcConfig) FcConfigSubstitute(p *FcPattern, kind FcMatchKind) bool 
 }
 
 // FcConfigBuildFonts scans the current list of directories in the configuration
-// and build the set of available fonts.
-// TODO: this is broken
+// and build the set of available fonts. Note that
+// any changes to the configuration after this call have indeterminate effects.
+// TODO: addDirList is not working yet
 func (config *FcConfig) FcConfigBuildFonts() {
 	config = fallbackConfig(config)
 
@@ -754,6 +771,11 @@ func (config *FcConfig) FcConfigBuildFonts() {
 //     return config.expr_pool.next++;
 // }
 
+var (
+	defaultConfig     *FcConfig
+	defaultConfigLock sync.Mutex
+)
+
 // fallback to the current global configuration if `config` is nil
 func fallbackConfig(config *FcConfig) *FcConfig {
 	if config != nil {
@@ -790,20 +812,14 @@ func fallbackConfig(config *FcConfig) *FcConfig {
 func FcConfigGetCurrent() *FcConfig { return ensure() }
 
 func ensure() *FcConfig {
-	// TODO:
-	// retry:
-	//     config = fc_atomic_ptr_get (&_fcConfig);
-	//     if (!config)
-	//     {
-	// 	config = FcInitLoadConfigAndFonts ();
+	defaultConfigLock.Lock()
+	defer defaultConfigLock.Unlock()
 
-	// 	if (!config || !fc_atomic_ptr_cmpexch (&_fcConfig, nil, config)) {
-	// 	    if (config)
-	// 		FcConfigDestroy (config);
-	// 	    goto retry;
-	// 	}
-	//     }
-	return nil
+	if defaultConfig == nil {
+		defaultConfig = initLoadConfigAndFonts(os.Stderr)
+	}
+
+	return defaultConfig
 }
 
 // void
@@ -1785,65 +1801,6 @@ func getPaths() []string {
 //     if (FcConfigPatternsMatch (config.rejectPatterns, font))
 // 	return false;
 //     return true;
-// }
-
-// void
-// FcConfigSetSysRoot (config *FcConfig      ,
-// 		    const FcChar8 *sysroot)
-// {
-//     FcChar8 *s = nil;
-//     FcBool init = false;
-//     int nretry = 3;
-
-// retry:
-//     if (!config)
-//     {
-// 	/* We can't use FcConfigGetCurrent() here to ensure
-// 	 * the sysroot is set prior to initialize FcConfig,
-// 	 * to avoid loading caches from non-sysroot dirs.
-// 	 * So postpone the initialization later.
-// 	 */
-// 	config = fc_atomic_ptr_get (&_fcConfig);
-// 	if (!config)
-// 	{
-// 	    config = FcConfigCreate ();
-// 	    if (!config)
-// 		return;
-// 	    init = true;
-// 	}
-//     }
-
-//     if (sysroot)
-//     {
-// 	s = FcConfigRealPath(sysroot);
-// 	if (!s)
-// 	    return;
-//     }
-
-//     if (config.sysRoot)
-// 	FcStrFree (config.sysRoot);
-
-//     config.sysRoot = s;
-//     if (init)
-//     {
-// 	config = FcInitLoadOwnConfigAndFonts (config);
-// 	if (!config)
-// 	{
-// 	    /* Something failed. this is usually unlikely. so retrying */
-// 	    init = false;
-// 	    if (--nretry == 0)
-// 	    {
-// 		fprintf (stderr, "Fontconfig warning: Unable to initialize config and retry limit exceeded. sysroot functionality may not work as expected.\n");
-// 		return;
-// 	    }
-// 	    goto retry;
-// 	}
-// 	FcConfigSetCurrent (config);
-// 	/* FcConfigSetCurrent() increases the refcount.
-// 	 * decrease it here to avoid the memory leak.
-// 	 */
-// 	FcConfigDestroy (config);
-//     }
 // }
 
 // void

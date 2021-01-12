@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -21,98 +22,180 @@ type objectType struct {
 }
 
 var objects = map[string]objectType{
-	ObjectNames[FC_FAMILY]:          {object: FC_FAMILY, parser: typeString{}},          // String
-	ObjectNames[FC_FAMILYLANG]:      {object: FC_FAMILYLANG, parser: typeString{}},      // String
-	ObjectNames[FC_STYLE]:           {object: FC_STYLE, parser: typeString{}},           // String
-	ObjectNames[FC_STYLELANG]:       {object: FC_STYLELANG, parser: typeString{}},       // String
-	ObjectNames[FC_FULLNAME]:        {object: FC_FULLNAME, parser: typeString{}},        // String
-	ObjectNames[FC_FULLNAMELANG]:    {object: FC_FULLNAMELANG, parser: typeString{}},    // String
-	ObjectNames[FC_SLANT]:           {object: FC_SLANT, parser: typeInteger{}},          // Integer
-	ObjectNames[FC_WEIGHT]:          {object: FC_WEIGHT, parser: typeRange{}},           // Range
-	ObjectNames[FC_WIDTH]:           {object: FC_WIDTH, parser: typeRange{}},            // Range
-	ObjectNames[FC_SIZE]:            {object: FC_SIZE, parser: typeRange{}},             // Range
-	ObjectNames[FC_ASPECT]:          {object: FC_ASPECT, parser: typeFloat{}},           // Double
-	ObjectNames[FC_PIXEL_SIZE]:      {object: FC_PIXEL_SIZE, parser: typeFloat{}},       // Double
-	ObjectNames[FC_SPACING]:         {object: FC_SPACING, parser: typeInteger{}},        // Integer
-	ObjectNames[FC_FOUNDRY]:         {object: FC_FOUNDRY, parser: typeString{}},         // String
-	ObjectNames[FC_ANTIALIAS]:       {object: FC_ANTIALIAS, parser: typeBool{}},         // Bool
-	ObjectNames[FC_HINT_STYLE]:      {object: FC_HINT_STYLE, parser: typeInteger{}},     // Integer
-	ObjectNames[FC_HINTING]:         {object: FC_HINTING, parser: typeBool{}},           // Bool
-	ObjectNames[FC_VERTICAL_LAYOUT]: {object: FC_VERTICAL_LAYOUT, parser: typeBool{}},   // Bool
-	ObjectNames[FC_AUTOHINT]:        {object: FC_AUTOHINT, parser: typeBool{}},          // Bool
-	ObjectNames[FC_GLOBAL_ADVANCE]:  {object: FC_GLOBAL_ADVANCE, parser: typeBool{}},    // Bool
-	ObjectNames[FC_FILE]:            {object: FC_FILE, parser: typeString{}},            // String
-	ObjectNames[FC_INDEX]:           {object: FC_INDEX, parser: typeInteger{}},          // Integer
-	ObjectNames[FC_RASTERIZER]:      {object: FC_RASTERIZER, parser: typeString{}},      // String
-	ObjectNames[FC_OUTLINE]:         {object: FC_OUTLINE, parser: typeBool{}},           // Bool
-	ObjectNames[FC_SCALABLE]:        {object: FC_SCALABLE, parser: typeBool{}},          // Bool
-	ObjectNames[FC_DPI]:             {object: FC_DPI, parser: typeFloat{}},              // Double
-	ObjectNames[FC_RGBA]:            {object: FC_RGBA, parser: typeInteger{}},           // Integer
-	ObjectNames[FC_SCALE]:           {object: FC_SCALE, parser: typeFloat{}},            // Double
-	ObjectNames[FC_MINSPACE]:        {object: FC_MINSPACE, parser: typeBool{}},          // Bool
-	ObjectNames[FC_CHARWIDTH]:       {object: FC_CHARWIDTH, parser: typeInteger{}},      // Integer
-	ObjectNames[FC_CHAR_HEIGHT]:     {object: FC_CHAR_HEIGHT, parser: typeInteger{}},    // Integer
-	ObjectNames[FC_MATRIX]:          {object: FC_MATRIX, parser: typeMatrix{}},          // Matrix
-	ObjectNames[FC_CHARSET]:         {object: FC_CHARSET, parser: typeCharSet{}},        // CharSet
-	ObjectNames[FC_LANG]:            {object: FC_LANG, parser: typeLangSet{}},           // LangSet
-	ObjectNames[FC_FONTVERSION]:     {object: FC_FONTVERSION, parser: typeInteger{}},    // Integer
-	ObjectNames[FC_CAPABILITY]:      {object: FC_CAPABILITY, parser: typeString{}},      // String
-	ObjectNames[FC_FONTFORMAT]:      {object: FC_FONTFORMAT, parser: typeString{}},      // String
-	ObjectNames[FC_EMBOLDEN]:        {object: FC_EMBOLDEN, parser: typeBool{}},          // Bool
-	ObjectNames[FC_EMBEDDED_BITMAP]: {object: FC_EMBEDDED_BITMAP, parser: typeBool{}},   // Bool
-	ObjectNames[FC_DECORATIVE]:      {object: FC_DECORATIVE, parser: typeBool{}},        // Bool
-	ObjectNames[FC_LCD_FILTER]:      {object: FC_LCD_FILTER, parser: typeInteger{}},     // Integer
-	ObjectNames[FC_NAMELANG]:        {object: FC_NAMELANG, parser: typeString{}},        // String
-	ObjectNames[FC_FONT_FEATURES]:   {object: FC_FONT_FEATURES, parser: typeString{}},   // String
-	ObjectNames[FC_PRGNAME]:         {object: FC_PRGNAME, parser: typeString{}},         // String
-	ObjectNames[FC_HASH]:            {object: FC_HASH, parser: typeString{}},            // String
-	ObjectNames[FC_POSTSCRIPT_NAME]: {object: FC_POSTSCRIPT_NAME, parser: typeString{}}, // String
-	ObjectNames[FC_COLOR]:           {object: FC_COLOR, parser: typeBool{}},             // Bool
-	ObjectNames[FC_SYMBOL]:          {object: FC_SYMBOL, parser: typeBool{}},            // Bool
-	ObjectNames[FC_FONT_VARIATIONS]: {object: FC_FONT_VARIATIONS, parser: typeString{}}, // String
-	ObjectNames[FC_VARIABLE]:        {object: FC_VARIABLE, parser: typeBool{}},          // Bool
-	ObjectNames[FC_FONT_HAS_HINT]:   {object: FC_FONT_HAS_HINT, parser: typeBool{}},     // Bool
-	ObjectNames[FC_ORDER]:           {object: FC_ORDER, parser: typeInteger{}},          // Integer
-	ObjectNames[fcTestResult]:       {object: fcTestResult, parser: typeBool{}},         // Integer
+	objectNames[FC_FAMILY]:          {object: FC_FAMILY, parser: typeString{}},          // String
+	objectNames[FC_FAMILYLANG]:      {object: FC_FAMILYLANG, parser: typeString{}},      // String
+	objectNames[FC_STYLE]:           {object: FC_STYLE, parser: typeString{}},           // String
+	objectNames[FC_STYLELANG]:       {object: FC_STYLELANG, parser: typeString{}},       // String
+	objectNames[FC_FULLNAME]:        {object: FC_FULLNAME, parser: typeString{}},        // String
+	objectNames[FC_FULLNAMELANG]:    {object: FC_FULLNAMELANG, parser: typeString{}},    // String
+	objectNames[FC_SLANT]:           {object: FC_SLANT, parser: typeInteger{}},          // Integer
+	objectNames[FC_WEIGHT]:          {object: FC_WEIGHT, parser: typeRange{}},           // Range
+	objectNames[FC_WIDTH]:           {object: FC_WIDTH, parser: typeRange{}},            // Range
+	objectNames[FC_SIZE]:            {object: FC_SIZE, parser: typeRange{}},             // Range
+	objectNames[FC_ASPECT]:          {object: FC_ASPECT, parser: typeFloat{}},           // Double
+	objectNames[FC_PIXEL_SIZE]:      {object: FC_PIXEL_SIZE, parser: typeFloat{}},       // Double
+	objectNames[FC_SPACING]:         {object: FC_SPACING, parser: typeInteger{}},        // Integer
+	objectNames[FC_FOUNDRY]:         {object: FC_FOUNDRY, parser: typeString{}},         // String
+	objectNames[FC_ANTIALIAS]:       {object: FC_ANTIALIAS, parser: typeBool{}},         // Bool
+	objectNames[FC_HINT_STYLE]:      {object: FC_HINT_STYLE, parser: typeInteger{}},     // Integer
+	objectNames[FC_HINTING]:         {object: FC_HINTING, parser: typeBool{}},           // Bool
+	objectNames[FC_VERTICAL_LAYOUT]: {object: FC_VERTICAL_LAYOUT, parser: typeBool{}},   // Bool
+	objectNames[FC_AUTOHINT]:        {object: FC_AUTOHINT, parser: typeBool{}},          // Bool
+	objectNames[FC_GLOBAL_ADVANCE]:  {object: FC_GLOBAL_ADVANCE, parser: typeBool{}},    // Bool
+	objectNames[FC_FILE]:            {object: FC_FILE, parser: typeString{}},            // String
+	objectNames[FC_INDEX]:           {object: FC_INDEX, parser: typeInteger{}},          // Integer
+	objectNames[FC_RASTERIZER]:      {object: FC_RASTERIZER, parser: typeString{}},      // String
+	objectNames[FC_OUTLINE]:         {object: FC_OUTLINE, parser: typeBool{}},           // Bool
+	objectNames[FC_SCALABLE]:        {object: FC_SCALABLE, parser: typeBool{}},          // Bool
+	objectNames[FC_DPI]:             {object: FC_DPI, parser: typeFloat{}},              // Double
+	objectNames[FC_RGBA]:            {object: FC_RGBA, parser: typeInteger{}},           // Integer
+	objectNames[FC_SCALE]:           {object: FC_SCALE, parser: typeFloat{}},            // Double
+	objectNames[FC_MINSPACE]:        {object: FC_MINSPACE, parser: typeBool{}},          // Bool
+	objectNames[FC_CHARWIDTH]:       {object: FC_CHARWIDTH, parser: typeInteger{}},      // Integer
+	objectNames[FC_CHAR_HEIGHT]:     {object: FC_CHAR_HEIGHT, parser: typeInteger{}},    // Integer
+	objectNames[FC_MATRIX]:          {object: FC_MATRIX, parser: typeMatrix{}},          // Matrix
+	objectNames[FC_CHARSET]:         {object: FC_CHARSET, parser: typeCharSet{}},        // CharSet
+	objectNames[FC_LANG]:            {object: FC_LANG, parser: typeLangSet{}},           // LangSet
+	objectNames[FC_FONTVERSION]:     {object: FC_FONTVERSION, parser: typeInteger{}},    // Integer
+	objectNames[FC_CAPABILITY]:      {object: FC_CAPABILITY, parser: typeString{}},      // String
+	objectNames[FC_FONTFORMAT]:      {object: FC_FONTFORMAT, parser: typeString{}},      // String
+	objectNames[FC_EMBOLDEN]:        {object: FC_EMBOLDEN, parser: typeBool{}},          // Bool
+	objectNames[FC_EMBEDDED_BITMAP]: {object: FC_EMBEDDED_BITMAP, parser: typeBool{}},   // Bool
+	objectNames[FC_DECORATIVE]:      {object: FC_DECORATIVE, parser: typeBool{}},        // Bool
+	objectNames[FC_LCD_FILTER]:      {object: FC_LCD_FILTER, parser: typeInteger{}},     // Integer
+	objectNames[FC_NAMELANG]:        {object: FC_NAMELANG, parser: typeString{}},        // String
+	objectNames[FC_FONT_FEATURES]:   {object: FC_FONT_FEATURES, parser: typeString{}},   // String
+	objectNames[FC_PRGNAME]:         {object: FC_PRGNAME, parser: typeString{}},         // String
+	objectNames[FC_HASH]:            {object: FC_HASH, parser: typeString{}},            // String
+	objectNames[FC_POSTSCRIPT_NAME]: {object: FC_POSTSCRIPT_NAME, parser: typeString{}}, // String
+	objectNames[FC_COLOR]:           {object: FC_COLOR, parser: typeBool{}},             // Bool
+	objectNames[FC_SYMBOL]:          {object: FC_SYMBOL, parser: typeBool{}},            // Bool
+	objectNames[FC_FONT_VARIATIONS]: {object: FC_FONT_VARIATIONS, parser: typeString{}}, // String
+	objectNames[FC_VARIABLE]:        {object: FC_VARIABLE, parser: typeBool{}},          // Bool
+	objectNames[FC_FONT_HAS_HINT]:   {object: FC_FONT_HAS_HINT, parser: typeBool{}},     // Bool
+	objectNames[FC_ORDER]:           {object: FC_ORDER, parser: typeInteger{}},          // Integer
 }
 
-//  static const FcObjectType FcObjects[] = {
-//  #define FC_OBJECT(NAME, Type, Cmp) { FC_##NAME, Type },
-//  #include "fcobjs.h"
-//  #undef FC_OBJECT
-//  };
+var objectNames = [...]string{
+	FC_FAMILY:          "family",
+	FC_FAMILYLANG:      "familylang",
+	FC_STYLE:           "style",
+	FC_STYLELANG:       "stylelang",
+	FC_FULLNAME:        "fullname",
+	FC_FULLNAMELANG:    "fullnamelang",
+	FC_SLANT:           "slant",
+	FC_WEIGHT:          "weight",
+	FC_WIDTH:           "width",
+	FC_SIZE:            "size",
+	FC_ASPECT:          "aspect",
+	FC_PIXEL_SIZE:      "pixelsize",
+	FC_SPACING:         "spacing",
+	FC_FOUNDRY:         "foundry",
+	FC_ANTIALIAS:       "antialias",
+	FC_HINT_STYLE:      "hintstyle",
+	FC_HINTING:         "hinting",
+	FC_VERTICAL_LAYOUT: "verticallayout",
+	FC_AUTOHINT:        "autohint",
+	FC_GLOBAL_ADVANCE:  "globaladvance",
+	FC_FILE:            "file",
+	FC_INDEX:           "index",
+	FC_RASTERIZER:      "rasterizer",
+	FC_OUTLINE:         "outline",
+	FC_SCALABLE:        "scalable",
+	FC_DPI:             "dpi",
+	FC_RGBA:            "rgba",
+	FC_SCALE:           "scale",
+	FC_MINSPACE:        "minspace",
+	FC_CHARWIDTH:       "charwidth",
+	FC_CHAR_HEIGHT:     "charheight",
+	FC_MATRIX:          "matrix",
+	FC_CHARSET:         "charset",
+	FC_LANG:            "lang",
+	FC_FONTVERSION:     "fontversion",
+	FC_CAPABILITY:      "capability",
+	FC_FONTFORMAT:      "fontformat",
+	FC_EMBOLDEN:        "embolden",
+	FC_EMBEDDED_BITMAP: "embeddedbitmap",
+	FC_DECORATIVE:      "decorative",
+	FC_LCD_FILTER:      "lcdfilter",
+	FC_NAMELANG:        "namelang",
+	FC_FONT_FEATURES:   "fontfeatures",
+	FC_PRGNAME:         "prgname",
+	FC_HASH:            "hash",
+	FC_POSTSCRIPT_NAME: "postscriptname",
+	FC_COLOR:           "color",
+	FC_SYMBOL:          "symbol",
+	FC_FONT_VARIATIONS: "fontvariations",
+	FC_VARIABLE:        "variable",
+	FC_FONT_HAS_HINT:   "fonthashint",
+	FC_ORDER:           "order",
+}
 
-//  #define NUM_OBJECT_TYPES ((int) (sizeof FcObjects / sizeof FcObjects[0]))
+func (object FcObject) String() string {
+	if int(object) < len(objectNames) { // common case for buitlin objects
+		return objectNames[object]
+	}
+	customObjectsLock.Lock()
+	defer customObjectsLock.Unlock()
+	for name, o := range customObjects {
+		if o == object {
+			return name
+		}
+	}
+	return fmt.Sprintf("invalid_object_%d", object)
+}
 
-//  static const FcObjectType *
-//  FcObjectFindById (FcObject object)
-//  {
-// 	 if (1 <= object && object <= NUM_OBJECT_TYPES)
-// 	 return &FcObjects[object - 1];
-// 	 return FcObjectLookupOtherTypeById (object);
-//  }
+// FromString lookup an object from its string value,
+// both for builtin and custom objects.
+// FC_INVALID is returned for unknown objects
+func FromString(object string) FcObject {
+	if builtin, ok := objects[object]; ok {
+		return builtin.object
+	}
+	if o, ok := customObjects[object]; ok {
+		return o
+	}
+	return FC_INVALID
+}
 
-//  FcBool
-//  FcNameRegisterObjectTypes (const FcObjectType *types, int ntypes)
-//  {
-// 	 /* Deprecated. */
-// 	 return false;
-//  }
+// the + 100 is to leave some room for future added internal objects
+const firstCustomObject = fcEnd + 100
 
-//  FcBool
-//  FcNameUnregisterObjectTypes (const FcObjectType *types, int ntypes)
-//  {
-// 	 /* Deprecated. */
-// 	 return false;
-//  }
+var (
+	// the name is used defined, and the object assigned by the library
+	customObjects     = map[string]FcObject{}
+	customObjectsLock sync.Mutex
+)
+
+func lookupCustomObject(object string) objectType {
+	customObjectsLock.Lock()
+	defer customObjectsLock.Unlock()
+
+	if o, ok := customObjects[object]; ok {
+		return objectType{object: o} // parser is nil for unknown type
+	}
+
+	// we add new objects
+	id := firstCustomObject
+	for _, o := range customObjects {
+		if o > id {
+			id = o
+		}
+	}
+	if id+1 == 0 {
+		panic("implementation limit for the number of custom objects reached")
+	}
+	customObjects[object] = id + 1
+	return objectType{object: id + 1}
+}
 
 // Return the object type for the pattern element named object
-func getObjectType(object string) (objectType, error) {
+// Add a custom object if not found
+func getRegisterObjectType(object string) objectType {
 	if builtin, ok := objects[object]; ok {
-		return builtin, nil
+		return builtin
 	}
-	// TODO: support custom objects
-	return objectType{}, fmt.Errorf("fontconfig: invalid object name %s", object)
+	return lookupCustomObject(object)
 }
 
 //  FcBool
@@ -315,10 +398,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 		delim, name, save = nameFindNext(name, "=_:")
 		if len(save) != 0 {
 			if delim == '=' || delim == '_' {
-				t, err := getObjectType(save)
-				if err != nil {
-					return nil, err
-				}
+				t := getRegisterObjectType(save)
 				for {
 					delim, name, save = nameFindNext(name, ":,")
 					v, err := t.parser.parse(save, t.object)
@@ -332,10 +412,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 				}
 			} else {
 				if c := nameGetConstant(save); c != nil {
-					t, err := getObjectType(ObjectNames[c.object])
-					if err != nil {
-						return nil, err
-					}
+					t := getRegisterObjectType(objectNames[c.object])
 
 					switch t.parser.(type) {
 					case typeInteger, typeFloat, typeRange:

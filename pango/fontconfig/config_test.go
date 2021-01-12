@@ -10,7 +10,6 @@ import (
 
 func TestGetFonts(t *testing.T) {
 	fs := FcConfigGetCurrent().fonts[FcSetSystem]
-
 	for _, p := range fs {
 		file, res := p.FcPatternObjectGetString(FC_FILE, 0)
 		if res != FcResultMatch {
@@ -36,7 +35,6 @@ const FONTFILE = "test/4x6.pcf"
 func TestCacheDir(t *testing.T) {
 	// FcChar8 *fontdir = NULL, *cachedir = NULL;
 	// char *basedir,
-	template := "/tmp/bz106632-XXXXXX"
 	// char cmd[512];
 	tconf := `<fontconfig>
 	  <dir>%s</dir>
@@ -46,7 +44,7 @@ func TestCacheDir(t *testing.T) {
 	// FcFontSet *fs;
 	// FcPattern *pat;
 
-	basedir, err := ioutil.TempDir("", template)
+	basedir, err := ioutil.TempDir("", "bz106632-*")
 	if err != nil {
 		t.Fatal(err)
 	}

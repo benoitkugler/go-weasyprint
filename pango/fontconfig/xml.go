@@ -84,6 +84,56 @@ func (config *FcConfig) parseAndLoadDir(logger io.Writer, dir string, load bool)
 	return nil
 }
 
+// Walks the configuration in 'file' and, if `load` is true, constructs the internal representation
+// in 'config'.  Any include files referenced from within 'file' will be loaded
+// and parsed. Warning messages will be output to `logger`.
+func (config *FcConfig) parseConfig(logger io.Writer, name string, load bool) error {
+	// TODO: support windows
+	// #ifdef _WIN32
+	//     if (!pGetSystemWindowsDirectory)
+	//     {
+	//         HMODULE hk32 = GetModuleHandleA("kernel32.dll");
+	//         if (!(pGetSystemWindowsDirectory = (pfnGetSystemWindowsDirectory) GetProcAddress(hk32, "GetSystemWindowsDirectoryA")))
+	//             pGetSystemWindowsDirectory = (pfnGetSystemWindowsDirectory) GetWindowsDirectory;
+	//     }
+	//     if (!pSHGetFolderPathA)
+	//     {
+	//         HMODULE hSh = LoadLibraryA("shfolder.dll");
+	//         /* the check is done later, because there is no provided fallback */
+	//         if (hSh)
+	//             pSHGetFolderPathA = (pfnSHGetFolderPathA) GetProcAddress(hSh, "SHGetFolderPathA");
+	//     }
+	// #endif
+
+	filename := config.GetFilename(name)
+	if filename == "" {
+		return fmt.Errorf("fontconfig: no such file: %s", name)
+	}
+
+	realfilename := realFilename(filename)
+
+	if config.availConfigFiles[realfilename] {
+		return nil
+	}
+
+	if load {
+		config.configFiles[filename] = true
+	}
+	config.availConfigFiles[realfilename] = true
+
+	if isDir(realfilename) {
+		return config.parseAndLoadDir(logger, realfilename, load)
+	}
+
+	content, err := ioutil.ReadFile(realfilename)
+	if err != nil {
+		return fmt.Errorf("fontconfig: can't open such file %s: %s", realfilename, err)
+	}
+
+	err = config.parseAndLoadFromMemory(logger, filename, content, load)
+	return err
+}
+
 // compact form of the tag
 type elemTag uint8
 
@@ -286,53 +336,6 @@ const (
 	FcSevereWarning
 )
 
-func (config *FcConfig) parseConfig(logger io.Writer, name string, load bool) error {
-	// TODO: support windows
-	// #ifdef _WIN32
-	//     if (!pGetSystemWindowsDirectory)
-	//     {
-	//         HMODULE hk32 = GetModuleHandleA("kernel32.dll");
-	//         if (!(pGetSystemWindowsDirectory = (pfnGetSystemWindowsDirectory) GetProcAddress(hk32, "GetSystemWindowsDirectoryA")))
-	//             pGetSystemWindowsDirectory = (pfnGetSystemWindowsDirectory) GetWindowsDirectory;
-	//     }
-	//     if (!pSHGetFolderPathA)
-	//     {
-	//         HMODULE hSh = LoadLibraryA("shfolder.dll");
-	//         /* the check is done later, because there is no provided fallback */
-	//         if (hSh)
-	//             pSHGetFolderPathA = (pfnSHGetFolderPathA) GetProcAddress(hSh, "SHGetFolderPathA");
-	//     }
-	// #endif
-
-	filename := config.GetFilename(name)
-	if filename == "" {
-		return fmt.Errorf("fontconfig: no such file: %s", name)
-	}
-
-	realfilename := realFilename(filename)
-
-	if config.availConfigFiles[realfilename] {
-		return nil
-	}
-
-	if load {
-		config.configFiles[filename] = true
-	}
-	config.availConfigFiles[realfilename] = true
-
-	if isDir(realfilename) {
-		return config.parseAndLoadDir(logger, realfilename, load)
-	}
-
-	content, err := ioutil.ReadFile(realfilename)
-	if err != nil {
-		return fmt.Errorf("fontconfig: can't open such file %s: %s", realfilename, err)
-	}
-
-	err = config.parseAndLoadFromMemory(logger, filename, content, load)
-	return err
-}
-
 type configParser struct {
 	logger io.Writer
 
@@ -528,9 +531,9 @@ func (parser *configParser) endElement() error {
 		parser.parseFamily()
 
 	case FcElementTest:
-		err = parser.parseTest()
+		parser.parseTest()
 	case FcElementEdit:
-		err = parser.parseEdit()
+		parser.parseEdit()
 
 	case FcElementInt:
 		err = parser.parseInteger()
@@ -555,7 +558,7 @@ func (parser *configParser) endElement() error {
 	case FcElementPattern:
 		parser.parsePattern()
 	case FcElementPatelt:
-		err = parser.parsePatelt()
+		parser.parsePatelt()
 	case FcElementName:
 		parser.parseName()
 	case FcElementConst:
@@ -842,7 +845,7 @@ func (parse *configParser) parseCacheDir() error {
 		return nil
 	}
 	if !parse.scanOnly && (!usesHome(data) || FcConfigHome() != "") {
-		err := parse.config.FcConfigAddCacheDir(data)
+		err := parse.config.addCacheDir(data)
 		if err != nil {
 			return fmt.Errorf("fontconfig: cannot add cache directory %s: %s", data, err)
 		}
@@ -1305,7 +1308,7 @@ func (parser *configParser) parseBool() {
 	vstack.tag = vstackBool
 }
 
-func (parser *configParser) parseName() error {
+func (parser *configParser) parseName() {
 	var kind FcMatchKind
 	last := parser.p()
 
@@ -1318,23 +1321,19 @@ func (parser *configParser) parseName() error {
 		kind = FcMatchDefault
 	default:
 		parser.message(FcSevereWarning, "invalid name target \"%s\"", kindString)
-		return nil
+		return
 	}
 
 	if last == nil {
-		return nil
+		return
 	}
 	s := last.str.String()
 	last.str.Reset()
-	object, err := getObjectType(s)
-	if err != nil {
-		return err
-	}
+	object := getRegisterObjectType(s)
 
 	vstack := parser.createVAndPush()
 	vstack.u = FcExprName{object: object.object, kind: kind}
 	vstack.tag = vstackName
-	return nil
 }
 
 func (parser *configParser) parseMatrix() error {
@@ -1560,7 +1559,7 @@ func (parser *configParser) parseResetDirs() {
 	}
 }
 
-func (parser *configParser) parseTest() error {
+func (parser *configParser) parseTest() {
 	var (
 		kind    FcMatchKind
 		qual    uint8
@@ -1581,7 +1580,7 @@ func (parser *configParser) parseTest() error {
 		kind = FcMatchDefault
 	default:
 		parser.message(FcSevereWarning, "invalid test target \"%s\"", kindString)
-		return nil
+		return
 	}
 
 	switch qualString := last.getAttr("qual"); qualString {
@@ -1595,17 +1594,14 @@ func (parser *configParser) parseTest() error {
 		qual = FcQualNotFirst
 	default:
 		parser.message(FcSevereWarning, "invalid test qual \"%s\"", qualString)
-		return nil
+		return
 	}
 	name := last.getAttr("name")
 	if name == "" {
 		parser.message(FcSevereWarning, "missing test name")
-		return nil
+		return
 	} else {
-		ot, err := getObjectType(name)
-		if err != nil {
-			return err
-		}
+		ot := getRegisterObjectType(name)
 		object = ot.object
 	}
 	compareString := last.getAttr("compare")
@@ -1616,7 +1612,7 @@ func (parser *configParser) parseTest() error {
 		compare, ok = fcCompareOps[compareString]
 		if !ok {
 			parser.message(FcSevereWarning, "invalid test compare \"%s\"", compareString)
-			return nil
+			return
 		}
 	}
 
@@ -1632,7 +1628,7 @@ func (parser *configParser) parseTest() error {
 	expr := parser.popBinary(FcOpComma)
 	if expr == nil {
 		parser.message(FcSevereWarning, "missing test expression")
-		return nil
+		return
 	}
 	if expr.op == FcOpComma {
 		parser.message(FcSevereWarning, "Having multiple values in <test> isn't supported and may not work as expected")
@@ -1642,10 +1638,10 @@ func (parser *configParser) parseTest() error {
 	vstack := parser.createVAndPush()
 	vstack.u = test
 	vstack.tag = vstackTest
-	return nil
+	return
 }
 
-func (parser *configParser) parseEdit() error {
+func (parser *configParser) parseEdit() {
 	var (
 		mode   FcOp
 		last   = parser.p()
@@ -1655,12 +1651,9 @@ func (parser *configParser) parseEdit() error {
 	name := last.getAttr("name")
 	if name == "" {
 		parser.message(FcSevereWarning, "missing edit name")
-		return nil
+		return
 	} else {
-		ot, err := getObjectType(name)
-		if err != nil {
-			return err
-		}
+		ot := getRegisterObjectType(name)
 		object = ot.object
 	}
 	modeString := last.getAttr("mode")
@@ -1671,12 +1664,12 @@ func (parser *configParser) parseEdit() error {
 		mode, ok = fcModeOps[modeString]
 		if !ok {
 			parser.message(FcSevereWarning, "invalid edit mode \"%s\"", modeString)
-			return nil
+			return
 		}
 	}
 	binding, ok := parser.lexBinding(last.getAttr("binding"))
 	if !ok {
-		return nil
+		return
 	}
 
 	expr := parser.popBinary(FcOpComma)
@@ -1689,7 +1682,6 @@ func (parser *configParser) parseEdit() error {
 	vstack := parser.createVAndPush()
 	vstack.u = edit
 	vstack.tag = vstackEdit
-	return nil
 }
 
 func (parser *configParser) parseRescan() {
@@ -1739,18 +1731,15 @@ func (parser *configParser) parsePattern() {
 	vstack.tag = vstackPattern
 }
 
-func (parser *configParser) parsePatelt() error {
+func (parser *configParser) parsePatelt() {
 	pattern := NewFcPattern()
 
 	name := parser.p().getAttr("name")
 	if name == "" {
 		parser.message(FcSevereWarning, "missing pattern element name")
-		return nil
+		return
 	}
-	ot, err := getObjectType(name)
-	if err != nil {
-		return err
-	}
+	ot := getRegisterObjectType(name)
 	for {
 		value := parser.popValue()
 		if value == nil {
@@ -1762,7 +1751,6 @@ func (parser *configParser) parsePatelt() error {
 	vstack := parser.createVAndPush()
 	vstack.u = pattern
 	vstack.tag = vstackPattern
-	return nil
 }
 
 func (parser *configParser) popValue() FcValue {

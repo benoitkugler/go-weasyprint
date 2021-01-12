@@ -9,6 +9,8 @@ import (
 
 // ported from fontconfig/test/test-family-matching.c Copyright © 2020 Zoltan Vandrus
 
+const fcTestResult = "testresult"
+
 func matchPattern(test string, p *FcPattern) (bool, error) {
 	xml := fmt.Sprintf(`
 		 <fontconfig>
@@ -35,7 +37,12 @@ func matchPattern(test string, p *FcPattern) (bool, error) {
 
 	}
 
-	_, result := pat.FcPatternObjectGetBool(fcTestResult, 0)
+	// the parsing side effect registred TfcestResult
+	o := getRegisterObjectType(fcTestResult).object
+	if o < firstCustomObject {
+		return false, fmt.Errorf("got invalid custom object %d", o)
+	}
+	_, result := pat.FcPatternObjectGetBool(o, 0)
 	switch result {
 	case FcResultMatch:
 		return true, nil
