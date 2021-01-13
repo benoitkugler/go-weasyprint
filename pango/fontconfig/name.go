@@ -358,8 +358,8 @@ func nameGetConstant(str string) *constant {
 	return nil
 }
 
-func nameConstant(str string) (int, bool) {
-	if c := nameGetConstant(str); c != nil {
+func nameConstant(str String) (int, bool) {
+	if c := nameGetConstant(string(str)); c != nil {
 		return c.value, true
 	}
 	return 0, false
@@ -376,7 +376,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 	for {
 		delim, name, save = nameFindNext(name, "-,:")
 		if len(save) != 0 {
-			pat.Add(FC_FAMILY, save, true)
+			pat.Add(FC_FAMILY, String(save), true)
 		}
 		if delim != ',' {
 			break
@@ -387,7 +387,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 			delim, name, save = nameFindNext(name, "-,:")
 			d, err := strconv.ParseFloat(save, 64)
 			if err == nil {
-				pat.Add(FC_SIZE, d, true)
+				pat.Add(FC_SIZE, Float(d), true)
 			}
 			if delim != ',' {
 				break
@@ -416,7 +416,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 
 					switch t.parser.(type) {
 					case typeInteger, typeFloat, typeRange:
-						pat.Add(c.object, c.value, true)
+						pat.Add(c.object, Int(c.value), true)
 					case typeBool:
 						pat.Add(c.object, FcBool(c.value), true)
 					}
@@ -499,12 +499,12 @@ func (typeInteger) parse(str string, object FcObject) (FcValue, error) {
 	if !builtin {
 		v, err = strconv.Atoi(str)
 	}
-	return v, err
+	return Int(v), err
 }
 
 type typeString struct{}
 
-func (typeString) parse(str string, object FcObject) (FcValue, error) { return str, nil }
+func (typeString) parse(str string, object FcObject) (FcValue, error) { return String(str), nil }
 
 type typeBool struct{}
 
@@ -513,7 +513,8 @@ func (typeBool) parse(str string, object FcObject) (FcValue, error) { return nam
 type typeFloat struct{}
 
 func (typeFloat) parse(str string, object FcObject) (FcValue, error) {
-	return strconv.ParseFloat(str, 64)
+	d, err := strconv.ParseFloat(str, 64)
+	return Float(d), err
 }
 
 type typeMatrix struct{}
@@ -566,13 +567,13 @@ func (typeRange) parse(str string, object FcObject) (FcValue, error) {
 		return nil, err
 	}
 	if ok {
-		return float64(si), nil
+		return Float(si), nil
 	}
 	v, err := strconv.ParseFloat(str, 64)
 	if err != nil {
 		return nil, err
 	}
-	return v, nil
+	return Float(v), nil
 }
 
 //  static FcValue

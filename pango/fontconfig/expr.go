@@ -194,10 +194,22 @@ type exprTree struct {
 	left, right *FcExpr
 }
 
+type exprNode interface {
+	isExpr()
+}
+
 type FcExpr struct {
 	op FcOp
-	u  interface{}
+	u  exprNode
 }
+
+func (FcExprMatrix) isExpr() {}
+func (FcExprName) isExpr()   {}
+func (exprTree) isExpr()     {}
+func (FcTest) isExpr()       {}
+func (FcEdit) isExpr()       {}
+func (*FcExpr) isExpr()      {}
+func (*FcPattern) isExpr()   {}
 
 // union {
 // int		ival;
@@ -269,14 +281,14 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 	op := e.op.getOp()
 	switch op {
 	case FcOpInteger, FcOpDouble, FcOpString, FcOpCharSet, FcOpLangSet, FcOpRange, FcOpBool:
-		v = e.u
+		v = e.u.(FcValue)
 	case FcOpMatrix:
 		mexpr := e.u.(FcExprMatrix)
 		v = FcMatrix{} // promotion hint
-		xx, xxIsFloat := FcConfigPromote(mexpr.xx.FcConfigEvaluate(p, p_pat, kind), v).(float64)
-		xy, xyIsFloat := FcConfigPromote(mexpr.xy.FcConfigEvaluate(p, p_pat, kind), v).(float64)
-		yx, yxIsFloat := FcConfigPromote(mexpr.yx.FcConfigEvaluate(p, p_pat, kind), v).(float64)
-		yy, yyIsFloat := FcConfigPromote(mexpr.yy.FcConfigEvaluate(p, p_pat, kind), v).(float64)
+		xx, xxIsFloat := FcConfigPromote(mexpr.xx.FcConfigEvaluate(p, p_pat, kind), v).(Float)
+		xy, xyIsFloat := FcConfigPromote(mexpr.xy.FcConfigEvaluate(p, p_pat, kind), v).(Float)
+		yx, yxIsFloat := FcConfigPromote(mexpr.yx.FcConfigEvaluate(p, p_pat, kind), v).(Float)
+		yy, yyIsFloat := FcConfigPromote(mexpr.yy.FcConfigEvaluate(p, p_pat, kind), v).(Float)
 
 		if xxIsFloat && xyIsFloat && yxIsFloat && yyIsFloat {
 			v = FcMatrix{xx: xx, xy: xy, yx: yx, yy: yy}
@@ -301,8 +313,8 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			}
 		}
 	case FcOpConst:
-		if ct, ok := nameConstant(e.u.(string)); ok {
-			v = ct
+		if ct, ok := nameConstant(e.u.(String)); ok {
+			v = Int(ct)
 		} else {
 			v = nil
 		}
@@ -336,8 +348,8 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 		vre := FcConfigPromote(vr, vle)
 		v = nil
 		switch vle := vle.(type) {
-		case float64:
-			vre, sameType := vre.(float64)
+		case Float:
+			vre, sameType := vre.(Float)
 			if !sameType {
 				break
 			}
@@ -351,8 +363,8 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			case FcOpDivide:
 				v = vle / vre
 			}
-			if vf, ok := v.(float64); ok && vf == float64(int(vf)) {
-				v = int(vf)
+			if vf, ok := v.(Float); ok && vf == Float(int(vf)) {
+				v = Int(vf)
 			}
 		case FcBool:
 			vre, sameType := vre.(FcBool)
@@ -365,8 +377,8 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 			case FcOpAnd:
 				v = vle & vre
 			}
-		case string:
-			vre, sameType := vre.(string)
+		case String:
+			vre, sameType := vre.(String)
 			if !sameType {
 				break
 			}
@@ -416,25 +428,25 @@ func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue
 		tree := e.u.(exprTree)
 		vl := tree.left.FcConfigEvaluate(p, p_pat, kind)
 		switch vl := vl.(type) {
-		case int:
+		case Int:
 			v = vl
-		case float64:
+		case Float:
 			switch op {
 			case FcOpFloor:
-				v = int(math.Floor(vl))
+				v = Int(math.Floor(float64(vl)))
 			case FcOpCeil:
-				v = int(math.Ceil(vl))
+				v = Int(math.Ceil(float64(vl)))
 			case FcOpRound:
-				v = int(math.Round(vl))
+				v = Int(math.Round(float64(vl)))
 			case FcOpTrunc:
-				v = int(math.Trunc(vl))
+				v = Int(math.Trunc(float64(vl)))
 			}
 		}
 	}
 	return v
 }
 
-func (parser *configParser) typecheckValue(value, type_ typeMeta) {
+func (parser *configParser) typecheckValue(value, type_ typeMeta) error {
 	if (value == typeInteger{}) {
 		value = typeFloat{}
 	}
@@ -445,87 +457,101 @@ func (parser *configParser) typecheckValue(value, type_ typeMeta) {
 		if (value == typeLangSet{} && type_ == typeString{}) ||
 			(value == typeString{} && type_ == typeLangSet{}) ||
 			(value == typeFloat{} && type_ == typeRange{}) {
-			return
+			return nil
 		}
 		if type_ == nil {
-			return
+			return nil
 		}
 		/* It's perfectly fine to use user-define elements in expressions,
 		 * so don't warn in that case. */
 		if value == nil {
-			return
+			return nil
 		}
-		parser.message(FcSevereWarning, "saw %T, expected %T", value, type_)
+		return parser.error("saw %T, expected %T", value, type_)
 	}
+	return nil
 }
 
-func (parser *configParser) typecheckExpr(expr *FcExpr, type_ typeMeta) {
+func (parser *configParser) typecheckExpr(expr *FcExpr, type_ typeMeta) (err error) {
 	// If parsing the expression failed, some nodes may be nil
 	if expr == nil {
-		return
+		return nil
 	}
 
 	switch expr.op.getOp() {
 	case FcOpInteger, FcOpDouble:
-		parser.typecheckValue(typeFloat{}, type_)
+		err = parser.typecheckValue(typeFloat{}, type_)
 	case FcOpString:
-		parser.typecheckValue(typeString{}, type_)
+		err = parser.typecheckValue(typeString{}, type_)
 	case FcOpMatrix:
-		parser.typecheckValue(typeMatrix{}, type_)
+		err = parser.typecheckValue(typeMatrix{}, type_)
 	case FcOpBool:
-		parser.typecheckValue(typeBool{}, type_)
+		err = parser.typecheckValue(typeBool{}, type_)
 	case FcOpCharSet:
-		parser.typecheckValue(typeCharSet{}, type_)
+		err = parser.typecheckValue(typeCharSet{}, type_)
 	case FcOpLangSet:
-		parser.typecheckValue(typeLangSet{}, type_)
+		err = parser.typecheckValue(typeLangSet{}, type_)
 	case FcOpRange:
-		parser.typecheckValue(typeRange{}, type_)
+		err = parser.typecheckValue(typeRange{}, type_)
 	case FcOpField:
 		name := expr.u.(FcExprName)
 		o, ok := objects[name.object.String()]
 		if ok {
-			parser.typecheckValue(o.parser, type_)
+			err = parser.typecheckValue(o.parser, type_)
 		}
 	case FcOpConst:
-		c := nameGetConstant(expr.u.(string))
+		c := nameGetConstant(string(expr.u.(String)))
 		if c != nil {
 			o, ok := objects[c.object.String()]
 			if ok {
-				parser.typecheckValue(o.parser, type_)
+				err = parser.typecheckValue(o.parser, type_)
 			}
 		} else {
-			parser.message(FcSevereWarning, "invalid constant used : %s", expr.u.(string))
+			err = parser.error("invalid constant used : %s", expr.u.(String))
 		}
 	case FcOpQuest:
 		tree := expr.u.(exprTree)
-		parser.typecheckExpr(tree.left, typeBool{})
+		if err = parser.typecheckExpr(tree.left, typeBool{}); err != nil {
+			return err
+		}
 		rightTree := tree.right.u.(exprTree)
-		parser.typecheckExpr(rightTree.left, type_)
-		parser.typecheckExpr(rightTree.right, type_)
+		if err = parser.typecheckExpr(rightTree.left, type_); err != nil {
+			return err
+		}
+		if err = parser.typecheckExpr(rightTree.right, type_); err != nil {
+			return err
+		}
 	case FcOpEqual, FcOpNotEqual, FcOpLess, FcOpLessEqual, FcOpMore, FcOpMoreEqual, FcOpContains, FcOpNotContains, FcOpListing:
-		parser.typecheckValue(typeBool{}, type_)
+		err = parser.typecheckValue(typeBool{}, type_)
 	case FcOpComma, FcOpOr, FcOpAnd, FcOpPlus, FcOpMinus, FcOpTimes, FcOpDivide:
 		tree := expr.u.(exprTree)
-		parser.typecheckExpr(tree.left, type_)
-		parser.typecheckExpr(tree.right, type_)
+		if err = parser.typecheckExpr(tree.left, type_); err != nil {
+			return err
+		}
+		err = parser.typecheckExpr(tree.right, type_)
 	case FcOpNot:
 		tree := expr.u.(exprTree)
-		parser.typecheckValue(typeBool{}, type_)
-		parser.typecheckExpr(tree.left, typeBool{})
+		if err = parser.typecheckValue(typeBool{}, type_); err != nil {
+			return err
+		}
+		err = parser.typecheckExpr(tree.left, typeBool{})
 	case FcOpFloor, FcOpCeil, FcOpRound, FcOpTrunc:
 		tree := expr.u.(exprTree)
-		parser.typecheckValue(typeFloat{}, type_)
-		parser.typecheckExpr(tree.left, typeFloat{})
+		if err = parser.typecheckValue(typeFloat{}, type_); err != nil {
+			return err
+		}
+		err = parser.typecheckExpr(tree.left, typeFloat{})
 	}
+	return err
 }
 
 // the C implemention use a pre-allocated buffer to avoid allocations
 // we choose to simplify and not use buffer
 func FcConfigPromote(v, u FcValue) FcValue {
 	switch val := v.(type) {
-	case int:
-		v = promoteFloat64(float64(val), u)
-	case float64:
+	case Int:
+		v = promoteFloat64(Float(val), u)
+	case Float:
 		v = promoteFloat64(val, u)
 	case nil:
 		switch u.(type) {
@@ -536,7 +562,7 @@ func FcConfigPromote(v, u FcValue) FcValue {
 		case FcCharset:
 			v = FcCharset{}
 		}
-	case string:
+	case String:
 		if _, ok := u.(FcLangSet); ok {
 			v = langSetPromote(val)
 		}
@@ -544,7 +570,7 @@ func FcConfigPromote(v, u FcValue) FcValue {
 	return v
 }
 
-func promoteFloat64(val float64, u FcValue) FcValue {
+func promoteFloat64(val Float, u FcValue) FcValue {
 	if _, ok := u.(FcRange); ok {
 		return FcRangePromote(val)
 	}
@@ -566,8 +592,8 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 	left_o = FcConfigPromote(right_o, left_o)
 
 	switch l := left_o.(type) {
-	case int:
-		r, sameType := right_o.(int)
+	case Int:
+		r, sameType := right_o.(Int)
 		if !sameType {
 			return retNoMatchingType
 		}
@@ -585,8 +611,8 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 		case FcOpMoreEqual:
 			ret = l >= r
 		}
-	case float64:
-		r, sameType := right_o.(float64)
+	case Float:
+		r, sameType := right_o.(Float)
 		if !sameType {
 			return retNoMatchingType
 		}
@@ -627,28 +653,28 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 		case FcOpMoreEqual:
 			ret = l == r || l >= FcDontCare
 		}
-	case string:
-		r, sameType := right_o.(string)
+	case String:
+		r, sameType := right_o.(String)
 		if !sameType {
 			return retNoMatchingType
 		}
 		switch op {
 		case FcOpEqual, FcOpListing:
 			if flags&FcOpFlagIgnoreBlanks != 0 {
-				ret = FcStrCmpIgnoreBlanksAndCase(l, r) == 0
+				ret = FcStrCmpIgnoreBlanksAndCase(string(l), string(r)) == 0
 			} else {
-				ret = FcStrCmpIgnoreCase(l, r) == 0
+				ret = FcStrCmpIgnoreCase(string(l), string(r)) == 0
 			}
 		case FcOpContains:
-			ret = FcStrStrIgnoreCase(l, r) != -1
+			ret = FcStrStrIgnoreCase(string(l), string(r)) != -1
 		case FcOpNotEqual:
 			if flags&FcOpFlagIgnoreBlanks != 0 {
-				ret = FcStrCmpIgnoreBlanksAndCase(l, r) != 0
+				ret = FcStrCmpIgnoreBlanksAndCase(string(l), string(r)) != 0
 			} else {
-				ret = FcStrCmpIgnoreCase(l, r) != 0
+				ret = FcStrCmpIgnoreCase(string(l), string(r)) != 0
 			}
 		case FcOpNotContains:
-			ret = FcStrStrIgnoreCase(l, r) == -1
+			ret = FcStrStrIgnoreCase(string(l), string(r)) == -1
 		}
 	case FcMatrix:
 		r, sameType := right_o.(FcMatrix)

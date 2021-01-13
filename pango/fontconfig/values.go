@@ -92,8 +92,8 @@ type FcRange struct {
 	Begin, End float64
 }
 
-func FcRangePromote(v float64) FcRange {
-	return FcRange{Begin: v, End: v}
+func FcRangePromote(v Float) FcRange {
+	return FcRange{Begin: float64(v), End: float64(v)}
 }
 
 // returns true if a is inside b
@@ -124,7 +124,7 @@ func FcRangeCompare(op FcOp, a, b FcRange) bool {
 }
 
 type FcMatrix struct {
-	xx, xy, yx, yy float64
+	xx, xy, yx, yy Float
 }
 
 // return a * b
@@ -146,17 +146,46 @@ type Hasher interface {
 	Hash() []byte
 }
 
-type FcValue interface{}
+type FcValue interface {
+	isValue()
+	exprNode // usable as expression node
+}
+
+func (Int) isValue()       {}
+func (Float) isValue()     {}
+func (String) isValue()    {}
+func (FcBool) isValue()    {}
+func (FcCharset) isValue() {}
+func (FcLangSet) isValue() {}
+func (FcMatrix) isValue()  {}
+func (FcRange) isValue()   {}
+func (*FtFace) isValue()   {} // TODO: replace this
+
+func (Int) isExpr()       {}
+func (Float) isExpr()     {}
+func (String) isExpr()    {}
+func (FcBool) isExpr()    {}
+func (FcCharset) isExpr() {}
+func (FcLangSet) isExpr() {}
+func (FcMatrix) isExpr()  {}
+func (FcRange) isExpr()   {}
+func (*FtFace) isExpr()   {} // TODO: replace this
+
+type Int int
+
+type Float float64
+
+type String string
 
 // validate the basic data types
 func (object FcObject) hasValidType(val FcValue) bool {
-	_, isInt := val.(int)
-	_, isFloat := val.(float64)
+	_, isInt := val.(Int)
+	_, isFloat := val.(Float)
 	switch object {
 	case FC_FAMILY, FC_FAMILYLANG, FC_STYLE, FC_STYLELANG, FC_FULLNAME, FC_FULLNAMELANG, FC_FOUNDRY,
 		FC_RASTERIZER, FC_CAPABILITY, FC_NAMELANG, FC_FONT_FEATURES, FC_PRGNAME, FC_HASH, FC_POSTSCRIPT_NAME,
 		FC_FONTFORMAT, FC_FILE, FC_FONT_VARIATIONS: // string
-		_, isString := val.(string)
+		_, isString := val.(String)
 		return isString
 	case FC_ORDER, FC_SLANT, FC_SPACING, FC_HINT_STYLE, FC_RGBA, FC_INDEX,
 		FC_CHARWIDTH, FC_LCD_FILTER, FC_FONTVERSION, FC_CHAR_HEIGHT: // integer
@@ -178,7 +207,7 @@ func (object FcObject) hasValidType(val FcValue) bool {
 		return isCharSet
 	case FC_LANG: // LangSet
 		_, isLangSet := val.(FcLangSet)
-		_, isString := val.(string)
+		_, isString := val.(String)
 		return isLangSet || isString
 	default:
 		// no validation
@@ -295,7 +324,7 @@ func (head *FcValueList) insert(position int, appendMode bool, newList FcValueLi
 // remove the item at `position`
 func (head *FcValueList) del(position int, object FcObject, table *FamilyTable) {
 	if object == FC_FAMILY && table != nil {
-		table.del((*head)[position].value.(string))
+		table.del((*head)[position].value.(String))
 	}
 
 	copy((*head)[position:], (*head)[position+1:])

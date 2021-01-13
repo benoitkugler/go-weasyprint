@@ -40,22 +40,31 @@ func (p *FcPattern) Duplicate() *FcPattern {
 
 // Add adds the given value for the given object, with a strong binding.
 // `appendMode` controls the location of insertion in the current list.
-func (p FcPattern) Add(object FcObject, value interface{}, appendMode bool) {
+func (p FcPattern) Add(object FcObject, value FcValue, appendMode bool) {
 	p.addWithBinding(object, value, FcValueBindingStrong, appendMode)
 }
 
-func (p FcPattern) addWithBinding(object FcObject, value interface{}, binding FcValueBinding, appendMode bool) {
+func (p FcPattern) addWithBinding(object FcObject, value FcValue, binding FcValueBinding, appendMode bool) {
 	newV := valueElt{value: value, binding: binding}
 	p.AddList(object, FcValueList{newV}, appendMode)
 }
 
-func (p FcPattern) FcPatternObjectAddBool(object FcObject, value bool)   { p.Add(object, value, true) }
-func (p FcPattern) FcPatternObjectAddInteger(object FcObject, value int) { p.Add(object, value, true) }
+func (p FcPattern) FcPatternObjectAddBool(object FcObject, value bool) {
+	var fBool FcBool
+	if value {
+		fBool = 1
+	}
+	p.Add(object, fBool, true)
+}
+
+func (p FcPattern) FcPatternObjectAddInteger(object FcObject, value int) {
+	p.Add(object, Int(value), true)
+}
 func (p FcPattern) FcPatternObjectAddDouble(object FcObject, value float64) {
-	p.Add(object, value, true)
+	p.Add(object, Float(value), true)
 }
 func (p FcPattern) FcPatternObjectAddString(object FcObject, value string) {
-	p.Add(object, value, true)
+	p.Add(object, String(value), true)
 }
 
 // Add adds the given list of values for the given object.
@@ -146,11 +155,11 @@ func (p FcPattern) FcPatternObjectGetString(object FcObject, id int) (string, Fc
 	if r != FcResultMatch {
 		return "", r
 	}
-	out, ok := v.(string)
+	out, ok := v.(String)
 	if !ok {
 		return "", FcResultTypeMismatch
 	}
-	return out, FcResultMatch
+	return string(out), FcResultMatch
 }
 
 func (p FcPattern) FcPatternObjectGetCharSet(object FcObject, id int) (FcCharset, FcResult) {
@@ -224,9 +233,9 @@ func (pat *FcPattern) addFullname() bool {
 		sbuf = append(sbuf, style...)
 	}
 	pat.del(FC_FULLNAME)
-	pat.Add(FC_FULLNAME, string(sbuf), true)
+	pat.Add(FC_FULLNAME, String(sbuf), true)
 	pat.del(FC_FULLNAMELANG)
-	pat.Add(FC_FULLNAMELANG, "en", true)
+	pat.Add(FC_FULLNAMELANG, String("en"), true)
 
 	return true
 }
@@ -257,7 +266,7 @@ func (p *FcPattern) FcConfigPatternDel(object FcObject, table *FamilyTable) {
 
 	if object == FC_FAMILY && table != nil {
 		for _, v := range e {
-			table.del(v.value.(string))
+			table.del(v.value.(String))
 		}
 	}
 

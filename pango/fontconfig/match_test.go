@@ -3,7 +3,6 @@ package fontconfig
 import (
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 )
 
@@ -27,7 +26,7 @@ func matchPattern(test string, p *FcPattern) (bool, error) {
 
 	cfg := NewFcConfig()
 
-	err := cfg.ParseAndLoadFromMemory([]byte(xml), os.Stdout)
+	err := cfg.ParseAndLoadFromMemory([]byte(xml))
 	if err != nil {
 		return false, err
 	}
@@ -67,9 +66,9 @@ func shouldMatchPattern(t *testing.T, test string, pat *FcPattern, negate bool) 
 
 func TestFamily(t *testing.T) {
 	pat := FcPatternBuild(
-		PatternElement{Object: FC_FAMILY, Value: "family1"},
-		PatternElement{Object: FC_FAMILY, Value: "family2"},
-		PatternElement{Object: FC_FAMILY, Value: "family3"},
+		PatternElement{Object: FC_FAMILY, Value: String("family1")},
+		PatternElement{Object: FC_FAMILY, Value: String("family2")},
+		PatternElement{Object: FC_FAMILY, Value: String("family3")},
 	)
 	var test string
 

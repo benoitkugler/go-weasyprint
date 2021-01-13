@@ -2,7 +2,6 @@ package fontconfig
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,10 +21,10 @@ func TestParse(t *testing.T) {
 	`)
 	cfg := NewFcConfig()
 
-	if err := cfg.ParseAndLoadFromMemory(doc, os.Stdout); err != nil {
+	if err := cfg.ParseAndLoadFromMemory(doc); err != nil {
 		t.Errorf("expected no error since 'ignore_missing' is true, got %s", err)
 	}
-	if err := cfg.ParseAndLoadFromMemory(doc2, os.Stdout); err == nil {
+	if err := cfg.ParseAndLoadFromMemory(doc2); err == nil {
 		t.Error("expected error on invalid include")
 	}
 }
@@ -47,7 +46,7 @@ func TestParseConfs(t *testing.T) {
 
 		cfg := NewFcConfig()
 
-		if err := cfg.parseAndLoadFromMemory(os.Stdout, file.Name(), b, true); err != nil {
+		if err := cfg.parseAndLoadFromMemory(file.Name(), b, true); err != nil {
 			t.Errorf("file %s: %s", file.Name(), err)
 		}
 	}

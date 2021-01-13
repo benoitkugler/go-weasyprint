@@ -2,6 +2,7 @@ package fontconfig
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -64,7 +65,12 @@ func (edit FcEdit) String() string {
 	return fmt.Sprintf("%s %s %s", edit.object, edit.op, edit.expr)
 }
 
-type FcRule interface{} // *Test Or Edit
+type FcRule interface {
+	isRule()
+}
+
+func (FcTest) isRule() {}
+func (FcEdit) isRule() {}
 
 func revertRules(arr []FcRule) {
 	for i := len(arr)/2 - 1; i >= 0; i-- {
@@ -93,14 +99,12 @@ func (rs *FcRuleSet) add(rules []FcRule, kind FcMatchKind) int {
 	var n FcObject
 	for _, r := range rules {
 		switch r := r.(type) {
-		case *FcTest:
-			if r != nil {
-				if r.kind == FcMatchDefault {
-					r.kind = kind
-				}
-				if n < r.object {
-					n = r.object
-				}
+		case FcTest:
+			if r.kind == FcMatchDefault {
+				r.kind = kind
+			}
+			if n < r.object {
+				n = r.object
 			}
 		case FcEdit:
 			if n < r.object {
@@ -206,7 +210,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 
 	config = fallbackConfig(config)
 
-	var v interface{}
+	var v FcValue
 
 	s := config.subst[kind]
 	if kind == FcMatchPattern {
@@ -232,16 +236,16 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 						goto bail_lang
 					}
 				} else {
-					vv, _ := vvL.(string)
-					if FcStrCmpIgnoreCase(vv, lang) == 0 {
+					vv, _ := vvL.(String)
+					if FcStrCmpIgnoreCase(string(vv), lang) == 0 {
 						goto bail_lang
 					}
-					if FcStrCmpIgnoreCase(vv, "und") == 0 {
+					if FcStrCmpIgnoreCase(string(vv), "und") == 0 {
 						goto bail_lang
 					}
 				}
 			}
-			v = lang
+			v = String(lang)
 			p.addWithBinding(FC_LANG, v, FcValueBindingWeak, true)
 		}
 	bail_lang:
@@ -250,7 +254,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 		if res == FcResultNoMatch {
 			prgname := FcGetPrgname()
 			if prgname != "" {
-				p.Add(FC_PRGNAME, prgname, true)
+				p.Add(FC_PRGNAME, String(prgname), true)
 			}
 		}
 	}
@@ -286,7 +290,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 				switch r := r.(type) {
 				case nil: // shouldn't be reached
 					break
-				case *FcTest:
+				case FcTest:
 					// Check the tests to see if they all match the pattern
 					if debugMode {
 						fmt.Println("FcConfigSubstitute test", r)
@@ -306,7 +310,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 					// different 'kind' won't be the target of edit
 					if elt[object] == nil && kind == r.kind {
 						elt[object] = e
-						tst[object] = r
+						tst[object] = &r
 					}
 					// If there's no such field in the font, then FcQualAll matches for FcQualAny does not
 					if e == nil {
@@ -816,7 +820,11 @@ func ensure() *FcConfig {
 	defer defaultConfigLock.Unlock()
 
 	if defaultConfig == nil {
-		defaultConfig = initLoadConfigAndFonts(os.Stderr)
+		var err error
+		defaultConfig, err = initLoadConfigAndFonts()
+		if err != nil {
+			log.Fatalf("invalid default configuration: %s", err)
+		}
 	}
 
 	return defaultConfig
@@ -1280,7 +1288,7 @@ func newFamilyTable(p *FcPattern) FamilyTable {
 	return table
 }
 
-func (table FamilyTable) lookup(op FcOp, s string) bool {
+func (table FamilyTable) lookup(op FcOp, s String) bool {
 	flags := op.getFlags()
 	var has bool
 
@@ -1295,7 +1303,7 @@ func (table FamilyTable) lookup(op FcOp, s string) bool {
 
 func (table FamilyTable) add(values FcValueList) {
 	for _, ll := range values {
-		s := ll.value.(string)
+		s := ll.value.(String)
 
 		count, _ := table.family_hash.lookup(s)
 		count++
@@ -1307,7 +1315,7 @@ func (table FamilyTable) add(values FcValueList) {
 	}
 }
 
-func (table FamilyTable) del(s string) {
+func (table FamilyTable) del(s String) {
 	count, ok := table.family_hash.lookup(s)
 	if ok {
 		count--
@@ -1338,7 +1346,7 @@ func (table FamilyTable) del(s string) {
 
 // return the index into values, or -1
 func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
-	t *FcTest, values FcValueList, table *FamilyTable) int {
+	t FcTest, values FcValueList, table *FamilyTable) int {
 
 	var (
 		value FcValue
@@ -1360,14 +1368,14 @@ func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
 		if t.object == FC_FAMILY && table != nil {
 			op := t.op.getOp()
 			if op == FcOpEqual || op == FcOpListing {
-				if !table.lookup(t.op, value.(string)) {
+				if !table.lookup(t.op, value.(String)) {
 					ret = -1
 					continue
 				}
 			}
 			if op == FcOpNotEqual && t.qual == FcQualAll {
 				ret = -1
-				if !table.lookup(t.op, value.(string)) {
+				if !table.lookup(t.op, value.(String)) {
 					ret = 0
 				}
 				continue

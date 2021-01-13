@@ -34,18 +34,18 @@ func (k FcMatchKind) String() string {
 func FcCompareNumber(value1, value2 FcValue) (FcValue, float64) {
 	var v1, v2 float64
 	switch value := value1.(type) {
-	case int:
+	case Int:
 		v1 = float64(value)
-	case float64:
-		v1 = value
+	case Float:
+		v1 = float64(value)
 	default:
 		return nil, -1.0
 	}
 	switch value := value2.(type) {
-	case int:
+	case Int:
 		v2 = float64(value)
-	case float64:
-		v2 = value
+	case Float:
+		v2 = float64(value)
 	default:
 		return nil, -1.0
 	}
@@ -59,7 +59,7 @@ func FcCompareNumber(value1, value2 FcValue) (FcValue, float64) {
 
 func FcCompareString(v1, v2 FcValue) (FcValue, float64) {
 	bestValue := v2
-	if strings.EqualFold(v1.(string), v2.(string)) {
+	if strings.EqualFold(string(v1.(String)), string(v2.(String))) {
 		return bestValue, 0
 	}
 	return bestValue, 1
@@ -79,8 +79,8 @@ func FcToLower(s string) byte {
 func FcCompareFamily(v1, v2 FcValue) (FcValue, float64) {
 	// rely on the guarantee in FcPatternObjectAddWithBinding that
 	// families are always FcTypeString.
-	v1_string := v1.(string)
-	v2_string := v2.(string)
+	v1_string := string(v1.(String))
+	v2_string := string(v2.(String))
 
 	bestValue := v2
 
@@ -114,8 +114,8 @@ func matchIgnoreCaseAndDelims(s1, s2 string) int {
 }
 
 func FcComparePostScript(v1, v2 FcValue) (FcValue, float64) {
-	v1_string := v1.(string)
-	v2_string := v2.(string)
+	v1_string := string(v1.(String))
+	v2_string := string(v2.(String))
 
 	bestValue := v2
 
@@ -137,17 +137,17 @@ func FcCompareLang(val1, val2 FcValue) (FcValue, float64) {
 		switch v2 := val2.(type) {
 		case FcLangSet:
 			result = FcLangSetCompare(v1, v2)
-		case string:
-			result = v1.hasLang(v2)
+		case String:
+			result = v1.hasLang(string(v2))
 		default:
 			return nil, -1.0
 		}
-	case string:
+	case String:
 		switch v2 := val2.(type) {
 		case *FcLangSet:
-			result = v2.hasLang(v1)
-		case string:
-			result = FcLangCompare(v1, v2)
+			result = v2.hasLang(string(v1))
+		case String:
+			result = FcLangCompare(string(v1), string(v2))
 		default:
 			return nil, -1.0
 		}
@@ -195,11 +195,11 @@ func FcCompareRange(v1, v2 FcValue) (FcValue, float64) {
 	var b1, e1, b2, e2, d float64
 
 	switch value1 := v1.(type) {
-	case int:
+	case Int:
 		e1 = float64(value1)
 		b1 = e1
-	case float64:
-		e1 = value1
+	case Float:
+		e1 = float64(value1)
 		b1 = e1
 	case FcRange:
 		b1 = value1.Begin
@@ -208,11 +208,11 @@ func FcCompareRange(v1, v2 FcValue) (FcValue, float64) {
 		return nil, -1
 	}
 	switch value2 := v2.(type) {
-	case int:
+	case Int:
 		e2 = float64(value2)
 		b2 = e2
-	case float64:
-		e2 = value2
+	case Float:
+		e2 = float64(value2)
 		b2 = e2
 	case FcRange:
 		b2 = value2.Begin
@@ -229,7 +229,7 @@ func FcCompareRange(v1, v2 FcValue) (FcValue, float64) {
 		d = (math.Max(b1, b2) + math.Min(e1, e2)) * .5
 	}
 
-	bestValue := d
+	bestValue := Float(d)
 
 	/// if the ranges overlap, it's a match, otherwise return closest distance.
 	if e1 < b2 || e2 < b1 {
@@ -242,11 +242,11 @@ func FcCompareSize(v1, v2 FcValue) (FcValue, float64) {
 	var b1, e1, b2, e2 float64
 
 	switch value1 := v1.(type) {
-	case int:
+	case Int:
 		e1 = float64(value1)
 		b1 = e1
-	case float64:
-		e1 = value1
+	case Float:
+		e1 = float64(value1)
 		b1 = e1
 	case FcRange:
 		b1 = value1.Begin
@@ -255,11 +255,11 @@ func FcCompareSize(v1, v2 FcValue) (FcValue, float64) {
 		return nil, -1
 	}
 	switch value2 := v2.(type) {
-	case int:
+	case Int:
 		e2 = float64(value2)
 		b2 = e2
-	case float64:
-		e2 = value2
+	case Float:
+		e2 = float64(value2)
 		b2 = e2
 	case FcRange:
 		b2 = value2.Begin
@@ -268,7 +268,7 @@ func FcCompareSize(v1, v2 FcValue) (FcValue, float64) {
 		return nil, -1
 	}
 
-	bestValue := (b1 + e1) * .5
+	bestValue := Float((b1 + e1) * .5)
 
 	// if the ranges overlap, it's a match, otherwise return closest distance.
 	if e1 < b2 || e2 < b1 {
@@ -322,8 +322,8 @@ func strGlobMatch(glob, st string) bool {
 }
 
 func FcCompareFilename(v1, v2 FcValue) (FcValue, float64) {
-	s1, s2 := v1.(string), v2.(string)
-	bestValue := s2
+	s1, s2 := string(v1.(String)), string(v2.(String))
+	bestValue := String(s2)
 	if s1 == s2 {
 		return bestValue, 0.0
 	}
@@ -502,14 +502,14 @@ func (object FcObject) toMatcher(includeLang bool) *FcMatcher {
 func compareValueList(object FcObject, match *FcMatcher,
 	v1orig FcValueList, /* pattern */
 	v2orig FcValueList, /* target */
-	value []float64) (interface{}, FcResult, int, bool) {
+	value []float64) (FcValue, FcResult, int, bool) {
 
 	if match == nil {
 		return v2orig[0].value, 0, 0, true
 	}
 	var (
 		result    FcResult
-		bestValue interface{}
+		bestValue FcValue
 		pos       int
 	)
 	weak := match.weak
@@ -656,7 +656,7 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 	//  FcBool	    variable = false;
 	var (
 		variations strings.Builder
-		v          interface{}
+		v          FcValue
 	)
 
 	variable, _ := font.FcPatternObjectGetBool(FC_VARIABLE, 0)
@@ -739,7 +739,7 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 				//  double num;
 				//  FcChar8 temp[128];
 				tag := "    "
-				num := v.(float64) //  v.type == FcTypeDouble
+				num := float64(v.(Float)) //  v.type == FcTypeDouble
 				if variations.Len() != 0 {
 					variations.WriteByte(',')
 				}
@@ -774,7 +774,7 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 			new.del(FC_FONT_VARIATIONS)
 		}
 
-		new.Add(FC_FONT_VARIATIONS, variations.String(), true)
+		new.Add(FC_FONT_VARIATIONS, String(variations.String()), true)
 	}
 
 	config.FcConfigSubstituteWithPat(&new, pat, FcMatchFont)

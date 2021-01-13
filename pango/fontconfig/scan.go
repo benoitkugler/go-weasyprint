@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/benoitkugler/pdf/fonts/bitmap"
-	"github.com/benoitkugler/pdf/fonts/truetype"
-	"github.com/benoitkugler/pdf/fonts/type1"
+	"github.com/benoitkugler/fonts"
+	"github.com/benoitkugler/fonts/bitmap"
+	"github.com/benoitkugler/fonts/truetype"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -45,7 +45,7 @@ func scanFontConfig(set *FcFontSet, file string, config *FcConfig) bool {
 			if res == FcResultMatch && strings.HasPrefix(f, sysroot) {
 				font.del(FC_FILE)
 				s := filepath.Clean(strings.TrimPrefix(f, sysroot))
-				font.Add(FC_FILE, s, true)
+				font.Add(FC_FILE, String(s), true)
 			}
 		}
 
@@ -1448,8 +1448,8 @@ func getPixelSize(face FT_Face, size bitmap.Size) float64 {
 // return true if `str` is at `obj`, ignoring blank and case
 func (pat *FcPattern) hasString(obj FcObject, str string) bool {
 	for _, v := range pat.elts[obj] {
-		vs, ok := v.value.(string)
-		if ok && FcStrCmpIgnoreBlanksAndCase(vs, str) == 0 {
+		vs, ok := v.value.(String)
+		if ok && FcStrCmpIgnoreBlanksAndCase(string(vs), str) == 0 {
 			return true
 		}
 	}
@@ -1672,9 +1672,14 @@ func FT_Get_MM_Var(face FT_Face) *FT_MM_Var { return nil }
 // TODO:
 func FT_Get_Postscript_Name(face FT_Face) string { return "" }
 
-// TODO
-func FT_Get_PS_Font_Info(face FT_Face) *type1.PFBFont {
-	return &type1.PFBFont{}
+func FT_Get_PS_Font_Info(face FT_Face) *fonts.PSInfo {
+	// TODO: cleanup
+	var i interface{} = face
+	if psFont, ok := i.(fonts.FontPostcript); ok {
+		inf := psFont.PostscriptInfo()
+		return &inf
+	}
+	return nil
 }
 
 // TODO
@@ -2279,16 +2284,13 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 	}
 
 	if width == -1 {
-		prop := FT_Get_BDF_Property(face, "RELATIVE_SETWIDTH")
-		if propInt, isInt := prop.(bitmap.Int); isInt {
+
+		if propInt, isInt := FT_Get_BDF_Property(face, "RELATIVE_SETWIDTH").(bitmap.Int); isInt {
 			width = weightFromBFD(int32(propInt))
-		} else if propCardinal, isCardinal := prop.(bitmap.Cardinal); isCardinal {
-			width = weightFromBFD(int32(propCardinal))
 		}
 
 		if width == -1 {
-			prop := FT_Get_BDF_Property(face, "SETWIDTH_NAME")
-			if atom, _ := prop.(bitmap.Atom); atom != "" {
+			if atom, _ := FT_Get_BDF_Property(face, "SETWIDTH_NAME").(bitmap.Atom); atom != "" {
 				width = float64(FcStringIsConst(string(atom), widthConsts[:]))
 				if debugMode {
 					fmt.Printf("\tsetwidth %s maps to %g\n", atom, width)

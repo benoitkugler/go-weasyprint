@@ -49,37 +49,37 @@ func (h blankCaseMap) add(s string, v *familyEntry) {
 // IgnoreBlanksAndCase
 type familyBlankMap map[string]int
 
-func (h familyBlankMap) lookup(s string) (int, bool) {
-	s = ignoreBlanksAndCase(s)
-	e, ok := h[s]
+func (h familyBlankMap) lookup(s String) (int, bool) {
+	ss := ignoreBlanksAndCase(string(s))
+	e, ok := h[ss]
 	return e, ok
 }
 
-func (h familyBlankMap) add(s string, v int) {
-	s = ignoreBlanksAndCase(s)
-	h[s] = v
+func (h familyBlankMap) add(s String, v int) {
+	ss := ignoreBlanksAndCase(string(s))
+	h[ss] = v
 }
 
-func (h familyBlankMap) del(s string) {
-	s = ignoreBlanksAndCase(s)
-	delete(h, s)
+func (h familyBlankMap) del(s String) {
+	ss := ignoreBlanksAndCase(string(s))
+	delete(h, ss)
 }
 
 // IgnoreCase
 type familyMap map[string]int
 
-func (h familyMap) lookup(s string) (int, bool) {
-	s = strings.ToLower(s)
-	e, ok := h[s]
+func (h familyMap) lookup(s String) (int, bool) {
+	ss := strings.ToLower(string(s))
+	e, ok := h[ss]
 	return e, ok
 }
 
-func (h familyMap) add(s string, v int) {
-	s = strings.ToLower(s)
-	h[s] = v
+func (h familyMap) add(s String, v int) {
+	ss := strings.ToLower(string(s))
+	h[ss] = v
 }
 
-func (h familyMap) del(s string) {
-	s = strings.ToLower(s)
-	delete(h, s)
+func (h familyMap) del(s String) {
+	ss := strings.ToLower(string(s))
+	delete(h, ss)
 }

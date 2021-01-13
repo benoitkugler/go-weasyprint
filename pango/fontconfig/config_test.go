@@ -65,7 +65,7 @@ func TestCacheDir(t *testing.T) {
 	config := NewFcConfig()
 	conf := fmt.Sprintf(tconf, fontdir, cachedir)
 
-	err = config.ParseAndLoadFromMemory([]byte(conf), os.Stdout)
+	err = config.ParseAndLoadFromMemory([]byte(conf))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -684,14 +684,14 @@ func langSetSubtract(a, b FcLangSet) FcLangSet {
 	return langSetOperate(a, b, (*FcLangSet).del)
 }
 
-func langSetPromote(lang string) FcLangSet {
+func langSetPromote(lang String) FcLangSet {
 	var ls FcLangSet
 	if lang != "" {
-		id := findLangIndex(lang)
+		id := findLangIndex(string(lang))
 		if id >= 0 {
 			ls.bitSet(id)
 		} else {
-			ls.extra = FcStrSet{lang: true}
+			ls.extra = FcStrSet{string(lang): true}
 		}
 	}
 	return ls

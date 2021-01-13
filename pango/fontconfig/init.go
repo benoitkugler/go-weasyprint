@@ -2,7 +2,6 @@ package fontconfig
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 )
@@ -42,7 +41,7 @@ func initFallbackConfig(sysroot string) *FcConfig {
 	config := NewFcConfig()
 	config.setSysRoot(sysroot)
 
-	_ = config.ParseAndLoadFromMemory([]byte(fallback), os.Stdout)
+	_ = config.ParseAndLoadFromMemory([]byte(fallback))
 
 	return config
 }
@@ -54,16 +53,19 @@ func initFallbackConfig(sysroot string) *FcConfig {
 //  }
 
 // Load the configuration files
-func initLoadOwnConfig(logger io.Writer) *FcConfig {
+func initLoadOwnConfig() (*FcConfig, error) {
 	config := NewFcConfig()
 
-	if err := config.parseConfig(logger, "", true); err != nil {
+	if err := config.parseConfig("", true); err != nil {
 		sysroot := config.getSysRoot()
 		fallback := initFallbackConfig(sysroot)
-		return fallback
+		return fallback, nil
 	}
 
-	_ = config.parseConfig(logger, FC_TEMPLATEDIR, false)
+	err := config.parseConfig(FC_TEMPLATEDIR, false)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(config.cacheDirs) == 0 {
 		//  FcChar8 *prefix, *p;
@@ -77,16 +79,16 @@ func initLoadOwnConfig(logger io.Writer) *FcConfig {
 		}
 
 		if !haveOwn {
-			fmt.Fprintf(logger, "fontconfig: no <cachedir> elements found. Check configuration.\n")
-			fmt.Fprintf(logger, "fontconfig: adding <cachedir>%s</cachedir>\n", FC_CACHEDIR)
+			fmt.Fprintf(os.Stderr, "fontconfig: no <cachedir> elements found. Check configuration.\n")
+			fmt.Fprintf(os.Stderr, "fontconfig: adding <cachedir>%s</cachedir>\n", FC_CACHEDIR)
 		}
 		prefix := xdgCacheHome()
 		if prefix == "" {
-			return initFallbackConfig(config.getSysRoot())
+			return initFallbackConfig(config.getSysRoot()), nil
 		}
 		prefix = filepath.Join(prefix, "fontconfig")
 		if !haveOwn {
-			fmt.Fprintf(logger, "fontconfig: adding <cachedir prefix=\"xdg\">fontconfig</cachedir>\n")
+			fmt.Fprintf(os.Stderr, "fontconfig: adding <cachedir prefix=\"xdg\">fontconfig</cachedir>\n")
 		}
 
 		err := config.addCacheDir(FC_CACHEDIR)
@@ -94,12 +96,11 @@ func initLoadOwnConfig(logger io.Writer) *FcConfig {
 			err = config.addCacheDir(prefix)
 		}
 		if err != nil {
-			fmt.Fprintf(logger, "fontconfig: %s", err)
-			return initFallbackConfig(config.getSysRoot())
+			return nil, err
 		}
 	}
 
-	return config
+	return config, nil
 }
 
 //  FcConfig *
@@ -110,10 +111,13 @@ func initLoadOwnConfig(logger io.Writer) *FcConfig {
 
 // Loads the default configuration file and builds information about the
 // available fonts.  Returns the resulting configuration.
-func initLoadConfigAndFonts(logger io.Writer) *FcConfig {
-	config := initLoadOwnConfig(logger)
+func initLoadConfigAndFonts() (*FcConfig, error) {
+	config, err := initLoadOwnConfig()
+	if err != nil {
+		return nil, err
+	}
 	config.FcConfigBuildFonts()
-	return config
+	return config, nil
 }
 
 //  /*
