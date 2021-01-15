@@ -8,16 +8,6 @@ import (
 
 // ported from fontconfig/src/fcinit.c Copyright © 2001 Keith Packard
 
-//  #if defined(FC_ATOMIC_INT_NIL)
-//  #pragma message("Could not find any system to define atomic_int macros, library may NOT be thread-safe.")
-//  #endif
-//  #if defined(FC_MUTEX_IMPL_NIL)
-//  #pragma message("Could not find any system to define mutex macros, library may NOT be thread-safe.")
-//  #endif
-//  #if defined(FC_ATOMIC_INT_NIL) || defined(FC_MUTEX_IMPL_NIL)
-//  #pragma message("To suppress these warnings, define FC_NO_MT.")
-//  #endif
-
 const (
 	CONFIGDIR        = "/usr/local/etc/fonts/conf.d"
 	FC_CACHEDIR      = "/var/local/cache/fontconfig"
@@ -45,12 +35,6 @@ func initFallbackConfig(sysroot string) *FcConfig {
 
 	return config
 }
-
-//  int
-//  FcGetVersion (void)
-//  {
-// 	 return FC_VERSION;
-//  }
 
 // Load the configuration files
 func initLoadOwnConfig() (*FcConfig, error) {

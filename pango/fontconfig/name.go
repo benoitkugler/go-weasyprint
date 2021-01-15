@@ -335,20 +335,6 @@ var baseConstants = [...]constant{
 	{"lcdlegacy", FC_LCD_FILTER, FC_LCD_LEGACY},
 }
 
-//  FcBool
-//  FcNameRegisterConstants (const FcConstant *consts, int nconsts)
-//  {
-// 	 /* Deprecated. */
-// 	 return false;
-//  }
-
-//  FcBool
-//  FcNameUnregisterConstants (const FcConstant *consts, int nconsts)
-//  {
-// 	 /* Deprecated. */
-// 	 return false;
-//  }
-
 func nameGetConstant(str string) *constant {
 	for i := range baseConstants {
 		if FcStrCmpIgnoreCase(str, baseConstants[i].name) == 0 {
@@ -366,11 +352,11 @@ func nameConstant(str String) (int, bool) {
 }
 
 // FcNameParse converts `name` from the standard text format described above into a pattern.
-func FcNameParse(name []byte) (*FcPattern, error) {
+func FcNameParse(name []byte) (FcPattern, error) {
 	var (
 		delim byte
 		save  string
-		pat   = FcPattern{elts: make(map[FcObject]FcValueList)}
+		pat   = NewFcPattern()
 	)
 
 	for {
@@ -425,7 +411,7 @@ func FcNameParse(name []byte) (*FcPattern, error) {
 		}
 	}
 
-	return &pat, nil
+	return pat, nil
 }
 
 func nameFindNext(cur []byte, delim string) (byte, []byte, string) {

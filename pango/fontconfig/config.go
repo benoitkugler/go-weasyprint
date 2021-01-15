@@ -203,7 +203,7 @@ func NewFcConfig() *FcConfig {
 // `pPat` is used for test; elements with target=pattern. Returns `false`
 // if the substitution cannot be performed.
 // If `config` is nil, the current configuration is used.
-func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMatchKind) bool {
+func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat FcPattern, kind FcMatchKind) bool {
 	if kind < FcMatchKindBegin || kind >= FcMatchKindEnd {
 		return false
 	}
@@ -219,7 +219,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 		lsund.add("und")
 
 		for lang := range strs {
-			e := p.elts[FC_LANG]
+			e := p[FC_LANG]
 
 			for _, ll := range e {
 				vvL := ll.value
@@ -272,7 +272,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 	data := newFamilyTable(p)
 
 	var (
-		m     *FcPattern
+		m     FcPattern
 		table = &data
 	)
 	for _, rs := range s {
@@ -304,7 +304,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 					}
 					var e FcValueList
 					if m != nil {
-						e = m.elts[r.object]
+						e = m[r.object]
 					}
 					object := r.object
 					// different 'kind' won't be the target of edit
@@ -346,7 +346,7 @@ func (config *FcConfig) FcConfigSubstituteWithPat(p, pPat *FcPattern, kind FcMat
 					// Evaluate the list of expressions
 					l := r.expr.FcConfigValues(p, pPat, kind, r.binding)
 					if tst[object] != nil && (tst[object].kind == FcMatchFont || kind == FcMatchPattern) {
-						elt[object] = p.elts[tst[object].object]
+						elt[object] = p[tst[object].object]
 					}
 
 					switch r.op.getOp() {
@@ -439,6 +439,7 @@ func (config *FcConfig) addDirList(set FcSetName, dirSet FcStrSet) {
 	// FcChar8	    *dir;
 	// FcCache	    *cache;
 
+	// TODO: take care of the side effect of ading sub directories
 	for dir := range dirSet {
 		if debugMode {
 			fmt.Printf("adding fonts from %s\n", dir)
@@ -559,7 +560,7 @@ func (config *FcConfig) globAdd(glob string, accept bool) {
 	set[glob] = true
 }
 
-func (config *FcConfig) patternsAdd(pattern *FcPattern, accept bool) {
+func (config *FcConfig) patternsAdd(pattern FcPattern, accept bool) {
 	set := &config.rejectPatterns
 	if accept {
 		set = &config.acceptPatterns
@@ -567,7 +568,7 @@ func (config *FcConfig) patternsAdd(pattern *FcPattern, accept bool) {
 	*set = append(*set, pattern)
 }
 
-func (config *FcConfig) FcConfigSubstitute(p *FcPattern, kind FcMatchKind) bool {
+func (config *FcConfig) FcConfigSubstitute(p FcPattern, kind FcMatchKind) bool {
 	return config.FcConfigSubstituteWithPat(p, nil, kind)
 }
 
@@ -1277,13 +1278,13 @@ type FamilyTable struct {
 	family_hash       familyMap
 }
 
-func newFamilyTable(p *FcPattern) FamilyTable {
+func newFamilyTable(p FcPattern) FamilyTable {
 	table := FamilyTable{
 		family_blank_hash: make(familyBlankMap),
 		family_hash:       make(familyMap),
 	}
 
-	e := p.elts[FC_FAMILY]
+	e := p[FC_FAMILY]
 	table.add(e)
 	return table
 }
@@ -1345,7 +1346,7 @@ func (table FamilyTable) del(s String) {
 // }
 
 // return the index into values, or -1
-func matchValueList(p, pPat *FcPattern, kind FcMatchKind,
+func matchValueList(p, pPat FcPattern, kind FcMatchKind,
 	t FcTest, values FcValueList, table *FamilyTable) int {
 
 	var (

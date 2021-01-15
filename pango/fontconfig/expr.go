@@ -209,7 +209,7 @@ func (exprTree) isExpr()     {}
 func (FcTest) isExpr()       {}
 func (FcEdit) isExpr()       {}
 func (*FcExpr) isExpr()      {}
-func (*FcPattern) isExpr()   {}
+func (FcPattern) isExpr()    {}
 
 // union {
 // int		ival;
@@ -276,7 +276,7 @@ func (expr *FcExpr) String() string {
 	}
 }
 
-func (e *FcExpr) FcConfigEvaluate(p, p_pat *FcPattern, kind FcMatchKind) FcValue {
+func (e *FcExpr) FcConfigEvaluate(p, p_pat FcPattern, kind FcMatchKind) FcValue {
 	var v FcValue
 	op := e.op.getOp()
 	switch op {
@@ -749,7 +749,7 @@ func FcConfigCompareValue(left_o FcValue, op FcOp, right_o FcValue) bool {
 	return ret
 }
 
-func (e *FcExpr) FcConfigValues(p, p_pat *FcPattern, kind FcMatchKind, binding FcValueBinding) FcValueList {
+func (e *FcExpr) FcConfigValues(p, p_pat FcPattern, kind FcMatchKind, binding FcValueBinding) FcValueList {
 	if e == nil {
 		return nil
 	}

@@ -21,9 +21,12 @@ type charPage [8]uint32
 const maxCharsetRune = 0xFFFFFF
 
 // FcCharset is a compact rune set.
-// Each rune is mapped to a page number, defined by
-// it second and third bytes. For each page number,
-// a `charPage` is allocated.
+//
+// Its internal representation is composed of a variable
+// number of 'pages', where each page is a boolean
+// set of size 256, encoding the last byte of a rune.
+// Each rune is then mapped to a page number, defined by
+// it second and third bytes.
 type FcCharset struct {
 	// sorted list of the pages
 	pageNumbers []uint16

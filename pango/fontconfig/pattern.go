@@ -13,29 +13,21 @@ import (
 // well as holding information about specific fonts. Each property can hold
 // one or more values; conventionally all of the same type, although the
 // interface doesn't demand that.
-//
-// We use a very simple implementation: the C code is more refined,
-// using a sorted list of (FcObject,FcValueList) pairs.
-type FcPattern struct {
-	elts map[FcObject]FcValueList
-}
+type FcPattern map[FcObject]FcValueList
 
 // NewFcPattern returns an empty, initalized pattern
-func NewFcPattern() *FcPattern {
-	return &FcPattern{elts: make(map[FcObject]FcValueList)}
+func NewFcPattern() FcPattern {
+	return make(map[FcObject]FcValueList)
 }
 
 // Duplicate returns a new pattern that matches
 // `p`. Each pattern may be modified without affecting the other.
-func (p *FcPattern) Duplicate() *FcPattern {
-	if p == nil {
-		return nil
+func (p FcPattern) Duplicate() FcPattern {
+	out := make(FcPattern, len(p))
+	for o, l := range p {
+		out[o] = l.duplicate()
 	}
-	out := FcPattern{elts: make(map[FcObject]FcValueList, len(p.elts))}
-	for o, l := range p.elts {
-		out.elts[o] = l.duplicate()
-	}
-	return &out
+	return out
 }
 
 // Add adds the given value for the given object, with a strong binding.
@@ -81,20 +73,20 @@ func (p FcPattern) AddList(object FcObject, list FcValueList, appendMode bool) {
 		}
 	}
 
-	e := p.elts[object]
+	e := p[object]
 	if appendMode {
 		e = append(e, list...)
 	} else {
 		e = e.prepend(list...)
 	}
-	p.elts[object] = e
+	p[object] = e
 }
 
-func (p FcPattern) del(obj FcObject) { delete(p.elts, obj) }
+func (p FcPattern) del(obj FcObject) { delete(p, obj) }
 
 func (p FcPattern) sortedKeys() []FcObject {
-	keys := make([]FcObject, 0, len(p.elts))
-	for r := range p.elts {
+	keys := make([]FcObject, 0, len(p))
+	for r := range p {
 		keys = append(keys, r)
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
@@ -107,7 +99,7 @@ func (p FcPattern) sortedKeys() []FcObject {
 func (p FcPattern) Hash() string {
 	var hash []byte
 	for _, object := range p.sortedKeys() {
-		v := p.elts[object]
+		v := p[object]
 		hash = append(append(hash, byte(object), ':'), v.Hash()...)
 	}
 	return string(hash)
@@ -115,20 +107,17 @@ func (p FcPattern) Hash() string {
 
 // String returns a human friendly representation,
 // mainly used for debugging.
-func (p *FcPattern) String() string {
-	if p == nil {
-		return "Nil pattern"
-	}
-	s := fmt.Sprintf("%d elements pattern:\n", len(p.elts))
+func (p FcPattern) String() string {
+	s := fmt.Sprintf("%d elements pattern:\n", len(p))
 
-	for obj, vs := range p.elts {
+	for obj, vs := range p {
 		s += fmt.Sprintf("\t%s: %v\n", obj, vs)
 	}
 	return s
 }
 
 func (p FcPattern) FcPatternObjectGet(object FcObject, id int) (FcValue, FcResult) {
-	e := p.elts[object]
+	e := p[object]
 	if e == nil {
 		return nil, FcResultNoMatch
 	}
@@ -175,15 +164,15 @@ func (p FcPattern) FcPatternObjectGetCharSet(object FcObject, id int) (FcCharset
 }
 
 // Add all of the elements in 's' to 'p'
-func (p *FcPattern) append(s *FcPattern) {
-	for object, list := range s.elts {
+func (p FcPattern) append(s FcPattern) {
+	for object, list := range s {
 		for _, v := range list {
 			p.addWithBinding(object, v.value, v.binding, true)
 		}
 	}
 }
 
-func (pat *FcPattern) addFullname() bool {
+func (pat FcPattern) addFullname() bool {
 	b, res := pat.FcPatternObjectGetBool(FC_VARIABLE, 0)
 	if res == FcResultMatch && b != FcFalse {
 		return true
@@ -246,23 +235,23 @@ type PatternElement struct {
 }
 
 // TODO: check the pointer types in values
-func FcPatternBuild(elements ...PatternElement) *FcPattern {
-	p := FcPattern{elts: make(map[FcObject]FcValueList, len(elements))}
+func FcPatternBuild(elements ...PatternElement) FcPattern {
+	p := make(FcPattern, len(elements))
 	for _, el := range elements {
 		p.Add(el.Object, el.Value, true)
 	}
-	return &p
+	return p
 }
 
-func (p *FcPattern) FcConfigPatternAdd(object FcObject, list FcValueList, append bool, table *FamilyTable) {
-	e := p.elts[object]
+func (p FcPattern) FcConfigPatternAdd(object FcObject, list FcValueList, append bool, table *FamilyTable) {
+	e := p[object]
 	e.insert(-1, append, list, object, table)
-	p.elts[object] = e
+	p[object] = e
 }
 
 // Delete all values associated with a field
-func (p *FcPattern) FcConfigPatternDel(object FcObject, table *FamilyTable) {
-	e := p.elts[object]
+func (p FcPattern) FcConfigPatternDel(object FcObject, table *FamilyTable) {
+	e := p[object]
 
 	if object == FC_FAMILY && table != nil {
 		for _, v := range e {
@@ -270,13 +259,13 @@ func (p *FcPattern) FcConfigPatternDel(object FcObject, table *FamilyTable) {
 		}
 	}
 
-	delete(p.elts, object)
+	delete(p, object)
 }
 
 // remove the empty lists
-func (p *FcPattern) canon(object FcObject) {
-	e := p.elts[object]
+func (p FcPattern) canon(object FcObject) {
+	e := p[object]
 	if len(e) == 0 {
-		delete(p.elts, object)
+		delete(p, object)
 	}
 }

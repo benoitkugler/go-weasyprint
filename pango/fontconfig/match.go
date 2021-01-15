@@ -570,10 +570,10 @@ done:
 
 type FcCompareData = blankCaseMap
 
-func (pat *FcPattern) newCompareData() FcCompareData {
+func (pat FcPattern) newCompareData() FcCompareData {
 	table := make(blankCaseMap)
 
-	elt := pat.elts[FC_FAMILY]
+	elt := pat[FC_FAMILY]
 	for i, l := range elt {
 		key := string(l.hash()) // l must have type string, but we are cautious
 		e, ok := table.lookup(key)
@@ -619,14 +619,14 @@ func (table blankCaseMap) FcCompareFamilies(v2orig FcValueList, value []float64)
 }
 
 // compare returns a value indicating the distance between the two lists of values
-func (data FcCompareData) compare(pat, fnt *FcPattern, value []float64) (bool, FcResult) {
+func (data FcCompareData) compare(pat, fnt FcPattern, value []float64) (bool, FcResult) {
 	for i := range value {
 		value[i] = 0.0
 	}
 
 	var result FcResult
-	for i1, elt_i1 := range pat.elts {
-		elt_i2, ok := fnt.elts[i1]
+	for i1, elt_i1 := range pat {
+		elt_i2, ok := fnt[i1]
 		if !ok {
 			continue
 		}
@@ -649,7 +649,7 @@ func (data FcCompareData) compare(pat, fnt *FcPattern, value []float64) (bool, F
 // value from `pat` for elements appearing in both.  The result is passed to
 // FcConfigSubstituteWithPat with `kind` FcMatchFont and then returned. As in `FcConfigSubstituteWithPat`,
 // a nil config may be used, defaulting to the current configuration.
-func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *FcPattern {
+func (pat FcPattern) FcFontRenderPrepare(font FcPattern, config *FcConfig) FcPattern {
 	//  FcPattern	    *new;
 	//  int		    i;
 	//  FcPatternElt    *fe, *pe;
@@ -661,10 +661,10 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 
 	variable, _ := font.FcPatternObjectGetBool(FC_VARIABLE, 0)
 
-	new := FcPattern{elts: make(map[FcObject]FcValueList)}
+	new := NewFcPattern()
 
 	for _, obj := range font.sortedKeys() {
-		fe := font.elts[obj]
+		fe := font[obj]
 		if obj == FC_FAMILYLANG || obj == FC_STYLELANG || obj == FC_FULLNAMELANG {
 			// ignore those objects. we need to deal with them another way
 			continue
@@ -673,7 +673,7 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 			// using the fact that FC_FAMILY + 1 == FC_FAMILYLANG,
 			// FC_STYLE + 1 == FC_STYLELANG,  FC_FULLNAME + 1 == FC_FULLNAMELANG
 			lObject := obj + 1
-			fel, pel := font.elts[lObject], pat.elts[lObject]
+			fel, pel := font[lObject], pat[lObject]
 
 			if fel != nil && pel != nil {
 				// The font has name languages, and pattern asks for specific language(s).
@@ -723,7 +723,7 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 			}
 		}
 
-		pe := pat.elts[obj]
+		pe := pat[obj]
 		if pe != nil {
 			match := obj.toMatcher(false)
 			var ok bool
@@ -759,8 +759,8 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 		}
 	}
 	for _, obj := range pat.sortedKeys() {
-		pe := pat.elts[obj]
-		fe := font.elts[obj]
+		pe := pat[obj]
+		fe := font[obj]
 		if fe == nil &&
 			obj != FC_FAMILYLANG && obj != FC_STYLELANG && obj != FC_FULLNAMELANG {
 			new.AddList(obj, pe.duplicate(), false)
@@ -777,14 +777,14 @@ func (pat *FcPattern) FcFontRenderPrepare(font *FcPattern, config *FcConfig) *Fc
 		new.Add(FC_FONT_VARIATIONS, String(variations.String()), true)
 	}
 
-	config.FcConfigSubstituteWithPat(&new, pat, FcMatchFont)
-	return &new
+	config.FcConfigSubstituteWithPat(new, pat, FcMatchFont)
+	return new
 }
 
-func (p *FcPattern) fontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult) {
+func (p FcPattern) fontSetMatchInternal(sets []FcFontSet) (FcPattern, FcResult) {
 	var (
 		score, bestscore [PRI_END]float64
-		best             *FcPattern
+		best             FcPattern
 		result           FcResult
 	)
 
@@ -849,7 +849,7 @@ func (p *FcPattern) fontSetMatchInternal(sets []FcFontSet) (*FcPattern, FcResult
 // by the return value from multiple FcFontSort calls, applications cannot
 // modify these patterns. Instead, they should be passed, along with
 // `pattern` to FcFontRenderPrepare() which combines them into a complete pattern.
-func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcCharset, FcResult) {
+func FcFontSetSort(sets []FcFontSet, p FcPattern, trim bool) (FcFontSet, FcCharset, FcResult) {
 	//  assert (p != nil);
 
 	// There are some implementation that relying on the result of
@@ -977,7 +977,7 @@ func FcFontSetSort(sets []FcFontSet, p *FcPattern, trim bool) (FcFontSet, FcChar
 // `FcConfigSubstitute` and  `FcDefaultSubstitute` have been called for
 // `p`; otherwise the results will not be correct.
 // If `config` is nil, the current configuration is used.
-func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
+func (config *FcConfig) FcFontMatch(p FcPattern) (FcPattern, FcResult) {
 	config = fallbackConfig(config)
 	if config == nil {
 		return nil, FcResultNoMatch
@@ -991,7 +991,7 @@ func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
 		sets = append(sets, config.fonts[FcSetApplication])
 	}
 
-	var ret *FcPattern
+	var ret FcPattern
 	best, result := p.fontSetMatchInternal(sets)
 	if best != nil {
 		ret = p.FcFontRenderPrepare(best, config)
@@ -1001,7 +1001,7 @@ func (config *FcConfig) FcFontMatch(p *FcPattern) (*FcPattern, FcResult) {
 }
 
 type FcSortNode struct {
-	pattern *FcPattern
+	pattern FcPattern
 	score   [PRI_END]float64
 }
 
@@ -1054,7 +1054,7 @@ func FcSortWalk(n []*FcSortNode, fs *FcFontSet, trim bool) FcCharset {
 
 //  FcFontSet *
 //  FcFontSort (config *FcConfig,
-// 		 p *FcPattern,
+// 		 p FcPattern,
 // 		 FcBool	trim,
 // 		 FcCharset	**csp,
 // 		 result *FcResult)

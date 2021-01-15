@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func test(query string, expect *FcPattern) error {
+func test(query string, expect FcPattern) error {
 	pat, err := FcNameParse([]byte(query))
 	if err != nil {
 		return err
@@ -17,7 +17,7 @@ func test(query string, expect *FcPattern) error {
 }
 
 func TestParseName(t *testing.T) {
-	var expect *FcPattern
+	var expect FcPattern
 
 	expect = NewFcPattern()
 	expect.Add(FC_FAMILY, String("sans-serif"), true)

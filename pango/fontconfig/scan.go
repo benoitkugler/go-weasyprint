@@ -11,6 +11,13 @@ import (
 	"github.com/benoitkugler/fonts/bitmap"
 	"github.com/benoitkugler/fonts/truetype"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/encoding/korean"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/encoding/traditionalchinese"
+	"golang.org/x/text/encoding/unicode"
 )
 
 // ported from fontconfig/src/fcdir.c and fcfreetype.c   2000 Keith Packard
@@ -18,14 +25,14 @@ import (
 func scanFontConfig(set *FcFontSet, file string, config *FcConfig) bool {
 	// int		i;
 	// FcBool	ret = true;
-	// int		old_nfont = set.nfont;
+	oldNfont := len(*set)
 	sysroot := config.getSysRoot()
 
 	if debugMode {
 		fmt.Printf("\tScanning file %s...", file)
 	}
 
-	if _, ok := FcFreeTypeQueryAll(file, -1, set); !ok {
+	if _, added := FcFreeTypeQueryAll(file, set); added == 0 {
 		return false
 	}
 
@@ -34,8 +41,7 @@ func scanFontConfig(set *FcFontSet, file string, config *FcConfig) bool {
 	}
 
 	ret := true
-	for _, font := range *set {
-
+	for _, font := range (*set)[oldNfont:] {
 		/*
 		 * Get rid of sysroot here so that targeting scan rule may contains FC_FILE pattern
 		 * and they should usually expect without sysroot.
@@ -82,42 +88,83 @@ func FcFileScanConfig(set *FcFontSet, dirs FcStrSet, file string, config *FcConf
 }
 
 // TODO:
-func FcFreeTypeQueryAll(file string, id int, set *FcFontSet) (int, bool) {
-	return 0, false
-}
+// Constructs patterns found in 'file', adding all the patterns found in 'file' to 'set'.
+// The number of faces in 'file' is returned, as well as the number of patterns added to 'set'.
+func FcFreeTypeQueryAll(file string, set *FcFontSet) (nbFaces, nbPatterns int) {
+	var (
+		index_set    = false
+		instance_num int
+		mm_var       *FT_MM_Var
+	)
 
-//  typedef struct {
-// 	 const FT_UShort	PlatformID;
-// 	 const FT_UShort	EncodingID;
-// 	 const char	fromcode[12];
-//  } FcFtEncoding;
+	ftLibrary, err := FT_Init_FreeType()
+	if err != nil {
+		return nbFaces, 0
+	}
 
-//  #define TT_ENCODING_DONT_CARE	0xffff
-//  #define FC_ENCODING_MAC_ROMAN	"MACINTOSH"
+	face, err := FT_New_Face(ftLibrary, file, 0)
+	if err != nil {
+		return nbFaces, 0
+	}
 
-//  static const FcFtEncoding   fcFtEncoding[] = {
-//   {  TT_PLATFORM_APPLE_UNICODE,	TT_ENCODING_DONT_CARE,	"UTF-16BE" },
-//   {  truetype.PlatformMac,	TT_MAC_ID_ROMAN,	"MACINTOSH" },
-//   {  truetype.PlatformMac,	TT_MAC_ID_JAPANESE,	"SJIS" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_SYMBOL_CS,	"UTF-16BE" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_UNICODE_CS,	"UTF-16BE" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_SJIS,		"SJIS-WIN" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_GB2312,	"GB2312" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_BIG_5,		"BIG-5" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_WANSUNG,	"Wansung" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_JOHAB,		"Johab" },
-//   {  truetype.PlatformMicrosoft,	TT_MS_ID_UCS_4,		"UTF-16BE" },
-//   {  TT_PLATFORM_ISO,		TT_ISO_ID_7BIT_ASCII,	"ASCII" },
-//   {  TT_PLATFORM_ISO,		TT_ISO_ID_10646,	"UTF-16BE" },
-//   {  TT_PLATFORM_ISO,		TT_ISO_ID_8859_1,	"ISO-8859-1" },
-//  };
+	nbFaces = face.num_faces
+	num_instances := face.style_flags >> 16
+	if num_instances {
+		mm_var = FT_Get_MM_Var(face)
+		if mm_var == nil {
+			num_instances = 0
+		}
+	}
 
-//  #define NUM_FC_FT_ENCODING  (int) (sizeof (fcFtEncoding) / sizeof (fcFtEncoding[0]))
+	for face_num := 0; face_num < nbFaces; {
+		if instance_num == 0x8000 || instance_num > num_instances {
+			FT_Set_Var_Design_Coordinates(face, 0, nil) /* Reset variations. */
+		} else if instance_num != 0 {
+			instance := &mm_var.namedstyle[instance_num-1]
+			coords := instance.coords
 
-type FcFtLanguage struct {
-	PlatformID truetype.PlatformID
-	LanguageID truetype.PlatformLanguageID
-	lang       string
+			// skip named-instance that coincides with base instance.
+			nonzero := false
+			for i, axis := range mm_var.axis {
+				if coords[i] != axis.def {
+					nonzero = true
+					break
+				}
+			}
+			if !nonzero {
+				goto skip
+			}
+
+			FT_Set_Var_Design_Coordinates(face, len(mm_var.axis), coords)
+		}
+
+		id := ((instance_num << 16) + face_num)
+		pat, nm, cs, ls := queryFace(face, file, id)
+
+		if pat != nil {
+			nbPatterns++
+			*set = append(*set, pat)
+		} else if instance_num != 0x8000 {
+			break
+		}
+
+	skip:
+		if !index_set && instance_num < num_instances {
+			instance_num++
+		} else if !index_set && instance_num == num_instances {
+			instance_num = 0x8000 /* variable font */
+		} else {
+			face_num++
+			instance_num = 0
+
+			face, err = FT_New_Face(ftLibrary, file, face_num)
+			if err != nil {
+				break
+			}
+		}
+	}
+
+	return nbFaces, nbPatterns
 }
 
 const TT_LANGUAGE_DONT_CARE = 0xffff
@@ -503,7 +550,11 @@ const (
 	TT_MS_LANGID_PAPIAMENTU_NETHERLANDS_ANTILLES = 0x0479
 )
 
-var fcFtLanguage = [...]FcFtLanguage{
+var fcFtLanguage = [...]struct {
+	PlatformID truetype.PlatformID
+	LanguageID truetype.PlatformLanguageID
+	lang       string
+}{
 	{truetype.PlatformUnicode, TT_LANGUAGE_DONT_CARE, ""},
 	{truetype.PlatformMac, TT_MAC_LANGID_ENGLISH, "en"},
 	{truetype.PlatformMac, TT_MAC_LANGID_FRENCH, "fr"},
@@ -874,16 +925,6 @@ var fcFtLanguage = [...]FcFtLanguage{
 	{truetype.PlatformMicrosoft, TT_MS_LANGID_PAPIAMENTU_NETHERLANDS_ANTILLES, "pap"},
 }
 
-//  typedef struct {
-// 	 FT_UShort	LanguageID;
-// 	 char	fromcode[12];
-//  } FcMacRomanFake;
-
-//  static const FcMacRomanFake fcMacRomanFake[] = {
-//   {  TT_MS_LANGID_JAPANESE_JAPAN,	"SJIS-WIN" },
-//   {  TT_MS_LANGID_ENGLISH_UNITED_STATES,	"ASCII" },
-//  };
-
 //  static FcChar8 *
 //  fontCapabilities(FT_Face face);
 
@@ -895,141 +936,51 @@ var fcFtLanguage = [...]FcFtLanguage{
 
 //   NUM_FC_MAC_ROMAN_FAKE	(int) (sizeof (fcMacRomanFake) / sizeof (fcMacRomanFake[0]))
 
-//  /* From http://www.unicode.org/Public/MAPPINGS/VENDORS/APPLE/ROMAN.TXT */
-//  static const FcChar16 fcMacRomanNonASCIIToUnicode[128] = {
-//    /*0x80*/ 0x00C4, /* LATIN CAPITAL LETTER A WITH DIAERESIS */
-//    /*0x81*/ 0x00C5, /* LATIN CAPITAL LETTER A WITH RING ABOVE */
-//    /*0x82*/ 0x00C7, /* LATIN CAPITAL LETTER C WITH CEDILLA */
-//    /*0x83*/ 0x00C9, /* LATIN CAPITAL LETTER E WITH ACUTE */
-//    /*0x84*/ 0x00D1, /* LATIN CAPITAL LETTER N WITH TILDE */
-//    /*0x85*/ 0x00D6, /* LATIN CAPITAL LETTER O WITH DIAERESIS */
-//    /*0x86*/ 0x00DC, /* LATIN CAPITAL LETTER U WITH DIAERESIS */
-//    /*0x87*/ 0x00E1, /* LATIN SMALL LETTER A WITH ACUTE */
-//    /*0x88*/ 0x00E0, /* LATIN SMALL LETTER A WITH GRAVE */
-//    /*0x89*/ 0x00E2, /* LATIN SMALL LETTER A WITH CIRCUMFLEX */
-//    /*0x8A*/ 0x00E4, /* LATIN SMALL LETTER A WITH DIAERESIS */
-//    /*0x8B*/ 0x00E3, /* LATIN SMALL LETTER A WITH TILDE */
-//    /*0x8C*/ 0x00E5, /* LATIN SMALL LETTER A WITH RING ABOVE */
-//    /*0x8D*/ 0x00E7, /* LATIN SMALL LETTER C WITH CEDILLA */
-//    /*0x8E*/ 0x00E9, /* LATIN SMALL LETTER E WITH ACUTE */
-//    /*0x8F*/ 0x00E8, /* LATIN SMALL LETTER E WITH GRAVE */
-//    /*0x90*/ 0x00EA, /* LATIN SMALL LETTER E WITH CIRCUMFLEX */
-//    /*0x91*/ 0x00EB, /* LATIN SMALL LETTER E WITH DIAERESIS */
-//    /*0x92*/ 0x00ED, /* LATIN SMALL LETTER I WITH ACUTE */
-//    /*0x93*/ 0x00EC, /* LATIN SMALL LETTER I WITH GRAVE */
-//    /*0x94*/ 0x00EE, /* LATIN SMALL LETTER I WITH CIRCUMFLEX */
-//    /*0x95*/ 0x00EF, /* LATIN SMALL LETTER I WITH DIAERESIS */
-//    /*0x96*/ 0x00F1, /* LATIN SMALL LETTER N WITH TILDE */
-//    /*0x97*/ 0x00F3, /* LATIN SMALL LETTER O WITH ACUTE */
-//    /*0x98*/ 0x00F2, /* LATIN SMALL LETTER O WITH GRAVE */
-//    /*0x99*/ 0x00F4, /* LATIN SMALL LETTER O WITH CIRCUMFLEX */
-//    /*0x9A*/ 0x00F6, /* LATIN SMALL LETTER O WITH DIAERESIS */
-//    /*0x9B*/ 0x00F5, /* LATIN SMALL LETTER O WITH TILDE */
-//    /*0x9C*/ 0x00FA, /* LATIN SMALL LETTER U WITH ACUTE */
-//    /*0x9D*/ 0x00F9, /* LATIN SMALL LETTER U WITH GRAVE */
-//    /*0x9E*/ 0x00FB, /* LATIN SMALL LETTER U WITH CIRCUMFLEX */
-//    /*0x9F*/ 0x00FC, /* LATIN SMALL LETTER U WITH DIAERESIS */
-//    /*0xA0*/ 0x2020, /* DAGGER */
-//    /*0xA1*/ 0x00B0, /* DEGREE SIGN */
-//    /*0xA2*/ 0x00A2, /* CENT SIGN */
-//    /*0xA3*/ 0x00A3, /* POUND SIGN */
-//    /*0xA4*/ 0x00A7, /* SECTION SIGN */
-//    /*0xA5*/ 0x2022, /* BULLET */
-//    /*0xA6*/ 0x00B6, /* PILCROW SIGN */
-//    /*0xA7*/ 0x00DF, /* LATIN SMALL LETTER SHARP S */
-//    /*0xA8*/ 0x00AE, /* REGISTERED SIGN */
-//    /*0xA9*/ 0x00A9, /* COPYRIGHT SIGN */
-//    /*0xAA*/ 0x2122, /* TRADE MARK SIGN */
-//    /*0xAB*/ 0x00B4, /* ACUTE ACCENT */
-//    /*0xAC*/ 0x00A8, /* DIAERESIS */
-//    /*0xAD*/ 0x2260, /* NOT EQUAL TO */
-//    /*0xAE*/ 0x00C6, /* LATIN CAPITAL LETTER AE */
-//    /*0xAF*/ 0x00D8, /* LATIN CAPITAL LETTER O WITH STROKE */
-//    /*0xB0*/ 0x221E, /* INFINITY */
-//    /*0xB1*/ 0x00B1, /* PLUS-MINUS SIGN */
-//    /*0xB2*/ 0x2264, /* LESS-THAN OR EQUAL TO */
-//    /*0xB3*/ 0x2265, /* GREATER-THAN OR EQUAL TO */
-//    /*0xB4*/ 0x00A5, /* YEN SIGN */
-//    /*0xB5*/ 0x00B5, /* MICRO SIGN */
-//    /*0xB6*/ 0x2202, /* PARTIAL DIFFERENTIAL */
-//    /*0xB7*/ 0x2211, /* N-ARY SUMMATION */
-//    /*0xB8*/ 0x220F, /* N-ARY PRODUCT */
-//    /*0xB9*/ 0x03C0, /* GREEK SMALL LETTER PI */
-//    /*0xBA*/ 0x222B, /* INTEGRAL */
-//    /*0xBB*/ 0x00AA, /* FEMININE ORDINAL INDICATOR */
-//    /*0xBC*/ 0x00BA, /* MASCULINE ORDINAL INDICATOR */
-//    /*0xBD*/ 0x03A9, /* GREEK CAPITAL LETTER OMEGA */
-//    /*0xBE*/ 0x00E6, /* LATIN SMALL LETTER AE */
-//    /*0xBF*/ 0x00F8, /* LATIN SMALL LETTER O WITH STROKE */
-//    /*0xC0*/ 0x00BF, /* INVERTED QUESTION MARK */
-//    /*0xC1*/ 0x00A1, /* INVERTED EXCLAMATION MARK */
-//    /*0xC2*/ 0x00AC, /* NOT SIGN */
-//    /*0xC3*/ 0x221A, /* SQUARE ROOT */
-//    /*0xC4*/ 0x0192, /* LATIN SMALL LETTER F WITH HOOK */
-//    /*0xC5*/ 0x2248, /* ALMOST EQUAL TO */
-//    /*0xC6*/ 0x2206, /* INCREMENT */
-//    /*0xC7*/ 0x00AB, /* LEFT-POINTING DOUBLE ANGLE QUOTATION MARK */
-//    /*0xC8*/ 0x00BB, /* RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK */
-//    /*0xC9*/ 0x2026, /* HORIZONTAL ELLIPSIS */
-//    /*0xCA*/ 0x00A0, /* NO-BREAK SPACE */
-//    /*0xCB*/ 0x00C0, /* LATIN CAPITAL LETTER A WITH GRAVE */
-//    /*0xCC*/ 0x00C3, /* LATIN CAPITAL LETTER A WITH TILDE */
-//    /*0xCD*/ 0x00D5, /* LATIN CAPITAL LETTER O WITH TILDE */
-//    /*0xCE*/ 0x0152, /* LATIN CAPITAL LIGATURE OE */
-//    /*0xCF*/ 0x0153, /* LATIN SMALL LIGATURE OE */
-//    /*0xD0*/ 0x2013, /* EN DASH */
-//    /*0xD1*/ 0x2014, /* EM DASH */
-//    /*0xD2*/ 0x201C, /* LEFT DOUBLE QUOTATION MARK */
-//    /*0xD3*/ 0x201D, /* RIGHT DOUBLE QUOTATION MARK */
-//    /*0xD4*/ 0x2018, /* LEFT SINGLE QUOTATION MARK */
-//    /*0xD5*/ 0x2019, /* RIGHT SINGLE QUOTATION MARK */
-//    /*0xD6*/ 0x00F7, /* DIVISION SIGN */
-//    /*0xD7*/ 0x25CA, /* LOZENGE */
-//    /*0xD8*/ 0x00FF, /* LATIN SMALL LETTER Y WITH DIAERESIS */
-//    /*0xD9*/ 0x0178, /* LATIN CAPITAL LETTER Y WITH DIAERESIS */
-//    /*0xDA*/ 0x2044, /* FRACTION SLASH */
-//    /*0xDB*/ 0x20AC, /* EURO SIGN */
-//    /*0xDC*/ 0x2039, /* SINGLE LEFT-POINTING ANGLE QUOTATION MARK */
-//    /*0xDD*/ 0x203A, /* SINGLE RIGHT-POINTING ANGLE QUOTATION MARK */
-//    /*0xDE*/ 0xFB01, /* LATIN SMALL LIGATURE FI */
-//    /*0xDF*/ 0xFB02, /* LATIN SMALL LIGATURE FL */
-//    /*0xE0*/ 0x2021, /* DOUBLE DAGGER */
-//    /*0xE1*/ 0x00B7, /* MIDDLE DOT */
-//    /*0xE2*/ 0x201A, /* SINGLE LOW-9 QUOTATION MARK */
-//    /*0xE3*/ 0x201E, /* DOUBLE LOW-9 QUOTATION MARK */
-//    /*0xE4*/ 0x2030, /* PER MILLE SIGN */
-//    /*0xE5*/ 0x00C2, /* LATIN CAPITAL LETTER A WITH CIRCUMFLEX */
-//    /*0xE6*/ 0x00CA, /* LATIN CAPITAL LETTER E WITH CIRCUMFLEX */
-//    /*0xE7*/ 0x00C1, /* LATIN CAPITAL LETTER A WITH ACUTE */
-//    /*0xE8*/ 0x00CB, /* LATIN CAPITAL LETTER E WITH DIAERESIS */
-//    /*0xE9*/ 0x00C8, /* LATIN CAPITAL LETTER E WITH GRAVE */
-//    /*0xEA*/ 0x00CD, /* LATIN CAPITAL LETTER I WITH ACUTE */
-//    /*0xEB*/ 0x00CE, /* LATIN CAPITAL LETTER I WITH CIRCUMFLEX */
-//    /*0xEC*/ 0x00CF, /* LATIN CAPITAL LETTER I WITH DIAERESIS */
-//    /*0xED*/ 0x00CC, /* LATIN CAPITAL LETTER I WITH GRAVE */
-//    /*0xEE*/ 0x00D3, /* LATIN CAPITAL LETTER O WITH ACUTE */
-//    /*0xEF*/ 0x00D4, /* LATIN CAPITAL LETTER O WITH CIRCUMFLEX */
-//    /*0xF0*/ 0xF8FF, /* Apple logo */
-//    /*0xF1*/ 0x00D2, /* LATIN CAPITAL LETTER O WITH GRAVE */
-//    /*0xF2*/ 0x00DA, /* LATIN CAPITAL LETTER U WITH ACUTE */
-//    /*0xF3*/ 0x00DB, /* LATIN CAPITAL LETTER U WITH CIRCUMFLEX */
-//    /*0xF4*/ 0x00D9, /* LATIN CAPITAL LETTER U WITH GRAVE */
-//    /*0xF5*/ 0x0131, /* LATIN SMALL LETTER DOTLESS I */
-//    /*0xF6*/ 0x02C6, /* MODIFIER LETTER CIRCUMFLEX ACCENT */
-//    /*0xF7*/ 0x02DC, /* SMALL TILDE */
-//    /*0xF8*/ 0x00AF, /* MACRON */
-//    /*0xF9*/ 0x02D8, /* BREVE */
-//    /*0xFA*/ 0x02D9, /* DOT ABOVE */
-//    /*0xFB*/ 0x02DA, /* RING ABOVE */
-//    /*0xFC*/ 0x00B8, /* CEDILLA */
-//    /*0xFD*/ 0x02DD, /* DOUBLE ACUTE ACCENT */
-//    /*0xFE*/ 0x02DB, /* OGONEK */
-//    /*0xFF*/ 0x02C7, /* CARON */
-//  };
+const (
+	encMacRoman      = "MACINTOSH"
+	encodingDontCare = 0xffff
 
-//  #if USE_ICONV
-//  #include <iconv.h>
-//  #endif
+	macIdJapanese = truetype.PlatformEncodingID(1)
+
+	msIdSjis    = truetype.PlatformEncodingID(2)
+	msIdPrc     = truetype.PlatformEncodingID(3)
+	msIdBig_5   = truetype.PlatformEncodingID(4)
+	msIdWansung = truetype.PlatformEncodingID(5)
+	msIdJohab   = truetype.PlatformEncodingID(6)
+
+	isoId_7BitAscii = truetype.PlatformEncodingID(0)
+	isoId_10646     = truetype.PlatformEncodingID(1)
+	isoId_8859_1    = truetype.PlatformEncodingID(2)
+)
+
+var fcFtEncoding = [...]struct {
+	PlatformID truetype.PlatformID
+	EncodingID truetype.PlatformEncodingID
+	fromcode   encoding.Encoding
+}{
+	{truetype.PlatformMac, encodingDontCare, unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)},
+	{truetype.PlatformMac, truetype.PEMacRoman, charmap.Macintosh},
+	{truetype.PlatformMac, macIdJapanese, japanese.ShiftJIS},
+	{truetype.PlatformMicrosoft, truetype.PEMicrosoftSymbolCs, unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)},
+	{truetype.PlatformMicrosoft, truetype.PEMicrosoftUnicodeCs, unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)},
+	{truetype.PlatformMicrosoft, msIdSjis, japanese.ShiftJIS},
+	{truetype.PlatformMicrosoft, msIdPrc, simplifiedchinese.HZGB2312},
+	{truetype.PlatformMicrosoft, msIdBig_5, traditionalchinese.Big5},
+	{truetype.PlatformMicrosoft, msIdWansung, korean.EUCKR},
+	// {truetype.PlatformMicrosoft, msIdJohab, "Johab"}, // Johab is not supported by golang.x/text/encoding
+	{truetype.PlatformMicrosoft, truetype.PEMicrosoftUcs4, unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)},
+	{truetype.PlatformIso, isoId_7BitAscii, charmap.ISO8859_1},
+	{truetype.PlatformIso, isoId_10646, unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)},
+	{truetype.PlatformIso, isoId_8859_1, charmap.ISO8859_1},
+}
+
+var fcMacRomanFake = [...]struct {
+	language truetype.PlatformLanguageID
+	fromcode encoding.Encoding
+}{
+	{TT_MS_LANGID_JAPANESE_JAPAN, japanese.ShiftJIS},
+	{TT_MS_LANGID_ENGLISH_UNITED_STATES, charmap.ISO8859_1},
+}
 
 // A shift-JIS will have many high bits turned on
 func looksLikeSJIS(str []byte) bool {
@@ -1049,190 +1000,50 @@ func looksLikeSJIS(str []byte) bool {
 	return nhigh*2 > nlow
 }
 
-// TODO: reuse / fix the truetype.NameEntry.String() method
-func FcSfntNameTranscode(sname truetype.NameEntry) string {
-	// 	 int	       i;
-	// 	 const char *fromcode;
-	//  #if USE_ICONV
-	// 	 iconv_t cd;
-	//  #endif
-	// 	 FcChar8 *utf8;
+func nameTranscode(sname truetype.NameEntry) string {
+	var fromcode encoding.Encoding
+	for _, fcEnc := range fcFtEncoding {
+		if fcEnc.PlatformID == sname.PlatformID &&
+			(fcEnc.EncodingID == encodingDontCare || fcEnc.EncodingID == sname.EncodingID) {
+			fromcode = fcEnc.fromcode
+			break
+		}
+	}
+	if fromcode == nil {
+		// can't find an encoding, just return the raw bytes
+		return string(sname.Value)
+	}
 
-	// 	 for (i = 0; i < NUM_FC_FT_ENCODING; i++)
-	// 	 if (fcFtEncoding[i].PlatformID == sname.PlatformID &&
-	// 		 (fcFtEncoding[i].EncodingID == TT_ENCODING_DONT_CARE ||
-	// 		  fcFtEncoding[i].EncodingID == sname.EncodingID))
-	// 		 break;
-	// 	 if (i == NUM_FC_FT_ENCODING)
-	// 	 return 0;
-	// 	 fromcode = fcFtEncoding[i].fromcode;
+	/*
+	 * Many names encoded for truetype.PlatformMac are broken
+	 * in various ways. Kludge around them.
+	 */
+	if fromcode == charmap.Macintosh {
+		if sname.LanguageID == TT_MAC_LANGID_ENGLISH && looksLikeSJIS(sname.Value) {
+			fromcode = japanese.ShiftJIS
+		} else if sname.LanguageID >= 0x100 {
+			/*
+			 * "real" Mac language IDs are all less than 150.
+			 * Names using one of the MS language IDs are assumed
+			 * to use an associated encoding (Yes, this is a kludge)
+			 */
 
-	// 	 /*
-	// 	  * Many names encoded for truetype.PlatformMac are broken
-	// 	  * in various ways. Kludge around them.
-	// 	  */
-	// 	 if (!strcmp (fromcode, FC_ENCODING_MAC_ROMAN))
-	// 	 {
-	// 	 if (sname.LanguageID == TT_MAC_LANGID_ENGLISH &&
-	// 		 looksLikeSJIS (sname.string, sname.string_len))
-	// 	 {
-	// 		 fromcode = "SJIS";
-	// 	 }
-	// 	 else if (sname.LanguageID >= 0x100)
-	// 	 {
-	// 		 /*
-	// 		  * "real" Mac language IDs are all less than 150.
-	// 		  * Names using one of the MS language IDs are assumed
-	// 		  * to use an associated encoding (Yes, this is a kludge)
-	// 		  */
-	// 		 int	f;
+			fromcode = nil
+			for _, macFake := range fcMacRomanFake {
+				if macFake.language == sname.LanguageID {
+					fromcode = macFake.fromcode
+					break
+				}
+			}
+			if fromcode == nil {
+				// can't find an encoding, just return the raw bytes
+				return string(sname.Value)
+			}
+		}
+	}
 
-	// 		 fromcode = nil;
-	// 		 for (f = 0; f < NUM_FC_MAC_ROMAN_FAKE; f++)
-	// 		 if (fcMacRomanFake[f].LanguageID == sname.LanguageID)
-	// 		 {
-	// 			 fromcode = fcMacRomanFake[f].fromcode;
-	// 			 break;
-	// 		 }
-	// 		 if (!fromcode)
-	// 		 return 0;
-	// 	 }
-	// 	 }
-	// 	 if (!strcmp (fromcode, "UCS-2BE") || !strcmp (fromcode, "UTF-16BE"))
-	// 	 {
-	// 	 FcChar8	    *src = sname.string;
-	// 	 int	    src_len = sname.string_len;
-	// 	 int	    len;
-	// 	 int	    wchar;
-	// 	 int	    ilen, olen;
-	// 	 FcChar8	    *u8;
-	// 	 FcChar32    ucs4;
-
-	// 	 /*
-	// 	  * Convert Utf16 to Utf8
-	// 	  */
-
-	// 	 if (!FcUtf16Len (src, FcEndianBig, src_len, &len, &wchar))
-	// 		 return 0;
-
-	// 	 /*
-	// 	  * Allocate plenty of space.  Freed below
-	// 	  */
-	// 	 utf8 = malloc (len * FC_UTF8_MAX_LEN + 1);
-	// 	 if (!utf8)
-	// 		 return 0;
-
-	// 	 u8 = utf8;
-
-	// 	 while ((ilen = FcUtf16ToUcs4 (src, FcEndianBig, &ucs4, src_len)) > 0)
-	// 	 {
-	// 		 src_len -= ilen;
-	// 		 src += ilen;
-	// 		 olen = FcUcs4ToUtf8 (ucs4, u8);
-	// 		 u8 += olen;
-	// 	 }
-	// 	 *u8 = '\0';
-	// 	 goto done;
-	// 	 }
-	// 	 if (!strcmp (fromcode, "ASCII") || !strcmp (fromcode, "ISO-8859-1"))
-	// 	 {
-	// 	 FcChar8	    *src = sname.string;
-	// 	 int	    src_len = sname.string_len;
-	// 	 int	    olen;
-	// 	 FcChar8	    *u8;
-	// 	 FcChar32    ucs4;
-
-	// 	 /*
-	// 	  * Convert Latin1 to Utf8. Freed below
-	// 	  */
-	// 	 utf8 = malloc (src_len * 2 + 1);
-	// 	 if (!utf8)
-	// 		 return 0;
-
-	// 	 u8 = utf8;
-	// 	 while (src_len > 0)
-	// 	 {
-	// 		 ucs4 = *src++;
-	// 		 src_len--;
-	// 		 olen = FcUcs4ToUtf8 (ucs4, u8);
-	// 		 u8 += olen;
-	// 	 }
-	// 	 *u8 = '\0';
-	// 	 goto done;
-	// 	 }
-	// 	 if (!strcmp (fromcode, FC_ENCODING_MAC_ROMAN))
-	// 	 {
-	// 	 FcChar8	    *src = sname.string;
-	// 	 int	    src_len = sname.string_len;
-	// 	 int	    olen;
-	// 	 FcChar8	    *u8;
-	// 	 FcChar32    ucs4;
-
-	// 	 /*
-	// 	  * Convert Latin1 to Utf8. Freed below
-	// 	  */
-	// 	 utf8 = malloc (src_len * 3 + 1);
-	// 	 if (!utf8)
-	// 		 return 0;
-
-	// 	 u8 = utf8;
-	// 	 while (src_len > 0)
-	// 	 {
-	// 		 ucs4 = *src++;
-	// 		 if (ucs4 >= 128)
-	// 			 ucs4 = fcMacRomanNonASCIIToUnicode[ucs4 - 128];
-	// 		 src_len--;
-	// 		 olen = FcUcs4ToUtf8 (ucs4, u8);
-	// 		 u8 += olen;
-	// 	 }
-	// 	 *u8 = '\0';
-	// 	 goto done;
-	// 	 }
-
-	//  #if USE_ICONV
-	// 	 cd = iconv_open ("UTF-8", fromcode);
-	// 	 if (cd && cd != (iconv_t) (-1))
-	// 	 {
-	// 	 size_t	    in_bytes_left = sname.string_len;
-	// 	 size_t	    out_bytes_left = sname.string_len * FC_UTF8_MAX_LEN;
-	// 	 char	    *inbuf, *outbuf;
-
-	// 	 utf8 = malloc (out_bytes_left + 1);
-	// 	 if (!utf8)
-	// 	 {
-	// 		 iconv_close (cd);
-	// 		 return 0;
-	// 	 }
-
-	// 	 outbuf = (char *) utf8;
-	// 	 inbuf = (char *) sname.string;
-
-	// 	 while (in_bytes_left)
-	// 	 {
-	// 		 size_t	did = iconv (cd,
-	// 				  &inbuf, &in_bytes_left,
-	// 				  &outbuf, &out_bytes_left);
-	// 		 if (did == (size_t) (-1))
-	// 		 {
-	// 		 iconv_close (cd);
-	// 		 free (utf8);
-	// 		 return 0;
-	// 		 }
-	// 	 }
-	// 		 iconv_close (cd);
-	// 	 *outbuf = '\0';
-	// 	 goto done;
-	// 	 }
-	//  #endif
-	// 	 return 0;
-	//  done:
-	// 	 if (FcStrCmpIgnoreBlanksAndCase (utf8, (FcChar8 *) "") == 0)
-	// 	 {
-	// 	 free (utf8);
-	// 	 return 0;
-	// 	 }
-	// 	 return utf8;
-	return ""
+	out, _ := fromcode.NewDecoder().Bytes(sname.Value)
+	return string(out)
 }
 
 func nameLanguage(sname truetype.NameEntry) string {
@@ -1243,7 +1054,7 @@ func nameLanguage(sname truetype.NameEntry) string {
 	 * Many names encoded for truetype.PlatformMac are broken
 	 * in various ways. Kludge around them.
 	 */
-	if platformID == truetype.PlatformMac && sname.EncodingID == truetype.PlatformEncodingMacRoman &&
+	if platformID == truetype.PlatformMac && sname.EncodingID == truetype.PEMacRoman &&
 		looksLikeSJIS(sname.Value) {
 		languageID = TT_MAC_LANGID_JAPANESE
 	}
@@ -1446,8 +1257,8 @@ func getPixelSize(face FT_Face, size bitmap.Size) float64 {
 }
 
 // return true if `str` is at `obj`, ignoring blank and case
-func (pat *FcPattern) hasString(obj FcObject, str string) bool {
-	for _, v := range pat.elts[obj] {
+func (pat FcPattern) hasString(obj FcObject, str string) bool {
+	for _, v := range pat[obj] {
 		vs, ok := v.value.(String)
 		if ok && FcStrCmpIgnoreBlanksAndCase(string(vs), str) == 0 {
 			return true
@@ -1484,9 +1295,9 @@ type nameMapping struct {
 func isEnglish(platform truetype.PlatformID, language truetype.PlatformLanguageID) bool {
 	switch platform {
 	case truetype.PlatformMac:
-		return language == truetype.PlatformLanguageMacEnglish
+		return language == truetype.PLMacEnglish
 	case truetype.PlatformMicrosoft:
-		return language == truetype.PlatformLanguageMicrosoftEnglish
+		return language == truetype.PLMicrosoftEnglish
 	}
 	return false
 }
@@ -1513,14 +1324,15 @@ func isLess(a, b nameMapping) bool {
 	return a.idx < b.idx
 }
 
+// return -1 if not found
 func getFirstName(nameTable truetype.TableName, platform truetype.PlatformID, nameid truetype.NameID,
-	mapping []nameMapping) (int, *truetype.NameEntry) {
+	mapping []nameMapping) (int, truetype.NameEntry) {
 	min, max := 0, len(mapping)-1
 
 	for min <= max {
 		mid := (min + max) / 2
 
-		sname := nameTable.Entries[mapping[mid].idx]
+		sname := nameTable[mapping[mid].idx]
 
 		if platform < sname.PlatformID ||
 			(platform == sname.PlatformID &&
@@ -1538,17 +1350,17 @@ func getFirstName(nameTable truetype.TableName, platform truetype.PlatformID, na
 		}
 	}
 
-	return -1, nil
+	return -1, truetype.NameEntry{}
 }
 
 type FT_Face struct {
-	num_faces  int
-	face_index int
+	// num_faces  int
+	// face_index int
 
 	face_flags  int
 	style_flags int
 
-	num_glyphs int
+	// num_glyphs int
 
 	family_name string
 	style_name  string
@@ -1564,16 +1376,16 @@ type FT_Face struct {
 	/*# for bitmap fonts.                                              */
 	// FT_BBox bbox
 
-	units_per_EM uint16
-	ascender     int16
-	descender    int16
-	height       int16
+	// units_per_EM uint16
+	// ascender     int16
+	// descender    int16
+	// height       int16
 
-	max_advance_width  int16
-	max_advance_height int16
+	// max_advance_width  int16
+	// max_advance_height int16
 
-	underline_position  int16
-	underline_thickness int16
+	// underline_position  int16
+	// underline_thickness int16
 
 	// FT_GlyphSlot glyph
 	// FT_Size      size
@@ -1582,21 +1394,21 @@ type FT_Face struct {
 
 const (
 	FT_FACE_FLAG_SCALABLE = 1 << iota
-	FT_FACE_FLAG_FIXED_SIZES
-	FT_FACE_FLAG_FIXED_WIDTH
-	FT_FACE_FLAG_SFNT
-	FT_FACE_FLAG_HORIZONTAL
-	FT_FACE_FLAG_VERTICAL
-	FT_FACE_FLAG_KERNING
-	FT_FACE_FLAG_FAST_GLYPHS
-	FT_FACE_FLAG_MULTIPLE_MASTERS
-	FT_FACE_FLAG_GLYPH_NAMES
-	FT_FACE_FLAG_EXTERNAL_STREAM
-	FT_FACE_FLAG_HINTER
-	FT_FACE_FLAG_CID_KEYED
-	FT_FACE_FLAG_TRICKY
+	// FT_FACE_FLAG_FIXED_SIZES
+	// FT_FACE_FLAG_FIXED_WIDTH
+	// FT_FACE_FLAG_SFNT
+	// FT_FACE_FLAG_HORIZONTAL
+	// FT_FACE_FLAG_VERTICAL
+	// FT_FACE_FLAG_KERNING
+	// FT_FACE_FLAG_FAST_GLYPHS
+	// FT_FACE_FLAG_MULTIPLE_MASTERS
+	// FT_FACE_FLAG_GLYPH_NAMES
+	// FT_FACE_FLAG_EXTERNAL_STREAM
+	// FT_FACE_FLAG_HINTER
+	// FT_FACE_FLAG_CID_KEYED
+	// FT_FACE_FLAG_TRICKY
 	FT_FACE_FLAG_COLOR
-	FT_FACE_FLAG_VARIATION
+	// FT_FACE_FLAG_VARIATION
 )
 
 const (
@@ -1611,18 +1423,27 @@ type FT_MM_Var struct {
 }
 
 type FT_Var_Axis struct {
-	name string
+	name string // The axis's name. Not always meaningful for TrueType GX or OpenType variation fonts.
 
-	minimum float64
+	minimum float64 // The axis's minimum design coordinate.
+	// The axis's default design coordinate.
+	// FreeType computes meaningful default values for Adobe MM fonts.
 	def     float64
-	maximum float64
+	maximum float64 // The axis's maximum design coordinate.
 
-	tag   TableTag
+	// The axis's tag (the equivalent to ‘name’ for TrueType GX and OpenType variation fonts).
+	// FreeType provides default values for Adobe MM fonts if possible.
+	tag TableTag
+
+	// The axis name entry in the font's ‘name’ table.
+	// This is another (and often better) version of the ‘name’ field
+	// for TrueType GX or OpenType variation fonts.
+	// Not meaningful for Adobe MM fonts.
 	strid uint
 }
 
 type FT_Var_Named_Style struct {
-	coords []float64
+	coords []float64 // length: number of axis
 	strid  truetype.NameID
 	psid   uint
 }
@@ -1658,6 +1479,7 @@ func getTableGSub(face FT_Face) *truetype.TableLayout {
 }
 
 func isSilGrahite(face FT_Face) bool {
+	//  return hasTable(silf)
 	return true
 }
 
@@ -1674,11 +1496,11 @@ func FT_Get_Postscript_Name(face FT_Face) string { return "" }
 
 func FT_Get_PS_Font_Info(face FT_Face) *fonts.PSInfo {
 	// TODO: cleanup
-	var i interface{} = face
-	if psFont, ok := i.(fonts.FontPostcript); ok {
-		inf := psFont.PostscriptInfo()
-		return &inf
-	}
+	// var i interface{} = face
+	// if psFont, ok := i.(fonts.FontPostcript); ok {
+	// 	inf := psFont.PostscriptInfo()
+	// 	return &inf
+	// }
 	return nil
 }
 
@@ -1794,7 +1616,7 @@ func FT_Get_X11_Font_Format(face FT_Face) string {
 	return ""
 }
 
-func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, FcCharset, FcLangSet) {
+func queryFace(face FT_Face, file string, id int) (FcPattern, []nameMapping, FcCharset, FcLangSet) {
 	var (
 		variableWeight, variableWidth, variableSize, variable bool
 		weight, width                                         = -1., -1.
@@ -1927,9 +1749,9 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 	 * of them
 	 */
 	names := getTableName(face)
-	nameMappings := make([]nameMapping, len(names.Entries))
-	for i, p := range names.Entries {
-		nameMappings[i] = nameMapping{NameEntry: *p, idx: uint(i)}
+	nameMappings := make([]nameMapping, len(names))
+	for i, p := range names {
+		nameMappings[i] = nameMapping{NameEntry: p, idx: uint(i)}
 	}
 
 	sort.Slice(nameMappings, func(i, j int) bool { return isLess(nameMappings[i], nameMappings[j]) })
@@ -1937,9 +1759,6 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 	for _, platform := range platformOrder {
 		// Order nameids so preferred names appear first in the resulting list
 		for _, nameid := range nameidOrder {
-			//  const FcChar8	*lang;
-			//  size_t		len;
-			//  int nameid, lookupid;
 			obj, objlang := FC_INVALID, FC_INVALID
 
 			lookupid := nameid
@@ -1970,7 +1789,7 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 			)
 
 			for do := true; do; {
-				sname = names.Entries[nameMappings[nameidx].idx]
+				sname = names[nameMappings[nameidx].idx]
 				do = nameidx < nameCount && platform == sname.PlatformID && lookupid == sname.NameID
 				nameidx++
 
@@ -2017,13 +1836,13 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 				case truetype.NameTrademark, truetype.NameManufacturer:
 					// If the foundry wasn't found in the OS/2 table, look here
 					if foundry == "" {
-						utf8 := FcSfntNameTranscode(*sname)
+						utf8 := nameTranscode(sname)
 						foundry = noticeFoundry(utf8)
 					}
 				}
 				if obj != FC_INVALID {
-					utf8 := FcSfntNameTranscode(*sname)
-					lang = nameLanguage(*sname)
+					utf8 := nameTranscode(sname)
+					lang = nameLanguage(sname)
 
 					if debugMode {
 						fmt.Println(utf8)
@@ -2073,8 +1892,6 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 	}
 
 	if !variable && nstyle == 0 {
-		styleRegular := "Regular"
-
 		var ss string
 		if FcStrCmpIgnoreBlanksAndCase(face.style_name, "") != 0 {
 			if debugMode {
@@ -2085,7 +1902,7 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 			if debugMode {
 				fmt.Println("applying default style Regular")
 			}
-			ss = styleRegular
+			ss = "Regular"
 		}
 		pat.FcPatternObjectAddString(FC_STYLE, ss)
 		pat.FcPatternObjectAddString(FC_STYLELANG, "en")
@@ -2151,11 +1968,9 @@ func queryFace(face FT_Face, file string, id int) (*FcPattern, []nameMapping, Fc
 	}
 	pat.FcPatternObjectAddInteger(FC_INDEX, id)
 
-	/*
-	 * don't even try using FT_FACE_FLAG_FIXED_WIDTH -- CJK 'monospace' fonts are really
-	 * dual width, and most other fonts don't bother to set
-	 * the attribute.  Sigh.
-	 */
+	// don't even try using FT_FACE_FLAG_FIXED_WIDTH -- CJK 'monospace' fonts are really
+	// dual width, and most other fonts don't bother to set
+	// the attribute.  Sigh.
 
 	// Find the font revision (if available)
 	head := getTableHead(face)

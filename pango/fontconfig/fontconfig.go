@@ -30,7 +30,7 @@ func FcConfigHome() string {
 	return ""
 }
 
-type FcFontSet []*FcPattern // with length nfont, and cap sfont
+type FcFontSet []FcPattern // with length nfont, and cap sfont
 
 // toAbsPath constructs an absolute pathname from
 // `s`. It converts any leading '~' characters in
