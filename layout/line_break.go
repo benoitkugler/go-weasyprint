@@ -5,7 +5,6 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
-	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/style/properties"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
