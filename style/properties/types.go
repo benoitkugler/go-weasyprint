@@ -66,7 +66,7 @@ type AttrData struct {
 	Fallback   CssProperty
 }
 
-type Float float64
+type Float float32
 
 type Int int
 
@@ -186,8 +186,10 @@ type Image interface {
 	isImage()
 }
 
-type NoneImage struct{}
-type UrlImage string
+type (
+	NoneImage struct{}
+	UrlImage  string
+)
 
 type ColorStop struct {
 	Color    Color
@@ -220,5 +222,7 @@ type RadialGradient struct {
 	Repeating  bool
 }
 
-type SContents []SContent
-type Dimensions []Dimension
+type (
+	SContents  []SContent
+	Dimensions []Dimension
+)

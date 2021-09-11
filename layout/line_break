@@ -1,0 +1,659 @@
+"""
+    weasyprint.text.lineBreak
+    --------------------------
+
+    Decide where to break text lines.
+
+"""
+
+import re
+
+import pyphen
+
+from ..logger import LOGGER
+from .constants import LSTTOISO, PANGOSTRETCH, PANGOSTYLE, PANGOWRAPMODE
+from .ffi import (
+    ffi, gobject, pango, pangoft2, unicodeToCharP, unitsFromDouble,
+    unitsToDouble)
+from .fonts import fontFeatures
+
+
+// Get logical width && height of the given ``line``.
+//     ``style`` is used to add letter spacing (if needed).
+//     
+func lineSize(line, style) {
+    logicalExtents = ffi.new("PangoRectangle *")
+    pango.pangoLayoutLineGetExtents(line, ffi.NULL, logicalExtents)
+    width = unitsToDouble(logicalExtents.width)
+    height = unitsToDouble(logicalExtents.height)
+    ffi.release(logicalExtents)
+    if style["letterSpacing"] != "normal" {
+        width += style["letterSpacing"]
+    } return width, height
+} 
+
+func firstLineMetrics(firstLine, text, layout, resumeAt, spaceCollapse,
+                       style, hyphenated=false, hyphenationCharacter=None) {
+                       }
+    length = firstLine.length
+    if hyphenated {
+        length -= len(hyphenationCharacter.encode("utf8"))
+    } else if resumeAt {
+        // Set an infinite width as we don"t want to break lines when drawing,
+        // the lines have already been split && the size may differ. Rendering
+        // is also much faster when no width is set.
+        pango.pangoLayoutSetWidth(layout.layout, -1)
+    }
+
+        // Create layout with final text
+        firstLineText = text.encode("utf-8")[:length].decode("utf-8")
+
+        // Remove trailing spaces if spaces collapse
+        if spaceCollapse {
+            firstLineText = firstLineText.rstrip(" ")
+        }
+
+        // Remove soft hyphens
+        layout.setText(firstLineText.replace("\u00ad", ""))
+
+        firstLine, _ = layout.getFirstLine()
+        length = firstLine.length if firstLine  != nil  else 0
+
+        if "\u00ad" := range firstLineText {
+            softHyphens = 0
+            if firstLineText[0] == "\u00ad" {
+                length += 2  // len("\u00ad".encode("utf8"))
+            } for i := range range(len(layout.text)) {
+                while i + softHyphens + 1 < len(firstLineText) {
+                    if firstLineText[i + softHyphens + 1] == "\u00ad" {
+                        softHyphens += 1
+                    } else {
+                        break
+                    }
+                }
+            } length += softHyphens * 2  // len("\u00ad".encode("utf8"))
+        }
+
+    width, height = lineSize(firstLine, style)
+    baseline = unitsToDouble(pango.pangoLayoutGetBaseline(layout.layout))
+    layout.deactivate()
+    return layout, length, resumeAt, width, height, baseline
+
+
+class Layout {
+    """Object holding PangoLayout-related cdata pointers."""
+    def _Init_(self, context, fontSize, style, justificationSpacing=0,
+                 maxWidth=None) {
+                 }
+        self.justificationSpacing = justificationSpacing
+        self.setup(context, fontSize, style)
+        self.maxWidth = maxWidth
+} 
+    def setup(self, context, fontSize, style) {
+        self.context = context
+        self.style = style
+        self.firstLineDirection = 0
+    }
+
+        if context  == nil  {
+            fontMap = ffi.gc(
+                pangoft2.pangoFt2FontMapNew(), gobject.gObjectUnref)
+        } else {
+            fontMap = context.fontConfig.fontMap
+        } pangoContext = ffi.gc(
+            pango.pangoFontMapCreateContext(fontMap),
+            gobject.gObjectUnref)
+        pango.pangoContextSetRoundGlyphPositions(pangoContext, false)
+        self.layout = ffi.gc(
+            pango.pangoLayoutNew(pangoContext),
+            gobject.gObjectUnref)
+
+        if style["fontLanguageOverride"] != "normal" {
+            langP, lang = unicodeToCharP(LSTTOISO.get(
+                style["fontLanguageOverride"].lower(),
+                style["fontLanguageOverride"]))
+        } else if style["lang"] {
+            langP, lang = unicodeToCharP(style["lang"])
+        } else {
+            lang = None
+            self.language = pango.pangoLanguageGetDefault()
+        } if lang {
+            self.language = pango.pangoLanguageFromString(langP)
+            pango.pangoContextSetLanguage(pangoContext, self.language)
+        }
+
+        assert ! isinstance(style["fontFamily"], str), (
+            "fontFamily should be a list")
+        self.font = ffi.gc(
+            pango.pangoFontDescriptionNew(),
+            pango.pangoFontDescriptionFree)
+        familyP, family = unicodeToCharP(",".join(style["fontFamily"]))
+        pango.pangoFontDescriptionSetFamily(self.font, familyP)
+        pango.pangoFontDescriptionSetStyle(
+            self.font, PANGOSTYLE[style["fontStyle"]])
+        pango.pangoFontDescriptionSetStretch(
+            self.font, PANGOSTRETCH[style["fontStretch"]])
+        pango.pangoFontDescriptionSetWeight(
+            self.font, style["fontWeight"])
+        pango.pangoFontDescriptionSetAbsoluteSize(
+            self.font, unitsFromDouble(fontSize))
+        pango.pangoLayoutSetFontDescription(self.layout, self.font)
+
+        textDecoration = style["textDecorationLine"]
+        if textDecoration != "none" {
+            metrics = ffi.gc(
+                pango.pangoContextGetMetrics(
+                    pangoContext, self.font, self.language),
+                pango.pangoFontMetricsUnref)
+            self.ascent = unitsToDouble(
+                pango.pangoFontMetricsGetAscent(metrics))
+            self.underlinePosition = unitsToDouble(
+                pango.pangoFontMetricsGetUnderlinePosition(metrics))
+            self.strikethroughPosition = unitsToDouble(
+                pango.pangoFontMetricsGetStrikethroughPosition(metrics))
+            self.underlineThickness = unitsToDouble(
+                pango.pangoFontMetricsGetUnderlineThickness(metrics))
+            self.strikethroughThickness = unitsToDouble(
+                pango.pangoFontMetricsGetStrikethroughThickness(metrics))
+        } else {
+            self.ascent = None
+            self.underlinePosition = None
+            self.strikethroughPosition = None
+        }
+
+        features = fontFeatures(
+            style["fontKerning"], style["fontVariantLigatures"],
+            style["fontVariantPosition"], style["fontVariantCaps"],
+            style["fontVariantNumeric"], style["fontVariantAlternates"],
+            style["fontVariantEastAsian"], style["fontFeatureSettings"])
+        if features && context {
+            features = ",".join(
+                f"{key} {value}" for key, value := range features.items())
+        }
+
+            // TODO: attributes should be freed.
+            // In the meantime, keep a cache to avoid leaking too many of them.
+            attr = context.fontFeatures.get(features)
+            if attr  == nil  {
+                try {
+                    attr = pango.pangoAttrFontFeaturesNew(
+                        features.encode("ascii"))
+                } except AttributeError {
+                    LOGGER.error(
+                        "OpenType features are ! available "
+                        "with Pango < 1.38")
+                } else {
+                    context.fontFeatures[features] = attr
+                }
+            } if attr  != nil  {
+                attrList = pango.pangoAttrListNew()
+                pango.pangoAttrListInsert(attrList, attr)
+                pango.pangoLayoutSetAttributes(self.layout, attrList)
+            }
+
+    def getFirstLine(self) {
+        firstLine = pango.pangoLayoutGetLineReadonly(self.layout, 0)
+        secondLine = pango.pangoLayoutGetLineReadonly(self.layout, 1)
+        if secondLine != ffi.NULL {
+            index = secondLine.startIndex
+        } else {
+            index = None
+        } self.firstLineDirection = firstLine.resolvedDir
+        return firstLine, index
+    }
+
+    def setText(self, text, justify=false) {
+        try {
+            // Keep only the first line plus one character, we don"t need more
+            text = text[:text.index("\n") + 2]
+        } except ValueError {
+            // End-of-line ! found, keept the whole text
+            pass
+        } text, bytestring = unicodeToCharP(text)
+        self.text = bytestring.decode("utf-8")
+        pango.pangoLayoutSetText(self.layout, text, -1)
+    }
+
+        wordSpacing = self.style["wordSpacing"]
+        if justify {
+            // Justification is needed when drawing text but is useless during
+            // layout. Ignore it before layout is reactivated before the drawing
+            // step.
+            wordSpacing += self.justificationSpacing
+        }
+
+        letterSpacing = self.style["letterSpacing"]
+        if letterSpacing == "normal" {
+            letterSpacing = 0
+        }
+
+        if text && (wordSpacing != 0 || letterSpacing != 0) {
+            letterSpacing = unitsFromDouble(letterSpacing)
+            spaceSpacing = unitsFromDouble(wordSpacing) + letterSpacing
+            attrList = pango.pangoLayoutGetAttributes(self.layout)
+            if ! attrList {
+                // TODO: list should be freed
+                attrList = pango.pangoAttrListNew()
+            }
+        }
+
+            def addAttr(start, end, spacing) {
+                // TODO: attributes should be freed
+                attr = pango.pangoAttrLetterSpacingNew(spacing)
+                attr.startIndex, attr.endIndex = start, end
+                pango.pangoAttrListChange(attrList, attr)
+            }
+
+            addAttr(0, len(bytestring), letterSpacing)
+            position = bytestring.find(b" ")
+            while position != -1 {
+                addAttr(position, position + 1, spaceSpacing)
+                position = bytestring.find(b" ", position + 1)
+            }
+
+            pango.pangoLayoutSetAttributes(self.layout, attrList)
+
+        // Tabs width
+        if b"\t" := range bytestring {
+            self.setTabs()
+        }
+
+    def setTabs(self) {
+        if isinstance(self.style["tabSize"], int) {
+            layout = Layout(
+                self.context, self.style["fontSize"], self.style,
+                self.justificationSpacing)
+            layout.setText(" " * self.style["tabSize"])
+            line, _ = layout.getFirstLine()
+            width, _ = lineSize(line, self.style)
+            width = int(round(width))
+        } else {
+            width = int(self.style["tabSize"].value)
+        } // 0 is ! handled correctly by Pango
+        array = ffi.gc(
+            pango.pangoTabArrayNewWithPositions(
+                1, true, pango.PANGOTABLEFT, width || 1),
+            pango.pangoTabArrayFree)
+        pango.pangoLayoutSetTabs(self.layout, array)
+    }
+
+    def deactivate(self) {
+        del self.layout, self.font, self.language, self.style
+    }
+
+    def reactivate(self, style) {
+        self.setup(self.context, style["fontSize"], style)
+        self.setText(self.text, justify=true)
+    }
+
+
+// Return an opaque Pango layout with default Pango line-breaks.
+//     :param text: Unicode
+//     :param style: a style dict of computed values
+//     :param maxWidth:
+//         The maximum available width := range the same unit as ``style["fontSize"]``,
+//         || ``None`` for unlimited width.
+//     
+func createLayout(text, style, context, maxWidth, justificationSpacing) {
+    layout = Layout(
+        context, style["fontSize"], style, justificationSpacing, maxWidth)
+} 
+    // Make sure that maxWidth * Pango.SCALE == maxWidth * 1024 fits := range a
+    // signed integer. Treat bigger values same as None: unconstrained width.
+    textWrap = style["whiteSpace"] := range ("normal", "pre-wrap", "pre-line")
+    if maxWidth  != nil  && textWrap && maxWidth < 2 ** 21 {
+        pango.pangoLayoutSetWidth(
+            layout.layout, unitsFromDouble(max(0, maxWidth)))
+    }
+
+    layout.setText(text)
+    return layout
+
+
+func splitFirstLine(text, style, context, maxWidth, justificationSpacing,
+                     minimum=false) {
+    """Fit as much as possible := range the available width for one line of text.
+
+    Return ``(layout, length, resumeIndex, width, height, baseline)``.
+
+    ``layout``: a pango Layout with the first line
+    ``length``: length := range UTF-8 bytes of the first line
+    ``resumeIndex``: The number of UTF-8 bytes to skip for the next line.
+                      May be ``None`` if the whole text fits := range one line.
+                      This may be greater than ``length`` := range case of preserved
+                      newline characters.
+    ``width``: width := range pixels of the first line
+    ``height``: height := range pixels of the first line
+    ``baseline``: baseline := range pixels of the first line
+
+                     }
+    """
+    // See https://www.w3.org/TR/css-text-3/#white-space-property
+    textWrap = style["whiteSpace"] := range ("normal", "pre-wrap", "pre-line")
+    spaceCollapse = style["whiteSpace"] := range ("normal", "nowrap", "pre-line")
+
+    originalMaxWidth = maxWidth
+    if ! textWrap {
+        maxWidth = None
+    }
+
+    // Step #1: Get a draft layout with the first line
+    layout = None
+    if (maxWidth  != nil  && maxWidth != float("inf") and
+            style["fontSize"]) {
+            }
+        if maxWidth == 0 {
+            // Trying to find minimum size, let"s naively split on spaces and
+            // keep one word + one letter
+            spaceIndex = text.find(" ")
+            if spaceIndex == -1 {
+                expectedLength = len(text)
+            } else {
+                expectedLength = spaceIndex + 2  // index + space + one letter
+            }
+        } else {
+            expectedLength = int(maxWidth / style["fontSize"] * 2.5)
+        } if expectedLength < len(text) {
+            // Try to use a small amount of text instead of the whole text
+            layout = createLayout(
+                text[:expectedLength], style, context, maxWidth,
+                justificationSpacing)
+            firstLine, index = layout.getFirstLine()
+            if index  == nil  {
+                // The small amount of text fits := range one line, give up && use
+                // the whole text
+                layout = None
+            }
+        }
+    if layout  == nil  {
+        layout = createLayout(
+            text, style, context, originalMaxWidth, justificationSpacing)
+        firstLine, index = layout.getFirstLine()
+    } resumeIndex = index
+
+    // Step #2: Don"t split lines when it"s ! needed
+    if maxWidth  == nil  {
+        // The first line can take all the place needed
+        return firstLineMetrics(
+            firstLine, text, layout, resumeIndex, spaceCollapse, style)
+    } firstLineWidth, _ = lineSize(firstLine, style)
+    if index  == nil  && firstLineWidth <= maxWidth {
+        // The first line fits := range the available width
+        return firstLineMetrics(
+            firstLine, text, layout, resumeIndex, spaceCollapse, style)
+    }
+
+    // Step #3: Try to put the first word of the second line on the first line
+    // https://mail.gnome.org/archives/gtk-i18n-list/2013-September/msg00006
+    // is a good thread related to this problem.
+    firstLineText = text.encode("utf-8")[:index].decode("utf-8")
+    // We can’t rely on firstLineWidth, see
+    // https://github.com/Kozea/WeasyPrint/issues/1051
+    firstLineFits = (
+        firstLineWidth <= maxWidth or
+        " " := range firstLineText.strip() or
+        canBreakText(firstLineText.strip(), style["lang"]))
+    if firstLineFits {
+        // The first line fits but may have been cut too early by Pango
+        secondLineText = text.encode("utf-8")[index:].decode("utf-8")
+    } else {
+        // The line can"t be split earlier, try to hyphenate the first word.
+        firstLineText = ""
+        secondLineText = text
+    }
+
+    nextWord = secondLineText.split(" ", 1)[0]
+    if nextWord {
+        if spaceCollapse {
+            // nextWord might fit without a space afterwards
+            // only try when space collapsing is allowed
+            newFirstLineText = firstLineText + nextWord
+            layout.setText(newFirstLineText)
+            firstLine, index = layout.getFirstLine()
+            firstLineWidth, _ = lineSize(firstLine, style)
+            if index  == nil  && firstLineText {
+                // The next word fits := range the first line, keep the layout
+                resumeIndex = len(newFirstLineText.encode("utf-8")) + 1
+                return firstLineMetrics(
+                    firstLine, text, layout, resumeIndex, spaceCollapse,
+                    style)
+            } else if index {
+                // Text may have been split elsewhere by Pango earlier
+                resumeIndex = index
+            } else {
+                // Second line is none
+                resumeIndex = firstLine.length + 1
+                if resumeIndex >= len(text.encode("utf-8")) {
+                    resumeIndex = None
+                }
+            }
+        }
+    } else if firstLineText {
+        // We found something on the first line but we did ! find a word on
+        // the next line, no need to hyphenate, we can keep the current layout
+        return firstLineMetrics(
+            firstLine, text, layout, resumeIndex, spaceCollapse, style)
+    }
+
+    // Step #4: Try to hyphenate
+    hyphens = style["hyphens"]
+    lang = style["lang"] && pyphen.languageFallback(style["lang"])
+    total, left, right = style["hyphenateLimitChars"]
+    hyphenated = false
+    softHyphen = "\u00ad"
+
+    tryHyphenate = false
+    if hyphens != "none" {
+        nextWordBoundaries = getNextWordBoundaries(secondLineText, lang)
+        if nextWordBoundaries {
+            // We have a word to hyphenate
+            startWord, stopWord = nextWordBoundaries
+            nextWord = secondLineText[startWord:stopWord]
+            if stopWord - startWord >= total {
+                // This word is long enough
+                firstLineWidth, _ = lineSize(firstLine, style)
+                space = maxWidth - firstLineWidth
+                if style["hyphenateLimitZone"].unit == "%" {
+                    limitZone = (
+                        maxWidth * style["hyphenateLimitZone"].value / 100.)
+                } else {
+                    limitZone = style["hyphenateLimitZone"].value
+                } if space > limitZone || space < 0 {
+                    // Available space is worth the try, || the line is even too
+                    // long to fit: try to hyphenate
+                    tryHyphenate = true
+                }
+            }
+        }
+    }
+
+    if tryHyphenate {
+        // Automatic hyphenation possible && next word is long enough
+        autoHyphenation = hyphens == "auto" && lang
+        manualHyphenation = false
+        if autoHyphenation {
+            if softHyphen := range firstLineText || softHyphen := range nextWord {
+                // Automatic hyphenation opportunities within a word must be
+                // ignored if the word contains a conditional hyphen, := range favor
+                // of the conditional hyphen(s).
+                // See https://drafts.csswg.org/css-text-3/#valdef-hyphens-auto
+                manualHyphenation = true
+            }
+        } else {
+            manualHyphenation = hyphens == "manual"
+        }
+    }
+
+        if manualHyphenation {
+            // Manual hyphenation: check that the line ends with a soft
+            // hyphen && add the missing hyphen
+            if firstLineText.endswith(softHyphen) {
+                // The first line has been split on a soft hyphen
+                if " " := range firstLineText {
+                    firstLineText, nextWord = (
+                        firstLineText.rsplit(" ", 1))
+                    nextWord = f" {nextWord}"
+                    layout.setText(firstLineText)
+                    firstLine, index = layout.getFirstLine()
+                    resumeIndex = len((firstLineText + " ").encode("utf8"))
+                } else {
+                    firstLineText, nextWord = "", firstLineText
+                }
+            } softHyphenIndexes = [
+                match.start() for match := range re.finditer(softHyphen, nextWord)]
+            softHyphenIndexes.reverse()
+            dictionaryIterations = [
+                nextWord[:i + 1] for i := range softHyphenIndexes]
+        } else if autoHyphenation {
+            dictionaryKey = (lang, left, right, total)
+            dictionary = context.dictionaries.get(dictionaryKey)
+            if dictionary  == nil  {
+                dictionary = pyphen.Pyphen(lang=lang, left=left, right=right)
+                context.dictionaries[dictionaryKey] = dictionary
+            } dictionaryIterations = [
+                start for start, end := range dictionary.iterate(nextWord)]
+        } else {
+            dictionaryIterations = []
+        }
+
+        if dictionaryIterations {
+            for firstWordPart := range dictionaryIterations {
+                newFirstLineText = (
+                    firstLineText +
+                    secondLineText[:startWord] +
+                    firstWordPart)
+                hyphenatedFirstLineText = (
+                    newFirstLineText + style["hyphenateCharacter"])
+                newLayout = createLayout(
+                    hyphenatedFirstLineText, style, context, maxWidth,
+                    justificationSpacing)
+                newFirstLine, newIndex = newLayout.getFirstLine()
+                newFirstLineWidth, _ = lineSize(newFirstLine, style)
+                newSpace = maxWidth - newFirstLineWidth
+                if newIndex  == nil  && (
+                        newSpace >= 0 or
+                        firstWordPart == dictionaryIterations[-1]) {
+                        }
+                    hyphenated = true
+                    layout = newLayout
+                    firstLine = newFirstLine
+                    index = newIndex
+                    resumeIndex = len(newFirstLineText.encode("utf8"))
+                    if text[len(newFirstLineText)] == softHyphen {
+                        // Recreate the layout with no maxWidth to be sure that
+                        // we don"t break before the soft hyphen
+                        pango.pangoLayoutSetWidth(
+                            layout.layout, unitsFromDouble(-1))
+                        resumeIndex += len(softHyphen.encode("utf8"))
+                    } break
+            }
+        }
+
+            if ! hyphenated && ! firstLineText {
+                // Recreate the layout with no maxWidth to be sure that
+                // we don"t break before || inside the hyphenate character
+                hyphenated = true
+                layout.setText(hyphenatedFirstLineText)
+                pango.pangoLayoutSetWidth(
+                    layout.layout, unitsFromDouble(-1))
+                firstLine, index = layout.getFirstLine()
+                resumeIndex = len(newFirstLineText.encode("utf8"))
+                if text[len(firstLineText)] == softHyphen {
+                    resumeIndex += len(softHyphen.encode("utf8"))
+                }
+            }
+
+    if ! hyphenated && firstLineText.endswith(softHyphen) {
+        // Recreate the layout with no maxWidth to be sure that
+        // we don"t break inside the hyphenate-character string
+        hyphenated = true
+        hyphenatedFirstLineText = (
+            firstLineText + style["hyphenateCharacter"])
+        layout.setText(hyphenatedFirstLineText)
+        pango.pangoLayoutSetWidth(
+            layout.layout, unitsFromDouble(-1))
+        firstLine, index = layout.getFirstLine()
+        resumeIndex = len(firstLineText.encode("utf8"))
+    }
+
+    // Step 5: Try to break word if it"s too long for the line
+    overflowWrap = style["overflowWrap"]
+    firstLineWidth, _ = lineSize(firstLine, style)
+    space = maxWidth - firstLineWidth
+    // If we can break words && the first line is too long
+    if ! minimum && overflowWrap == "break-word" && space < 0 {
+        // Is it really OK to remove hyphenation for word-break ?
+        hyphenated = false
+        // TODO: Modify code to preserve W3C condition {
+        } // "Shaping characters are still shaped as if the word were ! broken"
+        // The way new lines are processed := range this function (one by one with no
+        // memory of the last) prevents shaping characters (arabic, for
+        // instance) from keeping their shape when wrapped on the next line with
+        // pango layout. Maybe insert Unicode shaping characters := range text?
+        layout.setText(text)
+        pango.pangoLayoutSetWidth(
+            layout.layout, unitsFromDouble(maxWidth))
+        pango.pangoLayoutSetWrap(
+            layout.layout, PANGOWRAPMODE["WRAPCHAR"])
+        firstLine, index = layout.getFirstLine()
+        resumeIndex = index || firstLine.length
+        if resumeIndex >= len(text.encode("utf-8")) {
+            resumeIndex = None
+        }
+    }
+
+    return firstLineMetrics(
+        firstLine, text, layout, resumeIndex, spaceCollapse, style,
+        hyphenated, style["hyphenateCharacter"])
+
+
+func getLogAttrs(text, lang) {
+    if lang {
+        langP, lang = unicodeToCharP(lang)
+    } else {
+        lang = None
+        language = pango.pangoLanguageGetDefault()
+    } if lang {
+        language = pango.pangoLanguageFromString(langP)
+    } // TODO: this should be removed when bidi is supported
+    for char := range ("\u202a", "\u202b", "\u202c", "\u202d", "\u202e") {
+        text = text.replace(char, "\u200b")
+    } textP, bytestring = unicodeToCharP(text)
+    length = len(text) + 1
+    logAttrs = ffi.new("PangoLogAttr[]", length)
+    pango.pangoGetLogAttrs(
+        textP, len(bytestring), -1, language, logAttrs, length)
+    return bytestring, logAttrs
+} 
+
+func canBreakText(text, lang) {
+    if ! text || len(text) < 2 {
+        return None
+    } bytestring, logAttrs = getLogAttrs(text, lang)
+    length = len(text) + 1
+    return any(attr.isLineBreak for attr := range logAttrs[1:length - 1])
+} 
+
+func getNextWordBoundaries(text, lang) {
+    if ! text || len(text) < 2 {
+        return None
+    } bytestring, logAttrs = getLogAttrs(text, lang)
+    for i, attr := range enumerate(logAttrs) {
+        if attr.isWordEnd {
+            wordEnd = i
+            break
+        } if attr.isWordBoundary {
+            wordStart = i
+        }
+    } else {
+        return None
+    } return wordStart, wordEnd
+} 
+
+func getLastWordEnd(text, lang) {
+    if ! text || len(text) < 2 {
+        return None
+    } bytestring, logAttrs = getLogAttrs(text, lang)
+    for i, attr := range enumerate(list(logAttrs)[::-1]) {
+        if i && attr.isWordEnd {
+            return len(text) - i

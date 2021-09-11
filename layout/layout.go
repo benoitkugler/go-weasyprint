@@ -208,7 +208,6 @@ type LayoutContext struct {
 	currentPage         int
 	forcedBreak         bool
 	strutLayouts        map[string]int
-	fontFeatures        map[string]int
 	tables              map[*bo.TableBox]map[bool]tableContentWidths
 	dictionaries        map[string]int
 }
@@ -224,7 +223,6 @@ func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUr
 	self.runningElements = map[string]map[int]Box{}
 	// Cache
 	self.strutLayouts = map[string]int{}
-	self.fontFeatures = map[string]int{}
 	self.tables = map[*bo.TableBox]map[bool]tableContentWidths{}
 	self.dictionaries = map[string]int{}
 	return &self

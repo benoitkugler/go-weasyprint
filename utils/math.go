@@ -1,6 +1,10 @@
 package utils
 
-import "math"
+import (
+	"math"
+
+	"github.com/benoitkugler/textlayout/pango"
+)
 
 func MinInt(x, y int) int {
 	if x < y {
@@ -16,8 +20,10 @@ func MaxInt(x, y int) int {
 	return y
 }
 
-func Maxs(values ...float64) float64 {
-	var max float64
+type Fl = pango.Fl
+
+func Maxs(values ...Fl) Fl {
+	var max Fl
 	for _, w := range values {
 		if w > max {
 			max = w
@@ -26,8 +32,8 @@ func Maxs(values ...float64) float64 {
 	return max
 }
 
-func Mins(values ...float64) float64 {
-	var min float64
+func Mins(values ...Fl) Fl {
+	var min Fl
 	for _, w := range values {
 		if w < min {
 			min = w
