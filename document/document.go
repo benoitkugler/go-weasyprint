@@ -10,9 +10,8 @@ import (
 	"path"
 
 	"github.com/benoitkugler/go-weasyprint/images"
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	mt "github.com/benoitkugler/go-weasyprint/matrix"
-
-	"github.com/benoitkugler/go-weasyprint/fonts"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -24,11 +23,15 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-type Drawer = backend.Drawer
-type Color = parser.RGBA
-type Box = bo.Box
+type (
+	Drawer = backend.Drawer
+	Color  = parser.RGBA
+	Box    = bo.Box
+)
 
-func toF(v pr.Dimension) float64 { return float64(v.Value) }
+type fl = float32
+
+func toF(v pr.Dimension) fl { return fl(v.Value) }
 
 // Return the matrix for the CSS transforms on this box (possibly nil)
 func getMatrix(box_ Box) *mt.Transform {
@@ -43,8 +46,8 @@ func getMatrix(box_ Box) *mt.Transform {
 		or := box.Style.GetTransformOrigin()
 		offsetX := pr.ResoudPercentage(or[0].ToValue(), borderWidth).V()
 		offsetY := pr.ResoudPercentage(or[1].ToValue(), borderHeight).V()
-		originX := float64(box.BorderBoxX() + offsetX)
-		originY := float64(box.BorderBoxY() + offsetY)
+		originX := fl(box.BorderBoxX() + offsetX)
+		originY := fl(box.BorderBoxY() + offsetY)
 
 		var matrix mt.Transform
 		matrix.Translate(originX, originY)
@@ -61,16 +64,16 @@ func getMatrix(box_ Box) *mt.Transform {
 			case "translate":
 				translateX, translateY := args[0], args[1]
 				matrix.Translate(
-					float64(pr.ResoudPercentage(translateX.ToValue(), borderWidth).V()),
-					float64(pr.ResoudPercentage(translateY.ToValue(), borderHeight).V()),
+					fl(pr.ResoudPercentage(translateX.ToValue(), borderWidth).V()),
+					fl(pr.ResoudPercentage(translateY.ToValue(), borderHeight).V()),
 				)
 			default:
 				var leftMat mt.Transform
 				switch name {
 				case "skewx":
-					leftMat = mt.New(1, 0, math.Tan(toF(args[0])), 1, 0, 0)
+					leftMat = mt.New(1, 0, fl(math.Tan(float64(toF(args[0])))), 1, 0, 0)
 				case "skewy":
-					leftMat = mt.New(1, math.Tan(toF(args[0])), 0, 1, 0, 0)
+					leftMat = mt.New(1, fl(math.Tan(float64(toF(args[0])))), 0, 1, 0, 0)
 				case "matrix":
 					leftMat = mt.New(toF(args[0]), toF(args[1]), toF(args[2]),
 						toF(args[3]), toF(args[4]), toF(args[5]))
@@ -89,7 +92,7 @@ func getMatrix(box_ Box) *mt.Transform {
 
 // Apply a transformation matrix to an axis-aligned rectangle
 // and return its axis-aligned bounding box as ``(x, y, width, height)``
-func rectangleAabb(matrix mt.Transform, posX, posY, width, height float64) [4]float64 {
+func rectangleAabb(matrix mt.Transform, posX, posY, width, height fl) [4]fl {
 	x1, y1 := matrix.TransformPoint(posX, posY)
 	x2, y2 := matrix.TransformPoint(posX+width, posY)
 	x3, y3 := matrix.TransformPoint(posX, posY+height)
@@ -98,22 +101,22 @@ func rectangleAabb(matrix mt.Transform, posX, posY, width, height float64) [4]fl
 	boxY1 := utils.Mins(y1, y2, y3, y4)
 	boxX2 := utils.Maxs(x1, x2, x3, x4)
 	boxY2 := utils.Maxs(y1, y2, y3, y4)
-	return [4]float64{boxX1, boxY1, boxX2 - boxX1, boxY2 - boxY1}
+	return [4]fl{boxX1, boxY1, boxX2 - boxX1, boxY2 - boxY1}
 }
 
 type Link struct {
 	Type, Target string
-	rectangle    [4]float64
+	rectangle    [4]fl
 }
 
 type bookmarkData struct {
 	level    int
 	label    string
-	position [2]float64
+	position [2]fl
 	state    string
 }
 
-func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors map[string][2]float64, matrix *mt.Transform) {
+func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors map[string][2]fl, matrix *mt.Transform) {
 	transform := getMatrix(box_)
 	if transform != nil {
 		if matrix != nil {
@@ -149,10 +152,12 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 			}
 			var linkS Link
 			if matrix != nil {
-				linkS = Link{Type: linkType, Target: target,
-					rectangle: rectangleAabb(*matrix, posX, posY, width, height)}
+				linkS = Link{
+					Type: linkType, Target: target,
+					rectangle: rectangleAabb(*matrix, posX, posY, width, height),
+				}
 			} else {
-				linkS = Link{Type: linkType, Target: target, rectangle: [4]float64{posX, posY, width, height}}
+				linkS = Link{Type: linkType, Target: target, rectangle: [4]fl{posX, posY, width, height}}
 			}
 			*links = append(*links, linkS)
 		}
@@ -160,11 +165,13 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 			posX, posY = matrix.TransformPoint(posX, posY)
 		}
 		if hasBookmark {
-			*bookmarks = append(*bookmarks, bookmarkData{level: bookmarkLevel, label: bookmarkLabel,
-				position: [2]float64{posX, posY}, state: state})
+			*bookmarks = append(*bookmarks, bookmarkData{
+				level: bookmarkLevel, label: bookmarkLabel,
+				position: [2]fl{posX, posY}, state: state,
+			})
 		}
 		if hasAnchor {
-			anchors[anchorName] = [2]float64{posX, posY}
+			anchors[anchorName] = [2]fl{posX, posY}
 		}
 	}
 
@@ -178,10 +185,10 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 // instantiated directly.
 type Page struct {
 	// The page width, including margins, in CSS pixels.
-	Width float64
+	Width fl
 
 	// The page height, including margins, in CSS pixels.
-	Height float64
+	Height fl
 
 	// The page bleed widths as a `dict` with `"top"`, `"right"`,
 	// `"bottom"` and `"left"` as keys, and values in CSS pixels.
@@ -208,7 +215,7 @@ type Page struct {
 
 	// The `dict` mapping each anchor name to its target, an
 	// `(x, y)` point in CSS pixels from the top-left of the page.
-	anchors map[string][2]float64
+	anchors map[string][2]fl
 
 	pageBox       *bo.PageBox
 	enableHinting bool
@@ -217,16 +224,16 @@ type Page struct {
 // enableHinting=false
 func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 	d := Page{}
-	d.Width = float64(pageBox.MarginWidth())
-	d.Height = float64(pageBox.MarginHeight())
+	d.Width = fl(pageBox.MarginWidth())
+	d.Height = fl(pageBox.MarginHeight())
 
 	d.Bleed = Bleed{
-		Top:    float64(pageBox.Style.GetBleedTop().Value),
-		Right:  float64(pageBox.Style.GetBleedRight().Value),
-		Bottom: float64(pageBox.Style.GetBleedBottom().Value),
-		Left:   float64(pageBox.Style.GetBleedLeft().Value),
+		Top:    fl(pageBox.Style.GetBleedTop().Value),
+		Right:  fl(pageBox.Style.GetBleedRight().Value),
+		Bottom: fl(pageBox.Style.GetBleedBottom().Value),
+		Left:   fl(pageBox.Style.GetBleedLeft().Value),
 	}
-	d.anchors = map[string][2]float64{}
+	d.anchors = map[string][2]fl{}
 
 	gatherLinksAndBookmarks(
 		pageBox, &d.bookmarks, &d.links, d.anchors, nil)
@@ -240,13 +247,13 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 // topY is the Y coordinate of the top of the page, in cairo user units.
 // scale is the Zoom scale in cairo user units per CSS pixel.
 // clip : whether to clip/cut content outside the page. If false, content can overflow.
-func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) {
+func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float32, clip bool) {
 	// with stacked(cairoContext) {
 	if d.enableHinting {
 		leftX, topY = cairoContext.UserToDevice(leftX, topY)
 		// Hint in device space
-		leftX = math.Round(leftX)
-		topY = math.Round(topY)
+		leftX = fl(math.Round(float64(leftX)))
+		topY = fl(math.Round(float64(topY)))
 		leftX, topY = cairoContext.DeviceToUser(leftX, topY)
 	}
 	// Make (0, 0) the top-left corner:
@@ -259,8 +266,8 @@ func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) 
 		if d.enableHinting {
 			width, height = cairoContext.UserToDeviceDistance(width, height)
 			// Hint in device space
-			width = math.Ceil(width)
-			height = math.Ceil(height)
+			width = fl(math.Ceil(float64(width)))
+			height = fl(math.Ceil(float64(height)))
 			width, height = cairoContext.DeviceToUserDistance(width, height)
 		}
 		cairoContext.Rectangle(0, 0, width, height)
@@ -274,7 +281,7 @@ func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float64, clip bool) 
 // Typically obtained from `HTML.render()`, but
 // can also be instantiated directly with a list of `pages <Page>`, a
 // set of `metadata <DocumentMetadata>`, a `urlFetcher` function, and
-// a `fontConfig <fonts.FontConfiguration>`.
+// a `fontConfig <text.FontConfiguration>`.
 type Document struct {
 	// A list of `Page` objects.
 	Pages []Page
@@ -287,15 +294,15 @@ type Document struct {
 	urlFetcher utils.UrlFetcher
 	// Keep a reference to fontConfig to avoid its garbage collection until
 	// rendering is destroyed.
-	fontConfig *fonts.FontConfiguration
+	fontConfig *text.FontConfiguration
 }
 
 // presentationalHints=false, fontConfig=None
 func buildLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
-	presentationalHints bool, fontConfig *fonts.FontConfiguration) *layout.LayoutContext {
+	presentationalHints bool, fontConfig *text.FontConfiguration) *layout.LayoutContext {
 
 	if fontConfig == nil {
-		fontConfig = fonts.NewFontConfiguration()
+		fontConfig = text.NewFontConfiguration()
 	}
 	targetCollector := tree.NewTargetCollector()
 	var (
@@ -321,10 +328,10 @@ func buildLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 
 // presentationalHints=false, fontConfig=None
 func Render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
-	presentationalHints bool, fontConfig *fonts.FontConfiguration) Document {
+	presentationalHints bool, fontConfig *text.FontConfiguration) Document {
 
 	if fontConfig == nil {
-		fontConfig = fonts.NewFontConfiguration()
+		fontConfig = text.NewFontConfiguration()
 	}
 
 	context := buildLayoutContext(html, stylesheets, enableHinting, presentationalHints, fontConfig)
@@ -358,8 +365,10 @@ func (d Document) Copy(pages []Page, all bool) Document {
 	if all {
 		pages = d.Pages
 	}
-	return Document{Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher,
-		fontConfig: d.fontConfig}
+	return Document{
+		Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher,
+		fontConfig: d.fontConfig,
+	}
 }
 
 // Resolve internal hyperlinks.
@@ -370,7 +379,7 @@ func (d Document) Copy(pages []Page, all bool) Document {
 // ``(pageNumber, x, y)`` instead of an anchor name.
 // The page number is a 0-based index into the :attr:`pages` list,
 // and ``x, y`` have been scaled (origin is at the top-left of the page).
-func (d Document) ResolveLinks(scale float64) ([][]Link, [][]backend.Anchor) {
+func (d Document) ResolveLinks(scale fl) ([][]Link, [][]backend.Anchor) {
 	anchors := utils.NewSet()
 	pagedAnchors := make([][]backend.Anchor, len(d.Pages))
 	for i, page := range d.Pages {
@@ -408,7 +417,7 @@ func (d Document) ResolveLinks(scale float64) ([][]Link, [][]backend.Anchor) {
 
 type target struct {
 	pageNumber int
-	pos        [2]float64
+	pos        [2]fl
 }
 
 type bookmarkSubtree struct {
@@ -468,7 +477,7 @@ func (d Document) MakeBookmarkTree() []bookmarkSubtree {
 }
 
 // Include hyperlinks in current PDF page.
-func (d Document) AddHyperlinks(links []Link, anchorsId map[string]int, context Drawer, scale float64) {
+func (d Document) AddHyperlinks(links []Link, anchorsId map[string]int, context Drawer, scale fl) {
 	// TODO: Instead of using rects, we could use the drawing rectangles
 	// defined by cairo when drawing targets. This would give a feeling
 	// similiar to what browsers do with links that span multiple lines.

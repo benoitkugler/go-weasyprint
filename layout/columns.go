@@ -18,7 +18,7 @@ type boxOrList struct {
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock bo.BoxFields,
+func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.InstanceBlockLevelBox, blockLayout) {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
@@ -68,7 +68,7 @@ func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPosition
 
 	createColumnBox := func(children []Box) bo.InstanceBlockBox {
 		columnBox := box_.Type().AnonymousFrom(box_, children).(bo.InstanceBlockBox) // AnonymousFrom preserves concrete types
-		resolvePercentages2(columnBox, containingBlock, "")
+		resolvePercentagesBox(columnBox, containingBlock, "")
 		columnBox.Box().IsColumn = true
 		columnBox.Box().Width = width
 		columnBox.Box().PositionX = box.ContentBoxX()
@@ -125,12 +125,12 @@ func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPosition
 	for _, columnChildrenOrBlock := range columnsAndBlocks {
 		if block := columnChildrenOrBlock.box; block != nil {
 			// We get a spanning block, we display it like other blocks.
-			resolvePercentages2(block, containingBlock, "")
+			resolvePercentagesBox(block, containingBlock, "")
 			block.Box().PositionX = box.ContentBoxX()
 			block.Box().PositionY = currentPositionY
 			newChild, tmp := blockLevelLayout(context, block, originalMaxPositionY, skipStack,
 				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins)
-			adjoiningMargins := tmp.adjoiningMargins
+			adjoiningMargins = tmp.adjoiningMargins
 			newChildren = append(newChildren, newChild)
 			currentPositionY = newChild.Box().BorderHeight() + newChild.Box().BorderBoxY()
 			adjoiningMargins = append(adjoiningMargins, newChild.Box().MarginBottom.V())

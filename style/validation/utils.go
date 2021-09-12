@@ -11,17 +11,15 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-var (
-	// Default fallback values used in attr() functions
-	attrFallbacks = map[string]pr.CssProperty{
-		"string":  pr.String(""),
-		"color":   pr.String("currentcolor"),
-		"url":     pr.String("about:invalid"),
-		"integer": pr.Dimension{Unit: pr.Scalar}.ToValue(),
-		"number":  pr.Dimension{Unit: pr.Scalar}.ToValue(),
-		"%":       pr.Dimension{Unit: pr.Scalar}.ToValue(),
-	}
-)
+// Default fallback values used in attr() functions
+var attrFallbacks = map[string]pr.CssProperty{
+	"string":  pr.String(""),
+	"color":   pr.String("currentcolor"),
+	"url":     pr.String("about:invalid"),
+	"integer": pr.Dimension{Unit: pr.Scalar}.ToValue(),
+	"number":  pr.Dimension{Unit: pr.Scalar}.ToValue(),
+	"%":       pr.Dimension{Unit: pr.Scalar}.ToValue(),
+}
 
 func init() {
 	for unitString, unit := range LENGTHUNITS {
@@ -139,7 +137,7 @@ func parseLinearGradientParameters(arguments [][]Token) (pr.DirectionType, [][]T
 	if len(firstArg) == 1 {
 		angle, isNotNone := getAngle(firstArg[0])
 		if isNotNone {
-			return pr.DirectionType{Angle: angle}, arguments[1:]
+			return pr.DirectionType{Angle: float32(angle)}, arguments[1:]
 		}
 	} else {
 		var mapped [3]string
@@ -167,9 +165,9 @@ func reverse(a []Token) []Token {
 
 type radialGradientParameters struct {
 	shape      string
-	size       pr.GradientSize
-	position   pr.Center
 	colorStops [][]Token
+	position   pr.Center
+	size       pr.GradientSize
 }
 
 func (r radialGradientParameters) IsNone() bool {
@@ -447,13 +445,15 @@ func parsePosition(tokens []Token) pr.Center {
 		length2 := getLength(tokens[3], true, true)
 		if !length1.IsNone() && !length2.IsNone() {
 			if (keyword1 == "left" || keyword1 == "right") && (keyword2 == "top" || keyword2 == "bottom") {
-				return pr.Center{OriginX: keyword1,
+				return pr.Center{
+					OriginX: keyword1,
 					OriginY: keyword2,
 					Pos:     pr.Point{length1, length2},
 				}
 			}
 			if (keyword2 == "left" || keyword2 == "right") && (keyword1 == "top" || keyword1 == "bottom") {
-				return pr.Center{OriginX: keyword2,
+				return pr.Center{
+					OriginX: keyword2,
 					OriginY: keyword1,
 					Pos:     pr.Point{length2, length1},
 				}

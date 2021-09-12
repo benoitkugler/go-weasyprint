@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-//Represents an HTML document parsed by net/html.
+// Represents an HTML document parsed by net/html.
 type HTML struct {
 	Root       *utils.HTMLNode
 	mediaType  string
@@ -18,7 +18,7 @@ type HTML struct {
 	BaseUrl    string
 }
 
-// `BaseUrl` is the base used to resolve relative URLs
+// `baseUrl` is the base used to resolve relative URLs
 // (e.g. in ``<img src="../foo.png">``). If not provided, try to use
 // the input filename, URL, or ``name`` attribute of :term:`file objects
 //        <file object>`.

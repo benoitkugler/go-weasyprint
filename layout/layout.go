@@ -15,11 +15,13 @@ package layout
 
 import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
-	"github.com/benoitkugler/go-weasyprint/fonts"
+	"github.com/benoitkugler/go-weasyprint/layout/text"
+	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	"github.com/benoitkugler/go-weasyprint/logger"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/textlayout/pango"
 )
 
 type Box = bo.Box
@@ -193,27 +195,33 @@ func LayoutDocument(html tree.HTML, rootBox bo.InstanceBlockLevelBox, context *L
 	return out
 }
 
+var _ text.PangoLayoutContext = (*LayoutContext)(nil)
+
+// LayoutContext stores the global context needed during layout,
+// such as various caches.
 type LayoutContext struct {
-	enableHinting       bool
-	StyleFor            tree.StyleFor
+	// caches
+	stringSet    map[string]map[int][]string
+	strutLayouts map[text.StrutLayoutKey][2]pr.Float
+	tables       map[*bo.TableBox]map[bool]tableContentWidths
+
+	runningElements     map[string]map[int]Box
 	GetImageFromUri     bo.Gifu
-	fontConfig          *fonts.FontConfiguration
+	fontConfig          *text.FontConfiguration
 	TargetCollector     *tree.TargetCollector
+	dictionaries        map[text.HyphenDictKey]hyphen.Hyphener
+	StyleFor            tree.StyleFor
 	pageMaker           []tree.PageMaker
-	marginClearance     bool
 	excludedShapes      []bo.BoxFields
 	excludedShapesLists [][]bo.BoxFields
-	stringSet           map[string]map[int][]string
-	runningElements     map[string]map[int]Box
 	currentPage         int
+	marginClearance     bool
+	enableHinting       bool
 	forcedBreak         bool
-	strutLayouts        map[string]int
-	tables              map[*bo.TableBox]map[bool]tableContentWidths
-	dictionaries        map[string]int
 }
 
 func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri bo.Gifu,
-	fontConfig *fonts.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {
+	fontConfig *text.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {
 	self := LayoutContext{}
 	self.enableHinting = enableHinting
 	self.StyleFor = styleFor
@@ -222,18 +230,24 @@ func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUr
 	self.TargetCollector = targetCollector
 	self.runningElements = map[string]map[int]Box{}
 	// Cache
-	self.strutLayouts = map[string]int{}
+	self.dictionaries = make(map[text.HyphenDictKey]hyphen.Hyphener)
+	self.strutLayouts = make(map[text.StrutLayoutKey][2]pr.Float)
 	self.tables = map[*bo.TableBox]map[bool]tableContentWidths{}
-	self.dictionaries = map[string]int{}
 	return &self
 }
 
-func (self LayoutContext) RunningElements() map[string]map[int]Box {
-	return self.runningElements
+func (self LayoutContext) RunningElements() map[string]map[int]Box { return self.runningElements }
+
+func (self LayoutContext) CurrentPage() int { return self.currentPage }
+
+func (self *LayoutContext) Fontmap() pango.FontMap { return self.fontConfig.Fontmap }
+
+func (self *LayoutContext) HyphenCache() map[text.HyphenDictKey]hyphen.Hyphener {
+	return self.dictionaries
 }
 
-func (self LayoutContext) CurrentPage() int {
-	return self.currentPage
+func (self *LayoutContext) StrutLayoutsCache() map[text.StrutLayoutKey][2]pr.Float {
+	return self.strutLayouts
 }
 
 func (self *LayoutContext) createBlockFormattingContext() {

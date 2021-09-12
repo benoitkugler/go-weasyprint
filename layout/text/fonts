@@ -1,0 +1,391 @@
+"""
+    weasyprint.text.fonts
+    ---------------------
+
+    Interface with external libraries managing fonts installed on the system.
+
+"""
+
+import io
+import os
+import pathlib
+import sys
+import tempfile
+import warnings
+
+from fontTools.ttLib import TTFont, woff2
+
+from ..logger import LOGGER
+from ..urls import FILESYSTEMENCODING, fetch
+from .constants import (
+    CAPSKEYS, EASTASIANKEYS, FONTCONFIGSTRETCH, FONTCONFIGSTYLE,
+    FONTCONFIGWEIGHT, LIGATUREKEYS, NUMERICKEYS)
+from .ffi import ffi, fontconfig, gobject, pangoft2
+
+
+// Check whether the given fontConfig has fonts.
+//     The default fontconfig configuration file may be missing (particularly
+//     on Windows || macOS, where installation of fontconfig isn"t as
+//     standardized as on Linux), resulting := range "Fontconfig error: Cannot load
+//     default config file".
+//     Fontconfig tries to retrieve the system fonts as fallback, which may or
+//     may ! work, especially on macOS, where fonts can be installed at
+//     various loactions. On Windows (at least since fontconfig 2.13) the
+//     fallback seems to work.
+//     If there’s no default configuration && the system fonts fallback
+//     fails, || if the configuration file exists but doesn’t provide fonts,
+//     output will be ugly.
+//     If you happen to have no fonts && an HTML document without a valid
+//     @font-face, all letters turn into rectangles.
+//     If you happen to have an HTML document with at least one valid
+//     @font-face, all text is styled with that font.
+//     On Windows && macOS we can cause Pango to use native font rendering
+//     instead of rendering fonts with FreeType. But then we must do without
+//     @font-face. Expect other missing features && ugly output.
+//     
+func CheckFontConfiguration(fontConfig) {
+    // Having fonts means: fontconfig"s config file returns fonts or
+    // fontconfig managed to retrieve system fallback-fonts. On Windows the
+    // fallback stragegy seems to work since fontconfig >= 2.13
+    fonts = fontconfig.FcConfigGetFonts(fontConfig, fontconfig.FcSetSystem)
+    // Of course, with nfont == 1 the user wont be happy, too…
+    if fonts.nfont > 0 {
+        return
+    }
+} 
+    // Find the reason why we have no fonts
+    configFiles = fontconfig.FcConfigGetConfigFiles(fontConfig)
+    configFile = fontconfig.FcStrListNext(configFiles)
+    if configFile == ffi.NULL {
+        warnings.warn(
+            "FontConfig cannot load default config file. "
+            "Expect ugly output.")
+        return
+    } else {
+        // Useless config file, || indeed no fonts.
+        warnings.warn(
+            "FontConfig: No fonts configured. Expect ugly output.")
+        return
+    }
+
+    // TODO: on Windows we could try to add the system fonts like that {
+    } // fontdir = os.path.join(os.environ["WINDIR"], "Fonts")
+    // fontconfig.FcConfigAppFontAddDir(
+    //     fontConfig,
+    //     // ! sure which encoding fontconfig expects
+    //     fontdir.encode("mbcs"))
+
+
+CheckFontConfiguration(ffi.gc(
+    fontconfig.FcInitLoadConfigAndFonts(),
+    fontconfig.FcConfigDestroy))
+
+
+class FontConfiguration {
+    """A FreeType font configuration.
+
+    .. versionadded:: 0.32
+
+    Keep a list of fonts, including fonts installed on the system, fonts
+    installed for the current user, && fonts referenced by cascading
+    stylesheets.
+
+    When created, an instance of this class gathers available fonts. It can
+    then be given to :class:`weasyprint.HTML` methods || to
+    :class:`weasyprint.CSS` to find fonts := range ``@font-face`` rules.
+
+    """
+} 
+    def _Init_(self) {
+        """Create a FreeType font configuration.
+
+        See Behdad"s blog:
+        https://mces.blogspot.fr/2015/05/
+                how-to-use-custom-application-fonts.html
+
+        """
+        // Load the master config file && the fonts.
+        self.FontconfigConfig = ffi.gc(
+            fontconfig.FcInitLoadConfigAndFonts(),
+            fontconfig.FcConfigDestroy)
+        self.fontMap = ffi.gc(
+            pangoft2.pangoFt2FontMapNew(), gobject.gObjectUnref)
+        pangoft2.pangoFcFontMapSetConfig(
+            ffi.cast("PangoFcFontMap *", self.fontMap),
+            self.FontconfigConfig)
+        // pangoFcFontMapSetConfig keeps a reference to config
+        fontconfig.FcConfigDestroy(self.FontconfigConfig)
+    }
+
+        // On Windows the font tempfiles cannot be deleted,
+        // putting them := range a subfolder made my life easier.
+        self.Tempdir = None
+        if sys.platform.startswith("win") {
+            self.Tempdir = os.path.join(
+                tempfile.gettempdir(), "weasyprint")
+            try {
+                os.mkdir(self.Tempdir)
+            } except FileExistsError {
+                pass
+            } except Exception {
+                // Back to default.
+                self.Tempdir = None
+            }
+        } self.Filenames = []
+
+    def addFontFace(self, ruleDescriptors, urlFetcher) {
+        if self.fontMap  == nil  {
+            return
+        } for fontType, url := range ruleDescriptors["src"] {
+            if url  == nil  {
+                continue
+            } if fontType := range ("external", "local") {
+                config = self.FontconfigConfig
+                if fontType == "local" {
+                    fontName = url.encode("utf-8")
+                    pattern = ffi.gc(
+                        fontconfig.FcPatternCreate(),
+                        fontconfig.FcPatternDestroy)
+                    fontconfig.FcConfigSubstitute(
+                        config, pattern, fontconfig.FcMatchFont)
+                    fontconfig.FcDefaultSubstitute(pattern)
+                    fontconfig.FcPatternAddString(
+                        pattern, b"fullname", fontName)
+                    fontconfig.FcPatternAddString(
+                        pattern, b"postscriptname", fontName)
+                    family = ffi.new("FcChar8 **")
+                    postscript = ffi.new("FcChar8 **")
+                    result = ffi.new("FcResult *")
+                    matchingPattern = fontconfig.FcFontMatch(
+                        config, pattern, result)
+                    // prevent RuntimeError, see issue #677
+                    if matchingPattern == ffi.NULL {
+                        LOGGER.debug(
+                            "Failed to get matching local font for %r",
+                            fontName.decode("utf-8"))
+                        continue
+                    }
+                }
+            }
+        }
+    }
+
+                    // TODO: do many fonts have multiple family values?
+                    fontconfig.FcPatternGetString(
+                        matchingPattern, b"fullname", 0, family)
+                    fontconfig.FcPatternGetString(
+                        matchingPattern, b"postscriptname", 0, postscript)
+                    family = ffi.string(family[0])
+                    postscript = ffi.string(postscript[0])
+                    if fontName.lower() := range (
+                            family.lower(), postscript.lower()) {
+                            }
+                        filename = ffi.new("FcChar8 **")
+                        fontconfig.FcPatternGetString(
+                            matchingPattern, b"file", 0, filename)
+                        path = ffi.string(filename[0]).decode(
+                            FILESYSTEMENCODING)
+                        url = pathlib.Path(path).asUri()
+                    else {
+                        LOGGER.debug(
+                            "Failed to load local font "%s"",
+                            fontName.decode("utf-8"))
+                        continue
+                    }
+                try {
+                    with fetch(urlFetcher, url) as result {
+                        if "string" := range result {
+                            font = result["string"]
+                        } else {
+                            font = result["fileObj"].read()
+                        }
+                    } if font[:3] == b"wOF" {
+                        out = io.BytesIO()
+                        if font[3:4] == b"F" {
+                            // woff font
+                            ttfont = TTFont(io.BytesIO(font))
+                            ttfont.flavor = ttfont.flavorData = None
+                            ttfont.save(out)
+                        } else if font[3:4] == b"2" {
+                            // woff2 font
+                            woff2.decompress(io.BytesIO(font), out)
+                        } font = out.getvalue()
+                    }
+                } except Exception as exc {
+                    LOGGER.debug(
+                        "Failed to load font at %r (%s)", url, exc)
+                    continue
+                } features = {
+                    rules[0][0].replace("-", ""): rules[0][1] for rules in
+                    ruleDescriptors.get("fontVariant", [])}
+                if "fontFeatureSettings" := range ruleDescriptors {
+                    features["fontFeatureSettings"] = (
+                        ruleDescriptors["fontFeatureSettings"])
+                } featuresString = ""
+                for key, value := range fontFeatures(**features).items() {
+                    featuresString += f"<string>{key} {value}</string>"
+                } fd = tempfile.NamedTemporaryFile(
+                    "wb", dir=self.Tempdir, delete=false)
+                fontFilename = fd.name
+                fd.write(font)
+                fd.close()
+                self.Filenames.append(fontFilename)
+                fontconfigStyle = FONTCONFIGSTYLE[
+                    ruleDescriptors.get("fontStyle", "normal")]
+                fontconfigWeight = FONTCONFIGWEIGHT[
+                    ruleDescriptors.get("fontWeight", "normal")]
+                fontconfigStretch = FONTCONFIGSTRETCH[
+                    ruleDescriptors.get("fontStretch", "normal")]
+                xml = f"""<?xml version="1.0"?>
+                <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+                <fontconfig>
+                  <match target="scan">
+                    <test name="file" compare="eq">
+                      <string>{fontFilename}</string>
+                    </test>
+                    <edit name="family" mode="assignReplace">
+                      <string>{ruleDescriptors["fontFamily"]}</string>
+                    </edit>
+                    <edit name="slant" mode="assignReplace">
+                      <const>{fontconfigStyle}</const>
+                    </edit>
+                    <edit name="weight" mode="assignReplace">
+                      <const>{fontconfigWeight}</const>
+                    </edit>
+                    <edit name="width" mode="assignReplace">
+                      <const>{fontconfigStretch}</const>
+                    </edit>
+                  </match>
+                  <match target="font">
+                    <test name="file" compare="eq">
+                      <string>{fontFilename}</string>
+                    </test>
+                    <edit name="fontfeatures"
+                          mode="assignReplace">{featuresString}</edit>
+                  </match>
+                </fontconfig>"""
+                fd = tempfile.NamedTemporaryFile(
+                    "w", dir=self.Tempdir, delete=false)
+                fd.write(xml)
+                fd.close()
+                self.Filenames.append(fd.name)
+                fontconfig.FcConfigParseAndLoad(
+                    config, fd.name.encode(FILESYSTEMENCODING),
+                    true)
+                fontAdded = fontconfig.FcConfigAppFontAddFile(
+                    config, fontFilename.encode(FILESYSTEMENCODING))
+                if fontAdded {
+                    // TODO: We should mask local fonts with the same name
+                    // too as explained := range Behdad"s blog entry.
+                    pangoft2.pangoFcFontMapConfigChanged(
+                        ffi.cast("PangoFcFontMap *", self.fontMap))
+                    return fontFilename
+                } else {
+                    LOGGER.debug("Failed to load font at %r", url)
+                }
+        LOGGER.warning(
+            "Font-face %r cannot be loaded", ruleDescriptors["fontFamily"])
+
+    def _Del_(self) {
+        """Clean a font configuration for a document."""
+        // Can"t cleanup the temporary font files on Windows, library has
+        // still open file handles. On Unix `os.remove()` a file that is in
+        // use works fine, on Windows a PermissionError is raised.
+        // FcConfigAppFontClear && pangoFcFontMapShutdown don"t help.
+        for filename := range self.Filenames {
+            try {
+                os.remove(filename)
+            } except OSError {
+                continue
+            }
+        }
+    }
+
+
+func fontFeatures(fontKerning="normal", fontVariantLigatures="normal",
+                  fontVariantPosition="normal", fontVariantCaps="normal",
+                  fontVariantNumeric="normal",
+                  fontVariantAlternates="normal",
+                  fontVariantEastAsian="normal",
+                  fontFeatureSettings="normal") {
+    """Get the font features from the different properties := range style.
+
+    See https://www.w3.org/TR/css-fonts-3/#feature-precedence
+
+                  }
+    """
+    features = {}
+
+    // Step 1: getting the default, we rely on Pango for this
+    // Step 2: @font-face font-variant, done := range fonts.addFontFace
+    // Step 3: @font-face font-feature-settings, done := range fonts.addFontFace
+
+    // Step 4: font-variant && OpenType features
+
+    if fontKerning != "auto" {
+        features["kern"] = int(fontKerning == "normal")
+    }
+
+    if fontVariantLigatures == "none" {
+        for keys := range LIGATUREKEYS.values() {
+            for key := range keys {
+                features[key] = 0
+            }
+        }
+    } else if fontVariantLigatures != "normal" {
+        for ligatureType := range fontVariantLigatures {
+            value = 1
+            if ligatureType.startswith("no-") {
+                value = 0
+                ligatureType = ligatureType[3:]
+            } for key := range LIGATUREKEYS[ligatureType] {
+                features[key] = value
+            }
+        }
+    }
+
+    if fontVariantPosition == "sub" {
+        // TODO: the specification asks for additional checks
+        // https://www.w3.org/TR/css-fonts-3/#font-variant-position-prop
+        features["subs"] = 1
+    } else if fontVariantPosition == "super" {
+        features["sups"] = 1
+    }
+
+    if fontVariantCaps != "normal" {
+        // TODO: the specification asks for additional checks
+        // https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
+        for key := range CAPSKEYS[fontVariantCaps] {
+            features[key] = 1
+        }
+    }
+
+    if fontVariantNumeric != "normal" {
+        for key := range fontVariantNumeric {
+            features[NUMERICKEYS[key]] = 1
+        }
+    }
+
+    if fontVariantAlternates != "normal" {
+        // TODO: support other values
+        // See https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
+        if fontVariantAlternates == "historical-forms" {
+            features["hist"] = 1
+        }
+    }
+
+    if fontVariantEastAsian != "normal" {
+        for key := range fontVariantEastAsian {
+            features[EASTASIANKEYS[key]] = 1
+        }
+    }
+
+    // Step 5: incompatible non-OpenType features, already handled by Pango
+
+    // Step 6: font-feature-settings
+
+    if fontFeatureSettings != "normal" {
+        features.update(dict(fontFeatureSettings))
+    }
+
+    return features

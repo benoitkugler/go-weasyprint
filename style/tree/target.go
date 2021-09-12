@@ -1,9 +1,10 @@
 package tree
 
 import (
-	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
@@ -26,8 +27,8 @@ type RemakeState struct {
 }
 
 type SkipStack struct {
-	Skip  int
 	Stack *SkipStack
+	Skip  int
 }
 
 type PageState struct {
@@ -68,10 +69,10 @@ type PageBreak struct {
 
 type PageMaker struct {
 	InitialResumeAt  *SkipStack
-	InitialNextPage  PageBreak
-	RightPage        bool
 	InitialPageState PageState
+	InitialNextPage  PageBreak
 	RemakeState      RemakeState
+	RightPage        bool
 }
 
 type Box interface {
@@ -140,8 +141,6 @@ type ParseFunc = func(CounterValues)
 //
 // Collected in the TargetCollector"s ``items``.
 type TargetLookupItem struct {
-	state string
-
 	// Required by target-counter and target-counters to access the
 	// target's .cachedCounterValues.
 	// Needed for target-text via TEXTCONTENTEXTRACTORS.
@@ -151,11 +150,13 @@ type TargetLookupItem struct {
 	// Keys are (sourceBox, cssToken).
 	parseAgainFunctions funcStore
 
-	// Anchor position during pagination (pageNumber - 1)
-	PageMakerIndex int
-
 	// TargetBox's pageCounters during pagination
 	CachedPageCounterValues CounterValues
+
+	state string
+
+	// Anchor position during pagination (pageNumber - 1)
+	PageMakerIndex int
 }
 
 func NewTargetLookupItem(state string) *TargetLookupItem {
@@ -189,14 +190,14 @@ type CounterLookupItem struct {
 	MissingCounters       utils.Set
 	MissingTargetCounters map[string]utils.Set
 
+	// Targeting box's pageCounters during pagination
+	CachedPageCounterValues CounterValues
+
 	// Box position during pagination (pageNumber - 1)
 	PageMakerIndex optionnalInt
 
 	// Marker for remakePage
 	Pending bool
-
-	// Targeting box's pageCounters during pagination
-	CachedPageCounterValues CounterValues
 }
 
 func NewCounterLookupItem(parseAgain ParseFunc, missingCounters utils.Set, missingTargetCounters map[string]utils.Set) *CounterLookupItem {
@@ -215,6 +216,9 @@ type TargetCollector struct {
 	TargetLookupItems  map[string]*TargetLookupItem
 	CounterLookupItems map[functionKey]*CounterLookupItem
 
+	// List of anchors that have already been seen during parsing.
+	existingAnchors utils.Set
+
 	// When collecting is true, computeContentList() collects missing
 	// page counters in CounterLookupItems. Otherwise, it mixes in the
 	// TargetLookupItem's CachedPageCounterValues.
@@ -225,9 +229,6 @@ type TargetCollector struct {
 	// not been seen yet. CheckPendingTargets then uses this information
 	// to call the needed ParseAgain functions.
 	hadPendingTargets bool
-
-	// List of anchors that have already been seen during parsing.
-	existingAnchors utils.Set
 }
 
 func NewTargetCollector() TargetCollector {

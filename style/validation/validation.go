@@ -3,10 +3,11 @@ package validation
 import (
 	"errors"
 	"fmt"
-	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"math"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -301,9 +302,11 @@ func init() {
 
 type Token = parser.Token
 
-type validator func(tokens []Token, baseUrl string) pr.CssProperty // dont support var(), attr()
-type validatorError func(tokens []Token, baseUrl string) (pr.CssProperty, error)
-type expander func(baseUrl, name string, tokens []Token) (pr.NamedProperties, error)
+type (
+	validator      func(tokens []Token, baseUrl string) pr.CssProperty // dont support var(), attr()
+	validatorError func(tokens []Token, baseUrl string) (pr.CssProperty, error)
+	expander       func(baseUrl, name string, tokens []Token) (pr.NamedProperties, error)
+)
 
 type ValidatedProperty struct {
 	Name      string
@@ -494,7 +497,7 @@ func getAngle(token Token) (float64, bool) {
 	return 0, false
 }
 
-// Return the value := range dppx of a <resolution> token, || None.
+// Return the value in dppx of a <resolution> token, or false.
 func getResolution(token Token) (float64, bool) {
 	if dim, ok := token.(parser.DimensionToken); ok {
 		factor, in := RESOLUTIONTODPPX[string(dim.Unit)]
@@ -1170,10 +1173,8 @@ func clip(tokens []Token, _ string) pr.CssProperty {
 // //@validator(wantsBaseUrl=true)
 // ``content`` property validation.
 func content(tokens []Token, baseUrl string) (pr.CssProperty, error) {
-	var (
-		//parsedTokens []interface{}
-		token Token
-	)
+	// parsedTokens []interface{}
+	var token Token
 	for len(tokens) > 0 {
 		if len(tokens) >= 2 {
 			if lit, ok := tokens[1].(parser.LiteralToken); ok && lit.Value == "," {
@@ -1724,7 +1725,7 @@ func fontWeight(tokens []Token, _ string) pr.CssProperty {
 // @single_keyword
 func objectFit(tokens []Token, _ string) pr.CssProperty {
 	keyword := getSingleKeyword(tokens)
-	//TODO: Figure out what the spec means by "'scale-down' flag".
+	// TODO: Figure out what the spec means by "'scale-down' flag".
 	//  As of this writing, neither Firefox nor chrome support
 	//  anything other than a single keyword as is done here.
 	switch keyword {
@@ -1747,7 +1748,7 @@ func imageResolution(tokens []Token, _ string) pr.CssProperty {
 	if !ok {
 		return nil
 	}
-	return pr.FToV(value)
+	return pr.FToV(pr.Fl(value))
 }
 
 //@validator("letter-spacing")
@@ -2426,7 +2427,7 @@ func tabSize(tokens []Token, _ string) pr.CssProperty {
 	token := tokens[0]
 	if number, ok := token.(parser.NumberToken); ok {
 		if number.IsInteger && number.Value >= 0 {
-			return pr.FToV(number.Value)
+			return pr.FToV(pr.Fl(number.Value))
 		}
 	}
 	return pr.Value{Dimension: getLength(token, false, false)}
@@ -2492,7 +2493,6 @@ func hyphenateLimitChars(tokens []Token, _ string) pr.CssProperty {
 			return pr.Ints3{5, 2, 2}
 		} else if number, ok := token.(parser.NumberToken); ok && number.IsInteger {
 			return pr.Ints3{number.IntValue(), 2, 2}
-
 		}
 	case 2:
 		total, left := tokens[0], tokens[1]
@@ -2555,7 +2555,6 @@ func lang(tokens []Token, _ string) pr.CssProperty {
 				return pr.NamedString{Name: "attr()", String: string(ident.Value)}
 			}
 		}
-
 	} else if str, ok := token.(parser.StringToken); ok {
 		return pr.NamedString{Name: "string", String: str.Value}
 	}
@@ -2677,7 +2676,7 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 		lengths[index] = getLength(a, true, true)
 		isAllLengths = isAllLengths && !lengths[index].IsNone()
 		if aNumber, ok := a.(parser.NumberToken); ok {
-			values[index] = pr.FToD(aNumber.Value)
+			values[index] = pr.FToD(pr.Fl(aNumber.Value))
 		} else {
 			isAllNumber = false
 		}
@@ -2689,7 +2688,7 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 		switch name {
 		case "rotate", "skewx", "skewy":
 			if notNone && angle != 0 {
-				return pr.SDimensions{String: name, Dimensions: []pr.Dimension{pr.FToD(angle)}}, nil
+				return pr.SDimensions{String: name, Dimensions: []pr.Dimension{pr.FToD(pr.Fl(angle))}}, nil
 			}
 		case "translatex", "translate":
 			if !length.IsNone() {
@@ -2701,15 +2700,15 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 			}
 		case "scalex":
 			if number, ok := args[0].(parser.NumberToken); ok {
-				return pr.SDimensions{String: "scale", Dimensions: []pr.Dimension{pr.FToD(number.Value), pr.FToD(1.)}}, nil
+				return pr.SDimensions{String: "scale", Dimensions: []pr.Dimension{pr.FToD(pr.Fl(number.Value)), pr.FToD(1.)}}, nil
 			}
 		case "scaley":
 			if number, ok := args[0].(parser.NumberToken); ok {
-				return pr.SDimensions{String: "scale", Dimensions: []pr.Dimension{pr.FToD(1.), pr.FToD(number.Value)}}, nil
+				return pr.SDimensions{String: "scale", Dimensions: []pr.Dimension{pr.FToD(1.), pr.FToD(pr.Fl(number.Value))}}, nil
 			}
 		case "scale":
 			if number, ok := args[0].(parser.NumberToken); ok {
-				return pr.SDimensions{String: "scale", Dimensions: []pr.Dimension{pr.FToD(number.Value), pr.FToD(number.Value)}}, nil
+				return pr.SDimensions{String: "scale", Dimensions: []pr.Dimension{pr.FToD(pr.Fl(number.Value)), pr.FToD(pr.Fl(number.Value))}}, nil
 			}
 		}
 	case 2:

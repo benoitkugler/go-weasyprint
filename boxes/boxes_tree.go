@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/images"
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -26,8 +27,7 @@ type LineBox struct {
 	TextIndent   pr.MaybeFloat
 }
 
-type InlineLevelBox struct {
-}
+type InlineLevelBox struct{}
 
 type InlineBox struct {
 	BoxFields
@@ -40,7 +40,7 @@ type TextBox struct {
 
 	Text                 string
 	JustificationSpacing pr.Float
-	PangoLayout          *PangoLayout
+	PangoLayout          *text.PangoLayout
 }
 
 type AtomicInlineLevelBox struct {

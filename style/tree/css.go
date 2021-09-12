@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/logger"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
-
-	"github.com/benoitkugler/go-weasyprint/fonts"
 
 	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/style/validation"
@@ -52,7 +51,7 @@ type CSS struct {
 // checkMimeType = false
 func NewCSS(input utils.ContentInput, baseUrl string,
 	urlFetcher utils.UrlFetcher, checkMimeType bool,
-	mediaType string, fontConfig *fonts.FontConfiguration, matcher *matcher,
+	mediaType string, fontConfig *text.FontConfiguration, matcher *matcher,
 	pageRules *[]PageRule) (CSS, error) {
 
 	logger.ProgressLogger.Printf("Step 2 - Fetching and parsing CSS - %s", input)
@@ -107,9 +106,9 @@ func NewMatcher() *matcher {
 }
 
 type matchResult struct {
-	specificity cascadia.Specificity
 	pseudoType  string
 	payload     []validation.ValidatedProperty
+	specificity cascadia.Specificity
 }
 
 func (m matcher) Match(element *html.Node) (out []matchResult) {
@@ -124,8 +123,8 @@ func (m matcher) Match(element *html.Node) (out []matchResult) {
 }
 
 type pageIndex struct {
+	Group []parser.Token // TODO: handle groups
 	A, B  int
-	Group []parser.Token //TODO: handle groups
 }
 
 func (p pageIndex) IsNone() bool {
@@ -133,9 +132,10 @@ func (p pageIndex) IsNone() bool {
 }
 
 type pageSelector struct {
-	Side         string
-	Blank, First bool
-	Name         string
-	Index        pageIndex
-	Specificity  cascadia.Specificity
+	Side        string
+	Name        string
+	Index       pageIndex
+	Specificity cascadia.Specificity
+	Blank       bool
+	First       bool
 }

@@ -113,7 +113,6 @@ func (dic HyphDic) positions(word string) []DataInt {
 			pattern, ok := dic.data.Patterns[string(pointedWord[i:j])]
 			if ok {
 				offset, values := pattern.Start, pattern.Values
-				// fmt.Println(i, j, offset, values)
 				slice := references[i+offset : i+offset+len(values)]
 				for k := range slice {
 					max := slice[k]

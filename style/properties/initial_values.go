@@ -4,6 +4,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 )
 
+// InitialValues stores the default values for the CSS properties.
 var InitialValues = Properties{
 	"bottom":       SToV("auto"),
 	"caption_side": String("top"),
@@ -140,7 +141,7 @@ var InitialValues = Properties{
 	"bleed_right":  SToV("auto"),
 	"bleed_top":    SToV("auto"),
 	"bleed_bottom": SToV("auto"),
-	"marks":        Marks{}, //computed value for 'none'
+	"marks":        Marks{}, // computed value for 'none'
 
 	// Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
 	"hyphenate_character":   String("‐"), // computed value chosen by the user agent

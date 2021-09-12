@@ -1,10 +1,12 @@
 package layout
 
 import (
-	"github.com/benoitkugler/go-weasyprint/utils"
 	"log"
 	"strings"
 	"unicode"
+
+	"github.com/benoitkugler/go-weasyprint/layout/text"
+	"github.com/benoitkugler/go-weasyprint/utils"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -12,19 +14,6 @@ import (
 )
 
 //     Line breaking and layout for inline-level boxes.
-
-const (
-	True  = Bool(true)
-	False = Bool(false)
-)
-
-type Bool bool
-
-func (Bool) isMaybeBool() {}
-
-type MaybeBool interface {
-	isMaybeBool()
-}
 
 // IsLineBox || IsInlineBox
 func IsLine(box Box) bool {
@@ -58,7 +47,7 @@ func (l *lineBoxeIterator) Next() lineBoxe {
 // skipStack is ``nil`` to start at the beginning of ``linebox``,
 // or a ``resumeAt`` value to continue just after an
 // already laid-out line.
-func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack, containingBlock bo.BoxFields,
+func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
 	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) lineBoxeIterator {
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
@@ -89,7 +78,7 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 }
 
 func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack,
-	containingBlock bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
+	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	firstLetterStyle pr.Properties) lineBoxe {
 
 	skipStack, cont := skipFirstWhitespace(linebox, skipStack)
@@ -104,7 +93,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 	if len(context.excludedShapes) != 0 {
 		// Width and height must be calculated to avoid floats
 		linebox.Width = inlineMinContentWidth(context, linebox, true, skipStack, true, false)
-		linebox.Height, _ = StrutLayout(linebox.Style, context)
+		linebox.Height = text.StrutLayout(linebox.Style, context)[0]
 	} else {
 		// No float, width and height will be set by the lines
 		linebox.Width = pr.Float(0)
@@ -153,7 +142,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 		alignmentAvailableWidth := newAvailableWidth + newPositionX - linebox.PositionX
 		offsetX := textAlign(context, line_, alignmentAvailableWidth, resumeAt == nil || preservedLineBreak)
 
-		bottom_, top_ := lineBoxVerticality(line_)
+		bottom_, top_ := lineBoxVerticality(context, line_)
 		bottom, top := bottom_.(pr.Float), top_.(pr.Float)
 		line.Baseline = -top
 		line.PositionY = top
@@ -291,7 +280,7 @@ func removeLastWhitespace(context *LayoutContext, box Box) {
 		}
 		textBox.Text = newText
 		newBox, resume, _ := splitTextBox(context, textBox, nil, 0)
-		if newBox == nil || resume != nil {
+		if newBox == nil || resume != -1 {
 			log.Fatalf("expected newBox and no resume, got %v, %v", newBox, resume)
 		}
 		spaceWidth = textBox.Width.V() - newBox.Box().Width.V()
@@ -494,7 +483,7 @@ func resolveMarginAuto(box *bo.BoxFields) {
 }
 
 // Lay out an inline :class:`boxes.ReplacedBox` ``box``.
-func inlineReplacedBoxLayout(box_ Box, containingBlock bo.BoxFields) {
+func inlineReplacedBoxLayout(box_ Box, containingBlock *bo.BoxFields) {
 	resolveMarginAuto(box_.Box())
 	inlineReplacedBoxWidthHeight(box_, containingBlock)
 }
@@ -582,7 +571,7 @@ func minMaxAutoReplaced(box *bo.BoxFields) {
 }
 
 // Compute the width and the height of the atomic ``box``.
-func atomicBox(context *LayoutContext, box Box, positionX pr.Float, skipStack *tree.SkipStack, containingBlock bo.BoxFields,
+func atomicBox(context *LayoutContext, box Box, positionX pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
 	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) Box {
 
 	if _, ok := box.(bo.InstanceReplacedBox); ok {
@@ -602,9 +591,9 @@ func atomicBox(context *LayoutContext, box Box, positionX pr.Float, skipStack *t
 }
 
 func inlineBlockBoxLayout(context *LayoutContext, box_ Box, positionX pr.Float, skipStack *tree.SkipStack,
-	containingBlock bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) Box {
+	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) Box {
 
-	resolvePercentages2(box_, containingBlock, "")
+	resolvePercentagesBox(box_, containingBlock, "")
 	box := box_.Box()
 	// http://www.w3.org/TR/CSS21/visudet.html#inlineblock-width
 	if box.MarginLeft == pr.Auto {
@@ -659,7 +648,7 @@ var inlineBlockWidth = handleMinMaxWidth(inlineBlockWidth_)
 
 func cbWidth(cb containingBlock) pr.MaybeFloat {
 	switch cb := cb.(type) {
-	case bo.BoxFields:
+	case *bo.BoxFields:
 		return cb.Width
 	case block:
 		return cb.Width
@@ -710,10 +699,10 @@ type splitedInline struct {
 // while being narrower than ``availableWidth``, if possible (may overflow
 // is no split is possible.)
 func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float, skipStack *tree.SkipStack,
-	containingBlock bo.BoxFields, absoluteBoxes, fixedBoxes,
+	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes,
 	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
 	box := box_.Box()
-	resolvePercentages2(box_, containingBlock, "")
+	resolvePercentagesBox(box_, containingBlock, "")
 	floatWidths := widths{}
 	var (
 		newBox                  Box
@@ -730,18 +719,18 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 				log.Fatalf("expected empty skipStack, got %v", skipStack)
 			}
 		}
-		var skip *int
+		var skip int
 		newBox, skip, preservedLineBreak = splitTextBox(context, textBox, maxX-positionX, skip_)
 
-		if skip != nil {
-			resumeAt = &tree.SkipStack{Skip: *skip}
+		if skip != -1 {
+			resumeAt = &tree.SkipStack{Skip: skip}
 		}
 		if text := []rune(textBox.Text); len(text) != 0 {
 			firstLetter = text[0]
-			if skip == nil {
+			if skip == -1 {
 				lastLetter = text[len(text)-1]
 			} else {
-				lastLetter = text[*skip-1]
+				lastLetter = text[skip-1]
 			}
 		} else {
 			firstLetter = -1
@@ -758,7 +747,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 			absoluteBoxes, fixedBoxes, linePlaceholders, waitingFloats, lineChildren)
 		newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidths = tmp.newBox, tmp.resumeAt, tmp.preservedLineBreak, tmp.firstLetter, tmp.lastLetter, tmp.floatWidths
 	} else if bo.IsAtomicInlineLevelBox(box_) {
-		newBox := atomicBox(context, box_, positionX, skipStack, containingBlock, absoluteBoxes, fixedBoxes)
+		newBox = atomicBox(context, box_, positionX, skipStack, containingBlock, absoluteBoxes, fixedBoxes)
 		newBox.Box().PositionX = positionX
 		resumeAt = nil
 		preservedLineBreak = false
@@ -791,7 +780,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 
 // Same behavior as splitInlineLevel.
 func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, skipStack *tree.SkipStack,
-	containingBlock bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
+	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
 
 	if !IsLine(box_) {
@@ -933,23 +922,23 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			preservedLineBreak = true
 		}
 
-		var canBreak MaybeBool
+		var canBreak pr.MaybeBool
 		if lastLetter == true {
 			lastLetter = ' '
 		} else if lastLetter == false {
 			lastLetter = ' ' // no-break space
 		} else if box.Style.GetWhiteSpace() == "pre" || box.Style.GetWhiteSpace() == "nowrap" {
-			canBreak = False
+			canBreak = pr.False
 		}
 		if canBreak == nil {
 			if nil == lastLetter || first < 0 {
-				canBreak = False
+				canBreak = pr.False
 			} else {
-				canBreak = CanBreakText(string(lastLetter.(rune))+string(first), child.Style.GetLang().String)
+				canBreak = text.CanBreakText([]rune{lastLetter.(rune), first})
 			}
 		}
 
-		if canBreak == True {
+		if canBreak == pr.True {
 			children = append(children, waitingChildren...)
 			waitingChildren = nil
 		}
@@ -992,7 +981,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 						tmp, waitingChildrenCopy = waitingChildrenCopy[len(waitingChildrenCopy)-1], waitingChildrenCopy[:len(waitingChildrenCopy)-1]
 						childIndex, child := tmp.index, tmp.box
 						// TODO: should we also accept relative children?
-						if child.Box().IsInNormalFlow() && canBreakInside(child) == True {
+						if child.Box().IsInNormalFlow() && canBreakInside(child) == pr.True {
 							// We break the waiting child at its last possible
 							// breaking point.
 							// TODO: The dirty solution chosen here is to
@@ -1001,7 +990,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 							// find a better way.
 							maxX := child.Box().PositionX + child.Box().MarginWidth() - 1
 							tmp := splitInlineLevel(context, child, child.Box().PositionX, maxX,
-								nil, *box, absoluteBoxes, fixedBoxes, linePlaceholders, waitingFloats, lineChildren)
+								nil, box, absoluteBoxes, fixedBoxes, linePlaceholders, waitingFloats, lineChildren)
 							childNewChild, childResumeAt := tmp.newBox, tmp.resumeAt
 
 							// As PangoLayout and PangoLogAttr don"t always
@@ -1121,8 +1110,9 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		newBox.Width = positionX - contentBoxLeft
 		newBox_.Translate(newBox_, floatWidths.left, 0, true)
 	}
-	var lineHeight pr.Float
-	lineHeight, newBox.Baseline = StrutLayout(box.Style, context)
+	stl := text.StrutLayout(box.Style, context)
+	lineHeight := stl[0]
+	newBox.Baseline = stl[1]
 	newBox.Height = box.Style.GetFontSize().ToMaybeFloat()
 	halfLeading := (lineHeight - newBox.Height.V()) / 2.
 	// Set margins to the half leading but also compensate for borders and
@@ -1162,38 +1152,24 @@ var lineBreaks = utils.NewSet("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
 //
 // Return ``(new_box, skip, preserved_line_break)``. ``skip`` is the number of
 // UTF-8 bytes to skip form the start of the TextBox for the next line, or
-// ``nil`` if all of the text fits.
+// -1 if all of the text fits.
 //
 // Also break on preserved line breaks.
-func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.MaybeFloat, skip int) (*bo.TextBox, *int, bool) {
+func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.MaybeFloat, skip int) (*bo.TextBox, int, bool) {
 	fontSize := box.Style.GetFontSize()
-	text := []rune(box.Text)[skip:]
-	if fontSize == pr.FToV(0) || len(text) == 0 {
-		return nil, nil, false
+	if fontSize == pr.FToV(0) || skip == 0 {
+		return nil, -1, false
 	}
-	v := SplitFirstLine(text, box.Style, *context, availableWidth, box.JustificationSpacing, false)
+	text_ := []rune(box.Text)[skip:]
+	v := text.SplitFirstLine(string(text_), box.Style, context, availableWidth, box.JustificationSpacing, false)
 	layout, length, resumeAt, width, height, baseline := v.Layout, v.Length, v.ResumeAt, v.Width, v.Height, v.Baseline
-	if resumeAt != nil && *resumeAt == 0 {
+	if resumeAt == 0 {
 		log.Fatalln("resumeAt should not be 0 here")
 	}
 
-	// Convert ``length`` && ``resumeAt`` from UTF-8 indexes in text
-	// to Unicode indexes.
-	// No need to encode what’s after resumeAt (if set) || length (if
-	// resumeAt is not set). One code point is one || more byte, so
-	// UTF-8 indexes are always bigger || equal to Unicode indexes.
-	newText := layout.Text
-	// encoded = text.encode("utf8")
-	var between string
-	if resumeAt != nil {
-		between = string(text[length:*resumeAt])
-		l := len(text[:*resumeAt])
-		resumeAt = &l
-	}
-	length = len(text[:length])
-
+	newText := layout.Layout.Text
 	if length > 0 {
-		box = box.CopyWithText(newText)
+		box = box.CopyWithText(string(newText))
 		box.Width = width
 		box.PangoLayout = layout
 		// "The height of the content area should be based on the font,
@@ -1204,7 +1180,7 @@ func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.May
 		// "only the "line-height" is used when calculating the height
 		//  of the line box."
 		// Set margins so that marginHeight() == lineHeight
-		lineHeight, _ := StrutLayout(box.Style, context)
+		lineHeight := text.StrutLayout(box.Style, context)[0]
 		halfLeading := (lineHeight - height) / 2.
 		box.MarginTop = halfLeading
 		box.MarginBottom = halfLeading
@@ -1217,14 +1193,15 @@ func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.May
 	}
 
 	preservedLineBreak := false
-	if resumeAt != nil {
-		preservedLineBreak = (length != *resumeAt) && len(strings.Trim(between, " ")) != 0
+	if resumeAt != -1 {
+		between := string(text_[length:resumeAt])
+		preservedLineBreak = (length != resumeAt) && len(strings.Trim(between, " ")) != 0
 		if preservedLineBreak {
 			if !lineBreaks.Has(between) {
 				log.Fatalf("Got %s between two lines. Expected nothing or a preserved line break", between)
 			}
 		}
-		*resumeAt += skip
+		resumeAt += skip
 	}
 
 	return box, resumeAt, preservedLineBreak
@@ -1241,14 +1218,14 @@ type boxMinMax struct {
 //     is at `y = 0`.
 //     Return ``(maxY, minY)``, the maximum and minimum vertical position
 //     of margin boxes.
-func lineBoxVerticality(box Box) (pr.MaybeFloat, pr.MaybeFloat) {
+func lineBoxVerticality(context *LayoutContext, box Box) (pr.MaybeFloat, pr.MaybeFloat) {
 	var topBottomSubtrees []Box
-	maxY, minY := alignedSubtreeVerticality(box, &topBottomSubtrees, 0)
+	maxY, minY := alignedSubtreeVerticality(context, box, &topBottomSubtrees, 0)
 	subtreesWithMinMax := make([]boxMinMax, len(topBottomSubtrees))
 	for i, subtree := range topBottomSubtrees {
 		var subMaxY, subMinY pr.MaybeFloat
 		if !subtree.Box().IsFloated() {
-			subMaxY, subMinY = alignedSubtreeVerticality(subtree, &topBottomSubtrees, 0)
+			subMaxY, subMinY = alignedSubtreeVerticality(context, subtree, &topBottomSubtrees, 0)
 		}
 		subtreesWithMinMax[i] = boxMinMax{box: subtree, max: subMaxY, min: subMinY}
 	}
@@ -1297,8 +1274,8 @@ func translateSubtree(box Box, dy pr.Float) {
 	}
 }
 
-func alignedSubtreeVerticality(box Box, topBottomSubtrees *[]Box, baselineY pr.Float) (pr.Float, pr.Float) {
-	maxY, minY := inlineBoxVerticality(box, topBottomSubtrees, baselineY)
+func alignedSubtreeVerticality(context *LayoutContext, box Box, topBottomSubtrees *[]Box, baselineY pr.Float) (pr.Float, pr.Float) {
+	maxY, minY := inlineBoxVerticality(context, box, topBottomSubtrees, baselineY)
 	// Account for the line box itself :
 	top := baselineY - box.Box().Baseline.V()
 	bottom := top + box.Box().MarginHeight()
@@ -1317,7 +1294,7 @@ func alignedSubtreeVerticality(box Box, topBottomSubtrees *[]Box, baselineY pr.F
 //     is at `y = baselineY`.
 //     Return ``(maxY, minY)``, the maximum and minimum vertical position
 //     of margin boxes.
-func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY pr.Float) (maxY, minY pr.MaybeFloat) {
+func inlineBoxVerticality(context *LayoutContext, box_ Box, topBottomSubtrees *[]Box, baselineY pr.Float) (maxY, minY pr.MaybeFloat) {
 	if !IsLine(box_) {
 		return maxY, minY
 	}
@@ -1336,18 +1313,18 @@ func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY pr.Float
 		case "baseline":
 			childBaselineY = baselineY
 		case "middle":
-			oneEx := box.Style.GetFontSize().Value * ExRatio(box.Style)
+			oneEx := box.Style.GetFontSize().Value * text.ExRatio(box.Style, context)
 			top := baselineY - (oneEx+child.MarginHeight())/2.
 			childBaselineY = top + child.Baseline.V()
 		case "text-top":
 			// align top with the top of the parent’s content area
 			top := baselineY - box.Baseline.V() + box.MarginTop.V() +
-							box.BorderTopWidth.V() + box.PaddingTop.V()
+				box.BorderTopWidth.V() + box.PaddingTop.V()
 			childBaselineY = top + child.Baseline.V()
 		case "text-bottom":
 			// align bottom with the bottom of the parent’s content area
 			bottom := baselineY - box.Baseline.V() + box.MarginTop.V() +
-							box.BorderTopWidth.V() + box.PaddingTop.V() + box.Height.V()
+				box.BorderTopWidth.V() + box.PaddingTop.V() + box.Height.V()
 			childBaselineY = bottom - child.MarginHeight() + child.Baseline.V()
 		case "top", "bottom":
 			// TODO: actually implement vertical-align: top and bottom
@@ -1385,7 +1362,7 @@ func inlineBoxVerticality(box_ Box, topBottomSubtrees *[]Box, baselineY pr.Float
 			maxY = bottom
 		}
 		if bo.TypeInlineBox.IsInstance(child_) {
-			childrenMaxY, childrenMinY := inlineBoxVerticality(child_, topBottomSubtrees, childBaselineY)
+			childrenMaxY, childrenMinY := inlineBoxVerticality(context, child_, topBottomSubtrees, childBaselineY)
 			if childrenMinY != nil && childrenMinY.V() < minY.V() {
 				minY = childrenMinY
 			}
@@ -1479,8 +1456,8 @@ func addWordSpacing(context *LayoutContext, box_ Box, justificationSpacing, xAdv
 		textBox.PositionX += xAdvance
 		nbSpaces := pr.Float(countSpaces(box_))
 		if nbSpaces > 0 {
-			layout := createLayout(textBox.Text, textBox.Style, context, pr.Inf, textBox.JustificationSpacing)
-			layout.Deactivate()
+			layout := text.CreateLayout(textBox.Text, textBox.Style, context, pr.Inf, textBox.JustificationSpacing)
+			// layout.Deactivate()
 			extraSpace := justificationSpacing * nbSpaces
 			xAdvance += extraSpace
 			textBox.Width = textBox.Width.V() + extraSpace
@@ -1526,30 +1503,30 @@ func isPhantomLinebox(linebox bo.BoxFields) bool {
 	return true
 }
 
-func canBreakInside(box Box) MaybeBool {
+func canBreakInside(box Box) pr.MaybeBool {
 	// See https://www.w3.org/TR/css-text-3/#white-space-property
 	ws := box.Box().Style.GetWhiteSpace()
 	textWrap := ws == "normal" || ws == "pre-wrap" || ws == "pre-line"
 	textBox, isTextBox := box.(*bo.TextBox)
 	if bo.IsAtomicInlineLevelBox(box) {
-		return False
+		return pr.False
 	} else if isTextBox {
 		if textWrap {
-			return CanBreakText(textBox.Text, box.Box().Style.GetLang().String)
+			return text.CanBreakText([]rune(textBox.Text))
 		} else {
-			return False
+			return pr.False
 		}
 	} else if bo.IsParentBox(box) {
 		if textWrap {
 			for _, child := range box.Box().Children {
-				if canBreakInside(child) == True {
-					return True
+				if canBreakInside(child) == pr.True {
+					return pr.True
 				}
 			}
-			return False
+			return pr.False
 		} else {
-			return False
+			return pr.False
 		}
 	}
-	return False
+	return pr.False
 }

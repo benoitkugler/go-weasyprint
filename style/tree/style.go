@@ -18,13 +18,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/logger"
 
 	"golang.org/x/net/html/atom"
 
 	"github.com/benoitkugler/cascadia"
 
-	"github.com/benoitkugler/go-weasyprint/fonts"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/validation"
@@ -32,25 +32,23 @@ import (
 	"golang.org/x/net/html"
 )
 
-var (
-	// Reject anything not in here
-	pseudoElements = utils.NewSet("", "before", "after", "marker", "first-line", "first-letter")
-)
+// Reject anything not in here
+var pseudoElements = utils.NewSet("", "before", "after", "marker", "first-line", "first-letter")
 
 type Token = parser.Token
 
 // StyleFor provides a convenience function `Get` to get the computed styles for an Element.
 type StyleFor struct {
-	//pr.Properties
-	//Anonymous      bool
-	//inheritedStyle *StyleFor
+	// pr.Properties
+	// Anonymous      bool
+	// inheritedStyle *StyleFor
 
 	CascadedStyles map[utils.ElementKey]cascadedStyle
 	computedStyles map[utils.ElementKey]pr.Properties
 	sheets         []sheet
 }
 
-func NewStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *TargetCollector) *StyleFor {
+func newStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *TargetCollector) *StyleFor {
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		CascadedStyles: cascadedStyles,
@@ -234,7 +232,7 @@ func (s StyleFor) AddPageDeclarations(pageType_ utils.PageElement) {
 }
 
 // Set style for page types and pseudo-types matching ``pageType``.
-func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html_ htmlLike) {
+func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html_ ParsedHTML) {
 	html := html_.AsHTML()
 	styleFor.AddPageDeclarations(pageType)
 
@@ -285,7 +283,7 @@ func pageTypeMatch(selectorPageType pageSelector, pageType utils.PageElement) bo
 // Yield the stylesheets in ``elementTree``.
 // The output order is the same as the source order.
 func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher utils.UrlFetcher, baseUrl string,
-	fontConfig *fonts.FontConfiguration, pageRules *[]PageRule) (out []CSS) {
+	fontConfig *text.FontConfiguration, pageRules *[]PageRule) (out []CSS) {
 	sel := cascadia.MustCompile("style, link")
 	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
 		element := (*utils.HTMLNode)(_element)
@@ -351,7 +349,6 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 //     are returned with specificity ``(0, 0, 0)``.
 // presentationalHints=false
 func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl string) (out []sas) {
-
 	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute string) sa {
 		declarations := parser.ParseDeclarationList2(styleAttribute, false, false)
 		return sa{element: element, declaration: declarations, baseUrl: baseUrl}
@@ -933,9 +930,9 @@ func _isContentNone(rule Token) bool {
 }
 
 type selectorPageRule struct {
-	specificity cascadia.Specificity
 	pseudoType  string
 	pageType    pageSelector
+	specificity cascadia.Specificity
 }
 
 type PageRule struct {
@@ -948,7 +945,7 @@ type PageRule struct {
 // in a document.
 // ignoreImports = false
 func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]PageRule, fonts *[]string, fontConfig *fonts.FontConfiguration, ignoreImports bool) {
+	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]PageRule, fonts *[]string, fontConfig *text.FontConfiguration, ignoreImports bool) {
 
 	for _, rule := range stylesheetRules {
 		if atRule, isAtRule := rule.(parser.AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
@@ -1064,7 +1061,8 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 						if len(declarations) > 0 {
 							selectors = []selectorPageRule{{
 								specificity: specificity, pseudoType: "@" + atRule.AtKeyword.Lower(),
-								pageType: pageType}}
+								pageType: pageType,
+							}}
 							*pageRules = append(*pageRules, PageRule{rule: atRule, selectors: selectors, declarations: declarations})
 						}
 					}
@@ -1072,27 +1070,19 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 			case "font-face":
 				ignoreImports = true
 				content := parser.ParseDeclarationList(*typedRule.Content, false, false)
-				ruleDescriptors := map[string]pr.Descriptor{}
-				for _, desc := range validation.PreprocessDescriptors(baseUrl, content) {
-					ruleDescriptors[desc.Name] = desc.Descriptor
+				ruleDescriptors := validation.PreprocessDescriptors(baseUrl, content)
+				if ruleDescriptors.Src == nil {
+					log.Printf(`Missing src descriptor in "@font-face" rule at %d:%d`+"\n",
+						rule.Position().Line, rule.Position().Column)
 				}
-				ok := true
-				for _, key := range [2]string{"src", "font_family"} {
-					if _, in := ruleDescriptors[key]; !in {
-						log.Printf(
-							`Missing %s descriptor in "@font-face" rule at %d:%d`+"\n",
-							strings.ReplaceAll(key, "_", "-"), rule.Position().Line, rule.Position().Column)
-						ok = false
-						break
-					}
+				if ruleDescriptors.FontFamily == "" {
+					log.Printf(`Missing font-family descriptor in "@font-face" rule at %d:%d`+"\n",
+						rule.Position().Line, rule.Position().Column)
 				}
-				if ok {
-					if fontConfig != nil {
-						fontFilename := fontConfig.AddFontFace(
-							ruleDescriptors, urlFetcher)
-						if fontFilename != "" {
-							*fonts = append(*fonts, fontFilename)
-						}
+				if ruleDescriptors.Src != nil && ruleDescriptors.FontFamily != "" && fontConfig != nil {
+					fontFilename := fontConfig.AddFontFace(ruleDescriptors, urlFetcher)
+					if fontFilename != "" {
+						*fonts = append(*fonts, fontFilename)
 					}
 				}
 			}
@@ -1108,8 +1098,8 @@ type sheet struct {
 
 type sa struct {
 	element     *utils.HTMLNode
-	declaration []Token
 	baseUrl     string
+	declaration []Token
 }
 
 type sas struct {
@@ -1117,20 +1107,20 @@ type sas struct {
 	specificity cascadia.Specificity
 }
 
-type htmlLike interface {
+type ParsedHTML interface {
 	AsHTML() HTML
 	UAStyleSheet() CSS
 	PHStyleSheet() CSS
 }
 
-// Compute all the computed styles of all elements in ``html`` document.
+// Compute all the computed styles of all elements in `html` document.
 // Do everything from finding author stylesheets to parsing and applying them.
 //
-// Return a ``style_for`` function like object that takes an Element and an optional
+// Return a `StyleFor` function like object that takes an Element and an optional
 // pseudo-Element type, and return a style dict object.
 // presentationalHints=false
-func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
-	presentationalHints bool, fontConfig *fonts.FontConfiguration,
+func GetAllComputedStyles(html_ ParsedHTML, userStylesheets []CSS,
+	presentationalHints bool, fontConfig *text.FontConfiguration,
 	pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
 
 	// List stylesheets. Order here is not important ("origin" is).
@@ -1150,5 +1140,5 @@ func GetAllComputedStyles(html_ htmlLike, userStylesheets []CSS,
 	for _, sht := range userStylesheets {
 		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
-	return NewStyleFor(htmlElement, sheets, presentationalHints, TargetCollector)
+	return newStyleFor(htmlElement, sheets, presentationalHints, TargetCollector)
 }

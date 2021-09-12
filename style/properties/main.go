@@ -7,11 +7,6 @@ package properties
 
 import "github.com/benoitkugler/go-weasyprint/style/parser"
 
-const (
-	Inherit DefaultKind = iota + 1
-	Initial
-)
-
 // CssProperty is final form of a css input :
 // "var()", "attr()" and custom properties have been resolved.
 type CssProperty interface {
@@ -62,6 +57,11 @@ type specialProperty interface {
 }
 
 type DefaultKind uint8
+
+const (
+	Inherit DefaultKind = iota + 1
+	Initial
+)
 
 func (d DefaultKind) ToV() ValidatedProperty {
 	return ValidatedProperty{Default: d}
@@ -131,4 +131,11 @@ func (p Properties) ResolveColor(key string) Color {
 		return p.GetColor()
 	}
 	return value
+}
+
+// UpdateWith merge the entries from `other` to `p`.
+func (p Properties) UpdateWith(other Properties) {
+	for k, v := range other {
+		p[k] = v
+	}
 }

@@ -150,7 +150,7 @@ func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock containing
 	return translateBoxWidth, translateX
 }
 
-func absoluteHeight(box_ Box, context LayoutContext, containingBlock block) (bool, pr.Float) {
+func absoluteHeight(box_ Box, containingBlock block) (bool, pr.Float) {
 	box := box_.Box()
 	// These names are waaay too long
 	marginT := box.MarginTop
@@ -224,7 +224,7 @@ func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixe
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 
 	translateBoxWidth, translateX := absoluteWidth(box_, context, containingBlock)
-	translateBoxHeight, translateY := absoluteHeight(box_, *context, containingBlock)
+	translateBoxHeight, translateY := absoluteHeight(box_, containingBlock)
 
 	// This box is the containing block for absolute descendants.
 	var absoluteBoxes []*AbsolutePlaceholder
@@ -334,7 +334,7 @@ func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes *[]*
 		if !bo.IsBlockReplacedBox(box) {
 			log.Fatalf("box should be a BlockReplaced, got %s", box)
 		}
-		newBox = absoluteReplaced(context, box, containingBlock)
+		newBox = absoluteReplaced(box, containingBlock)
 	}
 	context.finishBlockFormattingContext(newBox)
 	return newBox
@@ -344,7 +344,7 @@ func intDiv(a pr.Float, b int) pr.Float {
 	return pr.Float(int(math.Floor(float64(a))) / b)
 }
 
-func absoluteReplaced(context *LayoutContext, box_ Box, containingBlock block) Box {
+func absoluteReplaced(box_ Box, containingBlock block) Box {
 	inlineReplacedBoxWidthHeight(box_, containingBlock)
 	box := box_.Box()
 	cbX, cbY, cbWidth, cbHeight := containingBlock.X, containingBlock.Y, containingBlock.Width, containingBlock.Height

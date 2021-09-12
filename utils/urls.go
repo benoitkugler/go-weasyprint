@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/version"
+	"github.com/benoitkugler/textlayout/fonts"
 
 	"github.com/vincent-petithory/dataurl"
 )
@@ -86,8 +87,8 @@ func Unquote(s string) string {
 
 // Url represent an url which can be either internal or external
 type Url struct {
-	Internal bool
 	Url      string
+	Internal bool
 }
 
 func (u Url) IsNone() bool {
@@ -161,8 +162,13 @@ func EnsureUrl(urlS string) (string, error) {
 	return Path2url(urlS)
 }
 
+type content interface {
+	io.Closer
+	fonts.Resource
+}
+
 type RemoteRessource struct {
-	Content io.ReadCloser
+	Content content
 
 	// Optionnals values
 
@@ -184,32 +190,21 @@ type RemoteRessource struct {
 
 type UrlFetcher = func(url string) (RemoteRessource, error)
 
-type gzipStream struct {
-	reader  *gzip.Reader
-	content io.ReadCloser
-}
-
-func (g gzipStream) Read(p []byte) (n int, err error) {
-	return g.reader.Read(p)
-}
-
-func (g gzipStream) Close() error {
-	if err := g.reader.Close(); err != nil {
-		return err
-	}
-	return g.content.Close()
-}
-
 type BytesCloser bytes.Reader
 
 func (g *BytesCloser) Read(p []byte) (n int, err error) {
 	return (*bytes.Reader)(g).Read(p)
 }
 
-func (g *BytesCloser) Close() error {
-	*(*bytes.Reader)(g) = bytes.Reader{}
-	return nil
+func (g *BytesCloser) ReadAt(p []byte, off int64) (n int, err error) {
+	return (*bytes.Reader)(g).ReadAt(p, off)
 }
+
+func (g *BytesCloser) Seek(off int64, whence int) (n int64, err error) {
+	return (*bytes.Reader)(g).Seek(off, whence)
+}
+
+func (BytesCloser) Close() error { return nil }
 
 func NewBytesCloser(s string) *BytesCloser {
 	return (*BytesCloser)(bytes.NewReader([]byte(s)))
@@ -243,7 +238,8 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	urlTarget = data.String()
 
 	if data.Scheme == "file" {
-		f, err := os.Open(data.Path)
+		var f content
+		f, err = os.Open(data.Path)
 		if err != nil {
 			return RemoteRessource{}, fmt.Errorf("local file not found : %s", err)
 		}
@@ -265,6 +261,8 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	if err != nil {
 		return RemoteRessource{}, err
 	}
+	defer response.Body.Close()
+
 	result := RemoteRessource{}
 	redirect, err := response.Location()
 	if err == nil {
@@ -281,24 +279,26 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	}
 
 	contentEncoding := response.Header.Get("Content-Encoding")
+	var r io.Reader
 	if contentEncoding == "gzip" {
-		gz, err := gzip.NewReader(response.Body)
+		r, err = gzip.NewReader(response.Body)
 		if err != nil {
 			return RemoteRessource{}, err
 		}
-		result.Content = gzipStream{reader: gz, content: response.Body}
 	} else if contentEncoding == "deflate" {
-		data, err := zlib.NewReader(response.Body)
+		r, err = zlib.NewReader(response.Body)
 		if err != nil {
 			return RemoteRessource{}, err
 		}
-		out := new(bytes.Buffer)
-		if _, err := io.Copy(out, data); err != nil {
-			return RemoteRessource{}, err
-		}
-		result.Content = (*BytesCloser)(bytes.NewReader(out.Bytes()))
 	} else {
-		result.Content = response.Body
+		r = response.Body
 	}
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		return RemoteRessource{}, err
+	}
+	result.Content = (*BytesCloser)(bytes.NewReader(buf.Bytes()))
+
 	return result, nil
 }

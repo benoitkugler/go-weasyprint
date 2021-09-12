@@ -120,13 +120,7 @@ mainLoop:
 		if match != nil {
 			repr := css[pos+match[0] : pos+match[1]]
 			pos += match[1]
-			value, err := strconv.ParseFloat(repr, 32)
-			if value == 0 {
-				value = 0. // workaround -0
-			}
-			if err != nil {
-				log.Fatalf("should be a number %s \n", err)
-			}
+			value, _ := strconv.ParseFloat(repr, 32)
 			_, err = strconv.ParseInt(repr, 10, 0)
 			isInt := err == nil
 			n := numericToken{

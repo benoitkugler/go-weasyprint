@@ -68,75 +68,94 @@ func (n Origine) Position() Origine {
 
 // shared tokens
 type stringToken struct {
-	Origine
 	Value string
+	Origine
 }
+
 type bracketsBlock struct {
-	Origine
 	Content *[]Token
-}
-type numericToken struct {
 	Origine
-	Value          float64
-	IsInteger      bool
+}
+
+type numericToken struct {
 	Representation string
+	Origine
+	Value     float64
+	IsInteger bool
 }
 
 type QualifiedRule struct {
-	Origine
 	Prelude, Content *[]Token
-}
-type AtRule struct {
-	QualifiedRule
-	AtKeyword LowerableString
-}
-type Declaration struct {
 	Origine
-	Name      LowerableString
-	Value     []Token
+}
+
+type AtRule struct {
+	AtKeyword LowerableString
+	QualifiedRule
+}
+
+type Declaration struct {
+	Name  LowerableString
+	Value []Token
+	Origine
 	Important bool
 }
+
 type ParseError struct {
-	Origine
 	Kind    string
 	Message string
-}
-type Comment stringToken
-type WhitespaceToken stringToken
-type LiteralToken stringToken
-type IdentToken struct {
 	Origine
-	Value LowerableString
 }
+
+type (
+	Comment         stringToken
+	WhitespaceToken stringToken
+	LiteralToken    stringToken
+	IdentToken      struct {
+		Value LowerableString
+		Origine
+	}
+)
+
 type AtKeywordToken struct {
-	Origine
 	Value LowerableString
-}
-type HashToken struct {
 	Origine
-	Value        string
+}
+
+type HashToken struct {
+	Value string
+	Origine
 	IsIdentifier bool
 }
-type StringToken stringToken
-type URLToken stringToken
-type UnicodeRangeToken struct {
-	Origine
-	Start, End uint32
-}
-type NumberToken numericToken
-type PercentageToken numericToken
-type DimensionToken struct {
-	numericToken
-	Unit LowerableString
-}
-type ParenthesesBlock bracketsBlock
-type SquareBracketsBlock bracketsBlock
-type CurlyBracketsBlock bracketsBlock
-type FunctionBlock struct {
-	Origine
-	Name      LowerableString
-	Arguments *[]Token
-}
+
+type (
+	StringToken       stringToken
+	URLToken          stringToken
+	UnicodeRangeToken struct {
+		Origine
+		Start, End uint32
+	}
+)
+
+type (
+	NumberToken     numericToken
+	PercentageToken numericToken
+	DimensionToken  struct {
+		Unit LowerableString
+		numericToken
+	}
+)
+
+type (
+	ParenthesesBlock    bracketsBlock
+	SquareBracketsBlock bracketsBlock
+	CurlyBracketsBlock  bracketsBlock
+	FunctionBlock       struct {
+		Arguments *[]Token
+		Name      LowerableString
+		Origine
+	}
+)
 
 // ----------- boilerplate code for token type -------------------------------------
 
@@ -168,18 +187,22 @@ func (t FunctionBlock) Type() tokenType       { return TypeFunctionBlock }
 func (t numericToken) IntValue() int {
 	return int(t.Value)
 }
+
 func (t NumberToken) IntValue() int {
 	return numericToken(t).IntValue()
 }
+
 func (t PercentageToken) IntValue() int {
 	return numericToken(t).IntValue()
 }
 
 // ---------------- JSON -------------------------------------------
-type myString string
-type myFloat float64
-type myBool bool
-type myInt int
+type (
+	myString string
+	myFloat  float64
+	myBool   bool
+	myInt    int
+)
 
 func (s myString) toJson() jsonisable { return s }
 func (s myFloat) toJson() jsonisable  { return s }
@@ -227,6 +250,7 @@ func (t QualifiedRule) toJson() jsonisable {
 	content := toJson(*t.Content)
 	return jsonList{myString("qualified rule"), prelude, content}
 }
+
 func (t AtRule) toJson() jsonisable {
 	prelude := toJson(*t.Prelude)
 	var content jsonisable
@@ -235,28 +259,36 @@ func (t AtRule) toJson() jsonisable {
 	}
 	return jsonList{myString("at-rule"), myString(t.AtKeyword), prelude, content}
 }
+
 func (t Declaration) toJson() jsonisable {
 	content := toJson(t.Value)
 	return jsonList{myString("declaration"), myString(t.Name), content, myBool(t.Important)}
 }
+
 func (t ParseError) toJson() jsonisable {
 	return jsonList{myString("error"), myString(t.Kind)}
 }
+
 func (t Comment) toJson() jsonisable {
 	return myString("/* … */")
 }
+
 func (t WhitespaceToken) toJson() jsonisable {
 	return myString(" ")
 }
+
 func (t LiteralToken) toJson() jsonisable {
 	return myString(t.Value)
 }
+
 func (t IdentToken) toJson() jsonisable {
 	return jsonList{myString("ident"), myString(t.Value)}
 }
+
 func (t AtKeywordToken) toJson() jsonisable {
 	return jsonList{myString("at-keyword"), myString(t.Value)}
 }
+
 func (t HashToken) toJson() jsonisable {
 	l := jsonList{myString("hash"), myString(t.Value)}
 	if t.IsIdentifier {
@@ -266,36 +298,46 @@ func (t HashToken) toJson() jsonisable {
 	}
 	return l
 }
+
 func (t StringToken) toJson() jsonisable {
 	return jsonList{myString("string"), myString(t.Value)}
 }
+
 func (t URLToken) toJson() jsonisable {
 	return jsonList{myString("url"), myString(t.Value)}
 }
+
 func (t UnicodeRangeToken) toJson() jsonisable {
 	return jsonList{myString("unicode-range"), myInt(t.Start), myInt(t.End)}
 }
+
 func (t NumberToken) toJson() jsonisable {
 	return append(jsonList{myString("number")}, numericToken(t).toJson()...)
 }
+
 func (t PercentageToken) toJson() jsonisable {
 	return append(jsonList{myString("percentage")}, numericToken(t).toJson()...)
 }
+
 func (t DimensionToken) toJson() jsonisable {
 	return append(append(jsonList{myString("dimension")}, t.numericToken.toJson()...), myString(t.Unit))
 }
+
 func (t ParenthesesBlock) toJson() jsonisable {
 	content := toJson(*t.Content)
 	return append(jsonList{myString("()")}, content...)
 }
+
 func (t SquareBracketsBlock) toJson() jsonisable {
 	content := toJson(*t.Content)
 	return append(jsonList{myString("[]")}, content...)
 }
+
 func (t CurlyBracketsBlock) toJson() jsonisable {
 	content := toJson(*t.Content)
 	return append(jsonList{myString("{}")}, content...)
 }
+
 func (t FunctionBlock) toJson() jsonisable {
 	content := toJson(*t.Arguments)
 	return append(jsonList{myString("function"), myString(t.Name)}, content...)

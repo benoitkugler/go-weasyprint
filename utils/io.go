@@ -2,11 +2,12 @@ package utils
 
 import (
 	"fmt"
-	"golang.org/x/net/html/charset"
 	"io"
 	"io/ioutil"
 	"log"
 	"strings"
+
+	"golang.org/x/net/html/charset"
 )
 
 type ContentInput interface {
@@ -14,12 +15,14 @@ type ContentInput interface {
 	String() string
 }
 
-type InputFilename string
-type InputUrl string
-type InputString string
-type InputReader struct {
-	io.ReadCloser
-}
+type (
+	InputFilename string
+	InputUrl      string
+	InputString   string
+	InputReader   struct {
+		io.ReadCloser
+	}
+)
 
 func (c InputFilename) isContentInput() {}
 func (c InputUrl) isContentInput()      {}
@@ -28,22 +31,25 @@ func (c InputReader) isContentInput()   {}
 func (c InputFilename) String() string {
 	return string(c)
 }
+
 func (c InputUrl) String() string {
 	if strings.HasPrefix(string(c), "data:") {
 		return fmt.Sprintf("data url of len. %d", len(c))
 	}
 	return string(c)
 }
+
 func (c InputString) String() string {
 	return fmt.Sprintf("string of len. %d", len(c))
 }
+
 func (c InputReader) String() string {
 	return fmt.Sprintf("reader of type %T", c.ReadCloser)
 }
 
 type Source struct {
-	Content []byte // utf8 encoded
 	BaseUrl string
+	Content []byte // utf8 encoded
 }
 
 // Check that only one input is not None, and return it with the

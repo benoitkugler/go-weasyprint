@@ -23,7 +23,7 @@ func floatWidth_(box Box, context *LayoutContext, containingBlock containingBloc
 }
 
 // Set the width and position of floating ``box``.
-func floatLayout(context *LayoutContext, box_ Box, containingBlock bo.BoxFields, absoluteBoxes,
+func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder) Box {
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
@@ -85,7 +85,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock bo.BoxFields,
 }
 
 // Get the right position of the float ``box``.
-func findFloatPosition(context LayoutContext, box_ Box, containingBlock bo.BoxFields) Box {
+func findFloatPosition(context LayoutContext, box_ Box, containingBlock *bo.BoxFields) Box {
 	box := box_.Box()
 	// See http://www.w3.org/TR/CSS2/visuren.html#float-position
 
@@ -136,7 +136,7 @@ func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin pr.Fl
 }
 
 // outer=true
-func avoidCollisions(context LayoutContext, box_ Box, containingBlock bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
+func avoidCollisions(context LayoutContext, box_ Box, containingBlock *bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
 	excludedShapes := context.excludedShapes
 	box := box_.Box()
 	positionY := box.BorderBoxY()

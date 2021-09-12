@@ -15,10 +15,10 @@ func (d Dimension) ToValue() Value {
 	return Value{Dimension: d}
 }
 
-func FToD(f float64) Dimension { return Dimension{Value: Float(f), Unit: Scalar} }
+func FToD(f Fl) Dimension      { return Dimension{Value: Float(f), Unit: Scalar} }
 func SToV(s string) Value      { return Value{String: s} }
-func FToV(f float64) Value     { return FToD(f).ToValue() }
-func (f Float) ToValue() Value { return FToV(float64(f)) }
+func FToV(f Fl) Value          { return FToD(f).ToValue() }
+func (f Float) ToValue() Value { return FToV(Fl(f)) }
 
 func (v Value) ToMaybeFloat() MaybeFloat {
 	if v.String == "auto" {
@@ -27,8 +27,21 @@ func (v Value) ToMaybeFloat() MaybeFloat {
 	return v.Value
 }
 
-func NewColor(r, g, b, a float64) Color {
+func NewColor(r, g, b, a float32) Color {
 	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}
+}
+
+const (
+	True  = Bool(true)
+	False = Bool(false)
+)
+
+type Bool bool
+
+func (Bool) isMaybeBool() {}
+
+type MaybeBool interface {
+	isMaybeBool()
 }
 
 // ----------------- misc  ---------------------------------------
@@ -147,6 +160,7 @@ func (bs Centers) Repeat(n int) CssProperty {
 	}
 	return out
 }
+
 func (bs Sizes) Repeat(n int) CssProperty {
 	var out Sizes
 	for i := 0; i < n; i++ {
@@ -154,6 +168,7 @@ func (bs Sizes) Repeat(n int) CssProperty {
 	}
 	return out
 }
+
 func (bs Repeats) Repeat(n int) CssProperty {
 	var out Repeats
 	for i := 0; i < n; i++ {
@@ -161,6 +176,7 @@ func (bs Repeats) Repeat(n int) CssProperty {
 	}
 	return out
 }
+
 func (bs Strings) Repeat(n int) CssProperty {
 	var out Strings
 	for i := 0; i < n; i++ {
@@ -171,14 +187,16 @@ func (bs Strings) Repeat(n int) CssProperty {
 
 // --------------- Geometry -------------------------
 
+type Fl = float32
+
 type Rectangle [4]Float
 
-func (r Rectangle) ToFloat64() [4]float64 {
-	return [4]float64{float64(r[0]), float64(r[1]), float64(r[2]), float64(r[3])}
+func (r Rectangle) ToFloat() [4]Fl {
+	return [4]Fl{Fl(r[0]), Fl(r[1]), Fl(r[2]), Fl(r[3])}
 }
 
-func (r Rectangle) Unpack() (x, y, w, h float64) {
-	o := r.ToFloat64()
+func (r Rectangle) Unpack() (x, y, w, h Fl) {
+	o := r.ToFloat()
 	return o[0], o[1], o[2], o[3]
 }
 

@@ -65,7 +65,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		var resumeAt *tree.SkipStack
 		nextPage := tree.PageBreak{Break: "any"}
 		originalPageIsEmpty := pageIsEmpty
-		resolvePercentages2(group_, table.BoxFields, "")
+		resolvePercentagesBox(group_, &table.BoxFields, "")
 		group := group_.Box()
 		group.PositionX = rowsX
 		group.PositionY = positionY
@@ -96,7 +96,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 				}
 			}
 
-			resolvePercentages2(row_, table.BoxFields, "")
+			resolvePercentagesBox(row_, &table.BoxFields, "")
 			row.PositionX = rowsX
 			row.PositionY = positionY
 			row.Width = rowsWidth
@@ -119,7 +119,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 						len(ignoredCells), ignoredCells)
 					break
 				}
-				resolvePercentages2(cell_, table.BoxFields, "")
+				resolvePercentagesBox(cell_, &table.BoxFields, "")
 				cell.PositionX = columnPositions[cell.GridX]
 				cell.PositionY = row.PositionY
 				cell.MarginTop = pr.Float(0)
@@ -481,11 +481,8 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 						if cell.Box().GridX == column.GridX {
 							out = append(out, cell)
 						}
-
 					}
-
 				}
-
 			}
 			return out
 		}
@@ -532,7 +529,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 		group := group_.Box()
 		for _, column_ := range group.Children {
 			column := column_.Box()
-			resolvePercentages2(column_, table.BoxFields, "")
+			resolvePercentagesBox(column_, &table.BoxFields, "")
 			if column.GridX < len(columnPositions) {
 				column.PositionX = columnPositions[column.GridX]
 				column.PositionY = initialPositionY
@@ -545,7 +542,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 				column.Width = pr.Float(0)
 				column.Height = pr.Float(0)
 			}
-			resolvePercentages2(group_, table.BoxFields, "")
+			resolvePercentagesBox(group_, &table.BoxFields, "")
 			column.GetCells = getColumnCells(table, column)
 		}
 		first := group.Children[0].Box()
@@ -616,7 +613,7 @@ func fixedTableLayout(box *bo.BoxFields) {
 	i := 0
 	for _, cell_ := range firstRowCells {
 		cell := cell_.Box()
-		resolvePercentages2(cell_, table.BoxFields, "")
+		resolvePercentagesBox(cell_, &table.BoxFields, "")
 		if cell.Width != pr.Auto {
 			width := cell.BorderWidth()
 			width -= borderSpacingX * pr.Float(cell.Colspan-1)
@@ -700,7 +697,7 @@ func sum(l []pr.Float) pr.Float {
 
 // Run the auto table layout and return a list of column widths.
 // http://www.w3.org/TR/CSS21/tables.html#auto-table-layout
-func autoTableLayout(context *LayoutContext, box bo.BoxFields, containingBlock bo.Point) {
+func autoTableLayout(context *LayoutContext, box *bo.BoxFields, containingBlock bo.Point) {
 	table_ := box.GetWrappedTable()
 	table := table_.Table()
 	tmp := tableAndColumnsPreferredWidths(context, box, false)
@@ -745,8 +742,10 @@ func autoTableLayout(context *LayoutContext, box bo.BoxFields, containingBlock b
 	minContentSpecifiedGuess := append([]pr.Float{}, tmp.columnMinContentWidths...)
 	maxContentGuess := append([]pr.Float{}, tmp.columnMaxContentWidths...)
 	L := 4
-	guesses := [4]*[]pr.Float{&minContentGuess, &minContentPercentageGuess,
-		&minContentSpecifiedGuess, &maxContentGuess}
+	guesses := [4]*[]pr.Float{
+		&minContentGuess, &minContentPercentageGuess,
+		&minContentSpecifiedGuess, &maxContentGuess,
+	}
 	for i := range tmp.grid {
 		if tmp.columnIntrinsicPercentages[i] != 0 {
 			minContentPercentageGuess[i] = pr.Max(
@@ -843,7 +842,7 @@ func tableWrapperWidth(context *LayoutContext, wrapper *bo.BoxFields, containing
 	if table.Box().Style.GetTableLayout() == "fixed" && table.Box().Width != pr.Auto {
 		fixedTableLayout(wrapper)
 	} else {
-		autoTableLayout(context, *wrapper, containingBlock.V())
+		autoTableLayout(context, wrapper, containingBlock.V())
 	}
 
 	wrapper.Width = table.Box().BorderWidth()
@@ -893,8 +892,8 @@ func findInFlowBaseline(box Box, last bool, baselineTypes ...bo.BoxType) pr.Mayb
 }
 
 type indexCol struct {
-	i      int
 	column []Box
+	i      int
 }
 
 // Distribute available width to columns.
@@ -961,7 +960,7 @@ func distributeExcessWidth(context *LayoutContext, grid [][]bo.Box, excessWidth 
 	for i, column := range grid[columnSlice[0]:columnSlice[1]] {
 		if constrainedness[i+columnSlice[0]] && columnIntrinsicPercentages[i+columnSlice[0]] == 0 &&
 			columnMaxContentWidths[i+columnSlice[0]] > 0 {
-			v := indexCol{i + columnSlice[0], column}
+			v := indexCol{column, i + columnSlice[0]}
 			columns = append(columns, v)
 			currentWidths = append(currentWidths, columnWidths[v.i])
 		}

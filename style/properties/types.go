@@ -28,8 +28,8 @@ type SContent struct {
 }
 
 type NDecorations struct {
-	None        bool
 	Decorations utils.Set
+	None        bool
 }
 
 type Transforms []SDimensions
@@ -61,28 +61,28 @@ type Quotes struct {
 type ContentProperties []ContentProperty
 
 type AttrData struct {
+	Fallback   CssProperty
 	Name       string
 	TypeOrUnit string
-	Fallback   CssProperty
 }
 
-type Float float32
+type Float Fl
 
 type Int int
 
 type Ints3 [3]int
 
 type Page struct {
-	Valid  bool
 	String string
+	Valid  bool
 	Page   int
 }
 
 // Dimension or "auto" or "cover" or "contain"
 type Size struct {
+	String string
 	Width  Value
 	Height Value
-	String string
 }
 
 type Center struct {
@@ -94,12 +94,12 @@ type Center struct {
 type Color parser.Color
 
 type ContentProperty struct {
-	Type string
-
 	// SStrings for type STRING, attr or string, counter, counters
 	// Quote for type QUOTE
 	// Url for URI
 	Content InnerContent
+
+	Type string
 }
 
 type NamedString struct {
@@ -115,24 +115,16 @@ type Marks struct {
 }
 
 type IntString struct {
-	Int    int
 	String string
+	Int    int
 }
 
 type String string
 
 type Value struct {
-	Dimension
 	String string
+	Dimension
 }
-
-// ---------------------- Descriptors --------------------------
-
-type Descriptor interface {
-	isDescriptor()
-}
-
-type Contents []InnerContent
 
 type NamedProperty struct {
 	Name     string
@@ -141,18 +133,12 @@ type NamedProperty struct {
 
 type NamedProperties []NamedProperty
 
-func (d String) isDescriptor()          {}
-func (d IntString) isDescriptor()       {}
-func (d Contents) isDescriptor()        {}
-func (d SIntStrings) isDescriptor()     {}
-func (d NamedProperties) isDescriptor() {}
-
 // ---------------------- helpers types -----------------------------------
 type CustomProperty []parser.Token
 
 type SContentProp struct {
-	String          string
 	ContentProperty ContentProperty
+	String          string
 }
 type SContentProps []SContentProp
 
@@ -170,8 +156,8 @@ type Dimension struct {
 }
 
 type BoolString struct {
-	Bool   bool
 	String string
+	Bool   bool
 }
 
 type Quote struct {
@@ -198,7 +184,7 @@ type ColorStop struct {
 
 type DirectionType struct {
 	Corner string
-	Angle  float64
+	Angle  float32
 }
 
 type GradientSize struct {

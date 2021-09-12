@@ -22,16 +22,17 @@ var (
 )
 
 type PageElement struct {
-	Side         string
-	Blank, First bool
-	Name         string
-	Index        int
+	Side  string
+	Name  string
+	Index int
+	Blank bool
+	First bool
 }
 
 type ElementKey struct {
 	Element    *HTMLNode
-	PageType   PageElement
 	PseudoType string
+	PageType   PageElement
 }
 
 func (e ElementKey) IsPageType() bool {
@@ -70,8 +71,8 @@ func (h *HTMLNode) Iter(tags ...atom.Atom) HtmlIterator {
 
 // HtmlIterator simplify the (depth first) walk on an HTML tree.
 type HtmlIterator struct {
-	toVisit []*html.Node
 	tagsMap map[atom.Atom]bool // if nil, means all
+	toVisit []*html.Node
 }
 
 // NewHtmlIterator use `root` as start point.
@@ -300,6 +301,7 @@ type DocumentMetadata struct {
 	// and written to the `/EmbeddedFiles` dictionary in PDF.
 	Attachments []Attachment
 }
+
 type Attachment struct {
 	Url, Title string
 }
@@ -357,11 +359,11 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 		case atom.Link:
 			if ElementHasLinkType(element, "attachment") {
 				url := element.GetUrlAttribute("href", baseUrl, false)
-				title := element.Get("title")
+				attTitle := element.Get("title")
 				if url == "" {
 					log.Println("Missing href in <link rel='attachment'>")
 				} else {
-					attachments = append(attachments, Attachment{Url: url, Title: title})
+					attachments = append(attachments, Attachment{Url: url, Title: attTitle})
 				}
 			}
 		}

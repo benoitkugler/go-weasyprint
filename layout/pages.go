@@ -25,12 +25,13 @@ type orientedBox interface {
 }
 
 type OrientedBox struct {
-	context                 *LayoutContext
-	box                     *bo.MarginBox
-	paddingPlusBorder       pr.Float
-	marginA, marginB, inner pr.MaybeFloat
 	// abstract, must be implemented by subclasses
 	contentSizer
+
+	context                 *LayoutContext
+	box                     *bo.MarginBox
+	marginA, marginB, inner pr.MaybeFloat
+	paddingPlusBorder       pr.Float
 }
 
 func (o *OrientedBox) baseBox() *OrientedBox {
@@ -99,8 +100,8 @@ func (self *VerticalBox) maxContentSize() pr.Float {
 }
 
 type HorizontalBox struct {
-	OrientedBox
 	_minContentSize, _maxContentSize pr.MaybeFloat
+	OrientedBox
 }
 
 func NewHorizontalBox(context *LayoutContext, box *bo.MarginBox) *HorizontalBox {
@@ -520,13 +521,13 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 
 	out := make([]Box, len(generatedBoxes))
 	for i, box := range generatedBoxes {
-		out[i] = marginBoxContentLayout(context, page, box)
+		out[i] = marginBoxContentLayout(context, box)
 	}
 	return out
 }
 
 // Layout a margin box’s content once the box has dimensions.
-func marginBoxContentLayout(context *LayoutContext, page *bo.PageBox, mBox *bo.MarginBox) Box {
+func marginBoxContentLayout(context *LayoutContext, mBox *bo.MarginBox) Box {
 	newBox_, tmp := blockContainerLayout(context, mBox, pr.Inf, nil, true,
 		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil)
 
@@ -654,7 +655,7 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 	var adjoiningMargins []pr.Float
 	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute && fixed
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
-		initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins)
+		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins)
 	resumeAt = tmp.resumeAt
 	if rootBox == nil {
 		log.Fatalln("expected newBox got nil")
@@ -881,9 +882,9 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 		tmp := (*pageMaker)[index+1]
 		// (nextResumeAt, nextNextPage, nextRightPage,nextPageState, )
 		pageMakerNextChanged = tmp.InitialResumeAt != resumeAt ||
-					tmp.InitialNextPage != nextPage ||
-					tmp.RightPage != rightPage ||
-					!tmp.InitialPageState.Equal(pageState)
+			tmp.InitialNextPage != nextPage ||
+			tmp.RightPage != rightPage ||
+			!tmp.InitialPageState.Equal(pageState)
 	}
 
 	if pageMakerNextChanged {
@@ -894,8 +895,10 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 		// loops && list index out of range (see #794).
 		remakeState.ContentChanged = resumeAt != nil
 		// pageState is already a deepcopy
-		item := tree.PageMaker{InitialResumeAt: resumeAt, InitialNextPage: nextPage, RightPage: rightPage,
-			InitialPageState: pageState, RemakeState: remakeState}
+		item := tree.PageMaker{
+			InitialResumeAt: resumeAt, InitialNextPage: nextPage, RightPage: rightPage,
+			InitialPageState: pageState, RemakeState: remakeState,
+		}
 		if index+1 >= len(*pageMaker) {
 			*pageMaker = append(*pageMaker, item)
 		} else {

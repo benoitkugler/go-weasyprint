@@ -144,9 +144,11 @@ func init() {
 		}
 	}
 
-	//Some computed value are required by others, so order matters.
-	ComputingOrder = []string{"font_stretch", "font_weight", "font_family", "font_variant",
-		"font_style", "font_size", "line_height", "marks"}
+	// Some computed value are required by others, so order matters.
+	ComputingOrder = []string{
+		"font_stretch", "font_weight", "font_family", "font_variant",
+		"font_style", "font_size", "line_height", "marks",
+	}
 	crible := map[string]bool{}
 	for _, k := range ComputingOrder {
 		crible[k] = true
@@ -299,14 +301,15 @@ func compute(element Element, pseudoType string, specified map[string]pr.Cascade
 }
 
 type computer struct {
-	isRootElement          bool
-	pseudoType             string
-	computed               pr.Properties
-	specified              map[string]pr.CascadedProperty
-	rootStyle, parentStyle pr.Properties
-	element                Element
-	baseUrl                string
-	TargetCollector        *TargetCollector
+	element         Element
+	computed        pr.Properties
+	specified       map[string]pr.CascadedProperty
+	rootStyle       pr.Properties
+	parentStyle     pr.Properties
+	TargetCollector *TargetCollector
+	pseudoType      string
+	baseUrl         string
+	isRootElement   bool
 }
 
 // backgroundImage computes lenghts in gradient background-image.
@@ -705,7 +708,7 @@ func content(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty
 	return nil
 }
 
-//Compute the ``display`` property.
+// Compute the ``display`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func display(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
@@ -725,7 +728,7 @@ func display(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty
 	return value
 }
 
-//Compute the ``float`` property.
+// Compute the ``float`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func floating(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
@@ -898,7 +901,7 @@ func verticalAlign(computer *computer, name string, _value pr.CssProperty) pr.Cs
 		out.Value = length2(computer, name, value, -1, true).Value
 	}
 	if value.Unit == pr.Percentage {
-		//TODO: support
+		// TODO: support
 		// height, _ = strutLayout(computer.computed)
 		// return height * value.value / 100.
 		log.Println("% not supported for vertical-align")

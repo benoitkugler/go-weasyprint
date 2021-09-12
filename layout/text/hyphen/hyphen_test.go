@@ -107,3 +107,11 @@ func TestFallback(t *testing.T) {
 		t.Fatal("unexpected fallback")
 	}
 }
+
+func TestCache(t *testing.T) {
+	dic := NewHyphener("fr", 2, 2)
+	dic.Iterate("éléphant")
+	if len(dic.hd.cache) == 0 {
+		t.Fatal("missing cache")
+	}
+}

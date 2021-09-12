@@ -102,22 +102,22 @@ func TestFunction(t *testing.T) {
 func TestCounters(t *testing.T) {
 	capt := utils.CaptureLogs()
 	assertValidDict(t, "counter-reset: foo bar 2 baz", toValidated(pr.Properties{
-		"counter_reset": pr.IntStrings{{String: "foo", Int: 0}, {String: "bar", Int: 2}, {String: "baz", Int: 0}},
+		"counter_reset": pr.SIntStrings{Values: pr.IntStrings{{String: "foo", Int: 0}, {String: "bar", Int: 2}, {String: "baz", Int: 0}}},
 	}))
 	assertValidDict(t, "counter-increment: foo bar 2 baz", toValidated(pr.Properties{
-		"counter_increment": pr.SIntStrings{Values: []pr.IntString{{String: "foo", Int: 1}, {String: "bar", Int: 2}, {String: "baz", Int: 1}}},
+		"counter_increment": pr.SIntStrings{Values: pr.IntStrings{{String: "foo", Int: 1}, {String: "bar", Int: 2}, {String: "baz", Int: 1}}},
 	}))
 	assertValidDict(t, "counter-reset: foo", toValidated(pr.Properties{
-		"counter_reset": pr.IntStrings{{String: "foo", Int: 0}},
+		"counter_reset": pr.SIntStrings{Values: pr.IntStrings{{String: "foo", Int: 0}}},
 	}))
 	assertValidDict(t, "counter-reset: FoO", toValidated(pr.Properties{
-		"counter_reset": pr.IntStrings{{String: "FoO", Int: 0}},
+		"counter_reset": pr.SIntStrings{Values: pr.IntStrings{{String: "FoO", Int: 0}}},
 	}))
 	assertValidDict(t, "counter-increment: foo bAr 2 Bar", toValidated(pr.Properties{
-		"counter_increment": pr.SIntStrings{Values: []pr.IntString{{String: "foo", Int: 1}, {String: "bAr", Int: 2}, {String: "Bar", Int: 1}}},
+		"counter_increment": pr.SIntStrings{Values: pr.IntStrings{{String: "foo", Int: 1}, {String: "bAr", Int: 2}, {String: "Bar", Int: 1}}},
 	}))
 	assertValidDict(t, "counter-reset: none", toValidated(pr.Properties{
-		"counter_reset": pr.IntStrings{},
+		"counter_reset": pr.SIntStrings{Values: pr.IntStrings{}},
 	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "counter-reset: foo initial", "Invalid counter name: initial.")
@@ -564,7 +564,7 @@ var (
 	red          = pr.NewColor(1, 0, 0, 1)
 	lime         = pr.NewColor(0, 1, 0, 1)
 	blue         = pr.NewColor(0, 0, 1, 1)
-	pi   float64 = math.Pi
+	pi   float32 = math.Pi
 )
 
 func checkGradientGeneric(t *testing.T, css string, expected pr.Image) {

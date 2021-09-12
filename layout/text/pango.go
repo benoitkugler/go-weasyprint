@@ -1,10 +1,10 @@
-package boxes
+package text
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/fonts"
+	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/textlayout/language"
@@ -13,11 +13,12 @@ import (
 
 type PangoLayoutContext interface {
 	Fontmap() pango.FontMap
+	HyphenCache() map[HyphenDictKey]hyphen.Hyphener
+	StrutLayoutsCache() map[StrutLayoutKey][2]pr.Float
 }
 
 // PangoLayout wraps a pango.Layout object
 type PangoLayout struct {
-	Layout  *pango.Layout
 	Style   pr.Properties
 	metrics *pango.FontMetrics // optional
 
@@ -25,11 +26,13 @@ type PangoLayout struct {
 
 	Context PangoLayoutContext // will be a *LayoutContext; to avoid circular dependency
 
+	Layout pango.Layout
+
 	JustificationSpacing pango.Fl
 	firstLineDirection   pango.Direction
 }
 
-func NewPangoLayout(context PangoLayoutContext, fontSize pango.Fl, style pr.Properties, justificationSpacing pango.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
+func newPangoLayout(context PangoLayoutContext, fontSize pango.Fl, style pr.Properties, justificationSpacing pango.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
 	var layout PangoLayout
 
 	layout.JustificationSpacing = justificationSpacing
@@ -85,7 +88,7 @@ func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pango.Fl, style
 	featuresString := strings.Join(chunks, ",")
 	attr := pango.NewAttrFontFeatures(featuresString)
 
-	p.Layout = pango.NewLayout(pc)
+	p.Layout = *pango.NewLayout(pc)
 	p.Layout.SetFontDescription(&fontDesc)
 	p.Layout.SetAttributes(pango.AttrList{attr})
 }
@@ -147,7 +150,7 @@ func (p *PangoLayout) setTabs() {
 	tabSize := p.Style.GetTabSize()
 	width := int(tabSize.Value)
 	if tabSize.Unit == 0 { // no unit, means a multiple of the advance width of the space character
-		layout := NewPangoLayout(p.Context, float32(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
+		layout := newPangoLayout(p.Context, float32(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
 		layout.SetText(strings.Repeat(" ", int(tabSize.Value)), false)
 		line, _ := layout.GetFirstLine()
 		widthTmp, _ := LineSize(line, p.Style)
@@ -159,10 +162,6 @@ func (p *PangoLayout) setTabs() {
 	}
 	tabs := &pango.TabArray{Tabs: []pango.Tab{{Alignment: pango.TAB_LEFT, Location: width}}}
 	p.Layout.SetTabs(tabs)
-}
-
-func (p *PangoLayout) Deactivate() {
-	// FIXME: à implémenter
 }
 
 // GetFirstLine returns the first line and the index of the second line, or -1.
@@ -177,13 +176,6 @@ func (p *PangoLayout) GetFirstLine() (*pango.LayoutLine, int) {
 	p.firstLineDirection = firstLine.ResolvedDir
 
 	return firstLine, index
-}
-
-type TextLayoutContext struct {
-	FontConfig    *fonts.FontConfiguration
-	fontmap       pango.FontMap
-	EnableHinting bool
-	// FontFeatures  map[string]int
 }
 
 // LineSize gets the logical width and height of the given `line`.
@@ -204,130 +196,4 @@ func defaultFontFeature(f string) string {
 		return "normal"
 	}
 	return f
-}
-
-// Get the font features from the different properties in style.
-// See https://www.w3.org/TR/css-fonts-3/#feature-precedence
-// default value is "normal"
-// pass nil for default ("normal") on fontFeatureSettings
-func getFontFeatures(style pr.Properties) map[string]int {
-	fontKerning := defaultFontFeature(string(style.GetFontKerning()))
-	fontVariantPosition := defaultFontFeature(string(style.GetFontVariantPosition()))
-	fontVariantCaps := defaultFontFeature(string(style.GetFontVariantCaps()))
-	fontVariantAlternates := defaultFontFeature(string(style.GetFontVariantAlternates()))
-
-	features := map[string]int{}
-	ligatureKeys := map[string][]string{
-		"common-ligatures":        {"liga", "clig"},
-		"historical-ligatures":    {"hlig"},
-		"discretionary-ligatures": {"dlig"},
-		"contextual":              {"calt"},
-	}
-	capsKeys := map[string][]string{
-		"small-caps":      {"smcp"},
-		"all-small-caps":  {"c2sc", "smcp"},
-		"petite-caps":     {"pcap"},
-		"all-petite-caps": {"c2pc", "pcap"},
-		"unicase":         {"unic"},
-		"titling-caps":    {"titl"},
-	}
-	numericKeys := map[string]string{
-		"lining-nums":        "lnum",
-		"oldstyle-nums":      "onum",
-		"proportional-nums":  "pnum",
-		"tabular-nums":       "tnum",
-		"diagonal-fractions": "frac",
-		"stacked-fractions":  "afrc",
-		"ordinal":            "ordn",
-		"slashed-zero":       "zero",
-	}
-	eastAsianKeys := map[string]string{
-		"jis78":              "jp78",
-		"jis83":              "jp83",
-		"jis90":              "jp90",
-		"jis04":              "jp04",
-		"simplified":         "smpl",
-		"traditional":        "trad",
-		"full-width":         "fwid",
-		"proportional-width": "pwid",
-		"ruby":               "ruby",
-	}
-
-	// Step 1: getting the default, we rely on Pango for this
-	// Step 2: @font-face font-variant, done in fonts.addFontFace
-	// Step 3: @font-face font-feature-settings, done in fonts.addFontFace
-
-	// Step 4: font-variant && OpenType features
-
-	if fontKerning != "auto" {
-		features["kern"] = 0
-		if fontKerning == "normal" {
-			features["kern"] = 1
-		}
-	}
-
-	fontVariantLigatures := style.GetFontVariantLigatures()
-	if fontVariantLigatures.String == "none" {
-		for _, keys := range ligatureKeys {
-			for _, key := range keys {
-				features[key] = 0
-			}
-		}
-	} else if fontVariantLigatures.String != "normal" {
-		for _, ligatureType := range fontVariantLigatures.Strings {
-			value := 1
-			if strings.HasPrefix(ligatureType, "no-") {
-				value = 0
-				ligatureType = ligatureType[3:]
-			}
-			for _, key := range ligatureKeys[ligatureType] {
-				features[key] = value
-			}
-		}
-	}
-
-	if fontVariantPosition == "sub" {
-		// TODO: the specification asks for additional checks
-		// https://www.w3.org/TR/css-fonts-3/#font-variant-position-prop
-		features["subs"] = 1
-	} else if fontVariantPosition == "super" {
-		features["sups"] = 1
-	}
-
-	if fontVariantCaps != "normal" {
-		// TODO: the specification asks for additional checks
-		// https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
-		for _, key := range capsKeys[fontVariantCaps] {
-			features[key] = 1
-		}
-	}
-
-	if fv := style.GetFontVariantNumeric(); fv.String != "normal" {
-		for _, key := range fv.Strings {
-			features[numericKeys[key]] = 1
-		}
-	}
-
-	if fontVariantAlternates != "normal" {
-		// TODO: support other values
-		// See https://www.w3.org/TR/css-fonts-3/#font-variant-caps-prop
-		if fontVariantAlternates == "historical-forms" {
-			features["hist"] = 1
-		}
-	}
-
-	if fv := style.GetFontVariantEastAsian(); fv.String != "normal" {
-		for _, key := range fv.Strings {
-			features[eastAsianKeys[key]] = 1
-		}
-	}
-
-	// Step 5: incompatible non-OpenType features, already handled by Pango
-
-	// Step 6: font-feature-settings
-	for _, pair := range style.GetFontFeatureSettings().Values {
-		features[pair.String] = pair.Int
-	}
-
-	return features
 }

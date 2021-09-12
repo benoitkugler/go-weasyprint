@@ -225,6 +225,9 @@ func (box *BoxFields) IsProperChild(b Box) bool {
 	return false
 }
 
+// Implements layout interface
+func (*BoxFields) IsContainingBlock() {}
+
 // ----------------------- needed by target ----------------------
 
 func (box *BoxFields) CachedCounterValues() tree.CounterValues {
@@ -375,8 +378,8 @@ type RoundedBox struct {
 }
 
 // Position, size and radii of a box inside the outer border box.
-//bt, br, bb, and bl are distances from the outer border box,
-//defining a rectangle to be rounded.
+// bt, br, bb, and bl are distances from the outer border box,
+// defining a rectangle to be rounded.
 func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	tlr := self.BorderTopLeftRadius.V()
 	trr := self.BorderTopRightRadius.V()
@@ -398,7 +401,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	height := self.BorderHeight() - bt - bb
 
 	// Fix overlapping curves
-	//See http://www.w3.org/TR/css3-background/#corner-overlap
+	// See http://www.w3.org/TR/css3-background/#corner-overlap
 	Points := []Point{
 		{width, tlrx + trrx},
 		{width, blrx + brrx},
@@ -414,7 +417,8 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 			}
 		}
 	}
-	return RoundedBox{X: x, Y: y, Width: width, Height: height,
+	return RoundedBox{
+		X: x, Y: y, Width: width, Height: height,
 		TopLeft:     Point{tlrx * ratio, tlry * ratio},
 		TopRight:    Point{trrx * ratio, trry * ratio},
 		BottomRight: Point{brrx * ratio, brry * ratio},

@@ -93,12 +93,12 @@ const (
 )
 
 type Bleed struct {
-	Top, Bottom, Left, Right float64
+	Top, Bottom, Left, Right fl
 }
 
 // FIXME: check gofpdf support for SVG
 type svgArgs struct {
-	Width, Height    float64
+	Width, Height    fl
 	Bleed, HalfBleed Bleed
 }
 
@@ -114,9 +114,9 @@ type svgArgs struct {
 // FIXME: add context manager
 
 // Transform a HSV color to a RGB color.
-func hsv2rgb(hue, saturation, value float64) (r, g, b float64) {
+func hsv2rgb(hue, saturation, value fl) (r, g, b fl) {
 	c := value * saturation
-	x := c * (1 - math.Abs(utils.FloatModulo(hue/60, 2)-1))
+	x := c * fl(1-math.Abs(utils.FloatModulo(float64(hue)/60, 2)-1))
 	m := value - c
 	switch {
 	case 0 <= hue && hue < 60:
@@ -138,21 +138,21 @@ func hsv2rgb(hue, saturation, value float64) (r, g, b float64) {
 }
 
 // Transform a RGB color to a HSV color.
-func rgb2hsv(red, green, blue float64) (h, s, c float64) {
+func rgb2hsv(red, green, blue float32) (h, s, c float32) {
 	cmax := utils.Maxs(red, green, blue)
 	cmin := utils.Mins(red, green, blue)
 	delta := cmax - cmin
-	var hue float64
+	var hue float32
 	if delta == 0 {
 		hue = 0
 	} else if cmax == red {
-		hue = 60 * utils.FloatModulo((green-blue)/delta, 6)
+		hue = 60 * float32(utils.FloatModulo(float64((green-blue)/delta), 6))
 	} else if cmax == green {
 		hue = 60 * ((blue-red)/delta + 2)
 	} else if cmax == blue {
 		hue = 60 * ((red-green)/delta + 4)
 	}
-	var saturation float64
+	var saturation float32
 	if delta != 0 {
 		saturation = delta / cmax
 	}
@@ -182,10 +182,10 @@ func lighten(color Color) Color {
 // Draw the given PageBox.
 func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) error {
 	bleed := Bleed{
-		Top:    float64(page.Style.GetBleedTop().Value),
-		Bottom: float64(page.Style.GetBleedBottom().Value),
-		Left:   float64(page.Style.GetBleedLeft().Value),
-		Right:  float64(page.Style.GetBleedRight().Value),
+		Top:    fl(page.Style.GetBleedTop().Value),
+		Bottom: fl(page.Style.GetBleedBottom().Value),
+		Left:   fl(page.Style.GetBleedLeft().Value),
+		Right:  fl(page.Style.GetBleedRight().Value),
 	}
 	marks := page.Style.GetMarks()
 	stackingContext := NewStackingContextFromPage(page)
@@ -249,10 +249,10 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 				left.Value = box.BorderWidth()
 			}
 			context.Rectangle(
-				float64(box.BorderBoxX()+right.Value),
-				float64(box.BorderBoxY()+top.Value),
-				float64(left.Value-right.Value),
-				float64(bottom.Value-top.Value),
+				fl(box.BorderBoxX()+right.Value),
+				fl(box.BorderBoxY()+top.Value),
+				fl(left.Value-right.Value),
+				fl(bottom.Value-top.Value),
 			)
 			context.Clip()
 		}
@@ -348,7 +348,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			return nil
 		}
 
-		opacity := float64(box.Style.GetOpacity())
+		opacity := fl(box.Style.GetOpacity())
 		if opacity < 1 {
 			return context.OnNewStack(func() error {
 				context.SetAlpha(opacity)
@@ -483,8 +483,10 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 			unbounded := true
 			paintingArea := bo.Area{Rect: pr.Rectangle{pr.Float(x), pr.Float(y), pr.Float(width), pr.Float(height)}}
 			positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, pr.Float(width), pr.Float(height)}}
-			layer := bo.BackgroundLayer{Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
-				PaintingArea: paintingArea, PositioningArea: positioningArea}
+			layer := bo.BackgroundLayer{
+				Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
+				PaintingArea: paintingArea, PositioningArea: positioningArea,
+			}
 			bg.Layers = append([]bo.BackgroundLayer{layer}, bg.Layers...)
 		}
 		// Paint in reversed order: first layer is "closest" to the viewer.
@@ -652,8 +654,10 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 				context.OnNewStack(func() error {
 					positionX := child.Box().PositionX - (crw.Value+
 						box.Style.GetColumnGap().Value)/2
-					borderBox := pr.Rectangle{positionX, child.Box().PositionY,
-						crw.Value, box.Height.V()}
+					borderBox := pr.Rectangle{
+						positionX, child.Box().PositionY,
+						crw.Value, box.Height.V(),
+					}
 					clipBorderSegment(context, enableHinting,
 						box.Style.GetColumnRuleStyle(),
 						float64(crw.Value), "left", borderBox,
@@ -1004,8 +1008,10 @@ func drawOutlines(context Drawer, box_ Box, enableHinting bool) {
 	style := box.Style.GetOutlineStyle()
 	if box.Style.GetVisibility() == "visible" && !width_.IsNone() && color.A != 0 {
 		width := width_.Value
-		outlineBox := pr.Rectangle{box.BorderBoxX() - width, box.BorderBoxY() - width,
-			box.BorderWidth() + 2*width, box.BorderHeight() + 2*width}
+		outlineBox := pr.Rectangle{
+			box.BorderBoxX() - width, box.BorderBoxY() - width,
+			box.BorderWidth() + 2*width, box.BorderHeight() + 2*width,
+		}
 		for _, side := range SIDES {
 			context.OnNewStack(func() error {
 				clipBorderSegment(context, enableHinting, style, float64(width), side, outlineBox, nil, nil)
@@ -1098,7 +1104,7 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 
 	var segments []segment
 
-	//vertical=true
+	// vertical=true
 	halfMaxWidth := func(borderList [][]bo.Border, yxPairs [][2]int, vertical bool) pr.Float {
 		var result pr.Float
 		for _, tmp := range yxPairs {
@@ -1127,8 +1133,10 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 			[][2]int{{y, x - 1}, {y, x}}, false)
 		posY2 := rowPositions[y+1] + halfMaxWidth(horizontalBorders,
 			[][2]int{{y + 1, x - 1}, {y + 1, x}}, false)
-		segments = append(segments, segment{Border: border, side: "left",
-			borderBox: pr.Rectangle{posX - pr.Float(border.Width)/2, posY1, 0, posY2 - posY1}})
+		segments = append(segments, segment{
+			Border: border, side: "left",
+			borderBox: pr.Rectangle{posX - pr.Float(border.Width)/2, posY1, 0, posY2 - posY1},
+		})
 	}
 
 	addHorizontal := func(x, y int) {
@@ -1143,8 +1151,10 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 			[][2]int{{y - 1, x}, {y, x}}, true)
 		posX2 := columnPositions[x+1] + halfMaxWidth(verticalBorders,
 			[][2]int{{y - 1, x + 1}, {y, x + 1}}, true)
-		segments = append(segments, segment{Border: border, side: "top",
-			borderBox: pr.Rectangle{posX1, posY - pr.Float(border.Width)/2, posX2 - posX1, 0}})
+		segments = append(segments, segment{
+			Border: border, side: "top",
+			borderBox: pr.Rectangle{posX1, posY - pr.Float(border.Width)/2, posX2 - posX1, 0},
+		})
 	}
 
 	for x := 0; x < gridWidth; x += 1 {

@@ -5,6 +5,8 @@ import (
 	"math"
 )
 
+type fl = float32
+
 // Transform encode a (2D) linear transformation (Y = AX + B)
 // The encoded transformation is given by :
 // 		x_new = a * x + c * y + e
@@ -13,10 +15,10 @@ import (
 // 	A = | A C | B = | E |
 //		| B	D |		| F |
 type Transform struct {
-	a, b, c, d, e, f float64
+	a, b, c, d, e, f fl
 }
 
-func New(a, b, c, d, e, f float64) Transform {
+func New(a, b, c, d, e, f fl) Transform {
 	return Transform{a: a, b: b, c: c, d: d, e: e, f: f}
 }
 
@@ -24,13 +26,13 @@ func Identity() Transform {
 	return New(1, 0, 0, 1, 0, 0)
 }
 
-func Translation(tx, ty float64) Transform {
+func Translation(tx, ty fl) Transform {
 	mt := Identity()
 	mt.Translate(tx, ty)
 	return mt
 }
 
-func Scaling(sx, sy float64) Transform {
+func Scaling(sx, sy fl) Transform {
 	mt := Identity()
 	mt.Scale(sx, sy)
 	return mt
@@ -41,7 +43,7 @@ func (T Transform) Copy() *Transform {
 	return &T
 }
 
-func (T Transform) Data() (a, b, c, d, e, f float64) {
+func (T Transform) Data() (a, b, c, d, e, f fl) {
 	return T.a, T.b, T.c, T.d, T.e, T.f
 }
 
@@ -79,7 +81,7 @@ func (T *Transform) Invert() error {
 }
 
 // Transforms the point `(x, y)` by this matrix
-func (T Transform) TransformPoint(x, y float64) (outX, outY float64) {
+func (T Transform) TransformPoint(x, y fl) (outX, outY fl) {
 	tmpX, tmpY := T.TransformDistance(x, y)
 	return tmpX + T.e, tmpY + T.f
 }
@@ -90,7 +92,7 @@ func (T Transform) TransformPoint(x, y float64) (outX, outY float64) {
 // The calculation of the returned vector is as follows::
 // 	dx2 = dx1 * xx + dy1 * xy
 // 	dy2 = dx1 * yx + dy1 * yy
-func (T Transform) TransformDistance(x, y float64) (outX, outY float64) {
+func (T Transform) TransformDistance(x, y fl) (outX, outY fl) {
 	return T.a*x + T.c*y, T.b*x + T.d*y
 }
 
@@ -102,7 +104,7 @@ func (T Transform) TransformDistance(x, y float64) (outX, outY float64) {
 // then apply the original transformation to the coordinates.
 //
 // 	This changes the matrix in-place.
-func (T *Transform) Translate(tx, ty float64) {
+func (T *Transform) Translate(tx, ty fl) {
 	T.e, T.f = T.TransformPoint(tx, ty)
 }
 
@@ -114,7 +116,7 @@ func (T *Transform) Translate(tx, ty float64) {
 // then apply the original transformation to the coordinates.
 //
 // This changes the matrix in-place.
-func (T *Transform) Scale(sx, sy float64) {
+func (T *Transform) Scale(sx, sy fl) {
 	mult(*T, Transform{sx, 0, 0, sy, 0, 0}, T)
 }
 
@@ -131,7 +133,7 @@ func (T *Transform) Scale(sx, sy float64) {
 // 	The direction of rotation is defined such that positive angles
 // 	rotate in the direction from the positive X axis
 // 	toward the positive Y axis.
-func (T *Transform) Rotate(radians float64) {
-	cos, sin := math.Cos(radians), math.Sin(radians)
+func (T *Transform) Rotate(radians fl) {
+	cos, sin := fl(math.Cos(float64(radians))), fl(math.Sin(float64(radians)))
 	mult(*T, Transform{cos, sin, -sin, cos, 0, 0}, T)
 }

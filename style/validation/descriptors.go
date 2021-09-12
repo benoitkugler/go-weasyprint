@@ -2,9 +2,11 @@ package validation
 
 import (
 	"errors"
-	"github.com/benoitkugler/go-weasyprint/utils"
+	"fmt"
 	"log"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -26,12 +28,17 @@ var descriptors = map[string]descriptor{
 	"font-variant":          fontVariant,
 }
 
-type NamedDescriptor struct {
-	Name       string
-	Descriptor pr.Descriptor
+type RuleDescriptors struct {
+	Src                 []pr.NamedString
+	FontFamily          pr.String
+	FontStyle           pr.String
+	FontWeight          pr.IntString
+	FontStretch         pr.String
+	FontFeatureSettings pr.SIntStrings
+	FontVariant         pr.NamedProperties
 }
 
-type descriptor = func(tokens []Token, baseUrl string) (pr.Descriptor, error)
+type descriptor = func(tokens []Token, baseUrl string, out *RuleDescriptors) error
 
 // @descriptor()
 // ``font-family`` descriptor validation.
@@ -51,7 +58,7 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 	ok := true
 	for _, token := range tokens {
 		ok = ok && allowedTypes.Has(string(token.Type()))
-		if ident, ok := token.(parser.IdentToken); ok {
+		if ident, isToken := token.(parser.IdentToken); isToken {
 			values = append(values, string(ident.Value))
 		}
 	}
@@ -61,12 +68,10 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 	return ""
 }
 
-func fontFamilyDescriptor(tokens []Token, _ string) (pr.Descriptor, error) {
+func fontFamilyDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 	s := _fontFamilyDesc(tokens, false)
-	if s == "" {
-		return nil, nil
-	}
-	return pr.String(s), nil
+	out.FontFamily = pr.String(s)
+	return nil
 }
 
 // @descriptor(wantsBaseUrl=true)
@@ -93,129 +98,127 @@ func _src(tokens []Token, baseUrl string) (pr.InnerContent, error) {
 	return nil, nil
 }
 
-func src(tokens []Token, baseUrl string) (pr.Descriptor, error) {
-	var out pr.Contents
+func src(tokens []Token, baseUrl string, out *RuleDescriptors) error {
 	for _, part := range SplitOnComma(tokens) {
 		result, err := _src(RemoveWhitespace(part), baseUrl)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if result == nil {
-			return nil, nil
+		if result, ok := result.(pr.NamedString); ok {
+			out.Src = append(out.Src, result)
+		} else {
+			return fmt.Errorf("invalid <src> descriptor: %v", part)
 		}
-		out = append(out, result)
 	}
-	return out, nil
+	return nil
 }
 
 // @descriptor()
 // @singleKeyword
 // ``font-style`` descriptor validation.
-func fontStyleDescriptor(tokens []Token, _ string) (pr.Descriptor, error) {
+func fontStyleDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "italic", "oblique":
-		return pr.String(keyword), nil
+		out.FontStyle = pr.String(keyword)
+		return nil
 	default:
-		return nil, nil
+		return fmt.Errorf("unsupported font-style descriptor: %s", keyword)
 	}
 }
 
 // @descriptor()
 // @singleToken
 // ``font-weight`` descriptor validation.
-func fontWeightDescriptor(tokens []Token, _ string) (pr.Descriptor, error) {
+func fontWeightDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 	if len(tokens) != 1 {
-		return nil, nil
+		return InvalidValue
 	}
 	token := tokens[0]
 	keyword := getKeyword(token)
 	if keyword == "normal" || keyword == "bold" {
-		return pr.IntString{String: keyword}, nil
+		out.FontWeight = pr.IntString{String: keyword}
+		return nil
 	}
 	if number, ok := token.(parser.NumberToken); ok && number.IsInteger {
 		v := number.IntValue()
 		switch v {
 		case 100, 200, 300, 400, 500, 600, 700, 800, 900:
-			return pr.IntString{Int: v}, nil
+			out.FontWeight = pr.IntString{Int: v}
+			return nil
 		}
 	}
-	return nil, nil
+	return InvalidValue
 }
 
 // @descriptor()
 // @singleKeyword
 // Validation for the ``font-stretch`` descriptor.
-func fontStretchDescriptor(tokens []Token, _ string) (pr.Descriptor, error) {
+func fontStretchDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
 		"normal",
 		"semi-expanded", "expanded", "extra-expanded", "ultra-expanded":
-		return pr.String(keyword), nil
+		out.FontStretch = pr.String(keyword)
+		return nil
 	default:
-		return nil, nil
+		return fmt.Errorf("unsupported font-stretch descriptor: %s", keyword)
 	}
 }
 
 // @descriptor("font-feature-settings")
 // ``font-feature-settings`` descriptor validation.
-func fontFeatureSettingsDescriptor(tokens []Token, _ string) (pr.Descriptor, error) {
+func fontFeatureSettingsDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 	s := _fontFeatureSettings(tokens)
 	if s.IsNone() {
-		return nil, nil
+		return InvalidValue
 	}
-	return s, nil
+	out.FontFeatureSettings = s
+	return nil
 }
 
 // @descriptor()
 // ``font-variant`` descriptor validation.
-func fontVariant(tokens []Token, _ string) (pr.Descriptor, error) {
+func fontVariant(tokens []Token, _ string, out *RuleDescriptors) error {
 	if len(tokens) == 1 {
 		keyword := getKeyword(tokens[0])
 		if keyword == "normal" || keyword == "none" || keyword == "inherit" {
-			return pr.NamedProperties{}, nil
+			return nil
 		}
 	}
 	var values pr.NamedProperties
 	expanded, err := expandFontVariant(tokens)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, subTokens := range expanded {
 		prop, err := validateNonShorthand("", "font-variant"+subTokens.name, subTokens.tokens, true)
 		if err != nil {
-			return nil, nil
+			return InvalidValue
 		}
 		values = append(values, prop)
-
 	}
-	return values, nil
+	out.FontVariant = values
+	return nil
 }
 
 // Default validator for descriptors.
-func validate(baseUrl, name string, tokens []Token) (pr.Descriptor, error) {
+func validate(baseUrl, name string, tokens []Token, out *RuleDescriptors) error {
 	function, ok := descriptors[name]
 	if !ok {
-		return nil, errors.New("descriptor not supported")
+		return errors.New("descriptor not supported")
 	}
 
-	value, err := function(tokens, baseUrl)
-	if err != nil {
-		return nil, err
-	}
-	if value == nil {
-		return nil, InvalidValue
-	}
-	return value, nil
+	err := function(tokens, baseUrl, out)
+	return err
 }
 
 // Filter unsupported names and values for descriptors.
-//     Log a warning for every ignored descriptor.
-//     Return a iterable of ``(name, value)`` tuples.
-//
-func PreprocessDescriptors(baseUrl string, descriptors []Token) []NamedDescriptor {
-	var out []NamedDescriptor
+// Log a warning for every ignored descriptor.
+// Return a iterable of ``(name, value)`` tuples.
+func PreprocessDescriptors(baseUrl string, descriptors []Token) RuleDescriptors {
+	var out RuleDescriptors
 	for _, descriptor := range descriptors {
 		decl, ok := descriptor.(parser.Declaration)
 		if !ok || decl.Important {
@@ -223,18 +226,12 @@ func PreprocessDescriptors(baseUrl string, descriptors []Token) []NamedDescripto
 		}
 		tokens := RemoveWhitespace(decl.Value)
 		name := string(decl.Name)
-		result, err := validate(baseUrl, name, tokens)
-
+		err := validate(baseUrl, name, tokens, &out)
 		if err != nil {
-			log.Printf("Ignored `%s:%s` at %d:%d, %s.\n", name, parser.Serialize(decl.Value), decl.Position().Line, decl.Position().Column, err)
+			log.Printf("Ignored `%s:%s` at %d:%d, %s.\n",
+				name, parser.Serialize(decl.Value), decl.Position().Line, decl.Position().Column, err)
 			continue
 		}
-
-		out = append(out, NamedDescriptor{
-			Name:       strings.ReplaceAll(name, "-", "_"),
-			Descriptor: result,
-		})
-
 	}
 	return out
 }

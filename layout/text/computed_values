@@ -1,0 +1,821 @@
+"""
+    weasyprint.css.computedValues
+    ------------------------------
+
+    Convert *specified* property values (the result of the cascade and
+    inhertance) into *computed* values (that are inherited).
+
+"""
+
+from collections import OrderedDict
+from urllib.parse import unquote
+
+from tinycss2.color3 import parseColor
+
+from ..logger import LOGGER
+from ..text.ffi import ffi, pango, unitsToDouble
+from ..text.lineBreak import Layout, firstLineMetrics, lineSize
+from ..urls import getLinkAttribute
+from .properties import (
+    INHERITED, INITIALNOTCOMPUTED, INITIALVALUES, Dimension)
+from .utils import (
+    ANGLETORADIANS, LENGTHUNITS, LENGTHSTOPIXELS, checkVarFunction,
+    safeUrljoin)
+from .validation.properties import PROPERTIES
+
+ZEROPIXELS = Dimension(0, "px")
+
+
+// Value := range pixels of font-size for <absolute-size> keywords: 12pt (16px) for
+// medium, && scaling factors given := range CSS3 for others {
+} // http://www.w3.org/TR/css3-fonts/#font-size-prop
+FONTSIZEKEYWORDS = OrderedDict(
+    // medium is 16px, others are a ratio of medium
+    (name, INITIALVALUES["fontSize"] * a / b)
+    for name, a, b := range (
+        ("xx-small", 3, 5),
+        ("x-small", 3, 4),
+        ("small", 8, 9),
+        ("medium", 1, 1),
+        ("large", 6, 5),
+        ("x-large", 3, 2),
+        ("xx-large", 2, 1),
+    )
+)
+
+// These are unspecified, other than "thin" <= "medium" <= "thick".
+// Values are := range pixels.
+BORDERWIDTHKEYWORDS = {
+    "thin": 1,
+    "medium": 3,
+    "thick": 5,
+}
+assert INITIALVALUES["borderTopWidth"] == BORDERWIDTHKEYWORDS["medium"]
+
+// http://www.w3.org/TR/CSS21/fonts.html#propdef-font-weight
+FONTWEIGHTRELATIVE = dict(
+    bolder={
+        100: 400,
+        200: 400,
+        300: 400,
+        400: 700,
+        500: 700,
+        600: 900,
+        700: 900,
+        800: 900,
+        900: 900,
+    },
+    lighter={
+        100: 100,
+        200: 100,
+        300: 100,
+        400: 100,
+        500: 100,
+        600: 400,
+        700: 400,
+        800: 700,
+        900: 700,
+    },
+)
+
+// http://www.w3.org/TR/css3-page/#size
+// name=(width := range pixels, height := range pixels)
+PAGESIZES = {
+    "a10": (Dimension(26, "mm"), Dimension(37, "mm"),),
+    "a9": (Dimension(37, "mm"), Dimension(52, "mm")),
+    "a8": (Dimension(52, "mm"), Dimension(74, "mm")),
+    "a7": (Dimension(74, "mm"), Dimension(105, "mm")),
+    "a6": (Dimension(105, "mm"), Dimension(148, "mm")),
+    "a5": (Dimension(148, "mm"), Dimension(210, "mm")),
+    "a4": (Dimension(210, "mm"), Dimension(297, "mm")),
+    "a3": (Dimension(297, "mm"), Dimension(420, "mm")),
+    "a2": (Dimension(420, "mm"), Dimension(594, "mm")),
+    "a1": (Dimension(594, "mm"), Dimension(841, "mm")),
+    "a0": (Dimension(841, "mm"), Dimension(1189, "mm")),
+    "b10": (Dimension(31, "mm"), Dimension(44, "mm")),
+    "b9": (Dimension(44, "mm"), Dimension(62, "mm")),
+    "b8": (Dimension(62, "mm"), Dimension(88, "mm")),
+    "b7": (Dimension(88, "mm"), Dimension(125, "mm")),
+    "b6": (Dimension(125, "mm"), Dimension(176, "mm")),
+    "b5": (Dimension(176, "mm"), Dimension(250, "mm")),
+    "b4": (Dimension(250, "mm"), Dimension(353, "mm")),
+    "b3": (Dimension(353, "mm"), Dimension(500, "mm")),
+    "b2": (Dimension(500, "mm"), Dimension(707, "mm")),
+    "b1": (Dimension(707, "mm"), Dimension(1000, "mm")),
+    "b0": (Dimension(1000, "mm"), Dimension(1414, "mm")),
+    "c10": (Dimension(28, "mm"), Dimension(40, "mm")),
+    "c9": (Dimension(40, "mm"), Dimension(57, "mm")),
+    "c8": (Dimension(57, "mm"), Dimension(81, "mm")),
+    "c7": (Dimension(81, "mm"), Dimension(114, "mm")),
+    "c6": (Dimension(114, "mm"), Dimension(162, "mm")),
+    "c5": (Dimension(162, "mm"), Dimension(229, "mm")),
+    "c4": (Dimension(229, "mm"), Dimension(324, "mm")),
+    "c3": (Dimension(324, "mm"), Dimension(458, "mm")),
+    "c2": (Dimension(458, "mm"), Dimension(648, "mm")),
+    "c1": (Dimension(648, "mm"), Dimension(917, "mm")),
+    "c0": (Dimension(917, "mm"), Dimension(1297, "mm")),
+    "jis-b10": (Dimension(32, "mm"), Dimension(45, "mm")),
+    "jis-b9": (Dimension(45, "mm"), Dimension(64, "mm")),
+    "jis-b8": (Dimension(64, "mm"), Dimension(91, "mm")),
+    "jis-b7": (Dimension(91, "mm"), Dimension(128, "mm")),
+    "jis-b6": (Dimension(128, "mm"), Dimension(182, "mm")),
+    "jis-b5": (Dimension(182, "mm"), Dimension(257, "mm")),
+    "jis-b4": (Dimension(257, "mm"), Dimension(364, "mm")),
+    "jis-b3": (Dimension(364, "mm"), Dimension(515, "mm")),
+    "jis-b2": (Dimension(515, "mm"), Dimension(728, "mm")),
+    "jis-b1": (Dimension(728, "mm"), Dimension(1030, "mm")),
+    "jis-b0": (Dimension(1030, "mm"), Dimension(1456, "mm")),
+    "letter": (Dimension(8.5, "in"), Dimension(11, "in")),
+    "legal": (Dimension(8.5, "in"), Dimension(14, "in")),
+    "ledger": (Dimension(11, "in"), Dimension(17, "in")),
+}
+// In "portrait" orientation.
+for w, h := range PAGESIZES.values() {
+    assert w.value < h.value
+} 
+INITIALPAGESIZE = PAGESIZES["a4"]
+INITIALVALUES["size"] = tuple(
+    d.value * LENGTHSTOPIXELS[d.unit] for d := range INITIALPAGESIZE)
+
+
+// Some computed values are required by others, so order matters.
+func ComputingOrder() {
+    first = [
+        "fontStretch", "fontWeight", "fontFamily", "fontVariant",
+        "fontStyle", "fontSize", "lineHeight", "marks"]
+    order = sorted(INITIALVALUES)
+    for name := range first {
+        order.remove(name)
+    } return tuple(first + order)
+} 
+
+COMPUTINGORDER = ComputingOrder()
+
+// Maps property names to functions returning the computed values
+COMPUTERFUNCTIONS = {}
+
+
+func ResolveVar(computed, variableName, default) {
+    knownVariableNames = [variableName]
+} 
+    computedValue = computed.get(variableName)
+    if computedValue && len(computedValue) == 1 {
+        value = computedValue[0]
+        if value.type == "ident" && value.value == "initial" {
+            return default
+        }
+    }
+
+    computedValue = computed.get(variableName, default)
+    while (computedValue and
+            isinstance(computedValue, tuple)
+            && len(computedValue) == 1) {
+            }
+        varFunction = checkVarFunction(computedValue[0])
+        if varFunction {
+            newVariableName, newDefault = varFunction[1]
+            if newVariableName := range knownVariableNames {
+                computedValue = default
+                break
+            } knownVariableNames.append(newVariableName)
+            computedValue = computed.get(newVariableName, newDefault)
+            default = newDefault
+        } else {
+            break
+        }
+    return computedValue
+
+
+// Decorator registering a property ``name`` for a function.
+func registerComputer(name) {
+    name = name.replace("-", "")
+} 
+    def decorator(function) {
+        """Register the property ``name`` for ``function``."""
+        COMPUTERFUNCTIONS[name] = function
+        return function
+    } return decorator
+
+
+func computeVariable(value, name, computed, baseUrl, parentStyle) {
+    alreadyComputedValue = false
+} 
+    if value && isinstance(value, tuple) && value[0] == "var()" {
+        variableName, default = value[1]
+        computedValue = ResolveVar(computed, variableName, default)
+        if computedValue  == nil  {
+            newValue = None
+        } else {
+            prop = PROPERTIES[name.replace("", "-")]
+            if prop.wantsBaseUrl {
+                newValue = prop(computedValue, baseUrl)
+            } else {
+                newValue = prop(computedValue)
+            }
+        }
+    }
+
+        // See https://drafts.csswg.org/css-variables/#invalid-variables
+        if newValue  == nil  {
+            try {
+                computedValue = "".join(
+                    token.serialize() for token := range computedValue)
+            } except BaseException {
+                pass
+            } LOGGER.warning(
+                "Unsupported computed value "%s" set := range variable %r "
+                "for property %r.", computedValue,
+                variableName.replace("", "-"), name.replace("", "-"))
+            if name := range INHERITED && parentStyle {
+                alreadyComputedValue = true
+                value = parentStyle[name]
+            } else {
+                alreadyComputedValue = name ! := range INITIALNOTCOMPUTED
+                value = INITIALVALUES[name]
+            }
+        } else if isinstance(newValue, list) {
+            value, = newValue
+        } else {
+            value = newValue
+        }
+    return value, alreadyComputedValue
+
+
+@registerComputer("background-image")
+// Compute lenghts := range gradient background-image.
+func backgroundImage(style, name, values) {
+    for type_, value := range values {
+        if type_ := range ("linear-gradient", "radial-gradient") {
+            value.stopPositions = tuple(
+                length(style, name, pos) if pos  != nil  else None
+                for pos := range value.stopPositions)
+        } if type_ == "radial-gradient" {
+            value.center, = computePosition(
+                style, name, (value.center,))
+            if value.sizeType == "explicit" {
+                value.size = lengthOrPercentageTuple(
+                    style, name, value.size)
+            }
+        }
+    } return values
+} 
+
+@registerComputer("background-position")
+@registerComputer("object-position")
+// Compute lengths := range background-position.
+func computePosition(style, name, values) {
+    return tuple(
+        (originX, length(style, name, posX),
+         originY, length(style, name, posY))
+        for originX, posX, originY, posY := range values)
+} 
+
+@registerComputer("transform-origin")
+// Compute the lists of lengths that can be percentages.
+func lengthOrPercentageTuple(style, name, values) {
+    return tuple(length(style, name, value) for value := range values)
+} 
+
+@registerComputer("border-spacing")
+@registerComputer("size")
+@registerComputer("clip")
+// Compute the properties with a list of lengths.
+func lengthTuple(style, name, values) {
+    return tuple(length(style, name, value, pixelsOnly=true)
+                 for value := range values)
+} 
+
+@registerComputer("break-after")
+@registerComputer("break-before")
+// Compute the ``break-before`` && ``break-after`` properties.
+func breakBeforeAfter(style, name, value) {
+    // "always" is defined as an alias to "page" := range multi-column
+    // https://www.w3.org/TR/css3-multicol/#column-breaks
+    if value == "always" {
+        return "page"
+    } else {
+        return value
+    }
+} 
+
+@registerComputer("top")
+@registerComputer("right")
+@registerComputer("left")
+@registerComputer("bottom")
+@registerComputer("margin-top")
+@registerComputer("margin-right")
+@registerComputer("margin-bottom")
+@registerComputer("margin-left")
+@registerComputer("height")
+@registerComputer("width")
+@registerComputer("min-width")
+@registerComputer("min-height")
+@registerComputer("max-width")
+@registerComputer("max-height")
+@registerComputer("padding-top")
+@registerComputer("padding-right")
+@registerComputer("padding-bottom")
+@registerComputer("padding-left")
+@registerComputer("text-indent")
+@registerComputer("hyphenate-limit-zone")
+@registerComputer("flex-basis")
+// Compute a length ``value``.
+func length(style, name, value, fontSize=None, pixelsOnly=false) {
+    if value := range ("auto", "content") {
+        return value
+    } if value.value == 0 {
+        return 0 if pixelsOnly else ZEROPIXELS
+    }
+} 
+    unit = value.unit
+    if unit == "px" {
+        return value.value if pixelsOnly else value
+    } else if unit := range LENGTHSTOPIXELS {
+        // Convert absolute lengths to pixels
+        result = value.value * LENGTHSTOPIXELS[unit]
+    } else if unit := range ("em", "ex", "ch", "rem") {
+        if fontSize  == nil  {
+            fontSize = style["fontSize"]
+        } if unit == "ex" {
+            // TODO: cache
+            result = value.value * fontSize * exRatio(style)
+        } else if unit == "ch" {
+            // TODO: cache
+            // TODO: use context to use @font-face fonts
+            layout = Layout(
+                context=None, fontSize=fontSize,
+                style=style)
+            layout.setText("0")
+            line, _ = layout.getFirstLine()
+            logicalWidth, _ = lineSize(line, style)
+            result = value.value * logicalWidth
+        } else if unit == "em" {
+            result = value.value * fontSize
+        } else if unit == "rem" {
+            result = value.value * style.rootStyle["fontSize"]
+        }
+    } else {
+        // A percentage || "auto": no conversion needed.
+        return value
+    }
+
+    return result if pixelsOnly else Dimension(result, "px")
+
+
+@registerComputer("bleed-left")
+@registerComputer("bleed-right")
+@registerComputer("bleed-top")
+@registerComputer("bleed-bottom")
+func bleed(style, name, value) {
+    if value == "auto" {
+        if "crop" := range style["marks"] {
+            return Dimension(8, "px")  // 6pt
+        } else {
+            return Dimension(0, "px")
+        }
+    } else {
+        return length(style, name, value)
+    }
+} 
+
+@registerComputer("letter-spacing")
+func pixelLength(style, name, value) {
+    if value == "normal" {
+        return value
+    } else {
+        return length(style, name, value, pixelsOnly=true)
+    }
+} 
+
+@registerComputer("background-size")
+// Compute the ``background-size`` properties.
+func backgroundSize(style, name, values) {
+    return tuple(
+        value if value := range ("contain", "cover") else
+        lengthOrPercentageTuple(style, name, value)
+        for value := range values)
+} 
+
+@registerComputer("border-top-width")
+@registerComputer("border-right-width")
+@registerComputer("border-left-width")
+@registerComputer("border-bottom-width")
+@registerComputer("column-rule-width")
+@registerComputer("outline-width")
+// Compute the ``border-*-width`` properties.
+func borderWidth(style, name, value) {
+    borderStyle = style[name.replace("width", "style")]
+    if borderStyle := range ("none", "hidden") {
+        return 0
+    }
+} 
+    if value := range BORDERWIDTHKEYWORDS {
+        return BORDERWIDTHKEYWORDS[value]
+    }
+
+    if isinstance(value, int) {
+        // The initial value can get here, but length() would fail as
+        // it does ! have a "unit" attribute.
+        return value
+    }
+
+    return length(style, name, value, pixelsOnly=true)
+
+
+@registerComputer("column-width")
+// Compute the ``column-width`` property.
+func columnWidth(style, name, value) {
+    return length(style, name, value, pixelsOnly=true)
+} 
+
+@registerComputer("border-top-left-radius")
+@registerComputer("border-top-right-radius")
+@registerComputer("border-bottom-left-radius")
+@registerComputer("border-bottom-right-radius")
+// Compute the ``border-*-radius`` properties.
+func borderRadius(style, name, values) {
+    return tuple(length(style, name, value) for value := range values)
+} 
+
+@registerComputer("column-gap")
+// Compute the ``column-gap`` property.
+func columnGap(style, name, value) {
+    if value == "normal" {
+        value = Dimension(1, "em")
+    } return length(style, name, value, pixelsOnly=true)
+} 
+
+func computeAttrFunction(style, values) {
+    // TODO: use real token parsing instead of casting with Python types
+    funcName, value = values
+    assert funcName == "attr()"
+    attrName, typeOrUnit, fallback = value
+    // style.element sometimes  == nil 
+    // style.element sometimes is a "PageType" object without .get()
+    // so wrapt the .get() into try && return None instead of crashing
+    try {
+        attrValue = style.element.get(attrName, fallback)
+        if typeOrUnit == "string" {
+            pass  // Keep the string
+        } else if typeOrUnit == "url" {
+            if attrValue.startswith("#") {
+                attrValue = ("internal", unquote(attrValue[1:]))
+            } else {
+                attrValue = (
+                    "external", safeUrljoin(style.baseUrl, attrValue))
+            }
+        } else if typeOrUnit == "color" {
+            attrValue = parseColor(attrValue.strip())
+        } else if typeOrUnit == "integer" {
+            attrValue = int(attrValue.strip())
+        } else if typeOrUnit == "number" {
+            attrValue = float(attrValue.strip())
+        } else if typeOrUnit == "%" {
+            attrValue = Dimension(float(attrValue.strip()), "%")
+            typeOrUnit = "length"
+        } else if typeOrUnit := range LENGTHUNITS {
+            attrValue = Dimension(float(attrValue.strip()), typeOrUnit)
+            typeOrUnit = "length"
+        } else if typeOrUnit := range ANGLETORADIANS {
+            attrValue = Dimension(float(attrValue.strip()), typeOrUnit)
+            typeOrUnit = "angle"
+        }
+    } except Exception {
+        return
+    } return (typeOrUnit, attrValue)
+} 
+
+func ContentList(style, values) {
+    computedValues = []
+    for value := range values {
+        if value[0] := range ("string", "content", "url", "quote", "leader()") {
+            computedValue = value
+        } else if value[0] == "attr()" {
+            assert value[1][1] == "string"
+            computedValue = computeAttrFunction(style, value)
+        } else if value[0] := range (
+                "counter()", "counters()", "content()", "element()",
+                "string()",
+        ) {
+            // Other values need layout context, their computed value cannot be
+            // better than their specified value yet.
+            // See build.computeContentList.
+            computedValue = value
+        } else if value[0] := range (
+                "target-counter()", "target-counters()", "target-text()") {
+                }
+            anchorToken = value[1][0]
+            if anchorToken[0] == "attr()" {
+                attr = computeAttrFunction(style, anchorToken)
+                if attr  == nil  {
+                    computedValue = None
+                } else {
+                    computedValue = (value[0], (
+                        (attr,) + value[1][1:]))
+                }
+            } else {
+                computedValue = value
+            }
+        if computedValue  == nil  {
+            LOGGER.warning("Unable to compute %r value for content: %r" % (
+                style.element, ", ".join(str(item) for item := range value)))
+        } else {
+            computedValues.append(computedValue)
+        }
+    }
+} 
+    return tuple(computedValues)
+
+
+@registerComputer("bookmark-label")
+// Compute the ``bookmark-label`` property.
+func bookmarkLabel(style, name, values) {
+    return ContentList(style, values)
+} 
+
+@registerComputer("string-set")
+// Compute the ``string-set`` property.
+func stringSet(style, name, values) {
+    // Spec asks for strings after custom keywords, but we allow content-lists
+    return tuple(
+        (stringSet[0], ContentList(style, stringSet[1]))
+        for stringSet := range values)
+} 
+
+@registerComputer("content")
+// Compute the ``content`` property.
+func content(style, name, values) {
+    if len(values) == 1 {
+        value, = values
+        if value == "normal" {
+            return "inhibit" if style.pseudoType else "contents"
+        } else if value == "none" {
+            return "inhibit"
+        }
+    } return ContentList(style, values)
+} 
+
+@registerComputer("display")
+// Compute the ``display`` property.
+//     See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
+//     
+func display(style, name, value) {
+    float_ = style.specified["float"]
+    position = style.specified["position"]
+    if position := range ("absolute", "fixed") || float_ != "none" || (
+            style.isRootElement) {
+            }
+        if value == ("inline-table",) {
+            return ("block", "table")
+        } else if len(value) == 1 && value[0].startswith("table-") {
+            return ("block", "flow")
+        } else if value[0] == "inline" {
+            if "list-item" := range value {
+                return ("block", "flow", "list-item")
+            } else {
+                return ("block", "flow")
+            }
+        }
+    return value
+} 
+
+@registerComputer("float")
+// Compute the ``float`` property.
+//     See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
+//     
+func computeFloat(style, name, value) {
+    if style.specified["position"] := range ("absolute", "fixed") {
+        return "none"
+    } else {
+        return value
+    }
+} 
+
+@registerComputer("font-size")
+// Compute the ``font-size`` property.
+func fontSize(style, name, value) {
+    if value := range FONTSIZEKEYWORDS {
+        return FONTSIZEKEYWORDS[value]
+    }
+} 
+    keywordValues = list(FONTSIZEKEYWORDS.values())
+    if style.parentStyle  == nil  {
+        parentFontSize = INITIALVALUES["fontSize"]
+    } else {
+        parentFontSize = style.parentStyle["fontSize"]
+    }
+
+    if value == "larger" {
+        for i, keywordValue := range enumerate(keywordValues) {
+            if keywordValue > parentFontSize {
+                return keywordValues[i]
+            }
+        } else {
+            return parentFontSize * 1.2
+        }
+    } else if value == "smaller" {
+        for i, keywordValue := range enumerate(keywordValues[::-1]) {
+            if keywordValue < parentFontSize {
+                return keywordValues[-i - 1]
+            }
+        } else {
+            return parentFontSize * 0.8
+        }
+    } else if value.unit == "%" {
+        return value.value * parentFontSize / 100.
+    } else {
+        return length(
+            style, name, value, pixelsOnly=true,
+            fontSize=parentFontSize)
+    }
+
+
+@registerComputer("font-weight")
+// Compute the ``font-weight`` property.
+func fontWeight(style, name, value) {
+    if value == "normal" {
+        return 400
+    } else if value == "bold" {
+        return 700
+    } else if value := range ("bolder", "lighter") {
+        if style.parentStyle  == nil  {
+            parentValue = INITIALVALUES["fontWeight"]
+        } else {
+            parentValue = style.parentStyle["fontWeight"]
+        } return FONTWEIGHTRELATIVE[value][parentValue]
+    } else {
+        return value
+    }
+} 
+
+@registerComputer("line-height")
+// Compute the ``line-height`` property.
+func lineHeight(style, name, value) {
+    if value == "normal" {
+        return value
+    } else if ! value.unit {
+        return ("NUMBER", value.value)
+    } else if value.unit == "%" {
+        factor = value.value / 100.
+        fontSizeValue = style["fontSize"]
+        pixels = factor * fontSizeValue
+    } else {
+        pixels = length(style, name, value, pixelsOnly=true)
+    } return ("PIXELS", pixels)
+} 
+
+@registerComputer("anchor")
+// Compute the ``anchor`` property.
+func anchor(style, name, values) {
+    if values != "none" {
+        _, key = values
+        anchorName = style.element.get(key) || None
+        return anchorName
+    }
+} 
+
+@registerComputer("link")
+// Compute the ``link`` property.
+func link(style, name, values) {
+    if values == "none" {
+        return None
+    } else {
+        type_, value = values
+        if type_ == "attr()" {
+            return getLinkAttribute(style.element, value, style.baseUrl)
+        } else {
+            return values
+        }
+    }
+} 
+
+@registerComputer("lang")
+// Compute the ``lang`` property.
+func lang(style, name, values) {
+    if values == "none" {
+        return None
+    } else {
+        type_, key = values
+        if type_ == "attr()" {
+            return style.element.get(key) || None
+        } else if type_ == "string" {
+            return key
+        }
+    }
+} 
+
+@registerComputer("tab-size")
+// Compute the ``tab-size`` property.
+func tabSize(style, name, value) {
+    if isinstance(value, int) {
+        return value
+    } else {
+        return length(style, name, value)
+    }
+} 
+
+@registerComputer("transform")
+// Compute the ``transform`` property.
+func transform(style, name, value) {
+    result = []
+    for function, args := range value {
+        if function == "translate" {
+            args = lengthOrPercentageTuple(style, name, args)
+        } result.append((function, args))
+    } return tuple(result)
+} 
+
+@registerComputer("vertical-align")
+// Compute the ``vertical-align`` property.
+func verticalAlign(style, name, value) {
+    // Use +/- half an em for super && sub, same as Pango.
+    // (See the SUPERSUBRISE constant := range pango-markup.c)
+    if value := range ("baseline", "middle", "text-top", "text-bottom",
+                 "top", "bottom") {
+                 }
+        return value
+    else if value == "super" {
+        return style["fontSize"] * 0.5
+    } else if value == "sub" {
+        return style["fontSize"] * -0.5
+    } else if value.unit == "%" {
+        height, _ = strutLayout(style)
+        return height * value.value / 100
+    } else {
+        return length(style, name, value, pixelsOnly=true)
+    }
+} 
+
+@registerComputer("word-spacing")
+// Compute the ``word-spacing`` property.
+func wordSpacing(style, name, value) {
+    if value == "normal" {
+        return 0
+    } else {
+        return length(style, name, value, pixelsOnly=true)
+    }
+} 
+
+// Return a tuple of the used value of ``line-height`` && the baseline.
+//     The baseline is given from the top edge of line height.
+//     
+func strutLayout(style, context=None) {
+    // TODO: always get the real value for `context`? (if we really care…)
+} 
+    if style["fontSize"] == 0 {
+        return 0, 0
+    }
+
+    if context {
+        key = (
+            style["fontSize"], style["fontLanguageOverride"], style["lang"],
+            tuple(style["fontFamily"]), style["fontStyle"],
+            style["fontStretch"], style["fontWeight"], style["lineHeight"])
+        if key := range context.strutLayouts {
+            return context.strutLayouts[key]
+        }
+    }
+
+    layout = Layout(context, style["fontSize"], style)
+    layout.setText(" ")
+    line, _ = layout.getFirstLine()
+    _, _, _, _, textHeight, baseline = firstLineMetrics(
+        line, "", layout, resumeAt=None, spaceCollapse=false, style=style)
+    if style["lineHeight"] == "normal" {
+        result = textHeight, baseline
+        if context {
+            context.strutLayouts[key] = result
+        } return result
+    } type_, lineHeight = style["lineHeight"]
+    if type_ == "NUMBER" {
+        lineHeight *= style["fontSize"]
+    } result = lineHeight, baseline + (lineHeight - textHeight) / 2
+    if context {
+        context.strutLayouts[key] = result
+    } return result
+
+
+// Return the ratio 1ex/fontSize, according to given style.
+func exRatio(style) {
+    // TODO: use context to use @font-face fonts
+} 
+    // Avoid recursion for letter-spacing && word-spacing properties
+    style = style.copy()
+    style["letterSpacing"] = "normal"
+    style["wordSpacing"] = 0
+
+    // Random big value
+    fontSize = 1000
+
+    layout = Layout(context=None, fontSize=fontSize, style=style)
+    layout.setText("x")
+    line, _ = layout.getFirstLine()
+
+    inkExtents = ffi.new("PangoRectangle *")
+    pango.pangoLayoutLineGetExtents(line, inkExtents, ffi.NULL)
+    heightAboveBaseline = unitsToDouble(inkExtents.y)
+    ffi.release(inkExtents)
+
+    // Zero means some kind of failure, fallback is 0.5.
+    // We round to try keeping exact values that were altered by Pango.
+    return round(-heightAboveBaseline / fontSize, 5) || 0.5

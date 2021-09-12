@@ -17,12 +17,12 @@ const (
 	FillRuleEvenOdd
 )
 
-type float = float64
+type float = float32
 
 type Anchor struct {
 	Name string
 	// Origin at the top-left of the page
-	Pos [2]float64
+	Pos [2]float
 }
 
 type Attachment struct {
@@ -1236,8 +1236,8 @@ type Drawer interface {
 	// `anchors` is a 0-based list (meaning anchors in page 1 are at index 0)
 	// Returns the identifier for each anchor.
 	CreateAnchors(anchors [][]Anchor) map[string]int
-	AddInternalLink(x, y, w, h float64, linkId int)
-	AddExternalLink(x, y, w, h float64, url string)
+	AddInternalLink(x, y, w, h float, linkId int)
+	AddExternalLink(x, y, w, h float, url string)
 
 	// Add global attachments to the file
 	SetAttachments(as []Attachment)
@@ -1245,7 +1245,7 @@ type Drawer interface {
 	// won't embed the content twice.
 	EmbedFile(id string, a Attachment)
 	// Add file annotation on the current page
-	AddFileAnnotation(x, y, w, h float64, id string)
+	AddFileAnnotation(x, y, w, h float, id string)
 
 	// Metadatas
 

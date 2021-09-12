@@ -16,6 +16,8 @@ import (
 
 type Color = parser.RGBA
 
+// Image is the common interface for supported image format,
+// such as gradient, SVG, or JPEG, PNG, etc...
 type Image interface {
 	isImage()
 	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
@@ -79,9 +81,10 @@ func (r RasterImage) Draw(context backend.Drawer, concreteWidth, concreteHeight 
 	// Use the real intrinsic size here,
 	// not affected by "image-resolution".
 	context.Scale(float64(concreteWidth/r.intrinsicWidth), float64(concreteHeight/r.intrinsicHeight))
-	context.setSourceSurface(r.imageSurface)
-	context.getSource().setFilter(imagesRenderingToFilter[imageRendering])
-	context.paint()
+	// FIXME:
+	// context.setSourceSurface(r.imageSurface)
+	// context.getSource().setFilter(imagesRenderingToFilter[imageRendering])
+	// context.paint()
 }
 
 // class ScaledSVGSurface(cairosvg.surface.SVGSurface) {
@@ -114,15 +117,15 @@ func newFakeSurface() FakeSurface {
 }
 
 type SVGImage struct {
-	baseUrl    string
-	svgData    string
-	urlFetcher utils.UrlFetcher
-	tree       *utils.HTMLNode
-
-	width, height   float64
 	intrinsicWidth  pr.MaybeFloat
 	intrinsicHeight pr.MaybeFloat
 	intrinsicRatio  pr.MaybeFloat
+	tree            *utils.HTMLNode
+	urlFetcher      utils.UrlFetcher
+	baseUrl         string
+	svgData         string
+	width           float64
+	height          float64
 }
 
 func (SVGImage) isImage() {}
@@ -213,13 +216,13 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.Mayb
 //         }
 //     }
 
-// // Get a cairo Pattern from an image URI.
-func GetImageFromUri(cache map[string]Image, urlFetcher utils.UrlFetcher, url, forcedMimeType string) Image {
+// Get a cairo Pattern from an image URI.
+func GetImageFromUri(cache map[string]Image, _ utils.UrlFetcher, url, _ string) Image {
 	image, in := cache[url]
 	if in {
 		return image
 	}
-	//FIXME: à implémenter
+	// FIXME: à implémenter
 	//     try {
 	//         with fetch(urlFetcher, url) as result {
 	//             if "string" := range result {
@@ -360,21 +363,21 @@ func gradientAverageColor(colors []Color, positions []pr.Float) Color {
 		}
 		totalLength = pr.Float(nbStops - 1)
 	}
-	premulR := make([]float64, nbStops)
-	premulG := make([]float64, nbStops)
-	premulB := make([]float64, nbStops)
-	alpha := make([]float64, nbStops)
+	premulR := make([]float32, nbStops)
+	premulG := make([]float32, nbStops)
+	premulB := make([]float32, nbStops)
+	alpha := make([]float32, nbStops)
 	for i, col := range colors {
 		premulR[i] = col.R * col.A
 		premulG[i] = col.G * col.A
 		premulB[i] = col.B * col.A
 		alpha[i] = col.A
 	}
-	var resultR, resultG, resultB, resultA float64
+	var resultR, resultG, resultB, resultA float32
 	totalWeight := 2 * totalLength
 	for i, position := range positions[1:] {
 		i = i + 1
-		weight := float64((position - positions[i-1]) / totalWeight)
+		weight := float32((position - positions[i-1]) / totalWeight)
 		for j := i - 1; j < i; j += 1 {
 			resultR += premulR[j] * weight
 			resultG += premulG[j] * weight
@@ -388,7 +391,8 @@ func gradientAverageColor(colors []Color, positions []pr.Float) Color {
 			R: resultR / resultA,
 			G: resultG / resultA,
 			B: resultB / resultA,
-			A: resultA}
+			A: resultA,
+		}
 	}
 	return Color{}
 }
@@ -411,15 +415,14 @@ type gradientInit struct {
 }
 
 type gradientLayout struct {
-
-	//used for ellipses radial gradients. 1 otherwise.
-	scaleY pr.Float
-
 	//  list of floats in [0..1].
 	// 0 at the starting point, 1 at the ending point.
 	positions []pr.Float
 	colors    []Color
 	init      gradientInit
+
+	// used for ellipses radial gradients. 1 otherwise.
+	scaleY pr.Float
 }
 
 type layouter interface {
@@ -429,11 +432,11 @@ type layouter interface {
 }
 
 type gradient struct {
+	layouter
+
 	colors        []Color
 	stopPositions []pr.Dimension
 	repeating     bool
-
-	layouter
 }
 
 func newGradient(colorStops []pr.ColorStop, repeating bool) gradient {
@@ -460,22 +463,26 @@ func (g gradient) IntrinsicRatio() pr.MaybeFloat {
 	return nil
 }
 
-//  func draw(self, context, concreteWidth, concreteHeight, ImageRendering) {
-//         scaleY, type_, init, stopPositions, stopColors = self.layout(
-//             concreteWidth, concreteHeight, context.userToDeviceDistance)
-//         context.scale(1, scaleY{
-//         pattern = patternTypes[tymap[string]int*init)
-// :       for position, color := range zip(stopPositions, stopColors) {:			pattern.addColorStop:c
-// }Rgba(position, *color)
-//         } pattern.setExtend(cairocffi.EXTENDREPEAT if self.repeating
-//                            else cairocffi.EXTENDPAD)
-//         context.setSource(pattern)
-//         context.paint()
-//     }
+func (g gradient) Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering pr.String) {
+	// FIXME:
+	log.Println("drawing gradient...")
+	//  func draw(self, context, concreteWidth, concreteHeight, ImageRendering) {
+	//         scaleY, type_, init, stopPositions, stopColors = self.layout(
+	//             concreteWidth, concreteHeight, context.userToDeviceDistance)
+	//         context.scale(1, scaleY{
+	//         pattern = patternTypes[tymap[string]int*init)
+	// :       for position, color := range zip(stopPositions, stopColors) {:			pattern.addColorStop:c
+	// }Rgba(position, *color)
+	//         } pattern.setExtend(cairocffi.EXTENDREPEAT if self.repeating
+	//                            else cairocffi.EXTENDPAD)
+	//         context.setSource(pattern)
+	//         context.paint()
+	//     }
+}
 
 type LinearGradient struct {
-	gradient
 	direction pr.DirectionType
+	gradient
 }
 
 func (LinearGradient) isImage() {}
@@ -517,7 +524,7 @@ func (self LinearGradient) layout(width, height pr.Float, userToDeviceDistance f
 		dx = factorX * height / diagonal
 		dy = factorY * width / diagonal
 	} else {
-		angle := self.direction.Angle // 0 upwards, then clockwise
+		angle := float64(self.direction.Angle) // 0 upwards, then clockwise
 		dx = pr.Float(math.Sin(angle))
 		dy = pr.Float(-math.Cos(angle))
 	}

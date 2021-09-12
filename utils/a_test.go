@@ -31,7 +31,7 @@ func TestQuote(t *testing.T) {
 func TestSlice(t *testing.T) {
 	s := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
 	fmt.Println(s[9:])
-	for i, _ := range s {
+	for i := range s {
 		if i == 4 {
 			s = s[i+1:]
 			break
@@ -48,7 +48,6 @@ func TestSlice(t *testing.T) {
 	a := []int{1, 2, 3, 4, 5, 6, 7, 8}
 	p, poped := a[len(a)-1], a[:len(a)-1]
 	fmt.Println("poped :", p, poped)
-
 }
 
 func TestUnicode(t *testing.T) {
@@ -89,6 +88,7 @@ func TestInterface(t *testing.T) {
 	_, ok := i.(*bytes.Reader)
 	fmt.Println(ok)
 }
+
 func TestPointer(t *testing.T) {
 	var i, j []int
 
@@ -125,7 +125,6 @@ func TestSelector(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println(sel.MatchAll(root))
-
 }
 
 func TestWalkHtml(t *testing.T) {
@@ -141,6 +140,7 @@ func TestWalkHtml(t *testing.T) {
 		fmt.Printf("%p %v %s\n", n, n.DataAtom, n.Data)
 	}
 }
+
 func TestRune(t *testing.T) {
 	fmt.Printf("%c", '\'')
 	fmt.Printf("%c", '\u2e80')
@@ -163,7 +163,7 @@ type i struct {
 }
 
 func TestPOINTER(t *testing.T) {
-	var a = struct {
+	a := struct {
 		i
 	}{
 		i: i{u: 9},
@@ -180,6 +180,7 @@ func TestReference(t *testing.T) {
 	v := s[0]
 	fmt.Printf("%p %p", &v, &s[0])
 }
+
 func TestSortOrder(t *testing.T) {
 	u := []int{1, 2, 8, 9, 4, 5, 7, 6, 1, 2, 8}
 	sort.Slice(u, func(i, j int) bool {
