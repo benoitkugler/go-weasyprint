@@ -487,7 +487,7 @@ func getLength(_token Token, negative, percentage bool) pr.Dimension {
 }
 
 // Return the value in radians of an <angle> token, or None.
-func getAngle(token Token) (float64, bool) {
+func getAngle(token Token) (utils.Fl, bool) {
 	if dim, ok := token.(parser.DimensionToken); ok {
 		unit, in := AngleUnits[string(dim.Unit)]
 		if in {
@@ -498,7 +498,7 @@ func getAngle(token Token) (float64, bool) {
 }
 
 // Return the value in dppx of a <resolution> token, or false.
-func getResolution(token Token) (float64, bool) {
+func getResolution(token Token) (utils.Fl, bool) {
 	if dim, ok := token.(parser.DimensionToken); ok {
 		factor, in := RESOLUTIONTODPPX[string(dim.Unit)]
 		if in {
@@ -645,7 +645,7 @@ func backgroundImage(tokens []Token, baseUrl string) (pr.CssProperty, error) {
 var directionKeywords = map[[3]string]pr.DirectionType{
 	// ("angle", radians)  0 upwards, then clockwise
 	{"to", "top", ""}:    {Angle: 0},
-	{"to", "right", ""}:  {Angle: math.Pi / 2},
+	{"to", "right", ""}:  {Angle: pr.Fl(math.Pi) / 2},
 	{"to", "bottom", ""}: {Angle: math.Pi},
 	{"to", "left", ""}:   {Angle: math.Pi * 3 / 2},
 	// ("corner", keyword)

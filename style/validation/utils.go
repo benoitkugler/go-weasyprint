@@ -137,7 +137,7 @@ func parseLinearGradientParameters(arguments [][]Token) (pr.DirectionType, [][]T
 	if len(firstArg) == 1 {
 		angle, isNotNone := getAngle(firstArg[0])
 		if isNotNone {
-			return pr.DirectionType{Angle: float32(angle)}, arguments[1:]
+			return pr.DirectionType{Angle: angle}, arguments[1:]
 		}
 	} else {
 		var mapped [3]string

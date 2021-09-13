@@ -184,7 +184,7 @@ type ColorStop struct {
 
 type DirectionType struct {
 	Corner string
-	Angle  float32
+	Angle  Fl
 }
 
 type GradientSize struct {

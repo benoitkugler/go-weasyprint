@@ -286,6 +286,6 @@ var LST_TO_ISO = map[string]language.Language{
 	"znd":  "zne",
 }
 
-func PangoUnitsFromFloat(v float32) int32 { return int32(v*pango.Scale + 0.5) }
+func PangoUnitsFromFloat(v Fl) int32 { return int32(v*pango.Scale + 0.5) }
 
-func PangoUnitsToFloat(v pango.GlyphUnit) float32 { return float32(v) / pango.Scale }
+func PangoUnitsToFloat(v pango.GlyphUnit) Fl { return Fl(v) / pango.Scale }

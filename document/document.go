@@ -29,7 +29,7 @@ type (
 	Box    = bo.Box
 )
 
-type fl = float32
+type fl = utils.Fl
 
 func toF(v pr.Dimension) fl { return fl(v.Value) }
 
@@ -247,7 +247,7 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 // topY is the Y coordinate of the top of the page, in cairo user units.
 // scale is the Zoom scale in cairo user units per CSS pixel.
 // clip : whether to clip/cut content outside the page. If false, content can overflow.
-func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float32, clip bool) {
+func (d Page) Paint(cairoContext Drawer, leftX, topY, scale fl, clip bool) {
 	// with stacked(cairoContext) {
 	if d.enableHinting {
 		leftX, topY = cairoContext.UserToDevice(leftX, topY)
@@ -277,7 +277,7 @@ func (d Page) Paint(cairoContext Drawer, leftX, topY, scale float32, clip bool) 
 }
 
 // A rendered document ready to be painted on a cairo context.
-
+//
 // Typically obtained from `HTML.render()`, but
 // can also be instantiated directly with a list of `pages <Page>`, a
 // set of `metadata <DocumentMetadata>`, a `urlFetcher` function, and
@@ -298,12 +298,9 @@ type Document struct {
 }
 
 // presentationalHints=false, fontConfig=None
-func buildLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
+func newLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 	presentationalHints bool, fontConfig *text.FontConfiguration) *layout.LayoutContext {
 
-	if fontConfig == nil {
-		fontConfig = text.NewFontConfiguration()
-	}
 	targetCollector := tree.NewTargetCollector()
 	var (
 		pageRules       []tree.PageRule
@@ -326,15 +323,12 @@ func buildLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 	return context
 }
 
-// presentationalHints=false, fontConfig=None
+// fontConfig is mandatory
+// presentationalHints=false
 func Render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 	presentationalHints bool, fontConfig *text.FontConfiguration) Document {
 
-	if fontConfig == nil {
-		fontConfig = text.NewFontConfiguration()
-	}
-
-	context := buildLayoutContext(html, stylesheets, enableHinting, presentationalHints, fontConfig)
+	context := newLayoutContext(html, stylesheets, enableHinting, presentationalHints, fontConfig)
 
 	rootBox := bo.BuildFormattingStructure(html.Root, context.StyleFor, context.GetImageFromUri,
 		html.BaseUrl, context.TargetCollector)

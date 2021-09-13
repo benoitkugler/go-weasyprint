@@ -16,13 +16,16 @@ import (
 
 // FontConfiguration holds information about the
 // available fonts on the system.
+// It is used for text layout at various steps of the process.
 type FontConfiguration struct {
 	Fontmap *fcfonts.FontMap
 }
 
-// func NewFontConfiguration() *FontConfiguration {
-// 	return &FontConfiguration{}
-// }
+// NewFontConfiguration uses a fontconfig database to create a new
+// font configuration
+func NewFontConfiguration(config *fc.Config, dataset fc.Fontset) *FontConfiguration {
+	return &FontConfiguration{Fontmap: fcfonts.NewFontMap(config, dataset)}
+}
 
 func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.RuleDescriptors, urlFetcher utils.UrlFetcher) string {
 	if f.Fontmap == nil {

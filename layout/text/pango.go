@@ -28,11 +28,11 @@ type PangoLayout struct {
 
 	Layout pango.Layout
 
-	JustificationSpacing pango.Fl
+	JustificationSpacing pr.Fl
 	firstLineDirection   pango.Direction
 }
 
-func newPangoLayout(context PangoLayoutContext, fontSize pango.Fl, style pr.Properties, justificationSpacing pango.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
+func newPangoLayout(context PangoLayoutContext, fontSize pr.Fl, style pr.Properties, justificationSpacing pr.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
 	var layout PangoLayout
 
 	layout.JustificationSpacing = justificationSpacing
@@ -42,7 +42,7 @@ func newPangoLayout(context PangoLayoutContext, fontSize pango.Fl, style pr.Prop
 	return &layout
 }
 
-func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pango.Fl, style pr.Properties) {
+func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pr.Fl, style pr.Properties) {
 	p.Context = context
 	p.Style = style
 	p.firstLineDirection = 0
@@ -101,7 +101,7 @@ func (p *PangoLayout) SetText(text string, justify bool) {
 
 	p.Layout.SetText(text)
 
-	wordSpacing := float32(p.Style.GetWordSpacing().Value)
+	wordSpacing := pr.Fl(p.Style.GetWordSpacing().Value)
 	if justify {
 		// Justification is needed when drawing text but is useless during
 		// layout. Ignore it before layout is reactivated before the drawing
@@ -109,9 +109,9 @@ func (p *PangoLayout) SetText(text string, justify bool) {
 		wordSpacing += p.JustificationSpacing
 	}
 
-	var letterSpacing float32
+	var letterSpacing pr.Fl
 	if ls := p.Style.GetLetterSpacing(); ls.String != "normal" {
-		letterSpacing = float32(ls.Value)
+		letterSpacing = pr.Fl(ls.Value)
 	}
 
 	var (
@@ -150,7 +150,7 @@ func (p *PangoLayout) setTabs() {
 	tabSize := p.Style.GetTabSize()
 	width := int(tabSize.Value)
 	if tabSize.Unit == 0 { // no unit, means a multiple of the advance width of the space character
-		layout := newPangoLayout(p.Context, float32(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
+		layout := newPangoLayout(p.Context, pr.Fl(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
 		layout.SetText(strings.Repeat(" ", int(tabSize.Value)), false)
 		line, _ := layout.GetFirstLine()
 		widthTmp, _ := LineSize(line, p.Style)
@@ -178,15 +178,20 @@ func (p *PangoLayout) GetFirstLine() (*pango.LayoutLine, int) {
 	return firstLine, index
 }
 
+func (p *PangoLayout) GetFontMetrics() interface{} {
+	// FIXME:
+	return nil
+}
+
 // LineSize gets the logical width and height of the given `line`.
 // `style` is used to add letter spacing (if needed).
-func LineSize(line *pango.LayoutLine, style pr.Properties) (float32, float32) {
+func LineSize(line *pango.LayoutLine, style pr.Properties) (pr.Fl, pr.Fl) {
 	var logicalExtents pango.Rectangle
 	line.GetExtents(nil, &logicalExtents)
 	width := utils.PangoUnitsToFloat(logicalExtents.Width)
 	height := utils.PangoUnitsToFloat(logicalExtents.Height)
 	if ls := style.GetLetterSpacing(); ls.String != "normal" {
-		width += float32(ls.Value)
+		width += pr.Fl(ls.Value)
 	}
 	return width, height
 }

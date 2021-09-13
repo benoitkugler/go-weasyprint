@@ -196,25 +196,26 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.Mayb
 	return s.intrinsicWidth, s.intrinsicHeight
 }
 
-//  func (s SVGImage) draw(context, concreteWidth, concreteHeight, ImageRendering) {
-//         try {
-//             svg = ScaledSVGSurface(
-//                 cairosvg.parser.Tree(
-//                     bytestring=self.svgData, url=self.baseUrl,
-//                     urlFetcher=self.CairosvgUrlFetcher),
-//                 output=nil, dpi=96, outputWidth=concreteWidth,
-//                 outputHeight=concreteHeight)
-//             if svg.width && svg.height {
-//                 context.scale(
-//                     concreteWidth / svg.width, concreteHeight / svg.height)
-//                 context.setSourceSurface(svg.cairo)
-//                 context.paint()
-//             }
-//         } except Exception as e {
-//             LOGGER.error(
-//                 "Failed to draw an SVG image at %s : %s", self.baseUrl, e)
-//         }
-//     }
+func (SVGImage) Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering pr.String) {
+	// FIXME:
+	//         try {
+	//             svg = ScaledSVGSurface(
+	//                 cairosvg.parser.Tree(
+	//                     bytestring=self.svgData, url=self.baseUrl,
+	//                     urlFetcher=self.CairosvgUrlFetcher),
+	//                 output=nil, dpi=96, outputWidth=concreteWidth,
+	//                 outputHeight=concreteHeight)
+	//             if svg.width && svg.height {
+	//                 context.scale(
+	//                     concreteWidth / svg.width, concreteHeight / svg.height)
+	//                 context.setSourceSurface(svg.cairo)
+	//                 context.paint()
+	//             }
+	//         } except Exception as e {
+	//             LOGGER.error(
+	//                 "Failed to draw an SVG image at %s : %s", self.baseUrl, e)
+	//         }
+}
 
 // Get a cairo Pattern from an image URI.
 func GetImageFromUri(cache map[string]Image, _ utils.UrlFetcher, url, _ string) Image {
@@ -363,21 +364,21 @@ func gradientAverageColor(colors []Color, positions []pr.Float) Color {
 		}
 		totalLength = pr.Float(nbStops - 1)
 	}
-	premulR := make([]float32, nbStops)
-	premulG := make([]float32, nbStops)
-	premulB := make([]float32, nbStops)
-	alpha := make([]float32, nbStops)
+	premulR := make([]utils.Fl, nbStops)
+	premulG := make([]utils.Fl, nbStops)
+	premulB := make([]utils.Fl, nbStops)
+	alpha := make([]utils.Fl, nbStops)
 	for i, col := range colors {
 		premulR[i] = col.R * col.A
 		premulG[i] = col.G * col.A
 		premulB[i] = col.B * col.A
 		alpha[i] = col.A
 	}
-	var resultR, resultG, resultB, resultA float32
+	var resultR, resultG, resultB, resultA utils.Fl
 	totalWeight := 2 * totalLength
 	for i, position := range positions[1:] {
 		i = i + 1
-		weight := float32((position - positions[i-1]) / totalWeight)
+		weight := utils.Fl((position - positions[i-1]) / totalWeight)
 		for j := i - 1; j < i; j += 1 {
 			resultR += premulR[j] * weight
 			resultG += premulG[j] * weight

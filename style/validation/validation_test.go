@@ -564,7 +564,7 @@ var (
 	red          = pr.NewColor(1, 0, 0, 1)
 	lime         = pr.NewColor(0, 1, 0, 1)
 	blue         = pr.NewColor(0, 0, 1, 1)
-	pi   float32 = math.Pi
+	pi   float64 = math.Pi
 )
 
 func checkGradientGeneric(t *testing.T, css string, expected pr.Image) {
@@ -592,7 +592,7 @@ func checkGradientGeneric(t *testing.T, css string, expected pr.Image) {
 			image = v.AsCascaded().AsCss().(pr.Images)[0]
 		}
 		if !reflect.DeepEqual(image, expected) {
-			t.Fatalf("expected %v got %v", expected, image)
+			t.Fatalf("%s: expected %v got %v", css, expected, image)
 		}
 	}
 }
@@ -650,7 +650,7 @@ func TestLinearGradient(t *testing.T) {
 	gradient(t, "18deg, blue", pr.DirectionType{Angle: pi / 10}, nil, nil)
 	gradient(t, "4rad, blue", pr.DirectionType{Angle: 4}, nil, nil)
 	gradient(t, ".25turn, blue", pr.DirectionType{Angle: pi / 2}, nil, nil)
-	gradient(t, "100grad, blue", pr.DirectionType{Angle: pi / 2}, nil, nil)
+	gradient(t, "100grad, blue", pr.DirectionType{Angle: (pi / 200) * 100}, nil, nil) // rounding error
 	gradient(t, "12rad, blue 1%, lime,red 2em ", pr.DirectionType{Angle: 12},
 		[]pr.Color{blue, lime, red}, []pr.Dimension{{Value: 1, Unit: pr.Percentage}, {}, {Value: 2, Unit: pr.Em}})
 

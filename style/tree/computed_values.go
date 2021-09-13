@@ -568,13 +568,13 @@ func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.Content
 		}
 		prop = pr.Int(i)
 	case "number":
-		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
+		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
 		if err != nil {
 			return out, err
 		}
 		prop = pr.Float(f)
 	case "%":
-		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
+		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
 		if err != nil {
 			return out, err
 		}
@@ -584,14 +584,14 @@ func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.Content
 		unit, isUnit := validation.LENGTHUNITS[typeOrUnit]
 		angle, isAngle := validation.AngleUnits[typeOrUnit]
 		if isUnit {
-			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
+			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
 			if err != nil {
 				return out, err
 			}
 			prop = pr.Dimension{Value: pr.Float(f), Unit: unit}.ToValue()
 			typeOrUnit = "length"
 		} else if isAngle {
-			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 32)
+			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
 			if err != nil {
 				return out, err
 			}

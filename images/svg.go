@@ -61,7 +61,7 @@ func size(surface FakeSurface, str string, reference floatOrString) float64 {
 		return 0
 	}
 
-	f, err := strconv.ParseFloat(str, 32)
+	f, err := strconv.ParseFloat(str, 64)
 	if err == nil {
 		return f
 	}

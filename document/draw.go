@@ -9,7 +9,6 @@ import (
 	"text/template"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
-
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
 	"github.com/benoitkugler/go-weasyprint/layout"
@@ -138,21 +137,21 @@ func hsv2rgb(hue, saturation, value fl) (r, g, b fl) {
 }
 
 // Transform a RGB color to a HSV color.
-func rgb2hsv(red, green, blue float32) (h, s, c float32) {
+func rgb2hsv(red, green, blue fl) (h, s, c fl) {
 	cmax := utils.Maxs(red, green, blue)
 	cmin := utils.Mins(red, green, blue)
 	delta := cmax - cmin
-	var hue float32
+	var hue fl
 	if delta == 0 {
 		hue = 0
 	} else if cmax == red {
-		hue = 60 * float32(utils.FloatModulo(float64((green-blue)/delta), 6))
+		hue = 60 * utils.FloatModulo(float64((green-blue)/delta), 6)
 	} else if cmax == green {
 		hue = 60 * ((blue-red)/delta + 2)
 	} else if cmax == blue {
 		hue = 60 * ((red-green)/delta + 4)
 	}
-	var saturation float32
+	var saturation fl
 	if delta != 0 {
 		saturation = delta / cmax
 	}
@@ -552,18 +551,18 @@ func drawBackgroundImage(context Drawer, layer bo.BackgroundLayer, imageRenderin
 	case "no-repeat":
 		// We want at least the whole imageWidth drawn on subSurface, but we
 		// want to be sure it will not be repeated on the paintingWidth.
-		repeatWidth = math.Max(imageWidth, paintingWidth)
+		repeatWidth = math.Max(imageWidth, float64(paintingWidth))
 	case "repeat", "round":
 		// We repeat the image each imageWidth.
 		repeatWidth = imageWidth
 	case "space":
-		nRepeats := math.Floor(positioningWidth / imageWidth)
+		nRepeats := math.Floor(float64(positioningWidth) / imageWidth)
 		if nRepeats >= 2 {
 			// The repeat width is the whole positioning width with one image
 			// removed, divided by (the number of repeated images - 1). This
 			// way, we get the width of one image + one space. We ignore
 			// background-position for this dimension.
-			repeatWidth = (positioningWidth - imageWidth) / (nRepeats - 1)
+			repeatWidth = (float64(positioningWidth) - imageWidth) / (nRepeats - 1)
 			positionX = pr.Float(0)
 		} else {
 			// We don't repeat the image.
@@ -1269,8 +1268,9 @@ func drawText(context Drawer, textbox bo.TextBox, enableHinting bool, offsetX fl
 	context.MoveTo(float64(textbox.PositionX), float64(textbox.PositionY+textbox.Baseline.V()))
 	context.SetSourceRgba(textbox.Style.GetColor().RGBA.Unpack())
 
-	textbox.PangoLayout.Reactivate(textbox.Style)
-	layout.ShowFirstLine(context, textbox, textOverflow)
+	// textbox.PangoLayout.Reactivate(textbox.Style)
+	// FIXME:
+	// layout.ShowFirstLine(context, textbox, textOverflow)
 
 	values := textbox.Style.GetTextDecorationLine().Decorations
 
@@ -1286,25 +1286,25 @@ func drawText(context Drawer, textbox bo.TextBox, enableHinting bool, offsetX fl
 
 	var metrics interface{}
 	if values.Has("overline") || values.Has("line-through") || values.Has("underline") {
-		metrics = textbox.PangoLayout.getFontMetrics()
+		metrics = textbox.PangoLayout.GetFontMetrics()
 	}
+	fmt.Println(metrics)
 	if values.Has("overline") {
-		drawTextDecoration(context, textbox, offsetX,
-			textbox.Baseline-metrics.ascent+thickness/2, thickness, enableHinting, color.RGBA)
+		// FIXME:
+		// drawTextDecoration(context, textbox, offsetX, textbox.Baseline-metrics.ascent+thickness/2, thickness, enableHinting, color.RGBA)
 	}
 	if values.Has("underline") {
-		drawTextDecoration(
-			context, textbox, offsetX,
-			textbox.Baseline-metrics.underlinePosition+thickness/2,
-			thickness, enableHinting, color.RGBA)
+		// FIXME:
+		// drawTextDecoration(context, textbox, offsetX, textbox.Baseline-metrics.underlinePosition+thickness/2,
+		// 	thickness, enableHinting, color.RGBA)
 	}
 	if values.Has("line-through") {
-		drawTextDecoration(context, textbox, offsetX,
-			textbox.Baseline-metrics.strikethroughPosition,
-			thickness, enableHinting, color.RGBA)
+		// FIXME:
+		// drawTextDecoration(context, textbox, offsetX, textbox.Baseline-metrics.strikethroughPosition,
+		// 	thickness, enableHinting, color.RGBA)
 	}
 
-	textbox.PangoLayout.deactivate()
+	// textbox.PangoLayout.deactivate()
 }
 
 func drawWave(context Drawer, x, y, width, offsetX, radius float64) {

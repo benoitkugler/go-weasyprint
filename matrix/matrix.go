@@ -3,9 +3,11 @@ package matrix
 import (
 	"errors"
 	"math"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-type fl = float32
+type fl = utils.Fl
 
 // Transform encode a (2D) linear transformation (Y = AX + B)
 // The encoded transformation is given by :

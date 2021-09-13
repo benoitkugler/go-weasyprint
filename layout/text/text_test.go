@@ -20,7 +20,7 @@ var (
 
 const fontmapCache = "test/cache.fc"
 
-var fontmap pango.FontMap
+var fontmap *fcfonts.FontMap
 
 func init() {
 	// this command has to run once

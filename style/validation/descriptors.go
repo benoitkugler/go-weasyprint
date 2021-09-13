@@ -71,6 +71,9 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 func fontFamilyDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 	s := _fontFamilyDesc(tokens, false)
 	out.FontFamily = pr.String(s)
+	if s == "" {
+		return InvalidValue
+	}
 	return nil
 }
 
@@ -107,7 +110,7 @@ func src(tokens []Token, baseUrl string, out *RuleDescriptors) error {
 		if result, ok := result.(pr.NamedString); ok {
 			out.Src = append(out.Src, result)
 		} else {
-			return fmt.Errorf("invalid <src> descriptor: %v", part)
+			return InvalidValue
 		}
 	}
 	return nil

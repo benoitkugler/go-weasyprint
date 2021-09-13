@@ -2,8 +2,6 @@ package utils
 
 import (
 	"math"
-
-	"github.com/benoitkugler/textlayout/pango"
 )
 
 func MinInt(x, y int) int {
@@ -20,7 +18,7 @@ func MaxInt(x, y int) int {
 	return y
 }
 
-type Fl = pango.Fl
+type Fl = float64
 
 func Maxs(values ...Fl) Fl {
 	var max Fl

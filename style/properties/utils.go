@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 var Inf = Float(math.Inf(+1))
@@ -27,7 +28,7 @@ func (v Value) ToMaybeFloat() MaybeFloat {
 	return v.Value
 }
 
-func NewColor(r, g, b, a float32) Color {
+func NewColor(r, g, b, a Fl) Color {
 	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}
 }
 
@@ -187,7 +188,7 @@ func (bs Strings) Repeat(n int) CssProperty {
 
 // --------------- Geometry -------------------------
 
-type Fl = float32
+type Fl = utils.Fl
 
 type Rectangle [4]Float
 

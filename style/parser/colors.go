@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 const (
@@ -207,19 +209,19 @@ func init() {
 	}
 	// 255 maps to 1, 0 to 0, the rest is linear.
 	for k, v := range basicColorKeywords {
-		colorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{float32(v[0]) / 255., float32(v[1]) / 255., float32(v[2]) / 255., 1.}}
+		colorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{utils.Fl(v[0]) / 255., utils.Fl(v[1]) / 255., utils.Fl(v[2]) / 255., 1.}}
 	}
 	for k, v := range extendedColorKeywords {
-		colorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{float32(v[0]) / 255., float32(v[1]) / 255., float32(v[2]) / 255., 1.}}
+		colorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{utils.Fl(v[0]) / 255., utils.Fl(v[1]) / 255., utils.Fl(v[2]) / 255., 1.}}
 	}
 }
 
 // values in [-1, 1]
 type RGBA struct {
-	R, G, B, A float32
+	R, G, B, A utils.Fl
 }
 
-func (color RGBA) Unpack() (r, g, b, a float32) {
+func (color RGBA) Unpack() (r, g, b, a utils.Fl) {
 	return color.R, color.G, color.B, color.A
 }
 
@@ -238,7 +240,7 @@ func (c Color) IsNone() bool {
 	return c.Type == ColorInvalid
 }
 
-func round(f float32) myFloat {
+func round(f utils.Fl) myFloat {
 	n := math.Pow10(10)
 	return myFloat(math.Round(float64(f)*n) / n)
 }
@@ -259,12 +261,12 @@ type hashRegexp struct {
 	multiplier int
 }
 
-func mustParseHexa(s string) float32 {
+func mustParseHexa(s string) utils.Fl {
 	out, err := strconv.ParseInt(s, 16, 0)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return float32(out)
+	return utils.Fl(out)
 }
 
 func ParseColor2(color string) Color {
@@ -308,7 +310,7 @@ func ParseColor(_token Token) Color {
 				}
 				alpha, isNotNone := parseAlpha(args[3:])
 				if isNotNone {
-					rgba, ok := parseRgb(args[:3], float32(alpha))
+					rgba, ok := parseRgb(args[:3], alpha)
 					if ok {
 						return Color{Type: ColorRGBA, RGBA: rgba}
 					}
@@ -324,7 +326,7 @@ func ParseColor(_token Token) Color {
 				}
 				alpha, isNotNone := parseAlpha(args[3:])
 				if isNotNone {
-					rgba, ok := parseHsl(args[:3], float32(alpha))
+					rgba, ok := parseHsl(args[:3], alpha)
 					if ok {
 						return Color{Type: ColorRGBA, RGBA: rgba}
 					}
@@ -351,7 +353,7 @@ func parseAlpha(args []Token) (float64, bool) {
 // If args is a list of 3 NUMBER tokens or 3 PERCENTAGE tokens,
 // return RGB values as a tuple of 3 floats := range 0..1.
 //
-func parseRgb(args []Token, alpha float32) (RGBA, bool) {
+func parseRgb(args []Token, alpha utils.Fl) (RGBA, bool) {
 	if len(args) != 3 {
 		return RGBA{}, false
 	}
@@ -359,21 +361,21 @@ func parseRgb(args []Token, alpha float32) (RGBA, bool) {
 	nG, okG := args[1].(NumberToken)
 	nB, okB := args[2].(NumberToken)
 	if okR && okG && okB && nR.IsInteger && nG.IsInteger && nB.IsInteger {
-		return RGBA{R: float32(nR.Value) / 255, G: float32(nG.Value) / 255, B: float32(nB.Value) / 255, A: alpha}, true
+		return RGBA{R: nR.Value / 255, G: nG.Value / 255, B: nB.Value / 255, A: alpha}, true
 	}
 
 	pR, okR := args[0].(PercentageToken)
 	pG, okG := args[1].(PercentageToken)
 	pB, okB := args[2].(PercentageToken)
 	if okR && okG && okB {
-		return RGBA{R: float32(pR.Value) / 100, G: float32(pG.Value) / 100, B: float32(pB.Value) / 100, A: alpha}, true
+		return RGBA{R: pR.Value / 100, G: pG.Value / 100, B: pB.Value / 100, A: alpha}, true
 	}
 	return RGBA{}, false
 }
 
 // If args is a list of 1 NUMBER token && 2 PERCENTAGE tokens,
 // return RGB values as a tuple of 3 floats := range 0..1.
-func parseHsl(args []Token, alpha float32) (RGBA, bool) {
+func parseHsl(args []Token, alpha utils.Fl) (RGBA, bool) {
 	if len(args) != 3 {
 		return RGBA{}, false
 	}
@@ -388,14 +390,14 @@ func parseHsl(args []Token, alpha float32) (RGBA, bool) {
 }
 
 //  returns (r, g, b) as floats in the 0..1 range
-func hslToRgb(_hue int, saturation, lightness float64) (float32, float32, float32) {
+func hslToRgb(_hue int, saturation, lightness utils.Fl) (utils.Fl, utils.Fl, utils.Fl) {
 	hue := float64(_hue) / 360
 	hue = hue - math.Floor(hue)
 	saturation = math.Min(1., math.Max(0, saturation/100))
 	lightness = math.Min(1, math.Max(0, lightness/100))
 
 	// Translated from ABC: http://www.w3.org/TR/css3-color/#hsl-color
-	hueToRgb := func(m1, m2, h float64) float32 {
+	hueToRgb := func(m1, m2, h utils.Fl) utils.Fl {
 		if h < 0 {
 			h += 1.
 		}
@@ -403,17 +405,17 @@ func hslToRgb(_hue int, saturation, lightness float64) (float32, float32, float3
 			h -= 1.
 		}
 		if h*6 < 1 {
-			return float32(m1 + (m2-m1)*h*6)
+			return m1 + (m2-m1)*h*6
 		}
 		if h*2 < 1 {
-			return float32(m2)
+			return m2
 		}
 		if h*3 < 2 {
-			return float32(m1 + (m2-m1)*(2./3-h)*6)
+			return m1 + (m2-m1)*(2./3-h)*6
 		}
-		return float32(m1)
+		return m1
 	}
-	var m1, m2 float64
+	var m1, m2 utils.Fl
 	if lightness <= 0.5 {
 		m2 = lightness * (saturation + 1.)
 	} else {

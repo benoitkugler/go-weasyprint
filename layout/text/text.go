@@ -40,13 +40,13 @@ type Splitted struct {
 // `maxWidth` is the maximum available width in the same unit as style.GetFontSize(),
 // or `nil` for unlimited width.
 func CreateLayout(text string, style pr.Properties, context PangoLayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *PangoLayout {
-	layout := newPangoLayout(context, float32(style.GetFontSize().Value), style, float32(justificationSpacing), maxWidth)
+	layout := newPangoLayout(context, pr.Fl(style.GetFontSize().Value), style, pr.Fl(justificationSpacing), maxWidth)
 	// Make sure that maxWidth * Pango.SCALE == maxWidth * 1024 fits in a
 	// signed integer. Treat bigger values same as None: unconstrained width.
 	ws := style.GetWhiteSpace()
 	textWrap := "normal" == ws || "pre-wrap" == ws || "pre-line" == ws
 	if maxWidth, ok := maxWidth.(pr.Float); ok && textWrap && maxWidth < 2<<21 {
-		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(float32(utils.Maxs(0, float32(maxWidth))))))
+		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(utils.Maxs(0, pr.Fl(maxWidth)))))
 	}
 
 	layout.SetText(text, false)
@@ -129,7 +129,7 @@ func SplitFirstLine(text_ string, style pr.Properties, context PangoLayoutContex
 		// The first line can take all the place needed
 		return firstLineMetrics(firstLine, text, layout, resumeIndex, spaceCollapse, style, false, "")
 	}
-	maxWidthV := float32(maxWidth.V())
+	maxWidthV := pr.Fl(maxWidth.V())
 
 	firstLineWidth, _ := LineSize(firstLine, style)
 	if index == -1 && firstLineWidth <= maxWidthV {
@@ -212,9 +212,9 @@ func SplitFirstLine(text_ string, style pr.Properties, context PangoLayoutContex
 				firstLineWidth, _ = LineSize(firstLine, style)
 				space := maxWidthV - firstLineWidth
 				zone := style.GetHyphenateLimitZone()
-				limitZone := float32(zone.Value)
+				limitZone := pr.Fl(zone.Value)
 				if zone.Unit == pr.Percentage {
-					limitZone = (maxWidthV * float32(zone.Value) / 100.)
+					limitZone = (maxWidthV * pr.Fl(zone.Value) / 100.)
 				}
 				if space > limitZone || space < 0 {
 					// Available space is worth the try, or the line is even too
@@ -479,7 +479,7 @@ func StrutLayout(style pr.Properties, context PangoLayoutContext) [2]pr.Float {
 		}
 	}
 
-	layout := newPangoLayout(context, float32(fontSize), style, 0, nil)
+	layout := newPangoLayout(context, pr.Fl(fontSize), style, 0, nil)
 	layout.SetText(" ", false)
 	line, _ := layout.GetFirstLine()
 	sp := firstLineMetrics(line, nil, layout, -1, false, style, false, "")
@@ -509,7 +509,7 @@ func ExRatio(style pr.Properties, context PangoLayoutContext) pr.Float {
 	style.SetWordSpacing(pr.FToV(0))
 
 	// Random big value
-	var fontSize float32 = 1000
+	var fontSize pr.Fl = 1000
 
 	layout := newPangoLayout(context, fontSize, style, 0, nil)
 	layout.SetText("x", false)
