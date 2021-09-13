@@ -27,7 +27,7 @@ func NewFontConfiguration(config *fc.Config, dataset fc.Fontset) *FontConfigurat
 	return &FontConfiguration{Fontmap: fcfonts.NewFontMap(config, dataset)}
 }
 
-func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.RuleDescriptors, urlFetcher utils.UrlFetcher) string {
+func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescriptors, urlFetcher utils.UrlFetcher) string {
 	if f.Fontmap == nil {
 		return ""
 	}

@@ -1,0 +1,1222 @@
+"""
+    weasyprint.tests.testBoxes
+    ---------------------------
+
+    Test that the "before layout" box tree is correctly constructed.
+
+"""
+
+import pytest
+from weasyprint.css import PageType, getAllComputedStyles
+from weasyprint.formattingStructure import boxes, build
+from weasyprint.layout.pages import setPageTypeComputedStyles
+
+from .testingUtils import (
+    FakeHTML, assertNoLogs, assertTree, captureLogs, parse, parseAll,
+    renderPages)
+
+
+func GetGrid(html) {
+    html = parseAll(html)
+    body, = html.children
+    tableWrapper, = body.children
+    table, = tableWrapper.children
+    return tuple(
+        [[(style, width, color) if width else None
+          for Score, (style, width, color) := range column]
+         for column := range grid]
+        for grid := range table.collapsedBorderGrid)
+} 
+
+@assertNoLogs
+func testBoxTree() {
+    assertTree(parse("<p>"), [("p", "Block", [])])
+    assertTree(parse("""
+      <style>
+        span { display: inline-block }
+      </style>
+      <p>Hello <em>World <img src="pattern.png"><span>L</span></em>!</p>"""), [
+          ("p", "Block", [
+            ("p", "Text", "Hello "),
+            ("em", "Inline", [
+                ("em", "Text", "World "),
+                ("img", "InlineReplaced", "<replaced>"),
+                ("span", "InlineBlock", [
+                    ("span", "Text", "L")])]),
+            ("p", "Text", "!")])])
+} 
+
+@assertNoLogs
+func testHtmlEntities() {
+    for quote := range [""", "&quot;", "&#x22;", "&#34;"] {
+        assertTree(parse("<p>{0}abc{1}".format(quote, quote)), [
+            ("p", "Block", [
+                ("p", "Text", ""abc"")])])
+    }
+} 
+
+@assertNoLogs
+func testInlineInBlock1() {
+    source = "<div>Hello, <em>World</em>!\n<p>Lipsum.</p></div>"
+    expected = [
+        ("div", "Block", [
+            ("div", "Block", [
+                ("div", "Line", [
+                    ("div", "Text", "Hello, "),
+                    ("em", "Inline", [
+                        ("em", "Text", "World")]),
+                    ("div", "Text", "!\n")])]),
+            ("p", "Block", [
+                ("p", "Line", [
+                    ("p", "Text", "Lipsum.")])])])]
+    box = parse(source)
+    box = build.inlineInBlock(box)
+    assertTree(box, expected)
+} 
+
+@assertNoLogs
+func testInlineInBlock2() {
+    source = "<div><p>Lipsum.</p>Hello, <em>World</em>!\n</div>"
+    expected = [
+        ("div", "Block", [
+            ("p", "Block", [
+                ("p", "Line", [
+                    ("p", "Text", "Lipsum.")])]),
+            ("div", "Block", [
+                ("div", "Line", [
+                    ("div", "Text", "Hello, "),
+                    ("em", "Inline", [
+                        ("em", "Text", "World")]),
+                    ("div", "Text", "!\n")])])])]
+    box = parse(source)
+    box = build.inlineInBlock(box)
+    assertTree(box, expected)
+} 
+
+@assertNoLogs
+func testInlineInBlock3() {
+    // Absolutes are left := range the lines to get their static position later.
+    source = """<p>Hello <em style="position:absolute;
+                                    display: block">World</em>!</p>"""
+    expected = [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("p", "Text", "Hello "),
+                ("em", "Block", [
+                    ("em", "Line", [
+                        ("em", "Text", "World")])]),
+                ("p", "Text", "!")])])]
+    box = parse(source)
+    box = build.inlineInBlock(box)
+    assertTree(box, expected)
+    box = build.blockInInline(box)
+    assertTree(box, expected)
+} 
+
+@assertNoLogs
+func testInlineInBlock4() {
+    // Floats are pull to the top of their containing blocks
+    source = "<p>Hello <em style="float: left">World</em>!</p>"
+    box = parse(source)
+    box = build.inlineInBlock(box)
+    box = build.blockInInline(box)
+    assertTree(box, [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("p", "Text", "Hello "),
+                ("em", "Block", [
+                    ("em", "Line", [
+                        ("em", "Text", "World")])]),
+                ("p", "Text", "!")])])])
+} 
+
+@assertNoLogs
+func testBlockInInline() {
+    box = parse("""
+      <style>
+        p { display: inline-block; }
+        span, i { display: block; }
+      </style>
+      <p>Lorem <em>ipsum <strong>dolor <span>sit</span>
+      <span>amet,</span></strong><span><em>conse<i>""")
+    box = build.inlineInBlock(box)
+    assertTree(box, [
+        ("body", "Line", [
+            ("p", "InlineBlock", [
+                ("p", "Line", [
+                    ("p", "Text", "Lorem "),
+                    ("em", "Inline", [
+                        ("em", "Text", "ipsum "),
+                        ("strong", "Inline", [
+                            ("strong", "Text", "dolor "),
+                            ("span", "Block", [  // This block is "pulled up"
+                                ("span", "Line", [
+                                    ("span", "Text", "sit")])]),
+                            // No whitespace processing here.
+                            ("strong", "Text", "\n      "),
+                            ("span", "Block", [  // This block is "pulled up"
+                                ("span", "Line", [
+                                    ("span", "Text", "amet,")])])]),
+                        ("span", "Block", [  // This block is "pulled up"
+                            ("span", "Line", [
+                                ("em", "Inline", [
+                                    ("em", "Text", "conse"),
+                                    ("i", "Block", [])])])])])])])])])
+} 
+    box = build.blockInInline(box)
+    assertTree(box, [
+        ("body", "Line", [
+            ("p", "InlineBlock", [
+                ("p", "Block", [
+                    ("p", "Line", [
+                        ("p", "Text", "Lorem "),
+                        ("em", "Inline", [
+                            ("em", "Text", "ipsum "),
+                            ("strong", "Inline", [
+                                ("strong", "Text", "dolor ")])])])]),
+                ("span", "Block", [
+                    ("span", "Line", [
+                        ("span", "Text", "sit")])]),
+                ("p", "Block", [
+                    ("p", "Line", [
+                        ("em", "Inline", [
+                            ("strong", "Inline", [
+                                // Whitespace processing ! done yet.
+                                ("strong", "Text", "\n      ")])])])]),
+                ("span", "Block", [
+                    ("span", "Line", [
+                        ("span", "Text", "amet,")])]),
+
+                ("p", "Block", [
+                    ("p", "Line", [
+                        ("em", "Inline", [
+                            ("strong", "Inline", [])])])]),
+                ("span", "Block", [
+                    ("span", "Block", [
+                        ("span", "Line", [
+                            ("em", "Inline", [
+                                ("em", "Text", "conse")])])]),
+                    ("i", "Block", []),
+                    ("span", "Block", [
+                        ("span", "Line", [
+                            ("em", "Inline", [])])])]),
+                ("p", "Block", [
+                    ("p", "Line", [
+                        ("em", "Inline", [])])])])])])
+
+
+@assertNoLogs
+func testStyles() {
+    box = parse("""
+      <style>
+        span { display: block; }
+        * { margin: 42px }
+        html { color: blue }
+      </style>
+      <p>Lorem <em>ipsum <strong>dolor <span>sit</span>
+        <span>amet,</span></strong><span>consectetur</span></em></p>""")
+    box = build.inlineInBlock(box)
+    box = build.blockInInline(box)
+} 
+    descendants = list(box.descendants())
+    assert len(descendants) == 31
+    assert descendants[0] == box
+
+    for child := range descendants {
+        // All boxes inherit the color
+        assert child.style["color"] == (0, 0, 1, 1)  // blue
+        // Only non-anonymous boxes have margins
+        assert child.style["marginTop"] := range ((0, "px"), (42, "px"))
+    }
+
+
+@assertNoLogs
+func testWhitespace() {
+    // TODO: test more cases
+    // http://www.w3.org/TR/CSS21/text.html#white-space-model
+    assertTree(parseAll("""
+      <p>Lorem \t\r\n  ipsum\t<strong>  dolor
+        <img src=pattern.png> sit
+        <span style="position: absolute"></span> <em> amet </em>
+        consectetur</strong>.</p>
+      <pre>\t  foo\n</pre>
+      <pre style="white-space: pre-wrap">\t  foo\n</pre>
+      <pre style="white-space: pre-line">\t  foo\n</pre>
+    """), [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("p", "Text", "Lorem ipsum "),
+                ("strong", "Inline", [
+                    ("strong", "Text", "dolor "),
+                    ("img", "InlineReplaced", "<replaced>"),
+                    ("strong", "Text", " sit "),
+                    ("span", "Block", []),
+                    ("em", "Inline", [
+                        ("em", "Text", "amet ")]),
+                    ("strong", "Text", "consectetur")]),
+                ("p", "Text", ".")])]),
+        ("pre", "Block", [
+            ("pre", "Line", [
+                // pre
+                ("pre", "Text", "\t  foo\n")])]),
+        ("pre", "Block", [
+            ("pre", "Line", [
+                // pre-wrap
+                ("pre", "Text", "\t  foo\n")])]),
+        ("pre", "Block", [
+            ("pre", "Line", [
+                // pre-line
+                ("pre", "Text", " foo\n")])])])
+
+
+@assertNoLogs
+@pytest.mark.parametrize("pageType, top, right, bottom, left", (
+    (PageType(side="left", first=true, index=0, blank=None, name=None),
+     20, 3, 3, 10),
+    (PageType(side="right", first=true, index=0, blank=None, name=None),
+     20, 10, 3, 3),
+    (PageType(side="left", first=None, index=1, blank=None, name=None),
+     10, 3, 3, 10),
+    (PageType(side="right", first=None, index=1, blank=None, name=None),
+     10, 10, 3, 3),
+    (PageType(side="right", first=None, index=1, blank=None, name="name"),
+     5, 10, 3, 15),
+    (PageType(side="right", first=None, index=2, blank=None, name="name"),
+     5, 10, 1, 15),
+    (PageType(side="right", first=None, index=8, blank=None, name="name"),
+     5, 10, 2, 15),
+))
+func testPageStyle(pageType, top, right, bottom, left):
+    document = FakeHTML(string="""
+      <style>
+        @page { margin: 3px }
+        @page name { margin-left: 15px; margin-top: 5px }
+        @page :nth(3) { margin-bottom: 1px }
+        @page :nth(5n+4) { margin-bottom: 2px }
+        @page :first { margin-top: 20px }
+        @page :right { margin-right: 10px; margin-top: 10px }
+        @page :left { margin-left: 10px; margin-top: 10px }
+      </style>
+    """)
+    styleFor = getAllComputedStyles(document)
+} 
+    // Force the generation of the style for this page type as it"s generally
+    // only done during the rendering.
+    setPageTypeComputedStyles(pageType, document, styleFor)
+
+    style = styleFor(pageType)
+    assert style["marginTop"] == (top, "px")
+    assert style["marginRight"] == (right, "px")
+    assert style["marginBottom"] == (bottom, "px")
+    assert style["marginLeft"] == (left, "px")
+
+
+@assertNoLogs
+func testImages1() {
+    with captureLogs() as logs {
+        result = parseAll("""
+          <p><img src=pattern.png
+            /><img alt="No src"
+            /><img src=inexistent.jpg alt="Inexistent src" /></p>
+        """)
+    assert len(logs) == 1
+    assert "ERROR: Failed to load image" := range logs[0]
+    assert "inexistent.jpg" := range logs[0]
+    assertTree(result, [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("img", "InlineReplaced", "<replaced>"),
+                ("img", "Inline", [
+                    ("img", "Text", "No src")]),
+                ("img", "Inline", [
+                    ("img", "Text", "Inexistent src")])])])])
+
+
+@assertNoLogs
+func testImages2():
+    with captureLogs() as logs:
+        result = parseAll("<p><img src=pattern.png alt="No baseUrl">",
+                           baseUrl=None)
+    assert len(logs) == 1
+    assert "ERROR: Relative URI reference without a base URI" := range logs[0]
+    assertTree(result, [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("img", "Inline", [
+                    ("img", "Text", "No baseUrl")])])])])
+
+
+@assertNoLogs
+func testTables1():
+    // Rules := range http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+
+    // Rule 1.3
+    // Also table model: http://www.w3.org/TR/CSS21/tables.html#model
+    assertTree(parseAll("""
+      <x-table>
+        <x-tr>
+          <x-th>foo</x-th>
+          <x-th>bar</x-th>
+        </x-tr>
+        <x-tfoot></x-tfoot>
+        <x-thead><x-th></x-th></x-thead>
+        <x-caption style="caption-side: bottom"></x-caption>
+        <x-thead></x-thead>
+        <x-col></x-col>
+        <x-caption>top caption</x-caption>
+        <x-tr>
+          <x-td>baz</x-td>
+        </x-tr>
+      </x-table>
+    } """), [
+        ("x-table", "Block", [
+            ("x-caption", "TableCaption", [
+                ("x-caption", "Line", [
+                    ("x-caption", "Text", "top caption")])]),
+            ("x-table", "Table", [
+                ("x-table", "TableColumnGroup", [
+                    ("x-col", "TableColumn", [])]),
+                ("x-thead", "TableRowGroup", [
+                    ("x-thead", "TableRow", [
+                        ("x-th", "TableCell", [])])]),
+                ("x-table", "TableRowGroup", [
+                    ("x-tr", "TableRow", [
+                        ("x-th", "TableCell", [
+                            ("x-th", "Line", [
+                                ("x-th", "Text", "foo")])]),
+                        ("x-th", "TableCell", [
+                            ("x-th", "Line", [
+                                ("x-th", "Text", "bar")])])])]),
+                ("x-thead", "TableRowGroup", []),
+                ("x-table", "TableRowGroup", [
+                    ("x-tr", "TableRow", [
+                        ("x-td", "TableCell", [
+                            ("x-td", "Line", [
+                                ("x-td", "Text", "baz")])])])]),
+                ("x-tfoot", "TableRowGroup", [])]),
+            ("x-caption", "TableCaption", [])])])
+} 
+
+@assertNoLogs
+func testTables2() {
+    // Rules 1.4 && 3.1
+    assertTree(parseAll("""
+      <span style="display: table-cell">foo</span>
+      <span style="display: table-cell">bar</span>
+    """), [
+        ("body", "Block", [
+            ("body", "Table", [
+                ("body", "TableRowGroup", [
+                    ("body", "TableRow", [
+                        ("span", "TableCell", [
+                            ("span", "Line", [
+                                ("span", "Text", "foo")])]),
+                        ("span", "TableCell", [
+                            ("span", "Line", [
+                                ("span", "Text", "bar")])])])])])])])
+
+
+@assertNoLogs
+func testTables3():
+    // http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+    // Rules 1.1 && 1.2
+    // Rule XXX (not := range the spec): column groups have at least one column child
+    assertTree(parseAll("""
+      <span style="display: table-column-group">
+        1
+        <em style="display: table-column">
+          2
+          <strong>3</strong>
+        </em>
+        <strong>4</strong>
+      </span>
+      <ins style="display: table-column-group"></ins>
+    """), [
+        ("body", "Block", [
+            ("body", "Table", [
+                ("span", "TableColumnGroup", [
+                    ("em", "TableColumn", [])]),
+                ("ins", "TableColumnGroup", [
+                    ("ins", "TableColumn", [])])])])])
+} 
+
+@assertNoLogs
+func testTables4() {
+    // Rules 2.1 then 2.3
+    assertTree(parseAll("<x-table>foo <div></div></x-table>"), [
+        ("x-table", "Block", [
+            ("x-table", "Table", [
+                ("x-table", "TableRowGroup", [
+                    ("x-table", "TableRow", [
+                        ("x-table", "TableCell", [
+                            ("x-table", "Block", [
+                                ("x-table", "Line", [
+                                    ("x-table", "Text", "foo ")])]),
+                            ("div", "Block", [])])])])])])])
+} 
+
+@assertNoLogs
+func testTables5() {
+    // Rule 2.2
+    assertTree(parseAll("<x-thead style="display: table-header-group">"
+                          "<div></div><x-td></x-td></x-thead>"), [
+        ("body", "Block", [
+            ("body", "Table", [
+                ("x-thead", "TableRowGroup", [
+                    ("x-thead", "TableRow", [
+                        ("x-thead", "TableCell", [
+                            ("div", "Block", [])]),
+                        ("x-td", "TableCell", [])])])])])])
+} 
+
+@assertNoLogs
+func testTables6() {
+    // Rule 3.2
+    assertTree(parseAll("<span><x-tr></x-tr></span>"), [
+        ("body", "Line", [
+            ("span", "Inline", [
+                ("span", "InlineBlock", [
+                    ("span", "InlineTable", [
+                        ("span", "TableRowGroup", [
+                            ("x-tr", "TableRow", [])])])])])])])
+} 
+
+@assertNoLogs
+func testTables7() {
+    // Rule 3.1
+    // Also, rule 1.3 does ! apply: whitespace before && after is preserved
+    assertTree(parseAll("""
+      <span>
+        <em style="display: table-cell"></em>
+        <em style="display: table-cell"></em>
+      </span>
+    """), [
+        ("body", "Line", [
+            ("span", "Inline", [
+                // Whitespace is preserved := range table handling, then collapsed
+                // into a single space.
+                ("span", "Text", " "),
+                ("span", "InlineBlock", [
+                    ("span", "InlineTable", [
+                        ("span", "TableRowGroup", [
+                            ("span", "TableRow", [
+                                ("em", "TableCell", []),
+                                ("em", "TableCell", [])])])])]),
+                ("span", "Text", " ")])])])
+
+
+@assertNoLogs
+func testTables8():
+    // Rule 3.2
+    assertTree(parseAll("<x-tr></x-tr>\t<x-tr></x-tr>"), [
+        ("body", "Block", [
+            ("body", "Table", [
+                ("body", "TableRowGroup", [
+                    ("x-tr", "TableRow", []),
+                    ("x-tr", "TableRow", [])])])])])
+
+
+@assertNoLogs
+func testTables9():
+    assertTree(parseAll("<x-col></x-col>\n<x-colgroup></x-colgroup>"), [
+        ("body", "Block", [
+            ("body", "Table", [
+                ("body", "TableColumnGroup", [
+                    ("x-col", "TableColumn", [])]),
+                ("x-colgroup", "TableColumnGroup", [
+                    ("x-colgroup", "TableColumn", [])])])])])
+
+
+@assertNoLogs
+func testTableStyle():
+    html = parseAll("<table style="margin: 1px; padding: 2px"></table>")
+    body, = html.children
+    wrapper, = body.children
+    table, = wrapper.children
+    assert isinstance(wrapper, boxes.BlockBox)
+    assert isinstance(table, boxes.TableBox)
+    assert wrapper.style["marginTop"] == (1, "px")
+    assert wrapper.style["paddingTop"] == (0, "px")
+    assert table.style["marginTop"] == (0, "px")
+    assert table.style["paddingTop"] == (2, "px")
+
+
+@assertNoLogs
+func testColumnStyle():
+    html = parseAll("""
+      <table>
+        <col span=3 style="width: 10px"></col>
+        <col span=2></col>
+      </table>
+    """)
+    body, = html.children
+    wrapper, = body.children
+    table, = wrapper.children
+    colgroup, = table.columnGroups
+    widths = [col.style["width"] for col := range colgroup.children]
+    assert widths == [(10, "px"), (10, "px"), (10, "px"), "auto", "auto"]
+    assert [col.gridX for col := range colgroup.children] == [0, 1, 2, 3, 4]
+    // copies, ! the same box object
+    assert colgroup.children[0] is ! colgroup.children[1]
+} 
+
+@assertNoLogs
+func testNestedGridX() {
+    html = parseAll("""
+      <table>
+        <col span=2></col>
+        <colgroup span=2></colgroup>
+        <colgroup>
+          <col></col>
+          <col span=2></col>
+        </colgroup>
+        <col></col>
+      </table>
+    """)
+    body, = html.children
+    wrapper, = body.children
+    table, = wrapper.children
+    grid = [(colgroup.gridX, [col.gridX for col := range colgroup.children])
+            for colgroup := range table.columnGroups]
+    assert grid == [(0, [0, 1]), (2, [2, 3]), (4, [4, 5, 6]), (7, [7])]
+
+
+@assertNoLogs
+func testColspanRowspan1():
+    // +---+---+---+
+    // | A | B | C | X
+    // +---+---+---+
+    // | D |     E | X
+    // +---+---+   +---+
+    // |  F ...|   |   |   <-- overlap
+    // +---+---+---+   +
+    // | H | X   X | G |
+    // +---+---+   +   +
+    // | I | J | X |   |
+    // +---+---+   +---+
+
+    // X: empty cells
+    html = parseAll("""
+      <table>
+        <tr>
+          <td>A <td>B <td>C
+        </tr>
+        <tr>
+          <td>D <td colspan=2 rowspan=2>E
+        </tr>
+        <tr>
+          <td colspan=2>F <td rowspan=0>G
+        </tr>
+        <tr>
+          <td>H
+        </tr>
+        <tr>
+          <td>I <td>J
+        </tr>
+      </table>
+    """)
+    body, = html.children
+    wrapper, = body.children
+    table, = wrapper.children
+    group, = table.children
+    assert [[c.gridX for c := range row.children] for row := range group.children] == [
+        [0, 1, 2],
+        [0, 1],
+        [0, 3],
+        [0],
+        [0, 1],
+    ]
+    assert [[c.colspan for c := range row.children] for row := range group.children] == [
+        [1, 1, 1],
+        [1, 2],
+        [2, 1],
+        [1],
+        [1, 1],
+    ]
+    assert [[c.rowspan for c := range row.children] for row := range group.children] == [
+        [1, 1, 1],
+        [1, 2],
+        [1, 3],
+        [1],
+        [1, 1],
+    ]
+} 
+
+@assertNoLogs
+func testColspanRowspan2() {
+    // A cell box cannot extend beyond the last row box of a table.
+    html = parseAll("""
+        <table>
+            <tr>
+                <td rowspan=5></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td></td>
+            </tr>
+        </table>
+    """)
+    body, = html.children
+    wrapper, = body.children
+    table, = wrapper.children
+    group, = table.children
+    assert [[c.gridX for c := range row.children] for row := range group.children] == [
+        [0, 1],
+        [1],
+    ]
+    assert [[c.colspan for c := range row.children] for row := range group.children] == [
+        [1, 1],
+        [1],
+    ]
+    assert [[c.rowspan for c := range row.children] for row := range group.children] == [
+        [2, 1],  // Not 5
+        [1],
+    ]
+
+
+@assertNoLogs
+func testBeforeAfter1():
+    assertTree(parseAll("""
+      <style>
+        p:before { content: normal }
+        div:before { content: none }
+        section::before { color: black }
+      </style>
+      <p></p>
+      <div></div>
+      <section></section>
+    """), [
+        // No content := range pseudo-element, no box generated
+        ("p", "Block", []),
+        ("div", "Block", []),
+        ("section", "Block", [])])
+} 
+
+@assertNoLogs
+func testBeforeAfter2() {
+    assertTree(parseAll("""
+      <style>
+        p:before { content: "a" "b" }
+        p::after { content: "d" "e" }
+      </style>
+      <p> c </p>
+    """), [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("p::before", "Inline", [
+                    ("p::before", "Text", "ab")]),
+                ("p", "Text", " c "),
+                ("p::after", "Inline", [
+                    ("p::after", "Text", "de")])])])])
+
+
+@assertNoLogs
+func testBeforeAfter3():
+    assertTree(parseAll("""
+      <style>
+        a[href]:before { content: "[" attr(href) "] " }
+      </style>
+      <p><a href="some url">some text</a></p>
+    """), [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("a", "Inline", [
+                    ("a::before", "Inline", [
+                        ("a::before", "Text", "[some url] ")]),
+                    ("a", "Text", "some text")])])])])
+} 
+
+@assertNoLogs
+func testBeforeAfter4() {
+    assertTree(parseAll("""
+      <style>
+        body { quotes: "«" "»" "“" "”" }
+        q:before { content: open-quote " "}
+        q:after { content: " " close-quote }
+      </style>
+      <p><q>Lorem ipsum <q>dolor</q> sit amet</q></p>
+    """), [
+        ("p", "Block", [
+            ("p", "Line", [
+                ("q", "Inline", [
+                    ("q::before", "Inline", [
+                        ("q::before", "Text", "« ")]),
+                    ("q", "Text", "Lorem ipsum "),
+                    ("q", "Inline", [
+                        ("q::before", "Inline", [
+                            ("q::before", "Text", "“ ")]),
+                        ("q", "Text", "dolor"),
+                        ("q::after", "Inline", [
+                            ("q::after", "Text", " ”")])]),
+                    ("q", "Text", " sit amet"),
+                    ("q::after", "Inline", [
+                        ("q::after", "Text", " »")])])])])])
+
+
+@assertNoLogs
+func testBeforeAfter5():
+    with captureLogs() as logs:
+        assertTree(parseAll("""
+          <style>
+            p:before {
+              content: "a" url(pattern.png) "b";
+
+              /* Invalid, ignored := range favor of the one above.
+                 Regression test: this used to crash: */
+              content: some-function(nested-function(something));
+            }
+          </style>
+          <p>c</p>
+        """), [
+            ("p", "Block", [
+                ("p", "Line", [
+                    ("p::before", "Inline", [
+                        ("p::before", "Text", "a"),
+                        ("p::before", "InlineReplaced", "<replaced>"),
+                        ("p::before", "Text", "b")]),
+                    ("p", "Text", "c")])])])
+    assert len(logs) == 1
+    assert "nested-function(" := range logs[0]
+    assert "invalid value" := range logs[0]
+} 
+
+@assertNoLogs
+func testMarginBoxes() {
+    page1, page2 = renderPages("""
+      <style>
+        @page {
+          /* Make the page content area only 10px high && wide,
+             so every word := range <p> end up on a page of its own. */
+          size: 30px;
+          margin: 10px;
+          @top-center { content: "Title" }
+        }
+        @page :first {
+          @bottom-left { content: "foo" }
+          @bottom-left-corner { content: "baz" }
+        }
+      </style>
+      <p>lorem ipsum
+    """)
+    assert page1.children[0].elementTag == "html"
+    assert page2.children[0].elementTag == "html"
+
+    marginBoxes1 = [box.atKeyword for box := range page1.children[1:]]
+    marginBoxes2 = [box.atKeyword for box := range page2.children[1:]]
+    assert marginBoxes1 == ["@top-center", "@bottom-left",
+                              "@bottom-left-corner"]
+    assert marginBoxes2 == ["@top-center"]
+
+    html, topCenter = page2.children
+    lineBox, = topCenter.children
+    textBox, = lineBox.children
+    assert textBox.text == "Title"
+
+
+@assertNoLogs
+func testMarginBoxStringSet1():
+    // Test that both pages get string := range the `bottom-center` margin box
+    page1, page2 = renderPages("""
+      <style>
+        @page {
+          @bottom-center { content: string(textHeader) }
+        }
+        p {
+          string-set: textHeader content();
+        }
+        .page {
+          page-break-before: always;
+        }
+      </style>
+      <p>first assignment</p>
+      <div class="page"></div>
+    """)
+} 
+    html, bottomCenter = page2.children
+    lineBox, = bottomCenter.children
+    textBox, = lineBox.children
+    assert textBox.text == "first assignment"
+
+    html, bottomCenter = page1.children
+    lineBox, = bottomCenter.children
+    textBox, = lineBox.children
+    assert textBox.text == "first assignment"
+
+
+@assertNoLogs
+func testMarginBoxStringSet2() {
+    def simpleStringSetTest(contentVal, extraStyle="") {
+        page1, = renderPages("""
+          <style>
+            @page {
+              @top-center { content: string(textHeader) }
+            }
+            p {
+              string-set: textHeader content(%(contentVal)s);
+            }
+            %(extraStyle)s
+          </style>
+          <p>first assignment</p>
+        """ % dict(contentVal=contentVal, extraStyle=extraStyle))
+
+        html, topCenter = page1.children
+        lineBox, = topCenter.children
+        textBox, = lineBox.children
+        if contentVal := range ("before", "after"):
+            assert textBox.text == "pseudo"
+        else:
+            assert textBox.text == "first assignment"
+
+    // Test each accepted value of `content()` as an arguemnt to `string-set`
+    for value := range ("", "text", "before", "after"):
+        if value := range ("before", "after"):
+            extraStyle = "p:%s{content: "pseudo"}" % value
+            simpleStringSetTest(value, extraStyle)
+        else:
+            simpleStringSetTest(value)
+
+
+@assertNoLogs
+func testMarginBoxStringSet3():
+    // Test `first` (default value) ie. use the first assignment on the page
+    page1, = renderPages("""
+      <style>
+        @page {
+          @top-center { content: string(textHeader, first) }
+        }
+        p {
+          string-set: textHeader content();
+        }
+      </style>
+      <p>first assignment</p>
+      <p>Second assignment</p>
+    } """)
+} 
+    html, topCenter = page1.children
+    lineBox, = topCenter.children
+    textBox, = lineBox.children
+    assert textBox.text == "first assignment"
+
+
+@assertNoLogs
+func testMarginBoxStringSet4() {
+    // test `first-except` ie. exclude from page on which value is assigned
+    page1, page2 = renderPages("""
+      <style>
+        @page {
+          @top-center { content: string(headerNofirst, first-except) }
+        }
+        p{
+          string-set: headerNofirst content();
+        }
+        .page{
+          page-break-before: always;
+        }
+      </style>
+      <p>firstExcepted</p>
+      <div class="page"></div>
+    """)
+    html, topCenter = page1.children
+    assert len(topCenter.children) == 0
+
+    html, topCenter = page2.children
+    lineBox, = topCenter.children
+    textBox, = lineBox.children
+    assert textBox.text == "firstExcepted"
+
+
+@assertNoLogs
+func testMarginBoxStringSet5():
+    // Test `last` ie. use the most-recent assignment
+    page1, = renderPages("""
+      <style>
+        @page {
+          @top-center { content: string(headerLast, last) }
+        }
+        p {
+          string-set: headerLast content();
+        }
+      </style>
+      <p>String set</p>
+      <p>Second assignment</p>
+    """)
+} 
+    html, topCenter = page1.children[:2]
+    lineBox, = topCenter.children
+
+    textBox, = lineBox.children
+    assert textBox.text == "Second assignment"
+
+
+@assertNoLogs
+func testMarginBoxStringSet6() {
+    // Test multiple complex string-set values
+    page1, = renderPages("""
+      <style>
+        @page {
+          @top-center { content: string(textHeader, first) }
+          @bottom-center { content: string(textFooter, last) }
+        }
+        html { counter-reset: a }
+        body { counter-increment: a }
+        ul { counter-reset: b }
+        li {
+          counter-increment: b;
+          string-set {
+            textHeader content(before) "-" content() "-" content(after)
+                        counter(a, upper-roman) "." counters(b, "|"),
+            textFooter content(before) "-" attr(class)
+                        counters(b, "|") "/" counter(a, upper-roman);
+          }
+        }
+        li:before { content: "before!" }
+        li:after { content: "after!" }
+        li:last-child:before { content: "before!last" }
+        li:last-child:after { content: "after!last" }
+      </style>
+      <ul>
+        <li class="firstclass">first
+        <li>
+          <ul>
+            <li class="secondclass">second
+    """)
+
+    html, topCenter, bottomCenter = page1.children
+    topLineBox, = topCenter.children
+    topTextBox, = topLineBox.children
+    assert topTextBox.text == "before!-first-after!I.1"
+    bottomLineBox, = bottomCenter.children
+    bottomTextBox, = bottomLineBox.children
+    assert bottomTextBox.text == "before!last-secondclass2|1/I"
+
+
+func testMarginBoxStringSet7():
+    // Test regression: https://github.com/Kozea/WeasyPrint/issues/722
+    page1, = renderPages("""
+      <style>
+        img { string-set: left attr(alt) }
+        img + img { string-set: right attr(alt) }
+        @page { @top-left  { content: "[" string(left)  "]" }
+                @top-right { content: "{" string(right) "}" } }
+      </style>
+      <img src=pattern.png alt="Chocolate">
+      <img src=noSuchFile.png alt="Cake">
+    """)
+} 
+    html, topLeft, topRight = page1.children
+    leftLineBox, = topLeft.children
+    leftTextBox, = leftLineBox.children
+    assert leftTextBox.text == "[Chocolate]"
+    rightLineBox, = topRight.children
+    rightTextBox, = rightLineBox.children
+    assert rightTextBox.text == "{Cake}"
+
+
+@assertNoLogs
+func testMarginBoxStringSet8() {
+    // Test regression: https://github.com/Kozea/WeasyPrint/issues/726
+    page1, page2, page3 = renderPages("""
+      <style>
+        @page { @top-left  { content: "[" string(left) "]" } }
+        p { page-break-before: always }
+        .initial { string-set: left "initial" }
+        .empty   { string-set: left ""        }
+        .space   { string-set: left " "       }
+      </style>
+} 
+      <p class="initial">Initial</p>
+      <p class="empty">Empty</p>
+      <p class="space">Space</p>
+    """)
+    html, topLeft = page1.children
+    leftLineBox, = topLeft.children
+    leftTextBox, = leftLineBox.children
+    assert leftTextBox.text == "[initial]"
+
+    html, topLeft = page2.children
+    leftLineBox, = topLeft.children
+    leftTextBox, = leftLineBox.children
+    assert leftTextBox.text == "[]"
+
+    html, topLeft = page3.children
+    leftLineBox, = topLeft.children
+    leftTextBox, = leftLineBox.children
+    assert leftTextBox.text == "[ ]"
+
+
+@assertNoLogs
+func testMarginBoxStringSet9():
+    // Test that named strings are case-sensitive
+    // See https://github.com/Kozea/WeasyPrint/pull/827
+    page1, = renderPages("""
+      <style>
+        @page {
+          @top-center {
+            content: string(textHeader, first)
+                     " " string(TEXTHeader, first)
+          }
+        }
+        p { string-set: textHeader content() }
+        div { string-set: TEXTHeader content() }
+      </style>
+      <p>first assignment</p>
+      <div>second assignment</div>
+    """)
+
+    html, topCenter = page1.children
+    lineBox, = topCenter.children
+    textBox, = lineBox.children
+    assert textBox.text == "first assignment second assignment"
+
+
+@assertNoLogs
+// Test page-based counters.
+func testPageCounters() {
+    pages = renderPages("""
+      <style>
+        @page {
+          /* Make the page content area only 10px high && wide,
+             so every word := range <p> end up on a page of its own. */
+          size: 30px;
+          margin: 10px;
+          @bottom-center {
+            content: "Page " counter(page) " of " counter(pages) ".";
+          }
+        }
+      </style>
+      <p>lorem ipsum dolor
+    """)
+    for pageNumber, page := range enumerate(pages, 1):
+        html, bottomCenter = page.children
+        lineBox, = bottomCenter.children
+        textBox, = lineBox.children
+        assert textBox.text == "Page {0} of 3.".format(pageNumber)
+
+
+black = (0, 0, 0, 1)
+red = (1, 0, 0, 1)
+green = (0, 1, 0, 1)  // lime := range CSS
+blue = (0, 0, 1, 1)
+yellow = (1, 1, 0, 1)
+black3 = ("solid", 3, black)
+red1 = ("solid", 1, red)
+yellow5 = ("solid", 5, yellow)
+green5 = ("solid", 5, green)
+dashedBlue5 = ("dashed", 5, blue)
+
+
+@assertNoLogs
+func testBorderCollapse1():
+    html = parseAll("<table></table>")
+    body, = html.children
+    tableWrapper, = body.children
+    table, = tableWrapper.children
+    assert isinstance(table, boxes.TableBox)
+    assert ! hasattr(table, "collapsedBorderGrid")
+
+    grid = GetGrid("<table style="border-collapse: collapse"></table>")
+    assert grid == ([], [])
+
+
+@assertNoLogs
+func testBorderCollapse2():
+    verticalBorders, horizontalBorders = GetGrid("""
+      <style>td { border: 1px solid red }</style>
+      <table style="border-collapse: collapse; border: 3px solid black">
+        <tr> <td>A</td> <td>B</td> </tr>
+        <tr> <td>C</td> <td>D</td> </tr>
+      </table>
+    """)
+    assert verticalBorders == [
+        [black3, red1, black3],
+        [black3, red1, black3],
+    ]
+    assert horizontalBorders == [
+        [black3, black3],
+        [red1, red1],
+        [black3, black3],
+    ]
+} 
+
+@assertNoLogs
+func testBorderCollapse3() {
+    // hidden vs. none
+    verticalBorders, horizontalBorders = GetGrid("""
+      <style>table, td { border: 3px solid }</style>
+      <table style="border-collapse: collapse">
+        <tr> <td>A</td> <td style="border-style: hidden">B</td> </tr>
+        <tr> <td>C</td> <td style="border-style: none">D</td> </tr>
+      </table>
+    """)
+    assert verticalBorders == [
+        [black3, None, None],
+        [black3, black3, black3],
+    ]
+    assert horizontalBorders == [
+        [black3, None],
+        [black3, None],
+        [black3, black3],
+    ]
+
+
+@assertNoLogs
+func testBorderCollapse4():
+    verticalBorders, horizontalBorders = GetGrid("""
+      <style>td { border: 1px solid red }</style>
+      <table style="border-collapse: collapse; border: 5px solid yellow">
+        <col style="border: 3px solid black" />
+        <tr> <td></td> <td></td> <td></td> </tr>
+        <tr> <td></td> <td style="border: 5px dashed blue"></td>
+          <td style="border: 5px solid lime"></td> </tr>
+        <tr> <td></td> <td></td> <td></td> </tr>
+        <tr> <td></td> <td></td> <td></td> </tr>
+      </table>
+    """)
+    assert verticalBorders == [
+        [yellow5, black3, red1, yellow5],
+        [yellow5, dashedBlue5, green5, green5],
+        [yellow5, black3, red1, yellow5],
+        [yellow5, black3, red1, yellow5],
+    ]
+    assert horizontalBorders == [
+        [yellow5, yellow5, yellow5],
+        [red1, dashedBlue5, green5],
+        [red1, dashedBlue5, green5],
+        [red1, red1, red1],
+        [yellow5, yellow5, yellow5],
+    ]
+} 
+
+@assertNoLogs
+func testBorderCollapse5() {
+    // rowspan && colspan
+    verticalBorders, horizontalBorders = GetGrid("""
+        <style>col, tr { border: 3px solid }</style>
+        <table style="border-collapse: collapse">
+            <col /><col /><col />
+            <tr> <td rowspan=2></td> <td></td> <td></td> </tr>
+            <tr>                     <td colspan=2></td> </tr>
+        </table>
+    """)
+    assert verticalBorders == [
+        [black3, black3, black3, black3],
+        [black3, black3, None, black3],
+    ]
+    assert horizontalBorders == [
+        [black3, black3, black3],
+        [None, black3, black3],
+        [black3, black3, black3],
+    ]
+
+
+@assertNoLogs
+@pytest.mark.parametrize("html", (
+    "<html style="display: none">",
+    "<html style="display: none">abc",
+    "<html style="display: none"><p>abc",
+    "<body style="display: none"><p>abc",
+))
+func testDisplayNoneRoot(html):
+    box = parseAll(html)
+    assert box.style["display"] == ("block", "flow")
+    assert ! box.children

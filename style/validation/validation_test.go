@@ -10,6 +10,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
 func toValidated(d pr.Properties) map[string]pr.ValidatedProperty {
@@ -24,7 +25,7 @@ func toValidated(d pr.Properties) map[string]pr.ValidatedProperty {
 func expandToDict(t *testing.T, css string, expectedError string) map[string]pr.ValidatedProperty {
 	declarations := parser.ParseDeclarationList2(css, false, false)
 
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	baseUrl := "http://weasyprint.org/foo/"
 	validated := PreprocessDeclarations(baseUrl, declarations)
 	logs := capt.Logs()
@@ -62,13 +63,13 @@ func assertValidDict(t *testing.T, css string, ref map[string]pr.ValidatedProper
 }
 
 func TestNotPrint(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertInvalid(t, "volume: 42", "the property does not apply for the print media")
 	capt.AssertNoLogs(t)
 }
 
 func TestFunction(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "clip: rect(1px, 3em, auto, auto)", toValidated(pr.Properties{
 		"clip": pr.Values{
 			pr.Dimension{Value: 1, Unit: pr.Px}.ToValue(),
@@ -100,7 +101,7 @@ func TestFunction(t *testing.T) {
 }
 
 func TestCounters(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "counter-reset: foo bar 2 baz", toValidated(pr.Properties{
 		"counter_reset": pr.SIntStrings{Values: pr.IntStrings{{String: "foo", Int: 0}, {String: "bar", Int: 2}, {String: "baz", Int: 0}}},
 	}))
@@ -127,7 +128,7 @@ func TestCounters(t *testing.T) {
 }
 
 func TestSpacing(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "letter-spacing: normal", toValidated(pr.Properties{
 		"letter_spacing": pr.SToV("normal"),
 	}))
@@ -147,7 +148,7 @@ func TestSpacing(t *testing.T) {
 }
 
 func TestDecoration(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "text-decoration-line: none", toValidated(pr.Properties{
 		"text_decoration_line": pr.NDecorations{None: true},
 	}))
@@ -176,7 +177,7 @@ func TestDecoration(t *testing.T) {
 }
 
 func TestSize(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "size: 200px", toValidated(pr.Properties{
 		"size": pr.Point{{Value: 200, Unit: pr.Px}, {Value: 200, Unit: pr.Px}},
 	}))
@@ -213,7 +214,7 @@ func TestSize(t *testing.T) {
 }
 
 func TestTransforms(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "transform: none", toValidated(pr.Properties{
 		"transform": pr.Transforms{},
 	}))
@@ -277,7 +278,7 @@ func assertBackground(t *testing.T, css string, expected map[string]pr.Validated
 
 // Test the ``background`` property.
 func TestExpandBackground(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertBackground(t, "red", toValidated(pr.Properties{
 		"background_color": pr.NewColor(1, 0, 0, 1),
 	}))
@@ -404,7 +405,7 @@ func checkPosition(t *testing.T, css string, expected pr.Center) {
 
 // Test the ``background-position`` property.
 func TestExpandBackgroundPosition(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 
 	css_xs := [5]string{"left", "center", "right", "4.5%", "12px"}
 	val_xs := [5]pr.Dimension{{Value: 0, Unit: pr.Percentage}, {Value: 50, Unit: pr.Percentage}, {Value: 100, Unit: pr.Percentage}, {Value: 4.5, Unit: pr.Percentage}, {Value: 12, Unit: pr.Px}}
@@ -461,7 +462,7 @@ func TestExpandBackgroundPosition(t *testing.T) {
 
 // Test the ``line-height`` property.
 func TestLineHeight(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "line-height: 1px", toValidated(pr.Properties{
 		"line_height": pr.Dimension{Value: 1, Unit: pr.Px}.ToValue(),
 	}))
@@ -493,7 +494,7 @@ func TestLineHeight(t *testing.T) {
 
 // Test the ``string-set`` property.
 func TestStringSet(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "string-set: test content(text)", toValidated(pr.Properties{
 		"string_set": pr.StringSet{Contents: []pr.SContent{
 			{String: "test", Contents: []pr.ContentProperty{{Type: "content()", Content: pr.String("text")}}},
@@ -641,7 +642,7 @@ func TestLinearGradient(t *testing.T) {
 	invalid(t, "to bottom up, blue")
 	invalid(t, "bottom left, blue")
 
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	gradient(t, "blue", pr.DirectionType{Angle: pi}, nil, nil)
 	gradient(t, "red", pr.DirectionType{Angle: pi}, []pr.Color{red}, []pr.Dimension{{}})
 	gradient(t, "blue 1%, lime,red 2em ", pr.DirectionType{Angle: pi},
@@ -673,7 +674,7 @@ func TestLinearGradient(t *testing.T) {
 }
 
 func TestOverflowWrap(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "overflow-wrap: normal", toValidated(pr.Properties{
 		"overflow_wrap": pr.String("normal"),
 	}))
@@ -686,7 +687,7 @@ func TestOverflowWrap(t *testing.T) {
 }
 
 func TestRadialGradient(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 
 	gradient := func(t *testing.T, css string, shape string, size pr.GradientSize, center pr.Center, colors []pr.Color, stopPositions []pr.Dimension) {
 		if colors == nil {

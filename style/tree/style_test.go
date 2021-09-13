@@ -2,7 +2,6 @@ package tree
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"path/filepath"
 	"reflect"
@@ -10,6 +9,7 @@ import (
 	"testing"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 
 	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -18,14 +18,9 @@ import (
 
 // Test the CSS parsing, cascade, inherited && computed values.
 
-var testUAStylesheet CSS
-
-func init() {
-	var err error
-	testUAStylesheet, err = newCSS(utils.InputFilename("tests_ua.css"))
-	if err != nil {
-		log.Fatal(err)
-	}
+func fakeHTML(html HTML) *HTML {
+	html.UAStyleSheet = TestUAStylesheet
+	return &html
 }
 
 func TestLoadStyleSheets(t *testing.T) {
@@ -34,7 +29,7 @@ func TestLoadStyleSheets(t *testing.T) {
 
 func TestDescriptors(t *testing.T) {
 	stylesheet := parser.ParseStylesheet2([]byte("@font-face{}"), false, false)
-	logs := utils.CaptureLogs()
+	logs := testutils.CaptureLogs()
 	var descriptors []string
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, false)
@@ -46,7 +41,7 @@ func TestDescriptors(t *testing.T) {
 	}, t)
 
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face{src: url(test.woff)}"), false, false)
-	logs = utils.CaptureLogs()
+	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, false)
 	if len(descriptors) > 0 {
@@ -57,7 +52,7 @@ func TestDescriptors(t *testing.T) {
 	}, t)
 
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face{font-family: test}"), false, false)
-	logs = utils.CaptureLogs()
+	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, false)
 	if len(descriptors) > 0 {
@@ -68,7 +63,7 @@ func TestDescriptors(t *testing.T) {
 	}, t)
 
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: test; src: wrong }"), false, false)
-	logs = utils.CaptureLogs()
+	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, false)
 	if len(descriptors) > 0 {
@@ -80,7 +75,7 @@ func TestDescriptors(t *testing.T) {
 	}, t)
 
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: good, bad; src: url(test.woff) }"), false, false)
-	logs = utils.CaptureLogs()
+	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, false)
 	if len(descriptors) > 0 {
@@ -92,7 +87,7 @@ func TestDescriptors(t *testing.T) {
 	}, t)
 
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: good, bad; src: really bad }"), false, false)
-	logs = utils.CaptureLogs()
+	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, false)
 	if len(descriptors) > 0 {
@@ -103,18 +98,6 @@ func TestDescriptors(t *testing.T) {
 		"Ignored `src: really bad ` at 1:38, invalid or unsupported values for a known CSS property.",
 		`Missing src descriptor in "@font-face" rule at 1:1`,
 	}, t)
-}
-
-type fakeHTML struct {
-	HTML
-	customUA CSS
-}
-
-func (f fakeHTML) UAStyleSheet() CSS {
-	if f.customUA.IsNone() {
-		return testUAStylesheet
-	}
-	return f.customUA
 }
 
 func resourceFilename(s string) string {
@@ -129,12 +112,12 @@ func rsplit(s, sep string) string {
 
 //@assertNoLogs
 func TestFindStylesheets(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	html_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	html := fakeHTML{HTML: *html_}
+	html := fakeHTML(*html_)
 	sheets := findStylesheets(html.Root, "print", utils.DefaultUrlFetcher, html.BaseUrl, nil, nil)
 
 	if len(sheets) != 2 {
@@ -171,8 +154,8 @@ func TestFindStylesheets(t *testing.T) {
 
 //@assertNoLogs
 func TestExpandShorthands(t *testing.T) {
-	capt := utils.CaptureLogs()
-	sheet, err := newCSS(utils.InputFilename(resourceFilename("sheet2.css")))
+	capt := testutils.CaptureLogs()
+	sheet, err := NewCSSDefault(utils.InputFilename(resourceFilename("sheet2.css")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,18 +220,18 @@ func assertProp(t *testing.T, got pr.Properties, name string, expected pr.CssPro
 
 //@assertNoLogs
 func TestAnnotateDocument(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	document_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := fakeHTML{HTML: *document_}
-	document.customUA, err = newCSS(utils.InputFilename(resourceFilename("mini_ua.css")))
+	document := fakeHTML(*document_)
+	document.UAStyleSheet, err = NewCSSDefault(utils.InputFilename(resourceFilename("mini_ua.css")))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	userStylesheet, err := newCSS(utils.InputFilename(resourceFilename("user.css")))
+	userStylesheet, err := NewCSSDefault(utils.InputFilename(resourceFilename("user.css")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,13 +325,13 @@ func TestAnnotateDocument(t *testing.T) {
 
 //@assertNoLogs
 func TestPage(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	document_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := fakeHTML{HTML: *document_}
-	css, err := newCSS(utils.InputString(`
+	document := fakeHTML(*document_)
+	css, err := NewCSSDefault(utils.InputString(`
 		html { color: red }
 		@page { margin: 10px }
 		@page :right {
@@ -475,7 +458,7 @@ var tests = []testPageSelector{
 }
 
 func TestPageSelectors(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	for _, te := range tests {
 		atRule_ := parser.ParseStylesheet2([]byte(te.sel), false, false)[0]
 		atRule, ok := atRule_.(parser.QualifiedRule)
@@ -496,18 +479,30 @@ type testWarnings struct {
 }
 
 var testsWarnings = [6]testWarnings{
-	{sel: ":lipsum { margin: 2cm",
-		out: []string{"Invalid or unsupported selector"}},
-	{sel: "::lipsum { margin: 2cm",
-		out: []string{"Invalid or unsupported selector"}},
-	{sel: "foo { margin-color: red",
-		out: []string{"Ignored", "unknown property"}},
-	{sel: "foo { margin-top: red",
-		out: []string{"Ignored", "invalid value"}},
-	{sel: `@import "relative-uri.css"`,
-		out: []string{"Relative URI reference without a base URI"}},
-	{sel: `@import "invalid-protocol://absolute-URL"`,
-		out: []string{"Failed to load stylesheet at"}},
+	{
+		sel: ":lipsum { margin: 2cm",
+		out: []string{"Invalid or unsupported selector"},
+	},
+	{
+		sel: "::lipsum { margin: 2cm",
+		out: []string{"Invalid or unsupported selector"},
+	},
+	{
+		sel: "foo { margin-color: red",
+		out: []string{"Ignored", "unknown property"},
+	},
+	{
+		sel: "foo { margin-top: red",
+		out: []string{"Ignored", "invalid value"},
+	},
+	{
+		sel: `@import "relative-uri.css"`,
+		out: []string{"Relative URI reference without a base URI"},
+	},
+	{
+		sel: `@import "invalid-protocol://absolute-URL"`,
+		out: []string{"Failed to load stylesheet at"},
+	},
 }
 
 //@assertNoLogs
@@ -515,8 +510,8 @@ var testsWarnings = [6]testWarnings{
 func TestWarnings(t *testing.T) {
 	for _, te := range testsWarnings {
 
-		capt := utils.CaptureLogs()
-		_, err := newCSS(utils.InputString(te.sel))
+		capt := testutils.CaptureLogs()
+		_, err := NewCSSDefault(utils.InputString(te.sel))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -535,7 +530,7 @@ func TestWarnings(t *testing.T) {
 //@assertNoLogs
 func TestWarningsStylesheet(t *testing.T) {
 	ml := "<link rel=stylesheet href=invalid-protocol://absolute>"
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	html, err := newHtml(utils.InputString(ml))
 	if err != nil {
 		t.Fatal(err)
@@ -584,14 +579,14 @@ func isClose(a, b pr.Float) bool {
 
 func TestFontSize(t *testing.T) {
 	//@assertNoLogs
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	html_, err := newHtml(utils.InputString("<p>a<span>b"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := fakeHTML{HTML: *html_}
+	document := fakeHTML(*html_)
 	for _, te := range testsFs {
-		css, err := newCSS(utils.InputString(fmt.Sprintf("p{font-size:%s}span{font-size:%s}", te.parentCss, te.childCss)))
+		css, err := NewCSSDefault(utils.InputString(fmt.Sprintf("p{font-size:%s}span{font-size:%s}", te.parentCss, te.childCss)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -609,7 +604,7 @@ func TestFontSize(t *testing.T) {
 	capt.AssertNoLogs(t)
 }
 
-//TODO: a déplacer dans la partie qui implémente render()
+// TODO: a déplacer dans la partie qui implémente render()
 
 //@assertNoLogs
 // @pytest.mark.parametrize("style", (
@@ -617,7 +612,7 @@ func TestFontSize(t *testing.T) {
 // "<html style="color; color: blue; color red">",
 // ))
 // func TestErrorRecovery(t *testing.T) {
-// capt := utils.CaptureLogs()
+// capt := testutils.CaptureLogs()
 // with captureLogs() as logs:
 // document = FakeHTML(string=style)
 // page, = document.render().pages
@@ -629,7 +624,7 @@ func TestFontSize(t *testing.T) {
 //
 ////@assertNoLogs
 //func TestLineHeightInheritance():
-//capt := utils.CaptureLogs()do
+//capt := testutils.CaptureLogs()do
 //cument = FakeHTML(string="""
 //<style>
 //html { font-size: 10px; line-height: 140% }
@@ -658,7 +653,7 @@ func TestFontSize(t *testing.T) {
 //
 ////@assertNoLogs
 //func TestImportant(t *testing.T) {
-//capt := utils.CaptureLogs()
+//capt := testutils.CaptureLogs()
 //	document = FakeHTML(string="""
 //	<style>
 //		p:nth-child(1) { color: lime }
@@ -696,7 +691,7 @@ func TestFontSize(t *testing.T) {
 //
 ////@assertNoLogs
 //func TestNamedPages(t *testing.T) {
-//capt := utils.CaptureLogs()
+//capt := testutils.CaptureLogs()
 //	document = FakeHTML(string="""
 //	<style>
 //	@page NARRow { size: landscape }
@@ -720,7 +715,7 @@ func TestFontSize(t *testing.T) {
 //
 //	//@assertNoLogs
 //	@pytest.mark.parametrize("value, width", (
-//	capt := utils.CaptureLogs()
+//	capt := testutils.CaptureLogs()
 //		("96px", 96),
 //		("1in", 96),
 //	("72pt", 96),

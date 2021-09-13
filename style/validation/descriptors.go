@@ -18,7 +18,7 @@ import (
 // :copyright: Copyright 2011-2016 Simon Sapin && contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
 
-var descriptors = map[string]descriptor{
+var fontFaceDescriptors = map[string]fontFaceDescriptorParser{
 	"font-family":           fontFamilyDescriptor,
 	"src":                   src,
 	"font-style":            fontStyleDescriptor,
@@ -28,7 +28,7 @@ var descriptors = map[string]descriptor{
 	"font-variant":          fontVariant,
 }
 
-type RuleDescriptors struct {
+type FontFaceDescriptors struct {
 	Src                 []pr.NamedString
 	FontFamily          pr.String
 	FontStyle           pr.String
@@ -38,7 +38,7 @@ type RuleDescriptors struct {
 	FontVariant         pr.NamedProperties
 }
 
-type descriptor = func(tokens []Token, baseUrl string, out *RuleDescriptors) error
+type fontFaceDescriptorParser = func(tokens []Token, baseUrl string, out *FontFaceDescriptors) error
 
 // @descriptor()
 // ``font-family`` descriptor validation.
@@ -68,7 +68,7 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 	return ""
 }
 
-func fontFamilyDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
+func fontFamilyDescriptor(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	s := _fontFamilyDesc(tokens, false)
 	out.FontFamily = pr.String(s)
 	if s == "" {
@@ -101,7 +101,7 @@ func _src(tokens []Token, baseUrl string) (pr.InnerContent, error) {
 	return nil, nil
 }
 
-func src(tokens []Token, baseUrl string, out *RuleDescriptors) error {
+func src(tokens []Token, baseUrl string, out *FontFaceDescriptors) error {
 	for _, part := range SplitOnComma(tokens) {
 		result, err := _src(RemoveWhitespace(part), baseUrl)
 		if err != nil {
@@ -119,7 +119,7 @@ func src(tokens []Token, baseUrl string, out *RuleDescriptors) error {
 // @descriptor()
 // @singleKeyword
 // ``font-style`` descriptor validation.
-func fontStyleDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
+func fontStyleDescriptor(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "normal", "italic", "oblique":
@@ -133,7 +133,7 @@ func fontStyleDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
 // @descriptor()
 // @singleToken
 // ``font-weight`` descriptor validation.
-func fontWeightDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
+func fontWeightDescriptor(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	if len(tokens) != 1 {
 		return InvalidValue
 	}
@@ -157,7 +157,7 @@ func fontWeightDescriptor(tokens []Token, _ string, out *RuleDescriptors) error 
 // @descriptor()
 // @singleKeyword
 // Validation for the ``font-stretch`` descriptor.
-func fontStretchDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
+func fontStretchDescriptor(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
 	case "ultra-condensed", "extra-condensed", "condensed", "semi-condensed",
@@ -172,7 +172,7 @@ func fontStretchDescriptor(tokens []Token, _ string, out *RuleDescriptors) error
 
 // @descriptor("font-feature-settings")
 // ``font-feature-settings`` descriptor validation.
-func fontFeatureSettingsDescriptor(tokens []Token, _ string, out *RuleDescriptors) error {
+func fontFeatureSettingsDescriptor(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	s := _fontFeatureSettings(tokens)
 	if s.IsNone() {
 		return InvalidValue
@@ -183,7 +183,7 @@ func fontFeatureSettingsDescriptor(tokens []Token, _ string, out *RuleDescriptor
 
 // @descriptor()
 // ``font-variant`` descriptor validation.
-func fontVariant(tokens []Token, _ string, out *RuleDescriptors) error {
+func fontVariant(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	if len(tokens) == 1 {
 		keyword := getKeyword(tokens[0])
 		if keyword == "normal" || keyword == "none" || keyword == "inherit" {
@@ -207,8 +207,8 @@ func fontVariant(tokens []Token, _ string, out *RuleDescriptors) error {
 }
 
 // Default validator for descriptors.
-func validate(baseUrl, name string, tokens []Token, out *RuleDescriptors) error {
-	function, ok := descriptors[name]
+func validate(baseUrl, name string, tokens []Token, out *FontFaceDescriptors) error {
+	function, ok := fontFaceDescriptors[name]
 	if !ok {
 		return errors.New("descriptor not supported")
 	}
@@ -220,8 +220,8 @@ func validate(baseUrl, name string, tokens []Token, out *RuleDescriptors) error 
 // Filter unsupported names and values for descriptors.
 // Log a warning for every ignored descriptor.
 // Return a iterable of ``(name, value)`` tuples.
-func PreprocessDescriptors(baseUrl string, descriptors []Token) RuleDescriptors {
-	var out RuleDescriptors
+func PreprocessFontFaceDescriptors(baseUrl string, descriptors []Token) FontFaceDescriptors {
+	var out FontFaceDescriptors
 	for _, descriptor := range descriptors {
 		decl, ok := descriptor.(parser.Declaration)
 		if !ok || decl.Important {

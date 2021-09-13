@@ -2,6 +2,7 @@ package tree
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/benoitkugler/go-weasyprint/layout/text"
@@ -17,16 +18,28 @@ import (
 
 var html5UAStylesheet, html5PHStylesheet CSS
 
+// TestUAStylesheet is a lightweight style sheet
+var TestUAStylesheet CSS
+
+func init() {
+	var err error
+	TestUAStylesheet, err = NewCSSDefault(utils.InputFilename("tests_ua.css"))
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 // LoadStyleSheet should be called once to load stylesheets ressources.
 // `path` is the folder containing the 'ressources' directory.
 // It will panic on failure.
+// TODO: use embed
 func LoadStyleSheet(path string) {
 	var err error
-	html5UAStylesheet, err = newCSS(utils.InputFilename(filepath.Join(path, "ressources", "html5_ua.css")))
+	html5UAStylesheet, err = NewCSSDefault(utils.InputFilename(filepath.Join(path, "ressources", "html5_ua.css")))
 	if err != nil {
 		panic(err)
 	}
-	html5PHStylesheet, err = newCSS(utils.InputFilename(filepath.Join(path, "ressources", "html5_ph.css")))
+	html5PHStylesheet, err = NewCSSDefault(utils.InputFilename(filepath.Join(path, "ressources", "html5_ph.css")))
 	if err != nil {
 		panic(err)
 	}
@@ -86,12 +99,12 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 	return out, nil
 }
 
-func (c CSS) IsNone() bool {
-	return c.baseUrl == "" && c.fonts == nil && c.Matcher == nil && c.pageRules == nil
+func NewCSSDefault(input utils.ContentInput) (CSS, error) {
+	return NewCSS(input, "", nil, false, "", nil, nil, nil)
 }
 
-func newCSS(input utils.ContentInput) (CSS, error) {
-	return NewCSS(input, "", nil, false, "", nil, nil, nil)
+func (c CSS) IsNone() bool {
+	return c.baseUrl == "" && c.fonts == nil && c.Matcher == nil && c.pageRules == nil
 }
 
 type match struct {

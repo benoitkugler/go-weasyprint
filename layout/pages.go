@@ -795,7 +795,7 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 }
 
 // Set style for page types and pseudo-types matching ``pageType``.
-func setPageTypeComputedStyles(pageType utils.PageElement, html tree.HTML, styleFor tree.StyleFor) {
+func setPageTypeComputedStyles(pageType utils.PageElement, html *tree.HTML, styleFor tree.StyleFor) {
 	styleFor.AddPageDeclarations(pageType)
 
 	// Apply style for page
@@ -822,7 +822,7 @@ func setPageTypeComputedStyles(pageType utils.PageElement, html tree.HTML, style
 // As the function"s name suggests: the plan is ! to make all pages
 // repeatedly when a missing counter was resolved, but rather re-make the
 // single page where the ``contentChanged`` happened.
-func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevelBox, html tree.HTML) (*bo.PageBox, *tree.SkipStack) {
+func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevelBox, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {
 	pageMaker := &context.pageMaker
 	tmp := (*pageMaker)[index]
 	// initialResumeAt, initialNextPage, rightPage, initialPageState,remakeState := tmp
@@ -911,7 +911,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 
 // Return a list of laid out pages without margin boxes.
 // Re-make pages only if necessary.
-func makeAllPages(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, html tree.HTML, pages []*bo.PageBox) []*bo.PageBox {
+func makeAllPages(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, html *tree.HTML, pages []*bo.PageBox) []*bo.PageBox {
 	var out []*bo.PageBox
 	i := 0
 	for {

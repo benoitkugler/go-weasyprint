@@ -23,24 +23,24 @@ type BlockBox struct {
 
 type LineBox struct {
 	BoxFields
-	TextOverflow string
 	TextIndent   pr.MaybeFloat
+	TextOverflow string
 }
 
 type InlineLevelBox struct{}
 
 type InlineBox struct {
-	BoxFields
 	InlineLevelBox
+	BoxFields
 }
 
 type TextBox struct {
-	BoxFields
 	InlineLevelBox
+	BoxFields
 
+	PangoLayout          *text.PangoLayout
 	Text                 string
 	JustificationSpacing pr.Float
-	PangoLayout          *text.PangoLayout
 }
 
 type AtomicInlineLevelBox struct {
@@ -48,8 +48,8 @@ type AtomicInlineLevelBox struct {
 }
 
 type InlineBlockBox struct {
-	BoxFields
 	AtomicInlineLevelBox
+	BoxFields
 }
 
 type ReplacedBox struct {
@@ -63,8 +63,8 @@ type BlockReplacedBox struct {
 }
 
 type InlineReplacedBox struct {
-	ReplacedBox
 	AtomicInlineLevelBox
+	ReplacedBox
 }
 
 type TableBox struct {
@@ -107,9 +107,9 @@ type TableCaptionBox struct {
 
 type PageBox struct {
 	BoxFields
-	PageType         utils.PageElement
-	FixedBoxes       []Box
 	CanvasBackground *Background
+	FixedBoxes       []Box
+	PageType         utils.PageElement
 }
 
 type MarginBox struct {

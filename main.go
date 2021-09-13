@@ -18,6 +18,6 @@ func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, baseUrl string,
 	if err != nil {
 		return err
 	}
-	doc := document.Render(*parsedHtml, stylesheets, enableHinting, presentationalHints, fontConfig)
+	doc := document.Render(parsedHtml, stylesheets, enableHinting, presentationalHints, fontConfig)
 	return pdf.WritePDF(doc, target, zoom, attachments)
 }

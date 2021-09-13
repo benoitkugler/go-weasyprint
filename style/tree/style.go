@@ -232,7 +232,7 @@ func (s StyleFor) AddPageDeclarations(pageType_ utils.PageElement) {
 }
 
 // Set style for page types and pseudo-types matching ``pageType``.
-func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html_ ParsedHTML) {
+func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html_ *HTML) {
 	html := html_.AsHTML()
 	styleFor.AddPageDeclarations(pageType)
 
@@ -952,11 +952,11 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 			continue
 		}
 
-		switch typedRule := rule.(type) {
+		switch rule := rule.(type) {
 		case parser.QualifiedRule:
-			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*typedRule.Content, false, false))
+			declarations := validation.PreprocessDeclarations(baseUrl, parser.ParseDeclarationList(*rule.Content, false, false))
 			if len(declarations) > 0 {
-				prelude := parser.Serialize(*typedRule.Prelude)
+				prelude := parser.Serialize(*rule.Prelude)
 				selector, err := cascadia.ParseGroupWithPseudoElements(prelude)
 				if err != nil {
 					log.Printf("Invalid or unsupported selector '%s', %s \n", prelude, err)
@@ -978,15 +978,15 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				ignoreImports = true
 			}
 		case parser.AtRule:
-			switch typedRule.AtKeyword.Lower() {
+			switch rule.AtKeyword.Lower() {
 			case "import":
 				if ignoreImports {
 					log.Printf("@import rule '%s' not at the beginning of the whole rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
+						parser.Serialize(*rule.Prelude))
 					continue
 				}
 
-				tokens := validation.RemoveWhitespace(*typedRule.Prelude)
+				tokens := validation.RemoveWhitespace(*rule.Prelude)
 				var url string
 				if len(tokens) > 0 {
 					switch str := tokens[0].(type) {
@@ -1001,7 +1001,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				media := parseMediaQuery(tokens[1:])
 				if media == nil {
 					log.Printf("Invalid media type '%s' the whole @import rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
+						parser.Serialize(*rule.Prelude))
 					continue
 				}
 				if !evaluateMediaQuery(media, deviceMediaType) {
@@ -1016,38 +1016,38 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 					}
 				}
 			case "media":
-				media := parseMediaQuery(*typedRule.Prelude)
+				media := parseMediaQuery(*rule.Prelude)
 				if media == nil {
 					log.Printf("Invalid media type '%s' the whole @media rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
+						parser.Serialize(*rule.Prelude))
 					continue
 				}
 				ignoreImports = true
 				if !evaluateMediaQuery(media, deviceMediaType) {
 					continue
 				}
-				contentRules := parser.ParseRuleList(*typedRule.Content, false, false)
+				contentRules := parser.ParseRuleList(*rule.Content, false, false)
 				preprocessStylesheet(
 					deviceMediaType, baseUrl, contentRules, urlFetcher,
 					matcher, pageRules, fonts, fontConfig, true)
 			case "page":
-				data := parsePageSelectors(typedRule.QualifiedRule)
+				data := parsePageSelectors(rule.QualifiedRule)
 				if data == nil {
 					log.Printf("Unsupported @page selector '%s', the whole @page rule was ignored. \n",
-						parser.Serialize(*typedRule.Prelude))
+						parser.Serialize(*rule.Prelude))
 					continue
 				}
 				ignoreImports = true
 				for _, pageType := range data {
 					specificity := pageType.Specificity
 					pageType.Specificity = cascadia.Specificity{}
-					content := parser.ParseDeclarationList(*typedRule.Content, false, false)
+					content := parser.ParseDeclarationList(*rule.Content, false, false)
 					declarations := validation.PreprocessDeclarations(baseUrl, content)
 
 					var selectors []selectorPageRule
 					if len(declarations) > 0 {
 						selectors = []selectorPageRule{{specificity: specificity, pseudoType: "", pageType: pageType}}
-						*pageRules = append(*pageRules, PageRule{rule: typedRule, selectors: selectors, declarations: declarations})
+						*pageRules = append(*pageRules, PageRule{rule: rule, selectors: selectors, declarations: declarations})
 					}
 
 					for _, marginRule := range content {
@@ -1069,8 +1069,8 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 			case "font-face":
 				ignoreImports = true
-				content := parser.ParseDeclarationList(*typedRule.Content, false, false)
-				ruleDescriptors := validation.PreprocessDescriptors(baseUrl, content)
+				content := parser.ParseDeclarationList(*rule.Content, false, false)
+				ruleDescriptors := validation.PreprocessFontFaceDescriptors(baseUrl, content)
 				if ruleDescriptors.Src == nil {
 					log.Printf(`Missing src descriptor in "@font-face" rule at %d:%d`+"\n",
 						rule.Position().Line, rule.Position().Column)
@@ -1085,6 +1085,18 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 						*fonts = append(*fonts, fontFilename)
 					}
 				}
+
+			case "counter-style":
+				name := validation.ParseCounterStyleName(*rule.Prelude, counterStyle)
+				if name == "" {
+					log.Printf(`Invalid counter style name %s, the whole @counter-style rule was ignored at %d:%d.`,
+						parser.Serialize(*rule.Prelude), rule.Position().Line, rule.Position().Column)
+					continue
+				}
+
+				ignoreImports = true
+				content := parser.ParseDeclarationList(*rule.Content, false, false)
+
 			}
 		}
 	}
@@ -1107,29 +1119,23 @@ type sas struct {
 	specificity cascadia.Specificity
 }
 
-type ParsedHTML interface {
-	AsHTML() HTML
-	UAStyleSheet() CSS
-	PHStyleSheet() CSS
-}
-
 // Compute all the computed styles of all elements in `html` document.
 // Do everything from finding author stylesheets to parsing and applying them.
 //
 // Return a `StyleFor` function like object that takes an Element and an optional
 // pseudo-Element type, and return a style dict object.
 // presentationalHints=false
-func GetAllComputedStyles(html_ ParsedHTML, userStylesheets []CSS,
+func GetAllComputedStyles(html_ *HTML, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *text.FontConfiguration,
 	pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
-		{sheet: html_.UAStyleSheet(), origin: "user agent", specificity: nil},
+		{sheet: html_.UAStyleSheet, origin: "user agent", specificity: nil},
 	}
 
 	if presentationalHints {
-		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet(), origin: "author", specificity: []int{0, 0, 0}})
+		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet, origin: "author", specificity: []int{0, 0, 0}})
 	}
 	htmlElement := html_.AsHTML()
 	authorShts := findStylesheets(htmlElement.Root, htmlElement.mediaType, htmlElement.UrlFetcher,

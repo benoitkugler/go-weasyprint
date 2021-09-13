@@ -16,6 +16,9 @@ type HTML struct {
 	mediaType  string
 	UrlFetcher utils.UrlFetcher
 	BaseUrl    string
+
+	UAStyleSheet CSS
+	PHStyleSheet CSS
 }
 
 // `baseUrl` is the base used to resolve relative URLs
@@ -48,6 +51,8 @@ func NewHTML(htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.Ur
 	out.BaseUrl = utils.FindBaseUrl(root, result.BaseUrl)
 	out.UrlFetcher = urlFetcher
 	out.mediaType = mediaType
+	out.UAStyleSheet = html5UAStylesheet
+	out.PHStyleSheet = html5PHStylesheet
 	return &out, nil
 }
 
@@ -55,17 +60,7 @@ func newHtml(htmlContent utils.ContentInput) (*HTML, error) {
 	return NewHTML(htmlContent, "", nil, "")
 }
 
-func (h HTML) AsHTML() HTML {
-	return h
-}
-
-func (h HTML) UAStyleSheet() CSS {
-	return html5UAStylesheet
-}
-
-func (h HTML) PHStyleSheet() CSS {
-	return html5PHStylesheet
-}
+func (h HTML) AsHTML() HTML { return h }
 
 func (h HTML) GetMetadata() utils.DocumentMetadata {
 	return utils.GetHtmlMetadata(h.Root, h.BaseUrl)

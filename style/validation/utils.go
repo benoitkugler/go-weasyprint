@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 
+	// "github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -778,4 +779,24 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 		}
 	}
 	return pr.ContentProperty{}, nil
+}
+
+func ParseCounterStyleName(tokens []parser.Token, cs counters.CounterStyle) string {
+	tokens = RemoveWhitespace(tokens)
+	if len(tokens) != 1 {
+		return ""
+	}
+
+	token := tokens[1]
+	if ident, ok := token.(parser.IdentToken); ok {
+		if v := ident.Value.Lower(); v == "decimal" || v == "disc" {
+			if _, ok := cs[v]; !ok {
+				return string(ident.Value)
+			}
+		} else if ident.Value.Lower() != "none" {
+			return string(ident.Value)
+		}
+	}
+
+	return ""
 }

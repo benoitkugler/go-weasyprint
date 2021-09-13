@@ -5,11 +5,12 @@ import (
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
 // Test the 4-value pr.
 func TestExpandFourSides(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "margin: inherit", map[string]pr.ValidatedProperty{
 		"margin_top":    pr.Inherit.ToV(),
 		"margin_right":  pr.Inherit.ToV(),
@@ -58,7 +59,7 @@ func TestExpandFourSides(t *testing.T) {
 
 // Test the ``border`` property.
 func TestExpandBorders(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "border-top: 3px dotted red", toValidated(pr.Properties{
 		"border_top_width": pr.Dimension{Value: 3, Unit: pr.Px}.ToValue(),
 		"border_top_style": pr.String("dotted"),
@@ -98,7 +99,7 @@ func TestExpandBorders(t *testing.T) {
 
 // Test the ``list_style`` property.
 func TestExpandList_style(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "list-style: inherit", map[string]pr.ValidatedProperty{
 		"list_style_position": pr.Inherit.ToV(),
 		"list_style_image":    pr.Inherit.ToV(),
@@ -133,7 +134,7 @@ func TestExpandList_style(t *testing.T) {
 
 // Test the ``font`` property.
 func TestFont(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "font: 12px My Fancy Font, serif", toValidated(pr.Properties{
 		"font_size":   pr.Dimension{Value: 12, Unit: pr.Px}.ToValue(),
 		"font_family": pr.Strings{"My Fancy Font", "serif"},
@@ -175,7 +176,7 @@ func TestFont(t *testing.T) {
 
 // Test the ``font-variant`` property.
 func TestFontVariant(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "font-variant: normal", toValidated(pr.Properties{
 		"font_variant_alternates": pr.String("normal"),
 		"font_variant_caps":       pr.String("normal"),
@@ -222,7 +223,7 @@ func TestFontVariant(t *testing.T) {
 }
 
 func TestExpandWordWrap(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 	assertValidDict(t, "word-wrap: normal", toValidated(pr.Properties{
 		"overflow_wrap": pr.String("normal"),
 	}))
@@ -247,7 +248,7 @@ func fillTextDecoration(prop pr.Properties) map[string]pr.ValidatedProperty {
 }
 
 func TestExpandTextDecoration(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 
 	assertValidDict(t, "text-decoration: none", fillTextDecoration(pr.Properties{
 		"text_decoration_line": pr.NDecorations{None: true},
@@ -265,7 +266,7 @@ func TestExpandTextDecoration(t *testing.T) {
 }
 
 func TestExpandFlex(t *testing.T) {
-	capt := utils.CaptureLogs()
+	capt := testutils.CaptureLogs()
 
 	assertValidDict(t, "flex: auto", toValidated(pr.Properties{
 		"flex_grow":   pr.Float(1),

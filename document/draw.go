@@ -340,11 +340,10 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 						return err
 					}
 				}
+				// Point 10
+				drawOutlines(context, box_, enableHinting)
 				return nil
 			})
-			// Point 10
-			drawOutlines(context, box_, enableHinting)
-			return nil
 		}
 
 		opacity := fl(box.Style.GetOpacity())
@@ -1031,8 +1030,8 @@ func drawOutlines(context Drawer, box_ Box, enableHinting bool) {
 }
 
 type segment struct {
+	side string
 	bo.Border
-	side      string
 	borderBox pr.Rectangle
 }
 

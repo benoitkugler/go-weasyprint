@@ -285,20 +285,19 @@ func (d Page) Paint(cairoContext Drawer, leftX, topY, scale fl, clip bool) {
 type Document struct {
 	// A list of `Page` objects.
 	Pages []Page
+
+	// A function called to fetch external resources such
+	// as stylesheets and images.
+	urlFetcher utils.UrlFetcher
+
 	// A `DocumentMetadata` object.
 	// Contains information that does not belong to a specific page
 	// but to the whole document.
 	Metadata utils.DocumentMetadata
-	// A function called to fetch external resources such
-	// as stylesheets and images.
-	urlFetcher utils.UrlFetcher
-	// Keep a reference to fontConfig to avoid its garbage collection until
-	// rendering is destroyed.
-	fontConfig *text.FontConfiguration
 }
 
 // presentationalHints=false, fontConfig=None
-func newLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
+func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS, enableHinting,
 	presentationalHints bool, fontConfig *text.FontConfiguration) *layout.LayoutContext {
 
 	targetCollector := tree.NewTargetCollector()
@@ -325,7 +324,7 @@ func newLayoutContext(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 
 // fontConfig is mandatory
 // presentationalHints=false
-func Render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
+func Render(html *tree.HTML, stylesheets []tree.CSS, enableHinting,
 	presentationalHints bool, fontConfig *text.FontConfiguration) Document {
 
 	context := newLayoutContext(html, stylesheets, enableHinting, presentationalHints, fontConfig)
@@ -338,7 +337,7 @@ func Render(html tree.HTML, stylesheets []tree.CSS, enableHinting,
 	for i, pageBox := range pageBoxes {
 		pages[i] = NewPage(pageBox, enableHinting)
 	}
-	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher, fontConfig: fontConfig}
+	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher}
 }
 
 // Take a subset of the pages.
@@ -359,10 +358,7 @@ func (d Document) Copy(pages []Page, all bool) Document {
 	if all {
 		pages = d.Pages
 	}
-	return Document{
-		Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher,
-		fontConfig: d.fontConfig,
-	}
+	return Document{Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher}
 }
 
 // Resolve internal hyperlinks.

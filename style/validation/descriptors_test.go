@@ -6,17 +6,17 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
-func processFontFace(css string, t *testing.T) RuleDescriptors {
+func processFontFace(css string, t *testing.T) FontFaceDescriptors {
 	stylesheet := parser.ParseStylesheet2([]byte(css), false, false)
 	atRule, ok := stylesheet[0].(parser.AtRule)
 	if !ok || atRule.AtKeyword != "font-face" {
 		t.Fatalf("expected @font-face got %v", stylesheet[0])
 	}
 	tokens := parser.ParseDeclarationList(*atRule.Content, false, false)
-	return PreprocessDescriptors("http://weasyprint.org/foo/", tokens)
+	return PreprocessFontFaceDescriptors("http://weasyprint.org/foo/", tokens)
 }
 
 func checkNameDescriptor(ref, got interface{}, t *testing.T) {
@@ -65,7 +65,7 @@ func TestFontFace(t *testing.T) {
 
 // Test bad ``font-face`` rules.
 func TestBadFontFace(t *testing.T) {
-	logs := utils.CaptureLogs()
+	logs := testutils.CaptureLogs()
 	l := processFontFace(`@font-face {`+
 		`  font-family: "Bad Font";`+
 		`  src: url(BadFont.woff);`+

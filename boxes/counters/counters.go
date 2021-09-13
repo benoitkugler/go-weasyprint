@@ -6,35 +6,31 @@ import (
 	"strings"
 )
 
-//Implement the various counter types and list-style-type values.
+// Implement the various counter types and list-style-type values.
 //
-//These are defined in the same terms as CSS 3 Lists:
-//http://dev.w3.org/csswg/css3-lists/#predefined-counters
-//
-//:copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-//:license: BSD, see LICENSE for details.
+// These are defined in the same terms as CSS 3 Lists:
+// http://dev.w3.org/csswg/css3-lists/#predefined-counters
+
+type CounterStyle map[string]string
 
 type counterStyleDescriptor struct {
-	//negative [2]string // negative is constant
-
-	prefix   string
-	suffix   string
-	range_   [2]int
-	fallback string
-
 	formatter counterImplementation
+	prefix    string
+	suffix    string
+	fallback  string
+	range_    [2]int
 }
 
 type counterImplementation = func(value int) (string, bool)
 
 type valueSymbol struct {
-	weight int
 	symbol string
+	weight int
 }
 
 type nonRepeatingSymbols struct {
-	firstValue int
 	symbols    []string
+	firstValue int
 }
 
 var (
@@ -56,39 +52,114 @@ var (
 	}
 
 	lowerRoman = []valueSymbol{
-		{1000, "m"}, {900, "cm"}, {500, "d"}, {400, "cd"},
-		{100, "c"}, {90, "xc"}, {50, "l"}, {40, "xl"},
-		{10, "x"}, {9, "ix"}, {5, "v"}, {4, "iv"},
-		{1, "i"},
+		{"m", 1000},
+		{"cm", 900},
+		{"d", 500},
+		{"cd", 400},
+		{"c", 100},
+		{"xc", 90},
+		{"l", 50},
+		{"xl", 40},
+		{"x", 10},
+		{"ix", 9},
+		{"v", 5},
+		{"iv", 4},
+		{"i", 1},
 	}
 
 	upperRoman = []valueSymbol{
-		{1000, "M"}, {900, "CM"}, {500, "D"}, {400, "CD"},
-		{100, "C"}, {90, "XC"}, {50, "L"}, {40, "XL"},
-		{10, "X"}, {9, "IX"}, {5, "V"}, {4, "IV"},
-		{1, "I"},
+		{"M", 1000},
+		{"CM", 900},
+		{"D", 500},
+		{"CD", 400},
+		{"C", 100},
+		{"XC", 90},
+		{"L", 50},
+		{"XL", 40},
+		{"X", 10},
+		{"IX", 9},
+		{"V", 5},
+		{"IV", 4},
+		{"I", 1},
 	}
 
 	georgian = []valueSymbol{
-		{10000, "ჵ"}, {9000, "ჰ"}, {8000, "ჯ"}, {7000, "ჴ"}, {6000, "ხ"},
-		{5000, "ჭ"}, {4000, "წ"}, {3000, "ძ"}, {2000, "ც"}, {1000, "ჩ"},
-		{900, "შ"}, {800, "ყ"}, {700, "ღ"}, {600, "ქ"},
-		{500, "ფ"}, {400, "ჳ"}, {300, "ტ"}, {200, "ს"}, {100, "რ"},
-		{90, "ჟ"}, {80, "პ"}, {70, "ო"}, {60, "ჲ"},
-		{50, "ნ"}, {40, "მ"}, {30, "ლ"}, {20, "კ"}, {10, "ი"},
-		{9, "თ"}, {8, "ჱ"}, {7, "ზ"}, {6, "ვ"},
-		{5, "ე"}, {4, "დ"}, {3, "გ"}, {2, "ბ"}, {1, "ა"},
+		{"ჵ", 10000},
+		{"ჰ", 9000},
+		{"ჯ", 8000},
+		{"ჴ", 7000},
+		{"ხ", 6000},
+		{"ჭ", 5000},
+		{"წ", 4000},
+		{"ძ", 3000},
+		{"ც", 2000},
+		{"ჩ", 1000},
+		{"შ", 900},
+		{"ყ", 800},
+		{"ღ", 700},
+		{"ქ", 600},
+		{"ფ", 500},
+		{"ჳ", 400},
+		{"ტ", 300},
+		{"ს", 200},
+		{"რ", 100},
+		{"ჟ", 90},
+		{"პ", 80},
+		{"ო", 70},
+		{"ჲ", 60},
+		{"ნ", 50},
+		{"მ", 40},
+		{"ლ", 30},
+		{"კ", 20},
+		{"ი", 10},
+		{"თ", 9},
+		{"ჱ", 8},
+		{"ზ", 7},
+		{"ვ", 6},
+		{"ე", 5},
+		{"დ", 4},
+		{"გ", 3},
+		{"ბ", 2},
+		{"ა", 1},
 	}
 
 	armenian = []valueSymbol{
-		{9000, "Ք"}, {8000, "Փ"}, {7000, "Ւ"}, {6000, "Ց"},
-		{5000, "Ր"}, {4000, "Տ"}, {3000, "Վ"}, {2000, "Ս"}, {1000, "Ռ"},
-		{900, "Ջ"}, {800, "Պ"}, {700, "Չ"}, {600, "Ո"},
-		{500, "Շ"}, {400, "Ն"}, {300, "Յ"}, {200, "Մ"}, {100, "Ճ"},
-		{90, "Ղ"}, {80, "Ձ"}, {70, "Հ"}, {60, "Կ"},
-		{50, "Ծ"}, {40, "Խ"}, {30, "Լ"}, {20, "Ի"}, {10, "Ժ"},
-		{9, "Թ"}, {8, "Ը"}, {7, "Է"}, {6, "Զ"},
-		{5, "Ե"}, {4, "Դ"}, {3, "Գ"}, {2, "Բ"}, {1, "Ա"},
+		{"Ք", 9000},
+		{"Փ", 8000},
+		{"Ւ", 7000},
+		{"Ց", 6000},
+		{"Ր", 5000},
+		{"Տ", 4000},
+		{"Վ", 3000},
+		{"Ս", 2000},
+		{"Ռ", 1000},
+		{"Ջ", 900},
+		{"Պ", 800},
+		{"Չ", 700},
+		{"Ո", 600},
+		{"Շ", 500},
+		{"Ն", 400},
+		{"Յ", 300},
+		{"Մ", 200},
+		{"Ճ", 100},
+		{"Ղ", 90},
+		{"Ձ", 80},
+		{"Հ", 70},
+		{"Կ", 60},
+		{"Ծ", 50},
+		{"Խ", 40},
+		{"Լ", 30},
+		{"Ի", 20},
+		{"Ժ", 10},
+		{"Թ", 9},
+		{"Ը", 8},
+		{"Է", 7},
+		{"Զ", 6},
+		{"Ե", 5},
+		{"Դ", 4},
+		{"Գ", 3},
+		{"Բ", 2},
+		{"Ա", 1},
 	}
 
 	decimalLeadingZero = nonRepeatingSymbols{
@@ -206,7 +277,6 @@ func abs(v int) int {
 // Implement the algorithm for `type: repeating`.
 func repeating(symbols []string, value int) (string, bool) {
 	return symbols[(value-1)%len(symbols)], true
-
 }
 
 // Implement the algorithm for `type: alphabetic`.
@@ -258,14 +328,12 @@ func additive(symbols []valueSymbol, value int) (string, bool) {
 		if value == 0 {
 			if isNegative {
 				parts = append(parts, suffix)
-
 			}
 			return strings.Join(parts, ""), true
 
 		}
 	}
 	return "", false //  Failed to find a representation for this value
-
 }
 
 // Return a representation of ``value`` formatted by ``counterStyle``
@@ -292,7 +360,6 @@ func Format(value int, counterStyle string) string {
 		failedStyles[counterStyle] = true
 		counterStyle = style.fallback
 	}
-
 }
 
 // Return a representation of ``value`` formatted for a list marker.

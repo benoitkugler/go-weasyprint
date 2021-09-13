@@ -109,7 +109,7 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 //                  the pages' boxes are created from that tree, i.e. this
 //                  structure is not lost during pagination
 // :returns: a list of laid out Page objects.
-func LayoutDocument(html tree.HTML, rootBox bo.InstanceBlockLevelBox, context *LayoutContext, maxLoops int) []*bo.PageBox {
+func LayoutDocument(html *tree.HTML, rootBox bo.InstanceBlockLevelBox, context *LayoutContext, maxLoops int) []*bo.PageBox {
 	initializePageMaker(context, *rootBox.Box())
 	if maxLoops == -1 {
 		maxLoops = 8 // default value

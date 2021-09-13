@@ -7,7 +7,7 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
@@ -62,7 +62,7 @@ func makeText(text string, width pr.MaybeFloat, style pr.Properties) Splitted {
 }
 
 func TestLineContent(t *testing.T) {
-	cl := utils.CaptureLogs()
+	cl := testutils.CaptureLogs()
 	defer cl.AssertNoLogs(t)
 
 	for _, v := range []struct {
@@ -81,7 +81,7 @@ func TestLineContent(t *testing.T) {
 }
 
 func TestLineWithAnyWidth(t *testing.T) {
-	cl := utils.CaptureLogs()
+	cl := testutils.CaptureLogs()
 	defer cl.AssertNoLogs(t)
 
 	sp1 := makeText("some text", nil, nil)
@@ -90,7 +90,7 @@ func TestLineWithAnyWidth(t *testing.T) {
 }
 
 func TestLineBreaking(t *testing.T) {
-	cl := utils.CaptureLogs()
+	cl := testutils.CaptureLogs()
 	defer cl.AssertNoLogs(t)
 
 	str := "Thïs is a text for test"
@@ -106,7 +106,7 @@ func TestLineBreaking(t *testing.T) {
 }
 
 func TestLineBreakingRTL(t *testing.T) {
-	cl := utils.CaptureLogs()
+	cl := testutils.CaptureLogs()
 	defer cl.AssertNoLogs(t)
 
 	str := "لوريم ايبسوم دولا"
@@ -119,7 +119,7 @@ func TestLineBreakingRTL(t *testing.T) {
 }
 
 func TestTextDimension(t *testing.T) {
-	cl := utils.CaptureLogs()
+	cl := testutils.CaptureLogs()
 	defer cl.AssertNoLogs(t)
 
 	str := "This is a text for test. This is a test for text.py"
