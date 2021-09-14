@@ -20,7 +20,7 @@ import (
 // :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
 
-const prefix = "-weasy-"
+const proprietaryPrefix = "-weasy-"
 
 var (
 	InvalidValue = errors.New("invalid or unsupported values for a known CSS property")
@@ -409,8 +409,8 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 			continue
 		}
 
-		if strings.HasPrefix(name, prefix) {
-			unprefixedName := strings.TrimPrefix(name, prefix)
+		if strings.HasPrefix(name, proprietaryPrefix) {
+			unprefixedName := strings.TrimPrefix(name, proprietaryPrefix)
 			if _, in := proprietary[unprefixedName]; in {
 				name = unprefixedName
 			} else if _, in := unstable[unprefixedName]; in {

@@ -126,6 +126,11 @@ type Value struct {
 	Dimension
 }
 
+type StringRange struct {
+	String string
+	Range  [2]int
+}
+
 type NamedProperty struct {
 	Name     string
 	Property ValidatedProperty
