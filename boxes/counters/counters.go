@@ -1,9 +1,12 @@
 package counters
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
+
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
 
 // Implement the various counter types and list-style-type values.
@@ -11,7 +14,47 @@ import (
 // These are defined in the same terms as CSS 3 Lists:
 // http://dev.w3.org/csswg/css3-lists/#predefined-counters
 
-type CounterStyle map[string]string
+type CounterStyle map[string]CounterStyleDescriptors
+
+type CounterStyleDescriptors struct {
+	Negative        [2]pr.NamedString
+	System          CounterStyleSystem
+	Prefix, Suffix  pr.NamedString
+	Range           []pr.StringRange
+	Fallback        string
+	Pad             pr.IntNamedString
+	Symbols         []pr.NamedString
+	AdditiveSymbols []pr.IntNamedString
+}
+
+func (desc *CounterStyleDescriptors) Validate() error {
+	system := desc.System
+	if system == (CounterStyleSystem{}) {
+		system = CounterStyleSystem{SecondKeyword: "symbolic"}
+	}
+	if system.Keyword == "" {
+		switch system.SecondKeyword {
+		case "cyclic", "fixed", "symbolic":
+			if len(desc.Symbols) == 0 {
+				return fmt.Errorf("counter style %s needs at least one symbol", system.SecondKeyword)
+			}
+		case "alphabetic", "numeric":
+			if len(desc.Symbols) < 2 {
+				return fmt.Errorf("counter style %s needs at least two symbols", system.SecondKeyword)
+			}
+		case "additive":
+			if len(desc.AdditiveSymbols) < 2 {
+				return fmt.Errorf("counter style %s needs at least two additive symbols", system.SecondKeyword)
+			}
+		}
+	}
+	return nil
+}
+
+type CounterStyleSystem struct {
+	Keyword, SecondKeyword string
+	Number                 int
+}
 
 type counterStyleDescriptor struct {
 	formatter counterImplementation

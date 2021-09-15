@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/logger"
 
@@ -283,7 +284,7 @@ func pageTypeMatch(selectorPageType pageSelector, pageType utils.PageElement) bo
 // Yield the stylesheets in ``elementTree``.
 // The output order is the same as the source order.
 func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, urlFetcher utils.UrlFetcher, baseUrl string,
-	fontConfig *text.FontConfiguration, pageRules *[]PageRule) (out []CSS) {
+	fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle, pageRules *[]PageRule) (out []CSS) {
 	sel := cascadia.MustCompile("style, link")
 	for _, _element := range sel.MatchAll((*html.Node)(wrapperElement)) {
 		element := (*utils.HTMLNode)(_element)
@@ -315,7 +316,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 			// ElementTree should give us either unicode or  ASCII-only
 			// bytestrings, so we don"t need `encoding` here.
 			css, err := NewCSS(utils.InputString(content), baseUrl, urlFetcher, false, deviceMediaType,
-				fontConfig, nil, pageRules)
+				fontConfig, nil, pageRules, counterStyle)
 			if err != nil {
 				log.Printf("Invalid style %s : %s \n", content, err)
 			} else {
@@ -329,7 +330,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 				href := element.GetUrlAttribute("href", baseUrl, false)
 				if href != "" {
 					css, err := NewCSS(utils.InputUrl(href), "", urlFetcher, true, deviceMediaType,
-						fontConfig, nil, pageRules)
+						fontConfig, nil, pageRules, counterStyle)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", href, err)
 					} else {
@@ -945,7 +946,8 @@ type PageRule struct {
 // in a document.
 // ignoreImports = false
 func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Token,
-	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]PageRule, fonts *[]string, fontConfig *text.FontConfiguration, ignoreImports bool) {
+	urlFetcher utils.UrlFetcher, matcher *matcher, pageRules *[]PageRule,
+	fonts *[]string, fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle, ignoreImports bool) {
 
 	for _, rule := range stylesheetRules {
 		if atRule, isAtRule := rule.(parser.AtRule); _isContentNone(rule) && (!isAtRule || atRule.AtKeyword.Lower() != "import") {
@@ -1010,7 +1012,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				url = utils.UrlJoin(baseUrl, url, false, "@import")
 				if url != "" {
 					_, err := NewCSS(utils.InputUrl(url), "", urlFetcher, false,
-						deviceMediaType, fontConfig, matcher, pageRules)
+						deviceMediaType, fontConfig, matcher, pageRules, counterStyle)
 					if err != nil {
 						log.Printf("Failed to load stylesheet at %s : %s \n", url, err)
 					}
@@ -1029,7 +1031,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				contentRules := parser.ParseRuleList(*rule.Content, false, false)
 				preprocessStylesheet(
 					deviceMediaType, baseUrl, contentRules, urlFetcher,
-					matcher, pageRules, fonts, fontConfig, true)
+					matcher, pageRules, fonts, fontConfig, counterStyle, true)
 			case "page":
 				data := parsePageSelectors(rule.QualifiedRule)
 				if data == nil {
@@ -1096,7 +1098,14 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 
 				ignoreImports = true
 				content := parser.ParseDeclarationList(*rule.Content, false, false)
+				desc := validation.PreprocessCounterStyleDescriptors(baseUrl, content)
 
+				if err := desc.Validate(); err != nil {
+					log.Printf("In counter style %s at %d:%d, %s", name, rule.Line, rule.Column, err)
+					continue
+				}
+
+				counterStyle[name] = desc
 			}
 		}
 	}
@@ -1127,7 +1136,11 @@ type sas struct {
 // presentationalHints=false
 func GetAllComputedStyles(html_ *HTML, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *text.FontConfiguration,
-	pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
+	counterStyle counters.CounterStyle, pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
+
+	if counterStyle == nil {
+		counterStyle = make(counters.CounterStyle)
+	}
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
@@ -1139,7 +1152,7 @@ func GetAllComputedStyles(html_ *HTML, userStylesheets []CSS,
 	}
 	htmlElement := html_.AsHTML()
 	authorShts := findStylesheets(htmlElement.Root, htmlElement.mediaType, htmlElement.UrlFetcher,
-		htmlElement.BaseUrl, fontConfig, pageRules)
+		htmlElement.BaseUrl, fontConfig, counterStyle, pageRules)
 	for _, sht := range authorShts {
 		sheets = append(sheets, sheet{sheet: sht, origin: "author", specificity: nil})
 	}

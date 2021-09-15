@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -19,15 +20,29 @@ import (
 // :copyright: Copyright 2011-2016 Simon Sapin && contributors, see AUTHORS.
 // :license: BSD, see LICENSE for details.
 
-var fontFaceDescriptors = map[string]fontFaceDescriptorParser{
-	"font-family":           fontFamilyDescriptor,
-	"src":                   src,
-	"font-style":            fontStyleDescriptor,
-	"font-weight":           fontWeightDescriptor,
-	"font-stretch":          fontStretchDescriptor,
-	"font-feature-settings": fontFeatureSettingsDescriptor,
-	"font-variant":          fontVariant,
-}
+var (
+	fontFaceDescriptors = map[string]fontFaceDescriptorParser{
+		"font-family":           fontFamilyDescriptor,
+		"src":                   src,
+		"font-style":            fontStyleDescriptor,
+		"font-weight":           fontWeightDescriptor,
+		"font-stretch":          fontStretchDescriptor,
+		"font-feature-settings": fontFeatureSettingsDescriptor,
+		"font-variant":          fontVariant,
+	}
+
+	counterStyleDescriptors = map[string]counterStyleDescriptorParser{
+		"system":           system,
+		"negative":         negative,
+		"prefix":           prefix,
+		"suffix":           suffix,
+		"range":            rangeD,
+		"pad":              pad,
+		"fallback":         fallback,
+		"symbols":          symbols,
+		"additive-symbols": additiveSymbols,
+	}
+)
 
 type FontFaceDescriptors struct {
 	Src                 []pr.NamedString
@@ -207,57 +222,20 @@ func fontVariant(tokens []Token, _ string, out *FontFaceDescriptors) error {
 	return nil
 }
 
-// Default validator for descriptors.
-func validate(baseUrl, name string, tokens []Token, out *FontFaceDescriptors) error {
-	function, ok := fontFaceDescriptors[name]
-	if !ok {
-		return errors.New("descriptor not supported")
-	}
-
-	err := function(tokens, baseUrl, out)
-	return err
-}
-
-// Filter unsupported names and values for descriptors.
-// Log a warning for every ignored descriptor.
-// Return a iterable of ``(name, value)`` tuples.
 func PreprocessFontFaceDescriptors(baseUrl string, descriptors []Token) FontFaceDescriptors {
 	var out FontFaceDescriptors
-	for _, descriptor := range descriptors {
-		decl, ok := descriptor.(parser.Declaration)
-		if !ok || decl.Important {
-			continue
-		}
-		tokens := RemoveWhitespace(decl.Value)
-		name := string(decl.Name)
-		err := validate(baseUrl, name, tokens, &out)
-		if err != nil {
-			log.Printf("Ignored `%s:%s` at %d:%d, %s.\n",
-				name, parser.Serialize(decl.Value), decl.Position().Line, decl.Position().Column, err)
-			continue
-		}
-	}
+	preprocessDescriptors(baseUrl, descriptors, &out)
 	return out
 }
 
 // counter-style
 
-type CounterStyleDescriptors struct {
-	Negative       [2]pr.NamedString
-	System         CounterStyleSystem
-	Prefix, Suffix pr.NamedString
-	Range          []pr.StringRange
-}
+type csDescriptors counters.CounterStyleDescriptors
 
-type counterStyleDescriptorParser = func(tokens []Token, baseUrl string, out *CounterStyleDescriptors) error
-
-type CounterStyleSystem struct {
-	keyword, secondKeyword string
-	number                 int
-}
+type counterStyleDescriptorParser = func(tokens []Token, baseUrl string, out *csDescriptors) error
 
 // ``system`` descriptor validation.
-func system(tokens []Token, _ string, out *CounterStyleDescriptors) error {
+func system(tokens []Token, _ string, out *csDescriptors) error {
 	if len(tokens) == 0 || len(tokens) > 2 {
 		return InvalidValue
 	}
@@ -267,21 +245,21 @@ func system(tokens []Token, _ string, out *CounterStyleDescriptors) error {
 		if len(tokens) == 2 {
 			secondKeyword := getKeyword(tokens[1])
 			if secondKeyword != "" {
-				out.System = CounterStyleSystem{keyword, secondKeyword, 0}
+				out.System = counters.CounterStyleSystem{Keyword: keyword, SecondKeyword: secondKeyword, Number: 0}
 				return nil
 			}
 		}
 	case "fixed":
 		if len(tokens) == 1 {
-			out.System = CounterStyleSystem{"", "fixed", 1}
+			out.System = counters.CounterStyleSystem{Keyword: "", SecondKeyword: "fixed", Number: 1}
 			return nil
 		} else if numb, ok := tokens[1].(parser.NumberToken); ok && numb.IsInteger {
-			out.System = CounterStyleSystem{"", "fixed", numb.IntValue()}
+			out.System = counters.CounterStyleSystem{Keyword: "", SecondKeyword: "fixed", Number: numb.IntValue()}
 			return nil
 		}
 	case "cyclic", "numeric", "alphabetic", "symbolic", "additive":
 		if len(tokens) == 1 {
-			out.System = CounterStyleSystem{"", keyword, 0}
+			out.System = counters.CounterStyleSystem{Keyword: "", SecondKeyword: keyword, Number: 0}
 			return nil
 		}
 	}
@@ -289,8 +267,24 @@ func system(tokens []Token, _ string, out *CounterStyleDescriptors) error {
 	return InvalidValue
 }
 
+// match a StringToken, IdentToken, or a valid url
+func stringIdentOrUrl(token Token, baseUrl string) (pr.NamedString, bool) {
+	switch token := token.(type) {
+	case parser.StringToken:
+		return pr.NamedString{Name: "string", String: token.Value}, true
+	case parser.IdentToken:
+		return pr.NamedString{Name: "string", String: string(token.Value)}, true
+	default:
+		url, _, _ := getUrl(token, baseUrl)
+		if url.Name == "url" {
+			return url, true
+		}
+	}
+	return pr.NamedString{}, false
+}
+
 // ``negative`` descriptor validation.
-func negative(tokens []Token, baseUrl string, out *CounterStyleDescriptors) error {
+func negative(tokens []Token, baseUrl string, out *csDescriptors) error {
 	if len(tokens) > 2 {
 		return InvalidValue
 	}
@@ -299,16 +293,8 @@ func negative(tokens []Token, baseUrl string, out *CounterStyleDescriptors) erro
 	for len(tokens) != 0 {
 		var token Token
 		token, tokens = tokens[len(tokens)-1], tokens[:len(tokens)-1]
-		switch token := token.(type) {
-		case parser.StringToken:
-			values = append(values, pr.NamedString{Name: "string", String: token.Value})
-		case parser.IdentToken:
-			values = append(values, pr.NamedString{Name: "string", String: string(token.Value)})
-		default:
-			url, _, _ := getUrl(token, baseUrl)
-			if url.Name == "url" {
-				values = append(values, pr.NamedString{Name: "url", String: url.String})
-			}
+		if p, ok := stringIdentOrUrl(token, baseUrl); ok {
+			values = append(values, p)
 		}
 	}
 
@@ -327,41 +313,32 @@ func negative(tokens []Token, baseUrl string, out *CounterStyleDescriptors) erro
 // @descriptor("counter-style", "prefix", wantsBaseUrl=true)
 // @descriptor("counter-style", "suffix", wantsBaseUrl=true)
 
-func prefix(tokens []Token, baseUrl string, out *CounterStyleDescriptors) (err error) {
+func prefix(tokens []Token, baseUrl string, out *csDescriptors) (err error) {
 	out.Prefix, err = _prefixSuffix(tokens, baseUrl)
 	return err
 }
 
-func suffix(tokens []Token, baseUrl string, out *CounterStyleDescriptors) (err error) {
+func suffix(tokens []Token, baseUrl string, out *csDescriptors) (err error) {
 	out.Suffix, err = _prefixSuffix(tokens, baseUrl)
 	return err
 }
 
 // ``prefix`` && ``suffix`` descriptors validation.
-func _prefixSuffix(tokens []Token, baseUrl string) (out pr.NamedString, err error) {
+func _prefixSuffix(tokens []Token, baseUrl string) (pr.NamedString, error) {
 	if len(tokens) != 1 {
-		return out, InvalidValue
+		return pr.NamedString{}, InvalidValue
 	}
 	token := tokens[0]
-	switch token := token.(type) {
-	case parser.StringToken:
-		return pr.NamedString{Name: "string", String: token.Value}, nil
-	case parser.IdentToken:
-		return pr.NamedString{Name: "string", String: string(token.Value)}, nil
-	default:
-		url, _, _ := getUrl(token, baseUrl)
-		if url.Name == "url" {
-			return pr.NamedString{Name: "url", String: url.String}, nil
-		}
+	if p, ok := stringIdentOrUrl(token, baseUrl); ok {
+		return p, nil
 	}
-
-	return out, InvalidValue
+	return pr.NamedString{}, InvalidValue
 }
 
 // @descriptor("counter-style")
 // @commaSeparatedList
 // ``range`` descriptor validation.
-func rangeD(tokens []Token, _ string, out *CounterStyleDescriptors) error {
+func rangeD(tokens []Token, _ string, out *csDescriptors) error {
 	for _, part := range SplitOnComma(tokens) {
 		result, err := range_(RemoveWhitespace(part))
 		if err != nil {
@@ -403,63 +380,136 @@ func range_(tokens []Token) (pr.StringRange, error) {
 }
 
 // @descriptor("counter-style", wantsBaseUrl=true)
-// // ``pad`` descriptor validation.
-// func pad(tokens []Token, baseUrl string) {
-// 	if len(tokens) == 2 {
-// 		values = [None, None]
-// 		for token := range tokens {
-// 			if token.type == "number" {
-// 				if token.isInteger && token.value >= 0 && values[0]  == nil  {
-// 					values[0] = token.intValue
-// 				}
-// 			} else if token.type := range ("string", "ident") {
-// 				values[1] = ("string", token.value)
-// 			} url = getUrl(token, baseUrl)
-// 			if url  != nil  && url[0] == "url" {
-// 				values[1] = ("url", url[1])
-// 			}
-// 		}
-// 	}
-// }
-// 		if None ! := range values {
-// 			return tuple(values)
-// 		}
+// ``pad`` descriptor validation.
+func pad(tokens []Token, baseUrl string, out *csDescriptors) error {
+	v, err := pad_(tokens, baseUrl)
+	if err != nil {
+		return err
+	}
+	out.Pad = v
+	return nil
+}
+
+func pad_(tokens []Token, baseUrl string) (out pr.IntNamedString, err error) {
+	var hasLength, hasSymbol bool
+
+	if len(tokens) != 2 {
+		return out, InvalidValue
+	}
+
+	for _, token := range tokens {
+		switch token := token.(type) {
+		case parser.NumberToken:
+			if token.IsInteger && token.Value >= 0 && !hasLength {
+				out.Int = token.IntValue()
+				hasLength = true
+			}
+		default:
+			if p, ok := stringIdentOrUrl(token, baseUrl); ok {
+				out.NamedString = p
+				hasSymbol = true
+			}
+		}
+	}
+
+	if !(hasLength && hasSymbol) {
+		return out, InvalidValue
+	}
+
+	return out, nil
+}
 
 // @descriptor("counter-style")
 // @singleToken
-// // ``fallback`` descriptor validation.
-// func fallback(token) {
-// 	ident = getCustomIdent(token)
-// 	if ident != "none" {
-// 		return ident
-// 	}
-// }
+// ``fallback`` descriptor validation.
+func fallback(tokens []Token, _ string, out *csDescriptors) error {
+	if len(tokens) != 1 {
+		return InvalidValue
+	}
+	token := tokens[0]
+	ident := getCustomIdent(token)
+	if ident == "none" {
+		return InvalidValue
+	}
+	out.Fallback = ident
+	return nil
+}
 
 // @descriptor("counter-style", wantsBaseUrl=true)
-// // ``symbols`` descriptor validation.
-// func symbols(tokens []Token, baseUrl string) {
-// 	values = []
-// 	for token := range tokens {
-// 		if token.type := range ("string", "ident") {
-// 			values.append(("string", token.value))
-// 			continue
-// 		} url = getUrl(token, baseUrl)
-// 		if url  != nil  && url[0] == "url" {
-// 			values.append(("url", url[1]))
-// 			continue
-// 		} return
-// 	} return tuple(values)
-// }
+// ``symbols`` descriptor validation.
+func symbols(tokens []Token, baseUrl string, out *csDescriptors) error {
+	for _, token := range tokens {
+		if p, ok := stringIdentOrUrl(token, baseUrl); ok {
+			out.Symbols = append(out.Symbols, p)
+		} else {
+			return InvalidValue
+		}
+	}
+	return nil
+}
 
 // @descriptor("counter-style", wantsBaseUrl=true)
-// // ``additive-symbols`` descriptor validation.
-// func additiveSymbols(tokens []Token, baseUrl string) {
-// 	results = []
-// 	for part := range splitOnComma(tokens) {
-// 		result = pad(removeWhitespace(part), baseUrl)
-// 		if result  == nil  {
-// 			return
-// 		} if results && results[-1][0] <= result[0] {
-// 			return
-// 		} results.append(result)
-// 	} return tuple(results)
+// ``additive-symbols`` descriptor validation.
+func additiveSymbols(tokens []Token, baseUrl string, out *csDescriptors) error {
+	for _, part := range SplitOnComma(tokens) {
+		result, err := pad_(RemoveWhitespace(part), baseUrl)
+		if err != nil {
+			return err
+		}
+		if L := len(out.AdditiveSymbols); L != 0 && out.AdditiveSymbols[L-1].Int <= result.Int {
+			return InvalidValue
+		}
+		out.AdditiveSymbols = append(out.AdditiveSymbols, result)
+	}
+	return nil
+}
+
+func PreprocessCounterStyleDescriptors(baseUrl string, descriptors []Token) counters.CounterStyleDescriptors {
+	var out counters.CounterStyleDescriptors
+	preprocessDescriptors(baseUrl, descriptors, (*csDescriptors)(&out))
+	return out
+}
+
+type parsedDescriptor interface {
+	validateDescriptor(baseUrl, name string, tokens []Token) error
+}
+
+// Default validator for descriptors.
+func (d *FontFaceDescriptors) validateDescriptor(baseUrl, name string, tokens []Token) error {
+	function, ok := fontFaceDescriptors[name]
+	if !ok {
+		return errors.New("descriptor not supported")
+	}
+
+	err := function(tokens, baseUrl, d)
+	return err
+}
+
+func (d *csDescriptors) validateDescriptor(baseUrl, name string, tokens []Token) error {
+	function, ok := counterStyleDescriptors[name]
+	if !ok {
+		return errors.New("descriptor not supported")
+	}
+
+	err := function(tokens, baseUrl, d)
+	return err
+}
+
+// Filter unsupported names and values for descriptors.
+// Log a warning for every ignored descriptor.
+func preprocessDescriptors(baseUrl string, descriptors []Token, out parsedDescriptor) {
+	for _, descriptor := range descriptors {
+		decl, ok := descriptor.(parser.Declaration)
+		if !ok || decl.Important {
+			continue
+		}
+		tokens := RemoveWhitespace(decl.Value)
+		name := string(decl.Name)
+		err := out.validateDescriptor(baseUrl, name, tokens)
+		if err != nil {
+			log.Printf("Ignored `%s:%s` at %d:%d, %s.\n",
+				name, parser.Serialize(decl.Value), decl.Position().Line, decl.Position().Column, err)
+			continue
+		}
+	}
+}

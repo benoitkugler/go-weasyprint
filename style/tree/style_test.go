@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 
@@ -32,7 +33,7 @@ func TestDescriptors(t *testing.T) {
 	logs := testutils.CaptureLogs()
 	var descriptors []string
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
-		&descriptors, nil, false)
+		&descriptors, nil, nil, false)
 	if len(descriptors) > 0 {
 		t.Fatalf("expected empty descriptors, got %v", descriptors)
 	}
@@ -43,7 +44,7 @@ func TestDescriptors(t *testing.T) {
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face{src: url(test.woff)}"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
-		&descriptors, nil, false)
+		&descriptors, nil, nil, false)
 	if len(descriptors) > 0 {
 		t.Fatalf("expected empty descriptors, got %v", descriptors)
 	}
@@ -54,7 +55,7 @@ func TestDescriptors(t *testing.T) {
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face{font-family: test}"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
-		&descriptors, nil, false)
+		&descriptors, nil, nil, false)
 	if len(descriptors) > 0 {
 		t.Fatalf("expected empty descriptors, got %v", descriptors)
 	}
@@ -65,7 +66,7 @@ func TestDescriptors(t *testing.T) {
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: test; src: wrong }"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
-		&descriptors, nil, false)
+		&descriptors, nil, nil, false)
 	if len(descriptors) > 0 {
 		t.Fatalf("expected empty descriptors, got %v", descriptors)
 	}
@@ -77,7 +78,7 @@ func TestDescriptors(t *testing.T) {
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: good, bad; src: url(test.woff) }"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
-		&descriptors, nil, false)
+		&descriptors, nil, nil, false)
 	if len(descriptors) > 0 {
 		t.Fatalf("expected empty descriptors, got %v", descriptors)
 	}
@@ -89,7 +90,7 @@ func TestDescriptors(t *testing.T) {
 	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: good, bad; src: really bad }"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
-		&descriptors, nil, false)
+		&descriptors, nil, nil, false)
 	if len(descriptors) > 0 {
 		t.Fatalf("expected empty descriptors, got %v", descriptors)
 	}
@@ -118,7 +119,7 @@ func TestFindStylesheets(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := fakeHTML(*html_)
-	sheets := findStylesheets(html.Root, "print", utils.DefaultUrlFetcher, html.BaseUrl, nil, nil)
+	sheets := findStylesheets(html.Root, "print", utils.DefaultUrlFetcher, html.BaseUrl, nil, nil, nil)
 
 	if len(sheets) != 2 {
 		t.Errorf("expected 2 sheets, got %d", len(sheets))
@@ -236,7 +237,7 @@ func TestAnnotateDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil)
+	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil, nil)
 	// Element objects behave as lists of their children
 	body := document.Root.NodeChildren(true)[1]
 	children := body.NodeChildren(true)
@@ -344,7 +345,7 @@ func TestPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil)
+	styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil)
 
 	pageType := utils.PageElement{Side: "left", First: true, Blank: false, Index: 0, Name: ""}
 	styleFor.SetPageTypeComputedStyles(pageType, document)
@@ -535,7 +536,7 @@ func TestWarningsStylesheet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	GetAllComputedStyles(html, nil, false, nil, nil, nil)
+	GetAllComputedStyles(html, nil, false, nil, nil, nil, nil)
 	logs := capt.Logs()
 	if len(logs) != 1 {
 		t.Fatalf("expected exactly 1 log, got %d", len(logs))
@@ -590,7 +591,7 @@ func TestFontSize(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil)
+		styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil)
 		body := document.Root.NodeChildren(true)[1]
 		p := body.NodeChildren(true)[0]
 		span := p.NodeChildren(true)[1]
@@ -602,6 +603,29 @@ func TestFontSize(t *testing.T) {
 		}
 	}
 	capt.AssertNoLogs(t)
+}
+
+func TestCounterStyleInvalid(t *testing.T) {
+	inputs := []string{
+		"@counter-style test {system: alphabetic; symbols: a}",
+		"@counter-style test {system: cyclic}",
+		"@counter-style test {system: additive; additive-symbols: a 1}",
+		"@counter-style test {system: additive; additive-symbols: 10 x, 1 i, 5 v}",
+	}
+	for _, rule := range inputs {
+		stylesheet := parser.ParseStylesheet2([]byte(rule), false, false)
+		cp := testutils.CaptureLogs()
+
+		var fonts []string
+		preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
+			&fonts, nil, make(counters.CounterStyle), false)
+		if len(fonts) != 0 {
+			t.Fatal("expected no fonts")
+		}
+		if len(cp.Logs()) == 0 {
+			t.Fatal("expected logs")
+		}
+	}
 }
 
 // TODO: a déplacer dans la partie qui implémente render()

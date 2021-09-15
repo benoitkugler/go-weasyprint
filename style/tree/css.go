@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/logger"
 
@@ -65,7 +66,7 @@ type CSS struct {
 func NewCSS(input utils.ContentInput, baseUrl string,
 	urlFetcher utils.UrlFetcher, checkMimeType bool,
 	mediaType string, fontConfig *text.FontConfiguration, matcher *matcher,
-	pageRules *[]PageRule) (CSS, error) {
+	pageRules *[]PageRule, counterStyle counters.CounterStyle) (CSS, error) {
 
 	logger.ProgressLogger.Printf("Step 2 - Fetching and parsing CSS - %s", input)
 
@@ -92,7 +93,7 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 	fts := &[]string{}
 	out := CSS{baseUrl: ressource.BaseUrl}
 	preprocessStylesheet(mediaType, ressource.BaseUrl, stylesheet, urlFetcher, matcher,
-		pageRules, fts, fontConfig, false)
+		pageRules, fts, fontConfig, counterStyle, false)
 	out.Matcher = *matcher
 	out.pageRules = *pageRules
 	out.fonts = *fts
@@ -100,7 +101,7 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 }
 
 func NewCSSDefault(input utils.ContentInput) (CSS, error) {
-	return NewCSS(input, "", nil, false, "", nil, nil, nil)
+	return NewCSS(input, "", nil, false, "", nil, nil, nil, nil)
 }
 
 func (c CSS) IsNone() bool {

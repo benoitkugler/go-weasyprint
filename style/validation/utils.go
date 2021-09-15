@@ -787,7 +787,7 @@ func ParseCounterStyleName(tokens []parser.Token, cs counters.CounterStyle) stri
 		return ""
 	}
 
-	token := tokens[1]
+	token := tokens[0]
 	if ident, ok := token.(parser.IdentToken); ok {
 		if v := ident.Value.Lower(); v == "decimal" || v == "disc" {
 			if _, ok := cs[v]; !ok {

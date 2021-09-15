@@ -119,6 +119,11 @@ type IntString struct {
 	Int    int
 }
 
+type IntNamedString struct {
+	NamedString
+	Int int
+}
+
 type String string
 
 type Value struct {
