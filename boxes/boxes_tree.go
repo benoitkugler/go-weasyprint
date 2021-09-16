@@ -43,12 +43,13 @@ type TextBox struct {
 	JustificationSpacing pr.Float
 }
 
-type AtomicInlineLevelBox struct {
-	InlineLevelBox
+func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
+	out := NewTextBox(parent.Box().ElementTag, style, text)
+	return &out
 }
 
 type InlineBlockBox struct {
-	AtomicInlineLevelBox
 	BoxFields
 }
 
@@ -63,8 +64,13 @@ type BlockReplacedBox struct {
 }
 
 type InlineReplacedBox struct {
-	AtomicInlineLevelBox
 	ReplacedBox
+}
+
+func InlineReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *InlineReplacedBox {
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
+	out := NewInlineReplacedBox(parent.Box().ElementTag, style, replacement)
+	return &out
 }
 
 type TableBox struct {
@@ -138,21 +144,12 @@ func IsBox(b Box) bool {
 	return is
 }
 
-type InstanceBlockLevelBox interface {
-	instanceBlockLevelBox
-	Box
+type methodsBlockLevelBox interface {
 	BlockLevel() *BlockLevelBox
 }
 
 func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
 	return b
-}
-
-type InstanceBlockBox interface {
-	instanceBlockBox
-	Box
-	Type() BoxType
-	BlockLevel() *BlockLevelBox
 }
 
 func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBox {
@@ -265,9 +262,7 @@ func NewReplacedBox(elementTag string, style pr.Properties, replacement images.I
 	return out
 }
 
-type InstanceReplacedBox interface {
-	instanceReplacedBox
-	Box
+type methodsReplacedBox interface {
 	Replaced() *ReplacedBox
 }
 
@@ -289,9 +284,7 @@ func (u InlineReplacedBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.ReplacedBox.RemoveDecoration(b, start, end)
 }
 
-type InstanceTableBox interface {
-	instanceTableBox
-	Box
+type methodsTableBox interface {
 	Table() *TableBox
 }
 

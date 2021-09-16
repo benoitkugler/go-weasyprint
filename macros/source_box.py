@@ -1,4 +1,4 @@
-class Box(object):
+class Box:
     """Abstract base class for all boxes."""
     # Definitions for the rules generating anonymous table boxes
     # http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
@@ -15,29 +15,34 @@ class Box(object):
     is_flex_item = False
     is_for_root_element = False
     is_column = False
+    is_leader = False
+    is_attachment = False
 
     # Other properties
     transformation_matrix = None
     bookmark_label = None
     string_set = None
+    download_name = None
 
     # Default, overriden on some subclasses
     def all_children(self):
         return ()
 
-    def __init__(self, element_tag, style):
+    def __init__(self, element_tag, style, element):
         self.element_tag = element_tag
+        self.element = element
         self.style = style
+        self.remove_decoration_sides = set()
 
     def __repr__(self):
-        return '<%s %s>' % (type(self).__name__, self.element_tag)
+        return f'<{type(self).__name__} {self.element_tag}>'
 
     @classmethod
     def anonymous_from(cls, parent, *args, **kwargs):
         """Return an anonymous box that inherits from ``parent``."""
         style = computed_from_cascaded(
             cascaded={}, parent_style=parent.style, element=None)
-        return cls(parent.element_tag, style, *args, **kwargs)
+        return cls(parent.element_tag, style, parent.element, *args, **kwargs)
 
     def copy(self):
         """Return shallow copy of the box."""
@@ -234,8 +239,8 @@ class Box(object):
 class ParentBox(Box):
     """A box that has children."""
 
-    def __init__(self, element_tag, style, children):
-        super(ParentBox, self).__init__(element_tag, style)
+    def __init__(self, element_tag, style, element, children):
+        super().__init__(element_tag, style, element)
         self.children = tuple(children)
 
     def all_children(self):
@@ -243,41 +248,28 @@ class ParentBox(Box):
 
     def _reset_spacing(self, side):
         """Set to 0 the margin, padding and border of ``side``."""
-        self.style['margin_%s' % side] = Dimension(0, 'px')
-        self.style['padding_%s' % side] = Dimension(0, 'px')
-        self.style['border_%s_width' % side] = 0
-        if side in ('top', 'bottom'):
-            self.style['border_%s_left_radius' % side] = (
-                Dimension(0, 'px'), Dimension(0, 'px'))
-            self.style['border_%s_right_radius' % side] = (
-                Dimension(0, 'px'), Dimension(0, 'px'))
-        else:
-            self.style['border_bottom_%s_radius' % side] = (
-                Dimension(0, 'px'), Dimension(0, 'px'))
-            self.style['border_top_%s_radius' % side] = (
-                Dimension(0, 'px'), Dimension(0, 'px'))
-        setattr(self, 'margin_%s' % side, 0)
-        setattr(self, 'padding_%s' % side, 0)
-        setattr(self, 'border_%s_width' % side, 0)
+        self.remove_decoration_sides.add(side)
+        setattr(self, f'margin_{side}', 0)
+        setattr(self, f'padding_{side}', 0)
+        setattr(self, f'border_{side}_width', 0)
 
-    def _remove_decoration(self, start, end):
-        if start or end:
-            old_style = self.style
-            self.style = self.style.copy()
+    def remove_decoration(self, start, end):
+        if self.style['box_decoration_break'] == 'clone':
+            return
         if start:
             self._reset_spacing('top')
         if end:
             self._reset_spacing('bottom')
-        if (start or end) and old_style == self.style:
-            # Don't copy style if there's no need to, save some memory
-            self.style = old_style
 
-    def copy_with_children(self, new_children, is_start=True, is_end=True):
+    def copy_with_children(self, new_children):
         """Create a new equivalent box with given ``new_children``."""
         new_box = self.copy()
         new_box.children = tuple(new_children)
-        if self.style['box_decoration_break'] == 'slice':
-            new_box._remove_decoration(not is_start, not is_end)
+
+        # Clear and reset removed decorations as we don't want to keep the
+        # previous data, for example when a box is split between two pages.
+        self.remove_decoration_sides = set()
+
         return new_box
 
     def deepcopy(self):
@@ -289,7 +281,7 @@ class ParentBox(Box):
         """A flat generator for a box, its children and descendants."""
         yield self
         for child in self.children:
-            if hasattr(child, 'descendants'):
+            if isinstance(child, ParentBox):
                 for grand_child in child.descendants():
                     yield grand_child
             else:
@@ -297,19 +289,24 @@ class ParentBox(Box):
 
     def get_wrapped_table(self):
         """Get the table wrapped by the box."""
-        if self.is_table_wrapper:
-            for child in self.children:
-                if isinstance(child, TableBox):
-                    return child
-            else:  # pragma: no cover
-                raise ValueError('Table wrapper without a table')
+        assert self.is_table_wrapper
+        for child in self.children:
+            if isinstance(child, TableBox):
+                return child
+        else:  # pragma: no cover
+            raise ValueError('Table wrapper without a table')
 
     def page_values(self):
-        start_value, end_value = super(ParentBox, self).page_values()
+        start_value, end_value = super().page_values()
         if self.children:
-            start_box, end_box = self.children[0], self.children[-1]
-            start_value = start_box.page_values()[0] or start_value
-            end_value = end_box.page_values()[1] or end_value
+            if len(self.children) == 1:
+                page_values = self.children[0].page_values()
+                start_value = page_values[0] or start_value
+                end_value = page_values[1] or end_value
+            else:
+                start_box, end_box = self.children[0], self.children[-1]
+                start_value = start_box.page_values()[0] or start_value
+                end_value = end_box.page_values()[1] or end_value
         return start_value, end_value
 
 
@@ -356,6 +353,7 @@ class LineBox(ParentBox):
 
     """
     text_overflow = 'clip'
+    block_ellipsis = 'none'
 
     @classmethod
     def anonymous_from(cls, parent, *args, **kwargs):
@@ -376,18 +374,14 @@ class InlineLevelBox(Box):
 
     """
 
-    def _remove_decoration(self, start, end):
-        if start or end:
-            old_style = self.style
-            self.style = self.style.copy()
+    def remove_decoration(self, start, end):
+        if self.style['box_decoration_break'] == 'clone':
+            return
         ltr = self.style['direction'] == 'ltr'
         if start:
             self._reset_spacing('left' if ltr else 'right')
         if end:
             self._reset_spacing('right' if ltr else 'left')
-        if (start or end) and old_style == self.style:
-            # Don't copy style if there's no need to, save some memory
-            self.style = old_style
 
 
 class InlineBox(InlineLevelBox, ParentBox):
@@ -416,15 +410,15 @@ class TextBox(InlineLevelBox):
 
     """
     justification_spacing = 0
-    text = ""
 
     # http://stackoverflow.com/questions/16317534/
-    ascii_to_wide = dict((i, chr(i + 0xfee0)) for i in range(0x21, 0x7f))
+    ascii_to_wide = {i: chr(i + 0xfee0) for i in range(0x21, 0x7f)}
     ascii_to_wide.update({0x20: '\u3000', 0x2D: '\u2212'})
 
-    def __init__(self, element_tag, style, text):
+    def __init__(self, element_tag, style, element, text):
         assert text
-        super(TextBox, self).__init__(element_tag, style)
+        super().__init__(element_tag, style, element)
+        self.original_text = text
         text_transform = style['text_transform']
         if text_transform != 'none':
             text = {
@@ -473,8 +467,8 @@ class ReplacedBox(Box):
 
     """
 
-    def __init__(self, element_tag, style, replacement):
-        super(ReplacedBox, self).__init__(element_tag, style)
+    def __init__(self, element_tag, style, element, replacement):
+        super().__init__(element_tag, style, element)
         self.replacement = replacement
 
 
@@ -507,11 +501,9 @@ class TableBox(BlockLevelBox, ParentBox):
         return itertools.chain(self.children, self.column_groups)
 
     def translate(self, dx=0, dy=0, ignore_floats=False):
-        if dx == 0 and dy == 0:
-            return
         self.column_positions = [
             position + dx for position in self.column_positions]
-        return super(TableBox, self).translate(dx, dy, ignore_floats)
+        return super().translate(dx, dy, ignore_floats)
 
     def page_values(self):
         return (self.style['page'], self.style['page'])
@@ -591,10 +583,9 @@ class TableColumnBox(ParentBox):
     def get_cells(self):
         """Return cells that originate in the column.
 
-        May be overriden on instances.
+        Is set on instances.
 
         """
-        return []
 
 
 class TableCellBox(BlockContainerBox):
@@ -624,11 +615,11 @@ class PageBox(ParentBox):
     def __init__(self, page_type, style):
         self.page_type = page_type
         # Page boxes are not linked to any element.
-        super(PageBox, self).__init__(
-            element_tag=None, style=style, children=[])
+        super().__init__(
+            element_tag=None, style=style, element=None, children=[])
 
     def __repr__(self):
-        return '<%s %s>' % (type(self).__name__, self.page_type)
+        return f'<{type(self).__name__} {self.page_type}>'
 
 
 class MarginBox(BlockContainerBox):
@@ -637,11 +628,11 @@ class MarginBox(BlockContainerBox):
     def __init__(self, at_keyword, style):
         self.at_keyword = at_keyword
         # Margin boxes are not linked to any element.
-        super(MarginBox, self).__init__(
-            element_tag=None, style=style, children=[])
+        super().__init__(
+            element_tag=None, style=style, element=None, children=[])
 
     def __repr__(self):
-        return '<%s %s>' % (type(self).__name__, self.at_keyword)
+        return f'<{type(self).__name__} {self.at_keyword}>'
 
 
 class FlexContainerBox(ParentBox):

@@ -63,9 +63,6 @@ import (
 //    ... with various combinations of both.
 //
 //    See respective docstrings for details.
-//
-//    :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-//    :license: BSD, see LICENSE for details.
 
 // http://stackoverflow.com/questions/16317534/
 var asciiToWide = map[rune]rune{}
@@ -86,13 +83,18 @@ func (mp MaybePoint) V() Point {
 	return Point{mp[0].V(), mp[1].V()}
 }
 
+// Very common usage
+type Box = BoxITF
+
 // Box is the common interface grouping all possible boxes
-type Box interface {
+type methodsBox interface {
 	tree.Box
+
+	Type() BoxType
 
 	Box() *BoxFields
 	Copy() Box
-	String() string
+	// String() string
 	IsProperChild(Box) bool
 	AllChildren() []Box
 	// ignoreFloats = false
@@ -102,7 +104,7 @@ type Box interface {
 }
 
 // BoxType enables passing type as value
-type BoxType interface {
+type BoxTypeOld interface {
 	// Returns true if box is of type (or subtype) BoxType
 	IsInstance(box Box) bool
 
@@ -110,9 +112,9 @@ type BoxType interface {
 }
 
 type Background struct {
-	Color          parser.RGBA
-	Layers         []BackgroundLayer
 	ImageRendering pr.String
+	Layers         []BackgroundLayer
+	Color          parser.RGBA
 }
 
 type Area struct {
@@ -121,8 +123,8 @@ type Area struct {
 }
 
 type Position struct {
-	String string
 	Point  MaybePoint
+	String string
 }
 
 type Repeat struct {
@@ -132,13 +134,13 @@ type Repeat struct {
 
 type BackgroundLayer struct {
 	Image           images.Image
-	Size            pr.Size
 	Position        Position
 	Repeat          Repeat
-	Unbounded       bool
+	ClippedBoxes    []RoundedBox
+	Size            pr.Size
 	PaintingArea    Area
 	PositioningArea Area
-	ClippedBoxes    []RoundedBox
+	Unbounded       bool
 }
 
 // BoxFields is an abstract base class for all boxes.
@@ -228,6 +230,8 @@ func (box *BoxFields) IsProperChild(b Box) bool {
 // Implements layout interface
 func (*BoxFields) IsContainingBlock() {}
 
+func (*BoxFields) isBox() {}
+
 // ----------------------- needed by target ----------------------
 
 func (box *BoxFields) CachedCounterValues() tree.CounterValues {
@@ -274,10 +278,10 @@ func Descendants(b Box) []Box {
 	return out
 }
 
-func (b BoxFields) GetWrappedTable() InstanceTableBox {
+func (b BoxFields) GetWrappedTable() TableBoxITF {
 	if b.IsTableWrapper {
 		for _, child := range b.Children {
-			if asTable, ok := child.(InstanceTableBox); ok {
+			if asTable, ok := child.(TableBoxITF); ok {
 				return asTable
 			}
 		}

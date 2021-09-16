@@ -15,6 +15,8 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
+
+	_ "embed"
 )
 
 var html5UAStylesheet, html5PHStylesheet CSS
@@ -22,9 +24,12 @@ var html5UAStylesheet, html5PHStylesheet CSS
 // TestUAStylesheet is a lightweight style sheet
 var TestUAStylesheet CSS
 
+//go:embed tests_ua.css
+var testUAStylesheet string
+
 func init() {
 	var err error
-	TestUAStylesheet, err = NewCSSDefault(utils.InputFilename("tests_ua.css"))
+	TestUAStylesheet, err = NewCSSDefault(utils.InputString(testUAStylesheet))
 	if err != nil {
 		log.Fatal(err)
 	}

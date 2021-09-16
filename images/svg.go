@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	re1 = regexp.MustCompile("(?<!e)-")
+	// re1 = regexp.MustCompile("(?<!e)-")
 	re2 = regexp.MustCompile("[ \n\r\t,]+")
-	re3 = regexp.MustCompile(`(\.[0-9-]+)(?=\.)`)
+	// re3 = regexp.MustCompile(`(\.[0-9-]+)(?=\.)`)
 
 	UNITS = map[string]float64{
 		"mm": 1 / 25.4,
@@ -28,9 +28,9 @@ var (
 // Normalize a string corresponding to an array of various values.
 func normalize(str string) string {
 	str = strings.ReplaceAll(str, "E", "e")
-	str = re1.ReplaceAllString(str, " -")
+	// str = re1.ReplaceAllString(str, " -") // TODO:
 	str = re2.ReplaceAllString(str, " ")
-	str = re3.ReplaceAllString(str, `\1 `)
+	// str = re3.ReplaceAllString(str, `\1 `)  // TODO:
 	return strings.TrimSpace(str)
 }
 

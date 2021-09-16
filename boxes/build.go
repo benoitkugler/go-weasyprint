@@ -47,8 +47,10 @@ var (
 )
 
 func init() {
-	styles := []pr.String{"hidden", "double", "solid", "dashed", "dotted", "ridge",
-		"outset", "groove", "inset", "none"}
+	styles := []pr.String{
+		"hidden", "double", "solid", "dashed", "dotted", "ridge",
+		"outset", "groove", "inset", "none",
+	}
 	N := len(styles) - 1
 	for i, v := range styles {
 		styleScores[v] = float64(N - i)
@@ -86,8 +88,10 @@ func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.Properties
 
 // Build a formatting structure (box tree) from an element tree.
 func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri Gifu,
-	baseUrl string, targetCollector *tree.TargetCollector) InstanceBlockLevelBox {
+	baseUrl string, targetCollector *tree.TargetCollector) BlockLevelBoxITF {
+
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, targetCollector, nil)
+
 	var box Box
 	if len(boxList) > 0 {
 		box = boxList[0]
@@ -102,10 +106,11 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 	// If this is changed, maybe update layout.pages.makeMarginBoxes()
 	ProcessWhitespace(box, false)
 	box = AnonymousTableBoxes(box)
+	fmt.Println(box.Box().Children)
 	box = InlineInBlock(box)
 	box = BlockInInline(box)
 	box = setViewportOverflow(box)
-	return box.(InstanceBlockLevelBox)
+	return box.(BlockLevelBoxITF)
 }
 
 // Maps values of the ``display`` CSS property to box types.
@@ -257,13 +262,14 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 
 	// Scopes created by this element’s children stop here.
 	cs := state.CounterScopes[len(state.CounterScopes)-1]
-	state.CounterScopes = state.CounterScopes[:len(state.CounterScopes)-2]
+	state.CounterScopes = state.CounterScopes[:len(state.CounterScopes)-1]
 	for name := range cs {
-		counterValues[name] = counterValues[name][:len(counterValues[name])-2]
+		counterValues[name] = counterValues[name][:len(counterValues[name])-1]
 		if len(counterValues[name]) == 0 {
 			delete(counterValues, name)
 		}
 	}
+
 	box.Box().Children = children
 	// calculate string-set and bookmark-label
 	setContentLists(element, box, style, counterValues, targetCollector)
@@ -437,7 +443,7 @@ func collectMissingTargetCounter(counterName string, lookupCounterValues tree.Co
 // required reparsing.
 func computeContentList(contentList pr.ContentProperties, parentBox Box, counterValues tree.CounterValues,
 	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector,
-	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page Box, element *utils.HTMLNode) []Box {
+	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page Box, _ *utils.HTMLNode) []Box {
 
 	// TODO: Some computation done here may be done in computed_values
 	// instead. We currently miss at least style_for, counters and quotes
@@ -775,7 +781,6 @@ func computeBookmarkLabel(element *utils.HTMLNode, box Box, contentList pr.Conte
 		}
 	}
 	box.Box().BookmarkLabel = builder.String()
-
 }
 
 // Set the content-lists values.
@@ -894,7 +899,7 @@ func wrapImproper(box Box, children []Box, boxType BoxType, test func(Box) bool)
 //
 //See http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 func AnonymousTableBoxes(box Box) Box {
-	if !IsParentBox(box) {
+	if !TypeParentBox.IsInstance(box) {
 		return box
 	}
 
@@ -909,6 +914,7 @@ func AnonymousTableBoxes(box Box) Box {
 
 // Internal implementation of AnonymousTableBoxes().
 func tableBoxesChildren(box Box, children []Box) Box {
+	fmt.Println(box.Type(), len(children))
 	if TypeTableColumnBox.IsInstance(box) { // rule 1.1
 		// Remove all children.
 		children = nil
@@ -926,7 +932,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 		// one column child.
 		if len(children) == 0 {
 			for i := 0; i < box.Box().span; i++ {
-				children = append(children, TypeTableColumnBox.AnonymousFrom(box, nil))
+				children = append(children, TableColumnBoxAnonymousFrom(box, nil))
 			}
 		}
 	}
@@ -956,13 +962,18 @@ func tableBoxesChildren(box Box, children []Box) Box {
 	}
 
 	newChildren, maxIndex := make([]Box, 0, len(children)), len(children)-1
+	fmt.Println(children)
 	for index, child := range children {
 		// Ignore some whitespace: rule 1.4
-		if !(index != 0 && index != maxIndex) {
-			prevChild, nextChild := children[index-1], children[index+1]
-			if prevChild != nil && prevChild.Box().internalTableOrCaption && nextChild != nil && nextChild.Box().internalTableOrCaption && isWhitespace(child, nil) {
-				newChildren = append(newChildren, child)
-			}
+		var prevChild, nextChild Box
+		if index != 0 {
+			prevChild = children[index-1]
+		}
+		if index != maxIndex {
+			nextChild = children[index+1]
+		}
+		if !(prevChild != nil && prevChild.Box().internalTableOrCaption && nextChild != nil && nextChild.Box().internalTableOrCaption && isWhitespace(child, nil)) {
+			newChildren = append(newChildren, child)
 		}
 	}
 	children = newChildren
@@ -1000,7 +1011,9 @@ func tableBoxesChildren(box Box, children []Box) Box {
 				return !child.Box().properTableChild || child.IsProperChild(box)
 			})
 	}
-	if tableBox, ok := box.(InstanceTableBox); ok {
+
+	fmt.Println(children)
+	if tableBox, ok := box.(TableBoxITF); ok {
 		return wrapTable(tableBox, children)
 	} else {
 		box.Box().Children = children
@@ -1016,7 +1029,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 // http://www.w3.org/TR/CSS21/tables.html#table-layout
 //
 // wrapTable will panic if box's children are not table boxes
-func wrapTable(box InstanceTableBox, children []Box) Box {
+func wrapTable(box TableBoxITF, children []Box) Box {
 	// Group table children by type
 	var columns, rows, allCaptions []Box
 	byType := func(child Box) *[]Box {
@@ -1144,7 +1157,7 @@ func wrapTable(box InstanceTableBox, children []Box) Box {
 			gridHeight += len(groupChildren)
 		}
 	}
-	table := CopyWithChildren(box, rowGroups, true, true).(InstanceTableBox)
+	table := CopyWithChildren(box, rowGroups, true, true).(TableBoxITF)
 	tableBox := table.Table()
 	tableBox.ColumnGroups = columnGroups
 	if tableBox.Style.GetBorderCollapse() == "collapse" {
@@ -1178,8 +1191,8 @@ func (s Score) Lower(other Score) bool {
 }
 
 type Border struct {
-	Score Score
 	Style pr.String
+	Score Score
 	Width float64
 	Color pr.Color
 }
@@ -1193,7 +1206,7 @@ type BorderGrids struct {
 //     column group, column, row group, row, && cell boxes; && return
 //     a data structure for the resolved collapsed border grid.
 //
-func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) BorderGrids {
+func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGrids {
 	if gridWidth == 0 || gridHeight == 0 {
 		// Don’t bother with empty tables
 		return BorderGrids{}
@@ -1384,7 +1397,7 @@ func collapseTableBorders(table InstanceTableBox, gridWidth, gridHeight int) Bor
 // Remove and add boxes according to the flex model.
 // See http://www.w3.org/TR/css-flexbox-1/#flex-items
 func FlexBoxes(box Box) Box {
-	if !IsParentBox(box) {
+	if !TypeParentBox.IsInstance(box) {
 		return box
 	}
 
@@ -1398,7 +1411,7 @@ func FlexBoxes(box Box) Box {
 }
 
 func flexChildren(box Box, children []Box) []Box {
-	if _, isFlexCont := box.(instanceFlexContainerBox); isFlexCont {
+	if _, isFlexCont := box.(FlexContainerBoxITF); isFlexCont {
 		var flexChildren []Box
 		for _, child := range children {
 			if !child.Box().IsAbsolutelyPositioned() {
@@ -1410,13 +1423,13 @@ func flexChildren(box Box, children []Box) []Box {
 				// https://www.w3.org/TR/css-flexbox-1/#flex-items
 				continue
 			}
-			if _, ok := child.(instanceInlineLevelBox); ok {
+			if _, ok := child.(InlineBlockBoxITF); ok {
 				// TODO: Only create block boxes for text runs, not for other
 				// inline level boxes. This is false but currently needed
 				// because blockLevelWidth and blockLevelLayout are called
 				// in layout.flex.
 				var anonymous *BlockBox
-				if IsParentBox(box) {
+				if _, ok := box.(ParentBoxITF); ok {
 					anonymous = BlockBoxAnonymousFrom(box, child.Box().Children)
 					anonymous.Style = child.Box().Style
 				} else {
@@ -1485,7 +1498,7 @@ func ProcessWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 		box.Text = text
 		return followingCollapsibleSpace
 	}
-	if IsParentBox(_box) {
+	if _, ok := _box.(ParentBoxITF); ok {
 		for _, child := range _box.Box().Children {
 			switch child.(type) {
 			case *TextBox, *InlineBox: // leaf
@@ -1538,7 +1551,7 @@ func ProcessWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 //            ]
 //        ]
 func InlineInBlock(box Box) Box {
-	if IsParentBox(box) || box.Box().IsRunning() {
+	if TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
 		return box
 	}
 	baseBox := box.Box()
@@ -1570,7 +1583,7 @@ func InlineInBlock(box Box) Box {
 		baseBox.TrailingCollapsibleSpace = trailingCollapsibleSpace
 	}
 
-	if !IsBlockContainerBox(box) {
+	if !TypeBlockContainerBox.IsInstance(box) {
 		baseBox.Children = children
 		return box
 	}
@@ -1582,7 +1595,7 @@ func InlineInBlock(box Box) Box {
 		}
 		if len(newLineChildren) > 0 && childBox.Box().IsAbsolutelyPositioned() {
 			newLineChildren = append(newLineChildren, childBox)
-		} else if IsInlineLevelBox(childBox) || (len(newLineChildren) > 0 && childBox.Box().IsFloated()) {
+		} else if TypeInlineLevelBox.IsInstance(childBox) || (len(newLineChildren) > 0 && childBox.Box().IsFloated()) {
 			// Do not append white space at the start of a line :
 			// it would be removed during layout.
 			childTextBox, isTextBox := childBox.(*TextBox)
@@ -1678,7 +1691,7 @@ func InlineInBlock(box Box) Box {
 //            ],
 //        ]
 func BlockInInline(box Box) Box {
-	if IsParentBox(box) || box.Box().IsRunning() {
+	if TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
 		return box
 	}
 
@@ -1757,7 +1770,7 @@ func innerBlockInInline(box Box, skipStack *tree.SkipStack) (Box, Box, *tree.Ski
 	hasBroken := false
 	for i, child := range box.Box().Children[skip:] {
 		index := i + skip
-		if IsBlockLevelBox(child) && child.Box().IsInNormalFlow() {
+		if TypeBlockLevelBox.IsInstance(child) && child.Box().IsInNormalFlow() {
 			if skipStack != nil {
 				log.Fatal("Should not skip here")
 			}
@@ -1826,7 +1839,7 @@ func boxText(box Box) string {
 		return tBox.Text
 	}
 	var builder strings.Builder
-	if IsParentBox(box) {
+	if TypeParentBox.IsInstance(box) {
 		for _, child := range Descendants(box) {
 			et := child.Box().ElementTag
 			if !strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
@@ -1861,10 +1874,10 @@ func boxTextFirstLetter(box Box) string {
 
 func boxTextBefore(box Box) string {
 	var builder strings.Builder
-	if IsParentBox(box) {
+	if TypeParentBox.IsInstance(box) {
 		for _, child := range Descendants(box) {
 			et := child.Box().ElementTag
-			if strings.HasSuffix(et, "::before") && !IsParentBox(child) {
+			if strings.HasSuffix(et, "::before") && !TypeParentBox.IsInstance(child) {
 				builder.WriteString(boxText(child))
 			}
 		}
@@ -1874,10 +1887,10 @@ func boxTextBefore(box Box) string {
 
 func boxTextAfter(box Box) string {
 	var builder strings.Builder
-	if IsParentBox(box) {
+	if TypeParentBox.IsInstance(box) {
 		for _, child := range Descendants(box) {
 			et := child.Box().ElementTag
-			if strings.HasSuffix(et, "::after") && !IsParentBox(child) {
+			if strings.HasSuffix(et, "::after") && !TypeParentBox.IsInstance(child) {
 				builder.WriteString(boxText(child))
 			}
 		}
