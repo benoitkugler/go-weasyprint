@@ -732,8 +732,8 @@ func display(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func floating(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
-	position := computer.specified["position"].AsCss().(pr.String)
-	if position == "absolute" || position == "fixed" {
+	position := computer.specified["position"].AsCss().(pr.BoolString)
+	if position.String == "absolute" || position.String == "fixed" {
 		return pr.String("none")
 	}
 	return value

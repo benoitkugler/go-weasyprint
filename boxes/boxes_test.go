@@ -2,7 +2,7 @@ package boxes
 
 import (
 	"errors"
-	"reflect"
+	"fmt"
 	"testing"
 
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
@@ -53,8 +53,13 @@ func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils
 	return document.Root, *style, imgFetcher, baseUrl, &tr
 }
 
-// Like parse() but also run all corrections on boxes.
-func parse(t *testing.T, html_content string) BlockLevelBoxITF {
+func parse(t *testing.T, html_content string) BoxITF {
+	a, b, c, d, e := parseBase(t, utils.InputString(html_content), baseUrl)
+	boxes := elementToBox(a, b, c, d, e, nil)
+	return boxes[0]
+}
+
+func parseAndBuild(t *testing.T, html_content string) BlockLevelBoxITF {
 	box := BuildFormattingStructure(parseBase(t, utils.InputString(html_content), baseUrl))
 	if err := sanityChecks(box); err != nil {
 		t.Fatalf("sanity check failed: %s", err)
@@ -62,13 +67,34 @@ func parse(t *testing.T, html_content string) BlockLevelBoxITF {
 	return box
 }
 
+type bc struct {
+	text string
+	c    []serializedBox
+}
+
 type serializedBox struct {
 	tag     string
-	content struct {
-		text      string
-		childrens []serializedBox
+	type_   BoxType
+	content bc
+}
+
+func (s serializedBox) equals(other serializedBox) bool {
+	if s.tag != other.tag || s.type_ != other.type_ || s.content.text != other.content.text {
+		return false
 	}
-	type_ BoxType
+	return serializedBoxEquals(s.content.c, other.content.c)
+}
+
+func serializedBoxEquals(l1, l2 []serializedBox) bool {
+	if len(l1) != len(l2) {
+		return false
+	}
+	for j := range l1 {
+		if !l1[j].equals(l2[j]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Transform a box list into a structure easier to compare for testing.
@@ -88,7 +114,7 @@ func serialize(boxList []Box) []serializedBox {
 				cg = table.Table().ColumnGroups
 			}
 			cg = append(cg, box.Box().Children...)
-			out[i].content.childrens = serialize(cg)
+			out[i].content.c = serialize(cg)
 		}
 	}
 	return out
@@ -119,8 +145,8 @@ func assertTree(t *testing.T, box Box, expected []serializedBox) {
 		t.Fatalf("unexpected element: %s", tag)
 	}
 
-	if !reflect.DeepEqual(serialize(box.Box().Children), expected) {
-		t.Fatalf("expected %v\n, got\n%v", expected, box.Box().Children)
+	if got := serialize(box.Box().Children); !serializedBoxEquals(got, expected) {
+		t.Fatalf("expected \n%v\n, got\n%v", expected, got)
 	}
 }
 
@@ -200,7 +226,7 @@ func sanityChecks(box Box) error {
 const baseUrl = "../resources_test/"
 
 func getGrid(t *testing.T, html string) ([][]*Border, [][]*Border) {
-	root := parse(t, html)
+	root := parseAndBuild(t, html)
 	body := root.Box().Children[0]
 	tableWrapper := body.Box().Children[0]
 	table := tableWrapper.Box().Children[0].(TableBoxITF)
@@ -222,28 +248,229 @@ func getGrid(t *testing.T, html string) ([][]*Border, [][]*Border) {
 		buildGrid(table.Table().CollapsedBorderGrid.Vertical)
 }
 
-var none = struct {
-	text      string
-	childrens []serializedBox
-}{}
-
 func TestBoxTree(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
-	assertTree(t, parse(t, "<p>"), []serializedBox{{"p", none, TypeBlockBox}})
+	assertTree(t, parse(t, "<p>"), []serializedBox{{"p", TypeBlockBox, bc{}}})
+	assertTree(t, parse(t, `
+	  <style>
+	    span { display: inline-block }
+	  </style>
+	  <p>Hello <em>World <img src="pattern.png"><span>L</span></em>!</p>`),
+		[]serializedBox{
+			{
+				"p", TypeBlockBox, bc{c: []serializedBox{
+					{"p", TypeTextBox, bc{text: "Hello "}},
+					{"em", TypeInlineBox, bc{c: []serializedBox{
+						{"em", TypeTextBox, bc{text: "World "}},
+						{"img", TypeInlineReplacedBox, bc{text: "<replaced>"}},
+						{"span", TypeInlineBlockBox, bc{c: []serializedBox{
+							{"span", TypeTextBox, bc{text: "L"}},
+						}}},
+					}}},
+					{"p", TypeTextBox, bc{text: "!"}},
+				}},
+			},
+		})
+}
 
-	// assertTree(t, parse("""
-	//   <style>
-	//     span { display: inline-block }
-	//   </style>
-	//   <p>Hello <em>World <img src="pattern.png"><span>L</span></em>!</p>"""), [
-	//       ("p", "Block", [
-	//         ("p", "Text", "Hello "),
-	//         ("em", "Inline", [
-	//             ("em", "Text", "World "),
-	//             ("img", "InlineReplaced", "<replaced>"),
-	//             ("span", "InlineBlock", [
-	//                 ("span", "Text", "L")])]),
-	//         ("p", "Text", "!")])])
+func TestHtmlEntities(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	for _, quote := range []string{`"`, "&quot;", "&#x22;", "&#34;"} {
+		assertTree(t, parse(t, fmt.Sprintf("<p>%sabc%s", quote, quote)), []serializedBox{
+			{"p", TypeBlockBox, bc{c: []serializedBox{
+				{"p", TypeTextBox, bc{text: `"abc"`}},
+			}}},
+		})
+	}
+}
+
+func TestInlineInBlock1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	source := "<div>Hello, <em>World</em>!\n<p>Lipsum.</p></div>"
+	expected := []serializedBox{
+		{"div", TypeBlockBox, bc{
+			c: []serializedBox{
+				{
+					"div", TypeBlockBox,
+					bc{c: []serializedBox{
+						{"div", TypeLineBox, bc{c: []serializedBox{
+							{"div", TypeTextBox, bc{text: "Hello, "}},
+							{"em", TypeInlineBox, bc{c: []serializedBox{
+								{"em", TypeTextBox, bc{text: "World"}},
+							}}},
+							{"div", TypeTextBox, bc{text: "!\n"}},
+						}}},
+					}},
+				},
+				{"p", TypeBlockBox, bc{c: []serializedBox{
+					{"p", TypeLineBox, bc{c: []serializedBox{
+						{"p", TypeTextBox, bc{text: "Lipsum."}},
+					}}},
+				}}},
+			},
+		}},
+	}
+	box := parse(t, source)
+
+	assertTree(t, box, []serializedBox{
+		{"div", TypeBlockBox, bc{c: []serializedBox{
+			{"div", TypeTextBox, bc{text: "Hello, "}},
+			{"em", TypeInlineBox, bc{c: []serializedBox{
+				{"em", TypeTextBox, bc{text: "World"}},
+			}}},
+			{"div", TypeTextBox, bc{text: "!\n"}},
+			{"p", TypeBlockBox, bc{c: []serializedBox{{"p", TypeTextBox, bc{text: "Lipsum."}}}}},
+		}}},
+	})
+
+	box = InlineInBlock(box)
+	assertTree(t, box, expected)
+}
+
+func TestInlineInBlock2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	source := "<div><p>Lipsum.</p>Hello, <em>World</em>!\n</div>"
+	expected := []serializedBox{
+		{"div", TypeBlockBox, bc{c: []serializedBox{
+			{"p", TypeBlockBox, bc{c: []serializedBox{{"p", TypeLineBox, bc{c: []serializedBox{{"p", TypeTextBox, bc{text: "Lipsum."}}}}}}}},
+			{"div", TypeBlockBox, bc{c: []serializedBox{
+				{"div", TypeLineBox, bc{c: []serializedBox{
+					{"div", TypeTextBox, bc{text: "Hello, "}},
+					{"em", TypeInlineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "World"}}}}},
+					{"div", TypeTextBox, bc{text: "!\n"}},
+				}}},
+			}}},
+		}}},
+	}
+	box := parse(t, source)
+	box = InlineInBlock(box)
+	assertTree(t, box, expected)
+}
+
+func TestInlineInBlock3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Absolutes are left := range the lines to get their static position later.
+	source := `<p>Hello <em style="position:absolute;
+                                    display: block">World</em>!</p>`
+	expected := []serializedBox{
+		{"p", TypeBlockBox, bc{c: []serializedBox{
+			{"p", TypeLineBox, bc{c: []serializedBox{
+				{"p", TypeTextBox, bc{text: "Hello "}},
+				{"em", TypeBlockBox, bc{c: []serializedBox{{"em", TypeLineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "World"}}}}}}}},
+				{"p", TypeTextBox, bc{text: "!"}},
+			}}},
+		}}},
+	}
+	box := parse(t, source)
+	box = InlineInBlock(box)
+	assertTree(t, box, expected)
+	box = BlockInInline(box)
+	assertTree(t, box, expected)
+}
+
+func TestInlineInBlock4(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Floats are pull to the top of their containing blocks
+	source := `<p>Hello <em style="float: left">World</em>!</p>`
+
+	expected := []serializedBox{
+		{"p", TypeBlockBox, bc{c: []serializedBox{
+			{"p", TypeLineBox, bc{c: []serializedBox{
+				{"p", TypeTextBox, bc{text: "Hello "}},
+				{"em", TypeBlockBox, bc{c: []serializedBox{{"em", TypeLineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "World"}}}}}}}},
+				{"p", TypeTextBox, bc{text: "!"}},
+			}}},
+		}}},
+	}
+	box := parse(t, source)
+	box = InlineInBlock(box)
+	box = BlockInInline(box)
+	assertTree(t, box, expected)
+}
+
+func TestBlockInInline(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	box := parse(t, `
+      <style>
+        p { display: inline-block; }
+        span, i { display: block; }
+      </style>
+      <p>Lorem <em>ipsum <strong>dolor <span>sit</span>
+      <span>amet,</span></strong><span><em>conse<i>`)
+	box = InlineInBlock(box)
+	assertTree(t, box, []serializedBox{
+		{"body", TypeLineBox, bc{c: []serializedBox{
+			{"p", TypeInlineBlockBox, bc{c: []serializedBox{
+				{"p", TypeLineBox, bc{c: []serializedBox{
+					{"p", TypeTextBox, bc{text: "Lorem "}},
+					{"em", TypeInlineBox, bc{c: []serializedBox{
+						{"em", TypeTextBox, bc{text: "ipsum "}},
+						{"strong", TypeInlineBox, bc{c: []serializedBox{
+							{"strong", TypeTextBox, bc{text: "dolor "}},
+							{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "sit"}}}}}}}},
+							{"strong", TypeTextBox, bc{text: "\n      "}},
+							{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "amet,"}}}}}}}},
+						}}},
+						{"span", TypeBlockBox, bc{c: []serializedBox{
+							{"span", TypeLineBox, bc{c: []serializedBox{
+								{"em", TypeInlineBox, bc{c: []serializedBox{
+									{"em", TypeTextBox, bc{text: "conse"}},
+									{"i", TypeBlockBox, bc{c: []serializedBox{}}},
+								}}},
+							}}},
+						}}},
+					}}},
+				}}},
+			}}},
+		}}},
+	})
+
+	box = BlockInInline(box)
+	assertTree(t, box, []serializedBox{
+		{"body", TypeLineBox, bc{c: []serializedBox{
+			{"p", TypeInlineBlockBox, bc{c: []serializedBox{
+				{"p", TypeBlockBox, bc{c: []serializedBox{
+					{"p", TypeLineBox, bc{c: []serializedBox{
+						{"p", TypeTextBox, bc{text: "Lorem "}},
+						{"em", TypeInlineBox, bc{c: []serializedBox{
+							{"em", TypeTextBox, bc{text: "ipsum "}},
+							{"strong", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeTextBox, bc{text: "dolor "}}}}},
+						}}},
+					}}},
+				}}},
+				{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "sit"}}}}}}}},
+				{"p", TypeBlockBox, bc{c: []serializedBox{
+					{"p", TypeLineBox, bc{c: []serializedBox{
+						{"em", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeTextBox, bc{text: "\n      "}}}}}}}},
+					}}},
+				}}},
+				{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "amet,"}}}}}}}},
+				{"p", TypeBlockBox, bc{c: []serializedBox{
+					{"p", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeInlineBox, bc{c: []serializedBox{}}}}}}}}},
+				}}},
+				{"span", TypeBlockBox, bc{c: []serializedBox{
+					{"span", TypeBlockBox, bc{c: []serializedBox{
+						{"span", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "conse"}}}}}}}},
+					}}},
+					{"i", TypeBlockBox, bc{c: []serializedBox{}}},
+					{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{}}}}}}}}},
+				}}},
+				{"p", TypeBlockBox, bc{c: []serializedBox{{"p", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{}}}}}}}}},
+			}}},
+		}}},
+	})
 }

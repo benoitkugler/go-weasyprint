@@ -280,7 +280,7 @@ func GetImageFromUri(cache map[string]Image, _ utils.UrlFetcher, url, _ string) 
 	//         LOGGER.error("Failed to load image at "%s" (%s)", url, exc)
 	//         image = nil
 	//     } cache[url] = image
-	return image
+	return LinearGradient{}
 }
 
 // Gradient line size: distance between the starting point and ending point.

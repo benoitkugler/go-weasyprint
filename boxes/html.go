@@ -1,6 +1,7 @@
 package boxes
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -14,24 +15,24 @@ import (
 
 type handlerFunction = func(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box
 
-var (
-	HtmlHandlers = map[string]handlerFunction{
-		"img":      handleImg,
-		"embded":   handleEmbed,
-		"object":   handleObject,
-		"colgroup": handleColgroup,
-		"col":      handleCol,
-		"th":       handleTd,
-		"td":       handleTd,
-		"a":        handleA,
-	}
-)
+var htmlHandlers = map[string]handlerFunction{
+	"img":      handleImg,
+	"embded":   handleEmbed,
+	"object":   handleObject,
+	"colgroup": handleColgroup,
+	"col":      handleCol,
+	"th":       handleTd,
+	"td":       handleTd,
+	"a":        handleA,
+}
 
 // HandleElement handle HTML elements that need special care.
 func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
-	handler, in := HtmlHandlers[box.Box().ElementTag]
+	handler, in := htmlHandlers[box.Box().ElementTag]
 	if in {
-		return handler(element, box, getImageFromUri, baseUrl)
+		ls := handler(element, box, getImageFromUri, baseUrl)
+		fmt.Println(box.Box().ElementTag, ls)
+		return ls
 	} else {
 		return []Box{box}
 	}
@@ -59,7 +60,7 @@ func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 	return newBox
 }
 
-// Handle ``<img>`` elements, return either an image || the alt-text.
+// Handle ``<img>`` elements, return either an image or the alt-text.
 // See: http://www.w3.org/TR/html5/embedded-content-1.html#the-img-element
 func handleImg(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
 	src := element.GetUrlAttribute("src", baseUrl, false)

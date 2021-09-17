@@ -106,7 +106,6 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 	// If this is changed, maybe update layout.pages.makeMarginBoxes()
 	ProcessWhitespace(box, false)
 	box = AnonymousTableBoxes(box)
-	fmt.Println(box.Box().Children)
 	box = InlineInBlock(box)
 	box = BlockInInline(box)
 	box = setViewportOverflow(box)
@@ -914,7 +913,6 @@ func AnonymousTableBoxes(box Box) Box {
 
 // Internal implementation of AnonymousTableBoxes().
 func tableBoxesChildren(box Box, children []Box) Box {
-	fmt.Println(box.Type(), len(children))
 	if TypeTableColumnBox.IsInstance(box) { // rule 1.1
 		// Remove all children.
 		children = nil
@@ -962,7 +960,6 @@ func tableBoxesChildren(box Box, children []Box) Box {
 	}
 
 	newChildren, maxIndex := make([]Box, 0, len(children)), len(children)-1
-	fmt.Println(children)
 	for index, child := range children {
 		// Ignore some whitespace: rule 1.4
 		var prevChild, nextChild Box
@@ -1012,7 +1009,6 @@ func tableBoxesChildren(box Box, children []Box) Box {
 			})
 	}
 
-	fmt.Println(children)
 	if tableBox, ok := box.(TableBoxITF); ok {
 		return wrapTable(tableBox, children)
 	} else {
@@ -1517,41 +1513,41 @@ func ProcessWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 
 // Build the structure of lines inside blocks and return a new box tree.
 //
-//    Consecutive inline-level boxes in a block container box are wrapped into a
-//    line box, itself wrapped into an anonymous block box.
+// Consecutive inline-level boxes in a block container box are wrapped into a
+// line box, itself wrapped into an anonymous block box.
 //
-//    This line box will be broken into multiple lines later.
+// This line box will be broken into multiple lines later.
 //
-//    This is the first case in
-//    http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+// This is the first case in
+// http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
 //
-//    Eg.::
+// Example:
 //
-//        BlockBox[
-//            TextBox["Some "],
-//            InlineBox[TextBox["text"]],
-//            BlockBox[
-//                TextBox["More text"],
-//            ]
-//        ]
+//     BlockBox[
+//         TextBox["Some "],
+//         InlineBox[TextBox["text"]],
+//         BlockBox[
+//             TextBox["More text"],
+//         ]
+//     ]
 //
-//    is turned into::
+// is turned into::
 //
-//        BlockBox[
-//            AnonymousBlockBox[
-//                LineBox[
-//                    TextBox["Some "],
-//                    InlineBox[TextBox["text"]],
-//                ]
-//            ]
-//            BlockBox[
-//                LineBox[
-//                    TextBox["More text"],
-//                ]
-//            ]
-//        ]
+//     BlockBox[
+//         AnonymousBlockBox[
+//             LineBox[
+//                 TextBox["Some "],
+//                 InlineBox[TextBox["text"]],
+//             ]
+//         ]
+//         BlockBox[
+//             LineBox[
+//                 TextBox["More text"],
+//             ]
+//         ]
+//     ]
 func InlineInBlock(box Box) Box {
-	if TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
+	if !TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
 		return box
 	}
 	baseBox := box.Box()
@@ -1691,7 +1687,7 @@ func InlineInBlock(box Box) Box {
 //            ],
 //        ]
 func BlockInInline(box Box) Box {
-	if TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
+	if !TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
 		return box
 	}
 
