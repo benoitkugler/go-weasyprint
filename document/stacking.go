@@ -166,7 +166,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 	}
 
 	dispatchChildren = func(box Box) Box {
-		if !bo.IsParentBox(box) {
+		if !bo.TypeParentBox.IsInstance(box) {
 			return box
 		}
 

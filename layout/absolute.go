@@ -328,10 +328,10 @@ func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes *[]*
 	var newBox Box
 	if bo.TypeBlockBox.IsInstance(box) {
 		newBox = absoluteBlock(context, box, containingBlock, fixedBoxes)
-	} else if bo.IsFlexContainerBox(box) {
+	} else if bo.TypeFlexContainerBox.IsInstance(box) {
 		newBox = absoluteFlex(context, box, containingBlock, fixedBoxes)
 	} else {
-		if !bo.IsBlockReplacedBox(box) {
+		if !bo.TypeBlockReplacedBox.IsInstance(box) {
 			log.Fatalf("box should be a BlockReplaced, got %s", box)
 		}
 		newBox = absoluteReplaced(box, containingBlock)

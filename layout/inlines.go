@@ -372,7 +372,7 @@ func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.Pr
 				}
 			}
 		}
-	} else if bo.IsParentBox(child) {
+	} else if bo.TypeParentBox.IsInstance(child) {
 		if skipStack != nil {
 			childSkipStack = skipStack.Stack
 		} else {
@@ -392,7 +392,7 @@ var replacedBoxWidth = handleMinMaxWidth(replacedBoxWidth_)
 // Compute and set the used width for replaced boxes (inline- or block-level)
 // containingBlock must be block
 func replacedBoxWidth_(box_ Box, _ *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
-	box__, ok := box_.(bo.InstanceReplacedBox)
+	box__, ok := box_.(bo.ReplacedBoxITF)
 	if !ok {
 		log.Fatalf("expected ReplacedBox instance, got %s", box_)
 	}
@@ -437,7 +437,7 @@ var replacedBoxHeight = handleMinMaxHeight(replacedBoxHeight_)
 //
 //     Compute and set the used height for replaced boxes (inline- or block-level)
 func replacedBoxHeight_(box_ Box, _ *LayoutContext, _ containingBlock) (bool, pr.Float) {
-	box__, ok := box_.(bo.InstanceReplacedBox)
+	box__, ok := box_.(bo.ReplacedBoxITF)
 	if !ok {
 		log.Fatalf("expected ReplacedBox instance, got %s", box_)
 	}
@@ -574,7 +574,7 @@ func minMaxAutoReplaced(box *bo.BoxFields) {
 func atomicBox(context *LayoutContext, box Box, positionX pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
 	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) Box {
 
-	if _, ok := box.(bo.InstanceReplacedBox); ok {
+	if _, ok := box.(bo.ReplacedBoxITF); ok {
 		box = box.Copy()
 		inlineReplacedBoxLayout(box, containingBlock)
 		box.Box().Baseline = box.Box().MarginHeight()
@@ -746,7 +746,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 		tmp := splitInlineBox(context, box_, positionX, maxX, skipStack, containingBlock,
 			absoluteBoxes, fixedBoxes, linePlaceholders, waitingFloats, lineChildren)
 		newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidths = tmp.newBox, tmp.resumeAt, tmp.preservedLineBreak, tmp.firstLetter, tmp.lastLetter, tmp.floatWidths
-	} else if bo.IsAtomicInlineLevelBox(box_) {
+	} else if bo.TypeAtomicInlineLevelBox.IsInstance(box_) {
 		newBox = atomicBox(context, box_, positionX, skipStack, containingBlock, absoluteBoxes, fixedBoxes)
 		newBox.Box().PositionX = positionX
 		resumeAt = nil
@@ -954,7 +954,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 
 		if newChild == nil {
 			// May be nil where we have an empty TextBox.
-			if !bo.IsTextBox(child_) {
+			if !bo.TypeTextBox.IsInstance(child_) {
 				log.Fatalf("only text box may yield empty child, got %v", child)
 			}
 		} else {
@@ -1008,7 +1008,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 							children = append(children, waitingChildrenCopy...)
 							if childNewChild == nil {
 								// May be nil where we have an empty TextBox.
-								if !bo.IsTextBox(child) {
+								if !bo.TypeTextBox.IsInstance(child) {
 									log.Fatalf("only text box may yield empty child, got %s", child)
 								}
 							} else {
@@ -1508,7 +1508,7 @@ func canBreakInside(box Box) pr.MaybeBool {
 	ws := box.Box().Style.GetWhiteSpace()
 	textWrap := ws == "normal" || ws == "pre-wrap" || ws == "pre-line"
 	textBox, isTextBox := box.(*bo.TextBox)
-	if bo.IsAtomicInlineLevelBox(box) {
+	if bo.TypeAtomicInlineLevelBox.IsInstance(box) {
 		return pr.False
 	} else if isTextBox {
 		if textWrap {
@@ -1516,7 +1516,7 @@ func canBreakInside(box Box) pr.MaybeBool {
 		} else {
 			return pr.False
 		}
-	} else if bo.IsParentBox(box) {
+	} else if bo.TypeParentBox.IsInstance(box) {
 		if textWrap {
 			for _, child := range box.Box().Children {
 				if canBreakInside(child) == pr.True {

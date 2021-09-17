@@ -12,8 +12,8 @@ import (
 // Layout for tables and internal table boxes.
 
 // Layout for a table box.
-func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.InstanceBlockLevelBox, blockLayout) {
+func tableLayout(context *LayoutContext, table_ bo.TableBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 	table := table_.Table()
 	columnWidths := table.ColumnWidths
 
@@ -505,7 +505,7 @@ func tableLayout(context *LayoutContext, table_ bo.InstanceTableBox, maxPosition
 	if footer != nil {
 		newChildren = append(newChildren, footer)
 	}
-	table_ = bo.CopyWithChildren(table_, newChildren, skipStack == nil, resumeAt == nil).(bo.InstanceTableBox) // CopyWithChildren is type stable
+	table_ = bo.CopyWithChildren(table_, newChildren, skipStack == nil, resumeAt == nil).(bo.TableBoxITF) // CopyWithChildren is type stable
 	table = table_.Table()
 	if table.Style.GetBorderCollapse() == "collapse" {
 		table.SkippedRows = skippedRows
@@ -874,7 +874,7 @@ func findInFlowBaseline(box Box, last bool, baselineTypes ...bo.BoxType) pr.Mayb
 			return box.Box().PositionY + box.Box().Baseline.V()
 		}
 	}
-	if bo.IsParentBox(box) && !bo.TypeTableCaptionBox.IsInstance(box) {
+	if bo.TypeParentBox.IsInstance(box) && !bo.TypeTableCaptionBox.IsInstance(box) {
 		children := box.Box().Children
 		if last {
 			children = reverseBoxes(children)

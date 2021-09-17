@@ -83,7 +83,7 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 			// As replaced boxes are never copied during layout, ensure that we
 			// have different boxes (with a possibly different layout) for
 			// each pages.
-			if bo.IsReplacedBox(box) {
+			if bo.TypeReplacedBox.IsInstance(box) {
 				box = box.Copy()
 			}
 			// Absolute boxes in fixed boxes are rendered as fixed boxes'
@@ -109,7 +109,7 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 //                  the pages' boxes are created from that tree, i.e. this
 //                  structure is not lost during pagination
 // :returns: a list of laid out Page objects.
-func LayoutDocument(html *tree.HTML, rootBox bo.InstanceBlockLevelBox, context *LayoutContext, maxLoops int) []*bo.PageBox {
+func LayoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *LayoutContext, maxLoops int) []*bo.PageBox {
 	initializePageMaker(context, *rootBox.Box())
 	if maxLoops == -1 {
 		maxLoops = 8 // default value
@@ -309,7 +309,7 @@ func (self LayoutContext) GetStringSetFor(page Box, name, keyword string) string
 						}
 					}
 				}
-				if bo.IsParentBox(element) {
+				if bo.TypeParentBox.IsInstance(element) {
 					if len(element.Box().Children) > 0 {
 						element = element.Box().Children[0]
 						continue

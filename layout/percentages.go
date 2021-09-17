@@ -43,7 +43,7 @@ func resolvePercentagesBox(box Box, containingBlock *bo.BoxFields, mainFlexDirec
 func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirection string) {
 	cbWidth, cbHeight := containingBlock[0], containingBlock[1]
 	maybeHeight := cbWidth
-	if bo.IsPageBox(box_) {
+	if bo.TypePageBox.IsInstance(box_) {
 		maybeHeight = cbHeight
 	}
 	box := box_.Box()

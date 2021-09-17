@@ -616,7 +616,7 @@ func pageHeight_(box Box, context *LayoutContext, containingBlock containingBloc
 // :param pageNumber: integer, start at 1 for the first page
 // :param resumeAt: as returned by ``makePage()`` for the previous page,
 // 	or ``None`` for the first page.
-func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType utils.PageElement, resumeAt *tree.SkipStack,
+func makePage(context *LayoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt *tree.SkipStack,
 	pageNumber int, pageState *tree.PageState) (*bo.PageBox, *tree.SkipStack, tree.PageBreak) {
 	style := context.StyleFor.Get(pageType, "")
 
@@ -641,12 +641,12 @@ func makePage(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, pageType
 	var previousResumeAt *tree.SkipStack
 	if pageType.Blank {
 		previousResumeAt = resumeAt
-		rootBox = bo.CopyWithChildren(rootBox, nil, true, true).(bo.InstanceBlockLevelBox) // CopyWithChildren is type stable
+		rootBox = bo.CopyWithChildren(rootBox, nil, true, true).(bo.BlockLevelBoxITF) // CopyWithChildren is type stable
 	}
 
 	// TODO: handle cases where the root element is something else.
 	// See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-	if !(bo.TypeBlockBox.IsInstance(rootBox) || bo.IsFlexContainerBox(rootBox)) {
+	if !(bo.TypeBlockBox.IsInstance(rootBox) || bo.TypeFlexContainerBox.IsInstance(rootBox)) {
 		log.Fatalf("expected Block or FlexContainer, got %s", rootBox)
 	}
 	context.createBlockFormattingContext()
@@ -822,7 +822,7 @@ func setPageTypeComputedStyles(pageType utils.PageElement, html *tree.HTML, styl
 // As the function"s name suggests: the plan is ! to make all pages
 // repeatedly when a missing counter was resolved, but rather re-make the
 // single page where the ``contentChanged`` happened.
-func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevelBox, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {
+func remakePage(index int, context *LayoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {
 	pageMaker := &context.pageMaker
 	tmp := (*pageMaker)[index]
 	// initialResumeAt, initialNextPage, rightPage, initialPageState,remakeState := tmp
@@ -911,7 +911,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.InstanceBlockLevel
 
 // Return a list of laid out pages without margin boxes.
 // Re-make pages only if necessary.
-func makeAllPages(context *LayoutContext, rootBox bo.InstanceBlockLevelBox, html *tree.HTML, pages []*bo.PageBox) []*bo.PageBox {
+func makeAllPages(context *LayoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML, pages []*bo.PageBox) []*bo.PageBox {
 	var out []*bo.PageBox
 	i := 0
 	for {

@@ -23,9 +23,9 @@ type blockLayout struct {
 // `maxPositionY` is the absolute vertical position (as in
 // ``someBox.PositionY``) of the bottom of the
 // content box of the current page area.
-func blockLevelLayout(context *LayoutContext, box_ bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockLevelLayout(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
-	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.InstanceBlockLevelBox, blockLayout) {
+	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 
 	box := box_.Box()
 	if !bo.TypeTableBox.IsInstance(box_) {
@@ -65,19 +65,19 @@ func blockLevelLayout(context *LayoutContext, box_ bo.InstanceBlockLevelBox, max
 }
 
 // Call the layout function corresponding to the ``box`` type.
-func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.InstanceBlockLevelBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
-	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.InstanceBlockLevelBox, blockLayout) {
+	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 
-	blockBox, isBlockBox := box_.(bo.InstanceBlockBox)
-	replacedBox, isReplacedBox := box_.(bo.InstanceReplacedBox)
-	if table, ok := box_.(bo.InstanceTableBox); ok {
+	blockBox, isBlockBox := box_.(bo.BlockBoxITF)
+	replacedBox, isReplacedBox := box_.(bo.ReplacedBoxITF)
+	if table, ok := box_.(bo.TableBoxITF); ok {
 		return tableLayout(context, table, maxPositionY, skipStack, pageIsEmpty, absoluteBoxes, fixedBoxes)
 	} else if isBlockBox {
 		return blockBoxLayout(context, blockBox, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins)
-	} else if isReplacedBox && bo.IsBlockReplacedBox(box_) {
-		box_ = blockReplacedBoxLayout(replacedBox, containingBlock).(bo.InstanceBlockLevelBox) // blockReplacedBoxLayout is type stable
+	} else if isReplacedBox && bo.TypeBlockReplacedBox.IsInstance(box_) {
+		box_ = blockReplacedBoxLayout(replacedBox, containingBlock).(bo.BlockLevelBoxITF) // blockReplacedBoxLayout is type stable
 		box := replacedBox.Box()
 		// Don't collide with floats
 		// http://www.w3.org/TR/CSS21/visuren.html#floats
@@ -94,8 +94,8 @@ func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.InstanceBlockLevelBo
 }
 
 // Lay out the block ``box``.
-func blockBoxLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPositionY pr.Float, skipStack *tree.SkipStack,
-	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.InstanceBlockLevelBox, blockLayout) {
+func blockBoxLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 	box := box_.Box()
 	if box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto" {
 		newBox_, result := columnsLayout(context, box_, maxPositionY, skipStack, containingBlock,
@@ -119,7 +119,7 @@ func blockBoxLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPositio
 
 	newBox__, result := blockContainerLayout(context, box_, maxPositionY, skipStack, pageIsEmpty,
 		absoluteBoxes, fixedBoxes, adjoiningMargins)
-	newBox := newBox__.(bo.InstanceBlockBox) // blockContainerLayout is type stable
+	newBox := newBox__.(bo.BlockBoxITF) // blockContainerLayout is type stable
 	if newBox != nil && newBox.Box().IsTableWrapper {
 		// Don't collide with floats
 		// http://www.w3.org/TR/CSS21/visuren.html#floats
@@ -140,8 +140,8 @@ func blockReplacedWidth_(box Box, _ *LayoutContext, containingBlock containingBl
 }
 
 // Lay out the block :class:`boxes.ReplacedBox` ``box``.
-func blockReplacedBoxLayout(box_ bo.InstanceReplacedBox, containingBlock *bo.BoxFields) bo.InstanceReplacedBox {
-	box_ = box_.Copy().(bo.InstanceReplacedBox) // Copy is type stable
+func blockReplacedBoxLayout(box_ bo.ReplacedBoxITF, containingBlock *bo.BoxFields) bo.ReplacedBoxITF {
+	box_ = box_.Copy().(bo.ReplacedBoxITF) // Copy is type stable
 	box := box_.Box()
 	if box.Style.GetWidth().String == "auto" && box.Style.GetHeight().String == "auto" {
 		computedMarginsL, computedMarginsR := box.MarginLeft, box.MarginRight
@@ -301,7 +301,7 @@ func reverseBoxes(in []Box) []Box {
 
 type ChildrenBlockLevel interface {
 	Box
-	Children() []bo.InstanceBlockLevelBox
+	Children() []bo.BlockLevelBoxITF
 }
 
 // Set the ``box`` height.
@@ -310,7 +310,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	box := box_.Box()
 	// TODO: boxes.FlexBox is allowed here because flexLayout calls
 	// blockContainerLayout, there's probably a better solution.
-	if !(bo.IsBlockContainerBox(box_) || bo.TypeFlexBox.IsInstance(box_)) {
+	if !(bo.TypeBlockContainerBox.IsInstance(box_) || bo.TypeFlexBox.IsInstance(box_)) {
 		log.Fatalf("expected BlockContainer or Flex, got %s", box_)
 	}
 
@@ -592,7 +592,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 			if len(child.FirstLetterStyle) == 0 {
 				child.FirstLetterStyle = firstLetterStyle
 			}
-			newChild_, tmp := blockLevelLayout(context, child_.(bo.InstanceBlockLevelBox), maxPositionY, skipStack,
+			newChild_, tmp := blockLevelLayout(context, child_.(bo.BlockLevelBoxITF), maxPositionY, skipStack,
 				newContainingBlock.Box(), pageIsEmptyWithNoChildren, absoluteBoxes, fixedBoxes, adjoiningMargins)
 			resumeAt, nextPage = tmp.resumeAt, tmp.nextPage
 			nextAdjoiningMargins, collapsingThrough := tmp.adjoiningMargins, tmp.collapsingThrough
@@ -815,13 +815,13 @@ func establishesFormattingContext(box_ Box) bool {
 		// TODO: columns shouldn't be block boxes, this condition would then be
 		// useless when this is fixed
 		box.IsColumn ||
-		(bo.IsBlockContainerBox(box_) && !bo.TypeBlockBox.IsInstance(box_)) ||
+		(bo.TypeBlockContainerBox.IsInstance(box_) && !bo.TypeBlockBox.IsInstance(box_)) ||
 		(bo.TypeBlockBox.IsInstance(box_) && box.Style.GetOverflow() != "visible")
 }
 
 // https://drafts.csswg.org/css-break-3/#possible-breaks
 func isParallel(box Box) bool {
-	return bo.IsBlockLevelBox(box) || bo.TypeTableRowGroupBox.IsInstance(box) || bo.TypeTableRowBox.IsInstance(box)
+	return bo.TypeBlockLevelBox.IsInstance(box) || bo.TypeTableRowGroupBox.IsInstance(box) || bo.TypeTableRowBox.IsInstance(box)
 }
 
 func reverseStrings(f []pr.String) {
@@ -846,7 +846,7 @@ func blockLevelPageBreak(siblingBefore, siblingAfter Box) string {
 	for isParallel(box_) {
 		box := box_.Box()
 		values = append(values, box.Style.GetBreakAfter())
-		if !(bo.IsParentBox(box_) && len(box.Children) != 0) {
+		if !(bo.TypeParentBox.IsInstance(box_) && len(box.Children) != 0) {
 			break
 		}
 		box_ = box.Children[len(box.Children)-1]
@@ -857,7 +857,7 @@ func blockLevelPageBreak(siblingBefore, siblingAfter Box) string {
 	for isParallel(box_) {
 		box := box_.Box()
 		values = append(values, box.Style.GetBreakBefore())
-		if !(bo.IsParentBox(box_) && len(box.Children) != 0) {
+		if !(bo.TypeParentBox.IsInstance(box_) && len(box.Children) != 0) {
 			break
 		}
 		box_ = box.Children[0]
@@ -971,7 +971,7 @@ func removeBox(list *[]*AbsolutePlaceholder, box Box) {
 func removePlaceholders(boxList []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) {
 	for _, box_ := range boxList {
 		box := box_.Box()
-		if bo.IsParentBox(box_) {
+		if bo.TypeParentBox.IsInstance(box_) {
 			removePlaceholders(box.Children, absoluteBoxes, fixedBoxes)
 		}
 		if box.Style.GetPosition().String == "absolute" {

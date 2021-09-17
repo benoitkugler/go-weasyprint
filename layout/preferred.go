@@ -31,12 +31,12 @@ func shrinkToFit(context *LayoutContext, box Box, availableWidth pr.Float) pr.Fl
 // This is the width by breaking at every line-break opportunity.
 // outer=true
 func minContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
-	rep, isReplaced := box.(bo.InstanceReplacedBox)
+	rep, isReplaced := box.(bo.ReplacedBoxITF)
 	if box.Box().IsTableWrapper {
 		return tableAndColumnsPreferredWidths(context, box.Box(), outer).tableMinContentWidth
 	} else if bo.TypeTableCellBox.IsInstance(box) {
 		return tableCellMinContentWidth(context, box, outer)
-	} else if bo.IsBlockContainerBox(box) || bo.TypeTableColumnBox.IsInstance(box) || bo.TypeFlexBox.IsInstance(box) {
+	} else if bo.TypeBlockContainerBox.IsInstance(box) || bo.TypeTableColumnBox.IsInstance(box) || bo.TypeFlexBox.IsInstance(box) {
 		return blockMinContentWidth(context, box, outer)
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box) {
 		return columnGroupContentWidth(box.Box())
@@ -44,7 +44,7 @@ func minContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
 		return inlineMinContentWidth(context, box, outer, nil, false, true)
 	} else if isReplaced {
 		return replacedMinContentWidth(rep.Replaced(), outer)
-	} else if bo.IsFlexContainerBox(box) {
+	} else if bo.TypeFlexContainerBox.IsInstance(box) {
 		return flexMinContentWidth(context, box.Box(), outer)
 	} else {
 		log.Fatalf("min-content width for %T not handled yet", box)
@@ -56,12 +56,12 @@ func minContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
 // This is the width by only breaking at forced line breaks.
 // outer=true
 func maxContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
-	rep, isReplaced := box.(bo.InstanceReplacedBox)
+	rep, isReplaced := box.(bo.ReplacedBoxITF)
 	if box.Box().IsTableWrapper {
 		return tableAndColumnsPreferredWidths(context, box.Box(), outer).tableMaxContentWidth
 	} else if bo.TypeTableCellBox.IsInstance(box) {
 		return tableCellMaxContentWidth(context, box, outer)
-	} else if bo.IsBlockContainerBox(box) || bo.TypeTableColumnBox.IsInstance(box) || bo.TypeFlexBox.IsInstance(box) {
+	} else if bo.TypeBlockContainerBox.IsInstance(box) || bo.TypeTableColumnBox.IsInstance(box) || bo.TypeFlexBox.IsInstance(box) {
 		return blockMaxContentWidth(context, box, outer)
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box) {
 		return columnGroupContentWidth(box.Box())
@@ -69,7 +69,7 @@ func maxContentWidth(context *LayoutContext, box Box, outer bool) pr.Float {
 		return inlineMaxContentWidth(context, box, outer, true)
 	} else if isReplaced {
 		return replacedMaxContentWidth(rep.Replaced(), outer)
-	} else if bo.IsFlexContainerBox(box) {
+	} else if bo.TypeFlexContainerBox.IsInstance(box) {
 		return flexMaxContentWidth(context, box.Box(), outer)
 	} else {
 		log.Fatalf("max-content width for %T not handled yet", box)

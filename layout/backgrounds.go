@@ -155,8 +155,10 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 				totalHeight = pr.Max(totalHeight, max)
 			}
 		}
-		paintingArea = [4]pr.Float{box.BorderBoxX(), box.BorderBoxY(),
-			box.BorderBoxX() + box.BorderWidth(), totalHeight}
+		paintingArea = [4]pr.Float{
+			box.BorderBoxX(), box.BorderBoxY(),
+			box.BorderBoxX() + box.BorderWidth(), totalHeight,
+		}
 	} else if bo.TypeTableRowBox.IsInstance(box_) {
 		if len(box.Children) != 0 {
 			clippedBoxes = nil
@@ -168,8 +170,10 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 				}
 			}
 			height := max
-			paintingArea = [4]pr.Float{box.BorderBoxX(), box.BorderBoxY(),
-				box.BorderBoxX() + box.BorderWidth(), box.BorderBoxY() + height}
+			paintingArea = [4]pr.Float{
+				box.BorderBoxX(), box.BorderBoxY(),
+				box.BorderBoxX() + box.BorderWidth(), box.BorderBoxY() + height,
+			}
 		}
 	} else if bo.TypeTableColumnGroupBox.IsInstance(box_) || bo.TypeTableColumnBox.IsInstance(box_) {
 		cells := box.GetCells()
@@ -183,8 +187,10 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 				}
 			}
 			maxX := max
-			paintingArea = [4]pr.Float{box.BorderBoxX(), box.BorderBoxY(),
-				maxX - box.BorderBoxX(), box.BorderBoxY() + box.BorderHeight()}
+			paintingArea = [4]pr.Float{
+				box.BorderBoxX(), box.BorderBoxY(),
+				maxX - box.BorderBoxX(), box.BorderBoxY() + box.BorderHeight(),
+			}
 		}
 	} else {
 		paintingArea = boxRectangle(*box, clip)
@@ -209,7 +215,8 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		return bo.BackgroundLayer{
 			Image: nil, Unbounded: box_ == page, PaintingArea: bo.Area{Rect: paintingArea},
 			Size: pr.Size{String: "unused"}, Position: bo.Position{String: "unused"}, Repeat: bo.Repeat{String: "unused"},
-			PositioningArea: bo.Area{String: "unused"}, ClippedBoxes: clippedBoxes}
+			PositioningArea: bo.Area{String: "unused"}, ClippedBoxes: clippedBoxes,
+		}
 	}
 
 	var positioningArea [4]pr.Float
@@ -286,7 +293,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 func setCanvasBackground(page *bo.PageBox) {
 	rootBox_ := page.Children[0]
 	rootBox := rootBox_.Box()
-	if bo.IsMarginBox(rootBox_) {
+	if bo.TypeMarginBox.IsInstance(rootBox_) {
 		log.Fatalf("unexpected margin box as first child of page")
 	}
 	chosenBox_ := rootBox_

@@ -74,7 +74,7 @@ func constraintImageSizing(constraintWidth, constraintHeight pr.Float, intrinsic
 	}
 }
 
-func ReplacedboxLayout(box_ bo.InstanceReplacedBox) (drawWidth, drawHeight, positionX, positionY pr.Float) {
+func ReplacedboxLayout(box_ bo.ReplacedBoxITF) (drawWidth, drawHeight, positionX, positionY pr.Float) {
 	box := box_.Replaced()
 	// TODO: respect box-sizing ?
 	objectFit := box.Style.GetObjectFit()

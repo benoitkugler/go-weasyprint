@@ -202,7 +202,7 @@ func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enabl
 	if err := drawBackground(context, box.Box().Background, enableHinting, true, Bleed{}, pr.Marks{}); err != nil {
 		return err
 	}
-	if box_, ok := box.(bo.InstanceTableBox); ok {
+	if box_, ok := box.(bo.TableBoxITF); ok {
 		box := box_.Table()
 		if err := drawTableBackgrounds(context, page, box_, enableHinting); err != nil {
 			return err
@@ -269,7 +269,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			// Point 2
 			if bo.TypeBlockBox.IsInstance(box_) || bo.IsMarginBox(box_) ||
 				bo.TypeInlineBlockBox.IsInstance(box_) || bo.TypeTableCellBox.IsInstance(box_) ||
-				bo.IsFlexContainerBox(box_) {
+				bo.TypeFlexContainerBox.IsInstance(box_) {
 				// The canvas background was removed by setCanvasBackground
 				if err := drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting); err != nil {
 					return err
@@ -314,7 +314,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 
 				// Point 7
 				for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
-					if block, ok := block.(bo.InstanceReplacedBox); ok {
+					if block, ok := block.(bo.ReplacedBoxITF); ok {
 						drawReplacedbox(context, block)
 					} else {
 						for _, child := range block.Box().Children {
@@ -496,7 +496,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 }
 
 // Draw the background color && image of the table children.
-func drawTableBackgrounds(context Drawer, page *bo.PageBox, table_ bo.InstanceTableBox, enableHinting bool) error {
+func drawTableBackgrounds(context Drawer, page *bo.PageBox, table_ bo.TableBoxITF, enableHinting bool) error {
 	table := table_.Table()
 	for _, columnGroup := range table.ColumnGroups {
 		err := drawBackground2(context, columnGroup.Box().Background, enableHinting)
@@ -645,7 +645,7 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 
 	// Draw column borders.
 	drawColumnBorder := func() {
-		columns := bo.IsBlockContainerBox(box_) && (box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto")
+		columns := bo.TypeBlockContainerBox.IsInstance(box_) && (box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto")
 		if crw := box.Style.GetColumnRuleWidth(); columns && !crw.IsNone() {
 			borderWidths := pr.Rectangle{0, 0, 0, crw.Value}
 			for _, child := range box.Children[1:] {
@@ -1020,7 +1020,7 @@ func drawOutlines(context Drawer, box_ Box, enableHinting bool) {
 		}
 	}
 
-	if bo.IsParentBox(box_) {
+	if bo.TypeParentBox.IsInstance(box_) {
 		for _, child := range box.Children {
 			if bo.IsBox(child) {
 				drawOutlines(context, child, enableHinting)
@@ -1190,7 +1190,7 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 }
 
 // Draw the given :class:`boxes.ReplacedBox` to a ``cairo.context``.
-func drawReplacedbox(context Drawer, box_ bo.InstanceReplacedBox) {
+func drawReplacedbox(context Drawer, box_ bo.ReplacedBoxITF) {
 	box := box_.Replaced()
 	if box.Style.GetVisibility() != "visible" || !pr.Is(box.Width) || !pr.Is(box.Height) {
 		return
@@ -1223,7 +1223,7 @@ func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting b
 		}
 		drawBorder(context, box_, enableHinting)
 		textBox, isTextBox := box_.(*bo.TextBox)
-		replacedBox, isReplacedBox := box_.(bo.InstanceReplacedBox)
+		replacedBox, isReplacedBox := box_.(bo.ReplacedBoxITF)
 		if layout.IsLine(box_) {
 			if lineBox, ok := box_.(*bo.LineBox); ok {
 				textOverflow = lineBox.TextOverflow

@@ -13,13 +13,13 @@ import (
 
 // if box is nil, then represents a list
 type boxOrList struct {
-	box  bo.InstanceBlockLevelBox
+	box  bo.BlockLevelBoxITF
 	list []Box
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.InstanceBlockLevelBox, blockLayout) {
+func columnsLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
 	style := box_.Box().Style
@@ -30,7 +30,7 @@ func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPosition
 		absoluteBoxes = nil
 	}
 
-	box_ = bo.CopyWithChildren(box_, box_.Box().Children, true, true).(bo.InstanceBlockBox) // CopyWithChildren preserves the concrete type of box_
+	box_ = bo.CopyWithChildren(box_, box_.Box().Children, true, true).(bo.BlockBoxITF) // CopyWithChildren preserves the concrete type of box_
 	box := box_.Box()
 	box.PositionY += collapseMargin(adjoiningMargins) - box.MarginTop.V()
 
@@ -66,8 +66,8 @@ func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPosition
 		width = (availableWidth+cgap)/count_ - cgap
 	}
 
-	createColumnBox := func(children []Box) bo.InstanceBlockBox {
-		columnBox := box_.Type().AnonymousFrom(box_, children).(bo.InstanceBlockBox) // AnonymousFrom preserves concrete types
+	createColumnBox := func(children []Box) bo.BlockBoxITF {
+		columnBox := box_.Type().AnonymousFrom(box_, children).(bo.BlockBoxITF) // AnonymousFrom preserves concrete types
 		resolvePercentagesBox(columnBox, containingBlock, "")
 		columnBox.Box().IsColumn = true
 		columnBox.Box().Width = width
@@ -92,7 +92,7 @@ func columnsLayout(context *LayoutContext, box_ bo.InstanceBlockBox, maxPosition
 			if len(columnChildren) != 0 {
 				columnsAndBlocks = append(columnsAndBlocks, boxOrList{list: columnChildren})
 			}
-			columnsAndBlocks = append(columnsAndBlocks, boxOrList{box: child.Copy().(bo.InstanceBlockLevelBox)})
+			columnsAndBlocks = append(columnsAndBlocks, boxOrList{box: child.Copy().(bo.BlockLevelBoxITF)})
 			columnChildren = nil
 			continue
 		}

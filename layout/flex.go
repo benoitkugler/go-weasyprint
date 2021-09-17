@@ -110,7 +110,7 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 }
 
 func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.InstanceBlockLevelBox, blockLayout) {
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 
 	context.createBlockFormattingContext()
 	var resumeAt *tree.SkipStack
@@ -238,7 +238,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				specifiedSize = child.Width.V()
 			}
 			newChild := child_.Copy()
-			if bo.IsParentBox(child_) {
+			if bo.TypeParentBox.IsInstance(child_) {
 				newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 			newChild.Box().Style = child.Style.Copy()
@@ -254,14 +254,14 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				specifiedSize = child.Height.V()
 			}
 			newChild := child_.Copy()
-			if bo.IsParentBox(child_) {
+			if bo.TypeParentBox.IsInstance(child_) {
 				newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 			newChild.Box().Style = child.Style.Copy()
 			newChild.Box().Style.SetHeight(pr.SToV("auto"))
 			newChild.Box().Style.SetMinHeight(pr.ZeroPixels.ToValue())
 			newChild.Box().Style.SetMaxHeight(pr.Dimension{Value: pr.Inf, Unit: pr.Px}.ToValue())
-			newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack, parentBox, pageIsEmpty, nil, nil, nil)
+			newChild, _ = blockLevelLayout(context, newChild.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack, parentBox, pageIsEmpty, nil, nil, nil)
 			contentSize := newChild.Box().Height.V()
 			child.MinHeight = pr.Min(specifiedSize, contentSize)
 		}
@@ -330,11 +330,11 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					child.FlexBaseSize = maxContentWidth(context, child_, true)
 				} else {
 					newChild := child_.Copy()
-					if bo.IsParentBox(child_) {
+					if bo.TypeParentBox.IsInstance(child_) {
 						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 					}
 					newChild.Box().Width = pr.Inf
-					newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
+					newChild, _ = blockLevelLayout(context, newChild.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
 						parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
 					child.FlexBaseSize = newChild.Box().MarginHeight()
 				}
@@ -344,11 +344,11 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					child.FlexBaseSize = minContentWidth(context, child_, true)
 				} else {
 					newChild := child_.Copy()
-					if bo.IsParentBox(child_) {
+					if bo.TypeParentBox.IsInstance(child_) {
 						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 					}
 					newChild.Box().Width = pr.Float(0)
-					newChild, _ = blockLevelLayout(context, newChild.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
+					newChild, _ = blockLevelLayout(context, newChild.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
 						parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
 					child.FlexBaseSize = newChild.Box().MarginHeight()
 				}
@@ -624,16 +624,16 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				child.MarginBottom = pr.Float(0)
 			}
 			childCopy := child_.Copy()
-			if bo.IsParentBox(child_) {
+			if bo.TypeParentBox.IsInstance(child_) {
 				childCopy = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 
 			blockLevelWidth(childCopy, nil, parentBox)
-			newChild, tmp := blockLevelLayoutSwitch(context, childCopy.(bo.InstanceBlockLevelBox), pr.Inf, childSkipStack,
+			newChild, tmp := blockLevelLayoutSwitch(context, childCopy.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
 				parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
 			adjoiningMargins := tmp.adjoiningMargins
 			child.Baseline = pr.Float(0)
-			if bl := findInFlowBaseline(newChild, false, nil); bl != nil {
+			if bl := findInFlowBaseline(newChild, false); bl != nil {
 				child.Baseline = bl.V()
 			}
 			if cross == "height" {
@@ -1109,7 +1109,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		for _, v := range line.line {
 			i, child := v.index, v.box.Box()
 			if child.IsFlexItem {
-				newChild, tmp := blockLevelLayoutSwitch(context, v.box.(bo.InstanceBlockLevelBox), maxPositionY, childSkipStack, v.box.Box(),
+				newChild, tmp := blockLevelLayoutSwitch(context, v.box.(bo.BlockLevelBoxITF), maxPositionY, childSkipStack, v.box.Box(),
 					pageIsEmpty, absoluteBoxes, fixedBoxes, nil)
 				childResumeAt := tmp.resumeAt
 				if newChild == nil {
@@ -1165,7 +1165,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		} else {
 			var val pr.MaybeFloat
 			if len(box.Children) != 0 {
-				val = findInFlowBaseline(box.Children[0], false, nil)
+				val = findInFlowBaseline(box.Children[0], false)
 			}
 			if val != nil {
 				box.Baseline = val.V()
@@ -1178,7 +1178,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	context.finishBlockFormattingContext(box_)
 
 	// TODO: check these returned values
-	return box_.(bo.InstanceBlockLevelBox), blockLayout{
+	return box_.(bo.BlockLevelBoxITF), blockLayout{
 		resumeAt:          resumeAt,
 		nextPage:          tree.PageBreak{Break: "any"},
 		adjoiningMargins:  nil,
