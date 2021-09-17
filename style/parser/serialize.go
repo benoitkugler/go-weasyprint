@@ -42,7 +42,6 @@ func init() {
 	badPairs[[2]string{"ident", "() block"}] = true
 	badPairs[[2]string{"|", "|"}] = true
 	badPairs[[2]string{"/", "*"}] = true
-
 }
 
 // Serialize nodes to CSS syntax.
@@ -159,8 +158,8 @@ func serializeStringValue(value string) string {
 
 // http://dev.w3.org/csswg/css-syntax/#serialization-tables
 // Serialize an iterable of nodes to CSS syntax,
-//  writing chunks as Unicode string
-//  by calling the provided `write` callback.
+// writing chunks as Unicode string
+// by calling the provided `write` callback.
 func serializeTo(nodes []Token, write func(s string)) {
 	var previousType string
 	for _, node := range nodes {

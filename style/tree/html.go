@@ -51,8 +51,8 @@ func NewHTML(htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.Ur
 	out.BaseUrl = utils.FindBaseUrl(root, result.BaseUrl)
 	out.UrlFetcher = urlFetcher
 	out.mediaType = mediaType
-	out.UAStyleSheet = html5UAStylesheet
-	out.PHStyleSheet = html5PHStylesheet
+	out.UAStyleSheet = Html5UAStylesheet
+	out.PHStyleSheet = Html5PHStylesheet
 	return &out, nil
 }
 

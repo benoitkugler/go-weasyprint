@@ -114,3 +114,8 @@ func TestDataurl(t *testing.T) {
 				bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=";`
 	fmt.Println(Serialize(ParseComponentValueList(input, true)))
 }
+
+func TestDebug(t *testing.T) {
+	ls := ParseComponentValueList(`.foo\:bar`, false)
+	fmt.Println(Serialize(ls))
+}

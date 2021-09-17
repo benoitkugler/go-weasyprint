@@ -24,10 +24,6 @@ func fakeHTML(html HTML) *HTML {
 	return &html
 }
 
-func TestLoadStyleSheets(t *testing.T) {
-	LoadStyleSheet("../..")
-}
-
 func TestDescriptors(t *testing.T) {
 	stylesheet := parser.ParseStylesheet2([]byte("@font-face{}"), false, false)
 	logs := testutils.CaptureLogs()

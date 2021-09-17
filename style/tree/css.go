@@ -3,7 +3,6 @@ package tree
 import (
 	"fmt"
 	"log"
-	"path/filepath"
 
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
@@ -19,35 +18,39 @@ import (
 	_ "embed"
 )
 
-var html5UAStylesheet, html5PHStylesheet CSS
+var (
+	// Html5UAStylesheet is the user agent style sheet
+	Html5UAStylesheet CSS
 
-// TestUAStylesheet is a lightweight style sheet
-var TestUAStylesheet CSS
+	// Html5PHStylesheet is the presentational hints style sheet
+	Html5PHStylesheet CSS
+
+	// TestUAStylesheet is a lightweight style sheet
+	TestUAStylesheet CSS
+)
 
 //go:embed tests_ua.css
-var testUAStylesheet string
+var testUACSS string
+
+//go:embed html5_ua.css
+var html5UACSS string
+
+//go:embed html5_ph.css
+var html5PHCSS string
 
 func init() {
 	var err error
-	TestUAStylesheet, err = NewCSSDefault(utils.InputString(testUAStylesheet))
+	TestUAStylesheet, err = NewCSSDefault(utils.InputString(testUACSS))
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-// LoadStyleSheet should be called once to load stylesheets ressources.
-// `path` is the folder containing the 'ressources' directory.
-// It will panic on failure.
-// TODO: use embed
-func LoadStyleSheet(path string) {
-	var err error
-	html5UAStylesheet, err = NewCSSDefault(utils.InputFilename(filepath.Join(path, "ressources", "html5_ua.css")))
+	Html5UAStylesheet, err = NewCSSDefault(utils.InputString(html5UACSS))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	html5PHStylesheet, err = NewCSSDefault(utils.InputFilename(filepath.Join(path, "ressources", "html5_ph.css")))
+	Html5PHStylesheet, err = NewCSSDefault(utils.InputString(html5PHCSS))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
