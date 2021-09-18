@@ -15,43 +15,31 @@ def to_go(boxes: list) -> str:
 
 
 IN = [
-    ("body", "Line", [
-        ("p", "InlineBlock", [
-            ("p", "Block", [
-                ("p", "Line", [
-                    ("p", "Text", "Lorem "),
-                    ("em", "Inline", [
-                        ("em", "Text", "ipsum "),
-                        ("strong", "Inline", [
-                            ("strong", "Text", "dolor ")])])])]),
-            ("span", "Block", [
-                ("span", "Line", [
-                    ("span", "Text", "sit")])]),
-            ("p", "Block", [
-                ("p", "Line", [
-                    ("em", "Inline", [
-                        ("strong", "Inline", [
-                            # Whitespace processing ! done yet.
-                            ("strong", "Text", "\n      ")])])])]),
-            ("span", "Block", [
-                ("span", "Line", [
-                    ("span", "Text", "amet,")])]),
-
-            ("p", "Block", [
-                ("p", "Line", [
-                    ("em", "Inline", [
-                        ("strong", "Inline", [])])])]),
-            ("span", "Block", [
-                ("span", "Block", [
-                    ("span", "Line", [
-                        ("em", "Inline", [
-                            ("em", "Text", "conse")])])]),
-                ("i", "Block", []),
-                ("span", "Block", [
-                    ("span", "Line", [
-                        ("em", "Inline", [])])])]),
-            ("p", "Block", [
-                ("p", "Line", [
-                    ("em", "Inline", [])])])])])]
+    ("x-table", "Block", [
+        ("x-caption", "TableCaption", [
+                ("x-caption", "Line", [
+                    ("x-caption", "Text", "top caption")])]),
+        ("x-table", "Table", [
+            ("x-table", "TableColumnGroup", [
+                    ("x-col", "TableColumn", [])]),
+            ("x-thead", "TableRowGroup", [
+                ("x-thead", "TableRow", [
+                        ("x-th", "TableCell", [])])]),
+            ("x-table", "TableRowGroup", [
+                ("x-tr", "TableRow", [
+                        ("x-th", "TableCell", [
+                            ("x-th", "Line", [
+                                ("x-th", "Text", "foo")])]),
+                        ("x-th", "TableCell", [
+                            ("x-th", "Line", [
+                                ("x-th", "Text", "bar")])])])]),
+            ("x-thead", "TableRowGroup", []),
+            ("x-table", "TableRowGroup", [
+                ("x-tr", "TableRow", [
+                        ("x-td", "TableCell", [
+                            ("x-td", "Line", [
+                                ("x-td", "Text", "baz")])])])]),
+            ("x-tfoot", "TableRowGroup", [])]),
+        ("x-caption", "TableCaption", [])])]
 
 print(to_go(IN))

@@ -60,8 +60,6 @@ func newHtml(htmlContent utils.ContentInput) (*HTML, error) {
 	return NewHTML(htmlContent, "", nil, "")
 }
 
-func (h HTML) AsHTML() HTML { return h }
-
 func (h HTML) GetMetadata() utils.DocumentMetadata {
 	return utils.GetHtmlMetadata(h.Root, h.BaseUrl)
 }

@@ -863,15 +863,16 @@ func isWhitespace(box Box, hasNonWhitespace func(string) bool) bool {
 //   Wrap consecutive children that do not pass ``test`` in a box of type
 // ``wrapperType``.
 // ``test`` defaults to children being of the same type as ``wrapperType``.
-func wrapImproper(box Box, children []Box, boxType BoxType, test func(Box) bool) []Box {
+func wrapImproper(box Box, children []Box, wrapperBoxType BoxType, test func(Box) bool) []Box {
+	fmt.Println("wrap improper", wrapperBoxType)
 	var out, improper []Box
 	if test == nil {
-		test = boxType.IsInstance
+		test = wrapperBoxType.IsInstance
 	}
 	for _, child := range children {
 		if test(child) {
 			if len(improper) > 0 {
-				wrapper := boxType.AnonymousFrom(box, nil)
+				wrapper := wrapperBoxType.AnonymousFrom(box, nil)
 				// Apply the rules again on the new wrapper
 				out = append(out, tableBoxesChildren(wrapper, improper))
 				improper = nil
@@ -881,11 +882,16 @@ func wrapImproper(box Box, children []Box, boxType BoxType, test func(Box) bool)
 			// Whitespace either fail the test or were removed earlier,
 			// so there is no need to take special care with the definition
 			// of "consecutive".
-			improper = append(improper, child)
+			if TypeFlexContainerBox.IsInstance(box) {
+				// The display value of a flex item must be "blockified", see
+				// https://www.w3.org/TR/css-flexbox-1/#flex-items
+			} else {
+				improper = append(improper, child)
+			}
 		}
 	}
 	if len(improper) > 0 {
-		wrapper := boxType.AnonymousFrom(box, nil)
+		wrapper := wrapperBoxType.AnonymousFrom(box, nil)
 		// Apply the rules again on the new wrapper
 		out = append(out, tableBoxesChildren(wrapper, improper))
 	}
@@ -898,7 +904,7 @@ func wrapImproper(box Box, children []Box, boxType BoxType, test func(Box) bool)
 //
 //See http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
 func AnonymousTableBoxes(box Box) Box {
-	if !TypeParentBox.IsInstance(box) {
+	if !TypeParentBox.IsInstance(box) || box.Box().IsRunning() {
 		return box
 	}
 
@@ -911,8 +917,9 @@ func AnonymousTableBoxes(box Box) Box {
 	return tableBoxesChildren(box, children)
 }
 
-// Internal implementation of AnonymousTableBoxes().
+// Internal implementation of AnonymousTableBoxes().box
 func tableBoxesChildren(box Box, children []Box) Box {
+	fmt.Println("tableBoxes", box.Type(), len(children))
 	if TypeTableColumnBox.IsInstance(box) { // rule 1.1
 		// Remove all children.
 		children = nil
@@ -946,7 +953,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 		internal, text := children[len(children)-2], children[len(children)-1]
 
 		if internal.Box().internalTableOrCaption && isWhitespace(text, nil) {
-			children = children[:len(children)-2]
+			children = children[:len(children)-1]
 		}
 		// First child
 		if len(children) >= 2 {
@@ -978,9 +985,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 	if TypeTableBox.IsInstance(box) {
 		// Rule 2.1
 		children = wrapImproper(box, children, TypeTableRowBox,
-			func(child Box) bool {
-				return child.Box().properTableChild
-			})
+			func(child Box) bool { return child.Box().properTableChild })
 	} else if TypeTableRowGroupBox.IsInstance(box) {
 		// Rule 2.2
 		children = wrapImproper(box, children, TypeTableRowBox, nil)
@@ -991,7 +996,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 		children = wrapImproper(box, children, TypeTableCellBox, nil)
 	} else {
 		// Rule 3.1
-		children = wrapImproper(box, children, TypeTableCellBox, func(child Box) bool {
+		children = wrapImproper(box, children, TypeTableRowBox, func(child Box) bool {
 			return !TypeTableCellBox.IsInstance(child)
 		})
 	}
@@ -1011,10 +1016,9 @@ func tableBoxesChildren(box Box, children []Box) Box {
 
 	if tableBox, ok := box.(TableBoxITF); ok {
 		return wrapTable(tableBox, children)
-	} else {
-		box.Box().Children = children
-		return box
 	}
+	box.Box().Children = children
+	return box
 }
 
 // Take a table box and return it in its table wrapper box.
@@ -1026,6 +1030,7 @@ func tableBoxesChildren(box Box, children []Box) Box {
 //
 // wrapTable will panic if box's children are not table boxes
 func wrapTable(box TableBoxITF, children []Box) Box {
+	fmt.Println("wrapping table")
 	// Group table children by type
 	var columns, rows, allCaptions []Box
 	byType := func(child Box) *[]Box {

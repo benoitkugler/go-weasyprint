@@ -218,12 +218,18 @@ func (SVGImage) Draw(context backend.Drawer, concreteWidth, concreteHeight float
 }
 
 // Get a cairo Pattern from an image URI.
-func GetImageFromUri(cache map[string]Image, _ utils.UrlFetcher, url, _ string) Image {
+func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, url, _ string) Image {
 	image, in := cache[url]
 	if in {
 		return image
 	}
+	_, err := fetcher(url)
+	if err != nil {
+		log.Printf(`Failed to load image at "%s" (%s)`, url, err)
+		return nil
+	}
 	// FIXME: à implémenter
+	image = RadialGradient{}
 	//     try {
 	//         with fetch(urlFetcher, url) as result {
 	//             if "string" := range result {
@@ -279,8 +285,9 @@ func GetImageFromUri(cache map[string]Image, _ utils.UrlFetcher, url, _ string) 
 	//     except (URLFetchingError, ImageLoadingError) as exc {
 	//         LOGGER.error("Failed to load image at "%s" (%s)", url, exc)
 	//         image = nil
-	//     } cache[url] = image
-	return LinearGradient{}
+	//     }
+	cache[url] = image
+	return image
 }
 
 // Gradient line size: distance between the starting point and ending point.

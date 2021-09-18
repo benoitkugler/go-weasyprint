@@ -1,7 +1,6 @@
 package boxes
 
 import (
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -31,7 +30,6 @@ func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseU
 	handler, in := htmlHandlers[box.Box().ElementTag]
 	if in {
 		ls := handler(element, box, getImageFromUri, baseUrl)
-		fmt.Println(box.Box().ElementTag, ls)
 		return ls
 	} else {
 		return []Box{box}

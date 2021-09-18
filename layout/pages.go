@@ -794,27 +794,6 @@ func makePage(context *LayoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	return page, resumeAt, tmp.nextPage
 }
 
-// Set style for page types and pseudo-types matching ``pageType``.
-func setPageTypeComputedStyles(pageType utils.PageElement, html *tree.HTML, styleFor tree.StyleFor) {
-	styleFor.AddPageDeclarations(pageType)
-
-	// Apply style for page
-	styleFor.SetComputedStyles(pageType,
-		// @page inherits from the root element :
-		// http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
-		html.Root, html.Root, "", html.BaseUrl, nil)
-
-	// Apply style for page pseudo-elements (margin boxes)
-	for key := range styleFor.CascadedStyles {
-		if key.PseudoType != "" && key.PageType == pageType {
-			styleFor.SetComputedStyles(
-				key.PageType, key.PageType,
-				// The pseudo-element inherits from the element.
-				html.Root, key.PseudoType, html.BaseUrl, nil)
-		}
-	}
-}
-
 // Return one laid out page without margin boxes.
 // Start with the initial values from ``context.pageMaker[index]``.
 // The resulting values / initial values for the next page are stored in
@@ -854,7 +833,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.BlockLevelBoxITF, 
 		side = "right"
 	}
 	pageType := utils.PageElement{Side: side, Blank: blank, First: first, Index: index, Name: nextPageName}
-	setPageTypeComputedStyles(pageType, html, context.StyleFor)
+	context.StyleFor.SetPageTypeComputedStyles(pageType, html)
 
 	context.forcedBreak = tmp.InitialNextPage.Break != "any" || tmp.InitialNextPage.Page.String != ""
 	context.marginClearance = false

@@ -95,7 +95,6 @@ type methodsBox interface {
 	Box() *BoxFields
 	Copy() Box
 	// String() string
-	IsProperChild(Box) bool
 	AllChildren() []Box
 	// ignoreFloats = false
 	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
@@ -223,10 +222,6 @@ func (box *BoxFields) AllChildren() []Box {
 	return box.Children
 }
 
-func (box *BoxFields) IsProperChild(b Box) bool {
-	return false
-}
-
 // Implements layout interface
 func (*BoxFields) IsContainingBlock() {}
 
@@ -270,6 +265,8 @@ func deepcopy(b Box) Box {
 	return new
 }
 
+// Descendants returns `b` and its children,
+// and their children, etc...
 func Descendants(b Box) []Box {
 	out := []Box{b}
 	for _, child := range b.Box().Children {
@@ -546,5 +543,14 @@ func (BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
 	}
 	if end {
 		box.ResetSpacing("bottom")
+	}
+}
+
+// IsInProperParents returns true if `t` is one of the
+// the proper parents of `type_`
+func (t BoxType) IsInProperParents(type_ BoxType) bool {
+	switch type_ {
+	case TypeTableRowGroupBox:
+		return t == TypeTableBox || t == TypeInlineTableBox
 	}
 }

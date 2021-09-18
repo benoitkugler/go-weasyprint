@@ -49,7 +49,7 @@ type StyleFor struct {
 	sheets         []sheet
 }
 
-func newStyleFor(html HTML, sheets []sheet, presentationalHints bool, targetColllector *TargetCollector) *StyleFor {
+func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetColllector *TargetCollector) *StyleFor {
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		CascadedStyles: cascadedStyles,
@@ -228,26 +228,6 @@ func (s StyleFor) AddPageDeclarations(pageType_ utils.PageElement) {
 					}
 				}
 			}
-		}
-	}
-}
-
-// Set style for page types and pseudo-types matching ``pageType``.
-func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html_ *HTML) {
-	html := html_.AsHTML()
-	styleFor.AddPageDeclarations(pageType)
-
-	// Apply style for page
-	// @page inherits from the Root Element :
-	// http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
-	styleFor.SetComputedStyles(pageType, html.Root, html.Root, "", html.BaseUrl, nil)
-
-	// Apply style for page pseudo-elements (margin boxes)
-	for key := range styleFor.CascadedStyles {
-		// Element, pseudoType = key
-		if key.PseudoType != "" && key.PageType == pageType {
-			// The pseudo-Element inherits from the Element.
-			styleFor.SetComputedStyles(key.PageType, key.PageType, html.Root, key.PseudoType, html.BaseUrl, nil)
 		}
 	}
 }
@@ -1134,7 +1114,7 @@ type sas struct {
 // Return a `StyleFor` function like object that takes an Element and an optional
 // pseudo-Element type, and return a style dict object.
 // presentationalHints=false
-func GetAllComputedStyles(html_ *HTML, userStylesheets []CSS,
+func GetAllComputedStyles(html *HTML, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *text.FontConfiguration,
 	counterStyle counters.CounterStyle, pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
 
@@ -1144,20 +1124,38 @@ func GetAllComputedStyles(html_ *HTML, userStylesheets []CSS,
 
 	// List stylesheets. Order here is not important ("origin" is).
 	sheets := []sheet{
-		{sheet: html_.UAStyleSheet, origin: "user agent", specificity: nil},
+		{sheet: html.UAStyleSheet, origin: "user agent", specificity: nil},
 	}
 
 	if presentationalHints {
-		sheets = append(sheets, sheet{sheet: html_.PHStyleSheet, origin: "author", specificity: []int{0, 0, 0}})
+		sheets = append(sheets, sheet{sheet: html.PHStyleSheet, origin: "author", specificity: []int{0, 0, 0}})
 	}
-	htmlElement := html_.AsHTML()
-	authorShts := findStylesheets(htmlElement.Root, htmlElement.mediaType, htmlElement.UrlFetcher,
-		htmlElement.BaseUrl, fontConfig, counterStyle, pageRules)
+	authorShts := findStylesheets(html.Root, html.mediaType, html.UrlFetcher,
+		html.BaseUrl, fontConfig, counterStyle, pageRules)
 	for _, sht := range authorShts {
 		sheets = append(sheets, sheet{sheet: sht, origin: "author", specificity: nil})
 	}
 	for _, sht := range userStylesheets {
 		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
-	return newStyleFor(htmlElement, sheets, presentationalHints, TargetCollector)
+	return newStyleFor(html, sheets, presentationalHints, TargetCollector)
+}
+
+// Set style for page types and pseudo-types matching ``pageType``.
+func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html *HTML) {
+	styleFor.AddPageDeclarations(pageType)
+
+	// Apply style for page
+	// @page inherits from the Root Element :
+	// http://lists.w3.org/Archives/Public/www-style/2012Jan/1164.html
+	styleFor.SetComputedStyles(pageType, html.Root, html.Root, "", html.BaseUrl, nil)
+
+	// Apply style for page pseudo-elements (margin boxes)
+	for key := range styleFor.CascadedStyles {
+		// Element, pseudoType = key
+		if key.PseudoType != "" && key.PageType == pageType {
+			// The pseudo-Element inherits from the Element.
+			styleFor.SetComputedStyles(key.PageType, key.PageType, html.Root, key.PseudoType, html.BaseUrl, nil)
+		}
+	}
 }
