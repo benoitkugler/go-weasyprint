@@ -132,7 +132,7 @@ func integerAttribute(element utils.HTMLNode, name string, minimum int) (bool, i
 
 // Handle the ``span`` attribute.
 func handleColgroup(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
-	if TypeTableColumnGroupBox.IsInstance(box) { // leaf
+	if TableColumnGroupBoxT.IsInstance(box) { // leaf
 		f := box.Box()
 
 		hasCol := false
@@ -159,7 +159,7 @@ func handleColgroup(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 
 // Handle the ``span`` attribute.
 func handleCol(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
-	if TypeTableColumnBox.IsInstance(box) { // leaf
+	if TableColumnBoxT.IsInstance(box) { // leaf
 		f := box.Box()
 
 		valid, span := integerAttribute(*element, "span", 1)
@@ -181,7 +181,7 @@ func handleCol(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 
 // Handle the ``colspan``, ``rowspan`` attributes.
 func handleTd(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
-	if TypeTableCellBox.IsInstance(box) {
+	if TableCellBoxT.IsInstance(box) {
 		// HTML 4.01 gives special meaning to colspan=0
 		// http://www.w3.org/TR/html401/struct/tables.html#adef-rowspan
 		// but HTML 5 removed it

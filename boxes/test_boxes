@@ -1,202 +1,11 @@
 
-@assertNoLogs
-func testTables1():
-    // Rules := range http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-
-    // Rule 1.3
-    // Also table model: http://www.w3.org/TR/CSS21/tables.html#model
-    assertTree(parseAll("""
-      <x-table>
-        <x-tr>
-          <x-th>foo</x-th>
-          <x-th>bar</x-th>
-        </x-tr>
-        <x-tfoot></x-tfoot>
-        <x-thead><x-th></x-th></x-thead>
-        <x-caption style="caption-side: bottom"></x-caption>
-        <x-thead></x-thead>
-        <x-col></x-col>
-        <x-caption>top caption</x-caption>
-        <x-tr>
-          <x-td>baz</x-td>
-        </x-tr>
-      </x-table>
-    } """), [
-        ("x-table", "Block", [
-            ("x-caption", "TableCaption", [
-                ("x-caption", "Line", [
-                    ("x-caption", "Text", "top caption")])]),
-            ("x-table", "Table", [
-                ("x-table", "TableColumnGroup", [
-                    ("x-col", "TableColumn", [])]),
-                ("x-thead", "TableRowGroup", [
-                    ("x-thead", "TableRow", [
-                        ("x-th", "TableCell", [])])]),
-                ("x-table", "TableRowGroup", [
-                    ("x-tr", "TableRow", [
-                        ("x-th", "TableCell", [
-                            ("x-th", "Line", [
-                                ("x-th", "Text", "foo")])]),
-                        ("x-th", "TableCell", [
-                            ("x-th", "Line", [
-                                ("x-th", "Text", "bar")])])])]),
-                ("x-thead", "TableRowGroup", []),
-                ("x-table", "TableRowGroup", [
-                    ("x-tr", "TableRow", [
-                        ("x-td", "TableCell", [
-                            ("x-td", "Line", [
-                                ("x-td", "Text", "baz")])])])]),
-                ("x-tfoot", "TableRowGroup", [])]),
-            ("x-caption", "TableCaption", [])])])
-} 
-
-@assertNoLogs
-func testTables2() {
-    // Rules 1.4 && 3.1
-    assertTree(parseAll("""
-      <span style="display: table-cell">foo</span>
-      <span style="display: table-cell">bar</span>
-    """), [
-        ("body", "Block", [
-            ("body", "Table", [
-                ("body", "TableRowGroup", [
-                    ("body", "TableRow", [
-                        ("span", "TableCell", [
-                            ("span", "Line", [
-                                ("span", "Text", "foo")])]),
-                        ("span", "TableCell", [
-                            ("span", "Line", [
-                                ("span", "Text", "bar")])])])])])])])
 
 
-@assertNoLogs
-func testTables3():
-    // http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
-    // Rules 1.1 && 1.2
-    // Rule XXX (not := range the spec): column groups have at least one column child
-    assertTree(parseAll("""
-      <span style="display: table-column-group">
-        1
-        <em style="display: table-column">
-          2
-          <strong>3</strong>
-        </em>
-        <strong>4</strong>
-      </span>
-      <ins style="display: table-column-group"></ins>
-    """), [
-        ("body", "Block", [
-            ("body", "Table", [
-                ("span", "TableColumnGroup", [
-                    ("em", "TableColumn", [])]),
-                ("ins", "TableColumnGroup", [
-                    ("ins", "TableColumn", [])])])])])
-} 
 
-@assertNoLogs
-func testTables4() {
-    // Rules 2.1 then 2.3
-    assertTree(parseAll("<x-table>foo <div></div></x-table>"), [
-        ("x-table", "Block", [
-            ("x-table", "Table", [
-                ("x-table", "TableRowGroup", [
-                    ("x-table", "TableRow", [
-                        ("x-table", "TableCell", [
-                            ("x-table", "Block", [
-                                ("x-table", "Line", [
-                                    ("x-table", "Text", "foo ")])]),
-                            ("div", "Block", [])])])])])])])
-} 
-
-@assertNoLogs
-func testTables5() {
-    // Rule 2.2
-    assertTree(parseAll("<x-thead style="display: table-header-group">"
-                          "<div></div><x-td></x-td></x-thead>"), [
-        ("body", "Block", [
-            ("body", "Table", [
-                ("x-thead", "TableRowGroup", [
-                    ("x-thead", "TableRow", [
-                        ("x-thead", "TableCell", [
-                            ("div", "Block", [])]),
-                        ("x-td", "TableCell", [])])])])])])
-} 
-
-@assertNoLogs
-func testTables6() {
-    // Rule 3.2
-    assertTree(parseAll("<span><x-tr></x-tr></span>"), [
-        ("body", "Line", [
-            ("span", "Inline", [
-                ("span", "InlineBlock", [
-                    ("span", "InlineTable", [
-                        ("span", "TableRowGroup", [
-                            ("x-tr", "TableRow", [])])])])])])])
-} 
-
-@assertNoLogs
-func testTables7() {
-    // Rule 3.1
-    // Also, rule 1.3 does ! apply: whitespace before && after is preserved
-    assertTree(parseAll("""
-      <span>
-        <em style="display: table-cell"></em>
-        <em style="display: table-cell"></em>
-      </span>
-    """), [
-        ("body", "Line", [
-            ("span", "Inline", [
-                // Whitespace is preserved := range table handling, then collapsed
-                // into a single space.
-                ("span", "Text", " "),
-                ("span", "InlineBlock", [
-                    ("span", "InlineTable", [
-                        ("span", "TableRowGroup", [
-                            ("span", "TableRow", [
-                                ("em", "TableCell", []),
-                                ("em", "TableCell", [])])])])]),
-                ("span", "Text", " ")])])])
-
-
-@assertNoLogs
-func testTables8():
-    // Rule 3.2
-    assertTree(parseAll("<x-tr></x-tr>\t<x-tr></x-tr>"), [
-        ("body", "Block", [
-            ("body", "Table", [
-                ("body", "TableRowGroup", [
-                    ("x-tr", "TableRow", []),
-                    ("x-tr", "TableRow", [])])])])])
-
-
-@assertNoLogs
-func testTables9():
-    assertTree(parseAll("<x-col></x-col>\n<x-colgroup></x-colgroup>"), [
-        ("body", "Block", [
-            ("body", "Table", [
-                ("body", "TableColumnGroup", [
-                    ("x-col", "TableColumn", [])]),
-                ("x-colgroup", "TableColumnGroup", [
-                    ("x-colgroup", "TableColumn", [])])])])])
-
-
-@assertNoLogs
-func testTableStyle():
-    html = parseAll("<table style="margin: 1px; padding: 2px"></table>")
-    body, = html.children
-    wrapper, = body.children
-    table, = wrapper.children
-    assert isinstance(wrapper, boxes.BlockBox)
-    assert isinstance(table, boxes.TableBox)
-    assert wrapper.style["marginTop"] == (1, "px")
-    assert wrapper.style["paddingTop"] == (0, "px")
-    assert table.style["marginTop"] == (0, "px")
-    assert table.style["paddingTop"] == (2, "px")
-
-
-@assertNoLogs
-func testColumnStyle():
-    html = parseAll("""
+func TestColumnStyle(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
+    html = parseAndBuild(t,"""
       <table>
         <col span=3 style="width: 10px"></col>
         <col span=2></col>
@@ -213,9 +22,11 @@ func testColumnStyle():
     assert colgroup.children[0] is ! colgroup.children[1]
 } 
 
-@assertNoLogs
-func testNestedGridX() {
-    html = parseAll("""
+func TestNestedGridX(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
+    html = parseAndBuild(t,"""
       <table>
         <col span=2></col>
         <colgroup span=2></colgroup>
@@ -234,8 +45,9 @@ func testNestedGridX() {
     assert grid == [(0, [0, 1]), (2, [2, 3]), (4, [4, 5, 6]), (7, [7])]
 
 
-@assertNoLogs
-func testColspanRowspan1():
+func TestColspanRowspan1(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     // +---+---+---+
     // | A | B | C | X
     // +---+---+---+
@@ -249,7 +61,7 @@ func testColspanRowspan1():
     // +---+---+   +---+
 
     // X: empty cells
-    html = parseAll("""
+    html = parseAndBuild(t,"""
       <table>
         <tr>
           <td>A <td>B <td>C
@@ -295,10 +107,12 @@ func testColspanRowspan1():
     ]
 } 
 
-@assertNoLogs
-func testColspanRowspan2() {
+func TestColspanRowspan2(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     // A cell box cannot extend beyond the last row box of a table.
-    html = parseAll("""
+    html = parseAndBuild(t,"""
         <table>
             <tr>
                 <td rowspan=5></td>
@@ -327,9 +141,10 @@ func testColspanRowspan2() {
     ]
 
 
-@assertNoLogs
-func testBeforeAfter1():
-    assertTree(parseAll("""
+func TestBeforeAfter1(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
+    assertTree(t,parseAndBuild(t,"""
       <style>
         p:before { content: normal }
         div:before { content: none }
@@ -345,9 +160,11 @@ func testBeforeAfter1():
         ("section", "Block", [])])
 } 
 
-@assertNoLogs
-func testBeforeAfter2() {
-    assertTree(parseAll("""
+func TestBeforeAfter2(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
+    assertTree(t,parseAndBuild(t,"""
       <style>
         p:before { content: "a" "b" }
         p::after { content: "d" "e" }
@@ -363,9 +180,10 @@ func testBeforeAfter2() {
                     ("p::after", "Text", "de")])])])])
 
 
-@assertNoLogs
-func testBeforeAfter3():
-    assertTree(parseAll("""
+func TestBeforeAfter3(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
+    assertTree(t,parseAndBuild(t,"""
       <style>
         a[href]:before { content: "[" attr(href) "] " }
       </style>
@@ -379,9 +197,11 @@ func testBeforeAfter3():
                     ("a", "Text", "some text")])])])])
 } 
 
-@assertNoLogs
-func testBeforeAfter4() {
-    assertTree(parseAll("""
+func TestBeforeAfter4(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
+    assertTree(t,parseAndBuild(t,"""
       <style>
         body { quotes: "«" "»" "“" "”" }
         q:before { content: open-quote " "}
@@ -406,10 +226,11 @@ func testBeforeAfter4() {
                         ("q::after", "Text", " »")])])])])])
 
 
-@assertNoLogs
-func testBeforeAfter5():
+func TestBeforeAfter5(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     with captureLogs() as logs:
-        assertTree(parseAll("""
+        assertTree(t,parseAndBuild(t,"""
           <style>
             p:before {
               content: "a" url(pattern.png) "b";
@@ -433,8 +254,10 @@ func testBeforeAfter5():
     assert "invalid value" := range logs[0]
 } 
 
-@assertNoLogs
-func testMarginBoxes() {
+func TestMarginBoxes(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     page1, page2 = renderPages("""
       <style>
         @page {
@@ -466,8 +289,9 @@ func testMarginBoxes() {
     assert textBox.text == "Title"
 
 
-@assertNoLogs
-func testMarginBoxStringSet1():
+func TestMarginBoxStringSet1(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     // Test that both pages get string := range the `bottom-center` margin box
     page1, page2 = renderPages("""
       <style>
@@ -496,8 +320,10 @@ func testMarginBoxStringSet1():
     assert textBox.text == "first assignment"
 
 
-@assertNoLogs
-func testMarginBoxStringSet2() {
+func TestMarginBoxStringSet2(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     def simpleStringSetTest(contentVal, extraStyle="") {
         page1, = renderPages("""
           <style>
@@ -529,8 +355,9 @@ func testMarginBoxStringSet2() {
             simpleStringSetTest(value)
 
 
-@assertNoLogs
-func testMarginBoxStringSet3():
+func TestMarginBoxStringSet3(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     // Test `first` (default value) ie. use the first assignment on the page
     page1, = renderPages("""
       <style>
@@ -551,8 +378,10 @@ func testMarginBoxStringSet3():
     assert textBox.text == "first assignment"
 
 
-@assertNoLogs
-func testMarginBoxStringSet4() {
+func TestMarginBoxStringSet4(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     // test `first-except` ie. exclude from page on which value is assigned
     page1, page2 = renderPages("""
       <style>
@@ -578,8 +407,9 @@ func testMarginBoxStringSet4() {
     assert textBox.text == "firstExcepted"
 
 
-@assertNoLogs
-func testMarginBoxStringSet5():
+func TestMarginBoxStringSet5(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     // Test `last` ie. use the most-recent assignment
     page1, = renderPages("""
       <style>
@@ -601,8 +431,10 @@ func testMarginBoxStringSet5():
     assert textBox.text == "Second assignment"
 
 
-@assertNoLogs
-func testMarginBoxStringSet6() {
+func TestMarginBoxStringSet6(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     // Test multiple complex string-set values
     page1, = renderPages("""
       <style>
@@ -643,7 +475,7 @@ func testMarginBoxStringSet6() {
     assert bottomTextBox.text == "before!last-secondclass2|1/I"
 
 
-func testMarginBoxStringSet7():
+func TestMarginBoxStringSet7(t *testing.T):
     // Test regression: https://github.com/Kozea/WeasyPrint/issues/722
     page1, = renderPages("""
       <style>
@@ -665,8 +497,10 @@ func testMarginBoxStringSet7():
     assert rightTextBox.text == "{Cake}"
 
 
-@assertNoLogs
-func testMarginBoxStringSet8() {
+func TestMarginBoxStringSet8(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     // Test regression: https://github.com/Kozea/WeasyPrint/issues/726
     page1, page2, page3 = renderPages("""
       <style>
@@ -697,8 +531,9 @@ func testMarginBoxStringSet8() {
     assert leftTextBox.text == "[ ]"
 
 
-@assertNoLogs
-func testMarginBoxStringSet9():
+func TestMarginBoxStringSet9(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     // Test that named strings are case-sensitive
     // See https://github.com/Kozea/WeasyPrint/pull/827
     page1, = renderPages("""
@@ -724,7 +559,7 @@ func testMarginBoxStringSet9():
 
 @assertNoLogs
 // Test page-based counters.
-func testPageCounters() {
+func TestPageCounters(t *testing.T) {
     pages = renderPages("""
       <style>
         @page {
@@ -758,9 +593,10 @@ green5 = ("solid", 5, green)
 dashedBlue5 = ("dashed", 5, blue)
 
 
-@assertNoLogs
-func testBorderCollapse1():
-    html = parseAll("<table></table>")
+func TestBorderCollapse1(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
+    html = parseAndBuild(t,"<table></table>")
     body, = html.children
     tableWrapper, = body.children
     table, = tableWrapper.children
@@ -771,8 +607,9 @@ func testBorderCollapse1():
     assert grid == ([], [])
 
 
-@assertNoLogs
-func testBorderCollapse2():
+func TestBorderCollapse2(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     verticalBorders, horizontalBorders = GetGrid("""
       <style>td { border: 1px solid red }</style>
       <table style="border-collapse: collapse; border: 3px solid black">
@@ -791,8 +628,10 @@ func testBorderCollapse2():
     ]
 } 
 
-@assertNoLogs
-func testBorderCollapse3() {
+func TestBorderCollapse3(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     // hidden vs. none
     verticalBorders, horizontalBorders = GetGrid("""
       <style>table, td { border: 3px solid }</style>
@@ -812,8 +651,9 @@ func testBorderCollapse3() {
     ]
 
 
-@assertNoLogs
-func testBorderCollapse4():
+func TestBorderCollapse4(t *testing.T):
+cp := testutils.CaptureLogs()
+defer cp.AssertNoLogs(t)
     verticalBorders, horizontalBorders = GetGrid("""
       <style>td { border: 1px solid red }</style>
       <table style="border-collapse: collapse; border: 5px solid yellow">
@@ -840,8 +680,10 @@ func testBorderCollapse4():
     ]
 } 
 
-@assertNoLogs
-func testBorderCollapse5() {
+func TestBorderCollapse5(t *testing.T) {
+  cp := testutils.CaptureLogs()
+  defer cp.AssertNoLogs(t)
+
     // rowspan && colspan
     verticalBorders, horizontalBorders = GetGrid("""
         <style>col, tr { border: 3px solid }</style>
@@ -869,7 +711,7 @@ func testBorderCollapse5() {
     "<html style="display: none"><p>abc",
     "<body style="display: none"><p>abc",
 ))
-func testDisplayNoneRoot(html):
-    box = parseAll(html)
+func TestDisplayNoneRoot(t *testing.Thtml):
+    box = parseAndBuild(t,html)
     assert box.style["display"] == ("block", "flow")
     assert ! box.children

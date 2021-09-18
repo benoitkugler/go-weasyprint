@@ -419,7 +419,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out pr.A
 			}
 		}
 		if allowedType == "" || allowedType == typeOrUnit {
-			return pr.AttrData{Name: string(attrName), TypeOrUnit: typeOrUnit, Fallback: fallback}
+			return pr.AttrData{Name: string(attrName), OrUnitT: typeOrUnit, Fallback: fallback}
 		}
 	}
 	return
@@ -581,9 +581,10 @@ func checkContentFunction(token Token) (out pr.ContentProperty) {
 }
 
 // Parse a <quote> token.
-func getQuote(token Token) (bool, pr.Quote) {
+func getQuote(token Token) (pr.Quote, bool) {
 	keyword := getKeyword(token)
-	return false, ContentQuoteKeywords[keyword]
+	out, ok := contentQuoteKeywords[keyword]
+	return out, ok
 }
 
 // Parse a <target> token.
@@ -732,8 +733,8 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 	}
 
 	// <quote>
-	notNone, quote := getQuote(token)
-	if notNone {
+	quote, ok := getQuote(token)
+	if ok {
 		return pr.ContentProperty{Type: "quote", Content: quote}, nil
 	}
 

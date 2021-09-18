@@ -326,12 +326,12 @@ func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes *[]*
 	context.createBlockFormattingContext()
 	// Absolute tables are wrapped into block boxes
 	var newBox Box
-	if bo.TypeBlockBox.IsInstance(box) {
+	if bo.BlockBoxT.IsInstance(box) {
 		newBox = absoluteBlock(context, box, containingBlock, fixedBoxes)
-	} else if bo.TypeFlexContainerBox.IsInstance(box) {
+	} else if bo.FlexContainerBoxT.IsInstance(box) {
 		newBox = absoluteFlex(context, box, containingBlock, fixedBoxes)
 	} else {
-		if !bo.TypeBlockReplacedBox.IsInstance(box) {
+		if !bo.BlockReplacedBoxT.IsInstance(box) {
 			log.Fatalf("box should be a BlockReplaced, got %s", box)
 		}
 		newBox = absoluteReplaced(box, containingBlock)

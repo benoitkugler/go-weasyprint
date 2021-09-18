@@ -86,7 +86,7 @@ def get_itf_and_type_code(class_: type) -> str:
         """
 
     if not class_name in ABSTRACT_TYPES:
-        itf_code += f"""func ({class_name}) Type() BoxType {{ return Type{class_name} }}
+        itf_code += f"""func ({class_name}) Type() BoxType {{ return {class_name}T }}
         """
 
         itf_code += f"""func (b *{class_name}) Box() *BoxFields {{ return &b.BoxFields }}
@@ -173,11 +173,11 @@ for c in CLASSES:
     output += get_itf_and_type_code(c)
     class_name = c.__name__
     # Generate the type value for the given class
-    types += f"""Type{class_name}\n"""
-    switches += f"""case Type{class_name}:
+    types += f"""{class_name}T\n"""
+    switches += f"""case {class_name}T:
         _, isInstance = box.({class_name}ITF)
     """
-    type_strings += f"""case Type{class_name}:
+    type_strings += f"""case {class_name}T:
         return "{class_name}"
     """
 
@@ -185,7 +185,7 @@ for c in CLASSES:
         checks += f"_ {class_name}ITF = (*{class_name})(nil)\n"
 
     if should_generate_anonymous_from(c):
-        type_anonymous_switches += f"""case Type{class_name}:
+        type_anonymous_switches += f"""case {class_name}T:
         return {class_name}AnonymousFrom(parent, children)
     """
 

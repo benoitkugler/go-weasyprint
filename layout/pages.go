@@ -646,7 +646,7 @@ func makePage(context *LayoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 
 	// TODO: handle cases where the root element is something else.
 	// See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
-	if !(bo.TypeBlockBox.IsInstance(rootBox) || bo.TypeFlexContainerBox.IsInstance(rootBox)) {
+	if !(bo.BlockBoxT.IsInstance(rootBox) || bo.FlexContainerBoxT.IsInstance(rootBox)) {
 		log.Fatalf("expected Block or FlexContainer, got %s", rootBox)
 	}
 	context.createBlockFormattingContext()
@@ -833,7 +833,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.BlockLevelBoxITF, 
 		side = "right"
 	}
 	pageType := utils.PageElement{Side: side, Blank: blank, First: first, Index: index, Name: nextPageName}
-	context.StyleFor.SetPageTypeComputedStyles(pageType, html)
+	context.StyleFor.SetPageComputedStylesT(pageType, html)
 
 	context.forcedBreak = tmp.InitialNextPage.Break != "any" || tmp.InitialNextPage.Page.String != ""
 	context.marginClearance = false

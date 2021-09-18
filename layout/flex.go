@@ -199,7 +199,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		box.MarginRight = pr.Float(0)
 		parentBox.MarginRight = pr.Float(0)
 	}
-	if bo.TypeFlexBox.IsInstance(parentBox_) {
+	if bo.FlexBoxT.IsInstance(parentBox_) {
 		blockLevelWidth(parentBox_, nil, containingBlock)
 	} else {
 		parentBox.Width = flexMaxContentWidth(context, parentBox, true)
@@ -238,7 +238,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				specifiedSize = child.Width.V()
 			}
 			newChild := child_.Copy()
-			if bo.TypeParentBox.IsInstance(child_) {
+			if bo.ParentBoxT.IsInstance(child_) {
 				newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 			newChild.Box().Style = child.Style.Copy()
@@ -254,7 +254,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				specifiedSize = child.Height.V()
 			}
 			newChild := child_.Copy()
-			if bo.TypeParentBox.IsInstance(child_) {
+			if bo.ParentBoxT.IsInstance(child_) {
 				newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 			newChild.Box().Style = child.Style.Copy()
@@ -330,7 +330,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					child.FlexBaseSize = maxContentWidth(context, child_, true)
 				} else {
 					newChild := child_.Copy()
-					if bo.TypeParentBox.IsInstance(child_) {
+					if bo.ParentBoxT.IsInstance(child_) {
 						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 					}
 					newChild.Box().Width = pr.Inf
@@ -344,7 +344,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					child.FlexBaseSize = minContentWidth(context, child_, true)
 				} else {
 					newChild := child_.Copy()
-					if bo.TypeParentBox.IsInstance(child_) {
+					if bo.ParentBoxT.IsInstance(child_) {
 						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
 					}
 					newChild.Box().Width = pr.Float(0)
@@ -624,7 +624,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				child.MarginBottom = pr.Float(0)
 			}
 			childCopy := child_.Copy()
-			if bo.TypeParentBox.IsInstance(child_) {
+			if bo.ParentBoxT.IsInstance(child_) {
 				childCopy = bo.CopyWithChildren(child_, child.Children, true, true)
 			}
 
@@ -730,7 +730,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		if he := box.Style.GetHeight(); cross == "height" && he.String != "auto" {
 			definiteCrossSize = he.Value
 		} else if cross == "width" {
-			if bo.TypeFlexBox.IsInstance(box_) {
+			if bo.FlexBoxT.IsInstance(box_) {
 				if box.Style.GetWidth().String == "auto" {
 					definiteCrossSize = availableCrossSpace
 				} else {
@@ -1155,7 +1155,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	// Set baseline
 	// See https://www.W3.org/TR/css-flexbox-1/#flex-baselines
 	// TODO: use the real algorithm
-	if bo.TypeInlineFlexBox.IsInstance(box_) {
+	if bo.InlineFlexBoxT.IsInstance(box_) {
 		if axis == "width" { // and main text direction is horizontal
 			if len(flexLines) != 0 {
 				box.Baseline = flexLines[0].lowerBaseline

@@ -28,7 +28,7 @@ var (
 	LENGTHUNITS = map[string]pr.Unit{"ex": pr.Ex, "em": pr.Em, "ch": pr.Ch, "rem": pr.Rem, "px": pr.Px, "pt": pr.Pt, "pc": pr.Pc, "in": pr.In, "cm": pr.Cm, "mm": pr.Mm, "q": pr.Q}
 	AngleUnits  = map[string]pr.Unit{"rad": pr.Rad, "turn": pr.Turn, "deg": pr.Deg, "grad": pr.Grad}
 	// keyword -> (open, insert)
-	ContentQuoteKeywords = map[string]pr.Quote{
+	contentQuoteKeywords = map[string]pr.Quote{
 		"open-quote":     {Open: true, Insert: true},
 		"close-quote":    {Open: false, Insert: true},
 		"no-open-quote":  {Open: true, Insert: false},
@@ -274,6 +274,9 @@ var (
 		"bleed-bottom",
 		"marks",
 	)
+	multiValProperties = utils.NewSet(
+		"content",
+	)
 )
 
 func init() {
@@ -353,10 +356,12 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 		return out, fmt.Errorf("property %s not supported yet", name)
 	}
 
-	for _, token := range tokens {
-		var_ := CheckVarFunction(token)
-		if !var_.IsNone() {
-			return pr.NamedProperty{Name: name, Property: pr.ToC2(var_).ToV()}, nil
+	if _, isIn := multiValProperties[name]; !isIn {
+		for _, token := range tokens {
+			var_ := CheckVarFunction(token)
+			if !var_.IsNone() {
+				return pr.NamedProperty{Name: name, Property: pr.ToC2(var_).ToV()}, nil
+			}
 		}
 	}
 
@@ -423,12 +428,13 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 				continue
 			}
 		}
+
+		tokens := RemoveWhitespace(declaration.Value)
+
 		expander_, in := expanders[name]
 		if !in {
 			expander_ = defaultValidateShorthand
 		}
-
-		tokens := RemoveWhitespace(declaration.Value)
 		result, err := expander_(baseUrl, name, tokens)
 		if err != nil {
 			validationError(err.Error())
@@ -1173,7 +1179,6 @@ func clip(tokens []Token, _ string) pr.CssProperty {
 // //@validator(wantsBaseUrl=true)
 // ``content`` property validation.
 func content(tokens []Token, baseUrl string) (pr.CssProperty, error) {
-	// parsedTokens []interface{}
 	var token Token
 	for len(tokens) > 0 {
 		if len(tokens) >= 2 {
@@ -1202,7 +1207,7 @@ func content(tokens []Token, baseUrl string) (pr.CssProperty, error) {
 	}
 	if len(tokens) >= 3 {
 		lit, ok := tokens[len(tokens)-2].(parser.LiteralToken)
-		if tokens[len(tokens)-1].Type() == parser.TypeStringToken && ok && lit.Value == "/" {
+		if tokens[len(tokens)-1].Type() == parser.StringTokenT && ok && lit.Value == "/" {
 			// Ignore text for speech
 			tokens = tokens[:len(tokens)-2]
 		}
@@ -2730,7 +2735,7 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 func RemoveWhitespace(tokens []Token) []Token {
 	var out []Token
 	for _, token := range tokens {
-		if token.Type() != parser.TypeWhitespaceToken && token.Type() != parser.TypeComment {
+		if token.Type() != parser.WhitespaceTokenT && token.Type() != parser.CommentT {
 			out = append(out, token)
 		}
 	}

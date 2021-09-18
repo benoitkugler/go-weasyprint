@@ -529,7 +529,7 @@ func columnGap(computer *computer, name string, _value pr.CssProperty) pr.CssPro
 func computeAttrFunction(computer *computer, values pr.AttrData) (out pr.ContentProperty, err error) {
 	// TODO: use real token parsing instead of casting with Python types
 
-	attrName, typeOrUnit, fallback := values.Name, values.TypeOrUnit, values.Fallback
+	attrName, typeOrUnit, fallback := values.Name, values.OrUnitT, values.Fallback
 	// computer["Element"] sometimes is None
 	// computer["Element"] sometimes is a "PageType" object without .get()
 	node, ok := computer.element.(*utils.HTMLNode)
@@ -611,7 +611,7 @@ func contentList(computer *computer, values pr.ContentProperties) (pr.ContentPro
 			computedValue = value
 		case "attr()":
 			attr, ok := value.Content.(pr.AttrData)
-			if !ok || attr.TypeOrUnit != "string" {
+			if !ok || attr.OrUnitT != "string" {
 				log.Fatalf("invalid attr() property : %v", value.Content)
 			}
 			var err error

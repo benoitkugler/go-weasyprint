@@ -310,7 +310,7 @@ type Attachment struct {
 //     http://www.whatwg.org/html#the-title-element
 //     http://www.whatwg.org/html#standard-metadata-names
 //     http://wiki.whatwg.org/wiki/MetaExtensions
-//     http://microformats.org/wiki/existing-rel-values#HTML5LinkTypeExtensions
+//     http://microformats.org/wiki/existing-rel-values#HTML5LinkExtensionsT
 //
 func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata {
 	var (

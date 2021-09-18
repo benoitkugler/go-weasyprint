@@ -851,7 +851,7 @@ func tableWrapperWidth(context *LayoutContext, wrapper *bo.BoxFields, containing
 // Return the y position of a cell’s baseline from the top of its border box.
 // See http://www.w3.org/TR/CSS21/tables.html#height-layout
 func cellBaseline(cell Box) pr.Float {
-	result := findInFlowBaseline(cell, false, bo.TypeLineBox, bo.TypeTableRowBox)
+	result := findInFlowBaseline(cell, false, bo.LineBoxT, bo.TableRowBoxT)
 	if result != nil {
 		return result.V() - cell.Box().PositionY
 	} else {
@@ -862,26 +862,26 @@ func cellBaseline(cell Box) pr.Float {
 
 // Return the absolute Y position for the first (or last) in-flow baseline
 // if any or nil. Can't return "auto".
-// last=false, baselineTypes=(boxes.LineBox,)
-func findInFlowBaseline(box Box, last bool, baselineTypes ...bo.BoxType) pr.MaybeFloat {
-	if len(baselineTypes) == 0 {
-		baselineTypes = []bo.BoxType{bo.TypeLineBox}
+// last=false, baselinesT=(boxes.LineBox,)
+func findInFlowBaseline(box Box, last bool, baselinesT ...bo.BoxType) pr.MaybeFloat {
+	if len(baselinesT) == 0 {
+		baselinesT = []bo.BoxType{bo.LineBoxT}
 	}
 	// TODO: synthetize baseline when needed
 	// See https://www.w3.org/TR/css-align-3/#synthesize-baseline
-	for _, type_ := range baselineTypes { // if isinstance(box, baselineTypes)
+	for _, type_ := range baselinesT { // if isinstance(box, baselinesT)
 		if type_.IsInstance(box) {
 			return box.Box().PositionY + box.Box().Baseline.V()
 		}
 	}
-	if bo.TypeParentBox.IsInstance(box) && !bo.TypeTableCaptionBox.IsInstance(box) {
+	if bo.ParentBoxT.IsInstance(box) && !bo.TableCaptionBoxT.IsInstance(box) {
 		children := box.Box().Children
 		if last {
 			children = reverseBoxes(children)
 		}
 		for _, child := range children {
 			if child.Box().IsInNormalFlow() {
-				result := findInFlowBaseline(child, last, baselineTypes...)
+				result := findInFlowBaseline(child, last, baselinesT...)
 				if result != nil {
 					return result
 				}

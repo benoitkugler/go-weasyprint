@@ -103,7 +103,7 @@ type methodsBox interface {
 }
 
 // BoxType enables passing type as value
-type BoxTypeOld interface {
+type BoxOldT interface {
 	// Returns true if box is of type (or subtype) BoxType
 	IsInstance(box Box) bool
 
@@ -550,7 +550,13 @@ func (BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
 // the proper parents of `type_`
 func (t BoxType) IsInProperParents(type_ BoxType) bool {
 	switch type_ {
-	case TypeTableRowGroupBox:
-		return t == TypeTableBox || t == TypeInlineTableBox
+	case TableRowGroupBoxT, TableColumnGroupBoxT, TableCaptionBoxT:
+		return t == TableBoxT || t == InlineTableBoxT
+	case TableRowBoxT:
+		return t == TableBoxT || t == InlineTableBoxT || t == TableRowGroupBoxT
+	case TableColumnBoxT:
+		return t == TableBoxT || t == InlineTableBoxT || t == TableColumnGroupBoxT
+	default:
+		return false
 	}
 }

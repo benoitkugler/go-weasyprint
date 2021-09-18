@@ -7,26 +7,26 @@ import (
 )
 
 const (
-	TypeQualifiedRule       tokenType = "qualified-rule"
-	TypeAtRule              tokenType = "at-rule"
-	TypeDeclaration         tokenType = "declaration"
-	TypeParseError          tokenType = "error"
-	TypeComment             tokenType = "comment"
-	TypeWhitespaceToken     tokenType = "whitespace"
-	TypeLiteralToken        tokenType = "literal"
-	TypeIdentToken          tokenType = "ident"
-	TypeAtKeywordToken      tokenType = "at-keyword"
-	TypeHashToken           tokenType = "hash"
-	TypeStringToken         tokenType = "string"
-	TypeURLToken            tokenType = "url"
-	TypeUnicodeRangeToken   tokenType = "unicode-range"
-	TypeNumberToken         tokenType = "number"
-	TypePercentageToken     tokenType = "percentage"
-	TypeDimensionToken      tokenType = "dimension"
-	TypeParenthesesBlock    tokenType = "() block"
-	TypeSquareBracketsBlock tokenType = "[] block"
-	TypeCurlyBracketsBlock  tokenType = "{} block"
-	TypeFunctionBlock       tokenType = "function"
+	QualifiedRuleT       tokenType = "qualified-rule"
+	AtRuleT              tokenType = "at-rule"
+	DeclarationT         tokenType = "declaration"
+	ParseErrorT          tokenType = "error"
+	CommentT             tokenType = "comment"
+	WhitespaceTokenT     tokenType = "whitespace"
+	LiteralTokenT        tokenType = "literal"
+	IdentTokenT          tokenType = "ident"
+	AtKeywordTokenT      tokenType = "at-keyword"
+	HashTokenT           tokenType = "hash"
+	StringTokenT         tokenType = "string"
+	URLTokenT            tokenType = "url"
+	UnicodeRangeTokenT   tokenType = "unicode-range"
+	NumberTokenT         tokenType = "number"
+	PercentageTokenT     tokenType = "percentage"
+	DimensionTokenT      tokenType = "dimension"
+	ParenthesesBlockT    tokenType = "() block"
+	SquareBracketsBlockT tokenType = "[] block"
+	CurlyBracketsBlockT  tokenType = "{} block"
+	FunctionBlockT       tokenType = "function"
 )
 
 type tokenType string
@@ -159,26 +159,26 @@ type (
 
 // ----------- boilerplate code for token type -------------------------------------
 
-func (t QualifiedRule) Type() tokenType       { return TypeQualifiedRule }
-func (t AtRule) Type() tokenType              { return TypeAtRule }
-func (t Declaration) Type() tokenType         { return TypeDeclaration }
-func (t ParseError) Type() tokenType          { return TypeParseError }
-func (t Comment) Type() tokenType             { return TypeComment }
-func (t WhitespaceToken) Type() tokenType     { return TypeWhitespaceToken }
-func (t LiteralToken) Type() tokenType        { return TypeLiteralToken }
-func (t IdentToken) Type() tokenType          { return TypeIdentToken }
-func (t AtKeywordToken) Type() tokenType      { return TypeAtKeywordToken }
-func (t HashToken) Type() tokenType           { return TypeHashToken }
-func (t StringToken) Type() tokenType         { return TypeStringToken }
-func (t URLToken) Type() tokenType            { return TypeURLToken }
-func (t UnicodeRangeToken) Type() tokenType   { return TypeUnicodeRangeToken }
-func (t NumberToken) Type() tokenType         { return TypeNumberToken }
-func (t PercentageToken) Type() tokenType     { return TypePercentageToken }
-func (t DimensionToken) Type() tokenType      { return TypeDimensionToken }
-func (t ParenthesesBlock) Type() tokenType    { return TypeParenthesesBlock }
-func (t SquareBracketsBlock) Type() tokenType { return TypeSquareBracketsBlock }
-func (t CurlyBracketsBlock) Type() tokenType  { return TypeCurlyBracketsBlock }
-func (t FunctionBlock) Type() tokenType       { return TypeFunctionBlock }
+func (t QualifiedRule) Type() tokenType       { return QualifiedRuleT }
+func (t AtRule) Type() tokenType              { return AtRuleT }
+func (t Declaration) Type() tokenType         { return DeclarationT }
+func (t ParseError) Type() tokenType          { return ParseErrorT }
+func (t Comment) Type() tokenType             { return CommentT }
+func (t WhitespaceToken) Type() tokenType     { return WhitespaceTokenT }
+func (t LiteralToken) Type() tokenType        { return LiteralTokenT }
+func (t IdentToken) Type() tokenType          { return IdentTokenT }
+func (t AtKeywordToken) Type() tokenType      { return AtKeywordTokenT }
+func (t HashToken) Type() tokenType           { return HashTokenT }
+func (t StringToken) Type() tokenType         { return StringTokenT }
+func (t URLToken) Type() tokenType            { return URLTokenT }
+func (t UnicodeRangeToken) Type() tokenType   { return UnicodeRangeTokenT }
+func (t NumberToken) Type() tokenType         { return NumberTokenT }
+func (t PercentageToken) Type() tokenType     { return PercentageTokenT }
+func (t DimensionToken) Type() tokenType      { return DimensionTokenT }
+func (t ParenthesesBlock) Type() tokenType    { return ParenthesesBlockT }
+func (t SquareBracketsBlock) Type() tokenType { return SquareBracketsBlockT }
+func (t CurlyBracketsBlock) Type() tokenType  { return CurlyBracketsBlockT }
+func (t FunctionBlock) Type() tokenType       { return FunctionBlockT }
 
 // ---------------------------------- Methods ----------------------------------
 

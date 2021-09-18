@@ -9,7 +9,7 @@ type AtomicInlineLevelBoxITF interface {
 	isAtomicInlineLevelBox()
 }
 
-func (AtomicInlineLevelBox) Type() BoxType { return TypeAtomicInlineLevelBox }
+func (AtomicInlineLevelBox) Type() BoxType { return AtomicInlineLevelBoxT }
 
 // A block-level box that is also a block container.
 // A non-replaced element with a ``display`` value of ``block``, ``list-item``
@@ -20,7 +20,7 @@ type BlockBoxITF interface {
 	isBlockBox()
 }
 
-func (BlockBox) Type() BoxType { return TypeBlockBox }
+func (BlockBox) Type() BoxType { return BlockBoxT }
 
 // A box that contains only block-level boxes or only line boxes.
 // A box that either contains only block-level boxes or establishes an inline
@@ -33,7 +33,7 @@ type BlockContainerBoxITF interface {
 	isBlockContainerBox()
 }
 
-func (BlockContainerBox) Type() BoxType { return TypeBlockContainerBox }
+func (BlockContainerBox) Type() BoxType { return BlockContainerBoxT }
 
 // A box that participates in an block formatting context.
 // An element with a ``display`` value of ``block``, ``list-item`` or
@@ -44,7 +44,7 @@ type BlockLevelBoxITF interface {
 	methodsBlockLevelBox
 }
 
-func (BlockLevelBox) Type() BoxType { return TypeBlockLevelBox }
+func (BlockLevelBox) Type() BoxType { return BlockLevelBoxT }
 
 // A box that is both replaced and block-level.
 // A replaced element with a ``display`` value of ``block``, ``liste-item`` or
@@ -55,7 +55,7 @@ type BlockReplacedBoxITF interface {
 	isBlockReplacedBox()
 }
 
-func (BlockReplacedBox) Type() BoxType { return TypeBlockReplacedBox }
+func (BlockReplacedBox) Type() BoxType { return BlockReplacedBoxT }
 
 // Abstract base class for all boxes.
 type BoxITF interface {
@@ -63,7 +63,7 @@ type BoxITF interface {
 	methodsBox
 }
 
-func (Box) Type() BoxType { return TypeBox }
+func (Box) Type() BoxType { return BoxT }
 
 // A box that is both block-level and a flex container.
 // It behaves as block on the outside and as a flex container on the inside.
@@ -73,7 +73,7 @@ type FlexBoxITF interface {
 	isFlexBox()
 }
 
-func (FlexBox) Type() BoxType { return TypeFlexBox }
+func (FlexBox) Type() BoxType { return FlexBoxT }
 
 // A box that contains only flex-items.
 type FlexContainerBoxITF interface {
@@ -81,7 +81,7 @@ type FlexContainerBoxITF interface {
 	isFlexContainerBox()
 }
 
-func (FlexContainerBox) Type() BoxType { return TypeFlexContainerBox }
+func (FlexContainerBox) Type() BoxType { return FlexContainerBoxT }
 
 // A box that is both inline-level and a block container.
 // It behaves as inline on the outside and as a block on the inside.
@@ -93,7 +93,7 @@ type InlineBlockBoxITF interface {
 	isInlineBlockBox()
 }
 
-func (InlineBlockBox) Type() BoxType { return TypeInlineBlockBox }
+func (InlineBlockBox) Type() BoxType { return InlineBlockBoxT }
 
 // An inline box with inline children.
 // A box that participates in an inline formatting context and whose content
@@ -106,7 +106,7 @@ type InlineBoxITF interface {
 	isInlineBox()
 }
 
-func (InlineBox) Type() BoxType { return TypeInlineBox }
+func (InlineBox) Type() BoxType { return InlineBoxT }
 
 // A box that is both inline-level and a flex container.
 // It behaves as inline on the outside and as a flex container on the inside.
@@ -116,7 +116,7 @@ type InlineFlexBoxITF interface {
 	isInlineFlexBox()
 }
 
-func (InlineFlexBox) Type() BoxType { return TypeInlineFlexBox }
+func (InlineFlexBox) Type() BoxType { return InlineFlexBoxT }
 
 // A box that participates in an inline formatting context.
 // An inline-level box that is not an inline box is said to be "atomic". Such
@@ -128,7 +128,7 @@ type InlineLevelBoxITF interface {
 	isInlineLevelBox()
 }
 
-func (InlineLevelBox) Type() BoxType { return TypeInlineLevelBox }
+func (InlineLevelBox) Type() BoxType { return InlineLevelBoxT }
 
 // A box that is both replaced and inline-level.
 // A replaced element with a ``display`` value of ``inline``,
@@ -140,7 +140,7 @@ type InlineReplacedBoxITF interface {
 	isInlineReplacedBox()
 }
 
-func (InlineReplacedBox) Type() BoxType { return TypeInlineReplacedBox }
+func (InlineReplacedBox) Type() BoxType { return InlineReplacedBoxT }
 
 // Box for elements with ``display: inline-table``
 type InlineTableBoxITF interface {
@@ -148,7 +148,7 @@ type InlineTableBoxITF interface {
 	isInlineTableBox()
 }
 
-func (InlineTableBox) Type() BoxType { return TypeInlineTableBox }
+func (InlineTableBox) Type() BoxType { return InlineTableBoxT }
 
 // A box that represents a line in an inline formatting context.
 // Can only contain inline-level boxes.
@@ -160,7 +160,7 @@ type LineBoxITF interface {
 	isLineBox()
 }
 
-func (LineBox) Type() BoxType { return TypeLineBox }
+func (LineBox) Type() BoxType { return LineBoxT }
 
 // Box in page margins, as defined in CSS3 Paged Media
 type MarginBoxITF interface {
@@ -168,7 +168,7 @@ type MarginBoxITF interface {
 	isMarginBox()
 }
 
-func (MarginBox) Type() BoxType { return TypeMarginBox }
+func (MarginBox) Type() BoxType { return MarginBoxT }
 
 // Box for a page.
 // Initially the whole document will be in the box for the root element.
@@ -178,7 +178,7 @@ type PageBoxITF interface {
 	isPageBox()
 }
 
-func (PageBox) Type() BoxType { return TypePageBox }
+func (PageBox) Type() BoxType { return PageBoxT }
 
 // A box that has children.
 type ParentBoxITF interface {
@@ -186,7 +186,7 @@ type ParentBoxITF interface {
 	isParentBox()
 }
 
-func (ParentBox) Type() BoxType { return TypeParentBox }
+func (ParentBox) Type() BoxType { return ParentBoxT }
 
 // A box whose content is replaced.
 // For example, ``<img>`` are replaced: their content is rendered externally
@@ -197,7 +197,7 @@ type ReplacedBoxITF interface {
 	methodsReplacedBox
 }
 
-func (ReplacedBox) Type() BoxType { return TypeReplacedBox }
+func (ReplacedBox) Type() BoxType { return ReplacedBoxT }
 
 // Box for elements with ``display: table``
 type TableBoxITF interface {
@@ -207,7 +207,7 @@ type TableBoxITF interface {
 	methodsTableBox
 }
 
-func (TableBox) Type() BoxType { return TypeTableBox }
+func (TableBox) Type() BoxType { return TableBoxT }
 
 // Box for elements with ``display: table-caption``
 type TableCaptionBoxITF interface {
@@ -215,7 +215,7 @@ type TableCaptionBoxITF interface {
 	isTableCaptionBox()
 }
 
-func (TableCaptionBox) Type() BoxType { return TypeTableCaptionBox }
+func (TableCaptionBox) Type() BoxType { return TableCaptionBoxT }
 
 // Box for elements with ``display: table-cell``
 type TableCellBoxITF interface {
@@ -223,7 +223,7 @@ type TableCellBoxITF interface {
 	isTableCellBox()
 }
 
-func (TableCellBox) Type() BoxType { return TypeTableCellBox }
+func (TableCellBox) Type() BoxType { return TableCellBoxT }
 
 // Box for elements with ``display: table-column``
 type TableColumnBoxITF interface {
@@ -231,7 +231,7 @@ type TableColumnBoxITF interface {
 	isTableColumnBox()
 }
 
-func (TableColumnBox) Type() BoxType { return TypeTableColumnBox }
+func (TableColumnBox) Type() BoxType { return TableColumnBoxT }
 
 // Box for elements with ``display: table-column-group``
 type TableColumnGroupBoxITF interface {
@@ -239,7 +239,7 @@ type TableColumnGroupBoxITF interface {
 	isTableColumnGroupBox()
 }
 
-func (TableColumnGroupBox) Type() BoxType { return TypeTableColumnGroupBox }
+func (TableColumnGroupBox) Type() BoxType { return TableColumnGroupBoxT }
 
 // Box for elements with ``display: table-row``
 type TableRowBoxITF interface {
@@ -247,7 +247,7 @@ type TableRowBoxITF interface {
 	isTableRowBox()
 }
 
-func (TableRowBox) Type() BoxType { return TypeTableRowBox }
+func (TableRowBox) Type() BoxType { return TableRowBoxT }
 
 // Box for elements with ``display: table-row-group``
 type TableRowGroupBoxITF interface {
@@ -255,7 +255,7 @@ type TableRowGroupBoxITF interface {
 	isTableRowGroupBox()
 }
 
-func (TableRowGroupBox) Type() BoxType { return TypeTableRowGroupBox }
+func (TableRowGroupBox) Type() BoxType { return TableRowGroupBoxT }
 
 // A box that contains only text and has no box children.
 // Any text in the document ends up in a text box. What CSS calls "anonymous
@@ -265,99 +265,99 @@ type TextBoxITF interface {
 	isTextBox()
 }
 
-func (TextBox) Type() BoxType { return TypeTextBox }
+func (TextBox) Type() BoxType { return TextBoxT }
 
 // BoxType represents a box type.
 type BoxType uint8
 
 const (
 	invalidType BoxType = iota
-	TypeAtomicInlineLevelBox
-	TypeBlockBox
-	TypeBlockContainerBox
-	TypeBlockLevelBox
-	TypeBlockReplacedBox
-	TypeBox
-	TypeFlexBox
-	TypeFlexContainerBox
-	TypeInlineBlockBox
-	TypeInlineBox
-	TypeInlineFlexBox
-	TypeInlineLevelBox
-	TypeInlineReplacedBox
-	TypeInlineTableBox
-	TypeLineBox
-	TypeMarginBox
-	TypePageBox
-	TypeParentBox
-	TypeReplacedBox
-	TypeTableBox
-	TypeTableCaptionBox
-	TypeTableCellBox
-	TypeTableColumnBox
-	TypeTableColumnGroupBox
-	TypeTableRowBox
-	TypeTableRowGroupBox
-	TypeTextBox
+	AtomicInlineLevelBoxT
+	BlockBoxT
+	BlockContainerBoxT
+	BlockLevelBoxT
+	BlockReplacedBoxT
+	BoxT
+	FlexBoxT
+	FlexContainerBoxT
+	InlineBlockBoxT
+	InlineBoxT
+	InlineFlexBoxT
+	InlineLevelBoxT
+	InlineReplacedBoxT
+	InlineTableBoxT
+	LineBoxT
+	MarginBoxT
+	PageBoxT
+	ParentBoxT
+	ReplacedBoxT
+	TableBoxT
+	TableCaptionBoxT
+	TableCellBoxT
+	TableColumnBoxT
+	TableColumnGroupBoxT
+	TableRowBoxT
+	TableRowGroupBoxT
+	TextBoxT
 )
 
 // Returns true is the box is an instance of t.
 func (t BoxType) IsInstance(box BoxITF) bool {
 	var isInstance bool
 	switch t {
-	case TypeAtomicInlineLevelBox:
+	case AtomicInlineLevelBoxT:
 		_, isInstance = box.(AtomicInlineLevelBoxITF)
-	case TypeBlockBox:
+	case BlockBoxT:
 		_, isInstance = box.(BlockBoxITF)
-	case TypeBlockContainerBox:
+	case BlockContainerBoxT:
 		_, isInstance = box.(BlockContainerBoxITF)
-	case TypeBlockLevelBox:
+	case BlockLevelBoxT:
 		_, isInstance = box.(BlockLevelBoxITF)
-	case TypeBlockReplacedBox:
+	case BlockReplacedBoxT:
 		_, isInstance = box.(BlockReplacedBoxITF)
-	case TypeBox:
+	case BoxT:
 		_, isInstance = box.(BoxITF)
-	case TypeFlexBox:
+	case FlexBoxT:
 		_, isInstance = box.(FlexBoxITF)
-	case TypeFlexContainerBox:
+	case FlexContainerBoxT:
 		_, isInstance = box.(FlexContainerBoxITF)
-	case TypeInlineBlockBox:
+	case InlineBlockBoxT:
 		_, isInstance = box.(InlineBlockBoxITF)
-	case TypeInlineBox:
+	case InlineBoxT:
 		_, isInstance = box.(InlineBoxITF)
-	case TypeInlineFlexBox:
+	case InlineFlexBoxT:
 		_, isInstance = box.(InlineFlexBoxITF)
-	case TypeInlineLevelBox:
+	case InlineLevelBoxT:
 		_, isInstance = box.(InlineLevelBoxITF)
-	case TypeInlineReplacedBox:
+	case InlineReplacedBoxT:
 		_, isInstance = box.(InlineReplacedBoxITF)
-	case TypeInlineTableBox:
+	case InlineTableBoxT:
 		_, isInstance = box.(InlineTableBoxITF)
-	case TypeLineBox:
+	case LineBoxT:
 		_, isInstance = box.(LineBoxITF)
-	case TypeMarginBox:
+	case MarginBoxT:
 		_, isInstance = box.(MarginBoxITF)
-	case TypePageBox:
+	case PageBoxT:
 		_, isInstance = box.(PageBoxITF)
-	case TypeParentBox:
+	case ParentBoxT:
 		_, isInstance = box.(ParentBoxITF)
-	case TypeReplacedBox:
+	case ReplacedBoxT:
 		_, isInstance = box.(ReplacedBoxITF)
-	case TypeTableBox:
+	case TableBoxT:
 		_, isInstance = box.(TableBoxITF)
-	case TypeTableCaptionBox:
+	case TableCaptionBoxT:
 		_, isInstance = box.(TableCaptionBoxITF)
-	case TypeTableCellBox:
+	case TableCellBoxT:
 		_, isInstance = box.(TableCellBoxITF)
-	case TypeTableColumnBox:
+	case TableColumnBoxT:
 		_, isInstance = box.(TableColumnBoxITF)
-	case TypeTableColumnGroupBox:
+	case TableColumnGroupBoxT:
 		_, isInstance = box.(TableColumnGroupBoxITF)
-	case TypeTableRowBox:
+	case TableRowBoxT:
 		_, isInstance = box.(TableRowBoxITF)
-	case TypeTableRowGroupBox:
+	case TableRowGroupBoxT:
 		_, isInstance = box.(TableRowGroupBoxITF)
-	case TypeTextBox:
+	case TextBoxT:
 		_, isInstance = box.(TextBoxITF)
 	}
 	return isInstance
@@ -365,59 +365,59 @@ func (t BoxType) IsInstance(box BoxITF) bool {
 
 func (t BoxType) String() string {
 	switch t {
-	case TypeAtomicInlineLevelBox:
+	case AtomicInlineLevelBoxT:
 		return "AtomicInlineLevelBox"
-	case TypeBlockBox:
+	case BlockBoxT:
 		return "BlockBox"
-	case TypeBlockContainerBox:
+	case BlockContainerBoxT:
 		return "BlockContainerBox"
-	case TypeBlockLevelBox:
+	case BlockLevelBoxT:
 		return "BlockLevelBox"
-	case TypeBlockReplacedBox:
+	case BlockReplacedBoxT:
 		return "BlockReplacedBox"
-	case TypeBox:
+	case BoxT:
 		return "Box"
-	case TypeFlexBox:
+	case FlexBoxT:
 		return "FlexBox"
-	case TypeFlexContainerBox:
+	case FlexContainerBoxT:
 		return "FlexContainerBox"
-	case TypeInlineBlockBox:
+	case InlineBlockBoxT:
 		return "InlineBlockBox"
-	case TypeInlineBox:
+	case InlineBoxT:
 		return "InlineBox"
-	case TypeInlineFlexBox:
+	case InlineFlexBoxT:
 		return "InlineFlexBox"
-	case TypeInlineLevelBox:
+	case InlineLevelBoxT:
 		return "InlineLevelBox"
-	case TypeInlineReplacedBox:
+	case InlineReplacedBoxT:
 		return "InlineReplacedBox"
-	case TypeInlineTableBox:
+	case InlineTableBoxT:
 		return "InlineTableBox"
-	case TypeLineBox:
+	case LineBoxT:
 		return "LineBox"
-	case TypeMarginBox:
+	case MarginBoxT:
 		return "MarginBox"
-	case TypePageBox:
+	case PageBoxT:
 		return "PageBox"
-	case TypeParentBox:
+	case ParentBoxT:
 		return "ParentBox"
-	case TypeReplacedBox:
+	case ReplacedBoxT:
 		return "ReplacedBox"
-	case TypeTableBox:
+	case TableBoxT:
 		return "TableBox"
-	case TypeTableCaptionBox:
+	case TableCaptionBoxT:
 		return "TableCaptionBox"
-	case TypeTableCellBox:
+	case TableCellBoxT:
 		return "TableCellBox"
-	case TypeTableColumnBox:
+	case TableColumnBoxT:
 		return "TableColumnBox"
-	case TypeTableColumnGroupBox:
+	case TableColumnGroupBoxT:
 		return "TableColumnGroupBox"
-	case TypeTableRowBox:
+	case TableRowBoxT:
 		return "TableRowBox"
-	case TypeTableRowGroupBox:
+	case TableRowGroupBoxT:
 		return "TableRowGroupBox"
-	case TypeTextBox:
+	case TextBoxT:
 		return "TextBox"
 	}
 	return "<invalid box type>"

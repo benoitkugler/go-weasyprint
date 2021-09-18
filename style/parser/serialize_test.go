@@ -99,7 +99,7 @@ func TestBackslashDelim(t *testing.T) {
 	if lit, ok := tokens[0].(LiteralToken); !ok || lit.Value != "\\" {
 		t.Errorf("expected litteral \\ got %s", tokens[0])
 	}
-	if tokens[1].Type() != TypeWhitespaceToken || tokens[2].Type() != TypeIdentToken {
+	if tokens[1].Type() != WhitespaceTokenT || tokens[2].Type() != IdentTokenT {
 		t.Errorf("expected whitespace and ident got : %s and %s", tokens[1].Type(), tokens[2].Type())
 	}
 	tokens = []Token{tokens[0], tokens[2]}

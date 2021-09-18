@@ -267,9 +267,9 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			// Point 1 is done in drawPage
 
 			// Point 2
-			if bo.TypeBlockBox.IsInstance(box_) || bo.IsMarginBox(box_) ||
-				bo.TypeInlineBlockBox.IsInstance(box_) || bo.TypeTableCellBox.IsInstance(box_) ||
-				bo.TypeFlexContainerBox.IsInstance(box_) {
+			if bo.BlockBoxT.IsInstance(box_) || bo.IsMarginBox(box_) ||
+				bo.InlineBlockBoxT.IsInstance(box_) || bo.TableCellBoxT.IsInstance(box_) ||
+				bo.FlexContainerBoxT.IsInstance(box_) {
 				// The canvas background was removed by setCanvasBackground
 				if err := drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting); err != nil {
 					return err
@@ -306,7 +306,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 				}
 
 				// Point 6
-				if bo.TypeInlineBox.IsInstance(box_) {
+				if bo.InlineBoxT.IsInstance(box_) {
 					if err := drawInlineLevel(context, stackingContext.page, box_, enableHinting, 0, "clip"); err != nil {
 						return err
 					}
@@ -318,7 +318,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 						drawReplacedbox(context, block)
 					} else {
 						for _, child := range block.Box().Children {
-							if bo.TypeLineBox.IsInstance(child) {
+							if bo.LineBoxT.IsInstance(child) {
 								if err := drawInlineLevel(context, stackingContext.page, child, enableHinting, 0, "clip"); err != nil {
 									return err
 								}
@@ -645,7 +645,7 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 
 	// Draw column borders.
 	drawColumnBorder := func() {
-		columns := bo.TypeBlockContainerBox.IsInstance(box_) && (box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto")
+		columns := bo.BlockContainerBoxT.IsInstance(box_) && (box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto")
 		if crw := box.Style.GetColumnRuleWidth(); columns && !crw.IsNone() {
 			borderWidths := pr.Rectangle{0, 0, 0, crw.Value}
 			for _, child := range box.Children[1:] {
@@ -1020,7 +1020,7 @@ func drawOutlines(context Drawer, box_ Box, enableHinting bool) {
 		}
 	}
 
-	if bo.TypeParentBox.IsInstance(box_) {
+	if bo.ParentBoxT.IsInstance(box_) {
 		for _, child := range box.Children {
 			if bo.IsBox(child) {
 				drawOutlines(context, child, enableHinting)
@@ -1210,7 +1210,7 @@ func drawReplacedbox(context Drawer, box_ bo.ReplacedBoxITF) {
 // offsetX=0, textOverflow="clip"
 func drawInlineLevel(context Drawer, page *bo.PageBox, box_ Box, enableHinting bool, offsetX float64, textOverflow string) error {
 	if stackingContext, ok := box_.(StackingContext); ok {
-		if !(bo.TypeInlineBlockBox.IsInstance(stackingContext.box) || bo.TypeInlineFlexBox.IsInstance(stackingContext.box)) {
+		if !(bo.InlineBlockBoxT.IsInstance(stackingContext.box) || bo.InlineFlexBoxT.IsInstance(stackingContext.box)) {
 			log.Fatalf("expected InlineBlock or InlineFlex, got %v", stackingContext.box)
 		}
 		if err := drawStackingContext(context, stackingContext, enableHinting); err != nil {

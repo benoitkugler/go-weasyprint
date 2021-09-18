@@ -199,22 +199,22 @@ func (s StyleFor) Get(element Element, pseudoType string) pr.Properties {
 	return style
 }
 
-func (s StyleFor) AddPageDeclarations(pageType_ utils.PageElement) {
+func (s StyleFor) AddPageDeclarations(page_T utils.PageElement) {
 	for _, sh := range s.sheets {
 		// Add declarations for page elements
 		for _, pageR := range sh.sheet.pageRules {
 			// Rule, selectorList, declarations
 			for _, selector := range pageR.selectors {
 				// specificity, pseudoType, selector_page_type = selector
-				if pageTypeMatch(selector.pageType, pageType_) {
+				if pageMatchT(selector.pageType, page_T) {
 					specificity := selector.specificity
 					if len(sh.specificity) == 3 {
 						specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
 					}
-					style, in := s.CascadedStyles[pageType_.ToKey(selector.pseudoType)]
+					style, in := s.CascadedStyles[page_T.ToKey(selector.pseudoType)]
 					if !in {
 						style = cascadedStyle{}
-						s.CascadedStyles[pageType_.ToKey(selector.pseudoType)] = style
+						s.CascadedStyles[page_T.ToKey(selector.pseudoType)] = style
 					}
 
 					for _, decl := range pageR.declarations {
@@ -232,7 +232,7 @@ func (s StyleFor) AddPageDeclarations(pageType_ utils.PageElement) {
 	}
 }
 
-func pageTypeMatch(selectorPageType pageSelector, pageType utils.PageElement) bool {
+func pageMatchT(selectorPageType pageSelector, pageType utils.PageElement) bool {
 	if selectorPageType.Side != "" && selectorPageType.Side != pageType.Side {
 		return false
 	}
@@ -861,7 +861,7 @@ func parsePageSelectors(rule parser.QualifiedRule) (out []pageSelector) {
 					if group != nil {
 						var group_ []parser.Token
 						for _, token := range group {
-							if ty := token.Type(); ty != parser.TypeComment && ty != parser.TypeWhitespaceToken {
+							if ty := token.Type(); ty != parser.CommentT && ty != parser.WhitespaceTokenT {
 								group_ = append(group_, token)
 							}
 						}
@@ -1142,7 +1142,7 @@ func GetAllComputedStyles(html *HTML, userStylesheets []CSS,
 }
 
 // Set style for page types and pseudo-types matching ``pageType``.
-func (styleFor StyleFor) SetPageTypeComputedStyles(pageType utils.PageElement, html *HTML) {
+func (styleFor StyleFor) SetPageComputedStylesT(pageType utils.PageElement, html *HTML) {
 	styleFor.AddPageDeclarations(pageType)
 
 	// Apply style for page

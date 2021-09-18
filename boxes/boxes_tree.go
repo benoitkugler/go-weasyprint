@@ -335,6 +335,9 @@ func NewTableRowGroupBox(elementTag string, style pr.Properties, children []Box)
 
 func NewTableRowBox(elementTag string, style pr.Properties, children []Box) TableRowBox {
 	out := TableRowBox{BoxFields: newBoxFields(elementTag, style, children)}
+	out.properTableChild = true
+	out.internalTableOrCaption = true
+	out.tabularContainer = true
 	return out
 }
 

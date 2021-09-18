@@ -128,7 +128,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 				insertStackingContext(childContexts, index, NewStackingContextFromBox(box, page, childContexts))
 			} else if box.Box().IsFloated() {
 				floats = append(floats, NewStackingContextFromBox(box, page, childContexts))
-			} else if bo.TypeInlineBlockBox.IsInstance(box) || bo.TypeInlineFlexBox.IsInstance(box) {
+			} else if bo.InlineBlockBoxT.IsInstance(box) || bo.InlineFlexBoxT.IsInstance(box) {
 				// Have this fake stacking context be part of the "normal"
 				// box tree, because we need its position in the middle
 				// of a tree of inline boxes.
@@ -140,7 +140,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 					blocksIndex = &l
 					l2 := len(blocksAndCells)
 					blocksAndCellsIndex = &l2
-				} else if bo.TypeTableCellBox.IsInstance(box) {
+				} else if bo.TableCellBoxT.IsInstance(box) {
 					blocksIndex = nil
 					l := len(blocksAndCells)
 					blocksAndCellsIndex = &l
@@ -166,7 +166,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 	}
 
 	dispatchChildren = func(box Box) Box {
-		if !bo.TypeParentBox.IsInstance(box) {
+		if !bo.ParentBoxT.IsInstance(box) {
 			return box
 		}
 

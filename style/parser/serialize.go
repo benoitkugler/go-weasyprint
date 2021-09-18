@@ -177,7 +177,7 @@ func serializeTo(nodes []Token, write func(s string)) {
 			}
 		}
 		node.serializeTo(write)
-		if serializationType == string(TypeDeclaration) {
+		if serializationType == string(DeclarationT) {
 			write(";")
 		}
 		previousType = serializationType

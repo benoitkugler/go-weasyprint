@@ -40,7 +40,7 @@ func getMatrix(box_ Box) *mt.Transform {
 	//  multiple inline-level boxes."
 	// http://www.w3.org/TR/css3-2d-transforms/#introduction
 	box := box_.Box()
-	if trans := box.Style.GetTransform(); len(trans) != 0 && !bo.TypeInlineBox.IsInstance(box_) {
+	if trans := box.Style.GetTransform(); len(trans) != 0 && !bo.InlineBoxT.IsInstance(box_) {
 		borderWidth := box.BorderWidth()
 		borderHeight := box.BorderHeight()
 		or := box.Style.GetTransformOrigin()

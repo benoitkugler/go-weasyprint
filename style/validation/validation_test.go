@@ -518,7 +518,7 @@ func TestStringSet(t *testing.T) {
 	}))
 	assertValidDict(t, "string-set: test attr(class)", toValidated(pr.Properties{
 		"string_set": pr.StringSet{Contents: []pr.SContent{
-			{String: "test", Contents: []pr.ContentProperty{{Type: "attr()", Content: pr.AttrData{Name: "class", TypeOrUnit: "string"}}}},
+			{String: "test", Contents: []pr.ContentProperty{{Type: "attr()", Content: pr.AttrData{Name: "class", OrUnitT: "string"}}}},
 		}},
 	}))
 	assertValidDict(t, "string-set: test counter(count)", toValidated(pr.Properties{
@@ -546,8 +546,8 @@ func TestStringSet(t *testing.T) {
 			{String: "test", Contents: []pr.ContentProperty{
 				{Type: "content()", Content: pr.String("text")},
 				{Type: "string", Content: pr.String("string")},
-				{Type: "attr()", Content: pr.AttrData{Name: "title", TypeOrUnit: "string"}},
-				{Type: "attr()", Content: pr.AttrData{Name: "title", TypeOrUnit: "string"}},
+				{Type: "attr()", Content: pr.AttrData{Name: "title", OrUnitT: "string"}},
+				{Type: "attr()", Content: pr.AttrData{Name: "title", OrUnitT: "string"}},
 				{Type: "counter()", Content: pr.Strings{"count", "decimal"}},
 			}},
 		}},

@@ -83,7 +83,7 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 			// As replaced boxes are never copied during layout, ensure that we
 			// have different boxes (with a possibly different layout) for
 			// each pages.
-			if bo.TypeReplacedBox.IsInstance(box) {
+			if bo.ReplacedBoxT.IsInstance(box) {
 				box = box.Copy()
 			}
 			// Absolute boxes in fixed boxes are rendered as fixed boxes'
@@ -309,7 +309,7 @@ func (self LayoutContext) GetStringSetFor(page Box, name, keyword string) string
 						}
 					}
 				}
-				if bo.TypeParentBox.IsInstance(element) {
+				if bo.ParentBoxT.IsInstance(element) {
 					if len(element.Box().Children) > 0 {
 						element = element.Box().Children[0]
 						continue

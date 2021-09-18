@@ -434,7 +434,7 @@ func hslToRgb(_hue int, saturation, lightness utils.Fl) (utils.Fl, utils.Fl, uti
 func parseCommaSeparated(tokens []Token) []Token {
 	var filtered []Token
 	for _, token := range tokens {
-		if token.Type() != TypeWhitespaceToken && token.Type() != TypeComment {
+		if token.Type() != WhitespaceTokenT && token.Type() != CommentT {
 			filtered = append(filtered, token)
 		}
 	}

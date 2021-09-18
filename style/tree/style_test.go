@@ -344,7 +344,7 @@ func TestPage(t *testing.T) {
 	styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil)
 
 	pageType := utils.PageElement{Side: "left", First: true, Blank: false, Index: 0, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style := styleFor.Get(pageType, "")
 	assertProp(t, style, "margin_top", pr.Dimension{Value: 5, Unit: pr.Px}.ToValue())
 	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
@@ -352,7 +352,7 @@ func TestPage(t *testing.T) {
 	assertProp(t, style, "color", pr.NewColor(1, 0, 0, 1)) // red, inherited from html
 
 	pageType = utils.PageElement{Side: "right", First: true, Blank: false, Index: 0, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "")
 	assertProp(t, style, "margin_top", pr.Dimension{Value: 5, Unit: pr.Px}.ToValue())
 	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
@@ -360,7 +360,7 @@ func TestPage(t *testing.T) {
 	assertProp(t, style, "color", pr.NewColor(0, 0, 1, 1)) // blue
 
 	pageType = utils.PageElement{Side: "left", First: false, Blank: false, Index: 1, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "")
 	assertProp(t, style, "margin_top", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
 	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
@@ -368,7 +368,7 @@ func TestPage(t *testing.T) {
 	assertProp(t, style, "color", pr.NewColor(1, 0, 0, 1)) // red, inherited from html
 
 	pageType = utils.PageElement{Side: "right", First: false, Blank: false, Index: 1, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "")
 	assertProp(t, style, "margin_top", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
 	assertProp(t, style, "margin_left", pr.Dimension{Value: 10, Unit: pr.Px}.ToValue())
@@ -376,20 +376,20 @@ func TestPage(t *testing.T) {
 	assertProp(t, style, "color", pr.NewColor(0, 0, 1, 1)) // blue
 
 	pageType = utils.PageElement{Side: "left", First: true, Blank: false, Index: 0, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "@top-left")
 	if style != nil {
 		t.Fatal("expected empty (nil) style")
 	}
 
 	pageType = utils.PageElement{Side: "right", First: true, Blank: false, Index: 0, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "@top-left")
 	assertProp(t, style, "font_size", pr.FToV(20)) // inherited from @page
 	assertProp(t, style, "width", pr.Dimension{Value: 200, Unit: pr.Px}.ToValue())
 
 	pageType = utils.PageElement{Side: "right", First: true, Blank: false, Index: 0, Name: ""}
-	styleFor.SetPageTypeComputedStyles(pageType, document)
+	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "@top-right")
 	assertProp(t, style, "font_size", pr.FToV(10))
 	capt.AssertNoLogs(t)

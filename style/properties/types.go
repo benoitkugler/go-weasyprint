@@ -61,9 +61,9 @@ type Quotes struct {
 type ContentProperties []ContentProperty
 
 type AttrData struct {
-	Fallback   CssProperty
-	Name       string
-	TypeOrUnit string
+	Fallback CssProperty
+	Name     string
+	OrUnitT  string
 }
 
 type Float Fl

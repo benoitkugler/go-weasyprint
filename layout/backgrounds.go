@@ -139,7 +139,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		paintingArea = [4]pr.Float{0, 0, page.MarginWidth(), page.MarginHeight()}
 		// XXX: how does border-radius work on pages?
 		clippedBoxes = []bo.RoundedBox{box.RoundedBorderBox()}
-	} else if bo.TypeTableRowGroupBox.IsInstance(box_) {
+	} else if bo.TableRowGroupBoxT.IsInstance(box_) {
 		clippedBoxes = nil
 		var totalHeight pr.Float
 		for _, row_ := range box.Children {
@@ -159,7 +159,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 			box.BorderBoxX(), box.BorderBoxY(),
 			box.BorderBoxX() + box.BorderWidth(), totalHeight,
 		}
-	} else if bo.TypeTableRowBox.IsInstance(box_) {
+	} else if bo.TableRowBoxT.IsInstance(box_) {
 		if len(box.Children) != 0 {
 			clippedBoxes = nil
 			var max pr.Float
@@ -175,7 +175,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 				box.BorderBoxX() + box.BorderWidth(), box.BorderBoxY() + height,
 			}
 		}
-	} else if bo.TypeTableColumnGroupBox.IsInstance(box_) || bo.TypeTableColumnBox.IsInstance(box_) {
+	} else if bo.TableColumnGroupBoxT.IsInstance(box_) || bo.TableColumnBoxT.IsInstance(box_) {
 		cells := box.GetCells()
 		if len(cells) != 0 {
 			clippedBoxes = nil
@@ -293,7 +293,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 func setCanvasBackground(page *bo.PageBox) {
 	rootBox_ := page.Children[0]
 	rootBox := rootBox_.Box()
-	if bo.TypeMarginBox.IsInstance(rootBox_) {
+	if bo.MarginBoxT.IsInstance(rootBox_) {
 		log.Fatalf("unexpected margin box as first child of page")
 	}
 	chosenBox_ := rootBox_

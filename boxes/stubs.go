@@ -20,7 +20,7 @@ type BlockBoxITF interface {
 	isBlockBox()
 }
 
-func (BlockBox) Type() BoxType        { return TypeBlockBox }
+func (BlockBox) Type() BoxType        { return BlockBoxT }
 func (b *BlockBox) Box() *BoxFields   { return &b.BoxFields }
 func (b BlockBox) Copy() Box          { return &b }
 func (BlockBox) isBlockBox()          {}
@@ -64,7 +64,7 @@ type BlockReplacedBoxITF interface {
 	isBlockReplacedBox()
 }
 
-func (BlockReplacedBox) Type() BoxType       { return TypeBlockReplacedBox }
+func (BlockReplacedBox) Type() BoxType       { return BlockReplacedBoxT }
 func (b *BlockReplacedBox) Box() *BoxFields  { return &b.BoxFields }
 func (b BlockReplacedBox) Copy() Box         { return &b }
 func (BlockReplacedBox) isBlockReplacedBox() {}
@@ -86,7 +86,7 @@ type FlexBoxITF interface {
 	isFlexBox()
 }
 
-func (FlexBox) Type() BoxType       { return TypeFlexBox }
+func (FlexBox) Type() BoxType       { return FlexBoxT }
 func (b *FlexBox) Box() *BoxFields  { return &b.BoxFields }
 func (b FlexBox) Copy() Box         { return &b }
 func (FlexBox) isFlexBox()          {}
@@ -117,7 +117,7 @@ type InlineBlockBoxITF interface {
 	isInlineBlockBox()
 }
 
-func (InlineBlockBox) Type() BoxType           { return TypeInlineBlockBox }
+func (InlineBlockBox) Type() BoxType           { return InlineBlockBoxT }
 func (b *InlineBlockBox) Box() *BoxFields      { return &b.BoxFields }
 func (b InlineBlockBox) Copy() Box             { return &b }
 func (InlineBlockBox) isInlineBlockBox()       {}
@@ -144,7 +144,7 @@ type InlineBoxITF interface {
 	isInlineBox()
 }
 
-func (InlineBox) Type() BoxType      { return TypeInlineBox }
+func (InlineBox) Type() BoxType      { return InlineBoxT }
 func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
 func (b InlineBox) Copy() Box        { return &b }
 func (InlineBox) isInlineBox()       {}
@@ -166,7 +166,7 @@ type InlineFlexBoxITF interface {
 	isInlineFlexBox()
 }
 
-func (InlineFlexBox) Type() BoxType       { return TypeInlineFlexBox }
+func (InlineFlexBox) Type() BoxType       { return InlineFlexBoxT }
 func (b *InlineFlexBox) Box() *BoxFields  { return &b.BoxFields }
 func (b InlineFlexBox) Copy() Box         { return &b }
 func (InlineFlexBox) isInlineFlexBox()    {}
@@ -201,7 +201,7 @@ type InlineReplacedBoxITF interface {
 	isInlineReplacedBox()
 }
 
-func (InlineReplacedBox) Type() BoxType           { return TypeInlineReplacedBox }
+func (InlineReplacedBox) Type() BoxType           { return InlineReplacedBoxT }
 func (b *InlineReplacedBox) Box() *BoxFields      { return &b.BoxFields }
 func (b InlineReplacedBox) Copy() Box             { return &b }
 func (InlineReplacedBox) isInlineReplacedBox()    {}
@@ -216,7 +216,7 @@ type InlineTableBoxITF interface {
 	isInlineTableBox()
 }
 
-func (InlineTableBox) Type() BoxType      { return TypeInlineTableBox }
+func (InlineTableBox) Type() BoxType      { return InlineTableBoxT }
 func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
 func (b InlineTableBox) Copy() Box        { return &b }
 func (InlineTableBox) isInlineTableBox()  {}
@@ -241,7 +241,7 @@ type LineBoxITF interface {
 	isLineBox()
 }
 
-func (LineBox) Type() BoxType      { return TypeLineBox }
+func (LineBox) Type() BoxType      { return LineBoxT }
 func (b *LineBox) Box() *BoxFields { return &b.BoxFields }
 func (b LineBox) Copy() Box        { return &b }
 func (LineBox) isLineBox()         {}
@@ -254,7 +254,7 @@ type MarginBoxITF interface {
 	isMarginBox()
 }
 
-func (MarginBox) Type() BoxType        { return TypeMarginBox }
+func (MarginBox) Type() BoxType        { return MarginBoxT }
 func (b *MarginBox) Box() *BoxFields   { return &b.BoxFields }
 func (b MarginBox) Copy() Box          { return &b }
 func (MarginBox) isMarginBox()         {}
@@ -270,7 +270,7 @@ type PageBoxITF interface {
 	isPageBox()
 }
 
-func (PageBox) Type() BoxType      { return TypePageBox }
+func (PageBox) Type() BoxType      { return PageBoxT }
 func (b *PageBox) Box() *BoxFields { return &b.BoxFields }
 func (b PageBox) Copy() Box        { return &b }
 func (PageBox) isPageBox()         {}
@@ -292,7 +292,7 @@ type ReplacedBoxITF interface {
 	methodsReplacedBox
 }
 
-func (ReplacedBox) Type() BoxType      { return TypeReplacedBox }
+func (ReplacedBox) Type() BoxType      { return ReplacedBoxT }
 func (b *ReplacedBox) Box() *BoxFields { return &b.BoxFields }
 func (b ReplacedBox) Copy() Box        { return &b }
 func (ReplacedBox) isReplacedBox()     {}
@@ -306,7 +306,7 @@ type TableBoxITF interface {
 	methodsTableBox
 }
 
-func (TableBox) Type() BoxType      { return TypeTableBox }
+func (TableBox) Type() BoxType      { return TableBoxT }
 func (b *TableBox) Box() *BoxFields { return &b.BoxFields }
 func (b TableBox) Copy() Box        { return &b }
 func (TableBox) isTableBox()        {}
@@ -326,7 +326,7 @@ type TableCaptionBoxITF interface {
 	isTableCaptionBox()
 }
 
-func (TableCaptionBox) Type() BoxType        { return TypeTableCaptionBox }
+func (TableCaptionBox) Type() BoxType        { return TableCaptionBoxT }
 func (b *TableCaptionBox) Box() *BoxFields   { return &b.BoxFields }
 func (b TableCaptionBox) Copy() Box          { return &b }
 func (TableCaptionBox) isTableCaptionBox()   {}
@@ -348,7 +348,7 @@ type TableCellBoxITF interface {
 	isTableCellBox()
 }
 
-func (TableCellBox) Type() BoxType        { return TypeTableCellBox }
+func (TableCellBox) Type() BoxType        { return TableCellBoxT }
 func (b *TableCellBox) Box() *BoxFields   { return &b.BoxFields }
 func (b TableCellBox) Copy() Box          { return &b }
 func (TableCellBox) isTableCellBox()      {}
@@ -368,7 +368,7 @@ type TableColumnBoxITF interface {
 	isTableColumnBox()
 }
 
-func (TableColumnBox) Type() BoxType      { return TypeTableColumnBox }
+func (TableColumnBox) Type() BoxType      { return TableColumnBoxT }
 func (b *TableColumnBox) Box() *BoxFields { return &b.BoxFields }
 func (b TableColumnBox) Copy() Box        { return &b }
 func (TableColumnBox) isTableColumnBox()  {}
@@ -387,7 +387,7 @@ type TableColumnGroupBoxITF interface {
 	isTableColumnGroupBox()
 }
 
-func (TableColumnGroupBox) Type() BoxType          { return TypeTableColumnGroupBox }
+func (TableColumnGroupBox) Type() BoxType          { return TableColumnGroupBoxT }
 func (b *TableColumnGroupBox) Box() *BoxFields     { return &b.BoxFields }
 func (b TableColumnGroupBox) Copy() Box            { return &b }
 func (TableColumnGroupBox) isTableColumnGroupBox() {}
@@ -406,7 +406,7 @@ type TableRowBoxITF interface {
 	isTableRowBox()
 }
 
-func (TableRowBox) Type() BoxType      { return TypeTableRowBox }
+func (TableRowBox) Type() BoxType      { return TableRowBoxT }
 func (b *TableRowBox) Box() *BoxFields { return &b.BoxFields }
 func (b TableRowBox) Copy() Box        { return &b }
 func (TableRowBox) isTableRowBox()     {}
@@ -425,7 +425,7 @@ type TableRowGroupBoxITF interface {
 	isTableRowGroupBox()
 }
 
-func (TableRowGroupBox) Type() BoxType       { return TypeTableRowGroupBox }
+func (TableRowGroupBox) Type() BoxType       { return TableRowGroupBoxT }
 func (b *TableRowGroupBox) Box() *BoxFields  { return &b.BoxFields }
 func (b TableRowGroupBox) Copy() Box         { return &b }
 func (TableRowGroupBox) isTableRowGroupBox() {}
@@ -446,7 +446,7 @@ type TextBoxITF interface {
 	isTextBox()
 }
 
-func (TextBox) Type() BoxType      { return TypeTextBox }
+func (TextBox) Type() BoxType      { return TextBoxT }
 func (b *TextBox) Box() *BoxFields { return &b.BoxFields }
 func (b TextBox) Copy() Box        { return &b }
 func (TextBox) isTextBox()         {}
@@ -458,92 +458,92 @@ type BoxType uint8
 
 const (
 	invalidType BoxType = iota
-	TypeAtomicInlineLevelBox
-	TypeBlockBox
-	TypeBlockContainerBox
-	TypeBlockLevelBox
-	TypeBlockReplacedBox
-	TypeBox
-	TypeFlexBox
-	TypeFlexContainerBox
-	TypeInlineBlockBox
-	TypeInlineBox
-	TypeInlineFlexBox
-	TypeInlineLevelBox
-	TypeInlineReplacedBox
-	TypeInlineTableBox
-	TypeLineBox
-	TypeMarginBox
-	TypePageBox
-	TypeParentBox
-	TypeReplacedBox
-	TypeTableBox
-	TypeTableCaptionBox
-	TypeTableCellBox
-	TypeTableColumnBox
-	TypeTableColumnGroupBox
-	TypeTableRowBox
-	TypeTableRowGroupBox
-	TypeTextBox
+	AtomicInlineLevelBoxT
+	BlockBoxT
+	BlockContainerBoxT
+	BlockLevelBoxT
+	BlockReplacedBoxT
+	BoxT
+	FlexBoxT
+	FlexContainerBoxT
+	InlineBlockBoxT
+	InlineBoxT
+	InlineFlexBoxT
+	InlineLevelBoxT
+	InlineReplacedBoxT
+	InlineTableBoxT
+	LineBoxT
+	MarginBoxT
+	PageBoxT
+	ParentBoxT
+	ReplacedBoxT
+	TableBoxT
+	TableCaptionBoxT
+	TableCellBoxT
+	TableColumnBoxT
+	TableColumnGroupBoxT
+	TableRowBoxT
+	TableRowGroupBoxT
+	TextBoxT
 )
 
 // Returns true is the box is an instance of t.
 func (t BoxType) IsInstance(box BoxITF) bool {
 	var isInstance bool
 	switch t {
-	case TypeAtomicInlineLevelBox:
+	case AtomicInlineLevelBoxT:
 		_, isInstance = box.(AtomicInlineLevelBoxITF)
-	case TypeBlockBox:
+	case BlockBoxT:
 		_, isInstance = box.(BlockBoxITF)
-	case TypeBlockContainerBox:
+	case BlockContainerBoxT:
 		_, isInstance = box.(BlockContainerBoxITF)
-	case TypeBlockLevelBox:
+	case BlockLevelBoxT:
 		_, isInstance = box.(BlockLevelBoxITF)
-	case TypeBlockReplacedBox:
+	case BlockReplacedBoxT:
 		_, isInstance = box.(BlockReplacedBoxITF)
-	case TypeBox:
+	case BoxT:
 		_, isInstance = box.(BoxITF)
-	case TypeFlexBox:
+	case FlexBoxT:
 		_, isInstance = box.(FlexBoxITF)
-	case TypeFlexContainerBox:
+	case FlexContainerBoxT:
 		_, isInstance = box.(FlexContainerBoxITF)
-	case TypeInlineBlockBox:
+	case InlineBlockBoxT:
 		_, isInstance = box.(InlineBlockBoxITF)
-	case TypeInlineBox:
+	case InlineBoxT:
 		_, isInstance = box.(InlineBoxITF)
-	case TypeInlineFlexBox:
+	case InlineFlexBoxT:
 		_, isInstance = box.(InlineFlexBoxITF)
-	case TypeInlineLevelBox:
+	case InlineLevelBoxT:
 		_, isInstance = box.(InlineLevelBoxITF)
-	case TypeInlineReplacedBox:
+	case InlineReplacedBoxT:
 		_, isInstance = box.(InlineReplacedBoxITF)
-	case TypeInlineTableBox:
+	case InlineTableBoxT:
 		_, isInstance = box.(InlineTableBoxITF)
-	case TypeLineBox:
+	case LineBoxT:
 		_, isInstance = box.(LineBoxITF)
-	case TypeMarginBox:
+	case MarginBoxT:
 		_, isInstance = box.(MarginBoxITF)
-	case TypePageBox:
+	case PageBoxT:
 		_, isInstance = box.(PageBoxITF)
-	case TypeParentBox:
+	case ParentBoxT:
 		_, isInstance = box.(ParentBoxITF)
-	case TypeReplacedBox:
+	case ReplacedBoxT:
 		_, isInstance = box.(ReplacedBoxITF)
-	case TypeTableBox:
+	case TableBoxT:
 		_, isInstance = box.(TableBoxITF)
-	case TypeTableCaptionBox:
+	case TableCaptionBoxT:
 		_, isInstance = box.(TableCaptionBoxITF)
-	case TypeTableCellBox:
+	case TableCellBoxT:
 		_, isInstance = box.(TableCellBoxITF)
-	case TypeTableColumnBox:
+	case TableColumnBoxT:
 		_, isInstance = box.(TableColumnBoxITF)
-	case TypeTableColumnGroupBox:
+	case TableColumnGroupBoxT:
 		_, isInstance = box.(TableColumnGroupBoxITF)
-	case TypeTableRowBox:
+	case TableRowBoxT:
 		_, isInstance = box.(TableRowBoxITF)
-	case TypeTableRowGroupBox:
+	case TableRowGroupBoxT:
 		_, isInstance = box.(TableRowGroupBoxITF)
-	case TypeTextBox:
+	case TextBoxT:
 		_, isInstance = box.(TextBoxITF)
 	}
 	return isInstance
@@ -551,59 +551,59 @@ func (t BoxType) IsInstance(box BoxITF) bool {
 
 func (t BoxType) String() string {
 	switch t {
-	case TypeAtomicInlineLevelBox:
+	case AtomicInlineLevelBoxT:
 		return "AtomicInlineLevelBox"
-	case TypeBlockBox:
+	case BlockBoxT:
 		return "BlockBox"
-	case TypeBlockContainerBox:
+	case BlockContainerBoxT:
 		return "BlockContainerBox"
-	case TypeBlockLevelBox:
+	case BlockLevelBoxT:
 		return "BlockLevelBox"
-	case TypeBlockReplacedBox:
+	case BlockReplacedBoxT:
 		return "BlockReplacedBox"
-	case TypeBox:
+	case BoxT:
 		return "Box"
-	case TypeFlexBox:
+	case FlexBoxT:
 		return "FlexBox"
-	case TypeFlexContainerBox:
+	case FlexContainerBoxT:
 		return "FlexContainerBox"
-	case TypeInlineBlockBox:
+	case InlineBlockBoxT:
 		return "InlineBlockBox"
-	case TypeInlineBox:
+	case InlineBoxT:
 		return "InlineBox"
-	case TypeInlineFlexBox:
+	case InlineFlexBoxT:
 		return "InlineFlexBox"
-	case TypeInlineLevelBox:
+	case InlineLevelBoxT:
 		return "InlineLevelBox"
-	case TypeInlineReplacedBox:
+	case InlineReplacedBoxT:
 		return "InlineReplacedBox"
-	case TypeInlineTableBox:
+	case InlineTableBoxT:
 		return "InlineTableBox"
-	case TypeLineBox:
+	case LineBoxT:
 		return "LineBox"
-	case TypeMarginBox:
+	case MarginBoxT:
 		return "MarginBox"
-	case TypePageBox:
+	case PageBoxT:
 		return "PageBox"
-	case TypeParentBox:
+	case ParentBoxT:
 		return "ParentBox"
-	case TypeReplacedBox:
+	case ReplacedBoxT:
 		return "ReplacedBox"
-	case TypeTableBox:
+	case TableBoxT:
 		return "TableBox"
-	case TypeTableCaptionBox:
+	case TableCaptionBoxT:
 		return "TableCaptionBox"
-	case TypeTableCellBox:
+	case TableCellBoxT:
 		return "TableCellBox"
-	case TypeTableColumnBox:
+	case TableColumnBoxT:
 		return "TableColumnBox"
-	case TypeTableColumnGroupBox:
+	case TableColumnGroupBoxT:
 		return "TableColumnGroupBox"
-	case TypeTableRowBox:
+	case TableRowBoxT:
 		return "TableRowBox"
-	case TypeTableRowGroupBox:
+	case TableRowGroupBoxT:
 		return "TableRowGroupBox"
-	case TypeTextBox:
+	case TextBoxT:
 		return "TextBox"
 	}
 	return "<invalid box type>"
@@ -634,31 +634,31 @@ var (
 
 func (t BoxType) AnonymousFrom(parent Box, children []Box) Box {
 	switch t {
-	case TypeBlockBox:
+	case BlockBoxT:
 		return BlockBoxAnonymousFrom(parent, children)
-	case TypeFlexBox:
+	case FlexBoxT:
 		return FlexBoxAnonymousFrom(parent, children)
-	case TypeInlineBlockBox:
+	case InlineBlockBoxT:
 		return InlineBlockBoxAnonymousFrom(parent, children)
-	case TypeInlineBox:
+	case InlineBoxT:
 		return InlineBoxAnonymousFrom(parent, children)
-	case TypeInlineFlexBox:
+	case InlineFlexBoxT:
 		return InlineFlexBoxAnonymousFrom(parent, children)
-	case TypeInlineTableBox:
+	case InlineTableBoxT:
 		return InlineTableBoxAnonymousFrom(parent, children)
-	case TypeTableBox:
+	case TableBoxT:
 		return TableBoxAnonymousFrom(parent, children)
-	case TypeTableCaptionBox:
+	case TableCaptionBoxT:
 		return TableCaptionBoxAnonymousFrom(parent, children)
-	case TypeTableCellBox:
+	case TableCellBoxT:
 		return TableCellBoxAnonymousFrom(parent, children)
-	case TypeTableColumnBox:
+	case TableColumnBoxT:
 		return TableColumnBoxAnonymousFrom(parent, children)
-	case TypeTableColumnGroupBox:
+	case TableColumnGroupBoxT:
 		return TableColumnGroupBoxAnonymousFrom(parent, children)
-	case TypeTableRowBox:
+	case TableRowBoxT:
 		return TableRowBoxAnonymousFrom(parent, children)
-	case TypeTableRowGroupBox:
+	case TableRowGroupBoxT:
 		return TableRowGroupBoxAnonymousFrom(parent, children)
 	}
 	return nil

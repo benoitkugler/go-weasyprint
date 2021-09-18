@@ -231,8 +231,10 @@ func ParseOneRule(input []Token) Token {
 	rule := consumeRule(first, tokens)
 	next := nextSignificant(tokens)
 	if next != nil {
-		return ParseError{Origine: next.Position(), Kind: "extra-input",
-			Message: fmt.Sprintf("Expected a single rule, got %s after the first rule.", next.Type())}
+		return ParseError{
+			Origine: next.Position(), Kind: "extra-input",
+			Message: fmt.Sprintf("Expected a single rule, got %s after the first rule.", next.Type()),
+		}
 	}
 	return rule
 }
@@ -263,11 +265,11 @@ func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 	for tokens.HasNext() {
 		token := tokens.Next()
 		switch token.Type() {
-		case TypeWhitespaceToken:
+		case WhitespaceTokenT:
 			if !skipWhitespace {
 				result = append(result, token)
 			}
-		case TypeComment:
+		case CommentT:
 			if !skipComments {
 				result = append(result, token)
 			}
@@ -303,15 +305,15 @@ func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 	for iter.HasNext() {
 		token := iter.Next()
 		switch token.Type() {
-		case TypeWhitespaceToken:
+		case WhitespaceTokenT:
 			if !skipWhitespace {
 				result = append(result, token)
 			}
-		case TypeComment:
+		case CommentT:
 			if !skipComments {
 				result = append(result, token)
 			}
-		case TypeLiteralToken:
+		case LiteralTokenT:
 			if lit, ok := token.(LiteralToken); !ok || (lit.Value != "<!--" && lit.Value != "-->") {
 				result = append(result, consumeRule(token, iter))
 			}
@@ -321,6 +323,7 @@ func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 	}
 	return result
 }
+
 func ParseStylesheet2(input []byte, skipComments, skipWhitespace bool) []Token {
 	l := ParseComponentValueList(string(input), skipComments)
 	return ParseStylesheet(l, skipComments, skipWhitespace)

@@ -137,12 +137,12 @@ func expandFontVariant(tokens) {
 @descriptor("font-face")
 // ``font-family`` descriptor validation.
 func fontFamily(tokens, allowSpaces=false) {
-    allowedTypes = ["ident"]
+    allowedsT = ["ident"]
     if allowSpaces {
-        allowedTypes.append("whitespace")
+        allowedsT.append("whitespace")
     } if len(tokens) == 1 && tokens[0].type == "string" {
         return tokens[0].value
-    } if tokens && all(token.type := range allowedTypes for token := range tokens) {
+    } if tokens && all(token.type := range allowedsT for token := range tokens) {
         return " ".join(
             token.value for token := range tokens if token.type == "ident")
     }

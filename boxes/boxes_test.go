@@ -3,6 +3,7 @@ package boxes
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -76,23 +77,23 @@ func parseAndBuildExt(t *testing.T, htmlContent, baseUrl string) BlockLevelBoxIT
 
 type bc struct {
 	text string
-	c    []serializedBox
+	c    []serBox
 }
 
-type serializedBox struct {
+type serBox struct {
 	tag     string
 	type_   BoxType
 	content bc
 }
 
-func (s serializedBox) equals(other serializedBox) bool {
+func (s serBox) equals(other serBox) bool {
 	if s.tag != other.tag || s.type_ != other.type_ || s.content.text != other.content.text {
 		return false
 	}
 	return serializedBoxEquals(s.content.c, other.content.c)
 }
 
-func serializedBoxEquals(l1, l2 []serializedBox) bool {
+func serializedBoxEquals(l1, l2 []serBox) bool {
 	if len(l1) != len(l2) {
 		return false
 	}
@@ -105,8 +106,8 @@ func serializedBoxEquals(l1, l2 []serializedBox) bool {
 }
 
 // Transform a box list into a structure easier to compare for testing.
-func serialize(boxList []Box) []serializedBox {
-	out := make([]serializedBox, len(boxList))
+func serialize(boxList []Box) []serBox {
+	out := make([]serBox, len(boxList))
 	for i, box := range boxList {
 		out[i].tag = box.Box().ElementTag
 		out[i].type_ = box.Type()
@@ -133,11 +134,11 @@ func serialize(boxList []Box) []serializedBox {
 //
 // box: a Box object, starting with <html> and <body> blocks.
 // expected: a list of serialized <body> children as returned by to_lists().
-func assertTree(t *testing.T, box Box, expected []serializedBox) {
+func assertTree(t *testing.T, box Box, expected []serBox) {
 	if tag := box.Box().ElementTag; tag != "html" {
 		t.Fatalf("unexpected element: %s", tag)
 	}
-	if !TypeBlockBox.IsInstance(box) {
+	if !BlockBoxT.IsInstance(box) {
 		t.Fatal("expected block box")
 	}
 	if L := len(box.Box().Children); L != 1 {
@@ -145,7 +146,7 @@ func assertTree(t *testing.T, box Box, expected []serializedBox) {
 	}
 
 	box = box.Box().Children[0]
-	if !TypeBlockBox.IsInstance(box) {
+	if !BlockBoxT.IsInstance(box) {
 		t.Fatal("expected block box")
 	}
 	if tag := box.Box().ElementTag; tag != "body" {
@@ -158,22 +159,22 @@ func assertTree(t *testing.T, box Box, expected []serializedBox) {
 }
 
 var properChildren = map[BoxType][]BoxType{
-	TypeBlockContainerBox: {TypeBlockLevelBox, TypeLineBox},
-	TypeLineBox:           {TypeInlineLevelBox},
-	TypeInlineBox:         {TypeInlineLevelBox},
-	TypeTableBox: {
-		TypeTableCaptionBox,
-		TypeTableColumnGroupBox, TypeTableColumnBox,
-		TypeTableRowGroupBox, TypeTableRowBox,
+	BlockContainerBoxT: {BlockLevelBoxT, LineBoxT},
+	LineBoxT:           {InlineLevelBoxT},
+	InlineBoxT:         {InlineLevelBoxT},
+	TableBoxT: {
+		TableCaptionBoxT,
+		TableColumnGroupBoxT, TableColumnBoxT,
+		TableRowGroupBoxT, TableRowBoxT,
 	},
-	TypeInlineTableBox: {
-		TypeTableCaptionBox,
-		TypeTableColumnGroupBox, TypeTableColumnBox,
-		TypeTableRowGroupBox, TypeTableRowBox,
+	InlineTableBoxT: {
+		TableCaptionBoxT,
+		TableColumnGroupBoxT, TableColumnBoxT,
+		TableRowGroupBoxT, TableRowBoxT,
 	},
-	TypeTableColumnGroupBox: {TypeTableColumnBox},
-	TypeTableRowGroupBox:    {TypeTableRowBox},
-	TypeTableRowBox:         {TypeTableCellBox},
+	TableColumnGroupBoxT: {TableColumnBoxT},
+	TableRowGroupBoxT:    {TableRowBoxT},
+	TableRowBoxT:         {TableCellBoxT},
 }
 
 // Check that the rules regarding boxes are met.
@@ -184,11 +185,11 @@ var properChildren = map[BoxType][]BoxType{
 //   only line boxes;
 // - Line boxes and inline boxes can only contain inline-level boxes.
 func sanityChecks(box Box) error {
-	if !TypeParentBox.IsInstance(box) {
+	if !ParentBoxT.IsInstance(box) {
 		return nil
 	}
 
-	acceptableTypesLists, ok := properChildren[box.Type()]
+	acceptablesListsT, ok := properChildren[box.Type()]
 	if !ok {
 		return nil // this is less strict than the reference implementation
 	}
@@ -198,7 +199,7 @@ func sanityChecks(box Box) error {
 			continue
 		}
 		isOk := false
-		for _, typeOk := range acceptableTypesLists {
+		for _, typeOk := range acceptablesListsT {
 			if typeOk.IsInstance(child) {
 				isOk = true
 				break
@@ -232,18 +233,19 @@ func sanityChecks(box Box) error {
 
 var baseUrl, _ = utils.Path2url("../resources_test/")
 
-func getGrid(t *testing.T, html string) ([][]*Border, [][]*Border) {
+func getGrid(t *testing.T, html string) ([][]Border, [][]Border) {
 	root := parseAndBuild(t, html)
 	body := root.Box().Children[0]
 	tableWrapper := body.Box().Children[0]
 	table := tableWrapper.Box().Children[0].(TableBoxITF)
 
-	buildGrid := func(bg [][]Border) (grid [][]*Border /*maybe nil*/) {
+	buildGrid := func(bg [][]Border) (grid [][]Border /*maybe nil*/) {
 		for _, column := range bg {
-			out := make([]*Border, len(column))
+			out := make([]Border, len(column))
 			for i, border := range column {
 				if border.Width != 0 {
-					out[i] = &border
+					border.Score = Score{}
+					out[i] = border
 				}
 			}
 			grid = append(grid, out)
@@ -251,32 +253,32 @@ func getGrid(t *testing.T, html string) ([][]*Border, [][]*Border) {
 		return grid
 	}
 
-	return buildGrid(table.Table().CollapsedBorderGrid.Horizontal),
-		buildGrid(table.Table().CollapsedBorderGrid.Vertical)
+	return buildGrid(table.Table().CollapsedBorderGrid.Vertical),
+		buildGrid(table.Table().CollapsedBorderGrid.Horizontal)
 }
 
 func TestBoxTree(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
-	assertTree(t, parse(t, "<p>"), []serializedBox{{"p", TypeBlockBox, bc{}}})
+	assertTree(t, parse(t, "<p>"), []serBox{{"p", BlockBoxT, bc{}}})
 	assertTree(t, parse(t, `
 	  <style>
 	    span { display: inline-block }
 	  </style>
 	  <p>Hello <em>World <img src="pattern.png"><span>L</span></em>!</p>`),
-		[]serializedBox{
+		[]serBox{
 			{
-				"p", TypeBlockBox, bc{c: []serializedBox{
-					{"p", TypeTextBox, bc{text: "Hello "}},
-					{"em", TypeInlineBox, bc{c: []serializedBox{
-						{"em", TypeTextBox, bc{text: "World "}},
-						{"img", TypeInlineReplacedBox, bc{text: "<replaced>"}},
-						{"span", TypeInlineBlockBox, bc{c: []serializedBox{
-							{"span", TypeTextBox, bc{text: "L"}},
+				"p", BlockBoxT, bc{c: []serBox{
+					{"p", TextBoxT, bc{text: "Hello "}},
+					{"em", InlineBoxT, bc{c: []serBox{
+						{"em", TextBoxT, bc{text: "World "}},
+						{"img", InlineReplacedBoxT, bc{text: "<replaced>"}},
+						{"span", InlineBlockBoxT, bc{c: []serBox{
+							{"span", TextBoxT, bc{text: "L"}},
 						}}},
 					}}},
-					{"p", TypeTextBox, bc{text: "!"}},
+					{"p", TextBoxT, bc{text: "!"}},
 				}},
 			},
 		})
@@ -287,9 +289,9 @@ func TestHtmlEntities(t *testing.T) {
 	defer cp.AssertNoLogs(t)
 
 	for _, quote := range []string{`"`, "&quot;", "&#x22;", "&#34;"} {
-		assertTree(t, parse(t, fmt.Sprintf("<p>%sabc%s", quote, quote)), []serializedBox{
-			{"p", TypeBlockBox, bc{c: []serializedBox{
-				{"p", TypeTextBox, bc{text: `"abc"`}},
+		assertTree(t, parse(t, fmt.Sprintf("<p>%sabc%s", quote, quote)), []serBox{
+			{"p", BlockBoxT, bc{c: []serBox{
+				{"p", TextBoxT, bc{text: `"abc"`}},
 			}}},
 		})
 	}
@@ -300,24 +302,24 @@ func TestInlineInBlock1(t *testing.T) {
 	defer cp.AssertNoLogs(t)
 
 	source := "<div>Hello, <em>World</em>!\n<p>Lipsum.</p></div>"
-	expected := []serializedBox{
-		{"div", TypeBlockBox, bc{
-			c: []serializedBox{
+	expected := []serBox{
+		{"div", BlockBoxT, bc{
+			c: []serBox{
 				{
-					"div", TypeBlockBox,
-					bc{c: []serializedBox{
-						{"div", TypeLineBox, bc{c: []serializedBox{
-							{"div", TypeTextBox, bc{text: "Hello, "}},
-							{"em", TypeInlineBox, bc{c: []serializedBox{
-								{"em", TypeTextBox, bc{text: "World"}},
+					"div", BlockBoxT,
+					bc{c: []serBox{
+						{"div", LineBoxT, bc{c: []serBox{
+							{"div", TextBoxT, bc{text: "Hello, "}},
+							{"em", InlineBoxT, bc{c: []serBox{
+								{"em", TextBoxT, bc{text: "World"}},
 							}}},
-							{"div", TypeTextBox, bc{text: "!\n"}},
+							{"div", TextBoxT, bc{text: "!\n"}},
 						}}},
 					}},
 				},
-				{"p", TypeBlockBox, bc{c: []serializedBox{
-					{"p", TypeLineBox, bc{c: []serializedBox{
-						{"p", TypeTextBox, bc{text: "Lipsum."}},
+				{"p", BlockBoxT, bc{c: []serBox{
+					{"p", LineBoxT, bc{c: []serBox{
+						{"p", TextBoxT, bc{text: "Lipsum."}},
 					}}},
 				}}},
 			},
@@ -325,14 +327,14 @@ func TestInlineInBlock1(t *testing.T) {
 	}
 	box := parse(t, source)
 
-	assertTree(t, box, []serializedBox{
-		{"div", TypeBlockBox, bc{c: []serializedBox{
-			{"div", TypeTextBox, bc{text: "Hello, "}},
-			{"em", TypeInlineBox, bc{c: []serializedBox{
-				{"em", TypeTextBox, bc{text: "World"}},
+	assertTree(t, box, []serBox{
+		{"div", BlockBoxT, bc{c: []serBox{
+			{"div", TextBoxT, bc{text: "Hello, "}},
+			{"em", InlineBoxT, bc{c: []serBox{
+				{"em", TextBoxT, bc{text: "World"}},
 			}}},
-			{"div", TypeTextBox, bc{text: "!\n"}},
-			{"p", TypeBlockBox, bc{c: []serializedBox{{"p", TypeTextBox, bc{text: "Lipsum."}}}}},
+			{"div", TextBoxT, bc{text: "!\n"}},
+			{"p", BlockBoxT, bc{c: []serBox{{"p", TextBoxT, bc{text: "Lipsum."}}}}},
 		}}},
 	})
 
@@ -345,14 +347,14 @@ func TestInlineInBlock2(t *testing.T) {
 	defer cp.AssertNoLogs(t)
 
 	source := "<div><p>Lipsum.</p>Hello, <em>World</em>!\n</div>"
-	expected := []serializedBox{
-		{"div", TypeBlockBox, bc{c: []serializedBox{
-			{"p", TypeBlockBox, bc{c: []serializedBox{{"p", TypeLineBox, bc{c: []serializedBox{{"p", TypeTextBox, bc{text: "Lipsum."}}}}}}}},
-			{"div", TypeBlockBox, bc{c: []serializedBox{
-				{"div", TypeLineBox, bc{c: []serializedBox{
-					{"div", TypeTextBox, bc{text: "Hello, "}},
-					{"em", TypeInlineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "World"}}}}},
-					{"div", TypeTextBox, bc{text: "!\n"}},
+	expected := []serBox{
+		{"div", BlockBoxT, bc{c: []serBox{
+			{"p", BlockBoxT, bc{c: []serBox{{"p", LineBoxT, bc{c: []serBox{{"p", TextBoxT, bc{text: "Lipsum."}}}}}}}},
+			{"div", BlockBoxT, bc{c: []serBox{
+				{"div", LineBoxT, bc{c: []serBox{
+					{"div", TextBoxT, bc{text: "Hello, "}},
+					{"em", InlineBoxT, bc{c: []serBox{{"em", TextBoxT, bc{text: "World"}}}}},
+					{"div", TextBoxT, bc{text: "!\n"}},
 				}}},
 			}}},
 		}}},
@@ -369,12 +371,12 @@ func TestInlineInBlock3(t *testing.T) {
 	// Absolutes are left := range the lines to get their static position later.
 	source := `<p>Hello <em style="position:absolute;
                                     display: block">World</em>!</p>`
-	expected := []serializedBox{
-		{"p", TypeBlockBox, bc{c: []serializedBox{
-			{"p", TypeLineBox, bc{c: []serializedBox{
-				{"p", TypeTextBox, bc{text: "Hello "}},
-				{"em", TypeBlockBox, bc{c: []serializedBox{{"em", TypeLineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "World"}}}}}}}},
-				{"p", TypeTextBox, bc{text: "!"}},
+	expected := []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"p", TextBoxT, bc{text: "Hello "}},
+				{"em", BlockBoxT, bc{c: []serBox{{"em", LineBoxT, bc{c: []serBox{{"em", TextBoxT, bc{text: "World"}}}}}}}},
+				{"p", TextBoxT, bc{text: "!"}},
 			}}},
 		}}},
 	}
@@ -392,12 +394,12 @@ func TestInlineInBlock4(t *testing.T) {
 	// Floats are pull to the top of their containing blocks
 	source := `<p>Hello <em style="float: left">World</em>!</p>`
 
-	expected := []serializedBox{
-		{"p", TypeBlockBox, bc{c: []serializedBox{
-			{"p", TypeLineBox, bc{c: []serializedBox{
-				{"p", TypeTextBox, bc{text: "Hello "}},
-				{"em", TypeBlockBox, bc{c: []serializedBox{{"em", TypeLineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "World"}}}}}}}},
-				{"p", TypeTextBox, bc{text: "!"}},
+	expected := []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"p", TextBoxT, bc{text: "Hello "}},
+				{"em", BlockBoxT, bc{c: []serBox{{"em", LineBoxT, bc{c: []serBox{{"em", TextBoxT, bc{text: "World"}}}}}}}},
+				{"p", TextBoxT, bc{text: "!"}},
 			}}},
 		}}},
 	}
@@ -419,24 +421,24 @@ func TestBlockInInline(t *testing.T) {
       <p>Lorem <em>ipsum <strong>dolor <span>sit</span>
       <span>amet,</span></strong><span><em>conse<i>`)
 	box = InlineInBlock(box)
-	assertTree(t, box, []serializedBox{
-		{"body", TypeLineBox, bc{c: []serializedBox{
-			{"p", TypeInlineBlockBox, bc{c: []serializedBox{
-				{"p", TypeLineBox, bc{c: []serializedBox{
-					{"p", TypeTextBox, bc{text: "Lorem "}},
-					{"em", TypeInlineBox, bc{c: []serializedBox{
-						{"em", TypeTextBox, bc{text: "ipsum "}},
-						{"strong", TypeInlineBox, bc{c: []serializedBox{
-							{"strong", TypeTextBox, bc{text: "dolor "}},
-							{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "sit"}}}}}}}},
-							{"strong", TypeTextBox, bc{text: "\n      "}},
-							{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "amet,"}}}}}}}},
+	assertTree(t, box, []serBox{
+		{"body", LineBoxT, bc{c: []serBox{
+			{"p", InlineBlockBoxT, bc{c: []serBox{
+				{"p", LineBoxT, bc{c: []serBox{
+					{"p", TextBoxT, bc{text: "Lorem "}},
+					{"em", InlineBoxT, bc{c: []serBox{
+						{"em", TextBoxT, bc{text: "ipsum "}},
+						{"strong", InlineBoxT, bc{c: []serBox{
+							{"strong", TextBoxT, bc{text: "dolor "}},
+							{"span", BlockBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"span", TextBoxT, bc{text: "sit"}}}}}}}},
+							{"strong", TextBoxT, bc{text: "\n      "}},
+							{"span", BlockBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"span", TextBoxT, bc{text: "amet,"}}}}}}}},
 						}}},
-						{"span", TypeBlockBox, bc{c: []serializedBox{
-							{"span", TypeLineBox, bc{c: []serializedBox{
-								{"em", TypeInlineBox, bc{c: []serializedBox{
-									{"em", TypeTextBox, bc{text: "conse"}},
-									{"i", TypeBlockBox, bc{c: []serializedBox{}}},
+						{"span", BlockBoxT, bc{c: []serBox{
+							{"span", LineBoxT, bc{c: []serBox{
+								{"em", InlineBoxT, bc{c: []serBox{
+									{"em", TextBoxT, bc{text: "conse"}},
+									{"i", BlockBoxT, bc{c: []serBox{}}},
 								}}},
 							}}},
 						}}},
@@ -447,36 +449,36 @@ func TestBlockInInline(t *testing.T) {
 	})
 
 	box = BlockInInline(box)
-	assertTree(t, box, []serializedBox{
-		{"body", TypeLineBox, bc{c: []serializedBox{
-			{"p", TypeInlineBlockBox, bc{c: []serializedBox{
-				{"p", TypeBlockBox, bc{c: []serializedBox{
-					{"p", TypeLineBox, bc{c: []serializedBox{
-						{"p", TypeTextBox, bc{text: "Lorem "}},
-						{"em", TypeInlineBox, bc{c: []serializedBox{
-							{"em", TypeTextBox, bc{text: "ipsum "}},
-							{"strong", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeTextBox, bc{text: "dolor "}}}}},
+	assertTree(t, box, []serBox{
+		{"body", LineBoxT, bc{c: []serBox{
+			{"p", InlineBlockBoxT, bc{c: []serBox{
+				{"p", BlockBoxT, bc{c: []serBox{
+					{"p", LineBoxT, bc{c: []serBox{
+						{"p", TextBoxT, bc{text: "Lorem "}},
+						{"em", InlineBoxT, bc{c: []serBox{
+							{"em", TextBoxT, bc{text: "ipsum "}},
+							{"strong", InlineBoxT, bc{c: []serBox{{"strong", TextBoxT, bc{text: "dolor "}}}}},
 						}}},
 					}}},
 				}}},
-				{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "sit"}}}}}}}},
-				{"p", TypeBlockBox, bc{c: []serializedBox{
-					{"p", TypeLineBox, bc{c: []serializedBox{
-						{"em", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeTextBox, bc{text: "\n      "}}}}}}}},
+				{"span", BlockBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"span", TextBoxT, bc{text: "sit"}}}}}}}},
+				{"p", BlockBoxT, bc{c: []serBox{
+					{"p", LineBoxT, bc{c: []serBox{
+						{"em", InlineBoxT, bc{c: []serBox{{"strong", InlineBoxT, bc{c: []serBox{{"strong", TextBoxT, bc{text: "\n      "}}}}}}}},
 					}}},
 				}}},
-				{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"span", TypeTextBox, bc{text: "amet,"}}}}}}}},
-				{"p", TypeBlockBox, bc{c: []serializedBox{
-					{"p", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{{"strong", TypeInlineBox, bc{c: []serializedBox{}}}}}}}}},
+				{"span", BlockBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"span", TextBoxT, bc{text: "amet,"}}}}}}}},
+				{"p", BlockBoxT, bc{c: []serBox{
+					{"p", LineBoxT, bc{c: []serBox{{"em", InlineBoxT, bc{c: []serBox{{"strong", InlineBoxT, bc{c: []serBox{}}}}}}}}},
 				}}},
-				{"span", TypeBlockBox, bc{c: []serializedBox{
-					{"span", TypeBlockBox, bc{c: []serializedBox{
-						{"span", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "conse"}}}}}}}},
+				{"span", BlockBoxT, bc{c: []serBox{
+					{"span", BlockBoxT, bc{c: []serBox{
+						{"span", LineBoxT, bc{c: []serBox{{"em", InlineBoxT, bc{c: []serBox{{"em", TextBoxT, bc{text: "conse"}}}}}}}},
 					}}},
-					{"i", TypeBlockBox, bc{c: []serializedBox{}}},
-					{"span", TypeBlockBox, bc{c: []serializedBox{{"span", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{}}}}}}}}},
+					{"i", BlockBoxT, bc{c: []serBox{}}},
+					{"span", BlockBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"em", InlineBoxT, bc{c: []serBox{}}}}}}}}},
 				}}},
-				{"p", TypeBlockBox, bc{c: []serializedBox{{"p", TypeLineBox, bc{c: []serializedBox{{"em", TypeInlineBox, bc{c: []serializedBox{}}}}}}}}},
+				{"p", BlockBoxT, bc{c: []serBox{{"p", LineBoxT, bc{c: []serBox{{"em", InlineBoxT, bc{c: []serBox{}}}}}}}}},
 			}}},
 		}}},
 	})
@@ -532,24 +534,24 @@ func TestWhitespaces(t *testing.T) {
         consectetur</strong>.</p>`+
 		"<pre>\t  foo\n</pre>"+
 		"<pre style=\"white-space: pre-wrap\">\t  foo\n</pre>"+
-		"<pre style=\"white-space: pre-line\">\t  foo\n</pre>"), []serializedBox{
-		{"p", TypeBlockBox, bc{c: []serializedBox{
-			{"p", TypeLineBox, bc{c: []serializedBox{
-				{"p", TypeTextBox, bc{text: "Lorem ipsum "}},
-				{"strong", TypeInlineBox, bc{c: []serializedBox{
-					{"strong", TypeTextBox, bc{text: "dolor "}},
-					{"img", TypeInlineReplacedBox, bc{text: "<replaced>"}},
-					{"strong", TypeTextBox, bc{text: " sit "}},
-					{"span", TypeBlockBox, bc{c: []serializedBox{}}},
-					{"em", TypeInlineBox, bc{c: []serializedBox{{"em", TypeTextBox, bc{text: "amet "}}}}},
-					{"strong", TypeTextBox, bc{text: "consectetur"}},
+		"<pre style=\"white-space: pre-line\">\t  foo\n</pre>"), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"p", TextBoxT, bc{text: "Lorem ipsum "}},
+				{"strong", InlineBoxT, bc{c: []serBox{
+					{"strong", TextBoxT, bc{text: "dolor "}},
+					{"img", InlineReplacedBoxT, bc{text: "<replaced>"}},
+					{"strong", TextBoxT, bc{text: " sit "}},
+					{"span", BlockBoxT, bc{c: []serBox{}}},
+					{"em", InlineBoxT, bc{c: []serBox{{"em", TextBoxT, bc{text: "amet "}}}}},
+					{"strong", TextBoxT, bc{text: "consectetur"}},
 				}}},
-				{"p", TypeTextBox, bc{text: "."}},
+				{"p", TextBoxT, bc{text: "."}},
 			}}},
 		}}},
-		{"pre", TypeBlockBox, bc{c: []serializedBox{{"pre", TypeLineBox, bc{c: []serializedBox{{"pre", TypeTextBox, bc{text: "\t  foo\n"}}}}}}}},
-		{"pre", TypeBlockBox, bc{c: []serializedBox{{"pre", TypeLineBox, bc{c: []serializedBox{{"pre", TypeTextBox, bc{text: "\t  foo\n"}}}}}}}},
-		{"pre", TypeBlockBox, bc{c: []serializedBox{{"pre", TypeLineBox, bc{c: []serializedBox{{"pre", TypeTextBox, bc{text: " foo\n"}}}}}}}},
+		{"pre", BlockBoxT, bc{c: []serBox{{"pre", LineBoxT, bc{c: []serBox{{"pre", TextBoxT, bc{text: "\t  foo\n"}}}}}}}},
+		{"pre", BlockBoxT, bc{c: []serBox{{"pre", LineBoxT, bc{c: []serBox{{"pre", TextBoxT, bc{text: "\t  foo\n"}}}}}}}},
+		{"pre", BlockBoxT, bc{c: []serBox{{"pre", LineBoxT, bc{c: []serBox{{"pre", TextBoxT, bc{text: " foo\n"}}}}}}}},
 	})
 }
 
@@ -581,7 +583,7 @@ func testPageStyle(t *testing.T, data pageStyleData) {
 
 	// Force the generation of the style for this page type as it"s generally
 	// only done during the rendering.
-	styleFor.SetPageTypeComputedStyles(data.type_, document)
+	styleFor.SetPageComputedStylesT(data.type_, document)
 
 	style := styleFor.Get(data.type_, "")
 	if m := style.GetMarginTop(); m != pxToValue(data.top) {
@@ -629,12 +631,12 @@ func TestImages1(t *testing.T) {
 	if !strings.Contains(logs[0], "inexistent.jpg") {
 		t.Fatal(logs[0])
 	}
-	assertTree(t, result, []serializedBox{
-		{"p", TypeBlockBox, bc{c: []serializedBox{
-			{"p", TypeLineBox, bc{c: []serializedBox{
-				{"img", TypeInlineReplacedBox, bc{text: "<replaced>"}},
-				{"img", TypeInlineBox, bc{c: []serializedBox{{"img", TypeTextBox, bc{text: "No src"}}}}},
-				{"img", TypeInlineBox, bc{c: []serializedBox{{"img", TypeTextBox, bc{text: "Inexistent src"}}}}},
+	assertTree(t, result, []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"img", InlineReplacedBoxT, bc{text: "<replaced>"}},
+				{"img", InlineBoxT, bc{c: []serBox{{"img", TextBoxT, bc{text: "No src"}}}}},
+				{"img", InlineBoxT, bc{c: []serBox{{"img", TextBoxT, bc{text: "Inexistent src"}}}}},
 			}}},
 		}}},
 	})
@@ -651,9 +653,9 @@ func TestImages2(t *testing.T) {
 	if !strings.Contains(logs[0], "Relative URI reference without a base URI") {
 		t.Fatal(logs[0])
 	}
-	assertTree(t, result, []serializedBox{
-		{"p", TypeBlockBox, bc{c: []serializedBox{
-			{"p", TypeLineBox, bc{c: []serializedBox{{"img", TypeInlineBox, bc{c: []serializedBox{{"img", TypeTextBox, bc{text: "No baseUrl"}}}}}}}},
+	assertTree(t, result, []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{{"img", InlineBoxT, bc{c: []serBox{{"img", TextBoxT, bc{text: "No baseUrl"}}}}}}}},
 		}}},
 	})
 }
@@ -682,27 +684,1050 @@ func TestTables1(t *testing.T) {
           <x-td>baz</x-td>
         </x-tr>
       </x-table>
-    `), []serializedBox{
-		{"x-table", TypeBlockBox, bc{c: []serializedBox{
-			{"x-caption", TypeTableCaptionBox, bc{c: []serializedBox{{"x-caption", TypeLineBox, bc{c: []serializedBox{{"x-caption", TypeTextBox, bc{text: "top caption"}}}}}}}},
-			{"x-table", TypeTableBox, bc{c: []serializedBox{
-				{"x-table", TypeTableColumnGroupBox, bc{c: []serializedBox{{"x-col", TypeTableColumnBox, bc{c: []serializedBox{}}}}}},
-				{"x-thead", TypeTableRowGroupBox, bc{c: []serializedBox{{"x-thead", TypeTableRowBox, bc{c: []serializedBox{{"x-th", TypeTableCellBox, bc{c: []serializedBox{}}}}}}}}},
-				{"x-table", TypeTableRowGroupBox, bc{c: []serializedBox{
-					{"x-tr", TypeTableRowBox, bc{c: []serializedBox{
-						{"x-th", TypeTableCellBox, bc{c: []serializedBox{{"x-th", TypeLineBox, bc{c: []serializedBox{{"x-th", TypeTextBox, bc{text: "foo"}}}}}}}},
-						{"x-th", TypeTableCellBox, bc{c: []serializedBox{{"x-th", TypeLineBox, bc{c: []serializedBox{{"x-th", TypeTextBox, bc{text: "bar"}}}}}}}},
+    `), []serBox{
+		{"x-table", BlockBoxT, bc{c: []serBox{
+			{"x-caption", TableCaptionBoxT, bc{c: []serBox{{"x-caption", LineBoxT, bc{c: []serBox{{"x-caption", TextBoxT, bc{text: "top caption"}}}}}}}},
+			{"x-table", TableBoxT, bc{c: []serBox{
+				{"x-table", TableColumnGroupBoxT, bc{c: []serBox{{"x-col", TableColumnBoxT, bc{c: []serBox{}}}}}},
+				{"x-thead", TableRowGroupBoxT, bc{c: []serBox{{"x-thead", TableRowBoxT, bc{c: []serBox{{"x-th", TableCellBoxT, bc{c: []serBox{}}}}}}}}},
+				{"x-table", TableRowGroupBoxT, bc{c: []serBox{
+					{"x-tr", TableRowBoxT, bc{c: []serBox{
+						{"x-th", TableCellBoxT, bc{c: []serBox{{"x-th", LineBoxT, bc{c: []serBox{{"x-th", TextBoxT, bc{text: "foo"}}}}}}}},
+						{"x-th", TableCellBoxT, bc{c: []serBox{{"x-th", LineBoxT, bc{c: []serBox{{"x-th", TextBoxT, bc{text: "bar"}}}}}}}},
 					}}},
 				}}},
-				{"x-thead", TypeTableRowGroupBox, bc{c: []serializedBox{}}},
-				{"x-table", TypeTableRowGroupBox, bc{c: []serializedBox{
-					{"x-tr", TypeTableRowBox, bc{c: []serializedBox{
-						{"x-td", TypeTableCellBox, bc{c: []serializedBox{{"x-td", TypeLineBox, bc{c: []serializedBox{{"x-td", TypeTextBox, bc{text: "baz"}}}}}}}},
+				{"x-thead", TableRowGroupBoxT, bc{c: []serBox{}}},
+				{"x-table", TableRowGroupBoxT, bc{c: []serBox{
+					{"x-tr", TableRowBoxT, bc{c: []serBox{
+						{"x-td", TableCellBoxT, bc{c: []serBox{{"x-td", LineBoxT, bc{c: []serBox{{"x-td", TextBoxT, bc{text: "baz"}}}}}}}},
 					}}},
 				}}},
-				{"x-tfoot", TypeTableRowGroupBox, bc{c: []serializedBox{}}},
+				{"x-tfoot", TableRowGroupBoxT, bc{c: []serBox{}}},
 			}}},
-			{"x-caption", TypeTableCaptionBox, bc{c: []serializedBox{}}},
+			{"x-caption", TableCaptionBoxT, bc{c: []serBox{}}},
 		}}},
 	})
 }
+
+func TestTables2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Rules 1.4 && 3.1
+	assertTree(t, parseAndBuild(t, `
+      <span style="display: table-cell">foo</span>
+      <span style="display: table-cell">bar</span>
+   `), []serBox{
+		{"body", BlockBoxT, bc{c: []serBox{
+			{"body", TableBoxT, bc{c: []serBox{
+				{"body", TableRowGroupBoxT, bc{c: []serBox{
+					{"body", TableRowBoxT, bc{c: []serBox{
+						{"span", TableCellBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"span", TextBoxT, bc{text: "foo"}}}}}}}},
+						{"span", TableCellBoxT, bc{c: []serBox{{"span", LineBoxT, bc{c: []serBox{{"span", TextBoxT, bc{text: "bar"}}}}}}}},
+					}}},
+				}}},
+			}}},
+		}}},
+	})
+}
+
+func TestTables3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// http://www.w3.org/TR/CSS21/tables.html#anonymous-boxes
+	// Rules 1.1 && 1.2
+	// Rule XXX (not := range the spec): column groups have at least one column child
+	assertTree(t, parseAndBuild(t, `
+      <span style="display: table-column-group">
+        1
+        <em style="display: table-column">
+          2
+          <strong>3</strong>
+        </em>
+        <strong>4</strong>
+      </span>
+      <ins style="display: table-column-group"></ins>
+    `), []serBox{
+		{"body", BlockBoxT, bc{c: []serBox{
+			{"body", TableBoxT, bc{c: []serBox{
+				{"span", TableColumnGroupBoxT, bc{c: []serBox{{"em", TableColumnBoxT, bc{c: []serBox{}}}}}},
+				{"ins", TableColumnGroupBoxT, bc{c: []serBox{{"ins", TableColumnBoxT, bc{c: []serBox{}}}}}},
+			}}},
+		}}},
+	})
+}
+
+func TestTables4(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Rules 2.1 then 2.3
+	assertTree(t, parseAndBuild(t, "<x-table>foo <div></div></x-table>"), []serBox{
+		{"x-table", BlockBoxT, bc{c: []serBox{
+			{"x-table", TableBoxT, bc{c: []serBox{
+				{"x-table", TableRowGroupBoxT, bc{c: []serBox{
+					{"x-table", TableRowBoxT, bc{c: []serBox{
+						{"x-table", TableCellBoxT, bc{c: []serBox{
+							{"x-table", BlockBoxT, bc{c: []serBox{{"x-table", LineBoxT, bc{c: []serBox{{"x-table", TextBoxT, bc{text: "foo "}}}}}}}},
+							{"div", BlockBoxT, bc{c: []serBox{}}},
+						}}},
+					}}},
+				}}},
+			}}},
+		}}},
+	})
+}
+
+func TestTables5(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Rule 2.2
+	assertTree(t, parseAndBuild(t, `<x-thead style="display: table-header-group"><div></div><x-td></x-td></x-thead>`),
+		[]serBox{
+			{"body", BlockBoxT, bc{c: []serBox{
+				{"body", TableBoxT, bc{c: []serBox{
+					{"x-thead", TableRowGroupBoxT, bc{c: []serBox{
+						{"x-thead", TableRowBoxT, bc{c: []serBox{
+							{"x-thead", TableCellBoxT, bc{c: []serBox{{"div", BlockBoxT, bc{c: []serBox{}}}}}},
+							{"x-td", TableCellBoxT, bc{c: []serBox{}}},
+						}}},
+					}}},
+				}}},
+			}}},
+		})
+}
+
+func TestTables6(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Rule 3.2
+	assertTree(t, parseAndBuild(t, "<span><x-tr></x-tr></span>"), []serBox{
+		{"body", LineBoxT, bc{c: []serBox{
+			{"span", InlineBoxT, bc{c: []serBox{
+				{"span", InlineBlockBoxT, bc{c: []serBox{
+					{"span", InlineTableBoxT, bc{c: []serBox{{"span", TableRowGroupBoxT, bc{c: []serBox{{"x-tr", TableRowBoxT, bc{c: []serBox{}}}}}}}}},
+				}}},
+			}}},
+		}}},
+	})
+}
+
+func TestTables7(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Rule 3.1
+	// Also, rule 1.3 does ! apply: whitespace before && after is preserved
+	assertTree(t, parseAndBuild(t, `
+		<span>
+		  <em style="display: table-cell"></em>
+		  <em style="display: table-cell"></em>
+		</span>
+	  `), []serBox{
+		{"body", LineBoxT, bc{c: []serBox{
+			{"span", InlineBoxT, bc{c: []serBox{
+				{"span", TextBoxT, bc{text: " "}},
+				{"span", InlineBlockBoxT, bc{c: []serBox{
+					{"span", InlineTableBoxT, bc{c: []serBox{
+						{"span", TableRowGroupBoxT, bc{c: []serBox{
+							{"span", TableRowBoxT, bc{c: []serBox{
+								{"em", TableCellBoxT, bc{c: []serBox{}}},
+								{"em", TableCellBoxT, bc{c: []serBox{}}},
+							}}},
+						}}},
+					}}},
+				}}},
+				{"span", TextBoxT, bc{text: " "}},
+			}}},
+		}}},
+	})
+}
+
+func TestTables8(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Rule 3.2
+	assertTree(t, parseAndBuild(t, "<x-tr></x-tr>\t<x-tr></x-tr>"), []serBox{
+		{"body", BlockBoxT, bc{c: []serBox{
+			{"body", TableBoxT, bc{c: []serBox{
+				{"body", TableRowGroupBoxT, bc{c: []serBox{
+					{"x-tr", TableRowBoxT, bc{c: []serBox{}}},
+					{"x-tr", TableRowBoxT, bc{c: []serBox{}}},
+				}}},
+			}}},
+		}}},
+	})
+}
+
+func TestTables9(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	assertTree(t, parseAndBuild(t, "<x-col></x-col>\n<x-colgroup></x-colgroup>"), []serBox{
+		{"body", BlockBoxT, bc{c: []serBox{
+			{"body", TableBoxT, bc{c: []serBox{
+				{"body", TableColumnGroupBoxT, bc{c: []serBox{{"x-col", TableColumnBoxT, bc{c: []serBox{}}}}}},
+				{"x-colgroup", TableColumnGroupBoxT, bc{c: []serBox{{"x-colgroup", TableColumnBoxT, bc{c: []serBox{}}}}}},
+			}}},
+		}}},
+	})
+}
+
+func TestTableStyle(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	html := parseAndBuild(t, `<table style="margin: 1px; padding: 2px"></table>`)
+	body := html.Box().Children[0]
+	wrapper := body.Box().Children[0]
+	table := wrapper.Box().Children[0]
+	if !(BlockBoxT.IsInstance(wrapper)) {
+		t.Fatal()
+	}
+	if !(TableBoxT.IsInstance(table)) {
+		t.Fatal()
+	}
+	if !(wrapper.Box().Style.GetMarginTop() == pxToValue(1)) {
+		t.Fatal()
+	}
+	if !(wrapper.Box().Style.GetPaddingTop() == pxToValue(0)) {
+		t.Fatal()
+	}
+	if !(table.Box().Style.GetMarginTop() == pxToValue(0)) {
+		t.Fatal()
+	}
+	if !(table.Box().Style.GetPaddingTop() == pxToValue(2)) {
+		t.Fatal()
+	}
+}
+
+func TestColumnStyle(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	html := parseAndBuild(t, `
+      <table>
+        <col span=3 style="width: 10px"></col>
+        <col span=2></col>
+      </table>
+    `)
+	body := html.Box().Children[0]
+	wrapper := body.Box().Children[0]
+	table := wrapper.Box().Children[0].(TableBoxITF)
+	colgroup := table.Table().ColumnGroups[0]
+	var (
+		widths []pr.Value
+		gridXs []int
+	)
+	for _, col := range colgroup.Box().Children {
+		widths = append(widths, col.Box().Style.GetWidth())
+		gridXs = append(gridXs, col.Box().GridX)
+	}
+	if !reflect.DeepEqual(widths, []pr.Value{
+		pxToValue(10), pxToValue(10), pxToValue(10), pr.SToV("auto"), pr.SToV("auto"),
+	}) {
+		t.Fatal()
+	}
+	if !reflect.DeepEqual(gridXs, []int{0, 1, 2, 3, 4}) {
+		t.Fatal()
+	}
+	// copies, not the same box object
+	if colgroup.Box().Children[0] == colgroup.Box().Children[1] {
+		t.Fatal()
+	}
+}
+
+func TestNestedGridX(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	html := parseAndBuild(t, `
+      <table>
+        <col span=2></col>
+        <colgroup span=2></colgroup>
+        <colgroup>
+          <col></col>
+          <col span=2></col>
+        </colgroup>
+        <col></col>
+      </table>
+    `)
+	body := html.Box().Children[0]
+	wrapper := body.Box().Children[0]
+	table := wrapper.Box().Children[0].(TableBoxITF)
+
+	type gridX struct {
+		v    int
+		cols []int
+	}
+	var gridXs []gridX
+	for _, colgroup := range table.Table().ColumnGroups {
+		v := gridX{v: colgroup.Box().GridX}
+		for _, col := range colgroup.Box().Children {
+			v.cols = append(v.cols, col.Box().GridX)
+		}
+		gridXs = append(gridXs, v)
+	}
+	if !reflect.DeepEqual(gridXs, []gridX{
+		{0, []int{0, 1}}, {2, []int{2, 3}}, {4, []int{4, 5, 6}}, {7, []int{7}},
+	}) {
+		t.Fatal()
+	}
+}
+
+func extractSpans(group Box) (gridXs, colspans, rowspans [][]int) {
+	for _, row := range group.Box().Children {
+		var gridX, colspan, rowspan []int
+		for _, c := range row.Box().Children {
+			gridX = append(gridX, c.Box().GridX)
+			colspan = append(colspan, c.Box().Colspan)
+			rowspan = append(rowspan, c.Box().Rowspan)
+		}
+		gridXs = append(gridXs, gridX)
+		colspans = append(colspans, colspan)
+		rowspans = append(rowspans, rowspan)
+	}
+	return
+}
+
+func TestColspanRowspan1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// +---+---+---+
+	// | A | B | C | X
+	// +---+---+---+
+	// | D |     E | X
+	// +---+---+   +---+
+	// |  F ...|   |   |   <-- overlap
+	// +---+---+---+   +
+	// | H | X   X | G |
+	// +---+---+   +   +
+	// | I | J | X |   |
+	// +---+---+   +---+
+
+	// X: empty cells
+	html := parseAndBuild(t, `
+      <table>
+        <tr>
+          <td>A <td>B <td>C
+        </tr>
+        <tr>
+          <td>D <td colspan=2 rowspan=2>E
+        </tr>
+        <tr>
+          <td colspan=2>F <td rowspan=0>G
+        </tr>
+        <tr>
+          <td>H
+        </tr>
+        <tr>
+          <td>I <td>J
+        </tr>
+      </table>
+    `)
+	body := html.Box().Children[0]
+	wrapper := body.Box().Children[0]
+	table := wrapper.Box().Children[0].(TableBoxITF)
+	group := table.Box().Children[0]
+
+	gridXs, colspans, rowspans := extractSpans(group)
+
+	if !reflect.DeepEqual(gridXs, [][]int{
+		{0, 1, 2},
+		{0, 1},
+		{0, 3},
+		{0},
+		{0, 1},
+	}) {
+		t.Fatal()
+	}
+	if !reflect.DeepEqual(colspans, [][]int{
+		{1, 1, 1},
+		{1, 2},
+		{2, 1},
+		{1},
+		{1, 1},
+	}) {
+		t.Fatal()
+	}
+	if !reflect.DeepEqual(rowspans, [][]int{
+		{1, 1, 1},
+		{1, 2},
+		{1, 3},
+		{1},
+		{1, 1},
+	}) {
+		t.Fatal()
+	}
+}
+
+func TestColspanRowspan2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// A cell box cannot extend beyond the last row box of a table.
+	html := parseAndBuild(t, `
+        <table>
+            <tr>
+                <td rowspan=5></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td></td>
+            </tr>
+        </table>
+    `)
+	body := html.Box().Children[0]
+	wrapper := body.Box().Children[0]
+	table := wrapper.Box().Children[0].(TableBoxITF)
+	group := table.Box().Children[0]
+
+	gridXs, colspans, rowspans := extractSpans(group)
+
+	if !reflect.DeepEqual(gridXs, [][]int{
+		{0, 1},
+		{1},
+	}) {
+		t.Fatal()
+	}
+	if !reflect.DeepEqual(colspans, [][]int{
+		{1, 1},
+		{1},
+	}) {
+		t.Fatal()
+	}
+	if !reflect.DeepEqual(rowspans, [][]int{
+		{2, 1},
+		{1},
+	}) {
+		t.Fatal()
+	}
+}
+
+func TestBeforeAfter1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	assertTree(t, parseAndBuild(t, `
+      <style>
+        p:before { content: normal }
+        div:before { content: none }
+        section::before { color: black }
+      </style>
+      <p></p>
+      <div></div>
+      <section></section>
+    `), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{}}},
+		{"div", BlockBoxT, bc{c: []serBox{}}},
+		{"section", BlockBoxT, bc{c: []serBox{}}},
+	})
+}
+
+func TestBeforeAfter2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	assertTree(t, parseAndBuild(t, `
+      <style>
+        p:before { content: "a" "b" }
+        p::after { content: "d" "e" }
+      </style>
+      <p> c </p>
+    `), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"p::before", InlineBoxT, bc{c: []serBox{{"p::before", TextBoxT, bc{text: "ab"}}}}},
+				{"p", TextBoxT, bc{text: " c "}},
+				{"p::after", InlineBoxT, bc{c: []serBox{{"p::after", TextBoxT, bc{text: "de"}}}}},
+			}}},
+		}}},
+	})
+}
+
+func TestBeforeAfter3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	assertTree(t, parseAndBuild(t, `
+      <style>
+        a[href]:before { content: "[" attr(href) "] " }
+      </style>
+      <p><a href="some url">some text</a></p>
+    `), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"a", InlineBoxT, bc{c: []serBox{
+					{"a::before", InlineBoxT, bc{c: []serBox{{"a::before", TextBoxT, bc{text: "[some url] "}}}}},
+					{"a", TextBoxT, bc{text: "some text"}},
+				}}},
+			}}},
+		}}},
+	})
+}
+
+func TestBeforeAfter4(t *testing.T) {
+	// cp := testutils.CaptureLogs()
+	// defer cp.AssertNoLogs(t)
+
+	assertTree(t, parseAndBuild(t, `
+	<style>
+		body { quotes: '«' '»' '“' '”' }
+		q:before { content: open-quote ' '}
+		q:after { content: ' ' close-quote }
+	</style>
+  	<p><q>Lorem ipsum <q>dolor</q> sit amet</q></p>
+    `), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"q", InlineBoxT, bc{c: []serBox{
+					{"q::before", InlineBoxT, bc{c: []serBox{{"q::before", TextBoxT, bc{text: "« "}}}}},
+					{"q", TextBoxT, bc{text: "Lorem ipsum "}},
+					{"q", InlineBoxT, bc{c: []serBox{
+						{"q::before", InlineBoxT, bc{c: []serBox{{"q::before", TextBoxT, bc{text: "“ "}}}}},
+						{"q", TextBoxT, bc{text: "dolor"}},
+						{"q::after", InlineBoxT, bc{c: []serBox{{"q::after", TextBoxT, bc{text: " ”"}}}}},
+					}}},
+					{"q", TextBoxT, bc{text: " sit amet"}},
+					{"q::after", InlineBoxT, bc{c: []serBox{{"q::after", TextBoxT, bc{text: " »"}}}}},
+				}}},
+			}}},
+		}}},
+	})
+}
+
+func TestBeforeAfter5(t *testing.T) {
+	cp := testutils.CaptureLogs()
+
+	assertTree(t, parseAndBuild(t, `
+          <style>
+            p:before {
+              content: "a" url(pattern.png) "b";
+
+              /* Invalid, ignored in favor of the one above.
+                 Regression test: this used to crash: */
+              content: some-function(nested-function(something));
+            }
+          </style>
+          <p>c</p>
+        `), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"p::before", InlineBoxT, bc{c: []serBox{
+					{"p::before", TextBoxT, bc{text: "a"}},
+					{"p::before", InlineReplacedBoxT, bc{text: "<replaced>"}},
+					{"p::before", TextBoxT, bc{text: "b"}},
+				}}},
+				{"p", TextBoxT, bc{text: "c"}},
+			}}},
+		}}},
+	})
+
+	logs := cp.Logs()
+	if L := len(logs); L != 1 {
+		t.Fatalf("expected 1 log, got %d", L)
+	}
+	if !strings.Contains(logs[0], "nested-function(") {
+		t.Fatalf("unexpected log: %s", logs[0])
+	}
+	if !strings.Contains(logs[0], "invalid value") {
+		t.Fatalf("unexpected log: %s", logs[0])
+	}
+}
+
+var (
+	black       = pr.NewColor(0, 0, 0, 1)
+	red         = pr.NewColor(1, 0, 0, 1)
+	green       = pr.NewColor(0, 1, 0, 1) // lime in CSS
+	blue        = pr.NewColor(0, 0, 1, 1)
+	yellow      = pr.NewColor(1, 1, 0, 1)
+	black3      = Border{Style: "solid", Width: 3, Color: black}
+	red1        = Border{Style: "solid", Width: 1, Color: red}
+	yellow5     = Border{Style: "solid", Width: 5, Color: yellow}
+	green5      = Border{Style: "solid", Width: 5, Color: green}
+	dashedBlue5 = Border{Style: "dashed", Width: 5, Color: blue}
+)
+
+func TestBorderCollapse1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	html := parseAndBuild(t, "<table></table>")
+
+	body := html.Box().Children[0]
+	wrapper := body.Box().Children[0]
+	table := wrapper.Box().Children[0].(TableBoxITF)
+
+	if !(table.Table().CollapsedBorderGrid.Horizontal == nil && table.Table().CollapsedBorderGrid.Vertical == nil) {
+		t.Fatal()
+	}
+
+	gridH, gridV := getGrid(t, `<table style="border-collapse: collapse"></table>`)
+
+	if len(gridH) != 0 || len(gridV) != 0 {
+		t.Fatal()
+	}
+}
+
+func TestBorderCollapse2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	verticalBorders, horizontalBorders := getGrid(t, `
+      <style>td { border: 1px solid red }</style>
+      <table style="border-collapse: collapse; border: 3px solid black">
+        <tr> <td>A</td> <td>B</td> </tr>
+        <tr> <td>C</td> <td>D</td> </tr>
+      </table>
+    `)
+	if !reflect.DeepEqual(verticalBorders, [][]Border{
+		{black3, red1, black3},
+		{black3, red1, black3},
+	}) {
+		t.Fatalf("unexepected vertical borders %v", verticalBorders)
+	}
+	if !reflect.DeepEqual(horizontalBorders, [][]Border{
+		{black3, black3},
+		{red1, red1},
+		{black3, black3},
+	}) {
+		t.Fatalf("unexepected horizontal borders: %v", horizontalBorders)
+	}
+}
+
+func TestBorderCollapse3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// hidden vs. none
+	verticalBorders, horizontalBorders := getGrid(t, `
+      <style>table, td { border: 3px solid }</style>
+      <table style="border-collapse: collapse">
+        <tr> <td>A</td> <td style="border-style: hidden">B</td> </tr>
+        <tr> <td>C</td> <td style="border-style: none">D</td> </tr>
+      </table>
+    `)
+	if !reflect.DeepEqual(verticalBorders, [][]Border{
+		{black3, Border{}, Border{}},
+		{black3, black3, black3},
+	}) {
+		t.Fatalf("unexepected vertical borders %v", verticalBorders)
+	}
+	if !reflect.DeepEqual(horizontalBorders, [][]Border{
+		{black3, Border{}},
+		{black3, Border{}},
+		{black3, black3},
+	}) {
+		t.Fatalf("unexepected horizontal borders: %v", horizontalBorders)
+	}
+}
+
+func TestBorderCollapse4(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	verticalBorders, horizontalBorders := getGrid(t, `
+      <style>td { border: 1px solid red }</style>
+      <table style="border-collapse: collapse; border: 5px solid yellow">
+        <col style="border: 3px solid black" />
+        <tr> <td></td> <td></td> <td></td> </tr>
+        <tr> <td></td> <td style="border: 5px dashed blue"></td>
+          <td style="border: 5px solid lime"></td> </tr>
+        <tr> <td></td> <td></td> <td></td> </tr>
+        <tr> <td></td> <td></td> <td></td> </tr>
+      </table>
+    `)
+
+	if !reflect.DeepEqual(verticalBorders, [][]Border{
+		{yellow5, black3, red1, yellow5},
+		{yellow5, dashedBlue5, green5, green5},
+		{yellow5, black3, red1, yellow5},
+		{yellow5, black3, red1, yellow5},
+	}) {
+		t.Fatalf("unexepected vertical borders %v", verticalBorders)
+	}
+	if !reflect.DeepEqual(horizontalBorders, [][]Border{
+		{yellow5, yellow5, yellow5},
+		{red1, dashedBlue5, green5},
+		{red1, dashedBlue5, green5},
+		{red1, red1, red1},
+		{yellow5, yellow5, yellow5},
+	}) {
+		t.Fatalf("unexepected horizontal borders: %v", horizontalBorders)
+	}
+}
+
+func TestBorderCollapse5(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// rowspan && colspan
+	verticalBorders, horizontalBorders := getGrid(t, `
+        <style>col, tr { border: 3px solid }</style>
+        <table style="border-collapse: collapse">
+            <col /><col /><col />
+            <tr> <td rowspan=2></td> <td></td> <td></td> </tr>
+            <tr>                     <td colspan=2></td> </tr>
+        </table>
+    `)
+
+	if !reflect.DeepEqual(verticalBorders, [][]Border{
+		{black3, black3, black3, black3},
+		{black3, black3, Border{}, black3},
+	}) {
+		t.Fatalf("unexepected vertical borders %v", verticalBorders)
+	}
+	if !reflect.DeepEqual(horizontalBorders, [][]Border{
+		{black3, black3, black3},
+		{Border{}, black3, black3},
+		{black3, black3, black3},
+	}) {
+		t.Fatalf("unexepected horizontal borders: %v", horizontalBorders)
+	}
+}
+
+func testDisplayNoneRoot(t *testing.T, html string) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	box := parseAndBuild(t, html)
+	if d := box.Box().Style.GetDisplay(); d != "block" && d != "flow" {
+		t.Fatal()
+	}
+	if len(box.Box().Children) != 0 {
+		t.Fatal()
+	}
+}
+
+func TestDisplayNoneRoot(t *testing.T) {
+	for _, html := range []string{
+		`<html style="display: none">`,
+		`<html style="display: none">abc`,
+		`<html style="display: none"><p>abc`,
+		`<body style="display: none"><p>abc`,
+	} {
+		testDisplayNoneRoot(t, html)
+	}
+}
+
+// TODO: move these tests to layout package
+
+// func TestMarginBoxes(t *testing.T) {
+// 	cp := testutils.CaptureLogs()
+// 	defer cp.AssertNoLogs(t)
+
+// 	  page1, page2 := renderPages(`
+// 		<style>
+// 		  @page {
+// 			/* Make the page content area only 10px high && wide,
+// 			   so every word := range <p> end up on a page of its own. */
+// 			size: 30px;
+// 			margin: 10px;
+// 			@top-center { content: "Title" }
+// 		  }
+// 		  @page :first {
+// 			@bottom-left { content: "foo" }
+// 			@bottom-left-corner { content: "baz" }
+// 		  }
+// 		</style>
+// 		<p>lorem ipsum
+// 	  `)
+// 	  assert page1.children[0].elementTag == "html"
+// 	  assert page2.children[0].elementTag == "html"
+
+// 	  marginBoxes1 = [box.atKeyword for box := range page1.children[1:]]
+// 	  marginBoxes2 = [box.atKeyword for box := range page2.children[1:]]
+// 	  assert marginBoxes1 == ["@top-center", "@bottom-left",
+// 								"@bottom-left-corner"]
+// 	  assert marginBoxes2 == ["@top-center"]
+
+// 	  html, topCenter = page2.children
+// 	  lineBox, = topCenter.children
+// 	  textBox, = lineBox.children
+// 	  assert textBox.text == "Title"
+// 	  }
+
+// func TestMarginBoxStringSet1(t *testing.T){
+// cp := testutils.CaptureLogs()
+// defer cp.AssertNoLogs(t)
+//     // Test that both pages get string := range the `bottom-center` margin box
+//     page1, page2 = renderPages(`
+//       <style>
+//         @page {
+//           @bottom-center { content: string(textHeader) }
+//         }
+//         p {
+//           string-set: textHeader content();
+//         }
+//         .page {
+//           page-break-before: always;
+//         }
+//       </style>
+//       <p>first assignment</p>
+//       <div class="page"></div>
+//     `)
+// }
+//     html, bottomCenter = page2.children
+//     lineBox, = bottomCenter.children
+//     textBox, = lineBox.children
+//     assert textBox.text == "first assignment"
+
+//     html, bottomCenter = page1.children
+//     lineBox, = bottomCenter.children
+//     textBox, = lineBox.children
+//     assert textBox.text == "first assignment"
+
+// func TestMarginBoxStringSet2(t *testing.T) {
+//   cp := testutils.CaptureLogs()
+//   defer cp.AssertNoLogs(t)
+
+//     def simpleStringSetTest(contentVal, extraStyle="") {
+//         page1, = renderPages(`
+//           <style>
+//             @page {
+//               @top-center { content: string(textHeader) }
+//             }
+//             p {
+//               string-set: textHeader content(%(contentVal)s);
+//             }
+//             %(extraStyle)s
+//           </style>
+//           <p>first assignment</p>
+//         ` % dict(contentVal=contentVal, extraStyle=extraStyle))
+
+//         html, topCenter = page1.children
+//         lineBox, = topCenter.children
+//         textBox, = lineBox.children
+//         if contentVal := range ("before", "after"):
+//             assert textBox.text == "pseudo"
+//         else:
+//             assert textBox.text == "first assignment"
+
+//     // Test each accepted value of `content()` as an arguemnt to `string-set`
+//     for value := range ("", "text", "before", "after"):
+//         if value := range ("before", "after"):
+//             extraStyle = "p:%s{content: "pseudo"}" % value
+//             simpleStringSetTest(value, extraStyle)
+//         else:
+//             simpleStringSetTest(value)
+
+// func TestMarginBoxStringSet3(t *testing.T){
+// cp := testutils.CaptureLogs()
+// defer cp.AssertNoLogs(t)
+//     // Test `first` (default value) ie. use the first assignment on the page
+//     page1, = renderPages(`
+//       <style>
+//         @page {
+//           @top-center { content: string(textHeader, first) }
+//         }
+//         p {
+//           string-set: textHeader content();
+//         }
+//       </style>
+//       <p>first assignment</p>
+//       <p>Second assignment</p>
+//     } `)
+// }
+//     html, topCenter = page1.children
+//     lineBox, = topCenter.children
+//     textBox, = lineBox.children
+//     assert textBox.text == "first assignment"
+
+// func TestMarginBoxStringSet4(t *testing.T) {
+//   cp := testutils.CaptureLogs()
+//   defer cp.AssertNoLogs(t)
+
+//     // test `first-except` ie. exclude from page on which value is assigned
+//     page1, page2 = renderPages(`
+//       <style>
+//         @page {
+//           @top-center { content: string(headerNofirst, first-except) }
+//         }
+//         p{
+//           string-set: headerNofirst content();
+//         }
+//         .page{
+//           page-break-before: always;
+//         }
+//       </style>
+//       <p>firstExcepted</p>
+//       <div class="page"></div>
+//     `)
+//     html, topCenter = page1.children
+//     assert len(topCenter.children) == 0
+
+//     html, topCenter = page2.children
+//     lineBox, = topCenter.children
+//     textBox, = lineBox.children
+//     assert textBox.text == "firstExcepted"
+
+// func TestMarginBoxStringSet5(t *testing.T){
+// cp := testutils.CaptureLogs()
+// defer cp.AssertNoLogs(t)
+//     // Test `last` ie. use the most-recent assignment
+//     page1, = renderPages(`
+//       <style>
+//         @page {
+//           @top-center { content: string(headerLast, last) }
+//         }
+//         p {
+//           string-set: headerLast content();
+//         }
+//       </style>
+//       <p>String set</p>
+//       <p>Second assignment</p>
+//     `)
+// }
+//     html, topCenter = page1.children[:2]
+//     lineBox, = topCenter.children
+
+//     textBox, = lineBox.children
+//     assert textBox.text == "Second assignment"
+
+// func TestMarginBoxStringSet6(t *testing.T) {
+//   cp := testutils.CaptureLogs()
+//   defer cp.AssertNoLogs(t)
+
+//     // Test multiple complex string-set values
+//     page1, = renderPages(`
+//       <style>
+//         @page {
+//           @top-center { content: string(textHeader, first) }
+//           @bottom-center { content: string(textFooter, last) }
+//         }
+//         html { counter-reset: a }
+//         body { counter-increment: a }
+//         ul { counter-reset: b }
+//         li {
+//           counter-increment: b;
+//           string-set {
+//             textHeader content(before) "-" content() "-" content(after)
+//                         counter(a, upper-roman) "." counters(b, "|"),
+//             textFooter content(before) "-" attr(class)
+//                         counters(b, "|") "/" counter(a, upper-roman);
+//           }
+//         }
+//         li:before { content: "before!" }
+//         li:after { content: "after!" }
+//         li:last-child:before { content: "before!last" }
+//         li:last-child:after { content: "after!last" }
+//       </style>
+//       <ul>
+//         <li class="firstclass">first
+//         <li>
+//           <ul>
+//             <li class="secondclass">second
+//     `)
+
+//     html, topCenter, bottomCenter = page1.children
+//     topLineBox, = topCenter.children
+//     topTextBox, = topLineBox.children
+//     assert topTextBox.text == "before!-first-after!I.1"
+//     bottomLineBox, = bottomCenter.children
+//     bottomTextBox, = bottomLineBox.children
+//     assert bottomTextBox.text == "before!last-secondclass2|1/I"
+
+// func TestMarginBoxStringSet7(t *testing.T){
+//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/722
+//     page1, = renderPages(`
+//       <style>
+//         img { string-set: left attr(alt) }
+//         img + img { string-set: right attr(alt) }
+//         @page { @top-left  { content: "[" string(left)  "]" }
+//                 @top-right { content: "{" string(right) "}" } }
+//       </style>
+//       <img src=pattern.png alt="Chocolate">
+//       <img src=noSuchFile.png alt="Cake">
+//     `)
+// }
+//     html, topLeft, topRight = page1.children
+//     leftLineBox, = topLeft.children
+//     leftTextBox, = leftLineBox.children
+//     assert leftTextBox.text == "[Chocolate]"
+//     rightLineBox, = topRight.children
+//     rightTextBox, = rightLineBox.children
+//     assert rightTextBox.text == "{Cake}"
+
+// func TestMarginBoxStringSet8(t *testing.T) {
+//   cp := testutils.CaptureLogs()
+//   defer cp.AssertNoLogs(t)
+
+//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/726
+//     page1, page2, page3 = renderPages(`
+//       <style>
+//         @page { @top-left  { content: "[" string(left) "]" } }
+//         p { page-break-before: always }
+//         .initial { string-set: left "initial" }
+//         .empty   { string-set: left ""        }
+//         .space   { string-set: left " "       }
+//       </style>
+// }
+//       <p class="initial">Initial</p>
+//       <p class="empty">Empty</p>
+//       <p class="space">Space</p>
+//     `)
+//     html, topLeft = page1.children
+//     leftLineBox, = topLeft.children
+//     leftTextBox, = leftLineBox.children
+//     assert leftTextBox.text == "[initial]"
+
+//     html, topLeft = page2.children
+//     leftLineBox, = topLeft.children
+//     leftTextBox, = leftLineBox.children
+//     assert leftTextBox.text == "[]"
+
+//     html, topLeft = page3.children
+//     leftLineBox, = topLeft.children
+//     leftTextBox, = leftLineBox.children
+//     assert leftTextBox.text == "[ ]"
+
+// func TestMarginBoxStringSet9(t *testing.T){
+// cp := testutils.CaptureLogs()
+// defer cp.AssertNoLogs(t)
+//     // Test that named strings are case-sensitive
+//     // See https://github.com/Kozea/WeasyPrint/pull/827
+//     page1, = renderPages(`
+//       <style>
+//         @page {
+//           @top-center {
+//             content: string(textHeader, first)
+//                      " " string(TEXTHeader, first)
+//           }
+//         }
+//         p { string-set: textHeader content() }
+//         div { string-set: TEXTHeader content() }
+//       </style>
+//       <p>first assignment</p>
+//       <div>second assignment</div>
+//     `)
+
+//     html, topCenter = page1.children
+//     lineBox, = topCenter.children
+//     textBox, = lineBox.children
+//     assert textBox.text == "first assignment second assignment"
+
+// @assertNoLogs
+// // Test page-based counters.
+// func TestPageCounters(t *testing.T) {
+//     pages = renderPages(`
+//       <style>
+//         @page {
+//           /* Make the page content area only 10px high && wide,
+//              so every word := range <p> end up on a page of its own. */
+//           size: 30px;
+//           margin: 10px;
+//           @bottom-center {
+//             content: "Page " counter(page) " of " counter(pages) ".";
+//           }
+//         }
+//       </style>
+//       <p>lorem ipsum dolor
+//     `)
+//     for pageNumber, page := range enumerate(pages, 1):
+//         html, bottomCenter = page.children
+//         lineBox, = bottomCenter.children
+//         textBox, = lineBox.children
+//         assert textBox.text == "Page {0} of 3.".format(pageNumber)

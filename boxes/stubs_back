@@ -134,7 +134,7 @@ func (t typeBlockBox) IsInstance(box Box) bool {
 }
 
 func (b *BlockBox) Type() BoxType {
-	return TypeBlockBox
+	return BlockBoxT
 }
 
 type typeBlockBox struct{}
@@ -172,7 +172,7 @@ func (t typeLineBox) IsInstance(box Box) bool {
 }
 
 func (b *LineBox) Type() BoxType {
-	return TypeLineBox
+	return LineBoxT
 }
 
 type typeLineBox struct{}
@@ -233,7 +233,7 @@ func (t typeInlineBox) IsInstance(box Box) bool {
 }
 
 func (b *InlineBox) Type() BoxType {
-	return TypeInlineBox
+	return InlineBoxT
 }
 
 type typeInlineBox struct{}
@@ -327,7 +327,7 @@ func (t typeInlineBlockBox) IsInstance(box Box) bool {
 }
 
 func (b *InlineBlockBox) Type() BoxType {
-	return TypeInlineBlockBox
+	return InlineBlockBoxT
 }
 
 type typeInlineBlockBox struct{}
@@ -470,7 +470,7 @@ func (t typeTableBox) IsInstance(box Box) bool {
 }
 
 func (b *TableBox) Type() BoxType {
-	return TypeTableBox
+	return TableBoxT
 }
 
 type typeTableBox struct{}
@@ -514,7 +514,7 @@ func (t typeInlineTableBox) IsInstance(box Box) bool {
 }
 
 func (b *InlineTableBox) Type() BoxType {
-	return TypeInlineTableBox
+	return InlineTableBoxT
 }
 
 type typeInlineTableBox struct{}
@@ -554,7 +554,7 @@ func (t typeTableRowGroupBox) IsInstance(box Box) bool {
 }
 
 func (b *TableRowGroupBox) Type() BoxType {
-	return TypeTableRowGroupBox
+	return TableRowGroupBoxT
 }
 
 type typeTableRowGroupBox struct{}
@@ -594,7 +594,7 @@ func (t typeTableRowBox) IsInstance(box Box) bool {
 }
 
 func (b *TableRowBox) Type() BoxType {
-	return TypeTableRowBox
+	return TableRowBoxT
 }
 
 type typeTableRowBox struct{}
@@ -634,7 +634,7 @@ func (t typeTableColumnGroupBox) IsInstance(box Box) bool {
 }
 
 func (b *TableColumnGroupBox) Type() BoxType {
-	return TypeTableColumnGroupBox
+	return TableColumnGroupBoxT
 }
 
 type typeTableColumnGroupBox struct{}
@@ -674,7 +674,7 @@ func (t typeTableColumnBox) IsInstance(box Box) bool {
 }
 
 func (b *TableColumnBox) Type() BoxType {
-	return TypeTableColumnBox
+	return TableColumnBoxT
 }
 
 type typeTableColumnBox struct{}
@@ -716,7 +716,7 @@ func (t typeTableCellBox) IsInstance(box Box) bool {
 }
 
 func (b *TableCellBox) Type() BoxType {
-	return TypeTableCellBox
+	return TableCellBoxT
 }
 
 type typeTableCellBox struct{}
@@ -762,7 +762,7 @@ func (t typeTableCaptionBox) IsInstance(box Box) bool {
 }
 
 func (b *TableCaptionBox) Type() BoxType {
-	return TypeTableCaptionBox
+	return TableCaptionBoxT
 }
 
 type typeTableCaptionBox struct{}
@@ -863,7 +863,7 @@ func (t typeFlexBox) IsInstance(box Box) bool {
 }
 
 func (b *FlexBox) Type() BoxType {
-	return TypeFlexBox
+	return FlexBoxT
 }
 
 type typeFlexBox struct{}
@@ -908,7 +908,7 @@ func (t typeInlineFlexBox) IsInstance(box Box) bool {
 }
 
 func (b *InlineFlexBox) Type() BoxType {
-	return TypeInlineFlexBox
+	return InlineFlexBoxT
 }
 
 type typeInlineFlexBox struct{}
@@ -918,18 +918,18 @@ func (t typeInlineFlexBox) AnonymousFrom(parent Box, children []Box) Box {
 }
 
 var (
-	TypeBlockBox            BoxType = typeBlockBox{}
-	TypeLineBox             BoxType = typeLineBox{}
-	TypeInlineBox           BoxType = typeInlineBox{}
-	TypeInlineBlockBox      BoxType = typeInlineBlockBox{}
-	TypeTableBox            BoxType = typeTableBox{}
-	TypeInlineTableBox      BoxType = typeInlineTableBox{}
-	TypeTableRowGroupBox    BoxType = typeTableRowGroupBox{}
-	TypeTableRowBox         BoxType = typeTableRowBox{}
-	TypeTableColumnGroupBox BoxType = typeTableColumnGroupBox{}
-	TypeTableColumnBox      BoxType = typeTableColumnBox{}
-	TypeTableCellBox        BoxType = typeTableCellBox{}
-	TypeTableCaptionBox     BoxType = typeTableCaptionBox{}
-	TypeFlexBox             BoxType = typeFlexBox{}
-	TypeInlineFlexBox       BoxType = typeInlineFlexBox{}
+	BlockBoxT            BoxType = typeBlockBox{}
+	LineBoxT             BoxType = typeLineBox{}
+	InlineBoxT           BoxType = typeInlineBox{}
+	InlineBlockBoxT      BoxType = typeInlineBlockBox{}
+	TableBoxT            BoxType = typeTableBox{}
+	InlineTableBoxT      BoxType = typeInlineTableBox{}
+	TableRowGroupBoxT    BoxType = typeTableRowGroupBox{}
+	TableRowBoxT         BoxType = typeTableRowBox{}
+	TableColumnGroupBoxT BoxType = typeTableColumnGroupBox{}
+	TableColumnBoxT      BoxType = typeTableColumnBox{}
+	TableCellBoxT        BoxType = typeTableCellBox{}
+	TableCaptionBoxT     BoxType = typeTableCaptionBox{}
+	FlexBoxT             BoxType = typeFlexBox{}
+	InlineFlexBoxT       BoxType = typeInlineFlexBox{}
 )

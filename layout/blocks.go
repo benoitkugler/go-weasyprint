@@ -28,7 +28,7 @@ func blockLevelLayout(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 
 	box := box_.Box()
-	if !bo.TypeTableBox.IsInstance(box_) {
+	if !bo.TableBoxT.IsInstance(box_) {
 		resolvePercentagesBox(box_, containingBlock, "")
 
 		if box.MarginTop == pr.Auto {
@@ -76,7 +76,7 @@ func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.BlockLevelBoxITF, ma
 	} else if isBlockBox {
 		return blockBoxLayout(context, blockBox, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins)
-	} else if isReplacedBox && bo.TypeBlockReplacedBox.IsInstance(box_) {
+	} else if isReplacedBox && bo.BlockReplacedBoxT.IsInstance(box_) {
 		box_ = blockReplacedBoxLayout(replacedBox, containingBlock).(bo.BlockLevelBoxITF) // blockReplacedBoxLayout is type stable
 		box := replacedBox.Box()
 		// Don't collide with floats
@@ -84,7 +84,7 @@ func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.BlockLevelBoxITF, ma
 		box.PositionX, box.PositionY, _ = avoidCollisions(*context, replacedBox, containingBlock, false)
 		nextPage := tree.PageBreak{Break: "any"}
 		return box_, blockLayout{resumeAt: nil, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
-	} else if bo.TypeFlexBox.IsInstance(box_) {
+	} else if bo.FlexBoxT.IsInstance(box_) {
 		return flexLayout(context, box_, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes)
 	} else { // pragma: no cover
@@ -310,7 +310,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	box := box_.Box()
 	// TODO: boxes.FlexBox is allowed here because flexLayout calls
 	// blockContainerLayout, there's probably a better solution.
-	if !(bo.TypeBlockContainerBox.IsInstance(box_) || bo.TypeFlexBox.IsInstance(box_)) {
+	if !(bo.BlockContainerBoxT.IsInstance(box_) || bo.FlexBoxT.IsInstance(box_)) {
 		log.Fatalf("expected BlockContainer or Flex, got %s", box_)
 	}
 
@@ -319,7 +319,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	allowedMaxPositionY := maxPositionY * (1 + 1e-9)
 
 	// See http://www.w3.org/TR/CSS21/visuren.html#block-formatting
-	if !bo.TypeBlockBox.IsInstance(box_) {
+	if !bo.BlockBoxT.IsInstance(box_) {
 		context.createBlockFormattingContext()
 	}
 
@@ -607,7 +607,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 
 				// We need to do this after the child layout to have the
 				// used value for marginTop (eg. it might be a percentage.)
-				if !(bo.TypeBlockBox.IsInstance(newChild_) || bo.TypeTableBox.IsInstance(newChild_)) {
+				if !(bo.BlockBoxT.IsInstance(newChild_) || bo.TableBoxT.IsInstance(newChild_)) {
 					adjoiningMargins = append(adjoiningMargins, newChild.MarginTop.V())
 					offsetY := collapseMargin(adjoiningMargins) - newChild.MarginTop.V()
 					newChild_.Translate(newChild_, 0, offsetY, false)
@@ -766,7 +766,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 		relativePositioning(child, bo.Point{newBox.Width.V(), newBox.Height.V()})
 	}
 
-	if !bo.TypeBlockBox.IsInstance(newBox_) {
+	if !bo.BlockBoxT.IsInstance(newBox_) {
 		context.finishBlockFormattingContext(newBox_)
 	}
 
@@ -815,13 +815,13 @@ func establishesFormattingContext(box_ Box) bool {
 		// TODO: columns shouldn't be block boxes, this condition would then be
 		// useless when this is fixed
 		box.IsColumn ||
-		(bo.TypeBlockContainerBox.IsInstance(box_) && !bo.TypeBlockBox.IsInstance(box_)) ||
-		(bo.TypeBlockBox.IsInstance(box_) && box.Style.GetOverflow() != "visible")
+		(bo.BlockContainerBoxT.IsInstance(box_) && !bo.BlockBoxT.IsInstance(box_)) ||
+		(bo.BlockBoxT.IsInstance(box_) && box.Style.GetOverflow() != "visible")
 }
 
 // https://drafts.csswg.org/css-break-3/#possible-breaks
 func isParallel(box Box) bool {
-	return bo.TypeBlockLevelBox.IsInstance(box) || bo.TypeTableRowGroupBox.IsInstance(box) || bo.TypeTableRowBox.IsInstance(box)
+	return bo.BlockLevelBoxT.IsInstance(box) || bo.TableRowGroupBoxT.IsInstance(box) || bo.TableRowBoxT.IsInstance(box)
 }
 
 func reverseStrings(f []pr.String) {
@@ -846,7 +846,7 @@ func blockLevelPageBreak(siblingBefore, siblingAfter Box) string {
 	for isParallel(box_) {
 		box := box_.Box()
 		values = append(values, box.Style.GetBreakAfter())
-		if !(bo.TypeParentBox.IsInstance(box_) && len(box.Children) != 0) {
+		if !(bo.ParentBoxT.IsInstance(box_) && len(box.Children) != 0) {
 			break
 		}
 		box_ = box.Children[len(box.Children)-1]
@@ -857,7 +857,7 @@ func blockLevelPageBreak(siblingBefore, siblingAfter Box) string {
 	for isParallel(box_) {
 		box := box_.Box()
 		values = append(values, box.Style.GetBreakBefore())
-		if !(bo.TypeParentBox.IsInstance(box_) && len(box.Children) != 0) {
+		if !(bo.ParentBoxT.IsInstance(box_) && len(box.Children) != 0) {
 			break
 		}
 		box_ = box.Children[0]
@@ -896,7 +896,7 @@ func blockLevelPageName(siblingBefore, siblingAfter Box) *pr.Page {
 // Absolute or fixed placeholders removed from children should also be
 // removed from `absoluteBoxes` or `fixedBoxes`.
 func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []Box, resumeAt *tree.SkipStack) {
-	if len(children) != 0 && bo.TypeLineBox.IsInstance(children[0]) {
+	if len(children) != 0 && bo.LineBoxT.IsInstance(children[0]) {
 		// Normally `orphans` && `widows` apply to the block container, but
 		// line boxes inherit them.
 		orphans := int(children[0].Box().Style.GetOrphans())
@@ -933,7 +933,7 @@ func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*Absolute
 			previousInFlow = child_
 		}
 		if bi := child.Style.GetBreakInside(); child.IsInNormalFlow() && bi != "avoid" && bi != "avoid-page" {
-			if bo.TypeBlockBox.IsInstance(child_) || bo.TypeTableBox.IsInstance(child_) || bo.TypeTableRowGroupBox.IsInstance(child_) {
+			if bo.BlockBoxT.IsInstance(child_) || bo.TableBoxT.IsInstance(child_) || bo.TableRowGroupBoxT.IsInstance(child_) {
 				var newGrandChildren []Box
 				newGrandChildren, resumeAt = findEarlierPageBreak(child.Children, absoluteBoxes, fixedBoxes)
 				if newGrandChildren != nil || resumeAt != nil {
@@ -971,7 +971,7 @@ func removeBox(list *[]*AbsolutePlaceholder, box Box) {
 func removePlaceholders(boxList []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) {
 	for _, box_ := range boxList {
 		box := box_.Box()
-		if bo.TypeParentBox.IsInstance(box_) {
+		if bo.ParentBoxT.IsInstance(box_) {
 			removePlaceholders(box.Children, absoluteBoxes, fixedBoxes)
 		}
 		if box.Style.GetPosition().String == "absolute" {

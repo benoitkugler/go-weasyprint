@@ -60,9 +60,9 @@ type fontFaceDescriptorParser = func(tokens []Token, baseUrl string, out *FontFa
 // ``font-family`` descriptor validation.
 // allowSpaces = false
 func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
-	allowedTypes := utils.Set{string(parser.TypeIdentToken): utils.Has}
+	allowedsT := utils.Set{string(parser.IdentTokenT): utils.Has}
 	if allowSpaces {
-		allowedTypes.Add(string(parser.TypeWhitespaceToken))
+		allowedsT.Add(string(parser.WhitespaceTokenT))
 	}
 	if len(tokens) == 1 {
 		if str, ok := tokens[0].(parser.StringToken); ok {
@@ -73,7 +73,7 @@ func _fontFamilyDesc(tokens []Token, allowSpaces bool) string {
 	var values []string
 	ok := true
 	for _, token := range tokens {
-		ok = ok && allowedTypes.Has(string(token.Type()))
+		ok = ok && allowedsT.Has(string(token.Type()))
 		if ident, isToken := token.(parser.IdentToken); isToken {
 			values = append(values, string(ident.Value))
 		}

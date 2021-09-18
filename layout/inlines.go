@@ -17,7 +17,7 @@ import (
 
 // IsLineBox || IsInlineBox
 func IsLine(box Box) bool {
-	return bo.TypeLineBox.IsInstance(box) || bo.TypeInlineBox.IsInstance(box)
+	return bo.LineBoxT.IsInstance(box) || bo.InlineBoxT.IsInstance(box)
 }
 
 type lineBoxe struct {
@@ -372,7 +372,7 @@ func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.Pr
 				}
 			}
 		}
-	} else if bo.TypeParentBox.IsInstance(child) {
+	} else if bo.ParentBoxT.IsInstance(child) {
 		if skipStack != nil {
 			childSkipStack = skipStack.Stack
 		} else {
@@ -578,7 +578,7 @@ func atomicBox(context *LayoutContext, box Box, positionX pr.Float, skipStack *t
 		box = box.Copy()
 		inlineReplacedBoxLayout(box, containingBlock)
 		box.Box().Baseline = box.Box().MarginHeight()
-	} else if bo.TypeInlineBlockBox.IsInstance(box) {
+	} else if bo.InlineBlockBoxT.IsInstance(box) {
 		if box.Box().IsTableWrapper {
 			tableWrapperWidth(context, box.Box(), bo.MaybePoint{containingBlock.Width, containingBlock.Height})
 		}
@@ -628,7 +628,7 @@ func inlineBlockBaseline(box_ Box) pr.Float {
 	if box.IsTableWrapper {
 		// Inline table's baseline is its first row's baseline
 		for _, child := range box.Children {
-			if bo.TypeTableBox.IsInstance(child) {
+			if bo.TableBoxT.IsInstance(child) {
 				if cc := child.Box().Children; len(cc) != 0 && len(cc[0].Box().Children) != 0 {
 					firstRow := cc[0].Box().Children[0]
 					return firstRow.Box().Baseline.V()
@@ -736,7 +736,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 			firstLetter = -1
 			lastLetter = -1
 		}
-	} else if bo.TypeInlineBox.IsInstance(box_) {
+	} else if bo.InlineBoxT.IsInstance(box_) {
 		if box.MarginLeft == pr.Auto {
 			box.MarginLeft = pr.Float(0)
 		}
@@ -746,7 +746,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 		tmp := splitInlineBox(context, box_, positionX, maxX, skipStack, containingBlock,
 			absoluteBoxes, fixedBoxes, linePlaceholders, waitingFloats, lineChildren)
 		newBox, resumeAt, preservedLineBreak, firstLetter, lastLetter, floatWidths = tmp.newBox, tmp.resumeAt, tmp.preservedLineBreak, tmp.firstLetter, tmp.lastLetter, tmp.floatWidths
-	} else if bo.TypeAtomicInlineLevelBox.IsInstance(box_) {
+	} else if bo.AtomicInlineLevelBoxT.IsInstance(box_) {
 		newBox = atomicBox(context, box_, positionX, skipStack, containingBlock, absoluteBoxes, fixedBoxes)
 		newBox.Box().PositionX = positionX
 		resumeAt = nil
@@ -755,7 +755,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 		// Atomic inlines behave like ideographic characters.
 		firstLetter = '\u2e80'
 		lastLetter = '\u2e80'
-	} else if bo.TypeInlineFlexBox.IsInstance(box_) {
+	} else if bo.InlineFlexBoxT.IsInstance(box_) {
 		box.PositionX = positionX
 		box.PositionY = 0
 		resolveMarginAuto(box)
@@ -866,7 +866,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 				dx := pr.Max(child.MarginWidth(), 0)
 				floatWidths.add(child.Style.GetFloat(), dx)
 				if child.Style.GetFloat() == "left" {
-					if bo.TypeLineBox.IsInstance(box_) {
+					if bo.LineBoxT.IsInstance(box_) {
 						// The parent is the line, update the current position
 						// for the next child. When the parent is not the line
 						// (it is an inline block), the current position of the
@@ -954,11 +954,11 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 
 		if newChild == nil {
 			// May be nil where we have an empty TextBox.
-			if !bo.TypeTextBox.IsInstance(child_) {
+			if !bo.TextBoxT.IsInstance(child_) {
 				log.Fatalf("only text box may yield empty child, got %v", child)
 			}
 		} else {
-			if bo.TypeLineBox.IsInstance(box_) {
+			if bo.LineBoxT.IsInstance(box_) {
 				lineChildren = append(lineChildren, indexedBox{index: index, box: newChild})
 			}
 			// TODO: we should try to find a better condition here.
@@ -1008,7 +1008,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 							children = append(children, waitingChildrenCopy...)
 							if childNewChild == nil {
 								// May be nil where we have an empty TextBox.
-								if !bo.TypeTextBox.IsInstance(child) {
+								if !bo.TextBoxT.IsInstance(child) {
 									log.Fatalf("only text box may yield empty child, got %s", child)
 								}
 							} else {
@@ -1079,7 +1079,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 	}
 	newBox_ := bo.CopyWithChildren(box_, toCopy, isStart, isEnd)
 	newBox := newBox_.Box()
-	if bo.TypeLineBox.IsInstance(box_) {
+	if bo.LineBoxT.IsInstance(box_) {
 		// We must reset line box width according to its new children
 		var inFlowChildren []Box
 		for _, boxChild := range newBox.Children {
@@ -1261,7 +1261,7 @@ func lineBoxVerticality(context *LayoutContext, box Box) (pr.MaybeFloat, pr.Mayb
 }
 
 func translateSubtree(box Box, dy pr.Float) {
-	if bo.TypeInlineBox.IsInstance(box) {
+	if bo.InlineBoxT.IsInstance(box) {
 		box.Box().PositionY += dy
 		if va := box.Box().Style.GetVerticalAlign().String; va == "top" || va == "bottom" {
 			for _, child := range box.Box().Children {
@@ -1339,7 +1339,7 @@ func inlineBoxVerticality(context *LayoutContext, box_ Box, topBottomSubtrees *[
 
 		// the child’s `top` is `child.Baseline` above (lower y) its baseline.
 		top := childBaselineY - child.Baseline.V()
-		if bo.TypeInlineBlockBox.IsInstance(child_) || bo.TypeInlineFlexBox.IsInstance(child_) {
+		if bo.InlineBlockBoxT.IsInstance(child_) || bo.InlineFlexBoxT.IsInstance(child_) {
 			// This also includes table wrappers for inline tables.
 			child_.Translate(child_, 0, top-child.PositionY, false)
 		} else {
@@ -1361,7 +1361,7 @@ func inlineBoxVerticality(context *LayoutContext, box_ Box, topBottomSubtrees *[
 		if maxY == nil || bottom > maxY.V() {
 			maxY = bottom
 		}
-		if bo.TypeInlineBox.IsInstance(child_) {
+		if bo.InlineBoxT.IsInstance(child_) {
 			childrenMaxY, childrenMinY := inlineBoxVerticality(context, child_, topBottomSubtrees, childBaselineY)
 			if childrenMinY != nil && childrenMinY.V() < minY.V() {
 				minY = childrenMinY
@@ -1484,7 +1484,7 @@ func addWordSpacing(context *LayoutContext, box_ Box, justificationSpacing, xAdv
 func isPhantomLinebox(linebox bo.BoxFields) bool {
 	for _, child_ := range linebox.Children {
 		child := *child_.Box()
-		if bo.TypeInlineBox.IsInstance(child_) {
+		if bo.InlineBoxT.IsInstance(child_) {
 			if !isPhantomLinebox(child) {
 				return false
 			}
@@ -1508,7 +1508,7 @@ func canBreakInside(box Box) pr.MaybeBool {
 	ws := box.Box().Style.GetWhiteSpace()
 	textWrap := ws == "normal" || ws == "pre-wrap" || ws == "pre-line"
 	textBox, isTextBox := box.(*bo.TextBox)
-	if bo.TypeAtomicInlineLevelBox.IsInstance(box) {
+	if bo.AtomicInlineLevelBoxT.IsInstance(box) {
 		return pr.False
 	} else if isTextBox {
 		if textWrap {
@@ -1516,7 +1516,7 @@ func canBreakInside(box Box) pr.MaybeBool {
 		} else {
 			return pr.False
 		}
-	} else if bo.TypeParentBox.IsInstance(box) {
+	} else if bo.ParentBoxT.IsInstance(box) {
 		if textWrap {
 			for _, child := range box.Box().Children {
 				if canBreakInside(child) == pr.True {

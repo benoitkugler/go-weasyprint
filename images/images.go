@@ -405,7 +405,7 @@ func gradientAverageColor(colors []Color, positions []pr.Float) Color {
 	return Color{}
 }
 
-var patternTypes = map[string]int{
+var patternsT = map[string]int{
 	"linear": 0, // cairocffi.LinearGradient,
 	"radial": 1, // cairocffi.RadialGradient,
 	"solid":  2, // cairocffi.SolidPattern,
@@ -478,7 +478,7 @@ func (g gradient) Draw(context backend.Drawer, concreteWidth, concreteHeight flo
 	//         scaleY, type_, init, stopPositions, stopColors = self.layout(
 	//             concreteWidth, concreteHeight, context.userToDeviceDistance)
 	//         context.scale(1, scaleY{
-	//         pattern = patternTypes[tymap[string]int*init)
+	//         pattern = patternsT[tymap[string]int*init)
 	// :       for position, color := range zip(stopPositions, stopColors) {:			pattern.addColorStop:c
 	// }Rgba(position, *color)
 	//         } pattern.setExtend(cairocffi.EXTENDREPEAT if self.repeating

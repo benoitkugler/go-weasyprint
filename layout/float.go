@@ -55,7 +55,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 		box.PositionY += clearance.V()
 	}
 
-	if bo.TypeBlockReplacedBox.IsInstance(box_) {
+	if bo.BlockReplacedBoxT.IsInstance(box_) {
 		inlineReplacedBoxWidthHeight(box_, containingBlock)
 	} else if box.Width == pr.Auto {
 		floatWidth(box_, context, block{Width: containingBlock.Width.V()})
@@ -65,15 +65,15 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
-	if bo.TypeBlockContainerBox.IsInstance(box_) {
+	if bo.BlockContainerBoxT.IsInstance(box_) {
 		context.createBlockFormattingContext()
 		box_, _ = blockContainerLayout(context, box_, pr.Inf,
 			nil, false, absoluteBoxes, fixedBoxes, nil)
 		context.finishBlockFormattingContext(box_)
-	} else if bo.TypeFlexContainerBox.IsInstance(box_) {
+	} else if bo.FlexContainerBoxT.IsInstance(box_) {
 		box_, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock,
 			false, absoluteBoxes, fixedBoxes)
-	} else if !bo.TypeBlockReplacedBox.IsInstance(box_) {
+	} else if !bo.BlockReplacedBoxT.IsInstance(box_) {
 		log.Fatalf("expected BlockReplaced , got %v", box)
 	}
 
