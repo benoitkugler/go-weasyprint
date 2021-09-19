@@ -210,9 +210,9 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 
 // Return a dict of computed value for the given element from
 // `specified`, which must contain values for all the properties.
-// `computed` will be updated with the missing properties
-// `parentStyle` is a dict of computed value of the parent
-//  element (should contain value for all properties), or nil for the root element.
+// `computed` will be updated with the missing properties.
+// `parentStyle` is a dict of computed value of the parent element
+// (and should contain value for all properties), or nil for the root element.
 // `targetCollector` is used to get computed targets.
 func compute(element Element, pseudoType string, specified map[string]pr.CascadedProperty, computed, parentStyle,
 	rootStyle pr.Properties, baseUrl string, targetCollector *TargetCollector) {
@@ -229,7 +229,7 @@ func compute(element Element, pseudoType string, specified map[string]pr.Cascade
 		parentStyle:     parentStyle,
 		rootStyle:       rootStyle,
 		baseUrl:         baseUrl,
-		TargetCollector: targetCollector,
+		targetCollector: targetCollector,
 	}
 	// To have better typing, we start by resolving all var() and custom propperties.
 	resolveds := make(pr.Properties, len(ComputingOrder))
@@ -299,7 +299,7 @@ type computer struct {
 	specified       map[string]pr.CascadedProperty
 	rootStyle       pr.Properties
 	parentStyle     pr.Properties
-	TargetCollector *TargetCollector
+	targetCollector *TargetCollector
 	pseudoType      string
 	baseUrl         string
 	isRootElement   bool
@@ -634,9 +634,9 @@ func contentList(computer *computer, values pr.ContentProperties) (pr.ContentPro
 			} else {
 				computedValue = value
 			}
-			if computer.TargetCollector != nil && computedValue.Content != nil {
+			if computer.targetCollector != nil && computedValue.Content != nil {
 				props := computedValue.Content.(pr.SContentProps) // here, this assertion is always fullfilled
-				computer.TargetCollector.collectComputedTarget(props[0].ContentProperty)
+				computer.targetCollector.collectComputedTarget(props[0].ContentProperty)
 			}
 		}
 		if computedValue.IsNone() {
@@ -809,7 +809,7 @@ func anchor(computer *computer, _ string, _value pr.CssProperty) pr.CssProperty 
 		if anchorName == "" {
 			return nil
 		}
-		computer.TargetCollector.collectAnchor(anchorName)
+		computer.targetCollector.collectAnchor(anchorName)
 		return pr.NamedString{String: anchorName}
 	}
 	return nil
