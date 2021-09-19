@@ -3,10 +3,10 @@ package counters
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // Implement the various counter types and list-style-type values.
@@ -16,15 +16,368 @@ import (
 
 type CounterStyle map[string]CounterStyleDescriptors
 
+// may return nil
+func (c CounterStyle) resolveCounter(counterName string, previousTypes utils.Set) *CounterStyleDescriptors {
+	counter, has := c[counterName]
+	if !has {
+		return nil
+	}
+
+	// Avoid circular fallbacks
+	if previousTypes == nil {
+		previousTypes = utils.NewSet()
+	} else if previousTypes.Has(counterName) {
+		return nil
+	}
+	previousTypes.Add(counterName)
+
+	extends, system := "", "symbolic"
+	if counter.System != (CounterStyleSystem{}) {
+		extends, system = counter.System.Keyword, counter.System.SecondKeyword
+	}
+
+	// Handle extends
+	for extends != "" {
+		if extendedCounter, has := c[system]; has {
+			counter.System = extendedCounter.System
+			previousTypes.Add(system)
+
+			extends, system = "", "symbolic"
+			if counter.System != (CounterStyleSystem{}) {
+				extends, system = counter.System.Keyword, counter.System.SecondKeyword
+			}
+
+			if extends != "" && previousTypes.Has(system) {
+				extends, system = "extends", "decimal"
+				continue
+			}
+			counter.merge(extendedCounter)
+		} else {
+			return &counter
+		}
+	}
+
+	return &counter
+}
+
+func (c CounterStyle) resolveCounterStyle(counterStyle pr.CounterStyleID, previousTypes utils.Set) *CounterStyleDescriptors {
+	if counterType := counterStyle.Type; counterType == "symbols()" || counterType == "string" {
+		var out CounterStyleDescriptors
+		if counterType == "string" {
+			out.System = CounterStyleSystem{"", "cyclic", -1}
+			out.Symbols = []pr.NamedString{{Name: "string", String: counterStyle.Name}}
+			out.Suffix = pr.NamedString{Name: "string", String: ""}
+		} else if counterType == "symbols()" {
+			out.System = CounterStyleSystem{"", counterStyle.Name, -1}
+			if counterStyle.Name == "fixed" {
+				out.System.Number = 1
+			}
+			for _, argument := range counterStyle.Symbols {
+				out.Symbols = append(out.Symbols, pr.NamedString{Name: "string", String: argument})
+			}
+			out.Suffix = pr.NamedString{Name: "string", String: " "}
+		}
+		out.Negative = [2]pr.NamedString{{Name: "string", String: "-"}, {Name: "string", String: ""}}
+		out.Prefix = pr.NamedString{Name: "string", String: ""}
+		out.Range.Auto = true
+		out.Fallback = "decimal"
+		return &out
+	}
+
+	counterName := counterStyle.Name
+	return c.resolveCounter(counterName, previousTypes)
+}
+
+// Generate the counter representation.
+//
+// See https://www.w3.org/TR/css-counter-styles-3/#generate-a-counter
+
+func (c CounterStyle) RenderValue(counterValue int, counterStyleName string) string {
+	return c.renderValue(counterValue, c.resolveCounter(counterStyleName, nil), nil)
+}
+
+func (c CounterStyle) RenderValueStyle(counterValue int, counterStyle pr.CounterStyleID) string {
+	return c.renderValue(counterValue, c.resolveCounterStyle(counterStyle, nil), nil)
+}
+
+func (c CounterStyle) renderValue(counterValue int, counter *CounterStyleDescriptors, previousTypes utils.Set) string {
+	// assert counter || counterName
+	// counter = counter || c.resolveCounter(counterName, previousTypes)
+	if counter == nil {
+		if _, has := c["decimal"]; has {
+			return c.RenderValue(counterValue, "decimal")
+		}
+		// Could happen if the UA stylesheet is not used
+		return ""
+	}
+
+	extends, system, fixedNumber := "", "symbolic", -1
+	if counter.System != (CounterStyleSystem{}) {
+		extends, system, fixedNumber = counter.System.Keyword, counter.System.SecondKeyword, counter.System.Number
+	}
+
+	// Avoid circular fallbacks
+	if previousTypes == nil {
+		previousTypes = utils.NewSet()
+	} else if previousTypes.Has(system) {
+		return c.RenderValue(counterValue, "decimal")
+	}
+
+	// Handle extends
+	for extends != "" {
+		if extendedCounter, has := c[system]; has {
+			counter.System = extendedCounter.System
+
+			extends, system, fixedNumber = "", "symbolic", -1
+			if counter.System != (CounterStyleSystem{}) {
+				extends, system, fixedNumber = counter.System.Keyword, counter.System.SecondKeyword, counter.System.Number
+			}
+			if previousTypes.Has(system) {
+				return c.RenderValue(counterValue, "decimal")
+			}
+			previousTypes.Add(system)
+			counter.merge(extendedCounter)
+		} else {
+			return c.RenderValue(counterValue, "decimal")
+		}
+	}
+
+	// Step 2
+	counterRanges := counter.Range.Ranges
+	if counter.Range.Auto || counter.Range.IsNone() {
+		minRange, maxRange := math.MinInt32, math.MaxInt32
+		if system == "alphabetic" || system == "symbolic" {
+			minRange = 1
+		} else if system == "additive" {
+			minRange = 0
+		}
+		counterRanges = [][2]int{{minRange, maxRange}}
+	}
+	var found bool
+	for _, v := range counterRanges {
+		if v[0] <= counterValue && counterValue <= v[1] {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return c.renderValue(counterValue, c.resolveCounter(counter.fallback(), previousTypes), previousTypes)
+	}
+
+	// Step 3
+	var (
+		negativePrefix, negativeSuffix string
+		useNegative                    bool
+	)
+	isNegative := counterValue < 0
+	if isNegative {
+		vs := counter.Negative
+		if vs == ([2]pr.NamedString{}) {
+			vs = [2]pr.NamedString{{Name: "string", String: "-"}, {Name: "string", String: ""}}
+		}
+		negativePrefix, negativeSuffix = symbol(vs[0]), symbol(vs[1])
+		useNegative = system == "symbolic" || system == "alphabetic" || system == "numeric" || system == "additive"
+		if useNegative {
+			counterValue = abs(counterValue)
+		}
+	}
+
+	// TODO: instead of using the decimal fallback when we have the wrong
+	// number of symbols, we should discard the whole counter. The problem
+	// only happens when extending from another style, it is easily refused
+	// during validation otherwise.
+
+	var (
+		initial string
+		ok      bool
+	)
+	switch system {
+	case "cyclic":
+		initial, ok = repeating(counter.Symbols, counterValue)
+		if !ok {
+			return c.RenderValue(counterValue, "decimal")
+		}
+	case "fixed":
+		if len(counter.Symbols) == 0 {
+			return c.RenderValue(counterValue, "decimal")
+		}
+		initial, ok = nonRepeating(counter.Symbols, fixedNumber, counterValue)
+		if !ok {
+			return c.renderValue(counterValue, c.resolveCounter(counter.fallback(), previousTypes), previousTypes)
+		}
+	case "symbolic":
+		initial, ok = symbolic(counter.Symbols, counterValue)
+		if !ok {
+			return c.RenderValue(counterValue, "decimal")
+		}
+	case "alphabetic":
+		initial, ok = alphabetic(counter.Symbols, counterValue)
+		if !ok {
+			return c.RenderValue(counterValue, "decimal")
+		}
+	case "numeric":
+		initial, ok = numeric(counter.Symbols, counterValue)
+		if !ok {
+			return c.RenderValue(counterValue, "decimal")
+		}
+	case "additive":
+		if len(counter.AdditiveSymbols) == 0 {
+			return c.RenderValue(counterValue, "decimal")
+		}
+		initial, ok = additive(counter.AdditiveSymbols, counterValue)
+		if !ok {
+			return c.renderValue(counterValue, c.resolveCounter(counter.fallback(), previousTypes), previousTypes)
+		}
+	}
+
+	// Step 4
+	pad := counter.Pad
+	padDifference := pad.Int - len(initial)
+	if isNegative && useNegative {
+		padDifference -= len(negativePrefix) + len(negativeSuffix)
+	}
+	if padDifference > 0 {
+		initial = strings.Repeat(symbol(pad.NamedString), padDifference) + initial
+	}
+
+	// Step 5
+	if isNegative && useNegative {
+		initial = negativePrefix + initial + negativeSuffix
+	}
+
+	// Step 6
+	return initial
+}
+
+func symbol(value pr.NamedString) string {
+	if value.Name == "string" {
+		return value.String
+	}
+	return ""
+}
+
+// Implement the algorithm for `type: repeating`.
+func repeating(symbols []pr.NamedString, value int) (string, bool) {
+	if len(symbols) == 0 {
+		return "", false
+	}
+	return symbol(symbols[(value-1)%len(symbols)]), true
+}
+
+// Implement the algorithm for `type: non-repeating`.
+func nonRepeating(symbols []pr.NamedString, firstValue, value int) (string, bool) {
+	L := len(symbols)
+	value -= firstValue
+	if 0 <= value && value < L {
+		return symbol(symbols[value]), true
+	}
+	return "", false
+}
+
+// Implement the algorithm for `type: symbolic`.
+func symbolic(symbols []pr.NamedString, value int) (string, bool) {
+	if len(symbols) == 0 {
+		return "", false
+	}
+	L := len(symbols)
+	index := (value - 1) % L
+	repeat := (value-1)/L + 1
+	return strings.Repeat(symbol(symbols[index]), repeat), true
+}
+
+// Implement the algorithm for `type: alphabetic`.
+func alphabetic(symbols []pr.NamedString, value int) (string, bool) {
+	L := len(symbols)
+	if L < 2 {
+		return "", false
+	}
+	reversedParts := []string{}
+	for value != 0 {
+		value -= 1
+		reversedParts = append(reversedParts, symbol(symbols[value%L]))
+		value /= L
+	}
+	reverse(reversedParts)
+	return strings.Join(reversedParts, ""), true
+}
+
+// Implement the algorithm for `type: numeric`.
+func numeric(symbols []pr.NamedString, value int) (string, bool) {
+	if value == 0 {
+		return symbol(symbols[0]), true
+	}
+	if len(symbols) < 2 {
+		return "", false
+	}
+	var reversedParts []string
+	value = abs(value)
+	L := len(symbols)
+	for value != 0 {
+		reversedParts = append(reversedParts, symbol(symbols[value%L]))
+		value /= L
+	}
+	reverse(reversedParts)
+	return strings.Join(reversedParts, ""), true
+}
+
+// Implement the algorithm for `type: additive`.
+func additive(symbols []pr.IntNamedString, value int) (string, bool) {
+	if value == 0 {
+		for _, vs := range symbols {
+			if vs.Int == 0 {
+				return symbol(vs.NamedString), true
+			}
+		}
+	}
+	if len(symbols) == 0 {
+		return "", false
+	}
+	var parts []string
+	for _, vs := range symbols {
+		repetitions := value / vs.Int
+		parts = append(parts, strings.Repeat(symbol(vs.NamedString), repetitions))
+		value -= vs.Int * repetitions
+		if value == 0 {
+			return strings.Join(parts, ""), true
+		}
+	}
+	return "", false //  Failed to find a representation for this value
+}
+
+// Generates the content of a ::marker pseudo-element, for the given value.
+func (c CounterStyle) RenderMarker(counterName pr.CounterStyleID, counterValue int) string {
+	counter := c.resolveCounterStyle(counterName, nil)
+	if counter == nil {
+		if _, has := c["decimal"]; has {
+			return c.RenderMarker(pr.CounterStyleID{Name: "decimal"}, counterValue)
+		}
+		// Could happen if the UA stylesheet is ! used
+		return ""
+	}
+
+	prefix := symbol(counter.Prefix)
+	suffix := counter.Suffix
+	if suffix.IsNone() {
+		suffix = pr.NamedString{Name: "string", String: ". "}
+	}
+	suffixS := symbol(suffix)
+
+	value := c.renderValue(counterValue, counter, nil)
+	// assert value  != nil
+	return prefix + value + suffixS
+}
+
 type CounterStyleDescriptors struct {
 	Negative        [2]pr.NamedString
-	System          CounterStyleSystem
-	Prefix, Suffix  pr.NamedString
-	Range           []pr.StringRange
+	Prefix          pr.NamedString
+	Suffix          pr.NamedString
 	Fallback        string
+	System          CounterStyleSystem
 	Pad             pr.IntNamedString
 	Symbols         []pr.NamedString
 	AdditiveSymbols []pr.IntNamedString
+	Range           pr.OptionalRanges
 }
 
 func (desc *CounterStyleDescriptors) Validate() error {
@@ -51,260 +404,47 @@ func (desc *CounterStyleDescriptors) Validate() error {
 	return nil
 }
 
+func (desc *CounterStyleDescriptors) fallback() string {
+	if desc.Fallback != "" {
+		return desc.Fallback
+	}
+	return "decimal"
+}
+
+// complete the fields of `desc` with those taken from `src`
+func (desc *CounterStyleDescriptors) merge(src CounterStyleDescriptors) {
+	if desc.Negative == ([2]pr.NamedString{}) {
+		desc.Negative = src.Negative
+	}
+	if desc.System == (CounterStyleSystem{}) {
+		desc.System = src.System
+	}
+	if desc.Prefix.IsNone() {
+		desc.Prefix = src.Prefix
+	}
+	if desc.Suffix.IsNone() {
+		desc.Suffix = src.Suffix
+	}
+	if desc.Range.IsNone() {
+		desc.Range = src.Range
+	}
+	if desc.Fallback == "" {
+		desc.Fallback = src.Fallback
+	}
+	if desc.Pad.IsNone() {
+		desc.Pad = src.Pad
+	}
+	if desc.Symbols == nil {
+		desc.Symbols = src.Symbols
+	}
+	if desc.AdditiveSymbols == nil {
+		desc.AdditiveSymbols = src.AdditiveSymbols
+	}
+}
+
 type CounterStyleSystem struct {
 	Keyword, SecondKeyword string
 	Number                 int
-}
-
-type counterStyleDescriptor struct {
-	formatter counterImplementation
-	prefix    string
-	suffix    string
-	fallback  string
-	range_    [2]int
-}
-
-type counterImplementation = func(value int) (string, bool)
-
-type valueSymbol struct {
-	symbol string
-	weight int
-}
-
-type nonRepeatingSymbols struct {
-	symbols    []string
-	firstValue int
-}
-
-var (
-	negative = [2]string{"-", ""}
-
-	// Initial values for counter style descriptors.
-	INITIALVALUES = counterStyleDescriptor{
-		suffix:   ".",
-		range_:   [2]int{int(math.Inf(-1)), int(math.Inf(1))},
-		fallback: "decimal",
-		// type and symbols ommited here.
-	}
-
-	// Maps counter-style names to a dict of descriptors.
-	STYLES = map[string]counterStyleDescriptor{
-		// Included here for formatListMarker().
-		// format() special-cases decimal and does not use this.
-		"decimal": INITIALVALUES,
-	}
-
-	lowerRoman = []valueSymbol{
-		{"m", 1000},
-		{"cm", 900},
-		{"d", 500},
-		{"cd", 400},
-		{"c", 100},
-		{"xc", 90},
-		{"l", 50},
-		{"xl", 40},
-		{"x", 10},
-		{"ix", 9},
-		{"v", 5},
-		{"iv", 4},
-		{"i", 1},
-	}
-
-	upperRoman = []valueSymbol{
-		{"M", 1000},
-		{"CM", 900},
-		{"D", 500},
-		{"CD", 400},
-		{"C", 100},
-		{"XC", 90},
-		{"L", 50},
-		{"XL", 40},
-		{"X", 10},
-		{"IX", 9},
-		{"V", 5},
-		{"IV", 4},
-		{"I", 1},
-	}
-
-	georgian = []valueSymbol{
-		{"ჵ", 10000},
-		{"ჰ", 9000},
-		{"ჯ", 8000},
-		{"ჴ", 7000},
-		{"ხ", 6000},
-		{"ჭ", 5000},
-		{"წ", 4000},
-		{"ძ", 3000},
-		{"ც", 2000},
-		{"ჩ", 1000},
-		{"შ", 900},
-		{"ყ", 800},
-		{"ღ", 700},
-		{"ქ", 600},
-		{"ფ", 500},
-		{"ჳ", 400},
-		{"ტ", 300},
-		{"ს", 200},
-		{"რ", 100},
-		{"ჟ", 90},
-		{"პ", 80},
-		{"ო", 70},
-		{"ჲ", 60},
-		{"ნ", 50},
-		{"მ", 40},
-		{"ლ", 30},
-		{"კ", 20},
-		{"ი", 10},
-		{"თ", 9},
-		{"ჱ", 8},
-		{"ზ", 7},
-		{"ვ", 6},
-		{"ე", 5},
-		{"დ", 4},
-		{"გ", 3},
-		{"ბ", 2},
-		{"ა", 1},
-	}
-
-	armenian = []valueSymbol{
-		{"Ք", 9000},
-		{"Փ", 8000},
-		{"Ւ", 7000},
-		{"Ց", 6000},
-		{"Ր", 5000},
-		{"Տ", 4000},
-		{"Վ", 3000},
-		{"Ս", 2000},
-		{"Ռ", 1000},
-		{"Ջ", 900},
-		{"Պ", 800},
-		{"Չ", 700},
-		{"Ո", 600},
-		{"Շ", 500},
-		{"Ն", 400},
-		{"Յ", 300},
-		{"Մ", 200},
-		{"Ճ", 100},
-		{"Ղ", 90},
-		{"Ձ", 80},
-		{"Հ", 70},
-		{"Կ", 60},
-		{"Ծ", 50},
-		{"Խ", 40},
-		{"Լ", 30},
-		{"Ի", 20},
-		{"Ժ", 10},
-		{"Թ", 9},
-		{"Ը", 8},
-		{"Է", 7},
-		{"Զ", 6},
-		{"Ե", 5},
-		{"Դ", 4},
-		{"Գ", 3},
-		{"Բ", 2},
-		{"Ա", 1},
-	}
-
-	decimalLeadingZero = nonRepeatingSymbols{
-		firstValue: -9,
-		symbols:    []string{"-09", "-08", "-07", "-06", "-05", "-04", "-03", "-02", "-01", "00", "01", "02", "03", "04", "05", "06", "07", "08", "09"},
-	}
-
-	lowerAlpha = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"}
-	upperAlpha = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-	lowerGreek = []string{"α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π", "ρ", "σ", "τ", "υ", "φ", "χ", "ψ", "ω"}
-
-	disc   = []string{"•"}
-	circle = []string{"◦"}
-	square = []string{"▪"} // CSS Lists 3 suggests U+25FE BLACK MEDIUM SMALL SQUARE, But I think this one looks better.
-)
-
-func init() {
-	STYLES["decimal-leading-zero"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return nonRepeating(decimalLeadingZero, value)
-		},
-	})
-	STYLES["lower-roman"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return additive(lowerRoman, value)
-		},
-		range_: [2]int{1, 4999},
-	})
-	STYLES["upper-roman"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return additive(upperRoman, value)
-		},
-		range_: [2]int{1, 4999},
-	})
-	STYLES["georgian"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return additive(georgian, value)
-		},
-		range_: [2]int{1, 19999},
-	})
-	STYLES["armenian"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return additive(armenian, value)
-		},
-		range_: [2]int{1, 9999},
-	})
-	STYLES["lower-alpha"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return alphabetic(lowerAlpha, value)
-		},
-	})
-	STYLES["upper-alpha"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return alphabetic(upperAlpha, value)
-		},
-	})
-	STYLES["lower-greek"] = fromInitialValues(counterStyleDescriptor{
-		suffix: INITIALVALUES.suffix,
-		formatter: func(value int) (s string, b bool) {
-			return alphabetic(lowerGreek, value)
-		},
-	})
-	STYLES["disc"] = fromInitialValues(counterStyleDescriptor{
-		suffix: "",
-		formatter: func(value int) (s string, b bool) {
-			return repeating(disc, value)
-		},
-	})
-	STYLES["circle"] = fromInitialValues(counterStyleDescriptor{
-		suffix: "",
-		formatter: func(value int) (s string, b bool) {
-			return repeating(circle, value)
-		},
-	})
-	STYLES["square"] = fromInitialValues(counterStyleDescriptor{
-		suffix: "",
-		formatter: func(value int) (s string, b bool) {
-			return repeating(square, value)
-		},
-	})
-
-	// TODO: when @counter-style rules are supported, change override
-	//// to bind when a value is generated, not when the @rule is parsed.
-	STYLES["lower-latin"] = STYLES["lower-alpha"]
-	STYLES["upper-latin"] = STYLES["upper-alpha"]
-}
-
-func fromInitialValues(c counterStyleDescriptor) counterStyleDescriptor {
-	if c.range_ == [2]int{} {
-		c.range_ = INITIALVALUES.range_
-	}
-	if c.fallback == "" {
-		c.fallback = INITIALVALUES.fallback
-	}
-	return c
 }
 
 func reverse(a []string) {
@@ -316,137 +456,3 @@ func reverse(a []string) {
 func abs(v int) int {
 	return int(math.Abs(float64(v)))
 }
-
-// Implement the algorithm for `type: repeating`.
-func repeating(symbols []string, value int) (string, bool) {
-	return symbols[(value-1)%len(symbols)], true
-}
-
-// Implement the algorithm for `type: alphabetic`.
-func alphabetic(symbols []string, value int) (string, bool) {
-	if value <= 0 {
-		return "", false
-	}
-	length := len(symbols)
-	reversedParts := []string{}
-	for value != 0 {
-		value -= 1
-		reversedParts = append(reversedParts, symbols[value%length])
-		value /= length
-	}
-	reverse(reversedParts)
-	return strings.Join(reversedParts, ""), true
-}
-
-// Implement the algorithm for `type: non-repeating`.
-func nonRepeating(symbols nonRepeatingSymbols, value int) (string, bool) {
-	value -= symbols.firstValue
-	if 0 <= value && value < len(symbols.symbols) {
-		return symbols.symbols[value], true
-	}
-	return "", false
-}
-
-// Implement the algorithm for `type: additive`.
-func additive(symbols []valueSymbol, value int) (string, bool) {
-	if value == 0 {
-		for _, vs := range symbols {
-			if vs.weight == 0 {
-				return vs.symbol, true
-			}
-		}
-	}
-	isNegative := value < 0
-	prefix, suffix := negative[0], negative[1]
-	var parts []string
-	if isNegative {
-		value = abs(value)
-		parts = []string{prefix}
-
-	}
-	for _, vs := range symbols {
-		repetitions := value / vs.weight
-		parts = append(parts, strings.Repeat(vs.symbol, repetitions))
-		value -= vs.weight * repetitions
-		if value == 0 {
-			if isNegative {
-				parts = append(parts, suffix)
-			}
-			return strings.Join(parts, ""), true
-
-		}
-	}
-	return "", false //  Failed to find a representation for this value
-}
-
-// Return a representation of ``value`` formatted by ``counterStyle``
-//or one of its fallback.
-//
-//The representation includes negative signs, but not the prefix and suffix.
-func Format(value int, counterStyle string) string {
-	if counterStyle == "none" {
-		return ""
-	}
-	failedStyles := map[string]bool{} // avoid fallback loops
-	for {
-		if counterStyle == "decimal" || failedStyles[counterStyle] {
-			return strconv.Itoa(value)
-		}
-		style := STYLES[counterStyle]
-		low, high := style.range_[0], style.range_[1]
-		if low <= value && value <= high {
-			representation, ok := style.formatter(value)
-			if ok {
-				return representation
-			}
-		}
-		failedStyles[counterStyle] = true
-		counterStyle = style.fallback
-	}
-}
-
-// Return a representation of ``value`` formatted for a list marker.
-//
-//This is the same as :func:`format()`, but includes the counter’s
-//prefix and suffix.
-func FormatListMarker(value int, counterStyle string) string {
-	style := STYLES[counterStyle]
-	return style.prefix + Format(value, counterStyle) + style.suffix
-}
-
-// ----------------- Unused formatters -------------------------------------------
-
-// // Implement the algorithm for `type: numeric`.
-// func numeric(symbols []string, value int) (string, bool) {
-// 	if value == 0 {
-// 		return symbols[0], true
-
-// 	}
-// 	isNegative := value < 0
-// 	var reversedParts []string
-// 	value = abs(value)
-// 	prefix, suffix := negative[0], negative[1]
-// 	if isNegative {
-// 		reversedParts = []string{suffix}
-// 	}
-// 	length := len(symbols)
-// 	for value != 0 {
-// 		reversedParts = append(reversedParts, symbols[value%length])
-// 		value /= length
-// 	}
-// 	if isNegative {
-// 		reversedParts = append(reversedParts, prefix)
-
-// 	}
-// 	reverse(reversedParts)
-// 	return strings.Join(reversedParts, ""), true
-// }
-
-//// Implement the algorithm for `type: symbolic`.
-//func symbolic(symbols []string, value int) (string, bool) {
-//	if value <= 0 {
-//		return "", false
-//	}
-//	length := len(symbols)
-//	return strings.Repeat(symbols[value%length], (value-1)/length), true
-//}

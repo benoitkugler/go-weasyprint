@@ -521,20 +521,20 @@ func getString(_token Token) (out pr.ContentProperty) {
 	return
 }
 
-func checkCounterFunction(token Token) (out pr.ContentProperty) {
+func checkCounterFunction(token Token) (prop pr.ContentProperty) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
 	}
-	var arguments pr.Strings
-	la := len(args)
-	if (name == "counter" && (la == 1 || la == 2)) || (name == "counters" && (la == 2 || la == 3)) {
+	var out pr.Counters
+	LA := len(args)
+	if (name == "counter" && (LA == 1 || LA == 2)) || (name == "counters" && (LA == 2 || LA == 3)) {
 		ident, ok := args[0].(parser.IdentToken)
 		args = args[1:]
 		if !ok {
 			return
 		}
-		arguments = append(arguments, string(ident.Value))
+		out.Name = string(ident.Value)
 
 		if name == "counters" {
 			str, ok := args[0].(parser.StringToken)
@@ -542,21 +542,21 @@ func checkCounterFunction(token Token) (out pr.ContentProperty) {
 			if !ok {
 				return
 			}
-			arguments = append(arguments, str.Value)
+			out.Separator = str.Value
 		}
 
 		if len(args) > 0 {
-			counterStyle := getKeyword(args[0])
+			counterStyle, ok := listStyleType_(args[0:1])
 			args = args[1:]
-			if _, in := counters.STYLES[counterStyle]; counterStyle != "none" && !in {
+			if !ok {
 				return
 			}
-			arguments = append(arguments, counterStyle)
+			out.Style = counterStyle
 		} else {
-			arguments = append(arguments, "decimal")
+			out.Style.Name = "decimal"
 		}
 
-		return pr.ContentProperty{Type: fmt.Sprintf("%s()", name), Content: arguments}
+		return pr.ContentProperty{Type: fmt.Sprintf("%s()", name), Content: out}
 	}
 	return
 }
@@ -667,9 +667,6 @@ func getTarget(token Token, baseUrl string) (out pr.ContentProperty, err error) 
 		if len(args) > 0 {
 			counterStyle = getKeyword(args[0])
 			args = args[1:]
-			if _, in := counters.STYLES[counterStyle]; !in {
-				return
-			}
 		} else {
 			counterStyle = "decimal"
 		}

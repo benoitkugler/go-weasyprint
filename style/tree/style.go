@@ -651,7 +651,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
+func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *TargetCollector) pr.Properties {
 	if len(cascaded) == 0 && parentStyle != nil {
 		// Fast path for anonymous boxes:
 		// no cascaded style, only implicitly initial or inherited values.
@@ -687,8 +687,11 @@ func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, 
 	}
 	for name := range cascaded {
 		if strings.HasPrefix(name, "__") {
-			computed[name] = cascaded[name].value.AsCascaded().AsCss()
-			specified[name] = cascaded[name].value.AsCascaded()
+			casc := cascaded[name].value.AsCascaded()
+			specified[name] = casc
+			if casc.SpecialProperty == nil {
+				computed[name] = casc.AsCss()
+			}
 		}
 	}
 
@@ -743,7 +746,9 @@ func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, 
 		specified["page"] = pr.ToC(val)
 	}
 
-	return compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, TargetCollector)
+	compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, targetCollector)
+
+	return computed
 }
 
 // either a html node or a page type
@@ -1120,6 +1125,10 @@ func GetAllComputedStyles(html *HTML, userStylesheets []CSS,
 
 	if counterStyle == nil {
 		counterStyle = make(counters.CounterStyle)
+	}
+	// add the UA counters
+	for k, v := range UACounterStyle {
+		counterStyle[k] = v
 	}
 
 	// List stylesheets. Order here is not important ("origin" is).

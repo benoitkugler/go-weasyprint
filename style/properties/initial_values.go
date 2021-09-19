@@ -27,7 +27,7 @@ var InitialValues = Properties{
 	"line_height":         SToV("normal"),
 	"list_style_image":    Image(NoneImage{}),
 	"list_style_position": String("outside"),
-	"list_style_type":     String("disc"),
+	"list_style_type":     CounterStyleID{Name: "disc"},
 	"margin_top":          zeroPixelsValue,
 	"margin_right":        zeroPixelsValue,
 	"margin_bottom":       zeroPixelsValue,

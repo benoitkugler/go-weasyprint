@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 var Inf = Float(math.Inf(+1))
@@ -76,6 +75,8 @@ func (i RadialGradient) isImage()       {}
 func (s String) isInnerContent()  {}
 func (s Strings) isInnerContent() {}
 
+func (s Counters) isInnerContent() {}
+
 // target
 func (s SContentProps) isInnerContent() {}
 
@@ -92,20 +93,14 @@ func (c ContentProperty) AsString() (value string) {
 	return string(c.Content.(String))
 }
 
-func (c ContentProperty) AsCounter() (counterName, counterStyle string) {
-	value, _ := c.Content.(Strings)
-	if len(value) < 2 {
-		log.Fatalf("invalid counter() content : %v", c.Content)
-	}
-	return value[0], value[1]
+func (c ContentProperty) AsCounter() (counterName string, counterStyle CounterStyleID) {
+	value, _ := c.Content.(Counters)
+	return value.Name, value.Style
 }
 
-func (c ContentProperty) AsCounters() (counterName, separator, counterStyle string) {
-	value, _ := c.Content.(Strings)
-	if len(value) < 3 {
-		log.Fatalf("invalid counters() content : %v", c.Content)
-	}
-	return value[0], value[1], value[2]
+func (c ContentProperty) AsCounters() (counterName, separator string, counterStyle CounterStyleID) {
+	value, _ := c.Content.(Counters)
+	return value.Name, value.Separator, value.Style
 }
 
 func (c ContentProperty) AsStrings() []string {
@@ -186,9 +181,12 @@ func (bs Strings) Repeat(n int) CssProperty {
 	return out
 }
 
-// --------------- Geometry -------------------------
+type (
+	SContents  []SContent
+	Dimensions []Dimension
+)
 
-type Fl = utils.Fl
+// --------------- Geometry -------------------------
 
 type Rectangle [4]Float
 

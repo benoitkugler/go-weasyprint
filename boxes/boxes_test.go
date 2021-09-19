@@ -42,7 +42,7 @@ func fakeHTML(html *tree.HTML) *tree.HTML {
 	return html
 }
 
-func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils.HTMLNode, tree.StyleFor, Gifu, string, *tree.TargetCollector) {
+func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils.HTMLNode, tree.StyleFor, Gifu, string, *tree.TargetCollector, counters.CounterStyle) {
 	html, err := tree.NewHTML(content, baseUrl, utils.DefaultUrlFetcher, "")
 	if err != nil {
 		t.Fatalf("parsing HTML failed: %s", err)
@@ -54,12 +54,12 @@ func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils
 		return images.GetImageFromUri(make(map[string]images.Image), document.UrlFetcher, url, forcedMimeType)
 	}
 	tr := tree.NewTargetCollector()
-	return document.Root, *style, imgFetcher, baseUrl, &tr
+	return document.Root, *style, imgFetcher, baseUrl, &tr, cs
 }
 
 func parse(t *testing.T, htmlContent string) BoxITF {
-	a, b, c, d, e := parseBase(t, utils.InputString(htmlContent), baseUrl)
-	boxes := elementToBox(a, b, c, d, e, nil)
+	a, b, c, d, e, f := parseBase(t, utils.InputString(htmlContent), baseUrl)
+	boxes := elementToBox(a, b, c, d, e, f, nil)
 	return boxes[0]
 }
 

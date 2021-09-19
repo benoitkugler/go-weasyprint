@@ -339,23 +339,26 @@ func _prefixSuffix(tokens []Token, baseUrl string) (pr.NamedString, error) {
 // @commaSeparatedList
 // ``range`` descriptor validation.
 func rangeD(tokens []Token, _ string, out *csDescriptors) error {
+	if len(tokens) == 1 {
+		keyword := getSingleKeyword(tokens)
+		if keyword == "auto" {
+			out.Range = pr.OptionalRanges{Auto: true}
+			return nil
+		}
+	}
+
 	for _, part := range SplitOnComma(tokens) {
 		result, err := range_(RemoveWhitespace(part))
 		if err != nil {
 			return err
 		}
-		out.Range = append(out.Range, result)
+		out.Range.Ranges = append(out.Range.Ranges, result)
 	}
 	return nil
 }
 
-func range_(tokens []Token) (pr.StringRange, error) {
-	if len(tokens) == 1 {
-		keyword := getSingleKeyword(tokens)
-		if keyword == "auto" {
-			return pr.StringRange{String: "auto"}, nil
-		}
-	} else if len(tokens) == 2 {
+func range_(tokens []Token) ([2]int, error) {
+	if len(tokens) == 2 {
 		var values [2]int
 		for i, token := range tokens {
 			switch token := token.(type) {
@@ -370,13 +373,13 @@ func range_(tokens []Token) (pr.StringRange, error) {
 					continue
 				}
 			}
-			return pr.StringRange{}, InvalidValue
+			return [2]int{}, InvalidValue
 		}
 		if values[0] <= values[1] {
-			return pr.StringRange{Range: values}, nil
+			return values, nil
 		}
 	}
-	return pr.StringRange{}, InvalidValue
+	return [2]int{}, InvalidValue
 }
 
 // @descriptor("counter-style", wantsBaseUrl=true)

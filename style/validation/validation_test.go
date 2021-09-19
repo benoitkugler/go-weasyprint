@@ -523,22 +523,22 @@ func TestStringSet(t *testing.T) {
 	}))
 	assertValidDict(t, "string-set: test counter(count)", toValidated(pr.Properties{
 		"string_set": pr.StringSet{Contents: []pr.SContent{
-			{String: "test", Contents: []pr.ContentProperty{{Type: "counter()", Content: pr.Strings{"count", "decimal"}}}},
+			{String: "test", Contents: []pr.ContentProperty{{Type: "counter()", Content: pr.Counters{Name: "count", Style: pr.CounterStyleID{Name: "decimal"}}}}},
 		}},
 	}))
 	assertValidDict(t, "string-set: test counter(count, upper-roman)", toValidated(pr.Properties{
 		"string_set": pr.StringSet{Contents: []pr.SContent{
-			{String: "test", Contents: []pr.ContentProperty{{Type: "counter()", Content: pr.Strings{"count", "upper-roman"}}}},
+			{String: "test", Contents: []pr.ContentProperty{{Type: "counter()", Content: pr.Counters{Name: "count", Style: pr.CounterStyleID{Name: "upper-roman"}}}}},
 		}},
 	}))
 	assertValidDict(t, `string-set: test counters(count, ".")`, toValidated(pr.Properties{
 		"string_set": pr.StringSet{Contents: []pr.SContent{
-			{String: "test", Contents: []pr.ContentProperty{{Type: "counters()", Content: pr.Strings{"count", ".", "decimal"}}}},
+			{String: "test", Contents: []pr.ContentProperty{{Type: "counters()", Content: pr.Counters{Name: "count", Separator: ".", Style: pr.CounterStyleID{Name: "decimal"}}}}},
 		}},
 	}))
 	assertValidDict(t, `string-set: test counters(count, ".", upper-roman)`, toValidated(pr.Properties{
 		"string_set": pr.StringSet{Contents: []pr.SContent{
-			{String: "test", Contents: []pr.ContentProperty{{Type: "counters()", Content: pr.Strings{"count", ".", "upper-roman"}}}},
+			{String: "test", Contents: []pr.ContentProperty{{Type: "counters()", Content: pr.Counters{Name: "count", Separator: ".", Style: pr.CounterStyleID{Name: "upper-roman"}}}}},
 		}},
 	}))
 	assertValidDict(t, `string-set: test content(text) "string" attr(title) attr(title) counter(count)`, toValidated(pr.Properties{
@@ -548,7 +548,7 @@ func TestStringSet(t *testing.T) {
 				{Type: "string", Content: pr.String("string")},
 				{Type: "attr()", Content: pr.AttrData{Name: "title", OrUnitT: "string"}},
 				{Type: "attr()", Content: pr.AttrData{Name: "title", OrUnitT: "string"}},
-				{Type: "counter()", Content: pr.Strings{"count", "decimal"}},
+				{Type: "counter()", Content: pr.Counters{Name: "count", Style: pr.CounterStyleID{Name: "decimal"}}},
 			}},
 		}},
 	}))

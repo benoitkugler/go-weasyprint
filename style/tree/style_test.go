@@ -24,6 +24,10 @@ func fakeHTML(html HTML) *HTML {
 	return &html
 }
 
+func TestUACounterStyle(t *testing.T) {
+	fmt.Println(UACounterStyle)
+}
+
 func TestDescriptors(t *testing.T) {
 	stylesheet := parser.ParseStylesheet2([]byte("@font-face{}"), false, false)
 	logs := testutils.CaptureLogs()

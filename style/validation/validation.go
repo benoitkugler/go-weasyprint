@@ -9,7 +9,6 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/utils"
 
-	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 )
@@ -1822,15 +1821,64 @@ func listStylePosition(tokens []Token, _ string) pr.CssProperty {
 }
 
 //@validator()
-//@singleKeyword
+//@singleToken
 // ``list-style-type`` property validation.
 func listStyleType(tokens []Token, _ string) pr.CssProperty {
-	keyword := getSingleKeyword(tokens)
-	_, inStyles := counters.STYLES[keyword]
-	if keyword == "none" || inStyles {
-		return pr.String(keyword)
-	} else {
-		return nil
+	out, ok := listStyleType_(tokens)
+	if ok {
+		return out
+	}
+	return nil
+}
+
+func listStyleType_(tokens []Token) (out pr.CounterStyleID, ok bool) {
+	if len(tokens) != 1 {
+		return out, false
+	}
+	token := tokens[0]
+	switch token := token.(type) {
+	case parser.IdentToken:
+		return pr.CounterStyleID{Name: string(token.Value)}, true
+	case parser.StringToken:
+		return pr.CounterStyleID{Type: "string", Name: token.Value}, true
+	case parser.FunctionBlock:
+		if token.Name != "symbols" {
+			return out, false
+		}
+		functionArguments := RemoveWhitespace(*token.Arguments)
+		if len(functionArguments) == 0 {
+			return out, false
+		}
+		arguments := []string{"symbolic"}
+		if arg0, ok := functionArguments[0].(parser.IdentToken); ok {
+			if arg0.Value == "cyclic" || arg0.Value == "numeric" || arg0.Value == "alphabetic" || arg0.Value == "symbolic" || arg0.Value == "fixed" {
+				arguments = []string{string(arg0.Value)}
+				functionArguments = functionArguments[1:]
+			} else {
+				return out, false
+			}
+		}
+
+		if len(functionArguments) == 0 {
+			return out, false
+		}
+
+		for _, arg := range functionArguments {
+			if str, ok := arg.(parser.StringToken); ok {
+				arguments = append(arguments, str.Value)
+			} else {
+				return out, false
+			}
+		}
+
+		if arguments[0] == "alphabetic" || arguments[0] == "numeric" {
+			if len(arguments) < 3 {
+				return out, false
+			}
+		}
+		return pr.CounterStyleID{Type: "symbols()", Symbols: arguments}, true
+	default:
+		return out, false
 	}
 }
 

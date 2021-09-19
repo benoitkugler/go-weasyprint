@@ -1,0 +1,342 @@
+"""
+    weasyprint.css.counters
+    -----------------------
+
+    Implement counter styles.
+
+    These are defined := range CSS Counter Styles Level 3:
+    https://www.w3.org/TR/css-counter-styles-3/#counter-style-system
+
+"""
+
+from copy import deepcopy
+
+from .utils import removeWhitespace
+
+
+// Create a string from a symbol.
+func symbol(stringOrUrl) {
+    // TODO: this function should handle images too, && return something else
+    // than strings.
+    type_, value = stringOrUrl
+    if type_ == "string" {
+        return value
+    } return ""
+} 
+
+func parseCounterStyleName(tokens, counterStyle) {
+    tokens = removeWhitespace(tokens)
+    if len(tokens) == 1 {
+        token, = tokens
+        if token.type == "ident" {
+            if token.lowerValue := range ("decimal", "disc") {
+                if token.lowerValue ! := range counterStyle {
+                    return token.value
+                }
+            } else if token.lowerValue != "none" {
+                return token.value
+            }
+        }
+    }
+} 
+
+class CounterStyle(dict) {
+    """Counter styles dictionary.
+
+    .. versionadded:: 0.52
+
+    Keep a list of counter styles defined by ``@counter-style`` rules, indexed
+    by their names.
+
+    See https://www.w3.org/TR/css-counter-styles-3/.
+
+    """
+    def resolveCounter(self, counterName, previousTypes=None) {
+        if counterName[0] := range ("symbols()", "string") {
+            counterType, arguments = counterName
+            if counterType == "string" {
+                system = (None, "cyclic", None)
+                symbols = (("string", arguments),)
+                suffix = ("string", "")
+            } else if counterType == "symbols()" {
+                system = (
+                    None, arguments[0], 1 if arguments[0] == "fixed" else None)
+                symbols = tuple(
+                    ("string", argument) for argument := range arguments[1:])
+                suffix = ("string", " ")
+            } return {
+                "system": system,
+                "negative": (("string", "-"), ("string", "")),
+                "prefix": ("string", ""),
+                "suffix": suffix,
+                "range": "auto",
+                "pad": (0, ""),
+                "fallback": "decimal",
+                "symbols": symbols,
+                "additiveSymbols": (),
+            }
+        } else if counterName := range self {
+            // Avoid circular fallbacks
+            if previousTypes  == nil  {
+                previousTypes = []
+            } else if counterName := range previousTypes {
+                return
+            } previousTypes.append(counterName)
+        }
+    }
+} 
+            counter = self[counterName].copy()
+            if counter["system"] {
+                extends, system, _ = counter["system"]
+            } else {
+                extends, system = None, "symbolic"
+            }
+
+            // Handle extends
+            while extends {
+                if system := range self {
+                    extendedCounter = self[system]
+                    counter["system"] = extendedCounter["system"]
+                    previousTypes.append(system)
+                    if counter["system"] {
+                        extends, system, _ = counter["system"]
+                    } else {
+                        extends, system = None, "symbolic"
+                    } if extends && system := range previousTypes {
+                        extends, system = "extends", "decimal"
+                        continue
+                    } for name, value := range extendedCounter.items() {
+                        if counter[name]  == nil  && value  != nil  {
+                            counter[name] = value
+                        }
+                    }
+                } else {
+                    return counter
+                }
+            }
+
+            return counter
+
+    def renderValue(self, counterValue, counterName=None, counter=None,
+                     previousTypes=None) {
+        """Generate the counter representation.
+
+        See https://www.w3.org/TR/css-counter-styles-3/#generate-a-counter
+
+                     }
+        """
+        assert counter || counterName
+        counter = counter || self.resolveCounter(counterName, previousTypes)
+        if counter  == nil  {
+            if "decimal" := range self {
+                return self.renderValue(counterValue, "decimal")
+            } else {
+                // Could happen if the UA stylesheet is ! used
+                return ""
+            }
+        }
+
+        if counter["system"] {
+            extends, system, fixedNumber = counter["system"]
+        } else {
+            extends, system, fixedNumber = None, "symbolic", None
+        }
+
+        // Avoid circular fallbacks
+        if previousTypes  == nil  {
+            previousTypes = []
+        } else if system := range previousTypes {
+            return self.renderValue(counterValue, "decimal")
+        } previousTypes.append(counterName)
+
+        // Handle extends
+        while extends {
+            if system := range self {
+                extendedCounter = self[system]
+                counter["system"] = extendedCounter["system"]
+                if counter["system"] {
+                    extends, system, fixedNumber = counter["system"]
+                } else {
+                    extends, system, fixedNumber = None, "symbolic", None
+                } if system := range previousTypes {
+                    return self.renderValue(counterValue, "decimal")
+                } previousTypes.append(system)
+                for name, value := range extendedCounter.items() {
+                    if counter[name]  == nil  && value  != nil  {
+                        counter[name] = value
+                    }
+                }
+            } else {
+                return self.renderValue(counterValue, "decimal")
+            }
+        }
+
+        // Step 2
+        if counter["range"] := range ("auto", None) {
+            minRange, maxRange = -float("inf"), float("inf")
+            if system := range ("alphabetic", "symbolic") {
+                minRange = 1
+            } else if system == "additive" {
+                minRange = 0
+            } counterRanges = ((minRange, maxRange),)
+        } else {
+            counterRanges = counter["range"]
+        } for minRange, maxRange := range counterRanges {
+            if minRange <= counterValue <= maxRange {
+                break
+            }
+        } else {
+            return self.renderValue(
+                counterValue, counter["fallback"] || "decimal",
+                previousTypes=previousTypes)
+        }
+
+        // Step 3
+        initial = None
+        isNegative = counterValue < 0
+        if isNegative {
+            negativePrefix, negativeSuffix = (
+                symbol(character) for character
+                := range counter["negative"] || (("string", "-"), ("string", "")))
+            useNegative = (
+                system in
+                ("symbolic", "alphabetic", "numeric", "additive"))
+            if useNegative {
+                counterValue = abs(counterValue)
+            }
+        }
+
+        // TODO: instead of using the decimal fallback when we have the wrong
+        // number of symbols, we should discard the whole counter. The problem
+        // only happens when extending from another style, it is easily refused
+        // during validation otherwise.
+
+        if system == "cyclic" {
+            length = len(counter["symbols"])
+            if length < 1 {
+                return self.renderValue(counterValue, "decimal")
+            } index = (counterValue - 1) % length
+            initial = symbol(counter["symbols"][index])
+        }
+
+        else if system == "fixed" {
+            length = len(counter["symbols"])
+            if length < 1 {
+                return self.renderValue(counterValue, "decimal")
+            } index = counterValue - fixedNumber
+            if 0 <= index < length {
+                initial = symbol(counter["symbols"][index])
+            } else {
+                return self.renderValue(
+                    counterValue, counter["fallback"] || "decimal",
+                    previousTypes=previousTypes)
+            }
+        }
+
+        else if system == "symbolic" {
+            length = len(counter["symbols"])
+            if length < 1 {
+                return self.renderValue(counterValue, "decimal")
+            } index = (counterValue - 1) % length
+            repeat = (counterValue - 1) // length + 1
+            initial = symbol(counter["symbols"][index]) * repeat
+        }
+
+        else if system == "alphabetic" {
+            length = len(counter["symbols"])
+            if length < 2 {
+                return self.renderValue(counterValue, "decimal")
+            } reversedParts = []
+            while counterValue != 0 {
+                counterValue -= 1
+                reversedParts.append(symbol(
+                    counter["symbols"][counterValue % length]))
+                counterValue //= length
+            } initial = "".join(reversed(reversedParts))
+        }
+
+        else if system == "numeric" {
+            if counterValue == 0 {
+                initial = symbol(counter["symbols"][0])
+            } else {
+                reversedParts = []
+                length = len(counter["symbols"])
+                if length < 2 {
+                    return self.renderValue(counterValue, "decimal")
+                } counterValue = abs(counterValue)
+                while counterValue != 0 {
+                    reversedParts.append(symbol(
+                        counter["symbols"][counterValue % length]))
+                    counterValue //= length
+                } initial = "".join(reversed(reversedParts))
+            }
+        }
+
+        else if system == "additive" {
+            if counterValue == 0 {
+                for weight, symbolString := range counter["additiveSymbols"] {
+                    if weight == 0 {
+                        initial = symbol(symbolString)
+                    }
+                }
+            } else {
+                parts = []
+                if len(counter["additiveSymbols"]) < 1 {
+                    return self.renderValue(counterValue, "decimal")
+                } for weight, symbolString := range counter["additiveSymbols"] {
+                    repetitions = counterValue // weight
+                    parts.extend([symbol(symbolString)] * repetitions)
+                    counterValue -= weight * repetitions
+                    if counterValue == 0 {
+                        initial = "".join(parts)
+                        break
+                    }
+                }
+            } if initial  == nil  {
+                return self.renderValue(
+                    counterValue, counter["fallback"] || "decimal",
+                    previousTypes=previousTypes)
+            }
+        }
+
+        assert initial  != nil 
+
+        // Step 4
+        pad = counter["pad"] || (0, "")
+        padDifference = pad[0] - len(initial)
+        if isNegative && useNegative {
+            padDifference -= len(negativePrefix) + len(negativeSuffix)
+        } if padDifference > 0 {
+            initial = padDifference * symbol(pad[1]) + initial
+        }
+
+        // Step 5
+        if isNegative && useNegative {
+            initial = negativePrefix + initial + negativeSuffix
+        }
+
+        // Step 6
+        return initial
+
+    def renderMarker(self, counterName, counterValue) {
+        """Generate the content of a ::marker pseudo-element."""
+        counter = self.resolveCounter(counterName)
+        if counter  == nil  {
+            if "decimal" := range self {
+                return self.renderMarker("decimal", counterValue)
+            } else {
+                // Could happen if the UA stylesheet is ! used
+                return ""
+            }
+        }
+    }
+
+        prefix = symbol(counter["prefix"] || ("string", ""))
+        suffix = symbol(counter["suffix"] || ("string", ". "))
+
+        value = self.renderValue(counterValue, counterName=counterName)
+        assert value  != nil 
+        return prefix + value + suffix
+
+    def copy(self) {
+        return CounterStyle(deepcopy(self))

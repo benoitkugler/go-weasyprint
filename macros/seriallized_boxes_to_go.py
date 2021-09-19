@@ -21,9 +21,7 @@ IN = [
     ("p", "Block", [
         ("p", "Line", [
             ("p::before", "Inline", [
-                ("p::before", "Text", "a"),
-                ("p::before", "InlineReplaced", "<replaced>"),
-                ("p::before", "Text", "b")]),
-            ("p", "Text", "c")])])]
+                ("p::before", "Text", "counter")])])])]
+
 pyperclip.copy(to_go(IN))
 print("Copied in clipboard.")

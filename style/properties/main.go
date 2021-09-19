@@ -5,7 +5,12 @@
 //		ValidatedProperty (ComputedFromCascaded)-> CascadedPropery (Compute)-> CssProperty
 package properties
 
-import "github.com/benoitkugler/go-weasyprint/style/parser"
+import (
+	"github.com/benoitkugler/go-weasyprint/style/parser"
+	"github.com/benoitkugler/go-weasyprint/utils"
+)
+
+type Fl = utils.Fl
 
 // CssProperty is final form of a css input :
 // "var()", "attr()" and custom properties have been resolved.

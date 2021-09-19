@@ -208,20 +208,14 @@ func resolveVar(specified map[string]pr.CascadedProperty, var_ pr.VarData) pr.Cu
 	return computedValue
 }
 
-// Return a dict of computed value.
-
-// :param Element: The HTML Element these style apply to
-// :param specified: a dict of specified value. Should contain
-// 			  value for all pr.
-// :param computed: a dict of already known computed value.
-// 			 Only contains some properties (or none).
-// :param parentStyle: a dict of computed value of the parent
-// 				 Element (should contain value for all properties),
-// 				 or `zero if ``Element`` is the Root Element.
-// :param BaseUrl: The base URL used to resolve relative URLs.
-// 		TargetCollector: A target collector used to get computed targets.
-func compute(element Element, pseudoType string, specified map[string]pr.CascadedProperty, computed pr.Properties, parentStyle,
-	rootStyle pr.Properties, baseUrl string, TargetCollector *TargetCollector) pr.Properties {
+// Return a dict of computed value for the given element from
+// `specified`, which must contain values for all the properties.
+// `computed` will be updated with the missing properties
+// `parentStyle` is a dict of computed value of the parent
+//  element (should contain value for all properties), or nil for the root element.
+// `targetCollector` is used to get computed targets.
+func compute(element Element, pseudoType string, specified map[string]pr.CascadedProperty, computed, parentStyle,
+	rootStyle pr.Properties, baseUrl string, targetCollector *TargetCollector) {
 	if parentStyle == nil {
 		parentStyle = pr.InitialValues
 	}
@@ -235,7 +229,7 @@ func compute(element Element, pseudoType string, specified map[string]pr.Cascade
 		parentStyle:     parentStyle,
 		rootStyle:       rootStyle,
 		baseUrl:         baseUrl,
-		TargetCollector: TargetCollector,
+		TargetCollector: targetCollector,
 	}
 	// To have better typing, we start by resolving all var() and custom propperties.
 	resolveds := make(pr.Properties, len(ComputingOrder))
@@ -297,7 +291,6 @@ func compute(element Element, pseudoType string, specified map[string]pr.Cascade
 		computed[name] = value
 	}
 	computed.SetWeasySpecifiedDisplay(resolveds.GetDisplay())
-	return computed
 }
 
 type computer struct {

@@ -40,6 +40,7 @@ type TextBox struct {
 
 	PangoLayout          *text.PangoLayout
 	Text                 string
+	OriginalText         string
 	JustificationSpacing pr.Float
 }
 
@@ -205,6 +206,7 @@ func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
 	if len(text) == 0 {
 		log.Fatalf("empty text")
 	}
+	originalText := text
 	textTransform := style.GetTextTransform()
 	if textTransform != "none" {
 		switch textTransform {
@@ -229,7 +231,7 @@ func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
 		text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
 	}
 	box := newBoxFields(elementTag, style, nil)
-	out := TextBox{BoxFields: box, Text: text}
+	out := TextBox{BoxFields: box, Text: text, OriginalText: originalText}
 	return out
 }
 

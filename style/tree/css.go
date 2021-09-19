@@ -27,6 +27,9 @@ var (
 
 	// TestUAStylesheet is a lightweight style sheet
 	TestUAStylesheet CSS
+
+	// The counters defined in the user agent style sheet
+	UACounterStyle counters.CounterStyle
 )
 
 //go:embed tests_ua.css
@@ -44,7 +47,8 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	Html5UAStylesheet, err = NewCSSDefault(utils.InputString(html5UACSS))
+	UACounterStyle = make(counters.CounterStyle)
+	Html5UAStylesheet, err = NewCSS(utils.InputString(html5UACSS), "", nil, false, "", nil, nil, nil, UACounterStyle)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,6 +102,10 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 	if pageRules == nil {
 		pageRules = &[]PageRule{}
 	}
+	if counterStyle == nil {
+		counterStyle = make(counters.CounterStyle)
+	}
+
 	fts := &[]string{}
 	out := CSS{baseUrl: ressource.BaseUrl}
 	preprocessStylesheet(mediaType, ressource.BaseUrl, stylesheet, urlFetcher, matcher,

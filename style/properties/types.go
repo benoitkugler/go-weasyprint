@@ -46,6 +46,12 @@ type SStrings struct {
 	Strings Strings
 }
 
+type CounterStyleID struct {
+	Type    string // one of symbols(), string, or empty for an identifier
+	Name    string
+	Symbols Strings
+}
+
 type SDimensions struct {
 	String     string
 	Dimensions Dimensions
@@ -131,9 +137,10 @@ type Value struct {
 	Dimension
 }
 
-type StringRange struct {
-	String string
-	Range  [2]int
+// OptionalRanges is either 'auto' or a slice of ranges.
+type OptionalRanges struct {
+	Ranges [][2]int
+	Auto   bool
 }
 
 type NamedProperty struct {
@@ -151,6 +158,13 @@ type SContentProp struct {
 	String          string
 }
 type SContentProps []SContentProp
+
+// Counters store a counter() or counters() attribute
+type Counters struct {
+	Name      string
+	Separator string // optional, only valid for counters()
+	Style     CounterStyleID
+}
 
 // guard for possible content properties
 type InnerContent interface {
@@ -217,8 +231,3 @@ type RadialGradient struct {
 	Center     Center
 	Repeating  bool
 }
-
-type (
-	SContents  []SContent
-	Dimensions []Dimension
-)

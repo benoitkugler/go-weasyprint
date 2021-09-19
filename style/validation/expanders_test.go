@@ -109,25 +109,25 @@ func TestExpandList_style(t *testing.T) {
 		"list_style_image": pr.UrlImage("http://weasyprint.org/bar/lipsum.png"),
 	}))
 	assertValidDict(t, "list-style: square", toValidated(pr.Properties{
-		"list_style_type": pr.String("square"),
+		"list_style_type": pr.CounterStyleID{Name: "square"},
 	}))
 	assertValidDict(t, "list-style: circle inside", toValidated(pr.Properties{
 		"list_style_position": pr.String("inside"),
-		"list_style_type":     pr.String("circle"),
+		"list_style_type":     pr.CounterStyleID{Name: "circle"},
 	}))
 	assertValidDict(t, "list-style: none circle inside", toValidated(pr.Properties{
 		"list_style_position": pr.String("inside"),
 		"list_style_image":    pr.NoneImage{},
-		"list_style_type":     pr.String("circle"),
+		"list_style_type":     pr.CounterStyleID{Name: "circle"},
 	}))
 	assertValidDict(t, "list-style: none inside none", toValidated(pr.Properties{
 		"list_style_position": pr.String("inside"),
 		"list_style_image":    pr.NoneImage{},
-		"list_style_type":     pr.String("none"),
+		"list_style_type":     pr.CounterStyleID{Name: "none"},
 	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "list-style: none inside none none", "invalid")
-	assertInvalid(t, "list-style: red", "invalid")
+	assertInvalid(t, "list-style: 1px", "invalid")
 	assertInvalid(t, "list-style: circle disc",
 		"got multiple type values in a list-style shorthand")
 }

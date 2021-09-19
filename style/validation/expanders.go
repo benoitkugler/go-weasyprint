@@ -61,9 +61,9 @@ func defaultFromString(keyword string) pr.ValidatedProperty {
 }
 
 // Decorator helping expanders to handle ``inherit`` && ``initial``.
-//     Wrap an expander so that it does not have to handle the "inherit" and
-//     "initial" cases, && can just yield name suffixes. Missing suffixes
-//     get the initial value.
+// Wrap an expander so that it does not have to handle the "inherit" and
+// "initial" cases, and can just yield name suffixes. Missing suffixes
+// get the initial value.
 //
 func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 	_expandedNames := utils.Set{}
@@ -246,22 +246,17 @@ func _expandListStyle(baseUrl, _ string, tokens []parser.Token) (out []NamedToke
 			noneToken = token
 			continue
 		}
-		if listStyleType([]parser.Token{token}, "") != nil {
-			suffix = "-type"
-			typeSpecified = true
+
+		if image, _ := listStyleImage([]parser.Token{token}, baseUrl); image != nil {
+			suffix = "-image"
+			imageSpecified = true
 		} else if listStylePosition([]parser.Token{token}, "") != nil {
 			suffix = "-position"
+		} else if _, ok := listStyleType_([]parser.Token{token}); ok {
+			suffix = "-type"
+			typeSpecified = true
 		} else {
-			image, err := listStyleImage([]parser.Token{token}, baseUrl)
-			if err != nil {
-				return nil, err
-			}
-			if image != nil {
-				suffix = "-image"
-				imageSpecified = true
-			} else {
-				return nil, InvalidValue
-			}
+			return nil, InvalidValue
 		}
 		out = append(out, NamedTokens{name: suffix, tokens: []parser.Token{token}})
 	}
