@@ -121,7 +121,7 @@ type PageBox struct {
 
 type MarginBox struct {
 	BoxFields
-	atKeyword   string
+	AtKeyword   string
 	IsGenerated bool
 }
 
@@ -405,12 +405,12 @@ func (b *PageBox) String() string {
 
 func NewMarginBox(atKeyword string, style pr.ElementStyle) *MarginBox {
 	fields := newBoxFields("", style, nil)
-	out := MarginBox{BoxFields: fields, atKeyword: atKeyword}
+	out := MarginBox{BoxFields: fields, AtKeyword: atKeyword}
 	return &out
 }
 
 func (b *MarginBox) String() string {
-	return fmt.Sprintf("<MarginBox %s>", b.atKeyword)
+	return fmt.Sprintf("<MarginBox %s>", b.AtKeyword)
 }
 
 func NewFlexBox(elementTag string, style pr.ElementStyle, children []Box) FlexBox {

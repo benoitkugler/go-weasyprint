@@ -29,7 +29,7 @@ type OrientedBox struct {
 	contentSizer
 
 	context                 *LayoutContext
-	box                     *bo.MarginBox
+	box                     Box // either *bo.PageBox or *bo.MarginBox
 	marginA, marginB, inner pr.MaybeFloat
 	paddingPlusBorder       pr.Float
 }
@@ -68,17 +68,18 @@ type VerticalBox struct {
 	OrientedBox
 }
 
-func NewVerticalBox(context *LayoutContext, box *bo.MarginBox) *VerticalBox {
+func NewVerticalBox(context *LayoutContext, box Box) *VerticalBox {
 	self := new(VerticalBox)
 	self.context = context
 	self.box = box
 	// Inner dimension: that of the content area, as opposed to the
 	// outer dimension: that of the margin area.
-	self.inner = box.Height
-	self.marginA = box.MarginTop.V()
-	self.marginB = box.MarginBottom.V()
-	self.paddingPlusBorder = box.PaddingTop.V() + box.PaddingBottom.V() +
-		box.BorderTopWidth.V() + box.BorderBottomWidth.V()
+	box_ := box.Box()
+	self.inner = box_.Height
+	self.marginA = box_.MarginTop.V()
+	self.marginB = box_.MarginBottom.V()
+	self.paddingPlusBorder = box_.PaddingTop.V() + box_.PaddingBottom.V() +
+		box_.BorderTopWidth.V() + box_.BorderBottomWidth.V()
 	self.OrientedBox.contentSizer = self
 	return self
 }
@@ -104,15 +105,16 @@ type HorizontalBox struct {
 	OrientedBox
 }
 
-func NewHorizontalBox(context *LayoutContext, box *bo.MarginBox) *HorizontalBox {
+func NewHorizontalBox(context *LayoutContext, box Box) *HorizontalBox {
 	self := new(HorizontalBox)
 	self.context = context
 	self.box = box
-	self.inner = box.Width
-	self.marginA = box.MarginLeft.V()
-	self.marginB = box.MarginRight.V()
-	self.paddingPlusBorder = box.PaddingLeft.V() + box.PaddingRight.V() +
-		box.BorderLeftWidth.V() + box.BorderRightWidth.V()
+	box_ := box.Box()
+	self.inner = box_.Width
+	self.marginA = box_.MarginLeft.V()
+	self.marginB = box_.MarginRight.V()
+	self.paddingPlusBorder = box_.PaddingLeft.V() + box_.PaddingRight.V() +
+		box_.BorderLeftWidth.V() + box_.BorderRightWidth.V()
 	self.OrientedBox.contentSizer = self
 	return self
 }
@@ -268,7 +270,7 @@ func computeVariableDimension(context *LayoutContext, sideBoxes_ [3]*bo.MarginBo
 		}
 	}
 
-	if boxB.box.IsGenerated {
+	if boxB.box.(*bo.MarginBox).IsGenerated {
 		if boxB.inner == pr.Auto {
 			acMaxContentSize := 2 * pr.Max(boxA.outerMaxContentSize(), boxC.outerMaxContentSize())
 			if outerSum >= (boxB.outerMaxContentSize() + acMaxContentSize) {
@@ -596,14 +598,14 @@ var (
 // @handleMinMaxWidth
 // containingBlock must be block
 func pageWidth_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
-	pageWidthOrHeight(NewHorizontalBox(context, box.(*bo.MarginBox)), containingBlock.(block).Width)
+	pageWidthOrHeight(NewHorizontalBox(context, box), containingBlock.(block).Width)
 	return false, 0
 }
 
 // @handleMinMaxHeight
 // containingBlock must be block
 func pageHeight_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
-	pageWidthOrHeight(NewVerticalBox(context, box.(*bo.MarginBox)), containingBlock.(block).Height)
+	pageWidthOrHeight(NewVerticalBox(context, box), containingBlock.(block).Height)
 	return false, 0
 }
 

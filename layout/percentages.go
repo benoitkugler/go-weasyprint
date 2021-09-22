@@ -13,14 +13,11 @@ import (
 //
 // the return value should be set on the box
 func resolveOnePercentage(value pr.Value, propertyName string, referTo pr.Float, mainFlexDirection string) pr.MaybeFloat {
-	// box.style has computed values
-	// value := box.Style[propertyName]
-
 	// box attributes are used values
 	percent := pr.ResoudPercentage(value, referTo)
 	// setattr(box, propertyName, percent)
-	if (propertyName == "minWidth" || propertyName == "minHeight") && percent == pr.Auto {
-		if mainFlexDirection == "" || propertyName != "min"+mainFlexDirection {
+	if (propertyName == "min_width" || propertyName == "min_height") && percent == pr.Auto {
+		if mainFlexDirection == "" || propertyName != "min_"+mainFlexDirection {
 			percent = pr.Float(0)
 		}
 	}

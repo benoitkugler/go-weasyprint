@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/images"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	mt "github.com/benoitkugler/go-weasyprint/matrix"
@@ -110,10 +111,10 @@ type Link struct {
 }
 
 type bookmarkData struct {
-	level    int
 	label    string
-	position [2]fl
 	state    string
+	position [2]fl
+	level    int
 }
 
 func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors map[string][2]fl, matrix *mt.Transform) {
@@ -137,7 +138,7 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 	anchorName := string(box.Style.GetAnchor())
 	hasBookmark := bookmarkLabel != "" && bookmarkLevel != 0
 	// "link" is inherited but redundant on text boxes
-	hasLink := !link.IsNone() && !bo.IsTextBox(box_)
+	hasLink := !link.IsNone() && !(bo.TextBoxT.IsInstance(box_) || bo.LineBoxT.IsInstance(box_))
 	// In case of duplicate IDs, only the first is an anchor.
 	_, inAnchors := anchors[anchorName]
 	hasAnchor := anchorName != "" && !inAnchors
@@ -297,45 +298,42 @@ type Document struct {
 }
 
 // presentationalHints=false, fontConfig=None
-func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS, enableHinting,
-	presentationalHints bool, fontConfig *text.FontConfiguration) *layout.LayoutContext {
+func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
+	presentationalHints bool, fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle) *layout.LayoutContext {
 
 	targetCollector := tree.NewTargetCollector()
 	var (
 		pageRules       []tree.PageRule
-		userStylesheets []tree.CSS
+		userStylesheets = stylesheets
 	)
-	for _, css := range stylesheets {
-		// if css.Matcher == nil {
-		// 	css = tree.NewCSS(css, mediaType=html.mediaType, fontConfig=fontConfig)
-		// }
-		userStylesheets = append(userStylesheets, css)
-	}
+
 	styleFor := tree.GetAllComputedStyles(html, userStylesheets, presentationalHints, fontConfig,
-		&pageRules, &targetCollector)
+		counterStyle, &pageRules, &targetCollector)
 	cache := make(map[string]images.Image)
 	getImageFromUri := func(url, forcedMimeType string) images.Image {
 		return images.GetImageFromUri(cache, html.UrlFetcher, url, forcedMimeType)
 	}
 	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
-	context := layout.NewLayoutContext(enableHinting, *styleFor, getImageFromUri, fontConfig, &targetCollector)
+	context := layout.NewLayoutContext(*styleFor, getImageFromUri, fontConfig, counterStyle, &targetCollector)
 	return context
 }
 
 // fontConfig is mandatory
 // presentationalHints=false
-func Render(html *tree.HTML, stylesheets []tree.CSS, enableHinting,
-	presentationalHints bool, fontConfig *text.FontConfiguration) Document {
-
-	context := newLayoutContext(html, stylesheets, enableHinting, presentationalHints, fontConfig)
+// counterStyle is optional
+func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle) Document {
+	if counterStyle == nil {
+		counterStyle = make(counters.CounterStyle)
+	}
+	context := newLayoutContext(html, stylesheets, presentationalHints, fontConfig, counterStyle)
 
 	rootBox := bo.BuildFormattingStructure(html.Root, context.StyleFor, context.GetImageFromUri,
-		html.BaseUrl, context.TargetCollector)
+		html.BaseUrl, context.TargetCollector, counterStyle)
 
 	pageBoxes := layout.LayoutDocument(html, rootBox, context, -1)
 	pages := make([]Page, len(pageBoxes))
 	for i, pageBox := range pageBoxes {
-		pages[i] = NewPage(pageBox, enableHinting)
+		pages[i] = NewPage(pageBox, false)
 	}
 	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher}
 }
@@ -412,9 +410,9 @@ type target struct {
 
 type bookmarkSubtree struct {
 	label    string
-	target   target
-	children []bookmarkSubtree
 	state    string
+	children []bookmarkSubtree
+	target   target
 }
 
 // Make a tree of all bookmarks in the document.

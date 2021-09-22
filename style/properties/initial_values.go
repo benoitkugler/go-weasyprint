@@ -135,7 +135,7 @@ var InitialValues = Properties{
 	}},
 
 	// Paged Media 3 (WD): https://www.w3.org/TR/css-page-3/
-	"size":         Values{},
+	"size":         Point{},
 	"page":         Page{String: "auto", Valid: true},
 	"bleed_left":   SToV("auto"),
 	"bleed_right":  SToV("auto"),

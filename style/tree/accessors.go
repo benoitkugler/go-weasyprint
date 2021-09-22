@@ -1824,17 +1824,17 @@ func (s *AnonymousStyle) SetRight(v pr.Value) {
 	s.dict["right"] = v
 }
 
-func (s *ComputedStyle) GetSize() pr.Values {
-	return s.Get("size").(pr.Values)
+func (s *ComputedStyle) GetSize() pr.Point {
+	return s.Get("size").(pr.Point)
 }
-func (s *ComputedStyle) SetSize(v pr.Values) {
+func (s *ComputedStyle) SetSize(v pr.Point) {
 	s.dict["size"] = v
 }
 
-func (s *AnonymousStyle) GetSize() pr.Values {
-	return s.Get("size").(pr.Values)
+func (s *AnonymousStyle) GetSize() pr.Point {
+	return s.Get("size").(pr.Point)
 }
-func (s *AnonymousStyle) SetSize(v pr.Values) {
+func (s *AnonymousStyle) SetSize(v pr.Point) {
 	s.dict["size"] = v
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 
 	"github.com/benoitkugler/go-weasyprint/layout"
 
@@ -198,13 +199,13 @@ func drawPage(page *bo.PageBox, context Drawer, enableHinting bool) error {
 	return drawStackingContext(context, stackingContext, enableHinting)
 }
 
-func drawBoxBackgroundAndBorder(context Drawer, page *bo.PageBox, box Box, enableHinting bool) error {
+func drawBoxBackgroundAndBorder(context Drawer, box Box, enableHinting bool) error {
 	if err := drawBackground(context, box.Box().Background, enableHinting, true, Bleed{}, pr.Marks{}); err != nil {
 		return err
 	}
 	if box_, ok := box.(bo.TableBoxITF); ok {
 		box := box_.Table()
-		if err := drawTableBackgrounds(context, page, box_, enableHinting); err != nil {
+		if err := drawTableBackgrounds(context, box_, enableHinting); err != nil {
 			return err
 		}
 		if box.Style.GetBorderCollapse() == "separate" {
@@ -267,11 +268,11 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 			// Point 1 is done in drawPage
 
 			// Point 2
-			if bo.BlockBoxT.IsInstance(box_) || bo.IsMarginBox(box_) ||
+			if bo.BlockBoxT.IsInstance(box_) || bo.MarginBoxT.IsInstance(box_) ||
 				bo.InlineBlockBoxT.IsInstance(box_) || bo.TableCellBoxT.IsInstance(box_) ||
 				bo.FlexContainerBoxT.IsInstance(box_) {
 				// The canvas background was removed by setCanvasBackground
-				if err := drawBoxBackgroundAndBorder(context, stackingContext.page, box_, enableHinting); err != nil {
+				if err := drawBoxBackgroundAndBorder(context, box_, enableHinting); err != nil {
 					return err
 				}
 			}
@@ -293,7 +294,7 @@ func drawStackingContext(context Drawer, stackingContext StackingContext, enable
 
 				// Point 4
 				for _, block := range stackingContext.blockLevelBoxes {
-					if err := drawBoxBackgroundAndBorder(context, stackingContext.page, block, enableHinting); err != nil {
+					if err := drawBoxBackgroundAndBorder(context, block, enableHinting); err != nil {
 						return err
 					}
 				}
@@ -496,7 +497,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 }
 
 // Draw the background color && image of the table children.
-func drawTableBackgrounds(context Drawer, page *bo.PageBox, table_ bo.TableBoxITF, enableHinting bool) error {
+func drawTableBackgrounds(context Drawer, table_ bo.TableBoxITF, enableHinting bool) error {
 	table := table_.Table()
 	for _, columnGroup := range table.ColumnGroups {
 		err := drawBackground2(context, columnGroup.Box().Background, enableHinting)
@@ -663,7 +664,7 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 					drawRectBorder(context, borderBox, borderWidths,
 						box.Style.GetColumnRuleStyle(), styledColor(
 							box.Style.GetColumnRuleStyle(),
-							box.Style.ResolveColor("column_rule_color").RGBA, "left"))
+							tree.ResolveColor(box.Style, "column_rule_color").RGBA, "left"))
 					return nil
 				})
 			}
@@ -690,10 +691,10 @@ func drawBorder(context Drawer, box_ Box, enableHinting bool) {
 		stylesSet = utils.NewSet()
 	)
 	for i, side := range SIDES {
-		colors[i] = box.Style.ResolveColor(fmt.Sprintf("border_%s_color", side)).RGBA
+		colors[i] = tree.ResolveColor(box.Style, fmt.Sprintf("border_%s_color", side)).RGBA
 		colorsSet[colors[i]] = true
 		if colors[i].A != 0 {
-			styles[i] = box.Style[fmt.Sprintf("border_%s_style", side)].(pr.String)
+			styles[i] = box.Style.Get(fmt.Sprintf("border_%s_style", side)).(pr.String)
 		}
 		stylesSet.Add(string(styles[i]))
 	}
@@ -1002,7 +1003,7 @@ func drawRectBorder(context Drawer, box, widths pr.Rectangle, style pr.String, c
 func drawOutlines(context Drawer, box_ Box, enableHinting bool) {
 	box := box_.Box()
 	width_ := box.Style.GetOutlineWidth()
-	color := box.Style.ResolveColor("outline_color").RGBA
+	color := tree.ResolveColor(box.Style, "outline_color").RGBA
 	style := box.Style.GetOutlineStyle()
 	if box.Style.GetVisibility() == "visible" && !width_.IsNone() && color.A != 0 {
 		width := width_.Value

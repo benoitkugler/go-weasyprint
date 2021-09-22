@@ -199,7 +199,7 @@ func blockMaxContentWidth(context *LayoutContext, box Box, outer bool) pr.Float 
 func inlineMinContentWidth(context *LayoutContext, box_ Box, outer bool, skipStack *tree.SkipStack,
 	firstLine, isLineStart bool) pr.Float {
 	box := box_.Box()
-	widths := inlineLineWidths(context, box, outer, isLineStart, true, skipStack, firstLine)
+	widths := inlineLineWidths(context, box_, outer, isLineStart, true, skipStack, firstLine)
 
 	if firstLine {
 		widths = widths[0:1]
@@ -213,8 +213,7 @@ func inlineMinContentWidth(context *LayoutContext, box_ Box, outer bool, skipSta
 // outer=true, isLineStart=false
 func inlineMaxContentWidth(context *LayoutContext, box_ Box, outer, isLineStart bool) pr.Float {
 	box := box_.Box()
-
-	widths := inlineLineWidths(context, box, outer, isLineStart, false, nil, false)
+	widths := inlineLineWidths(context, box_, outer, isLineStart, false, nil, false)
 	widths[len(widths)-1] -= trailingWhitespaceSize(context, box_)
 	return adjust(box, outer, pr.Maxs(widths...), true, true)
 }
@@ -263,19 +262,22 @@ func tableCellMaxContentWidth(context *LayoutContext, box Box, outer bool) pr.Fl
 }
 
 // firstLine=false
-func inlineLineWidths(context *LayoutContext, box *bo.BoxFields, outer, isLineStart,
+func inlineLineWidths(context *LayoutContext, box_ Box, outer, isLineStart,
 	minimum bool, skipStack *tree.SkipStack, firstLine bool) []pr.Float {
 	var (
 		textIndent, currentLine pr.Float
 		skip                    int
 		out                     []pr.Float
+		box                     = box_.Box()
 	)
-	if box.Style.GetTextIndent().Unit == pr.Percentage {
-		// TODO: this is wrong, text-indent percentages should be resolved
-		// before calling this function.
-		textIndent = 0
-	} else {
-		textIndent = box.Style.GetTextIndent().Value
+	if bo.LineBoxT.IsInstance(box_) {
+		if box.Style.GetTextIndent().Unit == pr.Percentage {
+			// TODO: this is wrong, text-indent percentages should be resolved
+			// before calling this function.
+			textIndent = 0
+		} else {
+			textIndent = box.Style.GetTextIndent().Value
+		}
 	}
 	currentLine = 0
 	if skipStack != nil {
@@ -288,7 +290,7 @@ func inlineLineWidths(context *LayoutContext, box *bo.BoxFields, outer, isLineSt
 		textBox, isTextBox := child.(*bo.TextBox)
 		var lines []pr.Float
 		if bo.InlineBoxT.IsInstance(child) {
-			lines = inlineLineWidths(context, child.Box(), outer, isLineStart, minimum,
+			lines = inlineLineWidths(context, child, outer, isLineStart, minimum,
 				skipStack, firstLine)
 			if firstLine {
 				lines = lines[0:1]
@@ -860,7 +862,7 @@ func trailingWhitespaceSize(context *LayoutContext, box Box) pr.Float {
 	}
 	if len(strippedText) != 0 {
 		resume, oldResume := 0, -1
-		var oldBox Box
+		var oldBox *bo.TextBox
 		for resume != -1 {
 			oldResume = resume
 			oldBox, resume, _ = splitTextBox(context, textBox, nil, resume)

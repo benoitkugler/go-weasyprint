@@ -1,6 +1,7 @@
 package properties
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -106,6 +107,7 @@ func Abs(x Float) Float { return Float(math.Abs(float64(x))) }
 // ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
 // just replaces percentages.
 func ResoudPercentage(value Value, referTo Float) MaybeFloat {
+	fmt.Println(value, referTo)
 	if value.IsNone() {
 		return nil
 	} else if value.String == "auto" {

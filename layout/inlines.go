@@ -52,7 +52,7 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
 		// TODO: wrong, see https://github.com/Kozea/WeasyPrint/issues/679
-		box.TextIndent = resolveOnePercentage(pr.MaybeFloatToValue(box.TextIndent), "textIndent", containingBlock.Width.V(), "")
+		box.TextIndent = resolveOnePercentage(box.Style.GetTextIndent(), "text_indent", containingBlock.Width.V(), "")
 	} else {
 		box.TextIndent = pr.Float(0)
 	}
@@ -307,12 +307,14 @@ func removeLastWhitespace(context *LayoutContext, box Box) {
 
 // Create a box for the ::first-letter selector.
 func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle) *tree.SkipStack {
-	if firstLetterStyle != nil && len(box.Box().Children) != 0 {
-		// Some properties must be ignored :in first-letter boxes.
-		// https://drafts.csswg.org/selectors-3/#application-in-css
-		// At least, position is ignored to avoid layout troubles.
-		firstLetterStyle.SetPosition(pr.BoolString{String: "static"})
+	if firstLetterStyle == nil || len(box.Box().Children) == 0 {
+		return skipStack
 	}
+
+	// Some properties must be ignored :in first-letter boxes.
+	// https://drafts.csswg.org/selectors-3/#application-in-css
+	// At least, position is ignored to avoid layout troubles.
+	firstLetterStyle.SetPosition(pr.BoolString{String: "static"})
 
 	firstLetter := ""
 	child := box.Box().Children[0]
@@ -952,11 +954,8 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			lastLetter = last
 		}
 
-		if newChild == nil {
+		if asTextBox, ok := newChild.(*bo.TextBox); newChild == nil || (ok && asTextBox == nil) {
 			// May be nil where we have an empty TextBox.
-			if !bo.TextBoxT.IsInstance(child_) {
-				log.Fatalf("only text box may yield empty child, got %v", child)
-			}
 		} else {
 			if bo.LineBoxT.IsInstance(box_) {
 				lineChildren = append(lineChildren, indexedBox{index: index, box: newChild})

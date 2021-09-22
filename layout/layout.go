@@ -218,14 +218,12 @@ type LayoutContext struct {
 	excludedShapesLists [][]bo.BoxFields
 	currentPage         int
 	marginClearance     bool
-	enableHinting       bool
 	forcedBreak         bool
 }
 
-func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri bo.Gifu,
+func NewLayoutContext(styleFor tree.StyleFor, getImageFromUri bo.Gifu,
 	fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle, targetCollector *tree.TargetCollector) *LayoutContext {
 	self := LayoutContext{}
-	self.enableHinting = enableHinting
 	self.StyleFor = styleFor
 	self.GetImageFromUri = getImageFromUri
 	self.fontConfig = fontConfig

@@ -5,7 +5,6 @@ package properties
 func (s Properties) GetWeasySpecifiedDisplay() String {
 	return s["_weasy_specified_display"].(String)
 }
-
 func (s Properties) SetWeasySpecifiedDisplay(v String) {
 	s["_weasy_specified_display"] = v
 }
@@ -13,7 +12,6 @@ func (s Properties) SetWeasySpecifiedDisplay(v String) {
 func (s Properties) GetAlignContent() String {
 	return s["align_content"].(String)
 }
-
 func (s Properties) SetAlignContent(v String) {
 	s["align_content"] = v
 }
@@ -21,7 +19,6 @@ func (s Properties) SetAlignContent(v String) {
 func (s Properties) GetAlignItems() String {
 	return s["align_items"].(String)
 }
-
 func (s Properties) SetAlignItems(v String) {
 	s["align_items"] = v
 }
@@ -29,7 +26,6 @@ func (s Properties) SetAlignItems(v String) {
 func (s Properties) GetAlignSelf() String {
 	return s["align_self"].(String)
 }
-
 func (s Properties) SetAlignSelf(v String) {
 	s["align_self"] = v
 }
@@ -37,7 +33,6 @@ func (s Properties) SetAlignSelf(v String) {
 func (s Properties) GetAnchor() String {
 	return s["anchor"].(String)
 }
-
 func (s Properties) SetAnchor(v String) {
 	s["anchor"] = v
 }
@@ -45,7 +40,6 @@ func (s Properties) SetAnchor(v String) {
 func (s Properties) GetBackgroundAttachment() Strings {
 	return s["background_attachment"].(Strings)
 }
-
 func (s Properties) SetBackgroundAttachment(v Strings) {
 	s["background_attachment"] = v
 }
@@ -53,7 +47,6 @@ func (s Properties) SetBackgroundAttachment(v Strings) {
 func (s Properties) GetBackgroundClip() Strings {
 	return s["background_clip"].(Strings)
 }
-
 func (s Properties) SetBackgroundClip(v Strings) {
 	s["background_clip"] = v
 }
@@ -61,7 +54,6 @@ func (s Properties) SetBackgroundClip(v Strings) {
 func (s Properties) GetBackgroundColor() Color {
 	return s["background_color"].(Color)
 }
-
 func (s Properties) SetBackgroundColor(v Color) {
 	s["background_color"] = v
 }
@@ -69,7 +61,6 @@ func (s Properties) SetBackgroundColor(v Color) {
 func (s Properties) GetBackgroundImage() Images {
 	return s["background_image"].(Images)
 }
-
 func (s Properties) SetBackgroundImage(v Images) {
 	s["background_image"] = v
 }
@@ -77,7 +68,6 @@ func (s Properties) SetBackgroundImage(v Images) {
 func (s Properties) GetBackgroundOrigin() Strings {
 	return s["background_origin"].(Strings)
 }
-
 func (s Properties) SetBackgroundOrigin(v Strings) {
 	s["background_origin"] = v
 }
@@ -85,7 +75,6 @@ func (s Properties) SetBackgroundOrigin(v Strings) {
 func (s Properties) GetBackgroundPosition() Centers {
 	return s["background_position"].(Centers)
 }
-
 func (s Properties) SetBackgroundPosition(v Centers) {
 	s["background_position"] = v
 }
@@ -93,7 +82,6 @@ func (s Properties) SetBackgroundPosition(v Centers) {
 func (s Properties) GetBackgroundRepeat() Repeats {
 	return s["background_repeat"].(Repeats)
 }
-
 func (s Properties) SetBackgroundRepeat(v Repeats) {
 	s["background_repeat"] = v
 }
@@ -101,7 +89,6 @@ func (s Properties) SetBackgroundRepeat(v Repeats) {
 func (s Properties) GetBackgroundSize() Sizes {
 	return s["background_size"].(Sizes)
 }
-
 func (s Properties) SetBackgroundSize(v Sizes) {
 	s["background_size"] = v
 }
@@ -109,7 +96,6 @@ func (s Properties) SetBackgroundSize(v Sizes) {
 func (s Properties) GetBleedBottom() Value {
 	return s["bleed_bottom"].(Value)
 }
-
 func (s Properties) SetBleedBottom(v Value) {
 	s["bleed_bottom"] = v
 }
@@ -117,7 +103,6 @@ func (s Properties) SetBleedBottom(v Value) {
 func (s Properties) GetBleedLeft() Value {
 	return s["bleed_left"].(Value)
 }
-
 func (s Properties) SetBleedLeft(v Value) {
 	s["bleed_left"] = v
 }
@@ -125,7 +110,6 @@ func (s Properties) SetBleedLeft(v Value) {
 func (s Properties) GetBleedRight() Value {
 	return s["bleed_right"].(Value)
 }
-
 func (s Properties) SetBleedRight(v Value) {
 	s["bleed_right"] = v
 }
@@ -133,7 +117,6 @@ func (s Properties) SetBleedRight(v Value) {
 func (s Properties) GetBleedTop() Value {
 	return s["bleed_top"].(Value)
 }
-
 func (s Properties) SetBleedTop(v Value) {
 	s["bleed_top"] = v
 }
@@ -141,7 +124,6 @@ func (s Properties) SetBleedTop(v Value) {
 func (s Properties) GetBlockEllipsis() NamedString {
 	return s["block_ellipsis"].(NamedString)
 }
-
 func (s Properties) SetBlockEllipsis(v NamedString) {
 	s["block_ellipsis"] = v
 }
@@ -149,7 +131,6 @@ func (s Properties) SetBlockEllipsis(v NamedString) {
 func (s Properties) GetBookmarkLabel() ContentProperties {
 	return s["bookmark_label"].(ContentProperties)
 }
-
 func (s Properties) SetBookmarkLabel(v ContentProperties) {
 	s["bookmark_label"] = v
 }
@@ -157,7 +138,6 @@ func (s Properties) SetBookmarkLabel(v ContentProperties) {
 func (s Properties) GetBookmarkLevel() IntString {
 	return s["bookmark_level"].(IntString)
 }
-
 func (s Properties) SetBookmarkLevel(v IntString) {
 	s["bookmark_level"] = v
 }
@@ -165,7 +145,6 @@ func (s Properties) SetBookmarkLevel(v IntString) {
 func (s Properties) GetBookmarkState() String {
 	return s["bookmark_state"].(String)
 }
-
 func (s Properties) SetBookmarkState(v String) {
 	s["bookmark_state"] = v
 }
@@ -173,7 +152,6 @@ func (s Properties) SetBookmarkState(v String) {
 func (s Properties) GetBorderBottomColor() Color {
 	return s["border_bottom_color"].(Color)
 }
-
 func (s Properties) SetBorderBottomColor(v Color) {
 	s["border_bottom_color"] = v
 }
@@ -181,7 +159,6 @@ func (s Properties) SetBorderBottomColor(v Color) {
 func (s Properties) GetBorderBottomLeftRadius() Point {
 	return s["border_bottom_left_radius"].(Point)
 }
-
 func (s Properties) SetBorderBottomLeftRadius(v Point) {
 	s["border_bottom_left_radius"] = v
 }
@@ -189,7 +166,6 @@ func (s Properties) SetBorderBottomLeftRadius(v Point) {
 func (s Properties) GetBorderBottomRightRadius() Point {
 	return s["border_bottom_right_radius"].(Point)
 }
-
 func (s Properties) SetBorderBottomRightRadius(v Point) {
 	s["border_bottom_right_radius"] = v
 }
@@ -197,7 +173,6 @@ func (s Properties) SetBorderBottomRightRadius(v Point) {
 func (s Properties) GetBorderBottomStyle() String {
 	return s["border_bottom_style"].(String)
 }
-
 func (s Properties) SetBorderBottomStyle(v String) {
 	s["border_bottom_style"] = v
 }
@@ -205,7 +180,6 @@ func (s Properties) SetBorderBottomStyle(v String) {
 func (s Properties) GetBorderBottomWidth() Value {
 	return s["border_bottom_width"].(Value)
 }
-
 func (s Properties) SetBorderBottomWidth(v Value) {
 	s["border_bottom_width"] = v
 }
@@ -213,7 +187,6 @@ func (s Properties) SetBorderBottomWidth(v Value) {
 func (s Properties) GetBorderCollapse() String {
 	return s["border_collapse"].(String)
 }
-
 func (s Properties) SetBorderCollapse(v String) {
 	s["border_collapse"] = v
 }
@@ -221,7 +194,6 @@ func (s Properties) SetBorderCollapse(v String) {
 func (s Properties) GetBorderLeftColor() Color {
 	return s["border_left_color"].(Color)
 }
-
 func (s Properties) SetBorderLeftColor(v Color) {
 	s["border_left_color"] = v
 }
@@ -229,7 +201,6 @@ func (s Properties) SetBorderLeftColor(v Color) {
 func (s Properties) GetBorderLeftStyle() String {
 	return s["border_left_style"].(String)
 }
-
 func (s Properties) SetBorderLeftStyle(v String) {
 	s["border_left_style"] = v
 }
@@ -237,7 +208,6 @@ func (s Properties) SetBorderLeftStyle(v String) {
 func (s Properties) GetBorderLeftWidth() Value {
 	return s["border_left_width"].(Value)
 }
-
 func (s Properties) SetBorderLeftWidth(v Value) {
 	s["border_left_width"] = v
 }
@@ -245,7 +215,6 @@ func (s Properties) SetBorderLeftWidth(v Value) {
 func (s Properties) GetBorderRightColor() Color {
 	return s["border_right_color"].(Color)
 }
-
 func (s Properties) SetBorderRightColor(v Color) {
 	s["border_right_color"] = v
 }
@@ -253,7 +222,6 @@ func (s Properties) SetBorderRightColor(v Color) {
 func (s Properties) GetBorderRightStyle() String {
 	return s["border_right_style"].(String)
 }
-
 func (s Properties) SetBorderRightStyle(v String) {
 	s["border_right_style"] = v
 }
@@ -261,7 +229,6 @@ func (s Properties) SetBorderRightStyle(v String) {
 func (s Properties) GetBorderRightWidth() Value {
 	return s["border_right_width"].(Value)
 }
-
 func (s Properties) SetBorderRightWidth(v Value) {
 	s["border_right_width"] = v
 }
@@ -269,7 +236,6 @@ func (s Properties) SetBorderRightWidth(v Value) {
 func (s Properties) GetBorderSpacing() Point {
 	return s["border_spacing"].(Point)
 }
-
 func (s Properties) SetBorderSpacing(v Point) {
 	s["border_spacing"] = v
 }
@@ -277,7 +243,6 @@ func (s Properties) SetBorderSpacing(v Point) {
 func (s Properties) GetBorderTopColor() Color {
 	return s["border_top_color"].(Color)
 }
-
 func (s Properties) SetBorderTopColor(v Color) {
 	s["border_top_color"] = v
 }
@@ -285,7 +250,6 @@ func (s Properties) SetBorderTopColor(v Color) {
 func (s Properties) GetBorderTopLeftRadius() Point {
 	return s["border_top_left_radius"].(Point)
 }
-
 func (s Properties) SetBorderTopLeftRadius(v Point) {
 	s["border_top_left_radius"] = v
 }
@@ -293,7 +257,6 @@ func (s Properties) SetBorderTopLeftRadius(v Point) {
 func (s Properties) GetBorderTopRightRadius() Point {
 	return s["border_top_right_radius"].(Point)
 }
-
 func (s Properties) SetBorderTopRightRadius(v Point) {
 	s["border_top_right_radius"] = v
 }
@@ -301,7 +264,6 @@ func (s Properties) SetBorderTopRightRadius(v Point) {
 func (s Properties) GetBorderTopStyle() String {
 	return s["border_top_style"].(String)
 }
-
 func (s Properties) SetBorderTopStyle(v String) {
 	s["border_top_style"] = v
 }
@@ -309,7 +271,6 @@ func (s Properties) SetBorderTopStyle(v String) {
 func (s Properties) GetBorderTopWidth() Value {
 	return s["border_top_width"].(Value)
 }
-
 func (s Properties) SetBorderTopWidth(v Value) {
 	s["border_top_width"] = v
 }
@@ -317,7 +278,6 @@ func (s Properties) SetBorderTopWidth(v Value) {
 func (s Properties) GetBottom() Value {
 	return s["bottom"].(Value)
 }
-
 func (s Properties) SetBottom(v Value) {
 	s["bottom"] = v
 }
@@ -325,7 +285,6 @@ func (s Properties) SetBottom(v Value) {
 func (s Properties) GetBoxDecorationBreak() String {
 	return s["box_decoration_break"].(String)
 }
-
 func (s Properties) SetBoxDecorationBreak(v String) {
 	s["box_decoration_break"] = v
 }
@@ -333,7 +292,6 @@ func (s Properties) SetBoxDecorationBreak(v String) {
 func (s Properties) GetBoxSizing() String {
 	return s["box_sizing"].(String)
 }
-
 func (s Properties) SetBoxSizing(v String) {
 	s["box_sizing"] = v
 }
@@ -341,7 +299,6 @@ func (s Properties) SetBoxSizing(v String) {
 func (s Properties) GetBreakAfter() String {
 	return s["break_after"].(String)
 }
-
 func (s Properties) SetBreakAfter(v String) {
 	s["break_after"] = v
 }
@@ -349,7 +306,6 @@ func (s Properties) SetBreakAfter(v String) {
 func (s Properties) GetBreakBefore() String {
 	return s["break_before"].(String)
 }
-
 func (s Properties) SetBreakBefore(v String) {
 	s["break_before"] = v
 }
@@ -357,7 +313,6 @@ func (s Properties) SetBreakBefore(v String) {
 func (s Properties) GetBreakInside() String {
 	return s["break_inside"].(String)
 }
-
 func (s Properties) SetBreakInside(v String) {
 	s["break_inside"] = v
 }
@@ -365,7 +320,6 @@ func (s Properties) SetBreakInside(v String) {
 func (s Properties) GetCaptionSide() String {
 	return s["caption_side"].(String)
 }
-
 func (s Properties) SetCaptionSide(v String) {
 	s["caption_side"] = v
 }
@@ -373,7 +327,6 @@ func (s Properties) SetCaptionSide(v String) {
 func (s Properties) GetClear() String {
 	return s["clear"].(String)
 }
-
 func (s Properties) SetClear(v String) {
 	s["clear"] = v
 }
@@ -381,7 +334,6 @@ func (s Properties) SetClear(v String) {
 func (s Properties) GetClip() Values {
 	return s["clip"].(Values)
 }
-
 func (s Properties) SetClip(v Values) {
 	s["clip"] = v
 }
@@ -389,7 +341,6 @@ func (s Properties) SetClip(v Values) {
 func (s Properties) GetColor() Color {
 	return s["color"].(Color)
 }
-
 func (s Properties) SetColor(v Color) {
 	s["color"] = v
 }
@@ -397,7 +348,6 @@ func (s Properties) SetColor(v Color) {
 func (s Properties) GetColumnCount() Value {
 	return s["column_count"].(Value)
 }
-
 func (s Properties) SetColumnCount(v Value) {
 	s["column_count"] = v
 }
@@ -405,7 +355,6 @@ func (s Properties) SetColumnCount(v Value) {
 func (s Properties) GetColumnFill() String {
 	return s["column_fill"].(String)
 }
-
 func (s Properties) SetColumnFill(v String) {
 	s["column_fill"] = v
 }
@@ -413,7 +362,6 @@ func (s Properties) SetColumnFill(v String) {
 func (s Properties) GetColumnGap() Value {
 	return s["column_gap"].(Value)
 }
-
 func (s Properties) SetColumnGap(v Value) {
 	s["column_gap"] = v
 }
@@ -421,7 +369,6 @@ func (s Properties) SetColumnGap(v Value) {
 func (s Properties) GetColumnRuleColor() Color {
 	return s["column_rule_color"].(Color)
 }
-
 func (s Properties) SetColumnRuleColor(v Color) {
 	s["column_rule_color"] = v
 }
@@ -429,7 +376,6 @@ func (s Properties) SetColumnRuleColor(v Color) {
 func (s Properties) GetColumnRuleStyle() String {
 	return s["column_rule_style"].(String)
 }
-
 func (s Properties) SetColumnRuleStyle(v String) {
 	s["column_rule_style"] = v
 }
@@ -437,7 +383,6 @@ func (s Properties) SetColumnRuleStyle(v String) {
 func (s Properties) GetColumnRuleWidth() Value {
 	return s["column_rule_width"].(Value)
 }
-
 func (s Properties) SetColumnRuleWidth(v Value) {
 	s["column_rule_width"] = v
 }
@@ -445,7 +390,6 @@ func (s Properties) SetColumnRuleWidth(v Value) {
 func (s Properties) GetColumnSpan() String {
 	return s["column_span"].(String)
 }
-
 func (s Properties) SetColumnSpan(v String) {
 	s["column_span"] = v
 }
@@ -453,7 +397,6 @@ func (s Properties) SetColumnSpan(v String) {
 func (s Properties) GetColumnWidth() Value {
 	return s["column_width"].(Value)
 }
-
 func (s Properties) SetColumnWidth(v Value) {
 	s["column_width"] = v
 }
@@ -461,7 +404,6 @@ func (s Properties) SetColumnWidth(v Value) {
 func (s Properties) GetContent() SContent {
 	return s["content"].(SContent)
 }
-
 func (s Properties) SetContent(v SContent) {
 	s["content"] = v
 }
@@ -469,7 +411,6 @@ func (s Properties) SetContent(v SContent) {
 func (s Properties) GetContinue() String {
 	return s["continue"].(String)
 }
-
 func (s Properties) SetContinue(v String) {
 	s["continue"] = v
 }
@@ -477,7 +418,6 @@ func (s Properties) SetContinue(v String) {
 func (s Properties) GetCounterIncrement() SIntStrings {
 	return s["counter_increment"].(SIntStrings)
 }
-
 func (s Properties) SetCounterIncrement(v SIntStrings) {
 	s["counter_increment"] = v
 }
@@ -485,7 +425,6 @@ func (s Properties) SetCounterIncrement(v SIntStrings) {
 func (s Properties) GetCounterReset() SIntStrings {
 	return s["counter_reset"].(SIntStrings)
 }
-
 func (s Properties) SetCounterReset(v SIntStrings) {
 	s["counter_reset"] = v
 }
@@ -493,7 +432,6 @@ func (s Properties) SetCounterReset(v SIntStrings) {
 func (s Properties) GetDirection() String {
 	return s["direction"].(String)
 }
-
 func (s Properties) SetDirection(v String) {
 	s["direction"] = v
 }
@@ -501,7 +439,6 @@ func (s Properties) SetDirection(v String) {
 func (s Properties) GetDisplay() String {
 	return s["display"].(String)
 }
-
 func (s Properties) SetDisplay(v String) {
 	s["display"] = v
 }
@@ -509,7 +446,6 @@ func (s Properties) SetDisplay(v String) {
 func (s Properties) GetEmptyCells() String {
 	return s["empty_cells"].(String)
 }
-
 func (s Properties) SetEmptyCells(v String) {
 	s["empty_cells"] = v
 }
@@ -517,7 +453,6 @@ func (s Properties) SetEmptyCells(v String) {
 func (s Properties) GetFlexBasis() Value {
 	return s["flex_basis"].(Value)
 }
-
 func (s Properties) SetFlexBasis(v Value) {
 	s["flex_basis"] = v
 }
@@ -525,7 +460,6 @@ func (s Properties) SetFlexBasis(v Value) {
 func (s Properties) GetFlexDirection() String {
 	return s["flex_direction"].(String)
 }
-
 func (s Properties) SetFlexDirection(v String) {
 	s["flex_direction"] = v
 }
@@ -533,7 +467,6 @@ func (s Properties) SetFlexDirection(v String) {
 func (s Properties) GetFlexGrow() Float {
 	return s["flex_grow"].(Float)
 }
-
 func (s Properties) SetFlexGrow(v Float) {
 	s["flex_grow"] = v
 }
@@ -541,7 +474,6 @@ func (s Properties) SetFlexGrow(v Float) {
 func (s Properties) GetFlexShrink() Float {
 	return s["flex_shrink"].(Float)
 }
-
 func (s Properties) SetFlexShrink(v Float) {
 	s["flex_shrink"] = v
 }
@@ -549,7 +481,6 @@ func (s Properties) SetFlexShrink(v Float) {
 func (s Properties) GetFlexWrap() String {
 	return s["flex_wrap"].(String)
 }
-
 func (s Properties) SetFlexWrap(v String) {
 	s["flex_wrap"] = v
 }
@@ -557,7 +488,6 @@ func (s Properties) SetFlexWrap(v String) {
 func (s Properties) GetFloat() String {
 	return s["float"].(String)
 }
-
 func (s Properties) SetFloat(v String) {
 	s["float"] = v
 }
@@ -565,7 +495,6 @@ func (s Properties) SetFloat(v String) {
 func (s Properties) GetFontFamily() Strings {
 	return s["font_family"].(Strings)
 }
-
 func (s Properties) SetFontFamily(v Strings) {
 	s["font_family"] = v
 }
@@ -573,7 +502,6 @@ func (s Properties) SetFontFamily(v Strings) {
 func (s Properties) GetFontFeatureSettings() SIntStrings {
 	return s["font_feature_settings"].(SIntStrings)
 }
-
 func (s Properties) SetFontFeatureSettings(v SIntStrings) {
 	s["font_feature_settings"] = v
 }
@@ -581,7 +509,6 @@ func (s Properties) SetFontFeatureSettings(v SIntStrings) {
 func (s Properties) GetFontKerning() String {
 	return s["font_kerning"].(String)
 }
-
 func (s Properties) SetFontKerning(v String) {
 	s["font_kerning"] = v
 }
@@ -589,7 +516,6 @@ func (s Properties) SetFontKerning(v String) {
 func (s Properties) GetFontLanguageOverride() String {
 	return s["font_language_override"].(String)
 }
-
 func (s Properties) SetFontLanguageOverride(v String) {
 	s["font_language_override"] = v
 }
@@ -597,7 +523,6 @@ func (s Properties) SetFontLanguageOverride(v String) {
 func (s Properties) GetFontSize() Value {
 	return s["font_size"].(Value)
 }
-
 func (s Properties) SetFontSize(v Value) {
 	s["font_size"] = v
 }
@@ -605,7 +530,6 @@ func (s Properties) SetFontSize(v Value) {
 func (s Properties) GetFontStretch() String {
 	return s["font_stretch"].(String)
 }
-
 func (s Properties) SetFontStretch(v String) {
 	s["font_stretch"] = v
 }
@@ -613,7 +537,6 @@ func (s Properties) SetFontStretch(v String) {
 func (s Properties) GetFontStyle() String {
 	return s["font_style"].(String)
 }
-
 func (s Properties) SetFontStyle(v String) {
 	s["font_style"] = v
 }
@@ -621,7 +544,6 @@ func (s Properties) SetFontStyle(v String) {
 func (s Properties) GetFontVariant() String {
 	return s["font_variant"].(String)
 }
-
 func (s Properties) SetFontVariant(v String) {
 	s["font_variant"] = v
 }
@@ -629,7 +551,6 @@ func (s Properties) SetFontVariant(v String) {
 func (s Properties) GetFontVariantAlternates() String {
 	return s["font_variant_alternates"].(String)
 }
-
 func (s Properties) SetFontVariantAlternates(v String) {
 	s["font_variant_alternates"] = v
 }
@@ -637,7 +558,6 @@ func (s Properties) SetFontVariantAlternates(v String) {
 func (s Properties) GetFontVariantCaps() String {
 	return s["font_variant_caps"].(String)
 }
-
 func (s Properties) SetFontVariantCaps(v String) {
 	s["font_variant_caps"] = v
 }
@@ -645,7 +565,6 @@ func (s Properties) SetFontVariantCaps(v String) {
 func (s Properties) GetFontVariantEastAsian() SStrings {
 	return s["font_variant_east_asian"].(SStrings)
 }
-
 func (s Properties) SetFontVariantEastAsian(v SStrings) {
 	s["font_variant_east_asian"] = v
 }
@@ -653,7 +572,6 @@ func (s Properties) SetFontVariantEastAsian(v SStrings) {
 func (s Properties) GetFontVariantLigatures() SStrings {
 	return s["font_variant_ligatures"].(SStrings)
 }
-
 func (s Properties) SetFontVariantLigatures(v SStrings) {
 	s["font_variant_ligatures"] = v
 }
@@ -661,7 +579,6 @@ func (s Properties) SetFontVariantLigatures(v SStrings) {
 func (s Properties) GetFontVariantNumeric() SStrings {
 	return s["font_variant_numeric"].(SStrings)
 }
-
 func (s Properties) SetFontVariantNumeric(v SStrings) {
 	s["font_variant_numeric"] = v
 }
@@ -669,7 +586,6 @@ func (s Properties) SetFontVariantNumeric(v SStrings) {
 func (s Properties) GetFontVariantPosition() String {
 	return s["font_variant_position"].(String)
 }
-
 func (s Properties) SetFontVariantPosition(v String) {
 	s["font_variant_position"] = v
 }
@@ -677,7 +593,6 @@ func (s Properties) SetFontVariantPosition(v String) {
 func (s Properties) GetFontWeight() IntString {
 	return s["font_weight"].(IntString)
 }
-
 func (s Properties) SetFontWeight(v IntString) {
 	s["font_weight"] = v
 }
@@ -685,7 +600,6 @@ func (s Properties) SetFontWeight(v IntString) {
 func (s Properties) GetHeight() Value {
 	return s["height"].(Value)
 }
-
 func (s Properties) SetHeight(v Value) {
 	s["height"] = v
 }
@@ -693,7 +607,6 @@ func (s Properties) SetHeight(v Value) {
 func (s Properties) GetHyphenateCharacter() String {
 	return s["hyphenate_character"].(String)
 }
-
 func (s Properties) SetHyphenateCharacter(v String) {
 	s["hyphenate_character"] = v
 }
@@ -701,7 +614,6 @@ func (s Properties) SetHyphenateCharacter(v String) {
 func (s Properties) GetHyphenateLimitChars() Ints3 {
 	return s["hyphenate_limit_chars"].(Ints3)
 }
-
 func (s Properties) SetHyphenateLimitChars(v Ints3) {
 	s["hyphenate_limit_chars"] = v
 }
@@ -709,7 +621,6 @@ func (s Properties) SetHyphenateLimitChars(v Ints3) {
 func (s Properties) GetHyphenateLimitZone() Value {
 	return s["hyphenate_limit_zone"].(Value)
 }
-
 func (s Properties) SetHyphenateLimitZone(v Value) {
 	s["hyphenate_limit_zone"] = v
 }
@@ -717,7 +628,6 @@ func (s Properties) SetHyphenateLimitZone(v Value) {
 func (s Properties) GetHyphens() String {
 	return s["hyphens"].(String)
 }
-
 func (s Properties) SetHyphens(v String) {
 	s["hyphens"] = v
 }
@@ -725,7 +635,6 @@ func (s Properties) SetHyphens(v String) {
 func (s Properties) GetImageRendering() String {
 	return s["image_rendering"].(String)
 }
-
 func (s Properties) SetImageRendering(v String) {
 	s["image_rendering"] = v
 }
@@ -733,7 +642,6 @@ func (s Properties) SetImageRendering(v String) {
 func (s Properties) GetImageResolution() Value {
 	return s["image_resolution"].(Value)
 }
-
 func (s Properties) SetImageResolution(v Value) {
 	s["image_resolution"] = v
 }
@@ -741,7 +649,6 @@ func (s Properties) SetImageResolution(v Value) {
 func (s Properties) GetJustifyContent() String {
 	return s["justify_content"].(String)
 }
-
 func (s Properties) SetJustifyContent(v String) {
 	s["justify_content"] = v
 }
@@ -749,7 +656,6 @@ func (s Properties) SetJustifyContent(v String) {
 func (s Properties) GetLang() NamedString {
 	return s["lang"].(NamedString)
 }
-
 func (s Properties) SetLang(v NamedString) {
 	s["lang"] = v
 }
@@ -757,7 +663,6 @@ func (s Properties) SetLang(v NamedString) {
 func (s Properties) GetLeft() Value {
 	return s["left"].(Value)
 }
-
 func (s Properties) SetLeft(v Value) {
 	s["left"] = v
 }
@@ -765,7 +670,6 @@ func (s Properties) SetLeft(v Value) {
 func (s Properties) GetLetterSpacing() Value {
 	return s["letter_spacing"].(Value)
 }
-
 func (s Properties) SetLetterSpacing(v Value) {
 	s["letter_spacing"] = v
 }
@@ -773,7 +677,6 @@ func (s Properties) SetLetterSpacing(v Value) {
 func (s Properties) GetLineHeight() Value {
 	return s["line_height"].(Value)
 }
-
 func (s Properties) SetLineHeight(v Value) {
 	s["line_height"] = v
 }
@@ -781,7 +684,6 @@ func (s Properties) SetLineHeight(v Value) {
 func (s Properties) GetLink() NamedString {
 	return s["link"].(NamedString)
 }
-
 func (s Properties) SetLink(v NamedString) {
 	s["link"] = v
 }
@@ -789,7 +691,6 @@ func (s Properties) SetLink(v NamedString) {
 func (s Properties) GetListStyleImage() Image {
 	return s["list_style_image"].(Image)
 }
-
 func (s Properties) SetListStyleImage(v Image) {
 	s["list_style_image"] = v
 }
@@ -797,7 +698,6 @@ func (s Properties) SetListStyleImage(v Image) {
 func (s Properties) GetListStylePosition() String {
 	return s["list_style_position"].(String)
 }
-
 func (s Properties) SetListStylePosition(v String) {
 	s["list_style_position"] = v
 }
@@ -805,7 +705,6 @@ func (s Properties) SetListStylePosition(v String) {
 func (s Properties) GetListStyleType() CounterStyleID {
 	return s["list_style_type"].(CounterStyleID)
 }
-
 func (s Properties) SetListStyleType(v CounterStyleID) {
 	s["list_style_type"] = v
 }
@@ -813,7 +712,6 @@ func (s Properties) SetListStyleType(v CounterStyleID) {
 func (s Properties) GetMarginBottom() Value {
 	return s["margin_bottom"].(Value)
 }
-
 func (s Properties) SetMarginBottom(v Value) {
 	s["margin_bottom"] = v
 }
@@ -821,7 +719,6 @@ func (s Properties) SetMarginBottom(v Value) {
 func (s Properties) GetMarginBreak() String {
 	return s["margin_break"].(String)
 }
-
 func (s Properties) SetMarginBreak(v String) {
 	s["margin_break"] = v
 }
@@ -829,7 +726,6 @@ func (s Properties) SetMarginBreak(v String) {
 func (s Properties) GetMarginLeft() Value {
 	return s["margin_left"].(Value)
 }
-
 func (s Properties) SetMarginLeft(v Value) {
 	s["margin_left"] = v
 }
@@ -837,7 +733,6 @@ func (s Properties) SetMarginLeft(v Value) {
 func (s Properties) GetMarginRight() Value {
 	return s["margin_right"].(Value)
 }
-
 func (s Properties) SetMarginRight(v Value) {
 	s["margin_right"] = v
 }
@@ -845,7 +740,6 @@ func (s Properties) SetMarginRight(v Value) {
 func (s Properties) GetMarginTop() Value {
 	return s["margin_top"].(Value)
 }
-
 func (s Properties) SetMarginTop(v Value) {
 	s["margin_top"] = v
 }
@@ -853,7 +747,6 @@ func (s Properties) SetMarginTop(v Value) {
 func (s Properties) GetMarks() Marks {
 	return s["marks"].(Marks)
 }
-
 func (s Properties) SetMarks(v Marks) {
 	s["marks"] = v
 }
@@ -861,7 +754,6 @@ func (s Properties) SetMarks(v Marks) {
 func (s Properties) GetMaxHeight() Value {
 	return s["max_height"].(Value)
 }
-
 func (s Properties) SetMaxHeight(v Value) {
 	s["max_height"] = v
 }
@@ -869,7 +761,6 @@ func (s Properties) SetMaxHeight(v Value) {
 func (s Properties) GetMaxLines() IntString {
 	return s["max_lines"].(IntString)
 }
-
 func (s Properties) SetMaxLines(v IntString) {
 	s["max_lines"] = v
 }
@@ -877,7 +768,6 @@ func (s Properties) SetMaxLines(v IntString) {
 func (s Properties) GetMaxWidth() Value {
 	return s["max_width"].(Value)
 }
-
 func (s Properties) SetMaxWidth(v Value) {
 	s["max_width"] = v
 }
@@ -885,7 +775,6 @@ func (s Properties) SetMaxWidth(v Value) {
 func (s Properties) GetMinHeight() Value {
 	return s["min_height"].(Value)
 }
-
 func (s Properties) SetMinHeight(v Value) {
 	s["min_height"] = v
 }
@@ -893,7 +782,6 @@ func (s Properties) SetMinHeight(v Value) {
 func (s Properties) GetMinWidth() Value {
 	return s["min_width"].(Value)
 }
-
 func (s Properties) SetMinWidth(v Value) {
 	s["min_width"] = v
 }
@@ -901,7 +789,6 @@ func (s Properties) SetMinWidth(v Value) {
 func (s Properties) GetObjectFit() String {
 	return s["object_fit"].(String)
 }
-
 func (s Properties) SetObjectFit(v String) {
 	s["object_fit"] = v
 }
@@ -909,7 +796,6 @@ func (s Properties) SetObjectFit(v String) {
 func (s Properties) GetObjectPosition() Center {
 	return s["object_position"].(Center)
 }
-
 func (s Properties) SetObjectPosition(v Center) {
 	s["object_position"] = v
 }
@@ -917,7 +803,6 @@ func (s Properties) SetObjectPosition(v Center) {
 func (s Properties) GetOpacity() Float {
 	return s["opacity"].(Float)
 }
-
 func (s Properties) SetOpacity(v Float) {
 	s["opacity"] = v
 }
@@ -925,7 +810,6 @@ func (s Properties) SetOpacity(v Float) {
 func (s Properties) GetOrder() Int {
 	return s["order"].(Int)
 }
-
 func (s Properties) SetOrder(v Int) {
 	s["order"] = v
 }
@@ -933,7 +817,6 @@ func (s Properties) SetOrder(v Int) {
 func (s Properties) GetOrphans() Int {
 	return s["orphans"].(Int)
 }
-
 func (s Properties) SetOrphans(v Int) {
 	s["orphans"] = v
 }
@@ -941,7 +824,6 @@ func (s Properties) SetOrphans(v Int) {
 func (s Properties) GetOutlineColor() Color {
 	return s["outline_color"].(Color)
 }
-
 func (s Properties) SetOutlineColor(v Color) {
 	s["outline_color"] = v
 }
@@ -949,7 +831,6 @@ func (s Properties) SetOutlineColor(v Color) {
 func (s Properties) GetOutlineStyle() String {
 	return s["outline_style"].(String)
 }
-
 func (s Properties) SetOutlineStyle(v String) {
 	s["outline_style"] = v
 }
@@ -957,7 +838,6 @@ func (s Properties) SetOutlineStyle(v String) {
 func (s Properties) GetOutlineWidth() Value {
 	return s["outline_width"].(Value)
 }
-
 func (s Properties) SetOutlineWidth(v Value) {
 	s["outline_width"] = v
 }
@@ -965,7 +845,6 @@ func (s Properties) SetOutlineWidth(v Value) {
 func (s Properties) GetOverflow() String {
 	return s["overflow"].(String)
 }
-
 func (s Properties) SetOverflow(v String) {
 	s["overflow"] = v
 }
@@ -973,7 +852,6 @@ func (s Properties) SetOverflow(v String) {
 func (s Properties) GetOverflowWrap() String {
 	return s["overflow_wrap"].(String)
 }
-
 func (s Properties) SetOverflowWrap(v String) {
 	s["overflow_wrap"] = v
 }
@@ -981,7 +859,6 @@ func (s Properties) SetOverflowWrap(v String) {
 func (s Properties) GetPaddingBottom() Value {
 	return s["padding_bottom"].(Value)
 }
-
 func (s Properties) SetPaddingBottom(v Value) {
 	s["padding_bottom"] = v
 }
@@ -989,7 +866,6 @@ func (s Properties) SetPaddingBottom(v Value) {
 func (s Properties) GetPaddingLeft() Value {
 	return s["padding_left"].(Value)
 }
-
 func (s Properties) SetPaddingLeft(v Value) {
 	s["padding_left"] = v
 }
@@ -997,7 +873,6 @@ func (s Properties) SetPaddingLeft(v Value) {
 func (s Properties) GetPaddingRight() Value {
 	return s["padding_right"].(Value)
 }
-
 func (s Properties) SetPaddingRight(v Value) {
 	s["padding_right"] = v
 }
@@ -1005,7 +880,6 @@ func (s Properties) SetPaddingRight(v Value) {
 func (s Properties) GetPaddingTop() Value {
 	return s["padding_top"].(Value)
 }
-
 func (s Properties) SetPaddingTop(v Value) {
 	s["padding_top"] = v
 }
@@ -1013,7 +887,6 @@ func (s Properties) SetPaddingTop(v Value) {
 func (s Properties) GetPage() Page {
 	return s["page"].(Page)
 }
-
 func (s Properties) SetPage(v Page) {
 	s["page"] = v
 }
@@ -1021,7 +894,6 @@ func (s Properties) SetPage(v Page) {
 func (s Properties) GetPosition() BoolString {
 	return s["position"].(BoolString)
 }
-
 func (s Properties) SetPosition(v BoolString) {
 	s["position"] = v
 }
@@ -1029,7 +901,6 @@ func (s Properties) SetPosition(v BoolString) {
 func (s Properties) GetQuotes() Quotes {
 	return s["quotes"].(Quotes)
 }
-
 func (s Properties) SetQuotes(v Quotes) {
 	s["quotes"] = v
 }
@@ -1037,23 +908,20 @@ func (s Properties) SetQuotes(v Quotes) {
 func (s Properties) GetRight() Value {
 	return s["right"].(Value)
 }
-
 func (s Properties) SetRight(v Value) {
 	s["right"] = v
 }
 
-func (s Properties) GetSize() Values {
-	return s["size"].(Values)
+func (s Properties) GetSize() Point {
+	return s["size"].(Point)
 }
-
-func (s Properties) SetSize(v Values) {
+func (s Properties) SetSize(v Point) {
 	s["size"] = v
 }
 
 func (s Properties) GetStringSet() StringSet {
 	return s["string_set"].(StringSet)
 }
-
 func (s Properties) SetStringSet(v StringSet) {
 	s["string_set"] = v
 }
@@ -1061,7 +929,6 @@ func (s Properties) SetStringSet(v StringSet) {
 func (s Properties) GetTabSize() Value {
 	return s["tab_size"].(Value)
 }
-
 func (s Properties) SetTabSize(v Value) {
 	s["tab_size"] = v
 }
@@ -1069,7 +936,6 @@ func (s Properties) SetTabSize(v Value) {
 func (s Properties) GetTableLayout() String {
 	return s["table_layout"].(String)
 }
-
 func (s Properties) SetTableLayout(v String) {
 	s["table_layout"] = v
 }
@@ -1077,7 +943,6 @@ func (s Properties) SetTableLayout(v String) {
 func (s Properties) GetTextAlign() String {
 	return s["text_align"].(String)
 }
-
 func (s Properties) SetTextAlign(v String) {
 	s["text_align"] = v
 }
@@ -1085,7 +950,6 @@ func (s Properties) SetTextAlign(v String) {
 func (s Properties) GetTextDecorationColor() Color {
 	return s["text_decoration_color"].(Color)
 }
-
 func (s Properties) SetTextDecorationColor(v Color) {
 	s["text_decoration_color"] = v
 }
@@ -1093,7 +957,6 @@ func (s Properties) SetTextDecorationColor(v Color) {
 func (s Properties) GetTextDecorationLine() NDecorations {
 	return s["text_decoration_line"].(NDecorations)
 }
-
 func (s Properties) SetTextDecorationLine(v NDecorations) {
 	s["text_decoration_line"] = v
 }
@@ -1101,7 +964,6 @@ func (s Properties) SetTextDecorationLine(v NDecorations) {
 func (s Properties) GetTextDecorationStyle() String {
 	return s["text_decoration_style"].(String)
 }
-
 func (s Properties) SetTextDecorationStyle(v String) {
 	s["text_decoration_style"] = v
 }
@@ -1109,7 +971,6 @@ func (s Properties) SetTextDecorationStyle(v String) {
 func (s Properties) GetTextIndent() Value {
 	return s["text_indent"].(Value)
 }
-
 func (s Properties) SetTextIndent(v Value) {
 	s["text_indent"] = v
 }
@@ -1117,7 +978,6 @@ func (s Properties) SetTextIndent(v Value) {
 func (s Properties) GetTextOverflow() String {
 	return s["text_overflow"].(String)
 }
-
 func (s Properties) SetTextOverflow(v String) {
 	s["text_overflow"] = v
 }
@@ -1125,7 +985,6 @@ func (s Properties) SetTextOverflow(v String) {
 func (s Properties) GetTextTransform() String {
 	return s["text_transform"].(String)
 }
-
 func (s Properties) SetTextTransform(v String) {
 	s["text_transform"] = v
 }
@@ -1133,7 +992,6 @@ func (s Properties) SetTextTransform(v String) {
 func (s Properties) GetTop() Value {
 	return s["top"].(Value)
 }
-
 func (s Properties) SetTop(v Value) {
 	s["top"] = v
 }
@@ -1141,7 +999,6 @@ func (s Properties) SetTop(v Value) {
 func (s Properties) GetTransform() Transforms {
 	return s["transform"].(Transforms)
 }
-
 func (s Properties) SetTransform(v Transforms) {
 	s["transform"] = v
 }
@@ -1149,7 +1006,6 @@ func (s Properties) SetTransform(v Transforms) {
 func (s Properties) GetTransformOrigin() Point {
 	return s["transform_origin"].(Point)
 }
-
 func (s Properties) SetTransformOrigin(v Point) {
 	s["transform_origin"] = v
 }
@@ -1157,7 +1013,6 @@ func (s Properties) SetTransformOrigin(v Point) {
 func (s Properties) GetUnicodeBidi() String {
 	return s["unicode_bidi"].(String)
 }
-
 func (s Properties) SetUnicodeBidi(v String) {
 	s["unicode_bidi"] = v
 }
@@ -1165,7 +1020,6 @@ func (s Properties) SetUnicodeBidi(v String) {
 func (s Properties) GetVerticalAlign() Value {
 	return s["vertical_align"].(Value)
 }
-
 func (s Properties) SetVerticalAlign(v Value) {
 	s["vertical_align"] = v
 }
@@ -1173,7 +1027,6 @@ func (s Properties) SetVerticalAlign(v Value) {
 func (s Properties) GetVisibility() String {
 	return s["visibility"].(String)
 }
-
 func (s Properties) SetVisibility(v String) {
 	s["visibility"] = v
 }
@@ -1181,7 +1034,6 @@ func (s Properties) SetVisibility(v String) {
 func (s Properties) GetWhiteSpace() String {
 	return s["white_space"].(String)
 }
-
 func (s Properties) SetWhiteSpace(v String) {
 	s["white_space"] = v
 }
@@ -1189,7 +1041,6 @@ func (s Properties) SetWhiteSpace(v String) {
 func (s Properties) GetWidows() Int {
 	return s["widows"].(Int)
 }
-
 func (s Properties) SetWidows(v Int) {
 	s["widows"] = v
 }
@@ -1197,7 +1048,6 @@ func (s Properties) SetWidows(v Int) {
 func (s Properties) GetWidth() Value {
 	return s["width"].(Value)
 }
-
 func (s Properties) SetWidth(v Value) {
 	s["width"] = v
 }
@@ -1205,7 +1055,6 @@ func (s Properties) SetWidth(v Value) {
 func (s Properties) GetWordSpacing() Value {
 	return s["word_spacing"].(Value)
 }
-
 func (s Properties) SetWordSpacing(v Value) {
 	s["word_spacing"] = v
 }
@@ -1213,7 +1062,6 @@ func (s Properties) SetWordSpacing(v Value) {
 func (s Properties) GetZIndex() IntString {
 	return s["z_index"].(IntString)
 }
-
 func (s Properties) SetZIndex(v IntString) {
 	s["z_index"] = v
 }
@@ -1609,8 +1457,8 @@ type StyleAccessor interface {
 	GetRight() Value
 	SetRight(v Value)
 
-	GetSize() Values
-	SetSize(v Values)
+	GetSize() Point
+	SetSize(v Point)
 
 	GetStringSet() StringSet
 	SetStringSet(v StringSet)

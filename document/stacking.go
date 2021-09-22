@@ -135,7 +135,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 				return NewStackingContextFromBox(box, page, childContexts)
 			} else {
 				var blocksIndex, blocksAndCellsIndex *int
-				if bo.IsBlockLevelBox(box) {
+				if bo.BlockLevelBoxT.IsInstance(box) {
 					l := len(blocks)
 					blocksIndex = &l
 					l2 := len(blocksAndCells)

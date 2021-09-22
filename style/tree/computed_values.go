@@ -70,7 +70,7 @@ var (
 		"transform-origin":    transformOrigin,
 
 		"border-spacing":             lengths,
-		"size":                       lengths,
+		"size":                       size,
 		"clip":                       lengths,
 		"border_top_left_radius":     borderRadius,
 		"border_top_right_radius":    borderRadius,
@@ -406,6 +406,15 @@ func lengths(computer *ComputedStyle, name string, _value pr.CssProperty) pr.Css
 		out[index] = length2(computer, name, v, -1, true)
 	}
 	return out
+}
+
+// Compute the lists of lengths that can be percentages.
+func size(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {
+	value := _value.(pr.Point)
+	for index, v := range value {
+		value[index] = length2(computer, name, v.ToValue(), -1, true).Dimension
+	}
+	return value
 }
 
 func borderRadius(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {

@@ -360,29 +360,32 @@ func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *PangoLay
 		// the lines have already been split and the size may differ. Rendering
 		// is also much faster when no width is set.
 		layout.Layout.SetWidth(-1)
+
+		// Create layout with final text
+		if length > len(text) {
+			length = len(text)
+		}
+		firstLineText := string(text[:length])
+
+		// Remove trailing spaces if spaces collapse
+		if spaceCollapse {
+			firstLineText = strings.TrimRight(firstLineText, " ")
+		}
+
+		// Remove soft hyphens
+		textNoHyphens := strings.ReplaceAll(firstLineText, "\u00ad", "")
+		layout.SetText(textNoHyphens, false)
+
+		firstLine, _ = layout.GetFirstLine()
+		length = 0
+
+		if firstLine != nil {
+			length = firstLine.Length
+		}
+
+		// add the number of hypen chars (\u00ad is 2 bytes in utf8)
+		length += (len(firstLineText) - len(textNoHyphens)) / 2
 	}
-
-	// Create layout with final text
-	firstLineText := string(text[:length])
-
-	// Remove trailing spaces if spaces collapse
-	if spaceCollapse {
-		firstLineText = strings.TrimRight(firstLineText, " ")
-	}
-
-	// Remove soft hyphens
-	textNoHyphens := strings.ReplaceAll(firstLineText, "\u00ad", "")
-	layout.SetText(textNoHyphens, false)
-
-	firstLine, _ = layout.GetFirstLine()
-	length = 0
-
-	if firstLine != nil {
-		length = firstLine.Length
-	}
-
-	// add the number of hypen chars (\u00ad is 2 bytes in utf8)
-	length += (len(firstLineText) - len(textNoHyphens)) / 2
 
 	width, height := LineSize(firstLine, style)
 	baseline := utils.PangoUnitsToFloat(layout.Layout.GetBaseline())
