@@ -100,11 +100,11 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 
 			features := pr.Properties{}
 			for _, rules := range ruleDescriptors.FontVariant {
-				if rules.Property.Default != 0 {
+				if rules.Property.SpecialProperty != nil {
 					continue
 				}
-				if cascaded := rules.Property.AsCascaded(); cascaded.SpecialProperty == nil {
-					features[strings.ReplaceAll(rules.Name, "-", "_")] = cascaded.AsCss()
+				if cascaded := rules.Property.ToCascaded(); cascaded.Default == 0 {
+					features[strings.ReplaceAll(rules.Name, "-", "_")] = cascaded.ToCSS()
 				}
 			}
 			if !ruleDescriptors.FontFeatureSettings.IsNone() {

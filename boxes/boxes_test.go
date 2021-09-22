@@ -484,10 +484,6 @@ func TestBlockInInline(t *testing.T) {
 	})
 }
 
-func pxToValue(px pr.Float) pr.Value {
-	return pr.Dimension{Unit: pr.Px, Value: px}.ToValue()
-}
-
 func TestStyles(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
@@ -517,7 +513,7 @@ func TestStyles(t *testing.T) {
 			t.Fatal()
 		}
 		// Only non-anonymous boxes have margins
-		if mt := child.Box().Style.GetMarginTop(); mt != pxToValue(0) && mt != pxToValue(42) {
+		if mt := child.Box().Style.GetMarginTop(); mt != pr.FToPx(0) && mt != pr.FToPx(42) {
 			t.Fatal()
 		}
 	}
@@ -586,16 +582,16 @@ func testPageStyle(t *testing.T, data pageStyleData) {
 	styleFor.SetPageComputedStylesT(data.type_, document)
 
 	style := styleFor.Get(data.type_, "")
-	if m := style.GetMarginTop(); m != pxToValue(data.top) {
+	if m := style.GetMarginTop(); m != pr.FToPx(data.top) {
 		t.Fatalf("expected %f, got %v", data.top, m)
 	}
-	if m := style.GetMarginRight(); m != pxToValue(data.right) {
+	if m := style.GetMarginRight(); m != pr.FToPx(data.right) {
 		t.Fatalf("expected %f, got %v", data.right, m)
 	}
-	if m := style.GetMarginBottom(); m != pxToValue(data.bottom) {
+	if m := style.GetMarginBottom(); m != pr.FToPx(data.bottom) {
 		t.Fatalf("expected %f, got %v", data.bottom, m)
 	}
-	if m := style.GetMarginLeft(); m != pxToValue(data.left) {
+	if m := style.GetMarginLeft(); m != pr.FToPx(data.left) {
 		t.Fatalf("expected %f, got %v", data.left, m)
 	}
 }
@@ -890,16 +886,16 @@ func TestTableStyle(t *testing.T) {
 	if !(TableBoxT.IsInstance(table)) {
 		t.Fatal()
 	}
-	if !(wrapper.Box().Style.GetMarginTop() == pxToValue(1)) {
+	if !(wrapper.Box().Style.GetMarginTop() == pr.FToPx(1)) {
 		t.Fatal()
 	}
-	if !(wrapper.Box().Style.GetPaddingTop() == pxToValue(0)) {
+	if !(wrapper.Box().Style.GetPaddingTop() == pr.FToPx(0)) {
 		t.Fatal()
 	}
-	if !(table.Box().Style.GetMarginTop() == pxToValue(0)) {
+	if !(table.Box().Style.GetMarginTop() == pr.FToPx(0)) {
 		t.Fatal()
 	}
-	if !(table.Box().Style.GetPaddingTop() == pxToValue(2)) {
+	if !(table.Box().Style.GetPaddingTop() == pr.FToPx(2)) {
 		t.Fatal()
 	}
 }
@@ -927,7 +923,7 @@ func TestColumnStyle(t *testing.T) {
 		gridXs = append(gridXs, col.Box().GridX)
 	}
 	if !reflect.DeepEqual(widths, []pr.Value{
-		pxToValue(10), pxToValue(10), pxToValue(10), pr.SToV("auto"), pr.SToV("auto"),
+		pr.FToPx(10), pr.FToPx(10), pr.FToPx(10), pr.SToV("auto"), pr.SToV("auto"),
 	}) {
 		t.Fatal()
 	}

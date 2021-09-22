@@ -226,6 +226,8 @@ var (
 		"align-items":                alignItems,
 		"align-self":                 alignSelf,
 		"align-content":              alignContent,
+		"anchor":                     anchor,
+		"block-ellipsis":             blockEllipsis,
 	}
 	validatorsError = map[string]validatorError{
 		"background-image":  backgroundImage,
@@ -317,19 +319,18 @@ type ValidatedProperty struct {
 }
 
 // Validate validate one property.
-func Validate(name string, tokens []Token, baseUrl string) (out pr.ValidatedProperty, err error) {
-	if name == "color" { // special case for inherit
+func Validate(name string, tokens []Token, baseUrl string) (out pr.CascadedProperty, err error) {
+	if name == "color" { // special case to handle inherit inherit
 		return color(tokens, ""), nil
-	} else if name == "anchor" {
-		return anchor(tokens, "").ToV(), nil
 	}
+
 	var value pr.CssProperty
 	if function := validators[name]; function != nil {
 		value = function(tokens, baseUrl)
 	} else if functionE := validatorsError[name]; functionE != nil {
 		value, err = functionE(tokens, baseUrl)
 	}
-	return pr.ToC(value).ToV(), err
+	return pr.AsCascaded(value), err
 }
 
 // Default validator for non-shorthand pr.
@@ -338,7 +339,7 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 	if strings.HasPrefix(name, "--") {
 		return pr.NamedProperty{
 			Name:     name,
-			Property: pr.ToC2(pr.CustomProperty(tokens)).ToV(),
+			Property: pr.AsValidated(pr.RawTokens(tokens)),
 		}, nil
 	}
 
@@ -359,15 +360,15 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 		for _, token := range tokens {
 			var_ := CheckVarFunction(token)
 			if !var_.IsNone() {
-				return pr.NamedProperty{Name: name, Property: pr.ToC2(var_).ToV()}, nil
+				return pr.NamedProperty{Name: name, Property: pr.AsValidated(var_)}, nil
 			}
 		}
 	}
 
-	var value pr.ValidatedProperty
+	var value pr.CascadedProperty
 	keyword := getSingleKeyword(tokens)
 	if keyword == "initial" || keyword == "inherit" {
-		value = defaultFromString(keyword)
+		value = defaultFromString(keyword).AsCascaded()
 	} else {
 		value, err = Validate(name, tokens, baseUrl)
 		if err != nil {
@@ -378,7 +379,7 @@ func validateNonShorthand(baseUrl, name string, tokens []parser.Token, required 
 		}
 	}
 
-	return pr.NamedProperty{Name: name, Property: value}, nil
+	return pr.NamedProperty{Name: name, Property: value.AsValidated()}, nil
 }
 
 func defaultValidateShorthand(baseUrl, name string, tokens []parser.Token) (pr.NamedProperties, error) {
@@ -402,7 +403,10 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 			continue
 		}
 
-		name := declaration.Name.Lower()
+		name := string(declaration.Name)
+		if !strings.HasPrefix(name, "--") { // variable, case sensitive
+			name = declaration.Name.Lower()
+		}
 
 		validationError := func(reason string) {
 			log.Printf("Ignored `%s:%s` , %s. \n", declaration.Name, parser.Serialize(declaration.Value), reason)
@@ -599,16 +603,16 @@ func emptyCells(tokens []Token, _ string) pr.CssProperty {
 //@validator("color")
 //@singleToken
 // ``*-color`` && ``color`` properties validation.
-func color(tokens []Token, _ string) pr.ValidatedProperty {
+func color(tokens []Token, _ string) pr.CascadedProperty {
 	if len(tokens) != 1 {
-		return pr.ValidatedProperty{}
+		return pr.CascadedProperty{}
 	}
 	token := tokens[0]
 	result := parser.ParseColor(token)
 	if result.Type == parser.ColorCurrentColor {
-		return pr.Inherit.ToV()
+		return pr.Inherit.AsCascaded()
 	} else {
-		return pr.ToC(pr.Color(result)).ToV()
+		return pr.AsCascaded(pr.Color(result))
 	}
 }
 
@@ -2417,19 +2421,19 @@ func size(tokens []Token, _ string) pr.CssProperty {
 //@validator(proprietary=true)
 //@singleToken
 // Validation for ``anchor``.
-func anchor(tokens []Token, _ string) (out pr.CascadedProperty) {
+func anchor(tokens []Token, _ string) (out pr.CssProperty) {
 	if len(tokens) != 1 {
 		return
 	}
 	token := tokens[0]
 	if getKeyword(token) == "none" {
-		return pr.ToC(pr.String("none"))
+		return pr.String("none")
 	}
 	name, args := parseFunction(token)
 	if name != "" {
 		if len(args) == 1 {
 			if ident, ok := args[0].(parser.IdentToken); ok && name == "attr" {
-				return pr.CascadedProperty{SpecialProperty: pr.AttrData{Name: string(ident.Value)}}
+				return pr.AttrData{Name: string(ident.Value)}
 			}
 		}
 	}
@@ -2715,6 +2719,31 @@ func transform(tokens []Token, _ string) (pr.CssProperty, error) {
 		}
 	}
 	return out, nil
+}
+
+// @property()
+// @single_token
+// ``box-ellipsis`` property validation.
+func blockEllipsis(tokens []Token, _ string) pr.CssProperty {
+	if v, ok := blockEllipsis_(tokens); ok {
+		return v
+	}
+	return nil
+}
+
+func blockEllipsis_(tokens []Token) (out pr.NamedString, ok bool) {
+	if len(tokens) != 1 {
+		return
+	}
+	token := tokens[0]
+	if str, ok := token.(parser.StringToken); ok {
+		return pr.NamedString{Name: "string", String: str.Value}, true
+	}
+	keyword := getKeyword(token)
+	if keyword == "none" || keyword == "auto" {
+		return pr.NamedString{String: keyword}, true
+	}
+	return
 }
 
 func transformFunction(token Token) (pr.SDimensions, error) {

@@ -45,7 +45,7 @@ type StyleFor struct {
 	// inheritedStyle *StyleFor
 
 	CascadedStyles map[utils.ElementKey]cascadedStyle
-	computedStyles map[utils.ElementKey]pr.Properties
+	computedStyles map[utils.ElementKey]ElementStyle
 	sheets         []sheet
 }
 
@@ -53,7 +53,7 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetCol
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		CascadedStyles: cascadedStyles,
-		computedStyles: map[utils.ElementKey]pr.Properties{},
+		computedStyles: map[utils.ElementKey]ElementStyle{},
 		sheets:         sheets,
 	}
 
@@ -147,7 +147,10 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetCol
 func (self *StyleFor) SetComputedStyles(element, parent Element,
 	root *utils.HTMLNode, pseudoType, baseUrl string, TargetCollector *TargetCollector) {
 
-	var parentStyle, rootStyle pr.Properties
+	var (
+		parentStyle ElementStyle
+		rootStyle   pr.Properties
+	)
 	if element == root && pseudoType == "" {
 		if node, ok := parent.(*utils.HTMLNode); parent != nil && (ok && node != nil) {
 			log.Fatal("parent should be nil here")
@@ -162,7 +165,7 @@ func (self *StyleFor) SetComputedStyles(element, parent Element,
 			log.Fatal("parent shouldn't be nil here")
 		}
 		parentStyle = self.computedStyles[parent.ToKey("")]
-		rootStyle = self.computedStyles[utils.ElementKey{Element: root, PseudoType: ""}]
+		rootStyle = self.computedStyles[utils.ElementKey{Element: root, PseudoType: ""}].(*ComputedStyle).dict
 	}
 	key := element.ToKey(pseudoType)
 	cascaded, in := self.CascadedStyles[key]
@@ -173,7 +176,7 @@ func (self *StyleFor) SetComputedStyles(element, parent Element,
 		rootStyle, pseudoType, baseUrl, TargetCollector)
 }
 
-func (s StyleFor) Get(element Element, pseudoType string) pr.Properties {
+func (s StyleFor) Get(element Element, pseudoType string) ElementStyle {
 	style := s.computedStyles[element.ToKey(pseudoType)]
 	if style != nil {
 		display := string(style.GetDisplay())
@@ -230,6 +233,227 @@ func (s StyleFor) AddPageDeclarations(page_T utils.PageElement) {
 			}
 		}
 	}
+}
+
+// ElementStyle provides on demand access of computed properties
+// for a box.
+
+type ElementStyle interface {
+	styleAccessor
+
+	get(key string) pr.CssProperty
+	getParentStyle() ElementStyle
+	getVariables() map[string]pr.ValidatedProperty
+}
+
+var (
+	_ ElementStyle = (*ComputedStyle)(nil)
+	_ ElementStyle = (*AnonymousStyle)(nil)
+)
+
+type computedRequirements struct {
+	float    pr.String
+	display  pr.String
+	position pr.BoolString
+}
+
+// ComputedStyle provides on demand access of computed properties
+type ComputedStyle struct {
+	dict      pr.Properties
+	variables map[string]pr.ValidatedProperty
+
+	rootStyle   pr.Properties
+	parentStyle ElementStyle
+	cascaded    cascadedStyle
+	element     Element
+	pseudoType  string
+	baseUrl     string
+	specified   computedRequirements
+}
+
+func newComputedStyle(parentStyle ElementStyle, cascaded cascadedStyle,
+	element Element, pseudoType string, rootStyle pr.Properties, baseUrl string) *ComputedStyle {
+	out := &ComputedStyle{
+		dict:        make(pr.Properties),
+		variables:   make(map[string]pr.ValidatedProperty),
+		parentStyle: parentStyle,
+		cascaded:    cascaded,
+		element:     element,
+		pseudoType:  pseudoType,
+		rootStyle:   rootStyle,
+		baseUrl:     baseUrl,
+	}
+
+	// inherit the variables
+	if parentStyle != nil {
+		for k, v := range parentStyle.getVariables() {
+			out.variables[k] = v
+		}
+	}
+	for k, v := range cascaded {
+		if strings.HasPrefix(k, "__") {
+			out.variables[k] = v.value
+		}
+	}
+
+	// Set specified value needed for computed value
+	_, position := out.cascadeValue("position")
+	_, display := out.cascadeValue("display")
+	_, float := out.cascadeValue("float")
+
+	if position.SpecialProperty == nil && position.ToCascaded().Default == 0 {
+		out.specified.position = position.ToCascaded().ToCSS().(pr.BoolString)
+	}
+	if display.SpecialProperty == nil && display.ToCascaded().Default == 0 {
+		out.specified.display = display.ToCascaded().ToCSS().(pr.String)
+	}
+	if float.SpecialProperty == nil && float.ToCascaded().Default == 0 {
+		out.specified.float = float.ToCascaded().ToCSS().(pr.String)
+	}
+
+	return out
+}
+
+func (c *ComputedStyle) isRootElement() bool { return c.parentStyle == nil }
+
+func (c *ComputedStyle) getParentStyle() ElementStyle { return c.parentStyle }
+
+func (c *ComputedStyle) getVariables() map[string]pr.ValidatedProperty { return c.variables }
+
+func (c *ComputedStyle) cascadeValue(key string) (pr.DefaultKind, pr.ValidatedProperty) {
+	var (
+		value   pr.ValidatedProperty
+		keyword pr.DefaultKind
+	)
+	if casc, in := c.cascaded[key]; in {
+		value = casc.value
+		if value.SpecialProperty == nil {
+			keyword = value.ToCascaded().Default
+		}
+	} else {
+		if pr.Inherited.Has(key) {
+			keyword = pr.Inherit
+		} else {
+			keyword = pr.Initial
+		}
+	}
+
+	if keyword == pr.Inherit && c.isRootElement() {
+		// On the Root Element, "inherit" from initial values
+		keyword = pr.Initial
+	}
+
+	if keyword == pr.Initial {
+		value_ := pr.InitialValues[key]
+		value = pr.AsCascaded(value_).AsValidated()
+	} else if keyword == pr.Inherit {
+		value_ := c.parentStyle.get(key)
+		value = pr.AsCascaded(value_).AsValidated()
+	}
+
+	return keyword, value
+}
+
+// provide on demand computation
+func (c *ComputedStyle) get(key string) pr.CssProperty {
+	// check the cache
+	if v, has := c.dict[key]; has {
+		return v
+	}
+
+	keyword, value := c.cascadeValue(key)
+
+	if keyword == pr.Initial && !pr.InitialNotComputed.Has(key) {
+		// The value is the same as when computed
+		c.dict[key] = value.ToCascaded().ToCSS()
+	} else if keyword == pr.Inherit {
+		// Values in parentStyle are already computed.
+		c.dict[key] = value.ToCascaded().ToCSS()
+	}
+
+	if key == "page" && value.SpecialProperty == nil && value.ToCascaded().Default == 0 && value.ToCascaded().ToCSS().(pr.Page).String == "auto" {
+		// The page property does not inherit. However, if the page value on
+		// an Element is auto, then its used value is the value specified on
+		// its nearest ancestor with a non-auto value. When specified on the
+		// Root Element, the used value for auto is the empty string.
+		value_ := pr.Page{Valid: true, String: ""}
+		if c.parentStyle != nil {
+			value_ = c.parentStyle.GetPage()
+		}
+		c.dict.SetPage(value_)
+		value = pr.AsCascaded(value_).AsValidated()
+	}
+
+	// check the cache again
+	if v, has := c.dict[key]; has {
+		return v
+	}
+
+	value_, alreadyComputedValue := computeVariable(value, key, c.variables, c.baseUrl, c.parentStyle)
+	if value_.Default != 0 {
+		panic("should not happend")
+	}
+	outValue := value_.ToCSS()
+
+	fn := computerFunctions[key]
+	if fn != nil && !alreadyComputedValue {
+		outValue = fn(c, key, outValue)
+	}
+	c.dict[key] = outValue
+	return outValue
+}
+
+// AnonymousStyle provides on demand access of computed properties,
+// optimized for anonymous boxes
+type AnonymousStyle struct {
+	dict        pr.Properties
+	parentStyle ElementStyle
+	variables   map[string]pr.ValidatedProperty
+}
+
+func newAnonymousStyle(parentStyle ElementStyle) *AnonymousStyle {
+	out := &AnonymousStyle{
+		parentStyle: parentStyle,
+		variables:   make(map[string]pr.ValidatedProperty),
+		dict:        make(pr.Properties),
+	}
+	// inherit the variables
+	if parentStyle != nil {
+		for k, v := range parentStyle.getVariables() {
+			out.variables[k] = v
+		}
+	}
+	// border-*-style is none, so border-width computes to zero.
+	// Other than that, properties that would need computing are
+	// border-*-color, but they do not apply.
+	out.dict.SetBorderTopWidth(pr.Value{})
+	out.dict.SetBorderBottomWidth(pr.Value{})
+	out.dict.SetBorderLeftWidth(pr.Value{})
+	out.dict.SetBorderRightWidth(pr.Value{})
+	out.dict.SetOutlineWidth(pr.Value{})
+
+	return out
+}
+
+func (c *AnonymousStyle) getParentStyle() ElementStyle { return c.parentStyle }
+
+func (c *AnonymousStyle) getVariables() map[string]pr.ValidatedProperty { return c.variables }
+
+func (a *AnonymousStyle) get(key string) pr.CssProperty {
+	if v, has := a.dict[key]; has {
+		return v
+	}
+
+	if pr.Inherited.Has(key) || strings.HasPrefix(key, "__") {
+		a.dict[key] = a.parentStyle.get(key)
+	} else if key == "page" {
+		// page is not inherited but taken from the ancestor if 'auto'
+		a.dict[key] = a.parentStyle.get(key)
+	} else {
+		a.dict[key] = pr.InitialValues[key]
+	}
+
+	return a.dict[key]
 }
 
 func pageMatchT(selectorPageType pageSelector, pageType utils.PageElement) bool {
@@ -651,104 +875,16 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *TargetCollector) pr.Properties {
-	if len(cascaded) == 0 && parentStyle != nil {
-		// Fast path for anonymous boxes:
-		// no cascaded style, only implicitly initial or inherited values.
-		computed := pr.InitialValues.Copy()
-		for name := range parentStyle {
-			if pr.Inherited.Has(name) || strings.HasPrefix(name, "__") {
-				computed[name] = parentStyle[name]
-			}
-		}
-
-		// page is not inherited but taken from the ancestor if "auto"
-		computed.SetPage(parentStyle.GetPage())
-		// border-*-style is none, so border-width computes to zero.
-		// Other than that, properties that would need computing are
-		// border-*-color, but they do not apply.
-		computed.SetBorderTopWidth(pr.Value{})
-		computed.SetBorderBottomWidth(pr.Value{})
-		computed.SetBorderLeftWidth(pr.Value{})
-		computed.SetBorderRightWidth(pr.Value{})
-		computed.SetOutlineWidth(pr.Value{})
-		return computed
+func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle ElementStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *TargetCollector) ElementStyle {
+	if cascaded == nil && parentStyle != nil {
+		return newAnonymousStyle(parentStyle)
 	}
 
-	// Handle inheritance and initial values
-	specified, computed := map[string]pr.CascadedProperty{}, pr.Properties{}
-	if parentStyle != nil {
-		for name := range parentStyle {
-			if strings.HasPrefix(name, "__") {
-				computed[name] = parentStyle[name]
-				specified[name] = pr.ToC(parentStyle[name])
-			}
-		}
+	style := newComputedStyle(parentStyle, cascaded, element, pseudoType, rootStyle, baseUrl)
+	if targetCollector != nil {
+		targetCollector.collectAnchor(string(style.GetAnchor()))
 	}
-	for name := range cascaded {
-		if strings.HasPrefix(name, "__") {
-			casc := cascaded[name].value.AsCascaded()
-			specified[name] = casc
-			if casc.SpecialProperty == nil {
-				computed[name] = casc.AsCss()
-			}
-		}
-	}
-
-	for name, initial := range pr.InitialValues {
-		var (
-			keyword pr.DefaultKind
-			value   pr.CascadedProperty
-		)
-		if casc, in := cascaded[name]; in {
-			vp := casc.value
-			if vp.Default == 0 {
-				value = vp.AsCascaded()
-			}
-			keyword = vp.Default
-		} else {
-			if pr.Inherited.Has(name) {
-				keyword = pr.Inherit
-			} else {
-				keyword = pr.Initial
-			}
-		}
-
-		if keyword == pr.Inherit && parentStyle == nil {
-			// On the Root Element, "inherit" from initial values
-			keyword = pr.Initial
-		}
-
-		if keyword == pr.Initial {
-			value = pr.ToC(initial)
-			if !pr.InitialNotComputed.Has(name) {
-				// The value is the same as when computed
-				computed[name] = initial
-			}
-		} else if keyword == pr.Inherit {
-			value = pr.ToC(parentStyle[name])
-			// Values in parentStyle are already computed.
-			computed[name] = parentStyle[name]
-		}
-		specified[name] = value
-	}
-	sp := specified["page"]
-	if sp.SpecialProperty == nil && sp.AsCss() != nil && sp.AsCss().(pr.Page).String == "auto" {
-		// The page property does not inherit. However, if the page value on
-		// an Element is auto, then its used value is the value specified on
-		// its nearest ancestor with a non-auto value. When specified on the
-		// Root Element, the used value for auto is the empty string.
-		val := pr.Page{Valid: true, String: ""}
-		if parentStyle != nil {
-			val = parentStyle.GetPage()
-		}
-		computed.SetPage(val)
-		specified["page"] = pr.ToC(val)
-	}
-
-	compute(element, pseudoType, specified, computed, parentStyle, rootStyle, baseUrl, targetCollector)
-
-	return computed
+	return style
 }
 
 // either a html node or a page type

@@ -151,7 +151,7 @@ type NamedProperty struct {
 type NamedProperties []NamedProperty
 
 // ---------------------- helpers types -----------------------------------
-type CustomProperty []parser.Token
+type RawTokens []parser.Token
 
 type SContentProp struct {
 	ContentProperty ContentProperty

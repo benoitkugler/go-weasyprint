@@ -2,7 +2,7 @@
 // There are 3 groups of types for a property, separated by 2 steps : cascading and computation.
 // Thus the need of 3 types (see below).
 // Schematically, the style computation is :
-//		ValidatedProperty (ComputedFromCascaded)-> CascadedPropery (Compute)-> CssProperty
+//		ValidatedProperty (ComputedFromCascaded)-> CascadedProperty (Compute)-> CssProperty
 package properties
 
 import (
@@ -12,49 +12,59 @@ import (
 
 type Fl = utils.Fl
 
-// CssProperty is final form of a css input :
-// "var()", "attr()" and custom properties have been resolved.
-type CssProperty interface {
-	isCssProperty()
-}
-
-// CascadedProperty may contain either a classic CSS property
-// or one the 3 special values var(), attr() or custom properties.
-// "initial" and "inherited" values have been resolved
-type CascadedProperty struct {
-	prop            CssProperty
+// ValidatedProperty is the most general CSS input for a property.
+// It covers the following cases:
+//	- a plain CSS value, including "initial" or "inherited" special cases (CssProperty)
+//	- a var() call (VarData)
+//  - an input not yet validated, used as definition of variable (RawTokens)
+type ValidatedProperty struct {
 	SpecialProperty specialProperty
+	prop            CascadedProperty
 }
 
-// AsCss will panic if c.SpecialProperty is not nil.
-func (c CascadedProperty) AsCss() CssProperty {
+func (c ValidatedProperty) IsNone() bool {
+	return c.prop.IsNone() && c.SpecialProperty == nil
+}
+
+// ToCascaded will panic if c.SpecialProperty is not nil.
+func (c ValidatedProperty) ToCascaded() CascadedProperty {
 	if c.SpecialProperty != nil {
-		panic("attempted to bypass the SpecialProperty of a CascadedProperty")
+		panic("attempted to bypass the SpecialProperty of a ValidatedProperty")
 	}
 	return c.prop
 }
 
-func (c CascadedProperty) IsNone() bool {
-	return c.prop == nil && c.SpecialProperty == nil
-}
-
-// ValidatedProperty is valid css input, so it may contain
-// a classic property, a special one, or one of the keyword "inherited" or "initial".
-type ValidatedProperty struct {
-	prop    CascadedProperty
+// CascadedProperty is the second form of a CSS input :
+// var() calls have been resolved and the remaining raw properties have been checked.
+// It is thus either a plain CSS property, or a default value.
+type CascadedProperty struct {
+	prop    CssProperty
 	Default DefaultKind
 }
 
-func (v ValidatedProperty) IsNone() bool {
-	return v.prop.IsNone() && v.Default == 0
+func (v CascadedProperty) IsNone() bool {
+	return v.prop == nil && v.Default == 0
 }
 
-// AsCascaded will panic if c.Default is not zero.
-func (c ValidatedProperty) AsCascaded() CascadedProperty {
+// ToCSS will panic if c.Default is not 0.
+func (c CascadedProperty) ToCSS() CssProperty {
 	if c.Default != 0 {
-		panic("attempted to bypass the Default of a ValidatedProperty")
+		panic("attempted to bypass the Default of a CascadedProperty")
 	}
 	return c.prop
+}
+
+// AsValidated wraps the property into a ValidatedProperty
+func (c CascadedProperty) AsValidated() ValidatedProperty {
+	return ValidatedProperty{prop: c}
+}
+
+// CssProperty is final form of a css input :
+// default values, "var()" and raw tokens have been resolved.
+// Note than a CssProperty can naturally be seen as a CascadedProperty, but not the other way around.
+
+type CssProperty interface {
+	isCssProperty()
 }
 
 type specialProperty interface {
@@ -68,39 +78,30 @@ const (
 	Initial
 )
 
-func (d DefaultKind) ToV() ValidatedProperty {
-	return ValidatedProperty{Default: d}
-}
+// AsCascaded wraps the default to a CascadedProperty
+func (d DefaultKind) AsCascaded() CascadedProperty { return CascadedProperty{Default: d} }
 
 type VarData struct {
-	Name        string // name of a custom property
-	Declaration CustomProperty
+	Name    string // name of a custom property
+	Default RawTokens
 }
 
 func (v VarData) IsNone() bool {
-	return v.Name == "" && v.Declaration == nil
+	return v.Name == "" && v.Default == nil
 }
 
-func (v VarData) isSpecialProperty()        {}
-func (v CustomProperty) isSpecialProperty() {}
+func (v VarData) isSpecialProperty() {}
 
-// AttrData is actually only supported inside other properties,
-// and for anchor.
-func (v AttrData) isSpecialProperty() {}
+func (v RawTokens) isSpecialProperty() {}
 
 // ---------- Convenience constructor -------------------------------
-// Note than a CssProperty can naturally be seen as a CascadedProperty, but not the other way around.
 
-func ToC(prop CssProperty) CascadedProperty {
+func AsCascaded(prop CssProperty) CascadedProperty {
 	return CascadedProperty{prop: prop}
 }
 
-func ToC2(spe specialProperty) CascadedProperty {
-	return CascadedProperty{SpecialProperty: spe}
-}
-
-func (c CascadedProperty) ToV() ValidatedProperty {
-	return ValidatedProperty{prop: c}
+func AsValidated(spe specialProperty) ValidatedProperty {
+	return ValidatedProperty{SpecialProperty: spe}
 }
 
 // Properties is the general container for validated, cascaded and computed properties.

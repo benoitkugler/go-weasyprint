@@ -11,6 +11,7 @@ var Inf = Float(math.Inf(+1))
 
 // --------------- Values  -----------------------------------------------
 
+// ToValue wraps `d` to a Value object.
 func (d Dimension) ToValue() Value {
 	return Value{Dimension: d}
 }
@@ -26,6 +27,9 @@ func (v Value) ToMaybeFloat() MaybeFloat {
 	}
 	return v.Value
 }
+
+// FToPx returns `f` as pixels.
+func FToPx(f Float) Value { return Dimension{Unit: Px, Value: f}.ToValue() }
 
 func NewColor(r, g, b, a Fl) Color {
 	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}

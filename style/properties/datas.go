@@ -1,8 +1,9 @@
 package properties
 
 import (
-	"github.com/benoitkugler/go-weasyprint/utils"
 	"strings"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 )
@@ -42,7 +43,7 @@ var (
 		In: 96.,             // LengthsToPixels["pt"] * 72
 		Cm: 96. / 2.54,      // LengthsToPixels["in"] / 2.54
 		Mm: 96. / 25.4,      // LengthsToPixels["in"] / 25.4
-		Q:  96. / 25.4 / 4., // LengthsToPixels["mm"] / 4
+		Q:  96. / 25.4 / 4., // LengthsToPixels[Mm] / 4
 	}
 
 	// Value in pixels of font-size for <absolute-size> keywords: 12pt (16px) for
@@ -62,14 +63,53 @@ var (
 	// http://www.w3.org/TR/css3-page/#size
 	// name=(width in pixels, height in pixels)
 	PageSizes = map[string]Point{
-		"a5":     {Dimension{Value: 148, Unit: Mm}, Dimension{Value: 210, Unit: Mm}},
-		"a4":     InitialWidthHeight,
-		"a3":     {Dimension{Value: 297, Unit: Mm}, Dimension{Value: 420, Unit: Mm}},
-		"b5":     {Dimension{Value: 176, Unit: Mm}, Dimension{Value: 250, Unit: Mm}},
-		"b4":     {Dimension{Value: 250, Unit: Mm}, Dimension{Value: 353, Unit: Mm}},
-		"letter": {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 11, Unit: In}},
-		"legal":  {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 14, Unit: In}},
-		"ledger": {Dimension{Value: 11, Unit: In}, Dimension{Value: 17, Unit: In}},
+		"a10":     {Dimension{Value: 26, Unit: Mm}, Dimension{Value: 37, Unit: Mm}},
+		"a9":      {Dimension{Value: 37, Unit: Mm}, Dimension{Value: 52, Unit: Mm}},
+		"a8":      {Dimension{Value: 52, Unit: Mm}, Dimension{Value: 74, Unit: Mm}},
+		"a7":      {Dimension{Value: 74, Unit: Mm}, Dimension{Value: 105, Unit: Mm}},
+		"a6":      {Dimension{Value: 105, Unit: Mm}, Dimension{Value: 148, Unit: Mm}},
+		"a5":      {Dimension{Value: 148, Unit: Mm}, Dimension{Value: 210, Unit: Mm}},
+		"a4":      InitialWidthHeight,
+		"a3":      {Dimension{Value: 297, Unit: Mm}, Dimension{Value: 420, Unit: Mm}},
+		"a2":      {Dimension{Value: 420, Unit: Mm}, Dimension{Value: 594, Unit: Mm}},
+		"a1":      {Dimension{Value: 594, Unit: Mm}, Dimension{Value: 841, Unit: Mm}},
+		"a0":      {Dimension{Value: 841, Unit: Mm}, Dimension{Value: 1189, Unit: Mm}},
+		"b10":     {Dimension{Value: 31, Unit: Mm}, Dimension{Value: 44, Unit: Mm}},
+		"b9":      {Dimension{Value: 44, Unit: Mm}, Dimension{Value: 62, Unit: Mm}},
+		"b8":      {Dimension{Value: 62, Unit: Mm}, Dimension{Value: 88, Unit: Mm}},
+		"b7":      {Dimension{Value: 88, Unit: Mm}, Dimension{Value: 125, Unit: Mm}},
+		"b6":      {Dimension{Value: 125, Unit: Mm}, Dimension{Value: 176, Unit: Mm}},
+		"b5":      {Dimension{Value: 176, Unit: Mm}, Dimension{Value: 250, Unit: Mm}},
+		"b4":      {Dimension{Value: 250, Unit: Mm}, Dimension{Value: 353, Unit: Mm}},
+		"b3":      {Dimension{Value: 353, Unit: Mm}, Dimension{Value: 500, Unit: Mm}},
+		"b2":      {Dimension{Value: 500, Unit: Mm}, Dimension{Value: 707, Unit: Mm}},
+		"b1":      {Dimension{Value: 707, Unit: Mm}, Dimension{Value: 1000, Unit: Mm}},
+		"b0":      {Dimension{Value: 1000, Unit: Mm}, Dimension{Value: 1414, Unit: Mm}},
+		"c10":     {Dimension{Value: 28, Unit: Mm}, Dimension{Value: 40, Unit: Mm}},
+		"c9":      {Dimension{Value: 40, Unit: Mm}, Dimension{Value: 57, Unit: Mm}},
+		"c8":      {Dimension{Value: 57, Unit: Mm}, Dimension{Value: 81, Unit: Mm}},
+		"c7":      {Dimension{Value: 81, Unit: Mm}, Dimension{Value: 114, Unit: Mm}},
+		"c6":      {Dimension{Value: 114, Unit: Mm}, Dimension{Value: 162, Unit: Mm}},
+		"c5":      {Dimension{Value: 162, Unit: Mm}, Dimension{Value: 229, Unit: Mm}},
+		"c4":      {Dimension{Value: 229, Unit: Mm}, Dimension{Value: 324, Unit: Mm}},
+		"c3":      {Dimension{Value: 324, Unit: Mm}, Dimension{Value: 458, Unit: Mm}},
+		"c2":      {Dimension{Value: 458, Unit: Mm}, Dimension{Value: 648, Unit: Mm}},
+		"c1":      {Dimension{Value: 648, Unit: Mm}, Dimension{Value: 917, Unit: Mm}},
+		"c0":      {Dimension{Value: 917, Unit: Mm}, Dimension{Value: 1297, Unit: Mm}},
+		"jis-b10": {Dimension{Value: 32, Unit: Mm}, Dimension{Value: 45, Unit: Mm}},
+		"jis-b9":  {Dimension{Value: 45, Unit: Mm}, Dimension{Value: 64, Unit: Mm}},
+		"jis-b8":  {Dimension{Value: 64, Unit: Mm}, Dimension{Value: 91, Unit: Mm}},
+		"jis-b7":  {Dimension{Value: 91, Unit: Mm}, Dimension{Value: 128, Unit: Mm}},
+		"jis-b6":  {Dimension{Value: 128, Unit: Mm}, Dimension{Value: 182, Unit: Mm}},
+		"jis-b5":  {Dimension{Value: 182, Unit: Mm}, Dimension{Value: 257, Unit: Mm}},
+		"jis-b4":  {Dimension{Value: 257, Unit: Mm}, Dimension{Value: 364, Unit: Mm}},
+		"jis-b3":  {Dimension{Value: 364, Unit: Mm}, Dimension{Value: 515, Unit: Mm}},
+		"jis-b2":  {Dimension{Value: 515, Unit: Mm}, Dimension{Value: 728, Unit: Mm}},
+		"jis-b1":  {Dimension{Value: 728, Unit: Mm}, Dimension{Value: 1030, Unit: Mm}},
+		"jis-b0":  {Dimension{Value: 1030, Unit: Mm}, Dimension{Value: 1456, Unit: Mm}},
+		"letter":  {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 11, Unit: In}},
+		"legal":   {Dimension{Value: 8.5, Unit: In}, Dimension{Value: 14, Unit: In}},
+		"ledger":  {Dimension{Value: 11, Unit: In}, Dimension{Value: 17, Unit: In}},
 	}
 
 	InitialWidthHeight = Point{Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}}

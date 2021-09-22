@@ -187,8 +187,11 @@ var InitialValues = Properties{
 	"text_decoration_style": String("solid"),
 
 	// Overflow Module 3 (WD): https://www.w3.org/TR/css-overflow-3/
-	"overflow":      String("visible"),
-	"text_overflow": String("clip"),
+	"block_ellipsis": NamedString{String: "none"},
+	"continue":       String("auto"),
+	"max_lines":      IntString{String: "none"},
+	"overflow":       String("visible"),
+	"text_overflow":  String("clip"),
 
 	// Proprietary
 	"anchor": String(""),    // computed value of "none"

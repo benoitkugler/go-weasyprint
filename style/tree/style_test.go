@@ -111,9 +111,10 @@ func rsplit(s, sep string) string {
 	return chunks[len(chunks)-1]
 }
 
-//@assertNoLogs
 func TestFindStylesheets(t *testing.T) {
 	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
 	html_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +150,6 @@ func TestFindStylesheets(t *testing.T) {
 	if len(rules)+len(pagesRules) != 10 {
 		t.Errorf("expected 10 rules, got %d", len(rules)+len(pagesRules))
 	}
-	capt.AssertNoLogs(t)
 	// TODO: test that the values are correct too
 }
 
@@ -175,45 +175,45 @@ func TestExpandShorthands(t *testing.T) {
 	if m[0].Name != "margin_bottom" {
 		t.Errorf("expected margin_bottom got %s", m[0].Name)
 	}
-	if (m[0].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 3, Unit: pr.Em}.ToValue()) {
+	if (m[0].Value.ToCascaded().ToCSS().(pr.Value) != pr.Dimension{Value: 3, Unit: pr.Em}.ToValue()) {
 		t.Errorf("expected got %v", m[0].Value)
 	}
 	if m[1].Name != "margin_top" {
 		t.Errorf("expected margin_top got %s", m[1].Name)
 	}
-	if (m[1].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 2, Unit: pr.Em}.ToValue()) {
+	if (m[1].Value.ToCascaded().ToCSS().(pr.Value) != pr.Dimension{Value: 2, Unit: pr.Em}.ToValue()) {
 		t.Errorf("expected got %v", m[1].Value)
 	}
 	if m[2].Name != "margin_right" {
 		t.Errorf("expected margin_right got %s", m[2].Name)
 	}
-	if (m[2].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue()) {
+	if (m[2].Value.ToCascaded().ToCSS().(pr.Value) != pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue()) {
 		t.Errorf("expected got %v", m[2].Value)
 	}
 	if m[3].Name != "margin_bottom" {
 		t.Errorf("expected margin_bottom got %s", m[3].Name)
 	}
-	if (m[3].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 2, Unit: pr.Em}.ToValue()) {
+	if (m[3].Value.ToCascaded().ToCSS().(pr.Value) != pr.Dimension{Value: 2, Unit: pr.Em}.ToValue()) {
 		t.Errorf("expected got %v", m[3].Value)
 	}
 	if m[4].Name != "margin_left" {
 		t.Errorf("expected margin_left got %s", m[4].Name)
 	}
-	if (m[4].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue()) {
+	if (m[4].Value.ToCascaded().ToCSS().(pr.Value) != pr.Dimension{Value: 0, Unit: pr.Scalar}.ToValue()) {
 		t.Errorf("expected got %v", m[4].Value)
 	}
 	if m[5].Name != "margin_left" {
 		t.Errorf("expected margin_left got %s", m[5].Name)
 	}
-	if (m[5].Value.AsCascaded().AsCss().(pr.Value) != pr.Dimension{Value: 4, Unit: pr.Em}.ToValue()) {
+	if (m[5].Value.ToCascaded().ToCSS().(pr.Value) != pr.Dimension{Value: 4, Unit: pr.Em}.ToValue()) {
 		t.Errorf("expected got %v", m[5].Value)
 	}
 	capt.AssertNoLogs(t)
 	// TODO: test that the values are correct too
 }
 
-func assertProp(t *testing.T, got pr.Properties, name string, expected pr.CssProperty) {
-	g := got[name]
+func assertProp(t *testing.T, got ElementStyle, name string, expected pr.CssProperty) {
+	g := got.get(name)
 	if !reflect.DeepEqual(g, expected) {
 		t.Fatalf("%s - expected %v got %v", name, expected, g)
 	}
@@ -327,6 +327,8 @@ func TestAnnotateDocument(t *testing.T) {
 //@assertNoLogs
 func TestPage(t *testing.T) {
 	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
 	document_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
@@ -396,7 +398,6 @@ func TestPage(t *testing.T) {
 	styleFor.SetPageComputedStylesT(pageType, document)
 	style = styleFor.Get(pageType, "@top-right")
 	assertProp(t, style, "font_size", pr.FToV(10))
-	capt.AssertNoLogs(t)
 }
 
 type testPageSelector struct {

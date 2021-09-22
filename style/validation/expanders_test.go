@@ -12,10 +12,10 @@ import (
 func TestExpandFourSides(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	assertValidDict(t, "margin: inherit", map[string]pr.ValidatedProperty{
-		"margin_top":    pr.Inherit.ToV(),
-		"margin_right":  pr.Inherit.ToV(),
-		"margin_bottom": pr.Inherit.ToV(),
-		"margin_left":   pr.Inherit.ToV(),
+		"margin_top":    pr.Inherit.AsCascaded().AsValidated(),
+		"margin_right":  pr.Inherit.AsCascaded().AsValidated(),
+		"margin_bottom": pr.Inherit.AsCascaded().AsValidated(),
+		"margin_left":   pr.Inherit.AsCascaded().AsValidated(),
 	})
 	assertValidDict(t, "margin: 1em", toValidated(pr.Properties{
 		"margin_top":    pr.Dimension{Value: 1, Unit: pr.Em}.ToValue(),
@@ -101,9 +101,9 @@ func TestExpandBorders(t *testing.T) {
 func TestExpandList_style(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	assertValidDict(t, "list-style: inherit", map[string]pr.ValidatedProperty{
-		"list_style_position": pr.Inherit.ToV(),
-		"list_style_image":    pr.Inherit.ToV(),
-		"list_style_type":     pr.Inherit.ToV(),
+		"list_style_position": pr.Inherit.AsCascaded().AsValidated(),
+		"list_style_image":    pr.Inherit.AsCascaded().AsValidated(),
+		"list_style_type":     pr.Inherit.AsCascaded().AsValidated(),
 	})
 	assertValidDict(t, "list-style: url(../bar/lipsum.png)", toValidated(pr.Properties{
 		"list_style_image": pr.UrlImage("http://weasyprint.org/bar/lipsum.png"),
@@ -237,12 +237,12 @@ func TestExpandWordWrap(t *testing.T) {
 
 func fillTextDecoration(prop pr.Properties) map[string]pr.ValidatedProperty {
 	base := map[string]pr.ValidatedProperty{
-		"text_decoration_line":  pr.ToC(pr.NDecorations{None: true}).ToV(),
-		"text_decoration_color": pr.ToC(pr.CurrentColor).ToV(),
-		"text_decoration_style": pr.ToC(pr.String("solid")).ToV(),
+		"text_decoration_line":  pr.AsCascaded(pr.NDecorations{None: true}).AsValidated(),
+		"text_decoration_color": pr.AsCascaded(pr.CurrentColor).AsValidated(),
+		"text_decoration_style": pr.AsCascaded(pr.String("solid")).AsValidated(),
 	}
 	for k, v := range prop {
-		base[k] = pr.ToC(v).ToV()
+		base[k] = pr.AsCascaded(v).AsValidated()
 	}
 	return base
 }
@@ -305,4 +305,31 @@ func TestExpandFlex(t *testing.T) {
 	}))
 
 	capt.AssertNoLogs(t)
+}
+
+func TestLineClamp(t *testing.T) {
+	capt := testutils.CaptureLogs()
+
+	assertValidDict(t, "line-clamp: none", toValidated(pr.Properties{
+		"max_lines":      pr.IntString{String: "none"},
+		"continue":       pr.String("auto"),
+		"block_ellipsis": pr.NamedString{String: "none"},
+	}))
+	assertValidDict(t, "line-clamp: 2", toValidated(pr.Properties{
+		"max_lines":      pr.IntString{Int: 2},
+		"continue":       pr.String("discard"),
+		"block_ellipsis": pr.NamedString{String: "auto"},
+	}))
+	assertValidDict(t, `line-clamp: 3 "…"`, toValidated(pr.Properties{
+		"max_lines":      pr.IntString{Int: 3},
+		"continue":       pr.String("discard"),
+		"block_ellipsis": pr.NamedString{Name: "string", String: "…"},
+	}))
+
+	capt.AssertNoLogs(t)
+
+	assertInvalid(t, `line-clamp: none none none`, "invalid")
+	assertInvalid(t, `line-clamp: 1px`, "invalid")
+	assertInvalid(t, `line-clamp: 0 "…"`, "invalid")
+	assertInvalid(t, `line-clamp: 1px 2px`, "invalid")
 }

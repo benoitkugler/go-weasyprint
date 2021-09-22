@@ -16,7 +16,7 @@ import (
 func toValidated(d pr.Properties) map[string]pr.ValidatedProperty {
 	out := make(map[string]pr.ValidatedProperty)
 	for k, v := range d {
-		out[k] = pr.ToC(v).ToV()
+		out[k] = pr.AsCascaded(v).AsValidated()
 	}
 	return out
 }
@@ -40,7 +40,7 @@ func expandToDict(t *testing.T, css string, expectedError string) map[string]pr.
 	}
 	out := map[string]pr.ValidatedProperty{}
 	for _, v := range validated {
-		if v.Value.Default != pr.Initial {
+		if v.Value.SpecialProperty != nil || v.Value.ToCascaded().Default != pr.Initial {
 			out[v.Name] = v.Value
 		}
 	}
@@ -207,7 +207,7 @@ func TestSize(t *testing.T) {
 	}))
 	capt.AssertNoLogs(t)
 	assertInvalid(t, "size: A3 landscape A3", "invalid")
-	assertInvalid(t, "size: A9", "invalid")
+	assertInvalid(t, "size: A12", "invalid")
 	assertInvalid(t, "size: foo", "invalid")
 	assertInvalid(t, "size: foo bar", "invalid")
 	assertInvalid(t, "size: 20%", "invalid")
@@ -252,14 +252,14 @@ func assertBackground(t *testing.T, css string, expected map[string]pr.Validated
 	expanded := expandToDict(t, "background: "+css, "")
 	col, in := expected["background_color"]
 	if !in {
-		col = pr.ToC(pr.InitialValues["background_color"]).ToV()
+		col = pr.AsCascaded(pr.InitialValues["background_color"]).AsValidated()
 	}
 	if !reflect.DeepEqual(expanded["background_color"], col) {
 		t.Fatalf("expected %v got %v", col, expanded["background_color"])
 	}
 	delete(expanded, "background_color")
 	delete(expected, "background_color")
-	nbLayers := len(expanded["background_image"].AsCascaded().AsCss().(pr.Images))
+	nbLayers := len(expanded["background_image"].ToCascaded().ToCSS().(pr.Images))
 	for name, value := range expected {
 		if !reflect.DeepEqual(expanded[name], value) {
 			t.Fatalf("for %s expected %v got %v", name, value, expanded[name])
@@ -269,7 +269,7 @@ func assertBackground(t *testing.T, css string, expected map[string]pr.Validated
 	}
 	for name, value := range expanded {
 		initv := pr.InitialValues[name].(repeatable)
-		ref := pr.ToC(initv.Repeat(nbLayers)).ToV()
+		ref := pr.AsCascaded(initv.Repeat(nbLayers)).AsValidated()
 		if !reflect.DeepEqual(value, ref) {
 			t.Fatalf("expected %v got %v", ref, value)
 		}
@@ -397,7 +397,7 @@ func checkPosition(t *testing.T, css string, expected pr.Center) {
 	if name != "background_position" {
 		t.Fatalf("expected background_position got %s", name)
 	}
-	exp := pr.ToC(pr.Centers{expected}).ToV()
+	exp := pr.AsCascaded(pr.Centers{expected}).AsValidated()
 	if !reflect.DeepEqual(v, exp) {
 		t.Fatalf("expected %v got %v", exp, v)
 	}
@@ -590,7 +590,7 @@ func checkGradientGeneric(t *testing.T, css string, expected pr.Image) {
 		expanded := expandToDict(t, fmt.Sprintf("background-image: %s%s-gradient(%s)", prefix, mode, css), "")
 		var image pr.Image
 		for _, v := range expanded {
-			image = v.AsCascaded().AsCss().(pr.Images)[0]
+			image = v.ToCascaded().ToCSS().(pr.Images)[0]
 		}
 		if !reflect.DeepEqual(image, expected) {
 			t.Fatalf("%s: expected %v got %v", css, expected, image)

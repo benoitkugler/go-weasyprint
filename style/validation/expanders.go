@@ -39,6 +39,7 @@ var expanders = map[string]expander{
 	"text-decoration": expandTextDecoration,
 	"flex":            expandFlex,
 	"flex-flow":       expandFlexFlow,
+	"line-clamp":      expandLineClamp,
 }
 
 var expandBorderSide = genericExpander("-width", "-color", "-style")(_expandBorderSide)
@@ -52,10 +53,10 @@ type NamedTokens struct {
 
 type beforeGeneric = func(baseUrl, name string, tokens []parser.Token) ([]NamedTokens, error)
 
-func defaultFromString(keyword string) pr.ValidatedProperty {
-	val := pr.Inherit.ToV()
+func defaultFromString(keyword string) pr.DefaultKind {
+	val := pr.Inherit
 	if keyword == "initial" {
-		val = pr.Initial.ToV()
+		val = pr.Initial
 	}
 	return val
 }
@@ -78,7 +79,7 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 			results, toBeValidated := map[string]pr.ValidatedProperty{}, map[string][]parser.Token{}
 			var skipValidation bool
 			if keyword == "inherit" || keyword == "initial" {
-				val := defaultFromString(keyword)
+				val := defaultFromString(keyword).AsCascaded().AsValidated()
 				for _, name := range expandedNames {
 					results[name] = val
 				}
@@ -128,7 +129,7 @@ func genericExpander(expandedNames ...string) func(beforeGeneric) expander {
 					}
 				}
 				if !in {
-					value = pr.Initial.ToV()
+					value = pr.Initial.AsCascaded().AsValidated()
 				}
 
 				out = append(out, pr.NamedProperty{Name: actualNewName, Property: value})
@@ -356,7 +357,7 @@ func expandBackground(baseUrl, _ string, tokens []parser.Token) (out pr.NamedPro
 	if keyword == "initial" || keyword == "inherit" {
 		val := defaultFromString(keyword)
 		for _, name := range properties {
-			out = append(out, pr.NamedProperty{Name: name, Property: val})
+			out = append(out, pr.NamedProperty{Name: name, Property: val.AsCascaded().AsValidated()})
 		}
 		return
 	}
@@ -583,14 +584,14 @@ func expandBackground(baseUrl, _ string, tokens []parser.Token) (out pr.NamedPro
 		rev_origins[n-1-i] = results_origins[i]
 	}
 	out = pr.NamedProperties{
-		{Name: "background_image", Property: pr.ToC(rev_images).ToV()},
-		{Name: "background_repeat", Property: pr.ToC(rev_repeats).ToV()},
-		{Name: "background_attachment", Property: pr.ToC(rev_attachments).ToV()},
-		{Name: "background_position", Property: pr.ToC(rev_positions).ToV()},
-		{Name: "background_size", Property: pr.ToC(rev_sizes).ToV()},
-		{Name: "background_clip", Property: pr.ToC(rev_clips).ToV()},
-		{Name: "background_origin", Property: pr.ToC(rev_origins).ToV()},
-		{Name: "background-color", Property: pr.ToC(result_color).ToV()},
+		{Name: "background_image", Property: pr.AsCascaded(rev_images).AsValidated()},
+		{Name: "background_repeat", Property: pr.AsCascaded(rev_repeats).AsValidated()},
+		{Name: "background_attachment", Property: pr.AsCascaded(rev_attachments).AsValidated()},
+		{Name: "background_position", Property: pr.AsCascaded(rev_positions).AsValidated()},
+		{Name: "background_size", Property: pr.AsCascaded(rev_sizes).AsValidated()},
+		{Name: "background_clip", Property: pr.AsCascaded(rev_clips).AsValidated()},
+		{Name: "background_origin", Property: pr.AsCascaded(rev_origins).AsValidated()},
+		{Name: "background-color", Property: pr.AsCascaded(result_color).AsValidated()},
 	}
 	return out, nil
 }
@@ -644,9 +645,9 @@ func expandTextDecoration(_, _ string, tokens []parser.Token) (out pr.NamedPrope
 		textDecorationStyle = "solid"
 	}
 	return pr.NamedProperties{
-		{Name: "text_decoration_line", Property: pr.ToC(outDecorations).ToV()},
-		{Name: "text_decoration_color", Property: pr.ToC(textDecorationColor).ToV()},
-		{Name: "text_decoration_style", Property: pr.ToC(pr.String(textDecorationStyle)).ToV()},
+		{Name: "text_decoration_line", Property: pr.AsCascaded(outDecorations).AsValidated()},
+		{Name: "text_decoration_color", Property: pr.AsCascaded(textDecorationColor).AsValidated()},
+		{Name: "text_decoration_style", Property: pr.AsCascaded(pr.String(textDecorationStyle)).AsValidated()},
 	}, nil
 }
 
@@ -663,9 +664,9 @@ func expandPageBreakBeforeAfter(_, name string, tokens []parser.Token) (out pr.N
 	}
 	newName := splits[1]
 	if keyword == "auto" || keyword == "left" || keyword == "right" || keyword == "avoid" {
-		out = append(out, pr.NamedProperty{Name: newName, Property: pr.ToC(pr.String(keyword)).ToV()})
+		out = append(out, pr.NamedProperty{Name: newName, Property: pr.AsCascaded(pr.String(keyword)).AsValidated()})
 	} else if keyword == "always" {
-		out = append(out, pr.NamedProperty{Name: newName, Property: pr.ToC(pr.String("page")).ToV()})
+		out = append(out, pr.NamedProperty{Name: newName, Property: pr.AsCascaded(pr.String("page")).AsValidated()})
 	}
 	return out, nil
 }
@@ -677,7 +678,7 @@ func expandPageBreakBeforeAfter(_, name string, tokens []parser.Token) (out pr.N
 func expandPageBreakInside(_, _ string, tokens []parser.Token) (out pr.NamedProperties, err error) {
 	keyword := getSingleKeyword(tokens)
 	if keyword == "auto" || keyword == "avoid" {
-		out = append(out, pr.NamedProperty{Name: "break-inside", Property: pr.ToC(pr.String(keyword)).ToV()})
+		out = append(out, pr.NamedProperty{Name: "break-inside", Property: pr.AsCascaded(pr.String(keyword)).AsValidated()})
 	}
 	return out, nil
 }
@@ -877,7 +878,7 @@ func expandWordWrap(_, _ string, tokens []parser.Token) (pr.NamedProperties, err
 	if keyword == nil {
 		return nil, InvalidValue
 	}
-	return pr.NamedProperties{{Name: "overflow-wrap", Property: pr.ToC(keyword).ToV()}}, nil
+	return pr.NamedProperties{{Name: "overflow-wrap", Property: pr.AsCascaded(keyword).AsValidated()}}, nil
 }
 
 // @expander("flex")
@@ -886,9 +887,9 @@ func expandFlex(_, _ string, tokens []parser.Token) (out pr.NamedProperties, err
 	keyword := getSingleKeyword(tokens)
 	if keyword == "none" {
 		out = pr.NamedProperties{
-			{Name: "flex-grow", Property: pr.ToC(pr.Float(0)).ToV()},
-			{Name: "flex-shrink", Property: pr.ToC(pr.Float(0)).ToV()},
-			{Name: "flex-basis", Property: pr.ToC(pr.SToV("auto")).ToV()},
+			{Name: "flex-grow", Property: pr.AsCascaded(pr.Float(0)).AsValidated()},
+			{Name: "flex-shrink", Property: pr.AsCascaded(pr.Float(0)).AsValidated()},
+			{Name: "flex-basis", Property: pr.AsCascaded(pr.SToV("auto")).AsValidated()},
 		}
 	} else {
 		var (
@@ -933,9 +934,9 @@ func expandFlex(_, _ string, tokens []parser.Token) (out pr.NamedProperties, err
 			}
 		}
 		out = pr.NamedProperties{
-			{Name: "flex-grow", Property: pr.ToC(grow).ToV()},
-			{Name: "flex-shrink", Property: pr.ToC(shrink).ToV()},
-			{Name: "flex-basis", Property: pr.ToC(basis).ToV()},
+			{Name: "flex-grow", Property: pr.AsCascaded(grow).AsValidated()},
+			{Name: "flex-shrink", Property: pr.AsCascaded(shrink).AsValidated()},
+			{Name: "flex-basis", Property: pr.AsCascaded(basis).AsValidated()},
 		}
 	}
 	return out, nil
@@ -950,8 +951,8 @@ func expandFlexFlow(_, _ string, tokens []parser.Token) (out pr.NamedProperties,
 			direction := flexDirection(sortedTokens[0:1], "")
 			wrap := flexWrap(sortedTokens[1:2], "")
 			if direction != nil && wrap != nil {
-				out = append(out, pr.NamedProperty{Name: "flex-direction", Property: pr.ToC(direction).ToV()})
-				out = append(out, pr.NamedProperty{Name: "flex-wrap", Property: pr.ToC(wrap).ToV()})
+				out = append(out, pr.NamedProperty{Name: "flex-direction", Property: pr.AsCascaded(direction).AsValidated()})
+				out = append(out, pr.NamedProperty{Name: "flex-wrap", Property: pr.AsCascaded(wrap).AsValidated()})
 				hasBroken = true
 				break
 			}
@@ -962,11 +963,11 @@ func expandFlexFlow(_, _ string, tokens []parser.Token) (out pr.NamedProperties,
 	} else if len(tokens) == 1 {
 		direction := flexDirection(tokens[0:1], "")
 		if direction != nil {
-			out = append(out, pr.NamedProperty{Name: "flex-direction", Property: pr.ToC(direction).ToV()})
+			out = append(out, pr.NamedProperty{Name: "flex-direction", Property: pr.AsCascaded(direction).AsValidated()})
 		} else {
 			wrap := flexWrap(tokens[0:1], "")
 			if wrap != nil {
-				out = append(out, pr.NamedProperty{Name: "flex-wrap", Property: pr.ToC(wrap).ToV()})
+				out = append(out, pr.NamedProperty{Name: "flex-wrap", Property: pr.AsCascaded(wrap).AsValidated()})
 			} else {
 				return nil, InvalidValue
 			}
@@ -975,4 +976,38 @@ func expandFlexFlow(_, _ string, tokens []parser.Token) (out pr.NamedProperties,
 		return nil, InvalidValue
 	}
 	return out, nil
+}
+
+// @expander('line-clamp')
+// Expand the ``line-clamp`` property.
+func expandLineClamp(_, _ string, tokens []parser.Token) (out pr.NamedProperties, err error) {
+	if len(tokens) == 1 {
+		keyword := getSingleKeyword(tokens)
+		if keyword == "none" {
+			return pr.NamedProperties{
+				{Name: "max_lines", Property: pr.AsCascaded(pr.IntString{String: "none"}).AsValidated()},
+				{Name: "continue", Property: pr.AsCascaded(pr.String("auto")).AsValidated()},
+				{Name: "block-ellipsis", Property: pr.AsCascaded(pr.NamedString{String: "none"}).AsValidated()},
+			}, nil
+		} else if nb, ok := tokens[0].(parser.NumberToken); ok && nb.IsInteger {
+			return pr.NamedProperties{
+				{Name: "max_lines", Property: pr.AsCascaded(pr.IntString{Int: nb.IntValue()}).AsValidated()},
+				{Name: "continue", Property: pr.AsCascaded(pr.String("discard")).AsValidated()},
+				{Name: "block-ellipsis", Property: pr.AsCascaded(pr.NamedString{String: "auto"}).AsValidated()},
+			}, nil
+		}
+	} else if len(tokens) == 2 {
+		if nb, ok := tokens[0].(parser.NumberToken); ok {
+			maxLines := nb.IntValue()
+			ellipsis, valid := blockEllipsis_(tokens[1:2])
+			if maxLines != 0 && valid {
+				return pr.NamedProperties{
+					{Name: "max_lines", Property: pr.AsCascaded(pr.IntString{Int: maxLines}).AsValidated()},
+					{Name: "continue", Property: pr.AsCascaded(pr.String("discard")).AsValidated()},
+					{Name: "block-ellipsis", Property: pr.AsCascaded(ellipsis).AsValidated()},
+				}, nil
+			}
+		}
+	}
+	return nil, InvalidValue
 }

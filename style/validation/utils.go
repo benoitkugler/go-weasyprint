@@ -316,26 +316,24 @@ func checkStringFunction(token Token) (out pr.ContentProperty) {
 	return
 }
 
+// CheckVarFunction parse a var(...) token
 func CheckVarFunction(token Token) (out pr.VarData) {
 	name, args := parseFunction(token)
-	if name == "" {
+	if name != "var" || len(args) == 0 {
 		return
 	}
-	if name == "var" && len(args) > 0 {
-		ident, ok := args[0].(parser.LiteralToken)
-		args = args[1:]
-		if !ok || !strings.HasPrefix(ident.Value, "--") {
-			return
-		}
-		// TODO: we should check authorized tokens
-		// https://drafts.csswg.org/css-syntax-3/#typedef-declaration-value
-		v := strings.ReplaceAll(ident.Value, "-", "_")
-		return pr.VarData{
-			Name:        v,
-			Declaration: args,
-		}
+	ident, ok := args[0].(parser.IdentToken)
+	args = args[1:]
+	if !ok || !strings.HasPrefix(string(ident.Value), "--") {
+		return
 	}
-	return
+	// TODO: we should check authorized tokens
+	// https://drafts.csswg.org/css-syntax-3/#typedef-declaration-value
+	v := strings.ReplaceAll(string(ident.Value), "-", "_")
+	return pr.VarData{
+		Name:    v,
+		Default: args,
+	}
 }
 
 // Parse functional notation.
