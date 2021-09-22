@@ -168,9 +168,9 @@ type BoxFields struct {
 	StringSet pr.ContentProperties
 
 	ElementTag string
-	Style      pr.Properties
+	Style      pr.ElementStyle
 
-	FirstLetterStyle, firstLineStyle pr.Properties
+	FirstLetterStyle, firstLineStyle pr.ElementStyle
 
 	PositionX, PositionY                                                 pr.Float
 	Width, Height, MinWidth, MaxWidth, MinHeight, MaxHeight              pr.MaybeFloat
@@ -214,7 +214,7 @@ type BoxFields struct {
 	Background *Background
 }
 
-func newBoxFields(elementTag string, style pr.Properties, children []Box) BoxFields {
+func newBoxFields(elementTag string, style pr.ElementStyle, children []Box) BoxFields {
 	return BoxFields{ElementTag: elementTag, Style: style, Children: children}
 }
 
@@ -505,16 +505,16 @@ func (b BoxFields) PageValues() (pr.Page, pr.Page) {
 
 // Set to 0 the margin, padding and border of ``side``.
 func (self *BoxFields) ResetSpacing(side string) {
-	self.Style[fmt.Sprintf("margin_%s", side)] = pr.ZeroPixels.ToValue()
-	self.Style[fmt.Sprintf("padding_%s", side)] = pr.ZeroPixels.ToValue()
-	self.Style[fmt.Sprintf("border_%s_width", side)] = pr.FToV(0)
+	self.Style.Set(fmt.Sprintf("margin_%s", side), pr.ZeroPixels.ToValue())
+	self.Style.Set(fmt.Sprintf("padding_%s", side), pr.ZeroPixels.ToValue())
+	self.Style.Set(fmt.Sprintf("border_%s_width", side), pr.FToV(0))
 
 	if side == "top" || side == "bottom" {
-		self.Style[fmt.Sprintf("border_%s_left_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
-		self.Style[fmt.Sprintf("border_%s_right_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+		self.Style.Set(fmt.Sprintf("border_%s_left_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
+		self.Style.Set(fmt.Sprintf("border_%s_right_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
 	} else {
-		self.Style[fmt.Sprintf("border_bottom_%s_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
-		self.Style[fmt.Sprintf("border_top_%s_radius", side)] = pr.Point{pr.ZeroPixels, pr.ZeroPixels}
+		self.Style.Set(fmt.Sprintf("border_bottom_%s_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
+		self.Style.Set(fmt.Sprintf("border_top_%s_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
 	}
 
 	switch side {

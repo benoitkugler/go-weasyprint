@@ -8,6 +8,7 @@ import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/images"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -89,7 +90,7 @@ func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu) {
 			anyImages = true
 		}
 	}
-	color := style.ResolveColor("background_color").RGBA
+	color := tree.ResolveColor(style, "background_color").RGBA
 	if color.A == 0 && !anyImages {
 		box.Background = nil
 		if page != box_ { // Pages need a background for bleed box

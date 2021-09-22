@@ -136,7 +136,7 @@ func marginWidth(box *bo.BoxFields, width pr.Float, left, right bool) pr.Float {
 		cases = append(cases, "margin_right", "padding_right")
 	}
 	for _, value := range cases {
-		styleValue := box.Style[value].(pr.Value)
+		styleValue := box.Style.Get(value).(pr.Value)
 		if styleValue.String != "auto" {
 			switch styleValue.Unit {
 			case pr.Px:

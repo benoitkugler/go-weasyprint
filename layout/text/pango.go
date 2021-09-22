@@ -19,7 +19,7 @@ type PangoLayoutContext interface {
 
 // PangoLayout wraps a pango.Layout object
 type PangoLayout struct {
-	Style   pr.Properties
+	Style   pr.StyleAccessor
 	metrics *pango.FontMetrics // optional
 
 	maxWidth pr.MaybeFloat
@@ -32,7 +32,7 @@ type PangoLayout struct {
 	firstLineDirection   pango.Direction
 }
 
-func newPangoLayout(context PangoLayoutContext, fontSize pr.Fl, style pr.Properties, justificationSpacing pr.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
+func newPangoLayout(context PangoLayoutContext, fontSize pr.Fl, style pr.StyleAccessor, justificationSpacing pr.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
 	var layout PangoLayout
 
 	layout.JustificationSpacing = justificationSpacing
@@ -42,7 +42,7 @@ func newPangoLayout(context PangoLayoutContext, fontSize pr.Fl, style pr.Propert
 	return &layout
 }
 
-func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pr.Fl, style pr.Properties) {
+func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pr.Fl, style pr.StyleAccessor) {
 	p.Context = context
 	p.Style = style
 	p.firstLineDirection = 0
@@ -185,7 +185,7 @@ func (p *PangoLayout) GetFontMetrics() interface{} {
 
 // LineSize gets the logical width and height of the given `line`.
 // `style` is used to add letter spacing (if needed).
-func LineSize(line *pango.LayoutLine, style pr.Properties) (pr.Fl, pr.Fl) {
+func LineSize(line *pango.LayoutLine, style pr.StyleAccessor) (pr.Fl, pr.Fl) {
 	var logicalExtents pango.Rectangle
 	line.GetExtents(nil, &logicalExtents)
 	width := utils.PangoUnitsToFloat(logicalExtents.Width)

@@ -1217,3 +1217,461 @@ func (s Properties) GetZIndex() IntString {
 func (s Properties) SetZIndex(v IntString) {
 	s["z_index"] = v
 }
+
+type StyleAccessor interface {
+	GetWeasySpecifiedDisplay() String
+	SetWeasySpecifiedDisplay(v String)
+
+	GetAlignContent() String
+	SetAlignContent(v String)
+
+	GetAlignItems() String
+	SetAlignItems(v String)
+
+	GetAlignSelf() String
+	SetAlignSelf(v String)
+
+	GetAnchor() String
+	SetAnchor(v String)
+
+	GetBackgroundAttachment() Strings
+	SetBackgroundAttachment(v Strings)
+
+	GetBackgroundClip() Strings
+	SetBackgroundClip(v Strings)
+
+	GetBackgroundColor() Color
+	SetBackgroundColor(v Color)
+
+	GetBackgroundImage() Images
+	SetBackgroundImage(v Images)
+
+	GetBackgroundOrigin() Strings
+	SetBackgroundOrigin(v Strings)
+
+	GetBackgroundPosition() Centers
+	SetBackgroundPosition(v Centers)
+
+	GetBackgroundRepeat() Repeats
+	SetBackgroundRepeat(v Repeats)
+
+	GetBackgroundSize() Sizes
+	SetBackgroundSize(v Sizes)
+
+	GetBleedBottom() Value
+	SetBleedBottom(v Value)
+
+	GetBleedLeft() Value
+	SetBleedLeft(v Value)
+
+	GetBleedRight() Value
+	SetBleedRight(v Value)
+
+	GetBleedTop() Value
+	SetBleedTop(v Value)
+
+	GetBlockEllipsis() NamedString
+	SetBlockEllipsis(v NamedString)
+
+	GetBookmarkLabel() ContentProperties
+	SetBookmarkLabel(v ContentProperties)
+
+	GetBookmarkLevel() IntString
+	SetBookmarkLevel(v IntString)
+
+	GetBookmarkState() String
+	SetBookmarkState(v String)
+
+	GetBorderBottomColor() Color
+	SetBorderBottomColor(v Color)
+
+	GetBorderBottomLeftRadius() Point
+	SetBorderBottomLeftRadius(v Point)
+
+	GetBorderBottomRightRadius() Point
+	SetBorderBottomRightRadius(v Point)
+
+	GetBorderBottomStyle() String
+	SetBorderBottomStyle(v String)
+
+	GetBorderBottomWidth() Value
+	SetBorderBottomWidth(v Value)
+
+	GetBorderCollapse() String
+	SetBorderCollapse(v String)
+
+	GetBorderLeftColor() Color
+	SetBorderLeftColor(v Color)
+
+	GetBorderLeftStyle() String
+	SetBorderLeftStyle(v String)
+
+	GetBorderLeftWidth() Value
+	SetBorderLeftWidth(v Value)
+
+	GetBorderRightColor() Color
+	SetBorderRightColor(v Color)
+
+	GetBorderRightStyle() String
+	SetBorderRightStyle(v String)
+
+	GetBorderRightWidth() Value
+	SetBorderRightWidth(v Value)
+
+	GetBorderSpacing() Point
+	SetBorderSpacing(v Point)
+
+	GetBorderTopColor() Color
+	SetBorderTopColor(v Color)
+
+	GetBorderTopLeftRadius() Point
+	SetBorderTopLeftRadius(v Point)
+
+	GetBorderTopRightRadius() Point
+	SetBorderTopRightRadius(v Point)
+
+	GetBorderTopStyle() String
+	SetBorderTopStyle(v String)
+
+	GetBorderTopWidth() Value
+	SetBorderTopWidth(v Value)
+
+	GetBottom() Value
+	SetBottom(v Value)
+
+	GetBoxDecorationBreak() String
+	SetBoxDecorationBreak(v String)
+
+	GetBoxSizing() String
+	SetBoxSizing(v String)
+
+	GetBreakAfter() String
+	SetBreakAfter(v String)
+
+	GetBreakBefore() String
+	SetBreakBefore(v String)
+
+	GetBreakInside() String
+	SetBreakInside(v String)
+
+	GetCaptionSide() String
+	SetCaptionSide(v String)
+
+	GetClear() String
+	SetClear(v String)
+
+	GetClip() Values
+	SetClip(v Values)
+
+	GetColor() Color
+	SetColor(v Color)
+
+	GetColumnCount() Value
+	SetColumnCount(v Value)
+
+	GetColumnFill() String
+	SetColumnFill(v String)
+
+	GetColumnGap() Value
+	SetColumnGap(v Value)
+
+	GetColumnRuleColor() Color
+	SetColumnRuleColor(v Color)
+
+	GetColumnRuleStyle() String
+	SetColumnRuleStyle(v String)
+
+	GetColumnRuleWidth() Value
+	SetColumnRuleWidth(v Value)
+
+	GetColumnSpan() String
+	SetColumnSpan(v String)
+
+	GetColumnWidth() Value
+	SetColumnWidth(v Value)
+
+	GetContent() SContent
+	SetContent(v SContent)
+
+	GetContinue() String
+	SetContinue(v String)
+
+	GetCounterIncrement() SIntStrings
+	SetCounterIncrement(v SIntStrings)
+
+	GetCounterReset() SIntStrings
+	SetCounterReset(v SIntStrings)
+
+	GetDirection() String
+	SetDirection(v String)
+
+	GetDisplay() String
+	SetDisplay(v String)
+
+	GetEmptyCells() String
+	SetEmptyCells(v String)
+
+	GetFlexBasis() Value
+	SetFlexBasis(v Value)
+
+	GetFlexDirection() String
+	SetFlexDirection(v String)
+
+	GetFlexGrow() Float
+	SetFlexGrow(v Float)
+
+	GetFlexShrink() Float
+	SetFlexShrink(v Float)
+
+	GetFlexWrap() String
+	SetFlexWrap(v String)
+
+	GetFloat() String
+	SetFloat(v String)
+
+	GetFontFamily() Strings
+	SetFontFamily(v Strings)
+
+	GetFontFeatureSettings() SIntStrings
+	SetFontFeatureSettings(v SIntStrings)
+
+	GetFontKerning() String
+	SetFontKerning(v String)
+
+	GetFontLanguageOverride() String
+	SetFontLanguageOverride(v String)
+
+	GetFontSize() Value
+	SetFontSize(v Value)
+
+	GetFontStretch() String
+	SetFontStretch(v String)
+
+	GetFontStyle() String
+	SetFontStyle(v String)
+
+	GetFontVariant() String
+	SetFontVariant(v String)
+
+	GetFontVariantAlternates() String
+	SetFontVariantAlternates(v String)
+
+	GetFontVariantCaps() String
+	SetFontVariantCaps(v String)
+
+	GetFontVariantEastAsian() SStrings
+	SetFontVariantEastAsian(v SStrings)
+
+	GetFontVariantLigatures() SStrings
+	SetFontVariantLigatures(v SStrings)
+
+	GetFontVariantNumeric() SStrings
+	SetFontVariantNumeric(v SStrings)
+
+	GetFontVariantPosition() String
+	SetFontVariantPosition(v String)
+
+	GetFontWeight() IntString
+	SetFontWeight(v IntString)
+
+	GetHeight() Value
+	SetHeight(v Value)
+
+	GetHyphenateCharacter() String
+	SetHyphenateCharacter(v String)
+
+	GetHyphenateLimitChars() Ints3
+	SetHyphenateLimitChars(v Ints3)
+
+	GetHyphenateLimitZone() Value
+	SetHyphenateLimitZone(v Value)
+
+	GetHyphens() String
+	SetHyphens(v String)
+
+	GetImageRendering() String
+	SetImageRendering(v String)
+
+	GetImageResolution() Value
+	SetImageResolution(v Value)
+
+	GetJustifyContent() String
+	SetJustifyContent(v String)
+
+	GetLang() NamedString
+	SetLang(v NamedString)
+
+	GetLeft() Value
+	SetLeft(v Value)
+
+	GetLetterSpacing() Value
+	SetLetterSpacing(v Value)
+
+	GetLineHeight() Value
+	SetLineHeight(v Value)
+
+	GetLink() NamedString
+	SetLink(v NamedString)
+
+	GetListStyleImage() Image
+	SetListStyleImage(v Image)
+
+	GetListStylePosition() String
+	SetListStylePosition(v String)
+
+	GetListStyleType() CounterStyleID
+	SetListStyleType(v CounterStyleID)
+
+	GetMarginBottom() Value
+	SetMarginBottom(v Value)
+
+	GetMarginBreak() String
+	SetMarginBreak(v String)
+
+	GetMarginLeft() Value
+	SetMarginLeft(v Value)
+
+	GetMarginRight() Value
+	SetMarginRight(v Value)
+
+	GetMarginTop() Value
+	SetMarginTop(v Value)
+
+	GetMarks() Marks
+	SetMarks(v Marks)
+
+	GetMaxHeight() Value
+	SetMaxHeight(v Value)
+
+	GetMaxLines() IntString
+	SetMaxLines(v IntString)
+
+	GetMaxWidth() Value
+	SetMaxWidth(v Value)
+
+	GetMinHeight() Value
+	SetMinHeight(v Value)
+
+	GetMinWidth() Value
+	SetMinWidth(v Value)
+
+	GetObjectFit() String
+	SetObjectFit(v String)
+
+	GetObjectPosition() Center
+	SetObjectPosition(v Center)
+
+	GetOpacity() Float
+	SetOpacity(v Float)
+
+	GetOrder() Int
+	SetOrder(v Int)
+
+	GetOrphans() Int
+	SetOrphans(v Int)
+
+	GetOutlineColor() Color
+	SetOutlineColor(v Color)
+
+	GetOutlineStyle() String
+	SetOutlineStyle(v String)
+
+	GetOutlineWidth() Value
+	SetOutlineWidth(v Value)
+
+	GetOverflow() String
+	SetOverflow(v String)
+
+	GetOverflowWrap() String
+	SetOverflowWrap(v String)
+
+	GetPaddingBottom() Value
+	SetPaddingBottom(v Value)
+
+	GetPaddingLeft() Value
+	SetPaddingLeft(v Value)
+
+	GetPaddingRight() Value
+	SetPaddingRight(v Value)
+
+	GetPaddingTop() Value
+	SetPaddingTop(v Value)
+
+	GetPage() Page
+	SetPage(v Page)
+
+	GetPosition() BoolString
+	SetPosition(v BoolString)
+
+	GetQuotes() Quotes
+	SetQuotes(v Quotes)
+
+	GetRight() Value
+	SetRight(v Value)
+
+	GetSize() Values
+	SetSize(v Values)
+
+	GetStringSet() StringSet
+	SetStringSet(v StringSet)
+
+	GetTabSize() Value
+	SetTabSize(v Value)
+
+	GetTableLayout() String
+	SetTableLayout(v String)
+
+	GetTextAlign() String
+	SetTextAlign(v String)
+
+	GetTextDecorationColor() Color
+	SetTextDecorationColor(v Color)
+
+	GetTextDecorationLine() NDecorations
+	SetTextDecorationLine(v NDecorations)
+
+	GetTextDecorationStyle() String
+	SetTextDecorationStyle(v String)
+
+	GetTextIndent() Value
+	SetTextIndent(v Value)
+
+	GetTextOverflow() String
+	SetTextOverflow(v String)
+
+	GetTextTransform() String
+	SetTextTransform(v String)
+
+	GetTop() Value
+	SetTop(v Value)
+
+	GetTransform() Transforms
+	SetTransform(v Transforms)
+
+	GetTransformOrigin() Point
+	SetTransformOrigin(v Point)
+
+	GetUnicodeBidi() String
+	SetUnicodeBidi(v String)
+
+	GetVerticalAlign() Value
+	SetVerticalAlign(v Value)
+
+	GetVisibility() String
+	SetVisibility(v String)
+
+	GetWhiteSpace() String
+	SetWhiteSpace(v String)
+
+	GetWidows() Int
+	SetWidows(v Int)
+
+	GetWidth() Value
+	SetWidth(v Value)
+
+	GetWordSpacing() Value
+	SetWordSpacing(v Value)
+
+	GetZIndex() IntString
+	SetZIndex(v IntString)
+}

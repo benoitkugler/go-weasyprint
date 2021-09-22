@@ -66,7 +66,7 @@ type Context interface {
 type Gifu = func(url, forcedMimeType string) images.Image
 
 type styleForI interface {
-	Get(element tree.Element, pseudoType string) pr.Properties
+	Get(element tree.Element, pseudoType string) pr.ElementStyle
 }
 
 type rootStyleFor struct {
@@ -74,9 +74,9 @@ type rootStyleFor struct {
 	tree.StyleFor
 }
 
-func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.Properties {
+func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.ElementStyle {
 	style := r.StyleFor.Get(element, pseudoType)
-	if len(style) > 0 {
+	if style != nil {
 		if element == r.elementTree {
 			style.SetDisplay("block")
 		} else {
@@ -113,7 +113,7 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 }
 
 // Maps values of the ``display`` CSS property to box types.
-func makeBox(elementTag string, style pr.Properties, content []Box) Box {
+func makeBox(elementTag string, style pr.ElementStyle, content []Box) Box {
 	switch style.GetDisplay() {
 	case "block", "list-item":
 		b := NewBlockBox(elementTag, style, content)
@@ -335,7 +335,7 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 
 // Yield the box for ::marker pseudo-element if there is one.
 // https://drafts.csswg.org/css-lists-3/#marker-pseudo
-func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.Properties, styleFor styleForI,
+func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.ElementStyle, styleFor styleForI,
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector, cs counters.CounterStyle) Box {
 	style := styleFor.Get(element, "marker")
 
@@ -677,7 +677,7 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 }
 
 // Takes the value of a ``content`` property and yield boxes.
-func ContentToBoxes(style pr.Properties, parentBox Box, quoteDepth []int, counterValues tree.CounterValues,
+func ContentToBoxes(style pr.ElementStyle, parentBox Box, quoteDepth []int, counterValues tree.CounterValues,
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector, cs counters.CounterStyle, context Context, page Box) []Box {
 	origQuoteDepth := make([]int, len(quoteDepth))
 
@@ -795,7 +795,7 @@ func computeBookmarkLabel(element *utils.HTMLNode, box Box, contentList pr.Conte
 // Set the content-lists values.
 // These content-lists are used in GCPM properties like ``string-set`` and
 // ``bookmark-label``.
-func setContentLists(element *utils.HTMLNode, box Box, style pr.Properties, counterValues tree.CounterValues,
+func setContentLists(element *utils.HTMLNode, box Box, style pr.ElementStyle, counterValues tree.CounterValues,
 	targetCollector *tree.TargetCollector, cs counters.CounterStyle) {
 	if sss := style.GetStringSet(); sss.String != "none" {
 		for _, c := range sss.Contents {
@@ -807,7 +807,7 @@ func setContentLists(element *utils.HTMLNode, box Box, style pr.Properties, coun
 }
 
 // Handle the ``counter-*`` properties.
-func UpdateCounters(state *tree.PageState, style pr.Properties) {
+func UpdateCounters(state *tree.PageState, style pr.ElementStyle) {
 	_, counterValues, counterScopes := state.QuoteDepth, state.CounterValues, state.CounterScopes
 	siblingScopes := counterScopes[len(counterScopes)-1]
 
@@ -1218,8 +1218,8 @@ func wrapTable(box TableBoxITF, children boxIterator) Box {
 	// of the wrapper and the table. The other get the initial value.
 	wbStyle, tbStyle := wrapperBox.Style, table.Box().Style
 	for name := range pr.TableWrapperBoxProperties {
-		wbStyle[name] = tbStyle[name]
-		tbStyle[name] = pr.InitialValues[name]
+		wbStyle.Set(name, tbStyle.Get(name))
+		tbStyle.Set(name, pr.InitialValues[name])
 	}
 
 	return wrapper
@@ -1269,10 +1269,10 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 		horizontalBorders[y] = l2
 	}
 
-	setOneBorder := func(borderGrid [][]Border, boxStyle pr.Properties, side string, gridX, gridY int) {
-		style := boxStyle[fmt.Sprintf("border_%s_style", side)].(pr.String)
-		width := boxStyle[fmt.Sprintf("border_%s_width", side)].(pr.Value)
-		color := boxStyle.ResolveColor(fmt.Sprintf("border_%s_color", side))
+	setOneBorder := func(borderGrid [][]Border, boxStyle pr.ElementStyle, side string, gridX, gridY int) {
+		style := boxStyle.Get(fmt.Sprintf("border_%s_style", side)).(pr.String)
+		width := boxStyle.Get(fmt.Sprintf("border_%s_width", side)).(pr.Value)
+		color := tree.ResolveColor(boxStyle, fmt.Sprintf("border_%s_color", side))
 
 		// http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
 		score := Score{0, float64(width.Value), styleScores[style]}
@@ -1366,9 +1366,9 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 	// painted separately.
 	setTransparentBorder := func(box Box, side string, twiceWidth float64) {
 		st := box.Box().Style
-		st[fmt.Sprintf("border_%s_style", side)] = pr.String("solid")
-		st[fmt.Sprintf("border_%s_width", side)] = pr.FToV(twiceWidth / 2)
-		st[fmt.Sprintf("border_%s_color", side)] = transparent
+		st.Set(fmt.Sprintf("border_%s_style", side), pr.String("solid"))
+		st.Set(fmt.Sprintf("border_%s_width", side), pr.FToV(twiceWidth/2))
+		st.Set(fmt.Sprintf("border_%s_color", side), transparent)
 	}
 
 	removeBorders := func(box Box) {

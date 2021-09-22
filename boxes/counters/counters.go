@@ -91,11 +91,11 @@ func (c CounterStyle) resolveCounterStyle(counterStyle pr.CounterStyleID, previo
 // Generate the counter representation.
 //
 // See https://www.w3.org/TR/css-counter-styles-3/#generate-a-counter
-
 func (c CounterStyle) RenderValue(counterValue int, counterStyleName string) string {
 	return c.renderValue(counterValue, c.resolveCounter(counterStyleName, nil), nil)
 }
 
+// RenderValueStyle is the same as `RenderValue`, for a general counter style.
 func (c CounterStyle) RenderValueStyle(counterValue int, counterStyle pr.CounterStyleID) string {
 	return c.renderValue(counterValue, c.resolveCounterStyle(counterStyle, nil), nil)
 }

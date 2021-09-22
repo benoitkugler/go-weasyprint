@@ -11,7 +11,7 @@ import (
 
 // parse a simple html with style and an element and return
 // the computed style for this element
-func setupVar(t *testing.T, html string) ElementStyle {
+func setupVar(t *testing.T, html string) pr.ElementStyle {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
@@ -159,6 +159,6 @@ func TestVariableFallback(t *testing.T) {
 		  </style>
 		  <div></div>
 		`, prop))
-		_ = style.get(prop) // just check for crashes
+		_ = style.Get(prop) // just check for crashes
 	}
 }

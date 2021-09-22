@@ -285,12 +285,12 @@ func getUrl(_token Token, baseUrl string) (url pr.NamedString, attr pr.AttrData,
 	return
 }
 
-func checkStringFunction(token Token) (out pr.ContentProperty) {
+func checkStringOrElementFunction(stringOrElement string, token Token) (out pr.ContentProperty) {
 	name, args := parseFunction(token)
 	if name == "" {
 		return
 	}
-	if name == "string" && (len(args) == 1 || len(args) == 2) {
+	if name == stringOrElement && (len(args) == 1 || len(args) == 2) {
 		customIdent_, ok := args[0].(parser.IdentToken)
 		args = args[1:]
 		if !ok {
@@ -311,7 +311,7 @@ func checkStringFunction(token Token) (out pr.ContentProperty) {
 		} else {
 			ident = "first"
 		}
-		return pr.ContentProperty{Type: "string()", Content: pr.Strings{string(customIdent), ident}}
+		return pr.ContentProperty{Type: stringOrElement + "()", Content: pr.Strings{string(customIdent), ident}}
 	}
 	return
 }
@@ -513,7 +513,7 @@ func getString(_token Token) (out pr.ContentProperty) {
 		case "content":
 			return checkContentFunction(token)
 		case "string":
-			return checkStringFunction(token)
+			return checkStringOrElementFunction("string", token)
 		}
 	}
 	return
@@ -711,6 +711,12 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 		return string_, nil
 	}
 
+	// <var>
+	var_ := CheckVarFunction(token)
+	if !var_.IsNone() {
+		return pr.ContentProperty{Type: "var()", Content: var_}, nil
+	}
+
 	// contents
 	if getKeyword(token) == "contents" {
 		return pr.ContentProperty{Type: "content", Content: pr.String("text")}, nil
@@ -766,13 +772,8 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 			str = arg.Value
 		}
 		return pr.ContentProperty{Type: "leader()", Content: pr.Strings{"string", str}}, nil
-	} else if name == "element" {
-		if len(args) != 1 {
-			return pr.ContentProperty{}, nil
-		}
-		if ident, ok := args[0].(parser.IdentToken); ok {
-			return pr.ContentProperty{Type: "element()", Content: pr.String(ident.Value)}, nil
-		}
+	} else if name == "element" { // <element>
+		return checkStringOrElementFunction("element", token), nil
 	}
 	return pr.ContentProperty{}, nil
 }

@@ -589,7 +589,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 			}
 			pageIsEmptyWithNoChildren := pageIsEmpty && !notOnlyPlaceholder
 
-			if len(child.FirstLetterStyle) == 0 {
+			if child.FirstLetterStyle == nil {
 				child.FirstLetterStyle = firstLetterStyle
 			}
 			newChild_, tmp := blockLevelLayout(context, child_.(bo.BlockLevelBoxITF), maxPositionY, skipStack,

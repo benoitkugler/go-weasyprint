@@ -228,7 +228,7 @@ var (
 // See https://www.w3.org/TR/css-fonts-3/#feature-precedence
 // default value is "normal"
 // pass nil for default ("normal") on fontFeatureSettings
-func getFontFeatures(style pr.Properties) map[string]int {
+func getFontFeatures(style pr.StyleAccessor) map[string]int {
 	fontKerning := defaultFontFeature(string(style.GetFontKerning()))
 	fontVariantPosition := defaultFontFeature(string(style.GetFontVariantPosition()))
 	fontVariantCaps := defaultFontFeature(string(style.GetFontVariantCaps()))

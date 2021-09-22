@@ -98,7 +98,8 @@ func getCrossMargins(child *bo.BoxFields, cross string) bo.MaybePoint {
 }
 
 func getCross(box *bo.BoxFields, cross string) pr.Value {
-	return box.Style[cross].(pr.Value)
+	out, _ := box.Style.Get(cross).(pr.Value)
+	return out
 }
 
 func setDirection(box *bo.BoxFields, position string, value pr.Float) {
@@ -321,11 +322,11 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 
 			// Step 3.E
 		} else {
-			child.Style[axis] = pr.SToV("max-content")
-			styleAxis := child.Style[axis].(pr.Value)
+			child.Style.Set(axis, pr.SToV("max-content"))
+			styleAxis := child.Style.Get(axis).(pr.Value)
 			// TODO: don"t set style value, support *-content values instead
 			if styleAxis.String == "max-content" {
-				child.Style[axis] = pr.SToV("auto")
+				child.Style.Set(axis, pr.SToV("auto"))
 				if axis == "width" {
 					child.FlexBaseSize = maxContentWidth(context, child_, true)
 				} else {
@@ -339,7 +340,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					child.FlexBaseSize = newChild.Box().MarginHeight()
 				}
 			} else if styleAxis.String == "min-content" {
-				child.Style[axis] = pr.SToV("auto")
+				child.Style.Set(axis, pr.SToV("auto"))
 				if axis == "width" {
 					child.FlexBaseSize = minContentWidth(context, child_, true)
 				} else {
@@ -1037,7 +1038,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 						}
 						// TODO: don't set style width, find a way to avoid
 						// width re-calculation after Step 16
-						child.Style[cross] = pr.Dimension{Value: line.crossSize - margins, Unit: pr.Px}.ToValue()
+						child.Style.Set(cross, pr.Dimension{Value: line.crossSize - margins, Unit: pr.Px}.ToValue())
 					}
 				}
 			}

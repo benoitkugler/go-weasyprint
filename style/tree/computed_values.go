@@ -307,33 +307,30 @@ func compute(element Element, pseudoType string, specified map[string]pr.Cascade
 }
 
 // value is either a VarData or a normal property; it cannot be a RawToken
-func computeVariable(value pr.ValidatedProperty, name string, computed map[string]pr.ValidatedProperty, baseUrl string, parentStyle ElementStyle) (pr.CascadedProperty, bool) {
+func computeVariable(varData pr.VarData, name string, computed map[string]pr.ValidatedProperty, baseUrl string, parentStyle pr.ElementStyle) (pr.CascadedProperty, bool) {
 	alreadyComputedValue := false
 
-	if varData, ok := value.SpecialProperty.(pr.VarData); ok {
-		var newValue pr.CascadedProperty
-		computedValue := resolveVar(computed, varData)
-		if computedValue != nil {
-			newValue, _ = validation.Validate(strings.ReplaceAll(name, "_", "-"), computedValue, baseUrl)
-		}
-
-		// See https://drafts.csswg.org/css-variables/#invalid-variables
-		if newValue.IsNone() {
-			log.Printf(`Unsupported computed value "%s" set in variable %s "
-                "for property %s.`, computedValue, strings.ReplaceAll(varData.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
-
-			if _, in := pr.Inherited[name]; in && parentStyle != nil {
-				alreadyComputedValue = true
-				newValue = pr.AsCascaded(parentStyle.get(name))
-			} else {
-				alreadyComputedValue = !pr.InitialNotComputed.Has(name)
-				newValue = pr.AsCascaded(pr.InitialValues[name])
-			}
-		}
-		return newValue, alreadyComputedValue
+	var newValue pr.CascadedProperty
+	computedValue := resolveVar(computed, varData)
+	if computedValue != nil {
+		newValue, _ = validation.Validate(strings.ReplaceAll(name, "_", "-"), computedValue, baseUrl)
 	}
 
-	return value.ToCascaded(), alreadyComputedValue
+	// See https://drafts.csswg.org/css-variables/#invalid-variables
+	if newValue.IsNone() {
+		log.Printf(`Unsupported computed value "%s" set in variable %s "
+                "for property %s.`, computedValue, strings.ReplaceAll(varData.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
+
+		if _, in := pr.Inherited[name]; in && parentStyle != nil {
+			alreadyComputedValue = true
+			newValue = pr.AsCascaded(parentStyle.Get(name))
+		} else {
+			alreadyComputedValue = !pr.InitialNotComputed.Has(name)
+			newValue = pr.AsCascaded(pr.InitialValues[name])
+		}
+	}
+
+	return newValue, alreadyComputedValue
 }
 
 type computer struct {
@@ -535,7 +532,7 @@ func backgroundSize(computer *ComputedStyle, name string, _value pr.CssProperty)
 // value.String may be the string representation of an int
 func borderWidth(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Value)
-	style := computer.get(strings.ReplaceAll(name, "width", "style")).(pr.String)
+	style := computer.Get(strings.ReplaceAll(name, "width", "style")).(pr.String)
 
 	if style == "none" || style == "hidden" {
 		return pr.FToV(0)

@@ -6,7 +6,6 @@
 package properties
 
 import (
-	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -128,20 +127,31 @@ func (p Properties) Copy() Properties {
 	return out
 }
 
-// ResolveColor return the color for `key`, replacing
-// `currentColor` with p["color"]
-// replace Python getColor function
-func (p Properties) ResolveColor(key string) Color {
-	value := p[key].(Color)
-	if value.Type == parser.ColorCurrentColor {
-		return p.GetColor()
-	}
-	return value
-}
-
 // UpdateWith merge the entries from `other` to `p`.
 func (p Properties) UpdateWith(other Properties) {
 	for k, v := range other {
 		p[k] = v
 	}
 }
+
+// ElementStyle defines a common interface to access style properties.
+// Implementations will typically compute the propery on the fly and cache the result.
+type ElementStyle interface {
+	StyleAccessor
+
+	// Set is the generic method to set an arbitrary property.
+	// Type accessors should be used when possible.
+	Set(key string, value CssProperty)
+
+	// Get is the generic method to access an arbitrary property.
+	// Type accessors should be used when possible.
+	Get(key string) CssProperty
+
+	// Copy returns a deep copy of the style.
+	Copy() ElementStyle
+
+	GetParentStyle() ElementStyle
+	GetVariables() map[string]ValidatedProperty
+}
+
+var _ StyleAccessor = Properties(nil)

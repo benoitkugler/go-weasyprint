@@ -39,7 +39,7 @@ type Splitted struct {
 // `style` is a style dict of computed values.
 // `maxWidth` is the maximum available width in the same unit as style.GetFontSize(),
 // or `nil` for unlimited width.
-func CreateLayout(text string, style pr.Properties, context PangoLayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *PangoLayout {
+func CreateLayout(text string, style pr.StyleAccessor, context PangoLayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *PangoLayout {
 	layout := newPangoLayout(context, pr.Fl(style.GetFontSize().Value), style, pr.Fl(justificationSpacing), maxWidth)
 	// Make sure that maxWidth * Pango.SCALE == maxWidth * 1024 fits in a
 	// signed integer. Treat bigger values same as None: unconstrained width.
@@ -70,7 +70,7 @@ type HyphenDictKey struct {
 
 // Fit as much as possible in the available width for one line of text.
 // minimum=False
-func SplitFirstLine(text_ string, style pr.Properties, context PangoLayoutContext,
+func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutContext,
 	maxWidth pr.MaybeFloat, justificationSpacing pr.Float, minimum bool) Splitted {
 
 	// See https://www.w3.org/TR/css-text-3/#white-space-property
@@ -351,7 +351,7 @@ func SplitFirstLine(text_ string, style pr.Properties, context PangoLayoutContex
 }
 
 func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *PangoLayout, resumeAt int, spaceCollapse bool,
-	style pr.Properties, hyphenated bool, hyphenationCharacter string) Splitted {
+	style pr.StyleAccessor, hyphenated bool, hyphenationCharacter string) Splitted {
 	length := firstLine.Length
 	if hyphenated {
 		length -= len([]rune(hyphenationCharacter))
@@ -455,7 +455,7 @@ type StrutLayoutKey struct {
 // StrutLayout returns a tuple of the used value of `line-height` and the baseline.
 // The baseline is given from the top edge of line height.
 // `context` is an optional cache
-func StrutLayout(style pr.Properties, context PangoLayoutContext) [2]pr.Float {
+func StrutLayout(style pr.StyleAccessor, context PangoLayoutContext) [2]pr.Float {
 	fontSize := style.GetFontSize().Value
 	lineHeight := style.GetLineHeight()
 	if fontSize == 0 {
@@ -502,7 +502,7 @@ func StrutLayout(style pr.Properties, context PangoLayoutContext) [2]pr.Float {
 }
 
 // ExRatio returns the ratio 1ex/font_size, according to given style.
-func ExRatio(style pr.Properties, context PangoLayoutContext) pr.Float {
+func ExRatio(style pr.ElementStyle, context PangoLayoutContext) pr.Float {
 	// Avoid recursion for letter-spacing && word-spacing properties
 	style = style.Copy()
 	style.SetLetterSpacing(pr.SToV("normal"))

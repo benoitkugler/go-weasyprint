@@ -92,6 +92,7 @@ func (s Int) isInnerContent()         {}
 func (s Color) isInnerContent()       {}
 func (s Quote) isInnerContent()       {}
 func (s AttrData) isInnerContent()    {}
+func (s VarData) isInnerContent()     {}
 
 func (c ContentProperty) AsString() (value string) {
 	return string(c.Content.(String))

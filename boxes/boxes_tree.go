@@ -153,7 +153,7 @@ func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
 	return b
 }
 
-func NewBlockBox(elementTag string, style pr.Properties, children []Box) BlockBox {
+func NewBlockBox(elementTag string, style pr.ElementStyle, children []Box) BlockBox {
 	out := BlockBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }
@@ -168,7 +168,7 @@ func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 	return &out
 }
 
-func NewLineBox(elementTag string, style pr.Properties, children []Box) LineBox {
+func NewLineBox(elementTag string, style pr.ElementStyle, children []Box) LineBox {
 	out := LineBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.TextOverflow = "clip"
 	return out
@@ -192,7 +192,7 @@ func (InlineLevelBox) removeDecoration(box *BoxFields, start, end bool) {
 	}
 }
 
-func NewInlineBox(elementTag string, style pr.Properties, children []Box) InlineBox {
+func NewInlineBox(elementTag string, style pr.ElementStyle, children []Box) InlineBox {
 	out := InlineBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }
@@ -202,7 +202,7 @@ func (b *InlineBox) hitArea() (x, y, w, h pr.Float) {
 	return b.Box().BorderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().MarginHeight()
 }
 
-func NewTextBox(elementTag string, style pr.Properties, text string) TextBox {
+func NewTextBox(elementTag string, style pr.ElementStyle, text string) TextBox {
 	if len(text) == 0 {
 		log.Fatalf("empty text")
 	}
@@ -249,7 +249,7 @@ func (u TextBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.removeDecoration(b, start, end)
 }
 
-func NewInlineBlockBox(elementTag string, style pr.Properties, children []Box) InlineBlockBox {
+func NewInlineBlockBox(elementTag string, style pr.ElementStyle, children []Box) InlineBlockBox {
 	out := InlineBlockBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }
@@ -258,7 +258,7 @@ func (u InlineBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.removeDecoration(b, start, end)
 }
 
-func NewReplacedBox(elementTag string, style pr.Properties, replacement images.Image) ReplacedBox {
+func NewReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) ReplacedBox {
 	out := ReplacedBox{BoxFields: newBoxFields(elementTag, style, nil)}
 	out.Replacement = replacement
 	return out
@@ -272,12 +272,12 @@ func (b *ReplacedBox) Replaced() *ReplacedBox {
 	return b
 }
 
-func NewBlockReplacedBox(elementTag string, style pr.Properties, replacement images.Image) BlockReplacedBox {
+func NewBlockReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) BlockReplacedBox {
 	out := BlockReplacedBox{ReplacedBox: NewReplacedBox(elementTag, style, replacement)}
 	return out
 }
 
-func NewInlineReplacedBox(elementTag string, style pr.Properties, replacement images.Image) InlineReplacedBox {
+func NewInlineReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) InlineReplacedBox {
 	out := InlineReplacedBox{ReplacedBox: NewReplacedBox(elementTag, style, replacement)}
 	return out
 }
@@ -290,7 +290,7 @@ type methodsTableBox interface {
 	Table() *TableBox
 }
 
-func NewTableBox(elementTag string, style pr.Properties, children []Box) TableBox {
+func NewTableBox(elementTag string, style pr.ElementStyle, children []Box) TableBox {
 	out := TableBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.tabularContainer = true
 	return out
@@ -320,12 +320,12 @@ func (b *TableBox) PageValues() (pr.Page, pr.Page) {
 	return s.GetPage(), s.GetPage()
 }
 
-func NewInlineTableBox(elementTag string, style pr.Properties, children []Box) InlineTableBox {
+func NewInlineTableBox(elementTag string, style pr.ElementStyle, children []Box) InlineTableBox {
 	out := InlineTableBox{TableBox: NewTableBox(elementTag, style, children)}
 	return out
 }
 
-func NewTableRowGroupBox(elementTag string, style pr.Properties, children []Box) TableRowGroupBox {
+func NewTableRowGroupBox(elementTag string, style pr.ElementStyle, children []Box) TableRowGroupBox {
 	out := TableRowGroupBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
@@ -335,7 +335,7 @@ func NewTableRowGroupBox(elementTag string, style pr.Properties, children []Box)
 	return out
 }
 
-func NewTableRowBox(elementTag string, style pr.Properties, children []Box) TableRowBox {
+func NewTableRowBox(elementTag string, style pr.ElementStyle, children []Box) TableRowBox {
 	out := TableRowBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
@@ -343,7 +343,7 @@ func NewTableRowBox(elementTag string, style pr.Properties, children []Box) Tabl
 	return out
 }
 
-func NewTableColumnGroupBox(elementTag string, style pr.Properties, children []Box) TableColumnGroupBox {
+func NewTableColumnGroupBox(elementTag string, style pr.ElementStyle, children []Box) TableColumnGroupBox {
 	out := TableColumnGroupBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
@@ -363,7 +363,7 @@ func (b *TableColumnGroupBox) defaultGetCells() []Box {
 	return out
 }
 
-func NewTableColumnBox(elementTag string, style pr.Properties, children []Box) TableColumnBox {
+func NewTableColumnBox(elementTag string, style pr.ElementStyle, children []Box) TableColumnBox {
 	out := TableColumnBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
@@ -378,7 +378,7 @@ func (b *TableColumnBox) defaultGetCells() []Box {
 	return []Box{}
 }
 
-func NewTableCellBox(elementTag string, style pr.Properties, children []Box) TableCellBox {
+func NewTableCellBox(elementTag string, style pr.ElementStyle, children []Box) TableCellBox {
 	out := TableCellBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.internalTableOrCaption = true
 	out.Colspan = 1
@@ -386,14 +386,14 @@ func NewTableCellBox(elementTag string, style pr.Properties, children []Box) Tab
 	return out
 }
 
-func NewTableCaptionBox(elementTag string, style pr.Properties, children []Box) TableCaptionBox {
+func NewTableCaptionBox(elementTag string, style pr.ElementStyle, children []Box) TableCaptionBox {
 	out := TableCaptionBox{BlockBox: NewBlockBox(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	return out
 }
 
-func NewPageBox(pageType utils.PageElement, style pr.Properties) *PageBox {
+func NewPageBox(pageType utils.PageElement, style pr.ElementStyle) *PageBox {
 	fields := newBoxFields("", style, nil)
 	out := PageBox{BoxFields: fields, PageType: pageType}
 	return &out
@@ -403,7 +403,7 @@ func (b *PageBox) String() string {
 	return fmt.Sprintf("<PageBox %v>", b.PageType)
 }
 
-func NewMarginBox(atKeyword string, style pr.Properties) *MarginBox {
+func NewMarginBox(atKeyword string, style pr.ElementStyle) *MarginBox {
 	fields := newBoxFields("", style, nil)
 	out := MarginBox{BoxFields: fields, atKeyword: atKeyword}
 	return &out
@@ -413,12 +413,12 @@ func (b *MarginBox) String() string {
 	return fmt.Sprintf("<MarginBox %s>", b.atKeyword)
 }
 
-func NewFlexBox(elementTag string, style pr.Properties, children []Box) FlexBox {
+func NewFlexBox(elementTag string, style pr.ElementStyle, children []Box) FlexBox {
 	out := FlexBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }
 
-func NewInlineFlexBox(elementTag string, style pr.Properties, children []Box) InlineFlexBox {
+func NewInlineFlexBox(elementTag string, style pr.ElementStyle, children []Box) InlineFlexBox {
 	out := InlineFlexBox{BoxFields: newBoxFields(elementTag, style, children)}
 	return out
 }

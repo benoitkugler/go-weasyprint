@@ -45,7 +45,7 @@ type StyleFor struct {
 	// inheritedStyle *StyleFor
 
 	CascadedStyles map[utils.ElementKey]cascadedStyle
-	computedStyles map[utils.ElementKey]ElementStyle
+	computedStyles map[utils.ElementKey]pr.ElementStyle
 	sheets         []sheet
 }
 
@@ -53,7 +53,7 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetCol
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		CascadedStyles: cascadedStyles,
-		computedStyles: map[utils.ElementKey]ElementStyle{},
+		computedStyles: map[utils.ElementKey]pr.ElementStyle{},
 		sheets:         sheets,
 	}
 
@@ -148,7 +148,7 @@ func (self *StyleFor) SetComputedStyles(element, parent Element,
 	root *utils.HTMLNode, pseudoType, baseUrl string, TargetCollector *TargetCollector) {
 
 	var (
-		parentStyle ElementStyle
+		parentStyle pr.ElementStyle
 		rootStyle   pr.Properties
 	)
 	if element == root && pseudoType == "" {
@@ -176,7 +176,7 @@ func (self *StyleFor) SetComputedStyles(element, parent Element,
 		rootStyle, pseudoType, baseUrl, TargetCollector)
 }
 
-func (s StyleFor) Get(element Element, pseudoType string) ElementStyle {
+func (s StyleFor) Get(element Element, pseudoType string) pr.ElementStyle {
 	style := s.computedStyles[element.ToKey(pseudoType)]
 	if style != nil {
 		display := string(style.GetDisplay())
@@ -235,20 +235,12 @@ func (s StyleFor) AddPageDeclarations(page_T utils.PageElement) {
 	}
 }
 
-// ElementStyle provides on demand access of computed properties
+// pr.ElementStyle provides on demand access of computed properties
 // for a box.
 
-type ElementStyle interface {
-	styleAccessor
-
-	get(key string) pr.CssProperty
-	getParentStyle() ElementStyle
-	getVariables() map[string]pr.ValidatedProperty
-}
-
 var (
-	_ ElementStyle = (*ComputedStyle)(nil)
-	_ ElementStyle = (*AnonymousStyle)(nil)
+	_ pr.ElementStyle = (*ComputedStyle)(nil)
+	_ pr.ElementStyle = (*AnonymousStyle)(nil)
 )
 
 type computedRequirements struct {
@@ -263,7 +255,7 @@ type ComputedStyle struct {
 	variables map[string]pr.ValidatedProperty
 
 	rootStyle   pr.Properties
-	parentStyle ElementStyle
+	parentStyle pr.ElementStyle
 	cascaded    cascadedStyle
 	element     Element
 	pseudoType  string
@@ -271,7 +263,7 @@ type ComputedStyle struct {
 	specified   computedRequirements
 }
 
-func newComputedStyle(parentStyle ElementStyle, cascaded cascadedStyle,
+func newComputedStyle(parentStyle pr.ElementStyle, cascaded cascadedStyle,
 	element Element, pseudoType string, rootStyle pr.Properties, baseUrl string) *ComputedStyle {
 	out := &ComputedStyle{
 		dict:        make(pr.Properties),
@@ -286,7 +278,7 @@ func newComputedStyle(parentStyle ElementStyle, cascaded cascadedStyle,
 
 	// inherit the variables
 	if parentStyle != nil {
-		for k, v := range parentStyle.getVariables() {
+		for k, v := range parentStyle.GetVariables() {
 			out.variables[k] = v
 		}
 	}
@@ -316,9 +308,17 @@ func newComputedStyle(parentStyle ElementStyle, cascaded cascadedStyle,
 
 func (c *ComputedStyle) isRootElement() bool { return c.parentStyle == nil }
 
-func (c *ComputedStyle) getParentStyle() ElementStyle { return c.parentStyle }
+func (c *ComputedStyle) Set(key string, value pr.CssProperty) { c.dict[key] = value }
 
-func (c *ComputedStyle) getVariables() map[string]pr.ValidatedProperty { return c.variables }
+func (c *ComputedStyle) Copy() pr.ElementStyle {
+	out := newComputedStyle(c.parentStyle, c.cascaded, c.element, c.pseudoType, c.rootStyle, c.baseUrl)
+	out.dict.UpdateWith(c.dict)
+	return out
+}
+
+func (c *ComputedStyle) GetParentStyle() pr.ElementStyle { return c.parentStyle }
+
+func (c *ComputedStyle) GetVariables() map[string]pr.ValidatedProperty { return c.variables }
 
 func (c *ComputedStyle) cascadeValue(key string) (pr.DefaultKind, pr.ValidatedProperty) {
 	var (
@@ -347,7 +347,7 @@ func (c *ComputedStyle) cascadeValue(key string) (pr.DefaultKind, pr.ValidatedPr
 		value_ := pr.InitialValues[key]
 		value = pr.AsCascaded(value_).AsValidated()
 	} else if keyword == pr.Inherit {
-		value_ := c.parentStyle.get(key)
+		value_ := c.parentStyle.Get(key)
 		value = pr.AsCascaded(value_).AsValidated()
 	}
 
@@ -355,7 +355,7 @@ func (c *ComputedStyle) cascadeValue(key string) (pr.DefaultKind, pr.ValidatedPr
 }
 
 // provide on demand computation
-func (c *ComputedStyle) get(key string) pr.CssProperty {
+func (c *ComputedStyle) Get(key string) pr.CssProperty {
 	// check the cache
 	if v, has := c.dict[key]; has {
 		return v
@@ -389,11 +389,45 @@ func (c *ComputedStyle) get(key string) pr.CssProperty {
 		return v
 	}
 
-	value_, alreadyComputedValue := computeVariable(value, key, c.variables, c.baseUrl, c.parentStyle)
-	if value_.Default != 0 {
-		panic("should not happend")
+	var (
+		newValue             pr.CascadedProperty
+		alreadyComputedValue bool
+	)
+
+	// special case for content property. See validation.multiValProperties
+	if key == "content" && value.SpecialProperty == nil && value.ToCascaded().Default == 0 {
+		contentValue := value.ToCascaded().ToCSS().(pr.SContent)
+		resolvedContents := make(pr.ContentProperties, 0, len(contentValue.Contents))
+		for _, v := range contentValue.Contents {
+			if varData, ok := v.Content.(pr.VarData); ok {
+				newValue, alreadyComputedValue = computeVariable(varData, key, c.variables, c.baseUrl, c.parentStyle)
+				if newValue.Default != 0 {
+					log.Printf("invalid default in content: %v", newValue)
+					newValue.Default = 0
+				}
+				newValue, _ := newValue.ToCSS().(pr.SContent)
+				if len(newValue.Contents) == 1 {
+					resolvedContents = append(resolvedContents, newValue.Contents[0])
+				}
+			} else {
+				resolvedContents = append(resolvedContents, v)
+			}
+		}
+		contentValue.Contents = resolvedContents
+		value = pr.AsCascaded(contentValue).AsValidated()
 	}
-	outValue := value_.ToCSS()
+
+	if varData, ok := value.SpecialProperty.(pr.VarData); ok {
+		newValue, alreadyComputedValue = computeVariable(varData, key, c.variables, c.baseUrl, c.parentStyle)
+	} else {
+		newValue = value.ToCascaded()
+	}
+	if newValue.Default != 0 {
+		log.Printf("invalid default after variable resolution: %v", newValue)
+		newValue.Default = 0
+	}
+
+	outValue := newValue.ToCSS()
 
 	fn := computerFunctions[key]
 	if fn != nil && !alreadyComputedValue {
@@ -407,11 +441,11 @@ func (c *ComputedStyle) get(key string) pr.CssProperty {
 // optimized for anonymous boxes
 type AnonymousStyle struct {
 	dict        pr.Properties
-	parentStyle ElementStyle
+	parentStyle pr.ElementStyle
 	variables   map[string]pr.ValidatedProperty
 }
 
-func newAnonymousStyle(parentStyle ElementStyle) *AnonymousStyle {
+func newAnonymousStyle(parentStyle pr.ElementStyle) *AnonymousStyle {
 	out := &AnonymousStyle{
 		parentStyle: parentStyle,
 		variables:   make(map[string]pr.ValidatedProperty),
@@ -419,7 +453,7 @@ func newAnonymousStyle(parentStyle ElementStyle) *AnonymousStyle {
 	}
 	// inherit the variables
 	if parentStyle != nil {
-		for k, v := range parentStyle.getVariables() {
+		for k, v := range parentStyle.GetVariables() {
 			out.variables[k] = v
 		}
 	}
@@ -435,25 +469,45 @@ func newAnonymousStyle(parentStyle ElementStyle) *AnonymousStyle {
 	return out
 }
 
-func (c *AnonymousStyle) getParentStyle() ElementStyle { return c.parentStyle }
+func (c *AnonymousStyle) Set(key string, value pr.CssProperty) { c.dict[key] = value }
 
-func (c *AnonymousStyle) getVariables() map[string]pr.ValidatedProperty { return c.variables }
+func (c *AnonymousStyle) Copy() pr.ElementStyle {
+	out := newAnonymousStyle(c.parentStyle)
+	out.dict.UpdateWith(c.dict)
+	return out
+}
 
-func (a *AnonymousStyle) get(key string) pr.CssProperty {
+func (c *AnonymousStyle) GetParentStyle() pr.ElementStyle { return c.parentStyle }
+
+func (c *AnonymousStyle) GetVariables() map[string]pr.ValidatedProperty { return c.variables }
+
+func (a *AnonymousStyle) Get(key string) pr.CssProperty {
 	if v, has := a.dict[key]; has {
 		return v
 	}
 
 	if pr.Inherited.Has(key) || strings.HasPrefix(key, "__") {
-		a.dict[key] = a.parentStyle.get(key)
+		a.dict[key] = a.parentStyle.Get(key)
 	} else if key == "page" {
 		// page is not inherited but taken from the ancestor if 'auto'
-		a.dict[key] = a.parentStyle.get(key)
+		a.dict[key] = a.parentStyle.Get(key)
 	} else {
 		a.dict[key] = pr.InitialValues[key]
 	}
 
 	return a.dict[key]
+}
+
+// ResolveColor return the color for `key`, replacing
+// `currentColor` with p["color"]
+// It panics if the key has not concrete type `Color`
+// replace Python getColor function
+func ResolveColor(style pr.ElementStyle, key string) pr.Color {
+	value := style.Get(key).(pr.Color)
+	if value.Type == parser.ColorCurrentColor {
+		return style.GetColor()
+	}
+	return value
 }
 
 func pageMatchT(selectorPageType pageSelector, pageType utils.PageElement) bool {
@@ -875,7 +929,7 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle ElementStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *TargetCollector) ElementStyle {
+func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle pr.ElementStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *TargetCollector) pr.ElementStyle {
 	if cascaded == nil && parentStyle != nil {
 		return newAnonymousStyle(parentStyle)
 	}

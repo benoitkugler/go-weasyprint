@@ -253,8 +253,8 @@ func TestCounters8(t *testing.T) {
 }
 
 func TestCounterStyles1(t *testing.T) {
-	// cp := testutils.CaptureLogs()
-	// defer cp.AssertNoLogs(t)
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
 	exp := func(counter string) serBox {
 		return serBox{"p", BlockBoxT, bc{c: []serBox{
@@ -287,41 +287,45 @@ func TestCounterStyles1(t *testing.T) {
     `), expected)
 }
 
-// func TestCounterStyles2(t *testing.T):
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
+func TestCounterStyles2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-//     assertTree(t, parseAndBuild(t, `
-//       <style>
-//         p { counter-increment: p }
-//         p::before { content: counter(p, decimal-leading-zero); }
-//       </style>
-//       <p style="counter-reset: p -1987"></p>
-//       <p></p>
-//       <p style="counter-reset: p -12"></p>
-//       <p></p>
-//       <p></p>
-//       <p></p>
-//       <p style="counter-reset: p -2"></p>
-//       <p></p>
-//       <p></p>
-//       <p></p>
-//       <p style="counter-reset: p 8"></p>
-//       <p></p>
-//       <p></p>
-//       <p style="counter-reset: p 98"></p>
-//       <p></p>
-//       <p></p>
-//       <p style="counter-reset: p 4134"></p>
-//       <p></p>
-//     `), [
-//         ("p", "Block", [
-//             ("p", "Line", [
-//                 ("p::before", "Inline", [
-//                     ("p::before", "Text", counter)])])])
-//         for counter := range `-1986 -1985  -11 -10 -9 -8  -1 00 01 02  09 10 11
-//                             99 100 101  4135 4136`.split()])
-// }
+	exp := func(counter string) serBox {
+		return serBox{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{{"p::before", InlineBoxT, bc{c: []serBox{{"p::before", TextBoxT, bc{text: counter}}}}}}}},
+		}}}
+	}
+	var expected []serBox
+	for _, counter := range strings.Fields("-1986 -1985  -11 -10 -9 -8  -1 00 01 02  09 10 11 99 100 101  4135 4136") {
+		expected = append(expected, exp(counter))
+	}
+
+	assertTree(t, parseAndBuild(t, `
+      <style>
+        p { counter-increment: p }
+        p::before { content: counter(p, decimal-leading-zero); }
+      </style>
+      <p style="counter-reset: p -1987"></p>
+      <p></p>
+      <p style="counter-reset: p -12"></p>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p style="counter-reset: p -2"></p>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p style="counter-reset: p 8"></p>
+      <p></p>
+      <p></p>
+      <p style="counter-reset: p 98"></p>
+      <p></p>
+      <p></p>
+      <p style="counter-reset: p 4134"></p>
+      <p></p>
+    `), expected)
+}
 
 func testCounterStyle(t *testing.T, style string, inputs []int, expected string) {
 	cp := testutils.CaptureLogs()

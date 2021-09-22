@@ -351,13 +351,13 @@ func computeVariableDimension(context *LayoutContext, sideBoxes_ [3]*bo.MarginBo
 // Drop "pages" counter from style in @page and @margin context.
 // Ensure `counter-increment: page` for @page context if not otherwise
 // manipulated by the style.
-func standardizePageBasedCounters(style pr.Properties, pseudoType string) {
+func standardizePageBasedCounters(style pr.ElementStyle, pseudoType string) {
 	pageCounterTouched := false
 	// XXX "counter-set` not yet supported
 	for _, propname := range [2]string{"counter_reset", "counter_increment"} {
-		prop := style[propname].(pr.SIntStrings)
+		prop := style.Get(propname).(pr.SIntStrings)
 		if prop.String == "auto" {
-			style[propname] = pr.SIntStrings{Values: pr.IntStrings{}}
+			style.Set(propname, pr.SIntStrings{Values: pr.IntStrings{}})
 			continue
 		}
 		var justifiedValues pr.IntStrings
@@ -369,7 +369,7 @@ func standardizePageBasedCounters(style pr.Properties, pseudoType string) {
 				justifiedValues = append(justifiedValues, v)
 			}
 		}
-		style[propname] = pr.SIntStrings{Values: justifiedValues}
+		style.Set(propname, pr.SIntStrings{Values: justifiedValues})
 	}
 
 	if pseudoType == "" && !pageCounterTouched {
@@ -413,7 +413,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			bo.UpdateCounters(&marginState, box.Style)
 			box.Children = bo.ContentToBoxes(
 				box.Style, box, marginState.QuoteDepth, marginState.CounterValues,
-				context.GetImageFromUri, context.TargetCollector, context,
+				context.GetImageFromUri, context.TargetCollector, context.counterStyle, context,
 				page)
 			bo.ProcessWhitespace(box, false)
 			box_ := bo.AnonymousTableBoxes(box)

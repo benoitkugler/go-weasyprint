@@ -212,8 +212,8 @@ func TestExpandShorthands(t *testing.T) {
 	// TODO: test that the values are correct too
 }
 
-func assertProp(t *testing.T, got ElementStyle, name string, expected pr.CssProperty) {
-	g := got.get(name)
+func assertProp(t *testing.T, got pr.ElementStyle, name string, expected pr.CssProperty) {
+	g := got.Get(name)
 	if !reflect.DeepEqual(g, expected) {
 		t.Fatalf("%s - expected %v got %v", name, expected, g)
 	}
@@ -222,6 +222,8 @@ func assertProp(t *testing.T, got ElementStyle, name string, expected pr.CssProp
 //@assertNoLogs
 func TestAnnotateDocument(t *testing.T) {
 	capt := testutils.CaptureLogs()
+	capt.AssertNoLogs(t)
+
 	document_, err := newHtml(utils.InputFilename(resourceFilename("doc1.html")))
 	if err != nil {
 		t.Fatal(err)
@@ -321,7 +323,6 @@ func TestAnnotateDocument(t *testing.T) {
 
 	// TODO: much more tests here: test that origin and selector precedence
 	// and inheritance are correct…
-	capt.AssertNoLogs(t)
 }
 
 //@assertNoLogs

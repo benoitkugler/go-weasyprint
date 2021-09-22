@@ -19,7 +19,7 @@ func (s {type_name}) Set{prop_cap}(v {type_}) {{
 """
 TEMPLATE_2 = """
 func (s *{type_name}) Get{prop_cap}() {type_} {{
-    return s.get("{prop}").({type_})
+    return s.Get("{prop}").({type_})
 }}
 func (s *{type_name}) Set{prop_cap}(v {type_}) {{
     s.dict["{prop}"] = v
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         import pr "github.com/benoitkugler/go-weasyprint/style/properties"
         
         """
-    code_ITF = "type styleAccessor interface {"
+    code_ITF = "type StyleAccessor interface {"
     for prop, type_ in metas:
         prop_cap = camel_case(prop)
         code_1 += TEMPLATE_1.format(type_name="Properties",
@@ -84,14 +84,14 @@ if __name__ == '__main__':
         code_2 += TEMPLATE_2.format(type_name="AnonymousStyle",
                                     prop_cap=prop_cap, prop=prop, type_="pr."+type_)
         code_ITF += TEMPLATE_ITF.format(prop_cap=prop_cap,
-                                        prop=prop, type_="pr."+type_)
+                                        prop=prop, type_=type_)
 
     code_ITF += "}"
 
     with open(OUT_1, "w") as f:
-        f.write(code_1)
+        f.write(code_1 + code_ITF)
     with open(OUT_2, "w") as f:
-        f.write(code_2 + code_ITF)
+        f.write(code_2)
 
     subprocess.run(["goimports", "-w", OUT_1])
     subprocess.run(["goimports", "-w", OUT_2])

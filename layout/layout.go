@@ -15,6 +15,7 @@ package layout
 
 import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
+	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	"github.com/benoitkugler/go-weasyprint/logger"
@@ -209,6 +210,7 @@ type LayoutContext struct {
 	GetImageFromUri     bo.Gifu
 	fontConfig          *text.FontConfiguration
 	TargetCollector     *tree.TargetCollector
+	counterStyle        counters.CounterStyle
 	dictionaries        map[text.HyphenDictKey]hyphen.Hyphener
 	StyleFor            tree.StyleFor
 	pageMaker           []tree.PageMaker
@@ -221,14 +223,16 @@ type LayoutContext struct {
 }
 
 func NewLayoutContext(enableHinting bool, styleFor tree.StyleFor, getImageFromUri bo.Gifu,
-	fontConfig *text.FontConfiguration, targetCollector *tree.TargetCollector) *LayoutContext {
+	fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle, targetCollector *tree.TargetCollector) *LayoutContext {
 	self := LayoutContext{}
 	self.enableHinting = enableHinting
 	self.StyleFor = styleFor
 	self.GetImageFromUri = getImageFromUri
 	self.fontConfig = fontConfig
 	self.TargetCollector = targetCollector
+	self.counterStyle = counterStyle
 	self.runningElements = map[string]map[int]Box{}
+
 	// Cache
 	self.dictionaries = make(map[text.HyphenDictKey]hyphen.Hyphener)
 	self.strutLayouts = make(map[text.StrutLayoutKey][2]pr.Float)

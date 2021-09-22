@@ -48,7 +48,7 @@ func (l *lineBoxeIterator) Next() lineBoxe {
 // or a ``resumeAt`` value to continue just after an
 // already laid-out line.
 func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
-	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.Properties) lineBoxeIterator {
+	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.ElementStyle) lineBoxeIterator {
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
 		// TODO: wrong, see https://github.com/Kozea/WeasyPrint/issues/679
@@ -79,7 +79,7 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 
 func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
-	firstLetterStyle pr.Properties) lineBoxe {
+	firstLetterStyle pr.ElementStyle) lineBoxe {
 
 	skipStack, cont := skipFirstWhitespace(linebox, skipStack)
 	if cont {
@@ -306,8 +306,8 @@ func removeLastWhitespace(context *LayoutContext, box Box) {
 }
 
 // Create a box for the ::first-letter selector.
-func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.Properties) *tree.SkipStack {
-	if len(firstLetterStyle) != 0 && len(box.Box().Children) != 0 {
+func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle) *tree.SkipStack {
+	if firstLetterStyle != nil && len(box.Box().Children) != 0 {
 		// Some properties must be ignored :in first-letter boxes.
 		// https://drafts.csswg.org/selectors-3/#application-in-css
 		// At least, position is ignored to avoid layout troubles.
@@ -1489,9 +1489,9 @@ func isPhantomLinebox(linebox bo.BoxFields) bool {
 				return false
 			}
 			for _, side := range [4]string{"top", "right", "bottom", "left"} {
-				m := child.Style["margin_"+side].(pr.Value).Value
-				b := child.Style["border_"+side+"_width"].(pr.Value)
-				p := child.Style["padding_"+side].(pr.Value).Value
+				m := child.Style.Get("margin_" + side).(pr.Value).Value
+				b := child.Style.Get("border_" + side + "_width").(pr.Value)
+				p := child.Style.Get("padding_" + side).(pr.Value).Value
 				if m != 0 || !b.IsNone() || p != 0 {
 					return false
 				}
