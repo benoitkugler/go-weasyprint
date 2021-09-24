@@ -50,7 +50,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 		box.MarginBottom = pr.Float(0)
 	}
 
-	clearance := getClearance(*context, *box, 0)
+	clearance := getClearance(*context, box, 0)
 	if clearance != nil {
 		box.PositionY += clearance.V()
 	}
@@ -68,7 +68,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 	if bo.BlockContainerBoxT.IsInstance(box_) {
 		context.createBlockFormattingContext()
 		box_, _ = blockContainerLayout(context, box_, pr.Inf,
-			nil, false, absoluteBoxes, fixedBoxes, nil)
+			nil, false, absoluteBoxes, fixedBoxes, nil, false)
 		context.finishBlockFormattingContext(box_)
 	} else if bo.FlexContainerBoxT.IsInstance(box_) {
 		box_, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock,
@@ -117,7 +117,7 @@ func findFloatPosition(context LayoutContext, box_ Box, containingBlock *bo.BoxF
 
 // Return nil if there is no clearance, otherwise the clearance value (as Float)
 // collapseMargin = 0
-func getClearance(context LayoutContext, box bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
+func getClearance(context LayoutContext, box *bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
 	hypotheticalPosition := box.PositionY + collapsedMargin
 	// Hypothetical position is the position of the top border edge
 	for _, excludedShape := range context.excludedShapes {

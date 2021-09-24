@@ -61,8 +61,8 @@ func TestMarginBoxes(t *testing.T) {
 	pages := renderPages(t, `
 		<style>
 		  @page {
-			/* Make the page content area only 10px high && wide,
-			   so every word := range <p> end up on a page of its own. */
+			/* Make the page content area only 10px high and wide,
+			   so every word in <p> end up on a page of its own. */
 			size: 30px;
 			margin: 10px;
 			@top-center { content: "Title" }

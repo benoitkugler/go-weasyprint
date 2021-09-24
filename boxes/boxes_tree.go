@@ -23,8 +23,9 @@ type BlockBox struct {
 
 type LineBox struct {
 	BoxFields
-	TextIndent   pr.MaybeFloat
-	TextOverflow string
+	TextIndent    pr.MaybeFloat
+	TextOverflow  string
+	BlockEllipsis pr.NamedString
 }
 
 type InlineLevelBox struct{}

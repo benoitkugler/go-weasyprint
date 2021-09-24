@@ -111,6 +111,7 @@ func NewHorizontalBox(context *LayoutContext, box Box) *HorizontalBox {
 	self.box = box
 	box_ := box.Box()
 	self.inner = box_.Width
+	fmt.Println("creating horizontal box", box.Type(), box_.MarginLeft)
 	self.marginA = box_.MarginLeft.V()
 	self.marginB = box_.MarginRight.V()
 	self.paddingPlusBorder = box_.PaddingLeft.V() + box_.PaddingRight.V() +
@@ -531,7 +532,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 // Layout a margin box’s content once the box has dimensions.
 func marginBoxContentLayout(context *LayoutContext, mBox *bo.MarginBox) Box {
 	newBox_, tmp := blockContainerLayout(context, mBox, pr.Inf, nil, true,
-		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil)
+		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil, false)
 
 	if tmp.resumeAt != nil {
 		log.Fatalf("resumeAt should be nil, got %v", tmp.resumeAt)
@@ -657,7 +658,7 @@ func makePage(context *LayoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	var adjoiningMargins []pr.Float
 	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute && fixed
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
-		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins)
+		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins, false)
 	resumeAt = tmp.resumeAt
 	if rootBox == nil {
 		log.Fatalln("expected newBox got nil")
@@ -896,6 +897,7 @@ func makeAllPages(context *LayoutContext, rootBox bo.BlockLevelBoxITF, html *tre
 	var out []*bo.PageBox
 	i := 0
 	for {
+		fmt.Println("makeAllPAges", i)
 		remakeState := context.pageMaker[i].RemakeState
 		var (
 			resumeAt *tree.SkipStack

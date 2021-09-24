@@ -1166,8 +1166,8 @@ func TestBeforeAfter3(t *testing.T) {
 }
 
 func TestBeforeAfter4(t *testing.T) {
-	// cp := testutils.CaptureLogs()
-	// defer cp.AssertNoLogs(t)
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
 	assertTree(t, parseAndBuild(t, `
 	<style>
@@ -1407,4 +1407,28 @@ func TestDisplayNoneRoot(t *testing.T) {
 	} {
 		testDisplayNoneRoot(t, html)
 	}
+}
+
+func TestBuildPages(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	assertTree(t, parseAndBuild(t, `
+	<style>
+		@page {
+		/* Make the page content area only 10px high and wide,
+			so every word in <p> end up on a page of its own. */
+		size: 30px;
+		margin: 10px;
+		@top-center { content: "Title" }
+		}
+		@page :first {
+		@bottom-left { content: "foo" }
+		@bottom-left-corner { content: "baz" }
+		}
+	</style>
+	<p>lorem ipsum
+	`), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{{"p", LineBoxT, bc{c: []serBox{{"p", TextBoxT, bc{text: "lorem ipsum "}}}}}}}},
+	})
 }

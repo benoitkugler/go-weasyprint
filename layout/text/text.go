@@ -120,7 +120,6 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutCon
 		layout = CreateLayout(text_, style, context, originalMaxWidth, justificationSpacing)
 		firstLine, index = layout.GetFirstLine()
 	}
-
 	resumeIndex := index
 	text := []rune(text_)
 
@@ -140,6 +139,9 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutCon
 	// Step #3: Try to put the first word of the second line on the first line
 	// https://mail.gnome.org/archives/gtk-i18n-list/2013-September/msg00006
 	// is a good thread related to this problem.
+	if index == -1 || index >= len(text) {
+		index = len(text)
+	}
 	firstLineText := string(text[:index])
 	// We can’t rely on firstLineWidth, see
 	// https://github.com/Kozea/WeasyPrint/issues/1051

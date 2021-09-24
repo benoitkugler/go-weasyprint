@@ -23,24 +23,52 @@ func IsLine(box Box) bool {
 type lineBoxe struct {
 	// laid-out LineBox with as much content as possible that
 	// fits in the available width.
-	line     Box
+	line     *bo.LineBox
 	resumeAt *tree.SkipStack
 }
 
 type lineBoxeIterator struct {
-	boxes []lineBoxe
-	index int
+	box                       *bo.LineBox
+	context                   *LayoutContext
+	positionY                 pr.Float
+	containingBlock           *bo.BoxFields
+	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder
+
+	skipStack        *tree.SkipStack
+	firstLetterStyle pr.ElementStyle
+	resetTextIndent  bool
+	done             bool
+	currentBox       lineBoxe
 }
 
-func (l lineBoxeIterator) Has() bool {
-	return l.index < len(l.boxes)
+func (l *lineBoxeIterator) Has() bool {
+	if l.resetTextIndent {
+		l.box.TextIndent = pr.Float(0)
+	}
+	if l.done {
+		return false
+	}
+	tmp := getNextLinebox(l.context, l.box, l.positionY, l.skipStack, l.containingBlock,
+		l.absoluteBoxes, l.fixedBoxes, l.firstLetterStyle)
+	line, resumeAt := tmp.line, tmp.resumeAt
+	if line != nil {
+		l.positionY = line.Box().PositionY + line.Box().Height.V()
+	}
+	if line == nil {
+		l.done = true
+		return false
+	}
+	l.currentBox = lineBoxe{line: line, resumeAt: resumeAt}
+	if resumeAt == nil {
+		l.done = true
+	}
+	l.skipStack = resumeAt
+	l.resetTextIndent = true
+	l.firstLetterStyle = nil
+	return true
 }
 
-func (l *lineBoxeIterator) Next() lineBoxe {
-	b := l.boxes[l.index]
-	l.index += 1
-	return b
-}
+func (l *lineBoxeIterator) Next() lineBoxe { return l.currentBox }
 
 // `box` is a non-laid-out `LineBox`
 // positionY is the vertical top position of the line box on the page
@@ -48,7 +76,7 @@ func (l *lineBoxeIterator) Next() lineBoxe {
 // or a ``resumeAt`` value to continue just after an
 // already laid-out line.
 func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
-	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.ElementStyle) lineBoxeIterator {
+	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, firstLetterStyle pr.ElementStyle) *lineBoxeIterator {
 	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, "")
 	if skipStack == nil {
 		// TODO: wrong, see https://github.com/Kozea/WeasyPrint/issues/679
@@ -56,24 +84,9 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 	} else {
 		box.TextIndent = pr.Float(0)
 	}
-	var out []lineBoxe
-	for {
-		tmp := getNextLinebox(context, box, positionY, skipStack, containingBlock,
-			absoluteBoxes, fixedBoxes, firstLetterStyle)
-		line, resumeAt := tmp.line, tmp.resumeAt
-		if line != nil {
-			positionY = line.Box().PositionY + line.Box().Height.V()
-		}
-		if line == nil {
-			return lineBoxeIterator{boxes: out}
-		}
-		out = append(out, lineBoxe{line: line, resumeAt: resumeAt})
-		if resumeAt == nil {
-			return lineBoxeIterator{boxes: out}
-		}
-		skipStack = resumeAt
-		box.TextIndent = pr.Float(0)
-		firstLetterStyle = nil
+	return &lineBoxeIterator{
+		box: box, context: context, positionY: positionY, containingBlock: containingBlock,
+		absoluteBoxes: absoluteBoxes, fixedBoxes: fixedBoxes, skipStack: skipStack, firstLetterStyle: firstLetterStyle,
 	}
 }
 
@@ -106,7 +119,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 	excludedShapes := append([]bo.BoxFields{}, context.excludedShapes...)
 
 	var (
-		line_                                      Box
+		line_                                      *bo.LineBox
 		linePlaceholders, lineAbsolutes, lineFixed []*AbsolutePlaceholder
 		waitingFloats                              []Box
 		resumeAt                                   *tree.SkipStack
@@ -125,7 +138,8 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 		spi := splitInlineBox(context, linebox, positionX, maxX, skipStack, containingBlock,
 			&lineAbsolutes, &lineFixed, &linePlaceholders, waitingFloats, nil)
 
-		line_, resumeAt, preservedLineBreak, floatWidths = spi.newBox, spi.resumeAt, spi.preservedLineBreak, spi.floatWidths
+		resumeAt, preservedLineBreak, floatWidths = spi.resumeAt, spi.preservedLineBreak, spi.floatWidths
+		line_ = spi.newBox.(*bo.LineBox) // splitInlineBox preserve the concrete type
 		line := line_.Box()
 		linebox.Width, linebox.Height = line.Width, line.Height
 
@@ -617,7 +631,7 @@ func inlineBlockBoxLayout(context *LayoutContext, box_ Box, positionX pr.Float, 
 	box.PositionX = positionX
 	box.PositionY = 0
 	box_, _ = blockContainerLayout(context, box_, pr.Inf, skipStack,
-		true, absoluteBoxes, fixedBoxes, nil)
+		true, absoluteBoxes, fixedBoxes, nil, false)
 	box_.Box().Baseline = inlineBlockBaseline(box_)
 	return box_
 }
@@ -723,7 +737,6 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 		}
 		var skip int
 		newBox, skip, preservedLineBreak = splitTextBox(context, textBox, maxX-positionX, skip_)
-
 		if skip != -1 {
 			resumeAt = &tree.SkipStack{Skip: skip}
 		}
@@ -781,6 +794,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 }
 
 // Same behavior as splitInlineLevel.
+// the returned newBox has same concrete type has box_
 func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
 	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
@@ -1156,10 +1170,10 @@ var lineBreaks = utils.NewSet("\n", "\t", "\f", "\u0085", "\u2028", "\u2029")
 // Also break on preserved line breaks.
 func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.MaybeFloat, skip int) (*bo.TextBox, int, bool) {
 	fontSize := box.Style.GetFontSize()
-	if fontSize == pr.FToV(0) || skip == 0 {
+	text_ := []rune(box.Text)[skip:]
+	if fontSize == pr.FToV(0) || len(text_) == 0 {
 		return nil, -1, false
 	}
-	text_ := []rune(box.Text)[skip:]
 	v := text.SplitFirstLine(string(text_), box.Style, context, availableWidth, box.JustificationSpacing, false)
 	layout, length, resumeAt, width, height, baseline := v.Layout, v.Length, v.ResumeAt, v.Width, v.Height, v.Baseline
 	if resumeAt == 0 {
