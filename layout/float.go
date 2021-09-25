@@ -50,7 +50,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 		box.MarginBottom = pr.Float(0)
 	}
 
-	clearance := getClearance(*context, box, 0)
+	clearance := getClearance(context, box, 0)
 	if clearance != nil {
 		box.PositionY += clearance.V()
 	}
@@ -77,7 +77,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 		log.Fatalf("expected BlockReplaced , got %v", box)
 	}
 
-	box_ = findFloatPosition(*context, box_, containingBlock)
+	box_ = findFloatPosition(context, box_, containingBlock)
 
 	context.excludedShapes = append(context.excludedShapes, *box_.Box())
 
@@ -85,7 +85,7 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 }
 
 // Get the right position of the float ``box``.
-func findFloatPosition(context LayoutContext, box_ Box, containingBlock *bo.BoxFields) Box {
+func findFloatPosition(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields) Box {
 	box := box_.Box()
 	// See http://www.w3.org/TR/CSS2/visuren.html#float-position
 
@@ -117,7 +117,7 @@ func findFloatPosition(context LayoutContext, box_ Box, containingBlock *bo.BoxF
 
 // Return nil if there is no clearance, otherwise the clearance value (as Float)
 // collapseMargin = 0
-func getClearance(context LayoutContext, box *bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
+func getClearance(context *LayoutContext, box *bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
 	hypotheticalPosition := box.PositionY + collapsedMargin
 	// Hypothetical position is the position of the top border edge
 	for _, excludedShape := range context.excludedShapes {
@@ -136,7 +136,7 @@ func getClearance(context LayoutContext, box *bo.BoxFields, collapsedMargin pr.F
 }
 
 // outer=true
-func avoidCollisions(context LayoutContext, box_ Box, containingBlock *bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
+func avoidCollisions(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
 	excludedShapes := context.excludedShapes
 	box := box_.Box()
 	positionY := box.BorderBoxY()

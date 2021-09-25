@@ -73,6 +73,7 @@ func (h *HTMLNode) Iter(tags ...atom.Atom) HtmlIterator {
 type HtmlIterator struct {
 	tagsMap map[atom.Atom]bool // if nil, means all
 	toVisit []*html.Node
+	result  *html.Node // valid element to return
 }
 
 // NewHtmlIterator use `root` as start point.
@@ -85,26 +86,44 @@ func NewHtmlIterator(root *html.Node, tags ...atom.Atom) HtmlIterator {
 	return HtmlIterator{toVisit: []*html.Node{root}, tagsMap: tagsMap}
 }
 
-func (h HtmlIterator) HasNext() bool {
-	return len(h.toVisit) > 0
+// pop the stack
+func (h *HtmlIterator) popNode() *html.Node {
+	L := len(h.toVisit) - 1
+	next := h.toVisit[L]
+	h.toVisit = h.toVisit[:L]
+	return next
 }
 
-func (h *HtmlIterator) Next() *HTMLNode {
-	if len(h.toVisit) == 0 {
-		return nil
+func (h *HtmlIterator) HasNext() bool {
+	if h.result != nil { // empty the stack
+		return true
 	}
-	next := h.toVisit[0]
-	h.toVisit = h.toVisit[1:]
+
+	if len(h.toVisit) == 0 { // walk is done
+		return false
+	}
+
+	next := h.popNode()
 	if next.FirstChild != nil {
 		h.toVisit = append(h.toVisit, next.FirstChild)
 	}
 	if next.NextSibling != nil {
 		h.toVisit = append(h.toVisit, next.NextSibling)
 	}
-	if len(h.tagsMap) == 0 || h.tagsMap[next.DataAtom] {
-		return (*HTMLNode)(next)
+
+	if len(h.tagsMap) == 0 || h.tagsMap[next.DataAtom] { // found one element
+		h.result = next
+		return true
 	}
-	return h.Next()
+
+	// check the remaining nodes
+	return h.HasNext()
+}
+
+func (h *HtmlIterator) Next() *HTMLNode {
+	out := (*HTMLNode)(h.result)
+	h.result = nil
+	return out
 }
 
 // Iter recursively `element` (and its children and so on ...) and returns the elements matching one of the given tags

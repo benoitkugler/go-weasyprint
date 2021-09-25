@@ -658,7 +658,7 @@ func expandTextDecoration(_, _ string, tokens []parser.Token) (out pr.NamedPrope
 //
 func expandPageBreakBeforeAfter(_, name string, tokens []parser.Token) (out pr.NamedProperties, err error) {
 	keyword := getSingleKeyword(tokens)
-	splits := strings.SplitN(name, "-", 1)
+	splits := strings.SplitN(name, "-", 2)
 	if len(splits) < 2 {
 		return nil, fmt.Errorf("bad format for name %s : should contain '-' ", name)
 	}
@@ -667,6 +667,8 @@ func expandPageBreakBeforeAfter(_, name string, tokens []parser.Token) (out pr.N
 		out = append(out, pr.NamedProperty{Name: newName, Property: pr.AsCascaded(pr.String(keyword)).AsValidated()})
 	} else if keyword == "always" {
 		out = append(out, pr.NamedProperty{Name: newName, Property: pr.AsCascaded(pr.String("page")).AsValidated()})
+	} else {
+		return nil, InvalidValue
 	}
 	return out, nil
 }

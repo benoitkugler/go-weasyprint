@@ -53,7 +53,7 @@ func blockLevelLayout(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 
 		collapsedMargin := collapseMargin(append(adjoiningMargins, box.MarginTop.V()))
 		bl := box_.BlockLevel()
-		bl.Clearance = getClearance(*context, box, collapsedMargin)
+		bl.Clearance = getClearance(context, box, collapsedMargin)
 		if bl.Clearance != nil {
 			topBorderEdge := box.PositionY + collapsedMargin + bl.Clearance.V()
 			box.PositionY = topBorderEdge - box.MarginTop.V()
@@ -81,7 +81,7 @@ func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.BlockLevelBoxITF, ma
 		box := replacedBox.Box()
 		// Don't collide with floats
 		// http://www.w3.org/TR/CSS21/visuren.html#floats
-		box.PositionX, box.PositionY, _ = avoidCollisions(*context, replacedBox, containingBlock, false)
+		box.PositionX, box.PositionY, _ = avoidCollisions(context, replacedBox, containingBlock, false)
 		nextPage := tree.PageBreak{Break: "any"}
 		return box_, blockLayout{resumeAt: nil, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
 	} else if bo.FlexBoxT.IsInstance(box_) {
@@ -124,7 +124,7 @@ func blockBoxLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 	if newBox != nil && newBox.Box().IsTableWrapper {
 		// Don't collide with floats
 		// http://www.w3.org/TR/CSS21/visuren.html#floats
-		positionX, positionY, _ := avoidCollisions(*context, newBox, containingBlock, false)
+		positionX, positionY, _ := avoidCollisions(context, newBox, containingBlock, false)
 		newBox.Translate(newBox, positionX-newBox.Box().PositionX, positionY-newBox.Box().PositionY, false)
 	}
 	return newBox, result
@@ -309,8 +309,6 @@ type ChildrenBlockLevel interface {
 func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (Box, blockLayout) {
 	box := box_.Box()
-	// TODO: boxes.FlexBox is allowed here because flexLayout calls
-	// blockContainerLayout, there's probably a better solution.
 	if !(bo.BlockContainerBoxT.IsInstance(box_) || bo.FlexBoxT.IsInstance(box_)) {
 		log.Fatalf("expected BlockContainer or Flex, got %s", box_)
 	}
@@ -428,7 +426,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 		collapsedMargin := collapseMargin(adjoiningMargins)
 		// top && bottom margin of this box
 		if (box.Height == pr.Auto || box.Height == pr.Float(0)) &&
-			getClearance(*context, box, collapsedMargin) == nil &&
+			getClearance(context, box, collapsedMargin) == nil &&
 			box.MinHeight == pr.Float(0) && box.BorderTopWidth == pr.Float(0) && box.PaddingTop == pr.Float(0) &&
 			box.BorderBottomWidth == pr.Float(0) && box.PaddingBottom == pr.Float(0) {
 			collapsingThrough = true
@@ -677,7 +675,8 @@ func inFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ B
 			pageBreak == "recto" || pageBreak == "verso" {
 			pageName, _ := child.PageValues()
 			nextPage = tree.PageBreak{Break: pageBreak, Page: pageName}
-			resumeAt := &tree.SkipStack{Skip: index}
+			resumeAt = &tree.SkipStack{Skip: index}
+			stop = true
 			return abort, stop, resumeAt, positionY, adjoiningMargins, nextPage, newChildren
 		}
 	}
@@ -700,7 +699,7 @@ func inFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ B
 				previousNewChild.Translate(previousNewChild, 0, collapsedMarginDifference, false)
 			}
 
-			if clearance := getClearance(*context, child, newCollapsedMargin); clearance != nil {
+			if clearance := getClearance(context, child, newCollapsedMargin); clearance != nil {
 				for _, previousNewChild := range newChildren {
 					previousNewChild.Translate(previousNewChild, 0, -collapsedMarginDifference, false)
 				}

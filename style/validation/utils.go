@@ -417,7 +417,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out pr.A
 			}
 		}
 		if allowedType == "" || allowedType == typeOrUnit {
-			return pr.AttrData{Name: string(attrName), OrUnitT: typeOrUnit, Fallback: fallback}
+			return pr.AttrData{Name: string(attrName), TypeOrUnit: typeOrUnit, Fallback: fallback}
 		}
 	}
 	return

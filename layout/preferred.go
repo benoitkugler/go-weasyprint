@@ -319,9 +319,9 @@ func inlineLineWidths(context *LayoutContext, box_ Box, outer, isLineStart,
 			if minimum && childText == " " {
 				lines = []pr.Float{0, 0}
 			} else {
-				var maxWidth *pr.Float
+				var maxWidth pr.MaybeFloat
 				if minimum {
-					maxWidth = new(pr.Float)
+					maxWidth = pr.Float(0)
 				}
 				resumeAt := 0
 				newResumeAt := 0

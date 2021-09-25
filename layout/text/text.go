@@ -72,7 +72,6 @@ type HyphenDictKey struct {
 // minimum=False
 func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutContext,
 	maxWidth pr.MaybeFloat, justificationSpacing pr.Float, minimum bool) Splitted {
-
 	// See https://www.w3.org/TR/css-text-3/#white-space-property
 	ws := style.GetWhiteSpace()
 	textWrap := "normal" == ws || "pre-wrap" == ws || "pre-line" == ws

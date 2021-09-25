@@ -127,20 +127,6 @@ func TestSelector(t *testing.T) {
 	fmt.Println(sel.MatchAll(root))
 }
 
-func TestWalkHtml(t *testing.T) {
-	s := "<html><p>dlfkdfk</p><div><span>sdsd/<span><span></span></div></html>"
-	root, err := html.Parse(strings.NewReader(s))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(root.FirstChild)
-	iter := NewHtmlIterator(root.FirstChild)
-	for iter.HasNext() {
-		n := iter.Next()
-		fmt.Printf("%p %v %s\n", n, n.DataAtom, n.Data)
-	}
-}
-
 func TestRune(t *testing.T) {
 	fmt.Printf("%c", '\'')
 	fmt.Printf("%c", '\u2e80')

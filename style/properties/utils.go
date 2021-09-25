@@ -11,6 +11,17 @@ var Inf = Float(math.Inf(+1))
 
 // --------------- Values  -----------------------------------------------
 
+func (d Dimension) ToPixels() Dimension {
+	if c, ok := LengthsToPixels[d.Unit]; ok {
+		return Dimension{Unit: Px, Value: d.Value * c}
+	}
+	return d
+}
+
+func (p Point) ToPixels() Point {
+	return Point{p[0].ToPixels(), p[1].ToPixels()}
+}
+
 // ToValue wraps `d` to a Value object.
 func (d Dimension) ToValue() Value {
 	return Value{Dimension: d}

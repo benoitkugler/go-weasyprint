@@ -29,10 +29,10 @@ func (f special) V() Float {
 	return 0
 }
 
-// Return true except for 0 or None
+// Return true except for 0 or nil
 func Is(m MaybeFloat) bool {
 	if m == nil {
-		return true
+		return false
 	}
 	if f, ok := m.(Float); ok {
 		return f != 0

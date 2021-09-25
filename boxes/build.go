@@ -32,6 +32,7 @@ var (
 
 	textContentExtractors = map[string]func(Box) string{
 		"text":         boxText,
+		"content":      boxText,
 		"before":       boxTextBefore,
 		"after":        boxTextAfter,
 		"first-letter": boxTextFirstLetter,
@@ -264,6 +265,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	counterScope := state.CounterScopes[len(state.CounterScopes)-1]
 	state.CounterScopes = state.CounterScopes[:len(state.CounterScopes)-1]
 	for name := range counterScope {
+		fmt.Println(name, counterValues[name])
 		counterValues[name] = counterValues[name][:len(counterValues[name])-1]
 		if len(counterValues[name]) == 0 {
 			delete(counterValues, name)
@@ -743,15 +745,15 @@ func computeStringSet(element *utils.HTMLNode, box Box, stringName string, conte
 		targetCollector, cs, nil, nil, pr.Quotes{}, nil, nil, element)
 	if boxList != nil {
 		var builder strings.Builder
-		for _, box := range boxList {
-			if textBox, ok := box.(*TextBox); ok {
+		for _, box1 := range boxList {
+			if textBox, ok := box1.(*TextBox); ok {
 				builder.WriteString(textBox.Text)
 			}
 		}
 		string_ := builder.String()
 		// Avoid duplicates, care for parseAgain and missing counters, don't
 		// change the pointer
-		newStringSet := make(pr.ContentProperties, len(box.Box().StringSet))
+		newStringSet := make(pr.ContentProperties, 0, len(box.Box().StringSet))
 		for i, stringSet := range box.Box().StringSet {
 			if stringSet.Type == stringName {
 				newStringSet = append(newStringSet, box.Box().StringSet[i+1:]...)

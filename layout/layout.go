@@ -171,11 +171,15 @@ func LayoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *Layou
 			stringSets := child.Box().StringSet
 			for _, stringSet := range stringSets {
 				stringName, text := stringSet.Type, string(stringSet.Content.(pr.String))
-				context.stringSet[stringName][i+1] = append(context.stringSet[stringName][i+1], text)
+				dict := context.stringSet[stringName]
+				if dict == nil {
+					dict = make(map[int][]string)
+				}
+				dict[i+1] = append(dict[i+1], text)
+				context.stringSet[stringName] = dict
 			}
 		}
 	}
-
 	out := make([]*bo.PageBox, len(pages))
 	// Add margin boxes
 	for i, page := range pages {
@@ -232,6 +236,7 @@ func NewLayoutContext(styleFor tree.StyleFor, getImageFromUri bo.Gifu,
 	self.runningElements = map[string]map[int]Box{}
 
 	// Cache
+	self.stringSet = make(map[string]map[int][]string)
 	self.dictionaries = make(map[text.HyphenDictKey]hyphen.Hyphener)
 	self.strutLayouts = make(map[text.StrutLayoutKey][2]pr.Float)
 	self.tables = map[*bo.TableBox]map[bool]tableContentWidths{}

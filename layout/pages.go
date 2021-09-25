@@ -111,7 +111,6 @@ func NewHorizontalBox(context *LayoutContext, box Box) *HorizontalBox {
 	self.box = box
 	box_ := box.Box()
 	self.inner = box_.Width
-	fmt.Println("creating horizontal box", box.Type(), box_.MarginLeft)
 	self.marginA = box_.MarginLeft.V()
 	self.marginB = box_.MarginRight.V()
 	self.paddingPlusBorder = box_.PaddingLeft.V() + box_.PaddingRight.V() +
@@ -423,7 +422,6 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			box_ = bo.FlexBoxes(box_)
 			box_ = bo.InlineInBlock(box_)
 			box_ = bo.BlockInInline(box_)
-			return box_.(*bo.MarginBox)
 		}
 		resolvePercentages(box, containingBlock, "")
 		boxF := box.Box()
@@ -897,7 +895,6 @@ func makeAllPages(context *LayoutContext, rootBox bo.BlockLevelBoxITF, html *tre
 	var out []*bo.PageBox
 	i := 0
 	for {
-		fmt.Println("makeAllPAges", i)
 		remakeState := context.pageMaker[i].RemakeState
 		var (
 			resumeAt *tree.SkipStack

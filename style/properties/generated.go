@@ -109,7 +109,7 @@ func (Values) isCssProperty() {}
 
 func (AttrData) isCssProperty() {}
 func (v AttrData) IsNone() bool {
-	return v.Name == "" && v.OrUnitT == ""
+	return v.Name == "" && v.TypeOrUnit == ""
 }
 
 func (v ContentProperty) IsNone() bool {

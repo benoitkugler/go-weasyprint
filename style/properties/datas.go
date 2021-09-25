@@ -69,7 +69,7 @@ var (
 		"a7":      {Dimension{Value: 74, Unit: Mm}, Dimension{Value: 105, Unit: Mm}},
 		"a6":      {Dimension{Value: 105, Unit: Mm}, Dimension{Value: 148, Unit: Mm}},
 		"a5":      {Dimension{Value: 148, Unit: Mm}, Dimension{Value: 210, Unit: Mm}},
-		"a4":      InitialWidthHeight,
+		"a4":      A4,
 		"a3":      {Dimension{Value: 297, Unit: Mm}, Dimension{Value: 420, Unit: Mm}},
 		"a2":      {Dimension{Value: 420, Unit: Mm}, Dimension{Value: 594, Unit: Mm}},
 		"a1":      {Dimension{Value: 594, Unit: Mm}, Dimension{Value: 841, Unit: Mm}},
@@ -112,7 +112,7 @@ var (
 		"ledger":  {Dimension{Value: 11, Unit: In}, Dimension{Value: 17, Unit: In}},
 	}
 
-	InitialWidthHeight = Point{Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}}
+	A4 = Point{Dimension{Value: 210, Unit: Mm}, Dimension{Value: 297, Unit: Mm}}
 
 	KnownProperties = utils.Set{}
 

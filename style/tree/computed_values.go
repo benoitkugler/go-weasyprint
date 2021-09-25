@@ -569,11 +569,7 @@ func columnGap(computer *ComputedStyle, name string, _value pr.CssProperty) pr.C
 }
 
 func computeAttrFunction(computer *ComputedStyle, values pr.AttrData) (out pr.ContentProperty, err error) {
-	// TODO: use real token parsing instead of casting with Python types
-
-	attrName, typeOrUnit, fallback := values.Name, values.OrUnitT, values.Fallback
-	// computer["Element"] sometimes is None
-	// computer["Element"] sometimes is a "PageType" object without .get()
+	attrName, typeOrUnit, fallback := values.Name, values.TypeOrUnit, values.Fallback
 	node, ok := computer.element.(*utils.HTMLNode)
 	if !ok {
 		return
@@ -581,64 +577,65 @@ func computeAttrFunction(computer *ComputedStyle, values pr.AttrData) (out pr.Co
 
 	var prop pr.InnerContent
 	attrValue := node.Get(attrName)
-	if attrValue == "" {
-		atrValue_, ok := fallback.(pr.String)
+	if attrValue == "" && fallback != nil {
+		atrValue_, ok := fallback.(pr.InnerContent)
 		if !ok {
-			return out, fmt.Errorf("fallback type not supported : %t", fallback)
+			return out, fmt.Errorf("fallback type not supported : %T", fallback)
 		}
 		prop = atrValue_
-	}
-	switch typeOrUnit {
-	case "string":
-		prop = pr.String(attrValue) // Keep the string
-	case "url":
-		if strings.HasPrefix(attrValue, "#") {
-			prop = pr.NamedString{Name: "internal", String: utils.Unquote(attrValue[1:])}
-		} else {
-			u, err := utils.SafeUrljoin(computer.baseUrl, attrValue, false)
+	} else {
+		switch typeOrUnit {
+		case "string":
+			prop = pr.String(attrValue) // Keep the string
+		case "url":
+			if strings.HasPrefix(attrValue, "#") {
+				prop = pr.NamedString{Name: "internal", String: utils.Unquote(attrValue[1:])}
+			} else {
+				u, err := utils.SafeUrljoin(computer.baseUrl, attrValue, false)
+				if err != nil {
+					return out, err
+				}
+				prop = pr.NamedString{Name: "external", String: u}
+			}
+		case "color":
+			prop = pr.Color(parser.ParseColor2(strings.TrimSpace(attrValue)))
+		case "integer":
+			i, err := strconv.Atoi(strings.TrimSpace(attrValue))
 			if err != nil {
 				return out, err
 			}
-			prop = pr.NamedString{Name: "external", String: u}
-		}
-	case "color":
-		prop = pr.Color(parser.ParseColor2(strings.TrimSpace(attrValue)))
-	case "integer":
-		i, err := strconv.Atoi(strings.TrimSpace(attrValue))
-		if err != nil {
-			return out, err
-		}
-		prop = pr.Int(i)
-	case "number":
-		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
-		if err != nil {
-			return out, err
-		}
-		prop = pr.Float(f)
-	case "%":
-		f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
-		if err != nil {
-			return out, err
-		}
-		prop = pr.Dimension{Value: pr.Float(f), Unit: pr.Percentage}.ToValue()
-		typeOrUnit = "length"
-	default:
-		unit, isUnit := validation.LENGTHUNITS[typeOrUnit]
-		angle, isAngle := validation.AngleUnits[typeOrUnit]
-		if isUnit {
+			prop = pr.Int(i)
+		case "number":
 			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
 			if err != nil {
 				return out, err
 			}
-			prop = pr.Dimension{Value: pr.Float(f), Unit: unit}.ToValue()
+			prop = pr.Float(f)
+		case "%":
+			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
+			if err != nil {
+				return out, err
+			}
+			prop = pr.Dimension{Value: pr.Float(f), Unit: pr.Percentage}.ToValue()
 			typeOrUnit = "length"
-		} else if isAngle {
-			f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
-			if err != nil {
-				return out, err
+		default:
+			unit, isUnit := validation.LENGTHUNITS[typeOrUnit]
+			angle, isAngle := validation.AngleUnits[typeOrUnit]
+			if isUnit {
+				f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
+				if err != nil {
+					return out, err
+				}
+				prop = pr.Dimension{Value: pr.Float(f), Unit: unit}.ToValue()
+				typeOrUnit = "length"
+			} else if isAngle {
+				f, err := strconv.ParseFloat(strings.TrimSpace(attrValue), 64)
+				if err != nil {
+					return out, err
+				}
+				prop = pr.Dimension{Value: pr.Float(f), Unit: angle}.ToValue()
+				typeOrUnit = "angle"
 			}
-			prop = pr.Dimension{Value: pr.Float(f), Unit: angle}.ToValue()
-			typeOrUnit = "angle"
 		}
 	}
 	return pr.ContentProperty{Type: typeOrUnit, Content: prop}, nil
@@ -653,7 +650,7 @@ func contentList(computer *ComputedStyle, values pr.ContentProperties) (pr.Conte
 			computedValue = value
 		case "attr()":
 			attr, ok := value.Content.(pr.AttrData)
-			if !ok || attr.OrUnitT != "string" {
+			if !ok || attr.TypeOrUnit != "string" {
 				log.Fatalf("invalid attr() property : %v", value.Content)
 			}
 			var err error

@@ -112,7 +112,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 		linebox.Width = pr.Float(0)
 		linebox.Height = pr.Float(0)
 	}
-	positionX, positionY, availableWidth := avoidCollisions(*context, linebox, containingBlock, false)
+	positionX, positionY, availableWidth := avoidCollisions(context, linebox, containingBlock, false)
 
 	candidateHeight := linebox.Height
 
@@ -150,7 +150,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 
 		removeLastWhitespace(context, line_)
 
-		newPositionX, _, newAvailableWidth := avoidCollisions(*context, linebox, containingBlock, false)
+		newPositionX, _, newAvailableWidth := avoidCollisions(context, linebox, containingBlock, false)
 		// TODO: handle rtl
 		newAvailableWidth -= floatWidths.right
 		alignmentAvailableWidth := newAvailableWidth + newPositionX - linebox.PositionX
@@ -178,7 +178,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 
 		newExcludedShapes := context.excludedShapes
 		context.excludedShapes = excludedShapes
-		positionX, positionY, availableWidth = avoidCollisions(*context, line_, containingBlock, false)
+		positionX, positionY, availableWidth = avoidCollisions(context, line_, containingBlock, false)
 		if positionX == linebox.PositionX && positionY == linebox.PositionY {
 			context.excludedShapes = newExcludedShapes
 			break

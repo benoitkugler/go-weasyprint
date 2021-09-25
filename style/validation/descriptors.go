@@ -245,21 +245,21 @@ func system(tokens []Token, _ string, out *csDescriptors) error {
 		if len(tokens) == 2 {
 			secondKeyword := getKeyword(tokens[1])
 			if secondKeyword != "" {
-				out.System = counters.CounterStyleSystem{Keyword: keyword, SecondKeyword: secondKeyword, Number: 0}
+				out.System = counters.CounterStyleSystem{Extends: keyword, System: secondKeyword, Number: 0}
 				return nil
 			}
 		}
 	case "fixed":
 		if len(tokens) == 1 {
-			out.System = counters.CounterStyleSystem{Keyword: "", SecondKeyword: "fixed", Number: 1}
+			out.System = counters.CounterStyleSystem{Extends: "", System: "fixed", Number: 1}
 			return nil
 		} else if numb, ok := tokens[1].(parser.NumberToken); ok && numb.IsInteger {
-			out.System = counters.CounterStyleSystem{Keyword: "", SecondKeyword: "fixed", Number: numb.IntValue()}
+			out.System = counters.CounterStyleSystem{Extends: "", System: "fixed", Number: numb.IntValue()}
 			return nil
 		}
 	case "cyclic", "numeric", "alphabetic", "symbolic", "additive":
 		if len(tokens) == 1 {
-			out.System = counters.CounterStyleSystem{Keyword: "", SecondKeyword: keyword, Number: 0}
+			out.System = counters.CounterStyleSystem{Extends: "", System: keyword, Number: 0}
 			return nil
 		}
 	}

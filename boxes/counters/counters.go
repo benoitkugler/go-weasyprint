@@ -33,7 +33,7 @@ func (c CounterStyle) resolveCounter(counterName string, previousTypes utils.Set
 
 	extends, system := "", "symbolic"
 	if counter.System != (CounterStyleSystem{}) {
-		extends, system = counter.System.Keyword, counter.System.SecondKeyword
+		extends, system = counter.System.Extends, counter.System.System
 	}
 
 	// Handle extends
@@ -44,7 +44,7 @@ func (c CounterStyle) resolveCounter(counterName string, previousTypes utils.Set
 
 			extends, system = "", "symbolic"
 			if counter.System != (CounterStyleSystem{}) {
-				extends, system = counter.System.Keyword, counter.System.SecondKeyword
+				extends, system = counter.System.Extends, counter.System.System
 			}
 
 			if extends != "" && previousTypes.Has(system) {
@@ -101,8 +101,6 @@ func (c CounterStyle) RenderValueStyle(counterValue int, counterStyle pr.Counter
 }
 
 func (c CounterStyle) renderValue(counterValue int, counter *CounterStyleDescriptors, previousTypes utils.Set) string {
-	// assert counter || counterName
-	// counter = counter || c.resolveCounter(counterName, previousTypes)
 	if counter == nil {
 		if _, has := c["decimal"]; has {
 			return c.RenderValue(counterValue, "decimal")
@@ -113,7 +111,7 @@ func (c CounterStyle) renderValue(counterValue int, counter *CounterStyleDescrip
 
 	extends, system, fixedNumber := "", "symbolic", -1
 	if counter.System != (CounterStyleSystem{}) {
-		extends, system, fixedNumber = counter.System.Keyword, counter.System.SecondKeyword, counter.System.Number
+		extends, system, fixedNumber = counter.System.Extends, counter.System.System, counter.System.Number
 	}
 
 	// Avoid circular fallbacks
@@ -130,7 +128,7 @@ func (c CounterStyle) renderValue(counterValue int, counter *CounterStyleDescrip
 
 			extends, system, fixedNumber = "", "symbolic", -1
 			if counter.System != (CounterStyleSystem{}) {
-				extends, system, fixedNumber = counter.System.Keyword, counter.System.SecondKeyword, counter.System.Number
+				extends, system, fixedNumber = counter.System.Extends, counter.System.System, counter.System.Number
 			}
 			if previousTypes.Has(system) {
 				return c.RenderValue(counterValue, "decimal")
@@ -182,11 +180,6 @@ func (c CounterStyle) renderValue(counterValue int, counter *CounterStyleDescrip
 			counterValue = abs(counterValue)
 		}
 	}
-
-	// TODO: instead of using the decimal fallback when we have the wrong
-	// number of symbols, we should discard the whole counter. The problem
-	// only happens when extending from another style, it is easily refused
-	// during validation otherwise.
 
 	var (
 		initial string
@@ -364,7 +357,6 @@ func (c CounterStyle) RenderMarker(counterName pr.CounterStyleID, counterValue i
 	suffixS := symbol(suffix)
 
 	value := c.renderValue(counterValue, counter, nil)
-	// assert value  != nil
 	return prefix + value + suffixS
 }
 
@@ -383,21 +375,21 @@ type CounterStyleDescriptors struct {
 func (desc *CounterStyleDescriptors) Validate() error {
 	system := desc.System
 	if system == (CounterStyleSystem{}) {
-		system = CounterStyleSystem{SecondKeyword: "symbolic"}
+		system = CounterStyleSystem{System: "symbolic"}
 	}
-	if system.Keyword == "" {
-		switch system.SecondKeyword {
+	if system.Extends == "" {
+		switch system.System {
 		case "cyclic", "fixed", "symbolic":
 			if len(desc.Symbols) == 0 {
-				return fmt.Errorf("counter style %s needs at least one symbol", system.SecondKeyword)
+				return fmt.Errorf("counter style %s needs at least one symbol", system.System)
 			}
 		case "alphabetic", "numeric":
 			if len(desc.Symbols) < 2 {
-				return fmt.Errorf("counter style %s needs at least two symbols", system.SecondKeyword)
+				return fmt.Errorf("counter style %s needs at least two symbols", system.System)
 			}
 		case "additive":
 			if len(desc.AdditiveSymbols) < 2 {
-				return fmt.Errorf("counter style %s needs at least two additive symbols", system.SecondKeyword)
+				return fmt.Errorf("counter style %s needs at least two additive symbols", system.System)
 			}
 		}
 	}
@@ -443,8 +435,8 @@ func (desc *CounterStyleDescriptors) merge(src CounterStyleDescriptors) {
 }
 
 type CounterStyleSystem struct {
-	Keyword, SecondKeyword string
-	Number                 int
+	Extends, System string
+	Number          int
 }
 
 func reverse(a []string) {

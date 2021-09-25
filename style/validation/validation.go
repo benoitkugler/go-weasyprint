@@ -1880,7 +1880,7 @@ func listStyleType_(tokens []Token) (out pr.CounterStyleID, ok bool) {
 				return out, false
 			}
 		}
-		return pr.CounterStyleID{Type: "symbols()", Symbols: arguments}, true
+		return pr.CounterStyleID{Type: "symbols()", Name: arguments[0], Symbols: arguments[1:]}, true
 	default:
 		return out, false
 	}
@@ -2394,9 +2394,9 @@ func size(tokens []Token, _ string) pr.CssProperty {
 		if psize, in := pr.PageSizes[keyword]; in {
 			return psize
 		} else if keyword == "auto" || keyword == "portrait" {
-			return pr.InitialWidthHeight
+			return pr.A4
 		} else if keyword == "landscape" {
-			return pr.Point{pr.InitialWidthHeight[1], pr.InitialWidthHeight[0]}
+			return pr.Point{pr.A4[1], pr.A4[0]}
 		}
 	}
 

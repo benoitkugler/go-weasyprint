@@ -1,6 +1,7 @@
 package document
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"testing"
@@ -75,14 +76,14 @@ func TestMarginBoxes(t *testing.T) {
 		<p>lorem ipsum
 	  `)
 	if len(pages) != 2 {
-		t.Fatal()
+		t.Fatalf("expected 2 pages, got %v", pages)
 	}
 	page1, page2 := pages[0], pages[1]
-	if page1.Children[0].Box().ElementTag != "html" {
-		t.Fatal()
+	if tag := page1.Children[0].Box().ElementTag; tag != "html" {
+		t.Fatalf("expected root = html, got %s", tag)
 	}
-	if page2.Children[0].Box().ElementTag != "html" {
-		t.Fatal()
+	if tag := page2.Children[0].Box().ElementTag; tag != "html" {
+		t.Fatalf("expected root = html, got %s", tag)
 	}
 
 	var marginBoxes1, marginBoxes2 []string
@@ -90,304 +91,403 @@ func TestMarginBoxes(t *testing.T) {
 		marginBoxes1 = append(marginBoxes1, box.(*bo.MarginBox).AtKeyword)
 	}
 	for _, box := range page2.Children[1:] {
-		marginBoxes1 = append(marginBoxes1, box.(*bo.MarginBox).AtKeyword)
+		marginBoxes2 = append(marginBoxes2, box.(*bo.MarginBox).AtKeyword)
 	}
-	if !reflect.DeepEqual(marginBoxes1, []string{"@top-center", "@bottom-left", "@bottom-left-corner"}) {
-		t.Fatal()
+	if exp := []string{"@top-center", "@bottom-left", "@bottom-left-corner"}; !reflect.DeepEqual(marginBoxes1, exp) {
+		t.Fatalf("expected %v, got %v", exp, marginBoxes1)
 	}
-	if !reflect.DeepEqual(marginBoxes2, []string{"@top-center"}) {
-		t.Fatal()
+	if exp := []string{"@top-center"}; !reflect.DeepEqual(marginBoxes2, exp) {
+		t.Fatalf("expected %v, got %v", exp, marginBoxes2)
 	}
 
-	if len(page1.Children) != 2 {
-		t.Fatal()
+	if len(page2.Children) != 2 {
+		t.Fatalf("expected two children, got %v", page2.Children)
 	}
 	_, topCenter := page2.Children[0], page2.Children[1]
 	lineBox := topCenter.Box().Children[0]
-	textBox, ok := lineBox.Box().Children[0].(*bo.TextBox)
-	if !ok || textBox.Text != "Title" {
-		t.Fatal()
+	textBox, _ := lineBox.Box().Children[0].(*bo.TextBox)
+	if textBox.Text != "Title" {
+		t.Fatalf("expected title, got %s", textBox.Text)
 	}
 }
 
-// func TestMarginBoxStringSet1(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test that both pages get string := range the `bottom-center` margin box
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page {
-//           @bottom-center { content: string(textHeader) }
-//         }
-//         p {
-//           string-set: textHeader content();
-//         }
-//         .page {
-//           page-break-before: always;
-//         }
-//       </style>
-//       <p>first assignment</p>
-//       <div class="page"></div>
-//     `)
-// }
-//     html, bottomCenter = page2.Children
-//     lineBox, = bottomCenter.Children
-//     textBox, = lineBox.Children
-//     assert textBox.text == "first assignment"
+func TestMarginBoxStringSet1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-//     html, bottomCenter = page1.Children
-//     lineBox, = bottomCenter.Children
-//     textBox, = lineBox.Children
-//     assert textBox.text == "first assignment"
+	// Test that both pages get string in the `bottom-center` margin box
+	pages := renderPages(t, `
+      <style>
+        @page {
+          @bottom-center { content: string(text_header) }
+        }
+        p {
+          string-set: text_header content();
+        }
+        .page {
+          page-break-before: always;
+        }
+      </style>
+      <p>first assignment</p>
+      <div class="page"></div>
+    `)
+	if len(pages) != 2 {
+		t.Fatalf("expected 2 pages, got %v", pages)
+	}
+	page1, page2 := pages[0], pages[1]
 
-// func TestMarginBoxStringSet2(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
+	if len(page2.Children) != 2 {
+		t.Fatalf("expected two children, got %v", page2.Children)
+	}
+	_, bottomCenter := page2.Children[0], page2.Children[1]
+	lineBox := bottomCenter.Box().Children[0]
+	textBox, _ := lineBox.Box().Children[0].(*bo.TextBox)
+	if textBox.Text != "first assignment" {
+		t.Fatalf("expected 'first assignment', got %s", textBox.Text)
+	}
 
-//     def simpleStringSetTest(contentVal, extraStyle="") {
-//         page1, = renderPages(`
-//           <style>
-//             @page {
-//               @top-center { content: string(textHeader) }
-//             }
-//             p {
-//               string-set: textHeader content(%(contentVal)s);
-//             }
-//             %(extraStyle)s
-//           </style>
-//           <p>first assignment</p>
-//         ` % dict(contentVal=contentVal, extraStyle=extraStyle))
+	if len(page1.Children) != 2 {
+		t.Fatalf("expected two children, got %v", page1.Children)
+	}
+	_, bottomCenter = page1.Children[0], page1.Children[1]
 
-//         html, topCenter = page1.Children
-//         lineBox, = topCenter.Children
-//         textBox, = lineBox.Children
-//         if contentVal := range ("before", "after"):
-//             assert textBox.text == "pseudo"
-//         else:
-//             assert textBox.text == "first assignment"
+	lineBox = bottomCenter.Box().Children[0]
+	textBox, _ = lineBox.Box().Children[0].(*bo.TextBox)
+	if textBox.Text != "first assignment" {
+		t.Fatalf("expected 'first assignment', got %s", textBox.Text)
+	}
+}
 
-//     // Test each accepted value of `content()` as an arguemnt to `string-set`
-//     for value := range ("", "text", "before", "after"):
-//         if value := range ("before", "after"):
-//             extraStyle = "p:%s{content: "pseudo"}" % value
-//             simpleStringSetTest(value, extraStyle)
-//         else:
-//             simpleStringSetTest(value)
+func TestMarginBoxStringSet2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestMarginBoxStringSet3(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test `first` (default value) ie. use the first assignment on the page
-//     page1, = renderPages(`
-//       <style>
-//         @page {
-//           @top-center { content: string(textHeader, first) }
-//         }
-//         p {
-//           string-set: textHeader content();
-//         }
-//       </style>
-//       <p>first assignment</p>
-//       <p>Second assignment</p>
-//     } `)
-// }
-//     html, topCenter = page1.Children
-//     lineBox, = topCenter.Children
-//     textBox, = lineBox.Children
-//     assert textBox.text == "first assignment"
+	simpleStringSetTest := func(contentVal, extraStyle string) {
+		pages := renderPages(t, fmt.Sprintf(`
+          <style>
+            @page {
+              @top-center { content: string(text_header) }
+            }
+            p {
+              string-set: text_header content(%s);
+            }
+            %s
+          </style>
+          <p>first assignment</p>
+        `, contentVal, extraStyle))
+		if len(pages) != 1 {
+			t.Fatalf("expected one page, got %v", pages)
+		}
+		page1 := pages[0].Box()
 
-// func TestMarginBoxStringSet4(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
+		topCenter := page1.Children[1]
+		lineBox := topCenter.Box().Children[0]
+		textBox := lineBox.Box().Children[0].(*bo.TextBox)
+		if contentVal == "before" || contentVal == "after" {
+			if textBox.Text != "pseudo" {
+				t.Fatalf("expected 'pseudo', got %s", textBox.Text)
+			}
+		} else {
+			if textBox.Text != "first assignment" {
+				t.Fatalf("expected 'first assignment', got %s", textBox.Text)
+			}
+		}
+	}
 
-//     // test `first-except` ie. exclude from page on which value is assigned
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page {
-//           @top-center { content: string(headerNofirst, first-except) }
-//         }
-//         p{
-//           string-set: headerNofirst content();
-//         }
-//         .page{
-//           page-break-before: always;
-//         }
-//       </style>
-//       <p>firstExcepted</p>
-//       <div class="page"></div>
-//     `)
-//     html, topCenter = page1.Children
-//     assert len(topCenter.Children) == 0
+	// Test each accepted value of `content()` as an arguemnt to `string-set`
+	for _, value := range []string{"", "text", "before", "after"} {
+		var extraStyle string
+		if value == "before" || value == "after" {
+			extraStyle = fmt.Sprintf("p:%s{content: 'pseudo'}", value)
+		}
+		simpleStringSetTest(value, extraStyle)
+	}
+}
 
-//     html, topCenter = page2.Children
-//     lineBox, = topCenter.Children
-//     textBox, = lineBox.Children
-//     assert textBox.text == "firstExcepted"
+func TestMarginBoxStringSet3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Test `first` (default value) ie. use the first assignment on the page
+	pages := renderPages(t, `
+      <style>
+        @page {
+          @top-center { content: string(text_header, first) }
+        }
+        p {
+          string-set: text_header content();
+        }
+      </style>
+      <p>first assignment</p>
+      <p>Second assignment</p>
+    } `)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %v", pages)
+	}
+	page1 := pages[0].Box()
 
-// func TestMarginBoxStringSet5(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test `last` ie. use the most-recent assignment
-//     page1, = renderPages(`
-//       <style>
-//         @page {
-//           @top-center { content: string(headerLast, last) }
-//         }
-//         p {
-//           string-set: headerLast content();
-//         }
-//       </style>
-//       <p>String set</p>
-//       <p>Second assignment</p>
-//     `)
-// }
-//     html, topCenter = page1.Children[:2]
-//     lineBox, = topCenter.Children
+	topCenter := page1.Children[1]
+	lineBox := topCenter.Box().Children[0]
+	textBox := lineBox.Box().Children[0].(*bo.TextBox)
+	if textBox.Text != "first assignment" {
+		t.Fatalf("expected 'first assignment', got %s", textBox.Text)
+	}
+}
 
-//     textBox, = lineBox.Children
-//     assert textBox.text == "Second assignment"
+func TestMarginBoxStringSet4(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestMarginBoxStringSet6(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
+	// test `first-except` ie. exclude from page on which value is assigned
+	pages := renderPages(t, `
+		<style>
+		@page {
+		@top-center { content: string(header-nofirst, first-except) }
+		}
+		p{
+		string-set: header-nofirst content();
+		}
+		.page{
+		page-break-before: always;
+		}
+	</style>
+	<p>first_excepted</p>
+	<div class="page"></div>
+	`)
+	if len(pages) != 2 {
+		t.Fatalf("expected 2 pages, got %v", pages)
+	}
+	page1, page2 := pages[0], pages[1]
 
-//     // Test multiple complex string-set values
-//     page1, = renderPages(`
-//       <style>
-//         @page {
-//           @top-center { content: string(textHeader, first) }
-//           @bottom-center { content: string(textFooter, last) }
-//         }
-//         html { counter-reset: a }
-//         body { counter-increment: a }
-//         ul { counter-reset: b }
-//         li {
-//           counter-increment: b;
-//           string-set {
-//             textHeader content(before) "-" content() "-" content(after)
-//                         counter(a, upper-roman) "." counters(b, "|"),
-//             textFooter content(before) "-" attr(class)
-//                         counters(b, "|") "/" counter(a, upper-roman);
-//           }
-//         }
-//         li:before { content: "before!" }
-//         li:after { content: "after!" }
-//         li:last-child:before { content: "before!last" }
-//         li:last-child:after { content: "after!last" }
-//       </style>
-//       <ul>
-//         <li class="firstclass">first
-//         <li>
-//           <ul>
-//             <li class="secondclass">second
-//     `)
+	topCenter := page1.Box().Children[1]
+	if L := len(topCenter.Box().Children); L != 0 {
+		t.Fatalf("expected no child, got %d", L)
+	}
 
-//     html, topCenter, bottomCenter = page1.Children
-//     topLineBox, = topCenter.Children
-//     topTextBox, = topLineBox.Children
-//     assert topTextBox.text == "before!-first-after!I.1"
-//     bottomLineBox, = bottomCenter.Children
-//     bottomTextBox, = bottomLineBox.Children
-//     assert bottomTextBox.text == "before!last-secondclass2|1/I"
+	topCenter = page2.Box().Children[1]
+	lineBox := topCenter.Box().Children[0]
+	textBox := lineBox.Box().Children[0].(*bo.TextBox)
+	if textBox.Text != "first_excepted" {
+		t.Fatalf("expected 'first_excepted', got %s", textBox.Text)
+	}
+}
 
-// func TestMarginBoxStringSet7(t *testing.T){
-//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/722
-//     page1, = renderPages(`
-//       <style>
-//         img { string-set: left attr(alt) }
-//         img + img { string-set: right attr(alt) }
-//         @page { @top-left  { content: "[" string(left)  "]" }
-//                 @top-right { content: "{" string(right) "}" } }
-//       </style>
-//       <img src=pattern.png alt="Chocolate">
-//       <img src=noSuchFile.png alt="Cake">
-//     `)
-// }
-//     html, topLeft, topRight = page1.Children
-//     leftLineBox, = topLeft.Children
-//     leftTextBox, = leftLineBox.Children
-//     assert leftTextBox.text == "[Chocolate]"
-//     rightLineBox, = topRight.Children
-//     rightTextBox, = rightLineBox.Children
-//     assert rightTextBox.text == "{Cake}"
+func TestMarginBoxStringSet5(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Test `last` ie. use the most-recent assignment
+	pages := renderPages(t, `
+      <style>
+        @page {
+          @top-center { content: string(headerLast, last) }
+        }
+        p {
+          string-set: headerLast content();
+        }
+      </style>
+      <p>String set</p>
+      <p>Second assignment</p>
+    `)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %v", pages)
+	}
+	page1 := pages[0].Box()
 
-// func TestMarginBoxStringSet8(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
+	topCenter := page1.Children[1]
+	lineBox := topCenter.Box().Children[0]
+	textBox := lineBox.Box().Children[0].(*bo.TextBox)
+	if textBox.Text != "Second assignment" {
+		t.Fatalf("expected 'Second assignment', got %s", textBox.Text)
+	}
+}
 
-//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/726
-//     page1, page2, page3 = renderPages(`
-//       <style>
-//         @page { @top-left  { content: "[" string(left) "]" } }
-//         p { page-break-before: always }
-//         .initial { string-set: left "initial" }
-//         .empty   { string-set: left ""        }
-//         .space   { string-set: left " "       }
-//       </style>
-// }
-//       <p class="initial">Initial</p>
-//       <p class="empty">Empty</p>
-//       <p class="space">Space</p>
-//     `)
-//     html, topLeft = page1.Children
-//     leftLineBox, = topLeft.Children
-//     leftTextBox, = leftLineBox.Children
-//     assert leftTextBox.text == "[initial]"
+func TestMarginBoxStringSet6(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-//     html, topLeft = page2.Children
-//     leftLineBox, = topLeft.Children
-//     leftTextBox, = leftLineBox.Children
-//     assert leftTextBox.text == "[]"
+	// Test multiple complex string-set values
+	pages := renderPages(t, `
+		<style>
+		@page {
+		@top-center { content: string(text_header, first) }
+		@bottom-center { content: string(text_footer, last) }
+		}
+		html { counter-reset: a }
+		body { counter-increment: a }
+		ul { counter-reset: b }
+		li {
+		counter-increment: b;
+		string-set:
+			text_header content(before) "-" content() "-" content(after)
+						counter(a, upper-roman) '.' counters(b, '|'),
+			text_footer content(before) '-' attr(class)
+						counters(b, '|') "/" counter(a, upper-roman);
+		}
+		li:before { content: 'before!' }
+		li:after { content: 'after!' }
+		li:last-child:before { content: 'before!last' }
+		li:last-child:after { content: 'after!last' }
+	</style>
+	<ul>
+		<li class="firstclass">first
+		<li>
+		<ul>
+			<li class="secondclass">second
+    `)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %v", pages)
+	}
+	page1 := pages[0].Box()
 
-//     html, topLeft = page3.Children
-//     leftLineBox, = topLeft.Children
-//     leftTextBox, = leftLineBox.Children
-//     assert leftTextBox.text == "[ ]"
+	topCenter, bottomCenter := page1.Children[1], page1.Children[2]
+	topLineBox := topCenter.Box().Children[0]
+	topTextBox := topLineBox.Box().Children[0].(*bo.TextBox)
+	if topTextBox.Text != "before!-first-after!I.1" {
+		t.Fatalf("expected 'before!-first-after!I.1', got %s", topTextBox.Text)
+	}
 
-// func TestMarginBoxStringSet9(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test that named strings are case-sensitive
-//     // See https://github.com/Kozea/WeasyPrint/pull/827
-//     page1, = renderPages(`
-//       <style>
-//         @page {
-//           @top-center {
-//             content: string(textHeader, first)
-//                      " " string(TEXTHeader, first)
-//           }
-//         }
-//         p { string-set: textHeader content() }
-//         div { string-set: TEXTHeader content() }
-//       </style>
-//       <p>first assignment</p>
-//       <div>second assignment</div>
-//     `)
+	bottomLineBox := bottomCenter.Box().Children[0]
+	bottomTextBox := bottomLineBox.Box().Children[0].(*bo.TextBox)
+	if bottomTextBox.Text != "before!last-secondclass2|1/I" {
+		t.Fatalf("expected 'before!last-secondclass2|1/I', got %s", bottomTextBox.Text)
+	}
+}
 
-//     html, topCenter = page1.Children
-//     lineBox, = topCenter.Children
-//     textBox, = lineBox.Children
-//     assert textBox.text == "first assignment second assignment"
+func TestMarginBoxStringSet7(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/722
+	pages := renderPages(t, `
+      <style>
+        img { string-set: left attr(alt) }
+        img + img { string-set: right attr(alt) }
+        @page { @top-left  { content: "[" string(left)  "]" }
+                @top-right { content: "{" string(right) "}" } }
+      </style>
+      <img src=pattern.png alt="Chocolate">
+      <img src=noSuchFile.png alt="Cake">
+    `)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %v", pages)
+	}
+	page1 := pages[0].Box()
 
-// @assertNoLogs
-// // Test page-based counters.
-// func TestPageCounters(t *testing.T) {
-//     pages = renderPages(`
-//       <style>
-//         @page {
-//           /* Make the page content area only 10px high && wide,
-//              so every word := range <p> end up on a page of its own. */
-//           size: 30px;
-//           margin: 10px;
-//           @bottom-center {
-//             content: "Page " counter(page) " of " counter(pages) ".";
-//           }
-//         }
-//       </style>
-//       <p>lorem ipsum dolor
-//     `)
-//     for pageNumber, page := range enumerate(pages, 1):
-//         html, bottomCenter = page.Children
-//         lineBox, = bottomCenter.Children
-//         textBox, = lineBox.Children
-//         assert textBox.text == "Page {0} of 3.".format(pageNumber)
+	topLeft, topRight := page1.Children[1], page1.Children[2]
+	leftLineBox := topLeft.Box().Children[0]
+	leftTextBox := leftLineBox.Box().Children[0].(*bo.TextBox)
+	if leftTextBox.Text != "[Chocolate]" {
+		t.Fatalf("expected '[Chocolate]', got %s", leftTextBox.Text)
+	}
+
+	rightLineBox := topRight.Box().Children[0]
+	rightTextBox := rightLineBox.Box().Children[0].(*bo.TextBox)
+	if rightTextBox.Text != "{Cake}" {
+		t.Fatalf("expected '{Cake}', got %s", rightTextBox.Text)
+	}
+}
+
+func TestMarginBoxStringSet8(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/726
+	pages := renderPages(t, `
+      <style>
+        @page { @top-left  { content: "[" string(left) "]" } }
+        p { page-break-before: always }
+        .initial { string-set: left "initial" }
+        .empty   { string-set: left ""        }
+        .space   { string-set: left " "       }
+      </style>
+
+	  <p class="initial">Initial</p>
+      <p class="empty">Empty</p>
+      <p class="space">Space</p>
+    `)
+	if len(pages) != 3 {
+		t.Fatalf("expected 3 page, got %v", pages)
+	}
+	page1, page2, page3 := pages[0], pages[1], pages[2]
+
+	topLeft := page1.Box().Children[1]
+	leftLineBox := topLeft.Box().Children[0]
+	leftTextBox := leftLineBox.Box().Children[0].(*bo.TextBox)
+	if leftTextBox.Text != "[initial]" {
+		t.Fatalf("expected '[initial]', got %s", leftTextBox.Text)
+	}
+
+	topLeft = page2.Box().Children[1]
+	leftLineBox = topLeft.Box().Children[0]
+	leftTextBox = leftLineBox.Box().Children[0].(*bo.TextBox)
+	if leftTextBox.Text != "[]" {
+		t.Fatalf("expected '[]', got %s", leftTextBox.Text)
+	}
+
+	topLeft = page3.Box().Children[1]
+	leftLineBox = topLeft.Box().Children[0]
+	leftTextBox = leftLineBox.Box().Children[0].(*bo.TextBox)
+	if leftTextBox.Text != "[ ]" {
+		t.Fatalf("expected '[ ]', got %s", leftTextBox.Text)
+	}
+}
+
+func TestMarginBoxStringSet9(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Test that named strings are case-sensitive
+	// See https://github.com/Kozea/WeasyPrint/pull/827
+	pages := renderPages(t, `
+      <style>
+        @page {
+          @top-center {
+            content: string(text_header, first)
+                     " " string(TEXTHeader, first)
+          }
+        }
+        p { string-set: text_header content() }
+        div { string-set: TEXTHeader content() }
+      </style>
+      <p>first assignment</p>
+      <div>second assignment</div>
+    `)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %v", pages)
+	}
+	page1 := pages[0].Box()
+
+	topCenter := page1.Children[1]
+	lineBox := topCenter.Box().Children[0]
+	textBox := lineBox.Box().Children[0].(*bo.TextBox)
+
+	if textBox.Text != "first assignment second assignment" {
+		t.Fatalf("expected 'first assignment second assignment', got %s", textBox.Text)
+	}
+}
+
+// Test page-based counters.
+func TestPageCounters(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	pages := renderPages(t, `
+      <style>
+        @page {
+          /* Make the page content area only 10px high and wide,
+             so every word in <p> end up on a page of its own. */
+          size: 30px;
+          margin: 10px;
+          @bottom-center {
+            content: "Page " counter(page) " of " counter(pages) ".";
+          }
+        }
+      </style>
+      <p>lorem ipsum dolor
+    `)
+	for pageIndex, page := range pages {
+		pageNumber := pageIndex + 1
+		bottomCenter := page.Box().Children[1]
+		lineBox := bottomCenter.Box().Children[0]
+		textBox := lineBox.Box().Children[0].(*bo.TextBox)
+		exp := fmt.Sprintf("Page %d of 3.", pageNumber)
+		if textBox.Text != exp {
+			t.Fatalf("expected '%s', got %s", exp, textBox.Text)
+		}
+	}
+}
