@@ -858,6 +858,20 @@ func (s *AnonymousStyle) SetCounterReset(v pr.SIntStrings) {
 	s.dict["counter_reset"] = v
 }
 
+func (s *ComputedStyle) GetCounterSet() pr.SIntStrings {
+	return s.Get("counter_set").(pr.SIntStrings)
+}
+func (s *ComputedStyle) SetCounterSet(v pr.SIntStrings) {
+	s.dict["counter_set"] = v
+}
+
+func (s *AnonymousStyle) GetCounterSet() pr.SIntStrings {
+	return s.Get("counter_set").(pr.SIntStrings)
+}
+func (s *AnonymousStyle) SetCounterSet(v pr.SIntStrings) {
+	s.dict["counter_set"] = v
+}
+
 func (s *ComputedStyle) GetDirection() pr.String {
 	return s.Get("direction").(pr.String)
 }

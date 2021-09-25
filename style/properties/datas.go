@@ -227,6 +227,7 @@ var (
 		"clear",
 		"counter_increment",
 		"counter_reset",
+		"counter_set",
 		"float",
 		"left",
 		"margin_top",

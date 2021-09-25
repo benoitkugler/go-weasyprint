@@ -15,8 +15,10 @@ var InitialValues = Properties{
 	// Means "none", but allow `display: list-item` to increment the
 	// list-item counter. If we ever have a way for authors to query
 	// computed values (JavaScript?), this value should serialize to "none".
-	"counter_increment":   SIntStrings{String: "auto"},
-	"counter_reset":       SIntStrings{Values: IntStrings{}}, // parsed value for "none"
+	"counter_increment": SIntStrings{String: "auto"},
+	"counter_reset":     SIntStrings{Values: IntStrings{}}, // parsed value for "none"
+	"counter_set":       SIntStrings{Values: IntStrings{}}, // parsed value for "none"
+
 	"direction":           String("ltr"),
 	"display":             String("inline"),
 	"empty_cells":         String("show"),

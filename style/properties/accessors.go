@@ -429,6 +429,13 @@ func (s Properties) SetCounterReset(v SIntStrings) {
 	s["counter_reset"] = v
 }
 
+func (s Properties) GetCounterSet() SIntStrings {
+	return s["counter_set"].(SIntStrings)
+}
+func (s Properties) SetCounterSet(v SIntStrings) {
+	s["counter_set"] = v
+}
+
 func (s Properties) GetDirection() String {
 	return s["direction"].(String)
 }
@@ -1249,6 +1256,9 @@ type StyleAccessor interface {
 
 	GetCounterReset() SIntStrings
 	SetCounterReset(v SIntStrings)
+
+	GetCounterSet() SIntStrings
+	SetCounterSet(v SIntStrings)
 
 	GetDirection() String
 	SetDirection(v String)

@@ -30,7 +30,7 @@ func testCounterSymbols(t *testing.T, arguments string, values [4]string) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
-	pages := renderPages(t, fmt.Sprintf(`
+	page := renderOnePage(t, fmt.Sprintf(`
       <style>
         ol { list-style-type: %s }
       </style>
@@ -41,11 +41,6 @@ func testCounterSymbols(t *testing.T, arguments string, values [4]string) {
         <li>abc</li>
       </ol>
     `, arguments))
-
-	if len(pages) != 1 {
-		t.Fatalf("expected 1 page, got %v", pages)
-	}
-	page := pages[0]
 
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
@@ -66,7 +61,10 @@ func testCounterSymbols(t *testing.T, arguments string, values [4]string) {
 }
 
 func TestCounterSet(t *testing.T) {
-	pages := renderPages(t, `
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
       <style>
         body { counter-reset: h2 0 h3 4; font-size: 1px }
         article { counter-reset: h2 2 }
@@ -100,10 +98,6 @@ func TestCounterSet(t *testing.T) {
         <h3></h3>
       </article>
     `)
-	if len(pages) != 1 {
-		t.Fatalf("expected 1 page, got %v", pages)
-	}
-	page := pages[0]
 
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
@@ -153,59 +147,80 @@ func TestCounterSet(t *testing.T) {
 	}
 }
 
-// func TestCounterMultipleExtends(t *testing.T) {
-//     // Inspired by W3C failing test system-extends-invalid
-//     page, = renderPages(`
-//       <style>
-//         @counter-style a {
-//           system: extends b;
-//           prefix: a;
-//         }
-//         @counter-style b {
-//           system: extends c;
-//           suffix: b;
-//         }
-//         @counter-style c {
-//           system: extends b;
-//           pad: 2 c;
-//         }
-//         @counter-style d {
-//           system: extends d;
-//           prefix: d;
-//         }
-//         @counter-style e {
-//           system: extends unknown;
-//           prefix: e;
-//         }
-//         @counter-style f {
-//           system: extends decimal;
-//           symbols: a;
-//         }
-//         @counter-style g {
-//           system: extends decimal;
-//           additive-symbols: 1 a;
-//         }
-//       </style>
-//       <ol>
-//         <li style="list-style-type: a"></li>
-//         <li style="list-style-type: b"></li>
-//         <li style="list-style-type: c"></li>
-//         <li style="list-style-type: d"></li>
-//         <li style="list-style-type: e"></li>
-//         <li style="list-style-type: f"></li>
-//         <li style="list-style-type: g"></li>
-//         <li style="list-style-type: h"></li>
-//       </ol>
-//     `)
-//     html, = page.children
-//     body, = html.children
-//     ol, = body.children
-//     li1, li2, li3, li4, li5, li6, li7, li8 = ol.children
-//     assert li1.children[0].children[0].children[0].text == "a1b"
-//     assert li2.children[0].children[0].children[0].text == "2b"
-//     assert li3.children[0].children[0].children[0].text == "c3. "
-//     assert li4.children[0].children[0].children[0].text == "d4. "
-//     assert li5.children[0].children[0].children[0].text == "e5. "
-//     assert li6.children[0].children[0].children[0].text == "6. "
-//     assert li7.children[0].children[0].children[0].text == "7. "
-//     assert li8.children[0].children[0].children[0].text == "8. "
+func TestCounterMultipleExtends(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Inspired by W3C failing test system-extends-invalid
+	page := renderOnePage(t, `
+      <style>
+        @counter-style a {
+          system: extends b;
+          prefix: a;
+        }
+        @counter-style b {
+          system: extends c;
+          suffix: b;
+        }
+        @counter-style c {
+          system: extends b;
+          pad: 2 c;
+        }
+        @counter-style d {
+          system: extends d;
+          prefix: d;
+        }
+        @counter-style e {
+          system: extends unknown;
+          prefix: e;
+        }
+        @counter-style f {
+          system: extends decimal;
+          symbols: a;
+        }
+        @counter-style g {
+          system: extends decimal;
+          additive-symbols: 1 a;
+        }
+      </style>
+      <ol>
+        <li style="list-style-type: a"></li>
+        <li style="list-style-type: b"></li>
+        <li style="list-style-type: c"></li>
+        <li style="list-style-type: d"></li>
+        <li style="list-style-type: e"></li>
+        <li style="list-style-type: f"></li>
+        <li style="list-style-type: g"></li>
+        <li style="list-style-type: h"></li>
+      </ol>
+    `)
+
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	olC := body.Box().Children[0].Box().Children
+	li1, li2, li3, li4, li5, li6, li7, li8 := olC[0], olC[1], olC[2], olC[3], olC[4], olC[5], olC[6], olC[7]
+	if tb := li1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "a1b" {
+		t.Fatalf("expected %s, got %s", "a1b", tb.Text)
+	}
+	if tb := li2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "2b" {
+		t.Fatalf("expected %s, got %s", "2b", tb.Text)
+	}
+	if tb := li3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "c3. " {
+		t.Fatalf("expected %s, got %s", "c3. ", tb.Text)
+	}
+	if tb := li4.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "d4. " {
+		t.Fatalf("expected %s, got %s", "d4. ", tb.Text)
+	}
+	if tb := li5.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "e5. " {
+		t.Fatalf("expected %s, got %s", "e5. ", tb.Text)
+	}
+	if tb := li6.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "6. " {
+		t.Fatalf("expected %s, got %s", "6. ", tb.Text)
+	}
+	if tb := li7.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "7. " {
+		t.Fatalf("expected %s, got %s", "7. ", tb.Text)
+	}
+	if tb := li8.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox); tb.Text != "8. " {
+		t.Fatalf("expected %s, got %s", "8. ", tb.Text)
+	}
+}

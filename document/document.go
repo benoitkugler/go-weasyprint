@@ -466,9 +466,6 @@ func (d Document) MakeBookmarkTree() []bookmarkSubtree {
 
 // Include hyperlinks in current PDF page.
 func (d Document) AddHyperlinks(links []Link, anchorsId map[string]int, context Drawer, scale fl) {
-	// TODO: Instead of using rects, we could use the drawing rectangles
-	// defined by cairo when drawing targets. This would give a feeling
-	// similiar to what browsers do with links that span multiple lines.
 	for _, link := range links {
 		linkType, linkTarget, rectangle := link.Type, link.Target, link.rectangle
 		x, y, w, h := rectangle[0]*scale, rectangle[1]*scale, rectangle[2]*scale, rectangle[3]*scale
@@ -491,8 +488,6 @@ func (d Document) FetchAttachment(attachmentUrl string) backend.Attachment {
 		return backend.Attachment{}
 	}
 	source, baseurl := tmp.Content, tmp.BaseUrl
-	// TODO: Use the result object from a URL fetch operation to provide more
-	// details on the possible filename
 	filename := getFilenameFromResult(baseurl)
 	return backend.Attachment{Content: source, Title: filename}
 }

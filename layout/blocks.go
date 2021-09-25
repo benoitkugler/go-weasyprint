@@ -39,9 +39,6 @@ func blockLevelLayout(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 		}
 
 		if context.currentPage > 1 && pageIsEmpty {
-			// TODO: we should take care of cases when this box doesn't have
-			// collapsing margins with the first child of the page, see
-			// testMarginBreakClearance.
 			if box.Style.GetMarginBreak() == "discard" {
 				box.MarginTop = pr.Float(0)
 			} else if box.Style.GetMarginBreak() == "auto" {
@@ -102,7 +99,6 @@ func blockBoxLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 			pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins)
 		newBox := newBox_.Box()
 		resumeAt := result.resumeAt
-		// TODO: this condition and the whole relayout are probably wrong
 		if resumeAt == nil {
 			bottomSpacing := newBox.MarginBottom.V() + newBox.PaddingBottom.V() + newBox.BorderBottomWidth.V()
 			if bottomSpacing != 0 {
@@ -342,8 +338,6 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 		establishesFormattingContext(box_) || box.IsForRootElement)
 	var positionY pr.Float
 	if collapsingWithChildren {
-		// XXX not counting margins in adjoiningMargins, if any
-		// (There are not padding or borders, see above.)
 		positionY = box.PositionY
 	} else {
 		box.PositionY += collapseMargin(adjoiningMargins) - box.MarginTop.V()
@@ -385,7 +379,7 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 				newChildren, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins, allowedMaxPositionY)
 		} else if childLineBox, ok := child_.(*bo.LineBox); ok { // LineBox is a final type
 			abort, stop, resumeAt, positionY, newChildren = lineBoxLayout(context, box, index, childLineBox, newChildren, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins,
-				allowedMaxPositionY, maxPositionY, skipStack, firstLetterStyle)
+				allowedMaxPositionY, positionY, skipStack, firstLetterStyle)
 			drawBottomDecoration = drawBottomDecoration || resumeAt == nil
 			adjoiningMargins = nil
 		} else {
@@ -450,9 +444,6 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 
 	newBox_ := bo.CopyWithChildren(box_, newChildren, isStart, resumeAt == nil)
 	newBox := newBox_.Box()
-	// TODO: See corner cases in
-	// http://www.w3.org/TR/CSS21/visudet.html#normal-block
-	// TODO: See float.floatLayout
 	if newBox.Height == pr.Auto {
 		if len(context.excludedShapes) != 0 && newBox.Style.GetOverflow() != "visible" {
 			maxFloatPositionY := -pr.Inf
@@ -627,11 +618,6 @@ func lineBoxLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ 
 			stop = true
 			break
 
-			// TODO: this is incomplete.
-			// See http://dev.w3.org/csswg/css3-page/#allowed-pg-brk
-			// "When an unforced page break occurs here, both the adjoining
-			//  ‘margin-top’ and ‘margin-bottom’ are set to zero."
-			// See https://github.com/Kozea/WeasyPrint/issues/115
 		} else if pageIsEmpty && newPositionY > allowedMaxPositionY {
 			// Remove the top border when a page is empty && the box is
 			// too high to be drawn := range one page
@@ -686,8 +672,6 @@ func inFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ B
 	if !newContainingBlock.IsTableWrapper {
 		resolvePercentagesBox(child_, newContainingBlock, "")
 		if child.IsInNormalFlow() && lastInFlowChild == nil && collapsingWithChildren {
-			// TODO: add the adjoining descendants' margin top to
-			// [child.MarginTop]
 			oldCollapsedMargin := collapseMargin(adjoiningMargins)
 			var childMarginTop pr.Float
 			if child.MarginTop != pr.Auto {
@@ -776,7 +760,6 @@ func inFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ B
 	if newChild_ == nil {
 		// Nothing fits in the remaining space of this page: break
 		if pageBreak == "avoid" || pageBreak == "avoid-page" {
-			// TODO: fill the blank space at the bottom of the page
 			r1, r2 := findEarlierPageBreak(newChildren, absoluteBoxes, fixedBoxes)
 			if r1 != nil || r2 != nil {
 				newChildren, resumeAt = r1, r2
@@ -846,8 +829,6 @@ func establishesFormattingContext(box_ Box) bool {
 	box := box_.Box()
 	return box.IsFloated() ||
 		box.IsAbsolutelyPositioned() ||
-		// TODO: columns shouldn't be block boxes, this condition would then be
-		// useless when this is fixed
 		box.IsColumn ||
 		(bo.BlockContainerBoxT.IsInstance(box_) && !bo.BlockBoxT.IsInstance(box_)) ||
 		(bo.BlockBoxT.IsInstance(box_) && box.Style.GetOverflow() != "visible")

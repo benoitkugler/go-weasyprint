@@ -43,8 +43,7 @@ func columnsLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		knownHeight = true
 		maxPositionY = pr.Min(maxPositionY, box.ContentBoxY()+height_.Value)
 	}
-	// TODO: the available width can be unknown if the containing block needs
-	// the size of this block to know its own size.
+
 	blockLevelWidth(box_, nil, containingBlock)
 	availableWidth := box.Width.V()
 	var (
@@ -240,7 +239,6 @@ func columnsLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 			}
 		}
 
-		// TODO: check style["max"]-height
 		maxPositionY = pr.Min(maxPositionY, box.ContentBoxY()+height)
 
 		// Replace the current box children with columns

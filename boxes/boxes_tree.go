@@ -217,7 +217,7 @@ func NewTextBox(elementTag string, style pr.ElementStyle, text string) TextBox {
 			text = strings.ToLower(text)
 		// Python’s unicode.captitalize is not the same.
 		case "capitalize":
-			text = strings.ToTitle(text)
+			text = strings.Title(text)
 		case "full-width":
 			text = strings.Map(func(u rune) rune {
 				rep, in := asciiToWide[u]

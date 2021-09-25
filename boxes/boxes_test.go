@@ -1432,3 +1432,26 @@ func TestBuildPages(t *testing.T) {
 		{"p", BlockBoxT, bc{c: []serBox{{"p", LineBoxT, bc{c: []serBox{{"p", TextBoxT, bc{text: "lorem ipsum "}}}}}}}},
 	})
 }
+
+func TestInlineSpace(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	assertTree(t, parseAndBuild(t, `
+	<p>start <i><b>bi1</b> <b>bi2</b></i> <b>b1</b> end</p>
+	`), []serBox{
+		{"p", BlockBoxT, bc{c: []serBox{
+			{"p", LineBoxT, bc{c: []serBox{
+				{"p", TextBoxT, bc{text: "start "}},
+				{"i", InlineBoxT, bc{c: []serBox{
+					{"b", InlineBoxT, bc{c: []serBox{{"b", TextBoxT, bc{text: "bi1"}}}}},
+					{"i", TextBoxT, bc{text: " "}},
+					{"b", InlineBoxT, bc{c: []serBox{{"b", TextBoxT, bc{text: "bi2"}}}}},
+				}}},
+				{"p", TextBoxT, bc{text: " "}},
+				{"b", InlineBoxT, bc{c: []serBox{{"b", TextBoxT, bc{text: "b1"}}}}},
+				{"p", TextBoxT, bc{text: " end"}},
+			}}},
+		}}},
+	})
+}

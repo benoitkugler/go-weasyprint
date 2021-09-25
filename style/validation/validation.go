@@ -235,6 +235,7 @@ var (
 		"content":           content,
 		"counter-increment": counterIncrement,
 		"counter-reset":     counterReset,
+		"counter-set":       counterReset,
 		"font-size":         fontSize,
 		"bookmark-label":    bookmarkLabel,
 		"transform":         transform,
@@ -1237,8 +1238,8 @@ func counterIncrement(tokens []Token, _ string) (pr.CssProperty, error) {
 	return pr.SIntStrings{Values: ci}, nil
 }
 
-// //@validator()
 // ``counter-reset`` property validation.
+// ``counter-set`` property validation.
 func counterReset(tokens []Token, _ string) (pr.CssProperty, error) {
 	ci, err := counter(tokens, 0)
 	if err != nil || ci == nil {

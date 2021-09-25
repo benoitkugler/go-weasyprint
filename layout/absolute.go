@@ -89,7 +89,6 @@ func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock containing
 	cb_ := containingBlock.(block)
 	cbX, cbWidth := cb_.X, cb_.Width
 
-	// TODO: handle bidi
 	paddingPlusBordersX := paddingL.V() + paddingR.V() + borderL.V() + borderR.V()
 	var translateX pr.Float = 0
 	translateBoxWidth := false
@@ -304,7 +303,6 @@ func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, co
 }
 
 func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes *[]*AbsolutePlaceholder) Box {
-	// TODO: handle inline boxes (point 10.1.4.1)
 	// http://www.w3.org/TR/CSS2/visudet.html#containing-block-details
 	var containingBlock block
 	cb := cb_.Box()

@@ -186,8 +186,6 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 
 	style := styleFor.Get(element, "")
 
-	// TODO: should be the used value. When does the used value for `display`
-	// differ from the computer value?
 	display := style.GetDisplay()
 	if display == "none" {
 		return nil
@@ -265,7 +263,6 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	counterScope := state.CounterScopes[len(state.CounterScopes)-1]
 	state.CounterScopes = state.CounterScopes[:len(state.CounterScopes)-1]
 	for name := range counterScope {
-		fmt.Println(name, counterValues[name])
 		counterValues[name] = counterValues[name][:len(counterValues[name])-1]
 		if len(counterValues[name]) == 0 {
 			delete(counterValues, name)
@@ -308,9 +305,6 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 		return nil
 	}
 
-	// TODO: should be the computed value. When does the used value for
-	// `display` differ from the computer value? It's at least wrong for
-	// `content` where "normal" computes as "inhibit" for pseudo elements.
 	display := style.GetDisplay()
 	content := style.GetContent()
 	if display == "none" || content.String == "none" || content.String == "normal" || content.String == "inhibit" {
@@ -341,10 +335,6 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector, cs counters.CounterStyle) Box {
 	style := styleFor.Get(element, "marker")
 
-	// TODO: should be the computed value. When does the used value for
-	// `display` differ from the computer value? It's at least wrong for
-	// `content` where 'normal' computes as 'inhibit' for pseudo elements.
-
 	box := makeBox(element.Data+"::marker", style, nil)
 	children := &box.Box().Children
 
@@ -372,7 +362,6 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 				counterValue_ = []int{0}
 			}
 			counterValue := counterValue_[len(counterValue_)-1]
-			// TODO: rtl numbered list has the dot on the left
 			markerText := cs.RenderMarker(style.GetListStyleType(), counterValue)
 			markerBox := TextBoxAnonymousFrom(box, markerText)
 			markerBox.Box().Style.SetWhiteSpace("pre-wrap")
@@ -404,11 +393,6 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 // Collect missing counters.
 func collectMissingCounter(counterName string, counterValues tree.CounterValues, missingCounters utils.Set) {
 	for s := range counterValues {
-		if s == counterName {
-			return
-		}
-	}
-	for s := range missingCounters {
 		if s == counterName {
 			return
 		}
@@ -447,10 +431,6 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector, cs counters.CounterStyle,
 	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page Box, _ *utils.HTMLNode) []Box {
 
-	// TODO: Some computation done here may be done in computed_values
-	// instead. We currently miss at least style_for, counters and quotes
-	// context in computer. Some work will still need to be done here though,
-	// like box creation for URIs.
 	contentBoxes := []Box{}
 
 	missingCounters := utils.Set{}
@@ -461,11 +441,9 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 	// Pointless to collect missing target counters in MarginBoxes.
 	needCollectMissing := targetCollector.IsCollecting() && !inPageContext
 
-	// TODO: remove attribute or set a default value in Box class
 	if parentBox.Box().cachedCounterValues == nil {
 		// Store the counter_values in the parent_box to make them accessible
 		// in @page context. Obsoletes the parse_again function's deepcopy.
-		// TODO: Is propbably superfluous inPageContext.
 		parentBox.Box().cachedCounterValues = counterValues.Copy()
 	}
 
@@ -612,8 +590,6 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 				anchorToken, parentBox, cssToken, parseAgain)
 			if lookupTarget.IsUpToDate() {
 				targetBox := lookupTarget.TargetBox
-				// TODO: "before"- && "after"- content referring missing
-				// counters are not properly set.
 				text := textContentExtractors[textStyle](targetBox.(Box))
 				// Simulate the step of white space processing
 				// (normally done during the layout)
@@ -697,10 +673,6 @@ func ContentToBoxes(style pr.ElementStyle, parentBox Box, quoteDepth []int, coun
 			style, parentBox, origQuoteDepth, localCounters,
 			getImageFromUri, targetCollector, cs, nil, nil)...)
 
-		// TODO: do we need to add markers here?
-		// TODO: redo the formatting structure of the parent instead of hacking
-		// the already formatted structure. Find why inlineInBlocks has
-		// sometimes already been called, && sometimes not.
 		parentChildren := parentBox.Box().Children
 		if len(parentChildren) == 1 && LineBoxT.IsInstance(parentChildren[0]) {
 			parentChildren[0].Box().Children = localChildren
@@ -814,22 +786,27 @@ func UpdateCounters(state *tree.PageState, style pr.ElementStyle) {
 	siblingScopes := counterScopes[len(counterScopes)-1]
 
 	for _, nv := range style.GetCounterReset().Values {
+		slice := counterValues[nv.String]
 		if siblingScopes.Has(nv.String) {
-			delete(counterValues, nv.String)
+			slice = slice[:len(slice)-1]
 		} else {
 			siblingScopes.Add(nv.String)
 		}
-		counterValues[nv.String] = append(counterValues[nv.String], nv.Int)
+		counterValues[nv.String] = append(slice, nv.Int)
 	}
 
-	// XXX Disabled for now, only exists in Lists3’s editor’s draft.
-	//    for name, value in style.counterSet:
-	//        values = CounterValues.setdefault(name, [])
-	//        if not values:
-	//            assert name not in siblingScopes
-	//            siblingScopes.add(name)
-	//            values.append(0)
-	//        values[-1] = value
+	for _, nv := range style.GetCounterSet().Values {
+		values := counterValues[nv.String]
+		if len(values) == 0 {
+			if siblingScopes.Has(nv.String) {
+				log.Println("ci.String shoud'nt be in siblingScopes")
+			}
+			siblingScopes.Add(nv.String)
+			values = append(values, 0)
+		}
+		values[len(values)-1] = nv.Int
+		counterValues[nv.String] = values
+	}
 
 	counterIncrement := style.GetCounterIncrement()
 	if counterIncrement.String == "auto" {
@@ -847,7 +824,7 @@ func UpdateCounters(state *tree.PageState, style pr.ElementStyle) {
 		values := counterValues[ci.String]
 		if len(values) == 0 {
 			if siblingScopes.Has(ci.String) {
-				log.Fatal("ci.String shoud'nt be in siblingScopes")
+				log.Println("ci.String shoud'nt be in siblingScopes")
 			}
 			siblingScopes.Add(ci.String)
 			values = append(values, 0)
@@ -985,11 +962,6 @@ func tableBoxesChildren(box Box, children []Box) Box {
 
 	// rule 1.3
 	if box.Box().tabularContainer && len(children) >= 2 {
-		// TODO: Maybe only remove text if internal is also
-		//       a proper table descendant of box.
-		// This is what the spec says, but maybe not what browsers do:
-		// http://lists.w3.org/Archives/Public/www-style/2011Oct/0567
-
 		// Last child
 		internal, text := children[len(children)-2], children[len(children)-1]
 
@@ -1461,16 +1433,10 @@ func flexChildren(box Box, children []Box) []Box {
 				child.Box().IsFlexItem = true
 			}
 			if textBox, ok := child.(*TextBox); ok && strings.Trim(textBox.Text, " ") == "" {
-				// TODO: ignore texts only containing "characters that can be
-				// affected by the white-space property"
 				// https://www.w3.org/TR/css-flexbox-1/#flex-items
 				continue
 			}
 			if _, ok := child.(InlineBlockBoxITF); ok {
-				// TODO: Only create block boxes for text runs, not for other
-				// inline level boxes. This is false but currently needed
-				// because blockLevelWidth and blockLevelLayout are called
-				// in layout.flex.
 				var anonymous *BlockBox
 				if _, ok := box.(ParentBoxITF); ok {
 					anonymous = BlockBoxAnonymousFrom(box, child.Box().Children)
@@ -1520,7 +1486,6 @@ func ProcessWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 		}
 
 		if newLineCollapse {
-			// TODO: this should be language-specific
 			// Could also replace with a zero width space character (U+200B),
 			// or no character
 			// CSS3: http://www.w3.org/TR/css3-text/#line-break-transform
@@ -1896,7 +1861,6 @@ func boxText(box Box) string {
 }
 
 func boxTextFirstLetter(box Box) string {
-	// TODO: use the same code as in inlines.firstLetterToBox
 	characterFound := false
 	firstLetter := ""
 	text := []rune(boxText(box))

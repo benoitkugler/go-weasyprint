@@ -182,8 +182,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	parentBox_ := bo.CopyWithChildren(box_, children, true, true)
 	parentBox := parentBox_.Box()
 	resolvePercentagesBox(parentBox_, containingBlock, "")
-	// TODO: removing auto margins is OK for this step, but margins should be
-	// calculated later.
+
 	if parentBox.MarginTop == pr.Auto {
 		box.MarginTop = pr.Float(0)
 		parentBox.MarginTop = pr.Float(0)
@@ -249,7 +248,6 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			contentSize := minContentWidth(context, newChild, false)
 			child.MinWidth = pr.Min(specifiedSize, contentSize)
 		} else if child.MinHeight == pr.Auto {
-			// TODO: find a way to get min-content-height
 			specifiedSize := pr.Inf
 			if child.Height != pr.Auto {
 				specifiedSize = child.Height.V()

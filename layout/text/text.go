@@ -92,7 +92,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutCon
 	if maxWidth, ok := maxWidth.(pr.Float); ok && maxWidth != pr.Inf && fontSize != 0 {
 		var expectedLength int
 		if maxWidth == 0 {
-			// Trying to find minimum size, let"s naively split on spaces and
+			// Trying to find minimum size, let's naively split on spaces and
 			// keep one word + one letter
 
 			if spaceIndex := strings.IndexByte(text_, ' '); spaceIndex != -1 {
@@ -329,12 +329,6 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutCon
 	if !minimum && overflowWrap == "break-word" && space < 0 {
 		// Is it really OK to remove hyphenation for word-break ?
 		hyphenated = false
-		// TODO: Modify code to preserve W3C condition {
-		// "Shaping characters are still shaped as if the word were not broken"
-		// The way new lines are processed in this function (one by one with no
-		// memory of the last) prevents shaping characters (arabic, for
-		// instance) from keeping their shape when wrapped on the next line with
-		// pango layout. Maybe insert Unicode shaping characters in text?
 		layout.SetText(string(text), false)
 		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(maxWidthV)))
 		layout.Layout.SetWrap(pango.WRAP_CHAR)
@@ -356,7 +350,7 @@ func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *PangoLay
 	length := firstLine.Length
 	if hyphenated {
 		length -= len([]rune(hyphenationCharacter))
-	} else if resumeAt != 0 {
+	} else if resumeAt != -1 && resumeAt != 0 {
 		// Set an infinite width as we don't want to break lines when drawing,
 		// the lines have already been split and the size may differ. Rendering
 		// is also much faster when no width is set.
@@ -403,7 +397,6 @@ var rp = strings.NewReplacer(
 )
 
 func getLogAttrs(text []rune) []pango.CharAttr {
-	// TODO: this should be removed when bidi is supported
 	text = []rune(rp.Replace(string(text)))
 	logAttrs := pango.ComputeCharacterAttributes(text, -1)
 	return logAttrs

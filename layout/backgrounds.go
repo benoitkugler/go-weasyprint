@@ -130,7 +130,6 @@ func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu) {
 func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, image images.Image, size pr.Size, clip string, repeat [2]string,
 	origin string, position pr.Center, attachment string) bo.BackgroundLayer {
 
-	// TODO: respect box-sizing for table cells?
 	var (
 		clippedBoxes []bo.RoundedBox
 		paintingArea [4]pr.Float
@@ -138,7 +137,6 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 	box := box_.Box()
 	if box_ == page {
 		paintingArea = [4]pr.Float{0, 0, page.MarginWidth(), page.MarginHeight()}
-		// XXX: how does border-radius work on pages?
 		clippedBoxes = []bo.RoundedBox{box.RoundedBorderBox()}
 	} else if bo.TableRowGroupBoxT.IsInstance(box_) {
 		clippedBoxes = nil
@@ -313,7 +311,6 @@ func setCanvasBackground(page *bo.PageBox) {
 			l.PaintingArea = bo.Area{Rect: paintingArea}
 			chosenBox.Background.Layers[i] = l
 		}
-		// TODO: shouldn’t background-clip be considered here?
 		*page.CanvasBackground = *chosenBox.Background
 		chosenBox.Background = nil
 	} else {

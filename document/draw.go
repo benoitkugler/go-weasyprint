@@ -1145,7 +1145,6 @@ func drawCollapsedBorders(context Drawer, table *bo.TableBox, enableHinting bool
 			return
 		}
 		posY := rowPositions[y]
-		// TODO: change signs for rtl when we support rtl tables?
 		posX1 := columnPositions[x] - halfMaxWidth(verticalBorders,
 			[][2]int{{y - 1, x}, {y, x}}, true)
 		posX2 := columnPositions[x+1] + halfMaxWidth(verticalBorders,

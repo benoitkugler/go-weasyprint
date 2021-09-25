@@ -47,12 +47,9 @@ func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 		b := NewBlockReplacedBox(element.Data, box.Box().Style, image)
 		newBox = &b
 	default:
-		// TODO: support images with "display: table-cell"?
 		b := NewInlineReplacedBox(element.Data, box.Box().Style, image)
 		newBox = &b
 	}
-	// TODO: check other attributes that need to be copied
-	// TODO: find another solution
 	newBox.Box().StringSet = box.Box().StringSet
 	newBox.Box().BookmarkLabel = box.Box().BookmarkLabel
 	return newBox

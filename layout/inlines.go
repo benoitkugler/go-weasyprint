@@ -137,9 +137,9 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 
 		spi := splitInlineBox(context, linebox, positionX, maxX, skipStack, containingBlock,
 			&lineAbsolutes, &lineFixed, &linePlaceholders, waitingFloats, nil)
-
 		resumeAt, preservedLineBreak, floatWidths = spi.resumeAt, spi.preservedLineBreak, spi.floatWidths
 		line_ = spi.newBox.(*bo.LineBox) // splitInlineBox preserve the concrete type
+
 		line := line_.Box()
 		linebox.Width, linebox.Height = line.Width, line.Height
 
@@ -283,7 +283,7 @@ func removeLastWhitespace(context *LayoutContext, box Box) {
 		box = ch[len(ch)-1]
 	}
 	textBox, ok := box.(*bo.TextBox)
-	if ws := textBox.Style.GetWhiteSpace(); !(ok && (ws == "normal" || ws == "nowrap" || ws == "pre-line")) {
+	if ws := box.Box().Style.GetWhiteSpace(); !(ok && (ws == "normal" || ws == "nowrap" || ws == "pre-line")) {
 		return
 	}
 	newText := strings.TrimRight(textBox.Text, " ")
@@ -735,10 +735,16 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 				log.Fatalf("expected empty skipStack, got %v", skipStack)
 			}
 		}
-		var skip int
-		newBox, skip, preservedLineBreak = splitTextBox(context, textBox, maxX-positionX, skip_)
+		var (
+			skip       int
+			newTextBox *bo.TextBox
+		)
+		newTextBox, skip, preservedLineBreak = splitTextBox(context, textBox, maxX-positionX, skip_)
 		if skip != -1 {
 			resumeAt = &tree.SkipStack{Skip: skip}
+		}
+		if newTextBox != nil { // we dont want a non nil interface value with a nil pointer
+			newBox = newTextBox
 		}
 		if text := []rune(textBox.Text); len(text) != 0 {
 			firstLetter = text[0]
@@ -907,6 +913,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			floatResumeAt = index + 1
 			continue
 		}
+
 		lastChild := index == len(box.Children)-1
 		availableWidth := maxX
 		var childWaitingFloats []Box
@@ -1090,6 +1097,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 	for i, boxChild := range children {
 		toCopy[i] = boxChild.box
 	}
+
 	newBox_ := bo.CopyWithChildren(box_, toCopy, isStart, isEnd)
 	newBox := newBox_.Box()
 	if bo.LineBoxT.IsInstance(box_) {

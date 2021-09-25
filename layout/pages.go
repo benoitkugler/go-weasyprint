@@ -355,8 +355,7 @@ func computeVariableDimension(context *LayoutContext, sideBoxes_ [3]*bo.MarginBo
 // manipulated by the style.
 func standardizePageBasedCounters(style pr.ElementStyle, pseudoType string) {
 	pageCounterTouched := false
-	// XXX "counter-set` not yet supported
-	for _, propname := range [2]string{"counter_reset", "counter_increment"} {
+	for _, propname := range [...]string{"counter_set", "counter_reset", "counter_increment"} {
 		prop := style.Get(propname).(pr.SIntStrings)
 		if prop.String == "auto" {
 			style.Set(propname, pr.SIntStrings{Values: pr.IntStrings{}})

@@ -55,6 +55,15 @@ func renderPages(t *testing.T, htmlContent string) []*bo.PageBox {
 	return out
 }
 
+// same as renderPages, but expects only on laid out page
+func renderOnePage(t *testing.T, htmlContent string) *bo.PageBox {
+	pages := renderPages(t, htmlContent)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %v", pages)
+	}
+	return pages[0]
+}
+
 func TestMarginBoxes(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
@@ -163,7 +172,7 @@ func TestMarginBoxStringSet2(t *testing.T) {
 	defer cp.AssertNoLogs(t)
 
 	simpleStringSetTest := func(contentVal, extraStyle string) {
-		pages := renderPages(t, fmt.Sprintf(`
+		page1 := renderOnePage(t, fmt.Sprintf(`
           <style>
             @page {
               @top-center { content: string(text_header) }
@@ -175,10 +184,6 @@ func TestMarginBoxStringSet2(t *testing.T) {
           </style>
           <p>first assignment</p>
         `, contentVal, extraStyle))
-		if len(pages) != 1 {
-			t.Fatalf("expected one page, got %v", pages)
-		}
-		page1 := pages[0].Box()
 
 		topCenter := page1.Children[1]
 		lineBox := topCenter.Box().Children[0]
@@ -208,7 +213,7 @@ func TestMarginBoxStringSet3(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Test `first` (default value) ie. use the first assignment on the page
-	pages := renderPages(t, `
+	page1 := renderOnePage(t, `
       <style>
         @page {
           @top-center { content: string(text_header, first) }
@@ -220,10 +225,6 @@ func TestMarginBoxStringSet3(t *testing.T) {
       <p>first assignment</p>
       <p>Second assignment</p>
     } `)
-	if len(pages) != 1 {
-		t.Fatalf("expected one page, got %v", pages)
-	}
-	page1 := pages[0].Box()
 
 	topCenter := page1.Children[1]
 	lineBox := topCenter.Box().Children[0]
@@ -275,7 +276,7 @@ func TestMarginBoxStringSet5(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Test `last` ie. use the most-recent assignment
-	pages := renderPages(t, `
+	page1 := renderOnePage(t, `
       <style>
         @page {
           @top-center { content: string(headerLast, last) }
@@ -287,10 +288,6 @@ func TestMarginBoxStringSet5(t *testing.T) {
       <p>String set</p>
       <p>Second assignment</p>
     `)
-	if len(pages) != 1 {
-		t.Fatalf("expected one page, got %v", pages)
-	}
-	page1 := pages[0].Box()
 
 	topCenter := page1.Children[1]
 	lineBox := topCenter.Box().Children[0]
@@ -305,7 +302,7 @@ func TestMarginBoxStringSet6(t *testing.T) {
 	defer cp.AssertNoLogs(t)
 
 	// Test multiple complex string-set values
-	pages := renderPages(t, `
+	page1 := renderOnePage(t, `
 		<style>
 		@page {
 		@top-center { content: string(text_header, first) }
@@ -333,10 +330,6 @@ func TestMarginBoxStringSet6(t *testing.T) {
 		<ul>
 			<li class="secondclass">second
     `)
-	if len(pages) != 1 {
-		t.Fatalf("expected one page, got %v", pages)
-	}
-	page1 := pages[0].Box()
 
 	topCenter, bottomCenter := page1.Children[1], page1.Children[2]
 	topLineBox := topCenter.Box().Children[0]
@@ -354,7 +347,7 @@ func TestMarginBoxStringSet6(t *testing.T) {
 
 func TestMarginBoxStringSet7(t *testing.T) {
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/722
-	pages := renderPages(t, `
+	page1 := renderOnePage(t, `
       <style>
         img { string-set: left attr(alt) }
         img + img { string-set: right attr(alt) }
@@ -364,10 +357,6 @@ func TestMarginBoxStringSet7(t *testing.T) {
       <img src=pattern.png alt="Chocolate">
       <img src=noSuchFile.png alt="Cake">
     `)
-	if len(pages) != 1 {
-		t.Fatalf("expected one page, got %v", pages)
-	}
-	page1 := pages[0].Box()
 
 	topLeft, topRight := page1.Children[1], page1.Children[2]
 	leftLineBox := topLeft.Box().Children[0]
@@ -433,7 +422,7 @@ func TestMarginBoxStringSet9(t *testing.T) {
 	defer cp.AssertNoLogs(t)
 	// Test that named strings are case-sensitive
 	// See https://github.com/Kozea/WeasyPrint/pull/827
-	pages := renderPages(t, `
+	page1 := renderOnePage(t, `
       <style>
         @page {
           @top-center {
@@ -447,10 +436,6 @@ func TestMarginBoxStringSet9(t *testing.T) {
       <p>first assignment</p>
       <div>second assignment</div>
     `)
-	if len(pages) != 1 {
-		t.Fatalf("expected one page, got %v", pages)
-	}
-	page1 := pages[0].Box()
 
 	topCenter := page1.Children[1]
 	lineBox := topCenter.Box().Children[0]
