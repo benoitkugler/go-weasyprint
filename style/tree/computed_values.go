@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/style/validation"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -483,8 +484,15 @@ func length2(computer *ComputedStyle, _ string, value pr.Value, fontSize pr.Floa
 			fontSize = computer.GetFontSize().Value
 		}
 		switch unit {
-		// TODO: we dont support 'ex' and 'ch' units for now.
-		case pr.Ex, pr.Ch, pr.Em:
+		case pr.Ex:
+			result = value.Value * fontSize * text.ExRatio(computer, computer.textContext)
+		case pr.Ch:
+			layout := text.NewTextLayout(computer.textContext, float64(fontSize), computer, 0, nil)
+			layout.SetText("0", false)
+			line, _ := layout.GetFirstLine()
+			logicalWidth, _ := text.LineSize(line, computer)
+			result = value.Value * pr.Float(logicalWidth)
+		case pr.Em:
 			result = value.Value * fontSize
 		case pr.Rem:
 			result = value.Value * computer.rootStyle.GetFontSize().Value
@@ -882,18 +890,18 @@ func link(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProper
 func lang(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.NamedString)
 	if value.String == "none" {
-		return nil
+		return pr.NamedString{}
 	}
 	if node, ok := computer.element.(*utils.HTMLNode); ok && value.Name == "attr" {
 		s := node.Get(value.String)
 		if s == "" {
-			return nil
+			return pr.NamedString{}
 		}
 		return pr.NamedString{String: s}
 	} else if value.Name == "string" {
 		return pr.NamedString{String: value.String}
 	}
-	return nil
+	return pr.NamedString{}
 }
 
 // Compute the ``tab-size`` property.

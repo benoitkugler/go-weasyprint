@@ -307,14 +307,14 @@ func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
 		userStylesheets = stylesheets
 	)
 
-	styleFor := tree.GetAllComputedStyles(html, userStylesheets, presentationalHints, fontConfig,
-		counterStyle, &pageRules, &targetCollector)
 	cache := make(map[string]images.Image)
 	getImageFromUri := func(url, forcedMimeType string) images.Image {
 		return images.GetImageFromUri(cache, html.UrlFetcher, url, forcedMimeType)
 	}
 	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
-	context := layout.NewLayoutContext(*styleFor, getImageFromUri, fontConfig, counterStyle, &targetCollector)
+	context := layout.NewLayoutContext(getImageFromUri, fontConfig, counterStyle, &targetCollector)
+	context.StyleFor = tree.GetAllComputedStyles(html, userStylesheets, presentationalHints, fontConfig,
+		counterStyle, &pageRules, &targetCollector, context)
 	return context
 }
 
@@ -328,7 +328,7 @@ func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, f
 	context := newLayoutContext(html, stylesheets, presentationalHints, fontConfig, counterStyle)
 
 	rootBox := bo.BuildFormattingStructure(html.Root, context.StyleFor, context.GetImageFromUri,
-		html.BaseUrl, context.TargetCollector, counterStyle)
+		html.BaseUrl, context.TargetCollector, counterStyle, context)
 
 	pageBoxes := layout.LayoutDocument(html, rootBox, context, -1)
 	pages := make([]Page, len(pageBoxes))

@@ -11,20 +11,20 @@ import (
 	"github.com/benoitkugler/textlayout/pango"
 )
 
-type PangoLayoutContext interface {
+type TextLayoutContext interface {
 	Fontmap() pango.FontMap
 	HyphenCache() map[HyphenDictKey]hyphen.Hyphener
 	StrutLayoutsCache() map[StrutLayoutKey][2]pr.Float
 }
 
-// PangoLayout wraps a pango.Layout object
-type PangoLayout struct {
+// TextLayout wraps a pango.Layout object
+type TextLayout struct {
 	Style   pr.StyleAccessor
 	metrics *pango.FontMetrics // optional
 
 	maxWidth pr.MaybeFloat
 
-	Context PangoLayoutContext // will be a *LayoutContext; to avoid circular dependency
+	Context TextLayoutContext // will be a *LayoutContext; to avoid circular dependency
 
 	Layout pango.Layout
 
@@ -32,8 +32,8 @@ type PangoLayout struct {
 	firstLineDirection   pango.Direction
 }
 
-func newPangoLayout(context PangoLayoutContext, fontSize pr.Fl, style pr.StyleAccessor, justificationSpacing pr.Fl, maxWidth pr.MaybeFloat) *PangoLayout {
-	var layout PangoLayout
+func NewTextLayout(context TextLayoutContext, fontSize pr.Fl, style pr.StyleAccessor, justificationSpacing pr.Fl, maxWidth pr.MaybeFloat) *TextLayout {
+	var layout TextLayout
 
 	layout.JustificationSpacing = justificationSpacing
 	layout.setup(context, fontSize, style)
@@ -42,7 +42,7 @@ func newPangoLayout(context PangoLayoutContext, fontSize pr.Fl, style pr.StyleAc
 	return &layout
 }
 
-func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pr.Fl, style pr.StyleAccessor) {
+func (p *TextLayout) setup(context TextLayoutContext, fontSize pr.Fl, style pr.StyleAccessor) {
 	p.Context = context
 	p.Style = style
 	p.firstLineDirection = 0
@@ -93,7 +93,7 @@ func (p *PangoLayout) setup(context PangoLayoutContext, fontSize pr.Fl, style pr
 	p.Layout.SetAttributes(pango.AttrList{attr})
 }
 
-func (p *PangoLayout) SetText(text string, justify bool) {
+func (p *TextLayout) SetText(text string, justify bool) {
 	if index := strings.IndexByte(text, '\n'); index != -1 && len(text) >= index+2 {
 		// Keep only the first line plus one character, we don't need more
 		text = text[:index+2]
@@ -146,11 +146,11 @@ func (p *PangoLayout) SetText(text string, justify bool) {
 	}
 }
 
-func (p *PangoLayout) setTabs() {
+func (p *TextLayout) setTabs() {
 	tabSize := p.Style.GetTabSize()
 	width := int(tabSize.Value)
 	if tabSize.Unit == 0 { // no unit, means a multiple of the advance width of the space character
-		layout := newPangoLayout(p.Context, pr.Fl(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
+		layout := NewTextLayout(p.Context, pr.Fl(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
 		layout.SetText(strings.Repeat(" ", int(tabSize.Value)), false)
 		line, _ := layout.GetFirstLine()
 		widthTmp, _ := LineSize(line, p.Style)
@@ -165,7 +165,7 @@ func (p *PangoLayout) setTabs() {
 }
 
 // GetFirstLine returns the first line and the index of the second line, or -1.
-func (p *PangoLayout) GetFirstLine() (*pango.LayoutLine, int) {
+func (p *TextLayout) GetFirstLine() (*pango.LayoutLine, int) {
 	firstLine := p.Layout.GetLine(0)
 	secondLine := p.Layout.GetLine(1)
 	index := -1
@@ -178,7 +178,7 @@ func (p *PangoLayout) GetFirstLine() (*pango.LayoutLine, int) {
 	return firstLine, index
 }
 
-func (p *PangoLayout) GetFontMetrics() interface{} {
+func (p *TextLayout) GetFontMetrics() interface{} {
 	// FIXME:
 	return nil
 }

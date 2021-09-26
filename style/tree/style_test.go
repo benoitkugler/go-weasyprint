@@ -24,10 +24,6 @@ func fakeHTML(html HTML) *HTML {
 	return &html
 }
 
-func TestUACounterStyle(t *testing.T) {
-	fmt.Println(UACounterStyle)
-}
-
 func TestDescriptors(t *testing.T) {
 	stylesheet := parser.ParseStylesheet2([]byte("@font-face{}"), false, false)
 	logs := testutils.CaptureLogs()
@@ -239,7 +235,7 @@ func TestAnnotateDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil, nil)
+	styleFor := GetAllComputedStyles(document, []CSS{userStylesheet}, false, nil, nil, nil, nil, nil)
 	// Element objects behave as lists of their children
 	body := document.Root.NodeChildren(true)[1]
 	children := body.NodeChildren(true)
@@ -348,7 +344,7 @@ func TestPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil)
+	styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil, nil)
 
 	pageType := utils.PageElement{Side: "left", First: true, Blank: false, Index: 0, Name: ""}
 	styleFor.SetPageComputedStylesT(pageType, document)
@@ -538,7 +534,7 @@ func TestWarningsStylesheet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	GetAllComputedStyles(html, nil, false, nil, nil, nil, nil)
+	GetAllComputedStyles(html, nil, false, nil, nil, nil, nil, nil)
 	logs := capt.Logs()
 	if len(logs) != 1 {
 		t.Fatalf("expected exactly 1 log, got %d", len(logs))
@@ -593,7 +589,7 @@ func TestFontSize(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil)
+		styleFor := GetAllComputedStyles(document, []CSS{css}, false, nil, nil, nil, nil, nil)
 		body := document.Root.NodeChildren(true)[1]
 		p := body.NodeChildren(true)[0]
 		span := p.NodeChildren(true)[1]

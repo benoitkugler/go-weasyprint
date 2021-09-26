@@ -40,21 +40,20 @@ type Token = parser.Token
 
 // StyleFor provides a convenience function `Get` to get the computed styles for an Element.
 type StyleFor struct {
-	// pr.Properties
-	// Anonymous      bool
-	// inheritedStyle *StyleFor
-
 	CascadedStyles map[utils.ElementKey]cascadedStyle
 	computedStyles map[utils.ElementKey]pr.ElementStyle
+	textContext    text.TextLayoutContext
 	sheets         []sheet
 }
 
-func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetColllector *TargetCollector) *StyleFor {
+func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool,
+	targetColllector *TargetCollector, textContext text.TextLayoutContext) *StyleFor {
 	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
 		CascadedStyles: cascadedStyles,
 		computedStyles: map[utils.ElementKey]pr.ElementStyle{},
 		sheets:         sheets,
+		textContext:    textContext,
 	}
 
 	logger.ProgressLogger.Printf("Step 3 - Applying CSS - %d sheet(s)\n", len(sheets))
@@ -112,7 +111,8 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetCol
 				}
 			}
 		}
-		out.SetComputedStyles(element, (*utils.HTMLNode)(element.Parent), html.Root, "", html.BaseUrl, targetColllector)
+		out.SetComputedStyles(element, (*utils.HTMLNode)(element.Parent), html.Root, "", html.BaseUrl,
+			targetColllector)
 	}
 
 	// Then computed styles for pseudo elements, in any order.
@@ -145,7 +145,8 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool, targetCol
 // pseudo-Element and assign computed values with respect to the cascade,
 // declaration priority (ie. ``!important``) and selector specificity.
 func (self *StyleFor) SetComputedStyles(element, parent Element,
-	root *utils.HTMLNode, pseudoType, baseUrl string, TargetCollector *TargetCollector) {
+	root *utils.HTMLNode, pseudoType, baseUrl string,
+	targetCollector *TargetCollector) {
 
 	var (
 		parentStyle pr.ElementStyle
@@ -173,7 +174,7 @@ func (self *StyleFor) SetComputedStyles(element, parent Element,
 		cascaded = cascadedStyle{}
 	}
 	self.computedStyles[key] = ComputedFromCascaded(element, cascaded, parentStyle,
-		rootStyle, pseudoType, baseUrl, TargetCollector)
+		rootStyle, pseudoType, baseUrl, targetCollector, self.textContext)
 }
 
 func (s StyleFor) Get(element Element, pseudoType string) pr.ElementStyle {
@@ -254,6 +255,8 @@ type ComputedStyle struct {
 	dict      pr.Properties
 	variables map[string]pr.ValidatedProperty
 
+	textContext text.TextLayoutContext
+
 	rootStyle   pr.Properties
 	parentStyle pr.ElementStyle
 	cascaded    cascadedStyle
@@ -264,10 +267,11 @@ type ComputedStyle struct {
 }
 
 func newComputedStyle(parentStyle pr.ElementStyle, cascaded cascadedStyle,
-	element Element, pseudoType string, rootStyle pr.Properties, baseUrl string) *ComputedStyle {
+	element Element, pseudoType string, rootStyle pr.Properties, baseUrl string, textContext text.TextLayoutContext) *ComputedStyle {
 	out := &ComputedStyle{
 		dict:        make(pr.Properties),
 		variables:   make(map[string]pr.ValidatedProperty),
+		textContext: textContext,
 		parentStyle: parentStyle,
 		cascaded:    cascaded,
 		element:     element,
@@ -311,7 +315,7 @@ func (c *ComputedStyle) isRootElement() bool { return c.parentStyle == nil }
 func (c *ComputedStyle) Set(key string, value pr.CssProperty) { c.dict[key] = value }
 
 func (c *ComputedStyle) Copy() pr.ElementStyle {
-	out := newComputedStyle(c.parentStyle, c.cascaded, c.element, c.pseudoType, c.rootStyle, c.baseUrl)
+	out := newComputedStyle(c.parentStyle, c.cascaded, c.element, c.pseudoType, c.rootStyle, c.baseUrl, c.textContext)
 	out.dict.UpdateWith(c.dict)
 	return out
 }
@@ -929,12 +933,13 @@ func declarationPrecedence(origin string, importance bool) uint8 {
 }
 
 // Get a dict of computed style mixed from parent and cascaded styles.
-func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle pr.ElementStyle, rootStyle pr.Properties, pseudoType, baseUrl string, targetCollector *TargetCollector) pr.ElementStyle {
+func ComputedFromCascaded(element Element, cascaded cascadedStyle, parentStyle pr.ElementStyle, rootStyle pr.Properties, pseudoType, baseUrl string,
+	targetCollector *TargetCollector, textContext text.TextLayoutContext) pr.ElementStyle {
 	if cascaded == nil && parentStyle != nil {
 		return newAnonymousStyle(parentStyle)
 	}
 
-	style := newComputedStyle(parentStyle, cascaded, element, pseudoType, rootStyle, baseUrl)
+	style := newComputedStyle(parentStyle, cascaded, element, pseudoType, rootStyle, baseUrl, textContext)
 	if targetCollector != nil {
 		targetCollector.collectAnchor(string(style.GetAnchor()))
 	}
@@ -1311,7 +1316,8 @@ type sas struct {
 // presentationalHints=false
 func GetAllComputedStyles(html *HTML, userStylesheets []CSS,
 	presentationalHints bool, fontConfig *text.FontConfiguration,
-	counterStyle counters.CounterStyle, pageRules *[]PageRule, TargetCollector *TargetCollector) *StyleFor {
+	counterStyle counters.CounterStyle, pageRules *[]PageRule,
+	targetCollector *TargetCollector, textContext text.TextLayoutContext) *StyleFor {
 
 	if counterStyle == nil {
 		counterStyle = make(counters.CounterStyle)
@@ -1337,7 +1343,7 @@ func GetAllComputedStyles(html *HTML, userStylesheets []CSS,
 	for _, sht := range userStylesheets {
 		sheets = append(sheets, sheet{sheet: sht, origin: "user", specificity: nil})
 	}
-	return newStyleFor(html, sheets, presentationalHints, TargetCollector)
+	return newStyleFor(html, sheets, presentationalHints, targetCollector, textContext)
 }
 
 // Set style for page types and pseudo-types matching ``pageType``.

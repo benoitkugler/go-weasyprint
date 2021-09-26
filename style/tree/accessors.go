@@ -1894,18 +1894,32 @@ func (s *AnonymousStyle) SetTableLayout(v pr.String) {
 	s.dict["table_layout"] = v
 }
 
-func (s *ComputedStyle) GetTextAlign() pr.String {
-	return s.Get("text_align").(pr.String)
+func (s *ComputedStyle) GetTextAlignAll() pr.String {
+	return s.Get("text_align_all").(pr.String)
 }
-func (s *ComputedStyle) SetTextAlign(v pr.String) {
-	s.dict["text_align"] = v
+func (s *ComputedStyle) SetTextAlignAll(v pr.String) {
+	s.dict["text_align_all"] = v
 }
 
-func (s *AnonymousStyle) GetTextAlign() pr.String {
-	return s.Get("text_align").(pr.String)
+func (s *AnonymousStyle) GetTextAlignAll() pr.String {
+	return s.Get("text_align_all").(pr.String)
 }
-func (s *AnonymousStyle) SetTextAlign(v pr.String) {
-	s.dict["text_align"] = v
+func (s *AnonymousStyle) SetTextAlignAll(v pr.String) {
+	s.dict["text_align_all"] = v
+}
+
+func (s *ComputedStyle) GetTextAlignLast() pr.String {
+	return s.Get("text_align_last").(pr.String)
+}
+func (s *ComputedStyle) SetTextAlignLast(v pr.String) {
+	s.dict["text_align_last"] = v
+}
+
+func (s *AnonymousStyle) GetTextAlignLast() pr.String {
+	return s.Get("text_align_last").(pr.String)
+}
+func (s *AnonymousStyle) SetTextAlignLast(v pr.String) {
+	s.dict["text_align_last"] = v
 }
 
 func (s *ComputedStyle) GetTextDecorationColor() pr.Color {

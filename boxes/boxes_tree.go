@@ -39,14 +39,14 @@ type TextBox struct {
 	InlineLevelBox
 	BoxFields
 
-	PangoLayout          *text.PangoLayout
+	PangoLayout          *text.TextLayout
 	Text                 string
 	OriginalText         string
 	JustificationSpacing pr.Float
 }
 
 func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
 	out := NewTextBox(parent.Box().ElementTag, style, text)
 	return &out
 }
@@ -70,7 +70,7 @@ type InlineReplacedBox struct {
 }
 
 func InlineReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *InlineReplacedBox {
-	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
 	out := NewInlineReplacedBox(parent.Box().ElementTag, style, replacement)
 	return &out
 }
@@ -161,7 +161,7 @@ func NewBlockBox(elementTag string, style pr.ElementStyle, children []Box) Block
 
 func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 	parentBox := parent.Box()
-	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil)
+	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil, nil)
 	out := NewLineBox(parentBox.ElementTag, style, children)
 	if parentBox.Style.GetOverflow() != "visible" {
 		out.TextOverflow = string(parentBox.Style.GetTextOverflow())

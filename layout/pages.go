@@ -395,7 +395,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 		style := context.StyleFor.Get(page.PageType, atKeyword)
 		if style == nil {
 			// doesn't affect counters
-			style = tree.ComputedFromCascaded(nil, nil, page.Style, nil, "", "", nil)
+			style = tree.ComputedFromCascaded(nil, nil, page.Style, nil, "", "", nil, context)
 		}
 		standardizePageBasedCounters(style, atKeyword)
 		box := bo.NewMarginBox(atKeyword, style)

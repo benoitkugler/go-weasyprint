@@ -200,7 +200,7 @@ func LayoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *Layou
 	return out
 }
 
-var _ text.PangoLayoutContext = (*LayoutContext)(nil)
+var _ text.TextLayoutContext = (*LayoutContext)(nil)
 
 // LayoutContext stores the global context needed during layout,
 // such as various caches.
@@ -216,7 +216,7 @@ type LayoutContext struct {
 	TargetCollector     *tree.TargetCollector
 	counterStyle        counters.CounterStyle
 	dictionaries        map[text.HyphenDictKey]hyphen.Hyphener
-	StyleFor            tree.StyleFor
+	StyleFor            *tree.StyleFor
 	pageMaker           []tree.PageMaker
 	excludedShapes      []bo.BoxFields
 	excludedShapesLists [][]bo.BoxFields
@@ -225,10 +225,9 @@ type LayoutContext struct {
 	forcedBreak         bool
 }
 
-func NewLayoutContext(styleFor tree.StyleFor, getImageFromUri bo.Gifu,
+func NewLayoutContext(getImageFromUri bo.Gifu,
 	fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle, targetCollector *tree.TargetCollector) *LayoutContext {
 	self := LayoutContext{}
-	self.StyleFor = styleFor
 	self.GetImageFromUri = getImageFromUri
 	self.fontConfig = fontConfig
 	self.TargetCollector = targetCollector

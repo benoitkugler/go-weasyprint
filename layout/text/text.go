@@ -14,7 +14,7 @@ import (
 // one line of text
 type Splitted struct {
 	// pango Layout with the first line
-	Layout *PangoLayout
+	Layout *TextLayout
 
 	// length in runes of the first line
 	Length int
@@ -39,8 +39,8 @@ type Splitted struct {
 // `style` is a style dict of computed values.
 // `maxWidth` is the maximum available width in the same unit as style.GetFontSize(),
 // or `nil` for unlimited width.
-func CreateLayout(text string, style pr.StyleAccessor, context PangoLayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *PangoLayout {
-	layout := newPangoLayout(context, pr.Fl(style.GetFontSize().Value), style, pr.Fl(justificationSpacing), maxWidth)
+func CreateLayout(text string, style pr.StyleAccessor, context TextLayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *TextLayout {
+	layout := NewTextLayout(context, pr.Fl(style.GetFontSize().Value), style, pr.Fl(justificationSpacing), maxWidth)
 	// Make sure that maxWidth * Pango.SCALE == maxWidth * 1024 fits in a
 	// signed integer. Treat bigger values same as None: unconstrained width.
 	ws := style.GetWhiteSpace()
@@ -70,7 +70,7 @@ type HyphenDictKey struct {
 
 // Fit as much as possible in the available width for one line of text.
 // minimum=False
-func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutContext,
+func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutContext,
 	maxWidth pr.MaybeFloat, justificationSpacing pr.Float, minimum bool) Splitted {
 	// See https://www.w3.org/TR/css-text-3/#white-space-property
 	ws := style.GetWhiteSpace()
@@ -84,7 +84,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutCon
 
 	// Step #1: Get a draft layout with the first line
 	var (
-		layout    *PangoLayout
+		layout    *TextLayout
 		fontSize  = style.GetFontSize().Value
 		firstLine *pango.LayoutLine
 		index     int
@@ -345,7 +345,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context PangoLayoutCon
 	return firstLineMetrics(firstLine, text, layout, resumeIndex, spaceCollapse, style, hyphenated, hyphenateCharacter)
 }
 
-func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *PangoLayout, resumeAt int, spaceCollapse bool,
+func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *TextLayout, resumeAt int, spaceCollapse bool,
 	style pr.StyleAccessor, hyphenated bool, hyphenationCharacter string) Splitted {
 	length := firstLine.Length
 	if hyphenated {
@@ -452,7 +452,7 @@ type StrutLayoutKey struct {
 // StrutLayout returns a tuple of the used value of `line-height` and the baseline.
 // The baseline is given from the top edge of line height.
 // `context` is an optional cache
-func StrutLayout(style pr.StyleAccessor, context PangoLayoutContext) [2]pr.Float {
+func StrutLayout(style pr.StyleAccessor, context TextLayoutContext) [2]pr.Float {
 	fontSize := style.GetFontSize().Value
 	lineHeight := style.GetLineHeight()
 	if fontSize == 0 {
@@ -476,7 +476,7 @@ func StrutLayout(style pr.StyleAccessor, context PangoLayoutContext) [2]pr.Float
 		}
 	}
 
-	layout := newPangoLayout(context, pr.Fl(fontSize), style, 0, nil)
+	layout := NewTextLayout(context, pr.Fl(fontSize), style, 0, nil)
 	layout.SetText(" ", false)
 	line, _ := layout.GetFirstLine()
 	sp := firstLineMetrics(line, nil, layout, -1, false, style, false, "")
@@ -499,7 +499,7 @@ func StrutLayout(style pr.StyleAccessor, context PangoLayoutContext) [2]pr.Float
 }
 
 // ExRatio returns the ratio 1ex/font_size, according to given style.
-func ExRatio(style pr.ElementStyle, context PangoLayoutContext) pr.Float {
+func ExRatio(style pr.ElementStyle, context TextLayoutContext) pr.Float {
 	// Avoid recursion for letter-spacing && word-spacing properties
 	style = style.Copy()
 	style.SetLetterSpacing(pr.SToV("normal"))
@@ -508,7 +508,7 @@ func ExRatio(style pr.ElementStyle, context PangoLayoutContext) pr.Float {
 	// Random big value
 	var fontSize pr.Fl = 1000
 
-	layout := newPangoLayout(context, fontSize, style, 0, nil)
+	layout := NewTextLayout(context, fontSize, style, 0, nil)
 	layout.SetText("x", false)
 	line, _ := layout.GetFirstLine()
 

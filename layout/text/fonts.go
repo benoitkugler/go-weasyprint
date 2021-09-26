@@ -11,6 +11,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
+	"github.com/benoitkugler/textlayout/fonts"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
 )
 
@@ -19,12 +20,26 @@ import (
 // It is used for text layout at various steps of the process.
 type FontConfiguration struct {
 	Fontmap *fcfonts.FontMap
+
+	userFonts map[fonts.FaceID]fonts.Face
 }
 
 // NewFontConfiguration uses a fontconfig database to create a new
 // font configuration
 func NewFontConfiguration(config *fc.Config, dataset fc.Fontset) *FontConfiguration {
-	return &FontConfiguration{Fontmap: fcfonts.NewFontMap(config, dataset)}
+	out := &FontConfiguration{
+		Fontmap:   fcfonts.NewFontMap(config, dataset),
+		userFonts: make(map[fonts.FaceID]fonts.Face),
+	}
+	out.Fontmap.SetFaceLoader(out)
+	return out
+}
+
+func (f *FontConfiguration) LoadFace(key fonts.FaceID, format fc.FontFormat) (fonts.Face, error) {
+	if face, has := f.userFonts[key]; has {
+		return face, nil
+	}
+	return fcfonts.DefaultLoadFace(key, format)
 }
 
 func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescriptors, urlFetcher utils.UrlFetcher) string {
@@ -72,33 +87,34 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 
 			result, err := urlFetcher(url.String)
 			if err != nil {
-				log.Printf("Failed to load font: %s", err)
+				log.Printf("Failed to load font at: %s", err)
+			}
+			fontFilename := url.String
+
+			if url.Name == "external" {
+				faces, format := fc.ReadFontFile(result.Content)
+				if format == "" {
+					log.Printf("Failed to load font at %s : unsupported format", fontFilename)
+				}
+				for i, face := range faces {
+					key := fonts.FaceID{
+						File:  fontFilename,
+						Index: uint16(i),
+					}
+					f.userFonts[key] = face
+				}
 			}
 
-			// FIXME: load the font
-
-			// if font[:3] == "wOF" {
-			// 	out = io.BytesIO()
-			// 	if font[3:4] == "F" {
-			// 		// woff font
-			// 		ttfont = TTFont(io.BytesIO(font))
-			// 		ttfont.flavor = nil
-			// 		ttfont.flavorData = nil
-			// 		ttfont.save(out)
-			// 	} else if font[3:4] == "2" {
-			// 		// woff2 font
-			// 		woff2.decompress(io.BytesIO(font), out)
-			// 	}
-			// 	font = out.getvalue()
-			// }
-
-			// } except Exception as exc {
-			// 	LOGGER.debug(
-			// 		"Failed to load font at %r (%s)", url, exc)
-			// 	continue
-			// }
-
 			features := pr.Properties{}
+			// avoid nil values
+			features.SetFontKerning("")
+			features.SetFontVariantLigatures(pr.SStrings{})
+			features.SetFontVariantPosition("")
+			features.SetFontVariantCaps("")
+			features.SetFontVariantNumeric(pr.SStrings{})
+			features.SetFontVariantAlternates("")
+			features.SetFontVariantEastAsian(pr.SStrings{})
+			features.SetFontFeatureSettings(pr.SIntStrings{})
 			for _, rules := range ruleDescriptors.FontVariant {
 				if rules.Property.SpecialProperty != nil {
 					continue
@@ -115,21 +131,13 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 				featuresString += fmt.Sprintf("<string>%s=%d</string>", k, v)
 			}
 
-			// FIXME:
-			fontFilename := "dummy"
-			// fd = tempfile.NamedTemporaryFile( 	"wb", dir=f.Tempdir, delete=false)
-			// fontFilename = fd.name
-			// fd.write(font)
-			// fd.close()
-			// f.Filenames.append(fontFilename)
-
 			fontconfigStyle, ok := FONTCONFIG_STYLE[ruleDescriptors.FontStyle]
 			if !ok {
-				fontconfigStyle = "normal"
+				fontconfigStyle = "roman"
 			}
 			fontconfigWeight, ok := FONTCONFIG_WEIGHT[ruleDescriptors.FontWeight]
 			if !ok {
-				fontconfigWeight = "normal"
+				fontconfigWeight = "regular"
 			}
 			fontconfigStretch, ok := FONTCONFIG_STRETCH[ruleDescriptors.FontStretch]
 			if !ok {
@@ -164,11 +172,6 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 			</fontconfig>`, fontFilename, ruleDescriptors.FontFamily, fontconfigStyle,
 				fontconfigWeight, fontconfigStretch, fontFilename, featuresString)
 
-			// fd = tempfile.NamedTemporaryFile( 	"w", dir=f.Tempdir, delete=false)
-			// fd.write(xml)
-			// fd.close()
-			// f.Filenames.append(fd.name)
-
 			err = config.LoadFromMemory(bytes.NewReader([]byte(xml)))
 			if err != nil {
 				log.Printf("Failed to load fontconfig config: %s", err)
@@ -194,12 +197,12 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 // Fontconfig features
 var (
 	FONTCONFIG_WEIGHT = map[pr.IntString]string{
-		{String: "normal"}: "normal",
+		{String: "normal"}: "regular",
 		{String: "bold"}:   "bold",
 		{Int: 100}:         "thin",
 		{Int: 200}:         "extralight",
 		{Int: 300}:         "light",
-		{Int: 400}:         "normal",
+		{Int: 400}:         "regular",
 		{Int: 500}:         "medium",
 		{Int: 600}:         "demibold",
 		{Int: 700}:         "bold",

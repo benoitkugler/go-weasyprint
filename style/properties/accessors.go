@@ -947,11 +947,18 @@ func (s Properties) SetTableLayout(v String) {
 	s["table_layout"] = v
 }
 
-func (s Properties) GetTextAlign() String {
-	return s["text_align"].(String)
+func (s Properties) GetTextAlignAll() String {
+	return s["text_align_all"].(String)
 }
-func (s Properties) SetTextAlign(v String) {
-	s["text_align"] = v
+func (s Properties) SetTextAlignAll(v String) {
+	s["text_align_all"] = v
+}
+
+func (s Properties) GetTextAlignLast() String {
+	return s["text_align_last"].(String)
+}
+func (s Properties) SetTextAlignLast(v String) {
+	s["text_align_last"] = v
 }
 
 func (s Properties) GetTextDecorationColor() Color {
@@ -1479,8 +1486,11 @@ type StyleAccessor interface {
 	GetTableLayout() String
 	SetTableLayout(v String)
 
-	GetTextAlign() String
-	SetTextAlign(v String)
+	GetTextAlignAll() String
+	SetTextAlignAll(v String)
+
+	GetTextAlignLast() String
+	SetTextAlignLast(v String)
 
 	GetTextDecorationColor() Color
 	SetTextDecorationColor(v Color)

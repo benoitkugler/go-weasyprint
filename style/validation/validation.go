@@ -195,7 +195,8 @@ var (
 		"position":                   position,
 		"quotes":                     quotes,
 		"table-layout":               tableLayout,
-		"text-align":                 textAlign,
+		"text-align-all":             textAlignAll,
+		"text-align-last":            textAlignLast,
 		"text-decoration-line":       textDecorationLine,
 		"text-decoration-style":      textDecorationStyle,
 		"text-indent":                textIndent,
@@ -2098,11 +2099,24 @@ func tableLayout(tokens []Token, _ string) pr.CssProperty {
 
 //@validator()
 //@singleKeyword
-// ``text-align`` property validation.
-func textAlign(tokens []Token, _ string) pr.CssProperty {
+// ``text-align-all`` property validation.
+func textAlignAll(tokens []Token, _ string) pr.CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
-	case "left", "right", "center", "justify":
+	case "left", "right", "center", "justify", "start", "end":
+		return pr.String(keyword)
+	default:
+		return nil
+	}
+}
+
+//@validator()
+//@singleKeyword
+// ``text-align-last`` property validation.
+func textAlignLast(tokens []Token, _ string) pr.CssProperty {
+	keyword := getSingleKeyword(tokens)
+	switch keyword {
+	case "auto", "left", "right", "center", "justify", "start", "end":
 		return pr.String(keyword)
 	default:
 		return nil

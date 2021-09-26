@@ -9,17 +9,13 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/images"
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
-
-func TestInheritance(t *testing.T) {
-	// u := NewInlineBox("", nil, nil)
-	// u.RemoveDecoration(nil, true, true)
-}
 
 var (
 	_ ReplacedBoxITF = (*ReplacedBox)(nil)
@@ -42,23 +38,23 @@ func fakeHTML(html *tree.HTML) *tree.HTML {
 	return html
 }
 
-func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils.HTMLNode, tree.StyleFor, Gifu, string, *tree.TargetCollector, counters.CounterStyle) {
+func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils.HTMLNode, *tree.StyleFor, Gifu, string, *tree.TargetCollector, counters.CounterStyle, text.TextLayoutContext) {
 	html, err := tree.NewHTML(content, baseUrl, utils.DefaultUrlFetcher, "")
 	if err != nil {
 		t.Fatalf("parsing HTML failed: %s", err)
 	}
 	document := fakeHTML(html)
 	cs := make(counters.CounterStyle)
-	style := tree.GetAllComputedStyles(document, nil, false, nil, cs, nil, nil)
+	style := tree.GetAllComputedStyles(document, nil, false, nil, cs, nil, nil, nil)
 	imgFetcher := func(url string, forcedMimeType string) images.Image {
 		return images.GetImageFromUri(make(map[string]images.Image), document.UrlFetcher, url, forcedMimeType)
 	}
 	tr := tree.NewTargetCollector()
-	return document.Root, *style, imgFetcher, baseUrl, &tr, cs
+	return document.Root, style, imgFetcher, baseUrl, &tr, cs, nil
 }
 
 func parse(t *testing.T, htmlContent string) BoxITF {
-	a, b, c, d, e, f := parseBase(t, utils.InputString(htmlContent), baseUrl)
+	a, b, c, d, e, f, _ := parseBase(t, utils.InputString(htmlContent), baseUrl)
 	boxes := elementToBox(a, b, c, d, e, f, nil)
 	return boxes[0]
 }
@@ -575,7 +571,7 @@ func testPageStyle(t *testing.T, data pageStyleData) {
 		t.Fatal(err)
 	}
 	document = fakeHTML(document)
-	styleFor := tree.GetAllComputedStyles(document, nil, false, nil, nil, nil, nil)
+	styleFor := tree.GetAllComputedStyles(document, nil, false, nil, nil, nil, nil, nil)
 
 	// Force the generation of the style for this page type as it"s generally
 	// only done during the rendering.

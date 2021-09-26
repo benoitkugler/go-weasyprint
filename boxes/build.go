@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/benoitkugler/go-weasyprint/images"
+	"github.com/benoitkugler/go-weasyprint/layout/text"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
@@ -88,8 +89,8 @@ func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.ElementSty
 }
 
 // Build a formatting structure (box tree) from an element tree.
-func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFor, getImageFromUri Gifu,
-	baseUrl string, targetCollector *tree.TargetCollector, cs counters.CounterStyle) BlockLevelBoxITF {
+func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleFor, getImageFromUri Gifu,
+	baseUrl string, targetCollector *tree.TargetCollector, cs counters.CounterStyle, textContext text.TextLayoutContext) BlockLevelBoxITF {
 
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, targetCollector, cs, nil)
 
@@ -97,7 +98,7 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor tree.StyleFo
 	if len(boxList) > 0 {
 		box = boxList[0]
 	} else { //  No root element
-		rsf := rootStyleFor{elementTree: elementTree, StyleFor: styleFor}
+		rsf := rootStyleFor{elementTree: elementTree, StyleFor: *styleFor}
 		box = elementToBox(elementTree, rsf, getImageFromUri, baseUrl, targetCollector, cs, nil)[0]
 	}
 

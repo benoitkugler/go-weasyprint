@@ -3,7 +3,6 @@ package document
 import (
 	"fmt"
 	"log"
-	"reflect"
 	"testing"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -32,7 +31,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fontconfig = text.NewFontConfiguration(fc.Standard, fs)
+	fontconfig = text.NewFontConfiguration(fc.Standard.Copy(), fs)
 }
 
 func fakeHTML(html *tree.HTML) *tree.HTML {
@@ -88,12 +87,8 @@ func TestMarginBoxes(t *testing.T) {
 		t.Fatalf("expected 2 pages, got %v", pages)
 	}
 	page1, page2 := pages[0], pages[1]
-	if tag := page1.Children[0].Box().ElementTag; tag != "html" {
-		t.Fatalf("expected root = html, got %s", tag)
-	}
-	if tag := page2.Children[0].Box().ElementTag; tag != "html" {
-		t.Fatalf("expected root = html, got %s", tag)
-	}
+	assertEqual(t, page1.Children[0].Box().ElementTag, "html", "page1")
+	assertEqual(t, page2.Children[0].Box().ElementTag, "html", "page2")
 
 	var marginBoxes1, marginBoxes2 []string
 	for _, box := range page1.Children[1:] {
@@ -102,12 +97,8 @@ func TestMarginBoxes(t *testing.T) {
 	for _, box := range page2.Children[1:] {
 		marginBoxes2 = append(marginBoxes2, box.(*bo.MarginBox).AtKeyword)
 	}
-	if exp := []string{"@top-center", "@bottom-left", "@bottom-left-corner"}; !reflect.DeepEqual(marginBoxes1, exp) {
-		t.Fatalf("expected %v, got %v", exp, marginBoxes1)
-	}
-	if exp := []string{"@top-center"}; !reflect.DeepEqual(marginBoxes2, exp) {
-		t.Fatalf("expected %v, got %v", exp, marginBoxes2)
-	}
+	assertEqual(t, marginBoxes1, []string{"@top-center", "@bottom-left", "@bottom-left-corner"}, "marginBoxes1")
+	assertEqual(t, marginBoxes2, []string{"@top-center"}, "marginBoxes2")
 
 	if len(page2.Children) != 2 {
 		t.Fatalf("expected two children, got %v", page2.Children)
@@ -115,9 +106,7 @@ func TestMarginBoxes(t *testing.T) {
 	_, topCenter := page2.Children[0], page2.Children[1]
 	lineBox := topCenter.Box().Children[0]
 	textBox, _ := lineBox.Box().Children[0].(*bo.TextBox)
-	if textBox.Text != "Title" {
-		t.Fatalf("expected title, got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "Title", "textBox")
 }
 
 func TestMarginBoxStringSet1(t *testing.T) {
@@ -151,9 +140,7 @@ func TestMarginBoxStringSet1(t *testing.T) {
 	_, bottomCenter := page2.Children[0], page2.Children[1]
 	lineBox := bottomCenter.Box().Children[0]
 	textBox, _ := lineBox.Box().Children[0].(*bo.TextBox)
-	if textBox.Text != "first assignment" {
-		t.Fatalf("expected 'first assignment', got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "first assignment", "textBox")
 
 	if len(page1.Children) != 2 {
 		t.Fatalf("expected two children, got %v", page1.Children)
@@ -162,9 +149,7 @@ func TestMarginBoxStringSet1(t *testing.T) {
 
 	lineBox = bottomCenter.Box().Children[0]
 	textBox, _ = lineBox.Box().Children[0].(*bo.TextBox)
-	if textBox.Text != "first assignment" {
-		t.Fatalf("expected 'first assignment', got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "first assignment", "textBox")
 }
 
 func TestMarginBoxStringSet2(t *testing.T) {
@@ -189,13 +174,9 @@ func TestMarginBoxStringSet2(t *testing.T) {
 		lineBox := topCenter.Box().Children[0]
 		textBox := lineBox.Box().Children[0].(*bo.TextBox)
 		if contentVal == "before" || contentVal == "after" {
-			if textBox.Text != "pseudo" {
-				t.Fatalf("expected 'pseudo', got %s", textBox.Text)
-			}
+			assertEqual(t, textBox.Text, "pseudo", "textBox")
 		} else {
-			if textBox.Text != "first assignment" {
-				t.Fatalf("expected 'first assignment', got %s", textBox.Text)
-			}
+			assertEqual(t, textBox.Text, "first assignment", "textBox")
 		}
 	}
 
@@ -229,9 +210,7 @@ func TestMarginBoxStringSet3(t *testing.T) {
 	topCenter := page1.Children[1]
 	lineBox := topCenter.Box().Children[0]
 	textBox := lineBox.Box().Children[0].(*bo.TextBox)
-	if textBox.Text != "first assignment" {
-		t.Fatalf("expected 'first assignment', got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "first assignment", "textBox")
 }
 
 func TestMarginBoxStringSet4(t *testing.T) {
@@ -260,16 +239,12 @@ func TestMarginBoxStringSet4(t *testing.T) {
 	page1, page2 := pages[0], pages[1]
 
 	topCenter := page1.Box().Children[1]
-	if L := len(topCenter.Box().Children); L != 0 {
-		t.Fatalf("expected no child, got %d", L)
-	}
+	assertEqual(t, len(topCenter.Box().Children), 0, "Children")
 
 	topCenter = page2.Box().Children[1]
 	lineBox := topCenter.Box().Children[0]
 	textBox := lineBox.Box().Children[0].(*bo.TextBox)
-	if textBox.Text != "first_excepted" {
-		t.Fatalf("expected 'first_excepted', got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "first_excepted", "textBox")
 }
 
 func TestMarginBoxStringSet5(t *testing.T) {
@@ -292,9 +267,7 @@ func TestMarginBoxStringSet5(t *testing.T) {
 	topCenter := page1.Children[1]
 	lineBox := topCenter.Box().Children[0]
 	textBox := lineBox.Box().Children[0].(*bo.TextBox)
-	if textBox.Text != "Second assignment" {
-		t.Fatalf("expected 'Second assignment', got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "Second assignment", "textBox")
 }
 
 func TestMarginBoxStringSet6(t *testing.T) {
@@ -334,15 +307,11 @@ func TestMarginBoxStringSet6(t *testing.T) {
 	topCenter, bottomCenter := page1.Children[1], page1.Children[2]
 	topLineBox := topCenter.Box().Children[0]
 	topTextBox := topLineBox.Box().Children[0].(*bo.TextBox)
-	if topTextBox.Text != "before!-first-after!I.1" {
-		t.Fatalf("expected 'before!-first-after!I.1', got %s", topTextBox.Text)
-	}
+	assertEqual(t, topTextBox.Text, "before!-first-after!I.1", "topTextBox")
 
 	bottomLineBox := bottomCenter.Box().Children[0]
 	bottomTextBox := bottomLineBox.Box().Children[0].(*bo.TextBox)
-	if bottomTextBox.Text != "before!last-secondclass2|1/I" {
-		t.Fatalf("expected 'before!last-secondclass2|1/I', got %s", bottomTextBox.Text)
-	}
+	assertEqual(t, bottomTextBox.Text, "before!last-secondclass2|1/I", "bottomTextBox")
 }
 
 func TestMarginBoxStringSet7(t *testing.T) {
@@ -361,15 +330,11 @@ func TestMarginBoxStringSet7(t *testing.T) {
 	topLeft, topRight := page1.Children[1], page1.Children[2]
 	leftLineBox := topLeft.Box().Children[0]
 	leftTextBox := leftLineBox.Box().Children[0].(*bo.TextBox)
-	if leftTextBox.Text != "[Chocolate]" {
-		t.Fatalf("expected '[Chocolate]', got %s", leftTextBox.Text)
-	}
+	assertEqual(t, leftTextBox.Text, "[Chocolate]", "leftTextBox")
 
 	rightLineBox := topRight.Box().Children[0]
 	rightTextBox := rightLineBox.Box().Children[0].(*bo.TextBox)
-	if rightTextBox.Text != "{Cake}" {
-		t.Fatalf("expected '{Cake}', got %s", rightTextBox.Text)
-	}
+	assertEqual(t, rightTextBox.Text, "{Cake}", "rightTextBox")
 }
 
 func TestMarginBoxStringSet8(t *testing.T) {
@@ -398,23 +363,17 @@ func TestMarginBoxStringSet8(t *testing.T) {
 	topLeft := page1.Box().Children[1]
 	leftLineBox := topLeft.Box().Children[0]
 	leftTextBox := leftLineBox.Box().Children[0].(*bo.TextBox)
-	if leftTextBox.Text != "[initial]" {
-		t.Fatalf("expected '[initial]', got %s", leftTextBox.Text)
-	}
+	assertEqual(t, leftTextBox.Text, "[initial]", "leftTextBox")
 
 	topLeft = page2.Box().Children[1]
 	leftLineBox = topLeft.Box().Children[0]
 	leftTextBox = leftLineBox.Box().Children[0].(*bo.TextBox)
-	if leftTextBox.Text != "[]" {
-		t.Fatalf("expected '[]', got %s", leftTextBox.Text)
-	}
+	assertEqual(t, leftTextBox.Text, "[]", "leftTextBox")
 
 	topLeft = page3.Box().Children[1]
 	leftLineBox = topLeft.Box().Children[0]
 	leftTextBox = leftLineBox.Box().Children[0].(*bo.TextBox)
-	if leftTextBox.Text != "[ ]" {
-		t.Fatalf("expected '[ ]', got %s", leftTextBox.Text)
-	}
+	assertEqual(t, leftTextBox.Text, "[ ]", "leftTextBox")
 }
 
 func TestMarginBoxStringSet9(t *testing.T) {
@@ -441,9 +400,7 @@ func TestMarginBoxStringSet9(t *testing.T) {
 	lineBox := topCenter.Box().Children[0]
 	textBox := lineBox.Box().Children[0].(*bo.TextBox)
 
-	if textBox.Text != "first assignment second assignment" {
-		t.Fatalf("expected 'first assignment second assignment', got %s", textBox.Text)
-	}
+	assertEqual(t, textBox.Text, "first assignment second assignment", "textBox")
 }
 
 // Test page-based counters.
@@ -471,8 +428,6 @@ func TestPageCounters(t *testing.T) {
 		lineBox := bottomCenter.Box().Children[0]
 		textBox := lineBox.Box().Children[0].(*bo.TextBox)
 		exp := fmt.Sprintf("Page %d of 3.", pageNumber)
-		if textBox.Text != exp {
-			t.Fatalf("expected '%s', got %s", exp, textBox.Text)
-		}
+		assertEqual(t, textBox.Text, exp, fmt.Sprintf("page index %d", pageIndex))
 	}
 }

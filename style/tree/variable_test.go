@@ -20,7 +20,7 @@ func setupVar(t *testing.T, html string) pr.ElementStyle {
 		t.Fatal(err)
 	}
 
-	styleFor := GetAllComputedStyles(page, nil, false, nil, nil, nil, nil)
+	styleFor := GetAllComputedStyles(page, nil, false, nil, nil, nil, nil, nil)
 	p := page.Root.FirstChild.NextSibling.FirstChild
 	return styleFor.Get((*utils.HTMLNode)(p), "")
 }

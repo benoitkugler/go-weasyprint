@@ -28,17 +28,20 @@ type lineBoxe struct {
 }
 
 type lineBoxeIterator struct {
-	box                       *bo.LineBox
-	context                   *LayoutContext
-	positionY                 pr.Float
-	containingBlock           *bo.BoxFields
-	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder
-
-	skipStack        *tree.SkipStack
 	firstLetterStyle pr.ElementStyle
-	resetTextIndent  bool
-	done             bool
-	currentBox       lineBoxe
+
+	currentBox lineBoxe
+
+	box             *bo.LineBox
+	containingBlock *bo.BoxFields
+	fixedBoxes      *[]*AbsolutePlaceholder
+	skipStack       *tree.SkipStack
+	context         *LayoutContext
+	absoluteBoxes   *[]*AbsolutePlaceholder
+	positionY       pr.Float
+
+	resetTextIndent bool
+	done            bool
 }
 
 func (l *lineBoxeIterator) Has() bool {
@@ -48,9 +51,8 @@ func (l *lineBoxeIterator) Has() bool {
 	if l.done {
 		return false
 	}
-	tmp := getNextLinebox(l.context, l.box, l.positionY, l.skipStack, l.containingBlock,
+	line, resumeAt := getNextLinebox(l.context, l.box, l.positionY, l.skipStack, l.containingBlock,
 		l.absoluteBoxes, l.fixedBoxes, l.firstLetterStyle)
-	line, resumeAt := tmp.line, tmp.resumeAt
 	if line != nil {
 		l.positionY = line.Box().PositionY + line.Box().Height.V()
 	}
@@ -92,14 +94,14 @@ func iterLineBoxes(context *LayoutContext, box *bo.LineBox, positionY pr.Float, 
 
 func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
-	firstLetterStyle pr.ElementStyle) lineBoxe {
+	firstLetterStyle pr.ElementStyle) (line_ *bo.LineBox, resumeAt *tree.SkipStack) {
 
 	skipStack, cont := skipFirstWhitespace(linebox, skipStack)
 	if cont {
-		return lineBoxe{}
+		return
 	}
 
-	skipStack = firstLetterToBox(linebox, skipStack, firstLetterStyle)
+	skipStack = firstLetterToBox(context, linebox, skipStack, firstLetterStyle)
 
 	linebox.PositionY = positionY
 
@@ -119,10 +121,8 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 	excludedShapes := append([]bo.BoxFields{}, context.excludedShapes...)
 
 	var (
-		line_                                      *bo.LineBox
 		linePlaceholders, lineAbsolutes, lineFixed []*AbsolutePlaceholder
 		waitingFloats                              []Box
-		resumeAt                                   *tree.SkipStack
 	)
 	for {
 		linebox.PositionX = positionX
@@ -209,7 +209,7 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 	}
 	line.Children = append(line.Children, floatChildren...)
 
-	return lineBoxe{line: line_, resumeAt: resumeAt}
+	return line_, resumeAt
 }
 
 // Return the ``skipStack`` to start just after the remove spaces
@@ -320,7 +320,7 @@ func removeLastWhitespace(context *LayoutContext, box Box) {
 }
 
 // Create a box for the ::first-letter selector.
-func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle) *tree.SkipStack {
+func firstLetterToBox(context *LayoutContext, box Box, skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle) *tree.SkipStack {
 	if firstLetterStyle == nil || len(box.Box().Children) == 0 {
 		return skipStack
 	}
@@ -334,7 +334,7 @@ func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.El
 	child := box.Box().Children[0]
 	var childSkipStack *tree.SkipStack
 	if textBox, ok := child.(*bo.TextBox); ok {
-		letterStyle := tree.ComputedFromCascaded(nil, nil, firstLetterStyle, nil, "", "", nil)
+		letterStyle := tree.ComputedFromCascaded(nil, nil, firstLetterStyle, nil, "", "", nil, context)
 		if strings.HasSuffix(textBox.ElementTag, "::first-letter") {
 			letterBox := bo.NewInlineBox(textBox.ElementTag+"::first-letter", letterStyle, []Box{child})
 			box.Box().Children[0] = &letterBox
@@ -394,7 +394,7 @@ func firstLetterToBox(box Box, skipStack *tree.SkipStack, firstLetterStyle pr.El
 		} else {
 			childSkipStack = nil
 		}
-		childSkipStack = firstLetterToBox(child, childSkipStack, firstLetterStyle)
+		childSkipStack = firstLetterToBox(context, child, childSkipStack, firstLetterStyle)
 		if skipStack != nil {
 			skipStack = &tree.SkipStack{Skip: skipStack.Skip, Stack: childSkipStack}
 		}
@@ -789,6 +789,7 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 	} else { // pragma: no cover
 		log.Fatalf("Layout for %v not handled yet", box)
 	}
+
 	return splitedInline{
 		newBox:             newBox,
 		resumeAt:           resumeAt,
@@ -842,11 +843,13 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		skip, skipStack = skipStack.Skip, skipStack.Stack
 	}
 	var (
-		hasBrokenLoop bool
-		resumeAt      *tree.SkipStack
+		i        int
+		L        = len(box.Children[skip:])
+		resumeAt *tree.SkipStack
 	)
-	for i, child_ := range box.Children[skip:] {
+	for ; i < L; i++ {
 		index := i + skip
+		child_ := box.Children[index]
 		child := child_.Box()
 		child.PositionY = box.PositionY
 		if child.IsAbsolutelyPositioned() {
@@ -1083,13 +1086,27 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		if resumeAt != nil {
 			children = append(children, waitingChildren...)
 			resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
-			hasBrokenLoop = true
 			break
 		}
 	}
-	if !hasBrokenLoop {
+	if i == L {
 		children = append(children, waitingChildren...)
 		resumeAt = nil
+	}
+
+	// Reorder inline blocks when direction is rtl
+	if box.Style.GetDirection() == "rtl" && len(children) > 1 {
+		var inFlowChildren []Box
+		for _, child := range children {
+			if child.box.Box().IsInNormalFlow() {
+				inFlowChildren = append(inFlowChildren, child.box)
+			}
+		}
+		posX := inFlowChildren[0].Box().PositionX
+		for _, child := range reverseBoxes(inFlowChildren) {
+			child.Translate(child, (posX - child.Box().PositionX), 0, true)
+			posX += child.Box().MarginWidth()
+		}
 	}
 
 	isEnd := resumeAt == nil
@@ -1102,16 +1119,16 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 	newBox := newBox_.Box()
 	if bo.LineBoxT.IsInstance(box_) {
 		// We must reset line box width according to its new children
-		var inFlowChildren []Box
-		for _, boxChild := range newBox.Children {
-			if boxChild.Box().IsInNormalFlow() {
-				inFlowChildren = append(inFlowChildren, boxChild)
-			}
+		newBox.Width = pr.Float(0)
+		children := newBox.Children
+		if newBox.Style.GetDirection() == "ltr" {
+			children = reverseBoxes(children)
 		}
-		if l := len(inFlowChildren); l != 0 {
-			newBox.Width = inFlowChildren[l-1].Box().PositionX + inFlowChildren[l-1].Box().MarginWidth() - newBox.PositionX
-		} else {
-			newBox.Width = pr.Float(0)
+		for _, boxChild := range children {
+			if boxChild.Box().IsInNormalFlow() {
+				newBox.Width = boxChild.Box().PositionX + boxChild.Box().MarginWidth() - newBox.PositionX
+				break
+			}
 		}
 	} else {
 		newBox.PositionX = initialPositionX
@@ -1407,25 +1424,28 @@ func textAlign(context *LayoutContext, line_ Box, availableWidth pr.Float, last 
 		return 0
 	}
 
-	align := line.Style.GetTextAlign()
+	align := line.Style.GetTextAlignAll()
+	if last {
+		alignLast := line.Style.GetTextAlignLast()
+		if alignLast != "auto" {
+			align = alignLast
+		}
+	}
 	ws := line.Style.GetWhiteSpace()
 	spaceCollapse := ws == "normal" || ws == "nowrap" || ws == "pre-line"
-	if align == "-weasy-start" || align == "-weasy-end" {
-		if (align == "-weasy-start") != (line.Style.GetDirection() == "rtl") { // xor
-			align = "left"
+
+	if align == "left" || align == "right" {
+		if (align == "left") != (line.Style.GetDirection() == "rtl") { // xor
+			align = "start"
 		} else {
-			align = "right"
+			align = "end"
 		}
 	}
-	if align == "justify" && last {
-		align = "left"
-		if line.Style.GetDirection() == "rtl" {
-			align = "right"
-		}
-	}
-	if align == "left" {
+
+	if align == "start" {
 		return 0
 	}
+
 	offset := availableWidth - line.Width.V()
 	if align == "justify" {
 		if spaceCollapse {
@@ -1438,10 +1458,10 @@ func textAlign(context *LayoutContext, line_ Box, availableWidth pr.Float, last 
 	}
 	if align == "center" {
 		return offset / 2
-	} else if align == "right" {
+	} else if align == "end" {
 		return offset
 	} else {
-		log.Fatalf("align should be center or right, got %s", align)
+		log.Printf("align should be center or right, got %s", align)
 		return 0
 	}
 }

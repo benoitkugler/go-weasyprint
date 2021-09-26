@@ -40,6 +40,7 @@ var expanders = map[string]expander{
 	"flex":            expandFlex,
 	"flex-flow":       expandFlexFlow,
 	"line-clamp":      expandLineClamp,
+	"text-align":      expandTextAlign,
 }
 
 var expandBorderSide = genericExpander("-width", "-color", "-style")(_expandBorderSide)
@@ -1012,4 +1013,25 @@ func expandLineClamp(_, _ string, tokens []parser.Token) (out pr.NamedProperties
 		}
 	}
 	return nil, InvalidValue
+}
+
+// Expand the ``text-align`` property.
+func expandTextAlign(_, _ string, tokens []parser.Token) (out pr.NamedProperties, err error) {
+	if len(tokens) != 1 {
+		return nil, InvalidValue
+	}
+
+	keyword := getSingleKeyword(tokens)
+	alignAll := keyword
+	if keyword == "justify-all" {
+		alignAll = "justify"
+	}
+	alignLast := alignAll
+	if keyword == "justify" {
+		alignLast = "start"
+	}
+	return pr.NamedProperties{
+		{Name: "text_align_all", Property: pr.AsCascaded(pr.String(alignAll)).AsValidated()},
+		{Name: "text_align_last", Property: pr.AsCascaded(pr.String(alignLast)).AsValidated()},
+	}, nil
 }
