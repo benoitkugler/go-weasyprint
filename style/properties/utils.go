@@ -109,6 +109,10 @@ func (c ContentProperty) AsString() (value string) {
 	return string(c.Content.(String))
 }
 
+func (c ContentProperty) AsLeader() string {
+	return c.Content.(Strings)[1]
+}
+
 func (c ContentProperty) AsCounter() (counterName string, counterStyle CounterStyleID) {
 	value, _ := c.Content.(Counters)
 	return value.Name, value.Style

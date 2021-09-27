@@ -762,7 +762,7 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 			case "dotted":
 				str = "."
 			case "solid":
-				str = ""
+				str = "_"
 			case "space":
 				str = " "
 			default:

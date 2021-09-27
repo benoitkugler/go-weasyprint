@@ -103,6 +103,7 @@ type ContentProperty struct {
 	// SStrings for type STRING, attr or string, counter, counters
 	// Quote for type QUOTE
 	// Url for URI
+	// String for leader()
 	Content InnerContent
 
 	Type string

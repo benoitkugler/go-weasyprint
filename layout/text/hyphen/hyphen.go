@@ -42,7 +42,7 @@ func NewHyphener(lang string, left, right int) Hyphener {
 // Get a list of positions where the word can be hyphenated.
 // See also `HyphDict.positions`. The points that are too far to the
 // left or right are removed.
-func (h Hyphener) positions(word string) []DataInt {
+func (h Hyphener) positions(word []rune) []DataInt {
 	right := len(word) - h.right
 	var out []DataInt
 	for _, index := range h.hd.positions(word) {
@@ -57,10 +57,12 @@ func (h Hyphener) positions(word string) []DataInt {
 // for `word`.
 // The returned slice contains the starts of each possibility.
 func (h Hyphener) Iterate(word string) []string {
-	pos := h.positions(word)
+	word_ := []rune(word)
+	pos := h.positions(word_)
 	L := len(pos)
 	out := make([]string, L)
 	wordIsUpper := strings.IndexFunc(word, func(r rune) bool { return !unicode.IsUpper(r) }) == -1
+
 	for i := L - 1; i >= 0; i-- { // reverse
 		index := pos[i]
 		var subs string
@@ -72,9 +74,9 @@ func (h Hyphener) Iterate(word string) []string {
 				c1 = strings.ToUpper(c1)
 				// _ = strings.ToUpper(_)
 			}
-			subs = word[:data.Index] + c1
+			subs = string(word_[:data.Index]) + c1
 		} else {
-			subs = word[:index.V]
+			subs = string(word_[:index.V])
 		}
 		out[L-1-i] = subs
 	}
@@ -100,8 +102,8 @@ type HyphDic struct {
 // If the data attribute is not `None`, it contains a tuple with
 // information about nonstandard hyphenation at that point: `(change,
 // index, cut)`.
-func (dic HyphDic) positions(word string) []DataInt {
-	word = strings.ToLower(word)
+func (dic HyphDic) positions(word_ []rune) []DataInt {
+	word := strings.ToLower(string(word_))
 	if points, ok := dic.cache[word]; ok {
 		return points
 	}

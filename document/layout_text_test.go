@@ -19,7 +19,7 @@ func printBoxes(boxes []Box) {
 
 func assertEqual(t *testing.T, got, exp interface{}, context string) {
 	if !reflect.DeepEqual(exp, got) {
-		t.Fatalf("%s: expected %v, got  %v", context, exp, got)
+		t.Fatalf("%s: expected\n%v\n got \n%v", context, exp, got)
 	}
 }
 
@@ -380,6 +380,7 @@ func TestTextAlignJustifyTextIndent(t *testing.T) {
 	assertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
 }
 
+// FIXME:
 func TestTextAlignJustifyNoBreakBetweenChildren(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
@@ -576,603 +577,566 @@ func TestTextIndentMultipage(t *testing.T) {
 	}
 }
 
-func TestHyphenateCharacter1(t *testing.T) {
+func testHyphenateCharacter(t *testing.T, hyphChar string, replacer func(s string) string) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
-	page := renderOnePage(t, `
+	page := renderOnePage(t, fmt.Sprintf(`
         <html style="width: 5em; font-family: weasyprint">
         <style>
           @font-face {src: url(weasyprint.otf); font-family: weasyprint}
         </style>
-        <body style="hyphens: auto;  hyphenate-character: '!'" lang=fr>
-        hyphénation`)
+        <body style="hyphens: auto;  hyphenate-character: '%s'" lang=fr>hyphénation`, hyphChar))
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	lines := body.Box().Children
 	if !(len(lines) > 1) {
 		t.Fatalf("expected > 1, got %v", lines)
 	}
-	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "!") {
+	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, hyphChar) {
 		t.Fatalf("unexpected %s", text)
 	}
 	fullText := ""
 	for _, line := range lines {
 		fullText += line.Box().Children[0].(*bo.TextBox).Text
 	}
-	assertEqual(t, strings.ReplaceAll(fullText, "!", ""), "hyphénation", "")
+	assertEqual(t, replacer(fullText), "hyphénation", "")
 }
 
-// func TestHyphenateCharacter2(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 5em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-character: \"à\"" lang=fr>"
-//         "hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) > 1
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("à")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText.replace("à", "") == "hyphénation"
+func TestHyphenateCharacter1(t *testing.T) {
+	testHyphenateCharacter(t, "!", func(s string) string { return strings.ReplaceAll(s, "!", "") })
+}
 
-// func TestHyphenateCharacter3(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 5em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-character: \"ù ù\"" lang=fr>"
-//         "hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) > 1
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("ù ù")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText.replace(" ", "").replace("ù", "") == "hyphénation"
+func TestHyphenateCharacter2(t *testing.T) {
+	testHyphenateCharacter(t, "à", func(s string) string { return strings.ReplaceAll(s, "à", "") })
+}
 
-// func TestHyphenateCharacter4(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 5em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-character: \"\"" lang=fr>"
-//         "hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) > 1
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText == "hyphénation"
+func TestHyphenateCharacter3(t *testing.T) {
+	testHyphenateCharacter(t, "ù ù", func(s string) string { return strings.ReplaceAll(strings.ReplaceAll(s, "ù", ""), " ", "") })
+}
 
-// func TestHyphenateCharacter5(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 5em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-character: \"———\"" lang=fr>"
-//         "hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) > 1
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("———")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText.replace("—", "") == "hyphénation"
+func TestHyphenateCharacter4(t *testing.T) {
+	testHyphenateCharacter(t, "", func(s string) string { return s })
+}
 
-// func TestHyphenateManual1(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     for i := range range(1, len("hyphénation")):
-//         for hyphenateCharacter := range ("!", "ù ù"):
-//             word = "hyphénation"[:i] + "\u00ad" + "hyphénation"[i:]
-//             page, = renderPages(
-//                 "<html style="width: 5em; font-family: weasyprint">"
-//                 "<style>@font-face {"
-//                 "  src: url(weasyprint.otf); font-family: weasyprint}</style>"
-//                 "<body style="hyphens: manual;"
-//                 f"  hyphenate-character: \"{hyphenateCharacter}\`
-//                 f"  lang=fr>{word}")
-//             html := page.Box().Children[0]
-//             body := html.Box().Children[0]
-//             lines = body.Box().Children
-//             assertEqual(t, len(lines) == 2
-//             assertEqual(t, lines[0].Box().Children[0].text.endswith(hyphenateCharacter)
-//             fullText = "".join(
-//                 child.text for line := range lines for child := range line.Box().Children)
-//             assertEqual(t, fullText.replace(hyphenateCharacter, "") == word
+func TestHyphenateCharacter5(t *testing.T) {
+	testHyphenateCharacter(t, "———", func(s string) string { return strings.ReplaceAll(s, "—", "") })
+}
 
-// func TestHyphenateManual2(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     for i := range range(1, len("hy phénation")):
-//         for hyphenateCharacter := range ("!", "ù ù"):
-//             word = "hy phénation"[:i] + "\u00ad" + "hy phénation"[i:]
-//             page, = renderPages(
-//                 "<html style="width: 5em; font-family: weasyprint">"
-//                 "<style>@font-face {"
-//                 "  src: url(weasyprint.otf); font-family: weasyprint}</style>"
-//                 "<body style="hyphens: manual;"
-//                 f"  hyphenate-character: \"{hyphenateCharacter}\`
-//                 f"  lang=fr>{word}")
-//             html := page.Box().Children[0]
-//             body := html.Box().Children[0]
-//             lines = body.Box().Children
-//             assertEqual(t, len(lines) := range (2, 3)
-//             fullText = "".join(
-//                 child.text for line := range lines for child := range line.Box().Children)
-//             fullText = fullText.replace(hyphenateCharacter, "")
-//             if lines[0].Box().Children[0].text.endswith(hyphenateCharacter):
-//                 assertEqual(t, fullText == word
-//             else:
-//                 assertEqual(t, lines[0].Box().Children[0].text.endswith("y")
-//                 if len(lines) == 3:
-//                     assertEqual(t, lines[1].Box().Children[0].text.endswith(
-//                         hyphenateCharacter)
+func TestHyphenateManual1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestHyphenateManual3(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Automatic hyphenation opportunities within a word must be ignored if the
-//     // word contains a conditional hyphen, := range favor of the conditional
-//     // hyphen(s).
-//     page, = renderPages(
-//         "<html style="width: 0.1em" lang="en">"
-//         "<body style="hyphens: auto">in&shy;lighten&shy;lighten&shy;in")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     line1, line2, line3, line4 = body.Box().Children
-//     assertEqual(t, line1.Box().Children[0].text == "in\xad‐"
-//     assertEqual(t, line2.Box().Children[0].text == "lighten\xad‐"
-//     assertEqual(t, line3.Box().Children[0].text == "lighten\xad‐"
-//     assertEqual(t, line4.Box().Children[0].text == "in"
+	total := []rune("hyphénation")
+	for i := 1; i < len(total); i++ {
+		for _, hyphenateCharacter := range []string{"!", "ù ù"} {
+			word := string(total[:i]) + "\u00ad" + string(total[i:])
 
-// func TestHyphenateLimitZone1(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 12em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-limit-zone: 0" lang=fr>"
-//         "mmmmm hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) == 2
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("‐")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText.replace("‐", "") == "mmmmm hyphénation"
+			page := renderOnePage(t, fmt.Sprintf(`
+			<html style="width: 5em; font-family: weasyprint" >
+			<style>
+			  @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+			</style>
+			<body style="hyphens: manual;  hyphenate-character: '%s'" lang=fr>%s`, hyphenateCharacter, word))
+			html := page.Box().Children[0]
+			body := html.Box().Children[0]
+			lines := body.Box().Children
+			if !(len(lines) > 1) {
+				t.Fatalf("expected > 1, got %v", lines)
+			}
+			if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, hyphenateCharacter) {
+				t.Fatalf("unexpected %s", text)
+			}
+			fullText := ""
+			for _, line := range lines {
+				fullText += line.Box().Children[0].(*bo.TextBox).Text
+			}
+			assertEqual(t, strings.ReplaceAll(fullText, hyphenateCharacter, ""), word, "")
 
-// func TestHyphenateLimitZone2(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 12em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-limit-zone: 9em" lang=fr>"
-//         "mmmmm hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) > 1
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("mm")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText == "mmmmmhyphénation"
+		}
+	}
+}
 
-// func TestHyphenateLimitZone3(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 12em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-limit-zone: 5%" lang=fr>"
-//         "mmmmm hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) == 2
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("‐")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText.replace("‐", "") == "mmmmm hyphénation"
+func TestHyphenateManual2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestHyphenateLimitZone4(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page, = renderPages(
-//         "<html style="width: 12em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         "hyphenate-limit-zone: 95%" lang=fr>"
-//         "mmmmm hyphénation")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) > 1
-//     assertEqual(t, lines[0].Box().Children[0].text.endswith("mm")
-//     fullText = "".join(line.Box().Children[0].text for line := range lines)
-//     assertEqual(t, fullText == "mmmmmhyphénation"
+	total := []rune("hy phénation")
+	for i := 1; i < len(total); i++ {
+		for _, hyphenateCharacter := range []string{"!", "ù ù"} {
+			word := string(total[:i]) + "\u00ad" + string(total[i:])
 
-// @assertEqual(t,NoLogs
-// @pytest.mark.parametrize("css, result", (
-//     ("auto", 2),
-//     ("auto auto 0", 2),
-//     ("0 0 0", 2),
-//     ("4 4 auto", 1),
-//     ("6 2 4", 2),
-//     ("auto 1 auto", 2),
-//     ("7 auto auto", 1),
-//     ("6 auto auto", 2),
-//     ("5 2", 2),
-//     ("3", 2),
-//     ("2 4 6", 1),
-//     ("auto 4", 1),
-//     ("auto 2", 2),
-// ))
-// func TestHyphenateLimitChars(t *testing.Tcss, result):
-//     page, = renderPages(
-//         "<html style="width: 1em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         f"hyphenate-limit-chars: {css}" lang=en>"
-//         "hyphen")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) == result
+			page := renderOnePage(t, fmt.Sprintf(`
+		<html style="width: 5em; font-family: weasyprint" >
+		<style>
+		  @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+		</style>
+		<body style="hyphens: manual;  hyphenate-character: '%s'" lang=fr>%s`, hyphenateCharacter, word))
+			html := page.Box().Children[0]
+			body := html.Box().Children[0]
+			lines := body.Box().Children
+			if !(len(lines) > 1) {
+				t.Fatalf("expected > 1, got %v", lines)
+			}
+			fullText := ""
+			for _, line := range lines {
+				fullText += line.Box().Children[0].(*bo.TextBox).Text
+			}
+			fullText = strings.ReplaceAll(fullText, hyphenateCharacter, "")
+			if text := lines[0].Box().Children[0].(*bo.TextBox).Text; strings.HasSuffix(text, hyphenateCharacter) {
+				assertEqual(t, fullText, word, "")
+			} else {
+				if !strings.HasSuffix(text, "y") {
+					t.Fatal()
+				}
+				if len(lines) == 3 {
+					if text := lines[1].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, hyphenateCharacter) {
+						t.Fatalf("unexpected %s", text)
+					}
+				}
+			}
 
-// @assertEqual(t,NoLogs
-// @pytest.mark.parametrize("css", (
-//     // light·en
-//     "3 3 3",  // "en" is shorter than 3
-//     "3 6 2",  // "light" is shorter than 6
-//     "8",  // "lighten" is shorter than 8
-// ))
-// func TestHyphenateLimitCharsPunctuation(t *testing.Tcss):
-//     // See https://github.com/Kozea/WeasyPrint/issues/109
-//     page, = renderPages(
-//         "<html style="width: 1em; font-family: weasyprint">"
-//         "<style>"
-//         "  @font-face {src: url(weasyprint.otf); font-family: weasyprint}"
-//         "</style>"
-//         "<body style="hyphens: auto;"
-//         f"hyphenate-limit-chars: {css}" lang=en>"
-//         "..lighten..")
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = body.Box().Children
-//     assertEqual(t, len(lines) == 1
+		}
+	}
+}
 
-// @assertEqual(t,NoLogs
-// @pytest.mark.parametrize("wrap, text, test, fullText", (
-//     ("break-word", "aaaaaaaa", lambda a: a > 1, "aaaaaaaa"),
-//     ("normal", "aaaaaaaa", lambda a: a == 1, "aaaaaaaa"),
-//     ("break-word", "hyphenations", lambda a: a > 3,
-//      "hy\u2010phen\u2010ations"),
-//     ("break-word", "A splitted word.  An hyphenated word.",
-//      lambda a: a > 8, "Asplittedword.Anhy\u2010phen\u2010atedword."),
-// ))
-// func TestOverflowWrap(t *testing.Twrap, text, test, fullText):
-//     page := renderOnePage(t, `
-//       <style>
-//         @font-face {src: url(weasyprint.otf); font-family: weasyprint}
-//         body {width: 80px; overflow: hidden; font-family: weasyprint; }
-//         span {overflow-wrap: %s; white-space: normal; }
-//       </style>
-//       <body style="hyphens: auto;" lang="en">
-//         <span>%s
-//     ` % (wrap, text))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     lines = []
-//     for line := range body.Box().Children {
-//         box, = line.Box().Children
-//         textBox, = box.Box().Children
-//         lines.append(textBox.text)
-//     } linesFullText = "".join(line for line := range lines)
-//     assertEqual(t, test(len(lines))
-//     assertEqual(t, fullText == linesFullText
-// }
+func TestHyphenateManual3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Automatic hyphenation opportunities within a word must be ignored if the
+	// word contains a conditional hyphen, in favor of the conditional
+	// hyphen(s).
+	page := renderOnePage(t,
+		`<html style="width: 0.1em" lang="en">
+        <body style="hyphens: auto">in&shy;lighten&shy;lighten&shy;in`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	line1, line2, line3, line4 := unpack4(body)
+	assertEqual(t, line1.Box().Children[0].(*bo.TextBox).Text, "in\u00ad‐", "line1")
+	assertEqual(t, line2.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad‐", "line2")
+	assertEqual(t, line3.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad‐", "line3")
+	assertEqual(t, line4.Box().Children[0].(*bo.TextBox).Text, "in", "line4")
+}
 
-// func whiteSpaceLines(width, space) {
-//     page := renderOnePage(t, `
-//       <style>
-//         body { font-size: 100px; width: %dpx }
-//         span { white-space: %s }
-//       </style>
-//       <body><span>This +    \n    is text` % (width, space))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     return body.Box().Children
-// }
+func TestHyphenateLimitZone1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	page := renderOnePage(t,
+		`<html style="width: 12em; font-family: weasyprint">
+        <style>
+          @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        </style>
+        <body style="hyphens: auto;
+        hyphenate-limit-zone: 0" lang=fr>mmmmm hyphénation`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	lines := body.Box().Children
+	assertEqual(t, len(lines), 2, "")
 
-// func TestWhiteSpace1(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2, line3, line4 = whiteSpaceLines(1, "normal")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This"
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "+"
-//     box3, = line3.Box().Children
-//     text3, = box3.Box().Children
-//     assertEqual(t, text3.text == "is"
-//     box4, = line4.Box().Children
-//     text4, = box4.Box().Children
-//     assertEqual(t, text4.text == "text"
-// }
+	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "-") {
+		t.Fatalf("unexpected <%s>", text)
+	}
+	fullText := ""
+	for _, line := range lines {
+		fullText += line.Box().Children[0].(*bo.TextBox).Text
+	}
+	assertEqual(t, strings.ReplaceAll(fullText, "-", ""), "mmmmm hyphénation", "")
+}
 
-// func TestWhiteSpace2(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2 = whiteSpaceLines(1, "pre")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This +    "
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "    is text"
-// }
+func TestHyphenateLimitZone2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	page := renderOnePage(t,
+		`<html style="width: 12em; font-family: weasyprint">
+        <style>
+          @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        </style>
+        <body style="hyphens: auto;
+        hyphenate-limit-zone: 9em" lang=fr>mmmmm hyphénation`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	lines := body.Box().Children
+	assertEqual(t, len(lines), 2, "")
 
-// func TestWhiteSpace3(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, = whiteSpaceLines(1, "nowrap")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This + is text"
-// }
+	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "mm") {
+		t.Fatalf("unexpected <%s>", text)
+	}
+	fullText := ""
+	for _, line := range lines {
+		fullText += line.Box().Children[0].(*bo.TextBox).Text
+	}
+	assertEqual(t, fullText, "mmmmmhyphénation", "")
+}
 
-// func TestWhiteSpace4(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2, line3, line4, line5 = whiteSpaceLines(1, "pre-wrap")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This "
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "+    "
-//     box3, = line3.Box().Children
-//     text3, = box3.Box().Children
-//     assertEqual(t, text3.text == "    "
-//     box4, = line4.Box().Children
-//     text4, = box4.Box().Children
-//     assertEqual(t, text4.text == "is "
-//     box5, = line5.Box().Children
-//     text5, = box5.Box().Children
-//     assertEqual(t, text5.text == "text"
-// }
+func TestHyphenateLimitZone3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	page := renderOnePage(t,
+		`<html style="width: 12em; font-family: weasyprint">
+        <style>
+          @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        </style>
+        <body style="hyphens: auto;
+        hyphenate-limit-zone: 5%" lang=fr>mmmmm hyphénation`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	lines := body.Box().Children
+	assertEqual(t, len(lines), 2, "")
 
-// func TestWhiteSpace5(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2, line3, line4 = whiteSpaceLines(1, "pre-line")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This"
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "+"
-//     box3, = line3.Box().Children
-//     text3, = box3.Box().Children
-//     assertEqual(t, text3.text == "is"
-//     box4, = line4.Box().Children
-//     text4, = box4.Box().Children
-//     assertEqual(t, text4.text == "text"
-// }
+	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "-") {
+		t.Fatalf("unexpected <%s>", text)
+	}
+	fullText := ""
+	for _, line := range lines {
+		fullText += line.Box().Children[0].(*bo.TextBox).Text
+	}
+	assertEqual(t, strings.ReplaceAll(fullText, "-", ""), "mmmmm hyphénation", "")
+}
 
-// func TestWhiteSpace6(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, = whiteSpaceLines(1000000, "normal")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This + is text"
-// }
+func TestHyphenateLimitZone4(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestWhiteSpace7(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2 = whiteSpaceLines(1000000, "pre")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This +    "
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "    is text"
-// }
+	page := renderOnePage(t,
+		`<html style="width: 12em; font-family: weasyprint">
+        <style>
+          @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        </style>
+        <body style="hyphens: auto;
+        hyphenate-limit-zone: 95%" lang=fr>mmmmm hyphénation`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	lines := body.Box().Children
+	assertEqual(t, len(lines), 2, "")
 
-// func TestWhiteSpace8(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, = whiteSpaceLines(1000000, "nowrap")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This + is text"
-// }
+	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "mm") {
+		t.Fatalf("unexpected <%s>", text)
+	}
+	fullText := ""
+	for _, line := range lines {
+		fullText += line.Box().Children[0].(*bo.TextBox).Text
+	}
+	assertEqual(t, fullText, "mmmmmhyphénation", "")
+}
 
-// func TestWhiteSpace9(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2 = whiteSpaceLines(1000000, "pre-wrap")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This +    "
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "    is text"
-// }
+func TestHyphenateLimitChars(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestWhiteSpace10(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     line1, line2 = whiteSpaceLines(1000000, "pre-line")
-//     box1, = line1.Box().Children
-//     text1, = box1.Box().Children
-//     assertEqual(t, text1.text == "This +"
-//     box2, = line2.Box().Children
-//     text2, = box2.Box().Children
-//     assertEqual(t, text2.text == "is text"
-// }
+	for _, v := range []struct {
+		css    string
+		result int
+	}{
+		{"auto", 2},
+		{"auto auto 0", 2},
+		{"0 0 0", 2},
+		{"4 4 auto", 1},
+		{"6 2 4", 2},
+		{"auto 1 auto", 2},
+		{"7 auto auto", 1},
+		{"6 auto auto", 2},
+		{"5 2", 2},
+		{"3", 2},
+		{"2 4 6", 1},
+		{"auto 4", 1},
+		{"auto 2", 2},
+	} {
 
-// func TestWhiteSpace11(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/813
-//     page := renderOnePage(t, `
-//       <style>
-//         pre { width: 0 }
-//       </style>
-//       <body><pre>This<br/>is text`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     pre, = body.Box().Children
-//     line1, line2 = pre.Box().Children
-//     text1, box = line1.Box().Children
-//     assertEqual(t, text1.text == "This"
-//     assertEqual(t, box.elementTag == "br"
-//     text2, = line2.Box().Children
-//     assertEqual(t, text2.text == "is text"
-// }
+		page := renderOnePage(t, fmt.Sprintf(`
+        <html style="width: 1em; font-family: weasyprint">
+        <style>
+		@font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        </style>
+        <body style="hyphens: auto; hyphenate-limit-chars: %s" lang=en>hyphen`, v.css))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		lines := body.Box().Children
+		assertEqual(t, len(lines), v.result, v.css)
+	}
+}
 
-// func TestWhiteSpace12(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/813
-//     page := renderOnePage(t, `
-//       <style>
-//         pre { width: 0 }
-//       </style>
-//       <body><pre>This is <span>lol</span> text`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     pre, = body.Box().Children
-//     line1, = pre.Box().Children
-//     text1, span, text2 = line1.Box().Children
-//     assertEqual(t, text1.text == "This is "
-//     assertEqual(t, span.elementTag == "span"
-//     assertEqual(t, text2.text == " text"
-// }
+func TestHyphenateLimitCharsPunctuation(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// @assertEqual(t,NoLogs
-// @pytest.mark.parametrize("value, width", (
-//     (8, 144),  // (2 + (8 - 1)) * 16
-//     (4, 80),  // (2 + (4 - 1)) * 16
-//     ("3em", 64),  // (2 + (3 - 1)) * 16
-//     ("25px", 41),  // 2 * 16 + 25 - 1 * 16
-//     // (0, 32),  // See Layout.setTabs
-// ))
-// func TestTabSize(t *testing.Tvalue, width) {
-//     page := renderOnePage(t, `
-//       <style>
-//         @font-face {src: url(weasyprint.otf); font-family: weasyprint}
-//         pre { tab-size: %s; font-family: weasyprint }
-//       </style>
-//       <pre>a&#9;a</pre>
-//     ` % value)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     paragraph := body.Box().Children[0]
-//     line := paragraph.Box().Children[0]
-//     assertEqual(t, line.Box().Width == width
+	// See https://github.com/Kozea/WeasyPrint/issues/109
+	for _, css := range []string{
+		"3 3 3", // "en" is shorter than 3
+		"3 6 2", // "light" is shorter than 6
+		"8",     // "lighten" is shorter than 8
+	} {
+		page := renderOnePage(t, fmt.Sprintf(`
+        <html style="width: 1em; font-family: weasyprint">
+        <style>
+          @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        </style>
+        <body style="hyphens: auto; hyphenate-limit-chars: %s" lang=en>..lighten..`, css))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		lines := body.Box().Children
+		assertEqual(t, len(lines), 1, "")
+	}
+}
 
-// func TestTextTransform(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t, `
-//       <style>
-//         p { text-transform: capitalize }
-//         p+p { text-transform: uppercase }
-//         p+p+p { text-transform: lowercase }
-//         p+p+p+p { text-transform: full-width }
-//         p+p+p+p+p { text-transform: none }
-//       </style>
-// <p>hé lO1</p><p>hé lO1</p><p>hé lO1</p><p>hé lO1</p><p>hé lO1</p>
-//     `)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, p2, p3, p4, p5 = body.Box().Children
-//     line1, = p1.Box().Children
-//     text1, = line1.Box().Children
-//     assertEqual(t, text1.text == "Hé Lo1"
-//     line2, = p2.Box().Children
-//     text2, = line2.Box().Children
-//     assertEqual(t, text2.text == "HÉ LO1"
-//     line3, = p3.Box().Children
-//     text3, = line3.Box().Children
-//     assertEqual(t, text3.text == "hé lo1"
-//     line4, = p4.Box().Children
-//     text4, = line4.Box().Children
-//     assertEqual(t, text4.text == "\uff48é\u3000\uff4c\uff2f\uff11"
-//     line5, = p5.Box().Children
-//     text5, = line5.Box().Children
-//     assertEqual(t, text5.text == "hé lO1"
-// }
+func TestOverflowWrap(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestTextFloatingPreLine(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/610
-//     page := renderOnePage(t, `
-//       <div style="float: left; white-space: pre-line">This is
-//       oh this end </div>
-//     `)
+	for _, v := range []struct {
+		wrap, text string
+		test       func(int) bool
+		fullText   string
+	}{
+		{"break-word", "aaaaaaaa", func(a int) bool { return a > 1 }, "aaaaaaaa"},
+		{"normal", "aaaaaaaa", func(a int) bool { return a == 1 }, "aaaaaaaa"},
+		{"break-word", "hyphenations", func(a int) bool { return a > 3 }, "hy-phen-ations"},
+		{"break-word", "A splitted word.  An hyphenated word.", func(a int) bool { return a > 8 }, "Asplittedword.Anhy-phen-atedword."},
+	} {
+		page := renderOnePage(t, fmt.Sprintf(`
+      <style>
+        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        body {width: 80px; overflow: hidden; font-family: weasyprint; }
+        span {overflow-wrap: %s; white-space: normal; }
+      </style>
+      <body style="hyphens: auto;" lang="en"><span>%s`, v.wrap, v.text))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		var lines []string
+		for _, line := range body.Box().Children {
+			box := line.Box().Children[0]
+			textBox := box.Box().Children[0].(*bo.TextBox)
+			lines = append(lines, textBox.Text)
+		}
+		if !v.test(len(lines)) {
+			t.Fatal()
+		}
+		assertEqual(t, v.fullText, strings.Join(lines, ""), fmt.Sprintf("input %s %s", v.wrap, v.text))
+	}
+}
 
-// @assertEqual(t,NoLogs
-// @pytest.mark.parametrize(
-//     "leader, content", (
-//         ("dotted", "."),
-//         ("solid", ""),
-//         ("space", " "),
-//         ("" .-"", " .-"),
-//     )
-// )
-// func TestLeaderContent(t *testing.Tleader, content):
-//     page := renderOnePage(t, `
-//       <style>div::after { content: leader(%s) }</style>
-//       <div></div>
-//     ` % leader)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div, = body.Box().Children
-//     line, = div.Box().Children
-//     after, = line.Box().Children
-//     inline, = after.Box().Children
-//     assertEqual(t, inline.Box().Children[0].text == content
-// }
+func testWhiteSpaceLines(t *testing.T, width int, space string, expected []string) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, fmt.Sprintf(`
+      <style>
+        body { font-size: 100px; width: %dpx }
+        span { white-space: %s }
+      </style>
+      `, width, space)+"<body><span>This +    \n    is text")
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	assertEqual(t, len(body.Box().Children), len(expected), "wrong length")
+	for i, line := range body.Box().Children {
+		box := line.Box().Children[0]
+		text := box.Box().Children[0]
+		assertEqual(t, text.(*bo.TextBox).Text, expected[i], "")
+	}
+}
+
+func TestWhiteSpace1(t *testing.T) {
+	testWhiteSpaceLines(t, 1, "normal", []string{
+		"This",
+		"+",
+		"is",
+		"text",
+	})
+}
+
+func TestWhiteSpace2(t *testing.T) {
+	testWhiteSpaceLines(t, 1, "pre", []string{
+		"This +    ",
+		"    is text",
+	})
+}
+
+func TestWhiteSpace3(t *testing.T) {
+	testWhiteSpaceLines(t, 1, "nowrap", []string{"This + is text"})
+}
+
+func TestWhiteSpace4(t *testing.T) {
+	testWhiteSpaceLines(t, 1, "pre-wrap", []string{
+		"This ",
+		"+    ",
+		"    ",
+		"is ",
+		"text",
+	})
+}
+
+func TestWhiteSpace5(t *testing.T) {
+	testWhiteSpaceLines(t, 1, "pre-line", []string{
+		"This",
+		"+",
+		"is",
+		"text",
+	})
+}
+
+func TestWhiteSpace6(t *testing.T) {
+	testWhiteSpaceLines(t, 1000000, "normal", []string{"This + is text"})
+}
+
+func TestWhiteSpace7(t *testing.T) {
+	testWhiteSpaceLines(t, 1000000, "pre", []string{
+		"This +    ",
+		"    is text",
+	})
+}
+
+func TestWhiteSpace8(t *testing.T) {
+	testWhiteSpaceLines(t, 1000000, "nowrap", []string{"This + is text"})
+}
+
+func TestWhiteSpace9(t *testing.T) {
+	testWhiteSpaceLines(t, 1000000, "pre-wrap", []string{
+		"This +    ",
+		"    is text",
+	})
+}
+
+func TestWhiteSpace10(t *testing.T) {
+	testWhiteSpaceLines(t, 1000000, "pre-line", []string{
+		"This +",
+		"is text",
+	})
+}
+
+func TestWhiteSpace11(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/813
+	page := renderOnePage(t, `
+      <style>
+        pre { width: 0 }
+      </style>
+      <body><pre>This<br/>is text`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	pre := body.Box().Children[0]
+	line1, line2 := pre.Box().Children[0], pre.Box().Children[1]
+	text1, box := line1.Box().Children[0], line1.Box().Children[1]
+	assertEqual(t, text1.(*bo.TextBox).Text, "This", "text1")
+	assertEqual(t, box.Box().ElementTag, "br", "box")
+	text2 := line2.Box().Children[0]
+	assertEqual(t, text2.(*bo.TextBox).Text, "is text", "text2")
+}
+
+func TestWhiteSpace12(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/813
+	page := renderOnePage(t, `
+      <style>
+        pre { width: 0 }
+      </style>
+      <body><pre>This is <span>lol</span> text`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	pre := body.Box().Children[0]
+	line1 := pre.Box().Children[0]
+	text1, span, text2 := unpack3(line1)
+	assertEqual(t, text1.(*bo.TextBox).Text, "This is ", "text1")
+	assertEqual(t, span.Box().ElementTag, "span", "span")
+	assertEqual(t, text2.(*bo.TextBox).Text, " text", "text2")
+}
+
+func TestTabSize(t *testing.T) {
+	// cp := testutils.CaptureLogs()
+	// defer cp.AssertNoLogs(t)
+
+	for _, v := range []struct {
+		value string
+		width pr.Float
+	}{
+		{"8", 144},   // (2 + (8 - 1)) * 16
+		{"4", 80},    // (2 + (4 - 1)) * 16
+		{"3em", 64},  // (2 + (3 - 1)) * 16
+		{"25px", 41}, // 2 * 16 + 25 - 1 * 16
+		// (0, 32),  // See Layout.setTabs
+	} {
+		page := renderOnePage(t, fmt.Sprintf(`
+      <style>
+        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        pre { tab-size: %s; font-family: weasyprint }
+      </style>
+      <pre>a&#9;a</pre>
+    `, v.value))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		paragraph := body.Box().Children[0]
+		line := paragraph.Box().Children[0]
+		assertEqual(t, line.Box().Width, v.width, "for value "+v.value)
+	}
+}
+
+func TestTextTransform(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+      <style>
+        p { text-transform: capitalize }
+        p+p { text-transform: uppercase }
+        p+p+p { text-transform: lowercase }
+        p+p+p+p { text-transform: full-width }
+        p+p+p+p+p { text-transform: none }
+      </style>
+<p>hé lO1</p><p>hé lO1</p><p>hé lO1</p><p>hé lO1</p><p>hé lO1</p>
+    `)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	expected := []string{
+		"Hé Lo1",
+		"HÉ LO1",
+		"hé lo1",
+		"\uff48é\u3000\uff4c\uff2f\uff11",
+		"hé lO1",
+	}
+	if len(body.Box().Children) != len(expected) {
+		t.Fatal()
+	}
+	for i, child := range body.Box().Children {
+		line := child.Box().Children[0]
+		text := line.Box().Children[0].(*bo.TextBox)
+		assertEqual(t, text.Text, expected[i], "")
+	}
+}
+
+func TestTextFloatingPreLine(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/610
+	_ = renderOnePage(t, `
+      <div style="float: left; white-space: pre-line">This is
+      oh this end </div>
+    `)
+}
+
+func TestLeaderContent(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	for _, v := range []struct{ leader, content string }{
+		{"dotted", "."},
+		{"solid", "_"},
+		{"space", " "},
+		{`" .-"`, " .-"},
+	} {
+		page := renderOnePage(t, fmt.Sprintf(`
+      <style>div::after { content: leader(%s) }</style>
+      <div></div>
+    `, v.leader))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		div := body.Box().Children[0]
+		line := div.Box().Children[0]
+		after := line.Box().Children[0]
+		inline := after.Box().Children[0]
+		assertEqual(t, inline.Box().Children[0].(*bo.TextBox).Text, v.content, "")
+	}
+}
 
 // @pytest.mark.xfail
 // func TestMaxLines(t *testing.T) {

@@ -151,7 +151,7 @@ func (p *TextLayout) setTabs() {
 	width := int(tabSize.Value)
 	if tabSize.Unit == 0 { // no unit, means a multiple of the advance width of the space character
 		layout := NewTextLayout(p.Context, pr.Fl(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
-		layout.SetText(strings.Repeat(" ", int(tabSize.Value)), false)
+		layout.SetText(strings.Repeat(" ", width), false)
 		line, _ := layout.GetFirstLine()
 		widthTmp, _ := LineSize(line, p.Style)
 		width = int(widthTmp + 0.5)
@@ -160,7 +160,7 @@ func (p *TextLayout) setTabs() {
 	if width == 0 {
 		width = 1
 	}
-	tabs := &pango.TabArray{Tabs: []pango.Tab{{Alignment: pango.TAB_LEFT, Location: width}}}
+	tabs := &pango.TabArray{Tabs: []pango.Tab{{Alignment: pango.TAB_LEFT, Location: width}}, PositionsInPixels: true}
 	p.Layout.SetTabs(tabs)
 }
 

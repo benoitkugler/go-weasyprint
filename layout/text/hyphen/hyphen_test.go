@@ -115,3 +115,11 @@ func TestCache(t *testing.T) {
 		t.Fatal("missing cache")
 	}
 }
+
+func TestUnicode(t *testing.T) {
+	dictionary := NewHyphener("fr", 2, 2)
+	res := dictionary.Iterate("hyphénation")
+	if !reflect.DeepEqual(res, []string{"hyphéna", "hyphé", "hy"}) {
+		t.Fatal()
+	}
+}

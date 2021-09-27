@@ -644,6 +644,16 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 					getImageFromUri, targetCollector, cs, context, page)
 			}
 			contentBoxes = append(contentBoxes, newBox)
+
+		case "leader()":
+			textBox := TextBoxAnonymousFrom(parentBox, content.AsLeader())
+			leaderBox := InlineBoxAnonymousFrom(parentBox, []Box{textBox})
+			// Avoid breaks inside the leader box
+			leaderBox.Style.SetWhiteSpace("pre")
+			// Prevent whitespaces from being removed from the text box
+			textBox.Style.SetWhiteSpace("pre")
+			leaderBox.IsLeader = true
+			contentBoxes = append(contentBoxes, leaderBox)
 		}
 	}
 

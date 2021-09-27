@@ -2498,8 +2498,8 @@ func tabSize(tokens []Token, _ string) pr.CssProperty {
 	}
 	token := tokens[0]
 	if number, ok := token.(parser.NumberToken); ok {
-		if number.IsInteger && number.Value >= 0 {
-			return pr.FToV(pr.Fl(number.Value))
+		if number.IsInteger && number.Value >= 0 { // no unit means multiple of space width
+			return pr.Value{Dimension: pr.Dimension{Value: pr.Float(number.Value)}}
 		}
 	}
 	return pr.Value{Dimension: getLength(token, false, false)}

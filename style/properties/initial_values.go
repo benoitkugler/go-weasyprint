@@ -146,7 +146,7 @@ var InitialValues = Properties{
 	"marks":        Marks{}, // computed value for 'none'
 
 	// Text 3/4 (WD/WD): https://www.w3.org/TR/css-text-4/
-	"hyphenate_character":   String("‐"), // computed value chosen by the user agent
+	"hyphenate_character":   String("-"), // computed value chosen by the user agent
 	"hyphenate_limit_chars": Ints3{5, 2, 2},
 	"hyphenate_limit_zone":  zeroPixelsValue,
 	"hyphens":               String("manual"),

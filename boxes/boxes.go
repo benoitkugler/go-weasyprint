@@ -5,6 +5,7 @@ package boxes
 
 import (
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/benoitkugler/go-weasyprint/images"
 	"github.com/benoitkugler/go-weasyprint/matrix"
@@ -68,7 +69,7 @@ import (
 var asciiToWide = map[rune]rune{}
 
 func init() {
-	for i := 33; i < 127; i++ {
+	for i := 0x21; i < utf8.RuneSelf; i++ {
 		asciiToWide[rune(i)] = rune(i + 0xfee0)
 	}
 	asciiToWide[0x20] = '\u3000'
@@ -153,6 +154,7 @@ type BoxFields struct {
 	IsFlexItem       bool
 	IsForRootElement bool
 	IsColumn         bool
+	IsLeader         bool
 
 	properTableChild       bool
 	internalTableOrCaption bool

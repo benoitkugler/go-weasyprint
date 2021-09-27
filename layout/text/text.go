@@ -91,7 +91,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	)
 	if maxWidth, ok := maxWidth.(pr.Float); ok && maxWidth != pr.Inf && fontSize != 0 {
 		var expectedLength int
-		if maxWidth == 0 {
+		if maxWidth <= 0 {
 			// Trying to find minimum size, let's naively split on spaces and
 			// keep one word + one letter
 
@@ -246,7 +246,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		var dictionaryIterations []string
 		if manualHyphenation {
 			// Manual hyphenation: check that the line ends with a soft
-			// hyphen && add the missing hyphen
+			// hyphen and add the missing hyphen
 			if strings.HasSuffix(firstLineText, string(softHyphen)) {
 				// The first line has been split on a soft hyphen
 				if id := strings.LastIndexByte(firstLineText, ' '); id != -1 {

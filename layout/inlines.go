@@ -213,9 +213,9 @@ func getNextLinebox(context *LayoutContext, linebox *bo.LineBox, positionY pr.Fl
 }
 
 // Return the ``skipStack`` to start just after the remove spaces
-//     at the beginning of the line.
-//     See http://www.w3.org/TR/CSS21/text.html#white-space-model
-func skipFirstWhitespace(box Box, skipStack *tree.SkipStack) (ss *tree.SkipStack, continue_ bool) {
+// at the beginning of the line.
+// See http://www.w3.org/TR/CSS21/text.html#white-space-model
+func skipFirstWhitespace(box Box, skipStack *tree.SkipStack) (*tree.SkipStack, bool) {
 	var (
 		index         int
 		nextSkipStack *tree.SkipStack
@@ -700,7 +700,7 @@ type splitedInline struct {
 	newBox                  Box
 	resumeAt                *tree.SkipStack
 	preservedLineBreak      bool
-	firstLetter, lastLetter rune
+	firstLetter, lastLetter rune // 0 for none
 	floatWidths             widths
 }
 
@@ -728,18 +728,15 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 	)
 	if textBox, ok := box_.(*bo.TextBox); ok {
 		textBox.PositionX = positionX
-		skip_ := 0
+		skip := 0
 		if skipStack != nil {
-			skip_, skipStack = skipStack.Skip, skipStack.Stack
+			skip, skipStack = skipStack.Skip, skipStack.Stack
 			if skipStack != nil {
 				log.Fatalf("expected empty skipStack, got %v", skipStack)
 			}
 		}
-		var (
-			skip       int
-			newTextBox *bo.TextBox
-		)
-		newTextBox, skip, preservedLineBreak = splitTextBox(context, textBox, maxX-positionX, skip_)
+		var newTextBox *bo.TextBox
+		newTextBox, skip, preservedLineBreak = splitTextBox(context, textBox, maxX-positionX, skip)
 		if skip != -1 {
 			resumeAt = &tree.SkipStack{Skip: skip}
 		}
@@ -753,9 +750,6 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 			} else {
 				lastLetter = text[skip-1]
 			}
-		} else {
-			firstLetter = -1
-			lastLetter = -1
 		}
 	} else if bo.InlineBoxT.IsInstance(box_) {
 		if box.MarginLeft == pr.Auto {
@@ -800,6 +794,11 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 	}
 }
 
+const (
+	letterTrue  rune = -1
+	letterFalse rune = -2
+)
+
 // Same behavior as splitInlineLevel.
 // the returned newBox has same concrete type has box_
 func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, skipStack *tree.SkipStack,
@@ -829,8 +828,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 
 	var children, waitingChildren []indexedBox
 	preservedLineBreak := false
-	var firstLetter rune
-	var lastLetter interface{}
+	var firstLetter, lastLetter rune
 	floatWidths := widths{}
 	var floatResumeAt int
 
@@ -875,8 +873,8 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 					nonFloatingChildren = append(nonFloatingChildren, v.box)
 				}
 			}
-			if L := len(nonFloatingChildren); L != 0 {
-				floatWidth -= trailingWhitespaceSize(context, nonFloatingChildren[L-1])
+			if Lf := len(nonFloatingChildren); Lf != 0 {
+				floatWidth -= trailingWhitespaceSize(context, nonFloatingChildren[Lf-1])
 			}
 
 			if floatWidth > maxX-positionX || len(waitingFloats) != 0 {
@@ -936,7 +934,6 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 				containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
 			newChild, resumeAt, preserved, first, last, newFloatWidths = v.newBox, v.resumeAt, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
 		}
-
 		if box.Style.GetDirection() == "rtl" {
 			maxX -= newFloatWidths.left
 		} else {
@@ -949,18 +946,22 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		}
 
 		var canBreak pr.MaybeBool
-		if lastLetter == true {
+		if lastLetter == letterTrue {
 			lastLetter = ' '
-		} else if lastLetter == false {
+		} else if lastLetter == letterFalse {
 			lastLetter = ' ' // no-break space
 		} else if box.Style.GetWhiteSpace() == "pre" || box.Style.GetWhiteSpace() == "nowrap" {
 			canBreak = pr.False
 		}
 		if canBreak == nil {
-			if nil == lastLetter || first < 0 {
+			if lastLetter == 0 || first == 0 {
+				canBreak = pr.False
+			} else if first == letterTrue {
+				canBreak = pr.True
+			} else if first == letterFalse {
 				canBreak = pr.False
 			} else {
-				canBreak = text.CanBreakText([]rune{lastLetter.(rune), first})
+				canBreak = text.CanBreakText([]rune{lastLetter, first})
 			}
 		}
 
@@ -973,7 +974,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			firstLetter = first
 		}
 		if child.TrailingCollapsibleSpace {
-			lastLetter = true
+			lastLetter = letterTrue
 		} else {
 			lastLetter = last
 		}
@@ -1170,12 +1171,17 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		}
 	}
 
+	if box.IsLeader {
+		firstLetter = letterTrue
+		lastLetter = letterFalse
+	}
+
 	return splitedInline{
 		newBox:             newBox_,
 		resumeAt:           resumeAt,
 		preservedLineBreak: preservedLineBreak,
 		firstLetter:        firstLetter,
-		lastLetter:         lastLetter.(rune),
+		lastLetter:         lastLetter,
 		floatWidths:        floatWidths,
 	}
 }
@@ -1200,8 +1206,8 @@ func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.May
 		return nil, -1, false
 	}
 	v := text.SplitFirstLine(string(text_), box.Style, context, availableWidth, box.JustificationSpacing, false)
-	layout, length, resumeAt, width, height, baseline := v.Layout, v.Length, v.ResumeAt, v.Width, v.Height, v.Baseline
-	if resumeAt == 0 {
+	layout, length, resumeIndex, width, height, baseline := v.Layout, v.Length, v.ResumeAt, v.Width, v.Height, v.Baseline
+	if resumeIndex == 0 {
 		log.Fatalln("resumeAt should not be 0 here")
 	}
 
@@ -1213,7 +1219,7 @@ func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.May
 		// "The height of the content area should be based on the font,
 		//  but this specification does not specify how."
 		// http://www.w3.org/TR/CSS21/visudet.html#inline-non-replaced
-		// We trust Pango && use the height of the LayoutLine.
+		// We trust Pango and use the height of the LayoutLine.
 		box.Height = height
 		// "only the "line-height" is used when calculating the height
 		//  of the line box."
@@ -1231,18 +1237,18 @@ func splitTextBox(context *LayoutContext, box *bo.TextBox, availableWidth pr.May
 	}
 
 	preservedLineBreak := false
-	if resumeAt != -1 {
-		between := string(text_[length:resumeAt])
-		preservedLineBreak = (length != resumeAt) && len(strings.Trim(between, " ")) != 0
+	if resumeIndex != -1 {
+		between := string(text_[length:resumeIndex])
+		preservedLineBreak = (length != resumeIndex) && len(strings.Trim(between, " ")) != 0
 		if preservedLineBreak {
 			if !lineBreaks.Has(between) {
 				log.Fatalf("Got %s between two lines. Expected nothing or a preserved line break", between)
 			}
 		}
-		resumeAt += skip
+		resumeIndex += skip
 	}
 
-	return box, resumeAt, preservedLineBreak
+	return box, resumeIndex, preservedLineBreak
 }
 
 type boxMinMax struct {

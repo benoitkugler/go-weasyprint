@@ -892,7 +892,7 @@ func lang(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProper
 	if value.String == "none" {
 		return pr.NamedString{}
 	}
-	if node, ok := computer.element.(*utils.HTMLNode); ok && value.Name == "attr" {
+	if node, ok := computer.element.(*utils.HTMLNode); ok && value.Name == "attr()" {
 		s := node.Get(value.String)
 		if s == "" {
 			return pr.NamedString{}
