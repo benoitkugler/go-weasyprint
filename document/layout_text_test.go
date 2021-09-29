@@ -380,7 +380,6 @@ func TestTextAlignJustifyTextIndent(t *testing.T) {
 	assertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
 }
 
-// FIXME:
 func TestTextAlignJustifyNoBreakBetweenChildren(t *testing.T) {
 	cp := testutils.CaptureLogs()
 	defer cp.AssertNoLogs(t)
@@ -712,9 +711,9 @@ func TestHyphenateManual3(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	line1, line2, line3, line4 := unpack4(body)
-	assertEqual(t, line1.Box().Children[0].(*bo.TextBox).Text, "in\u00ad‐", "line1")
-	assertEqual(t, line2.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad‐", "line2")
-	assertEqual(t, line3.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad‐", "line3")
+	assertEqual(t, line1.Box().Children[0].(*bo.TextBox).Text, "in\u00ad-", "line1")
+	assertEqual(t, line2.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad-", "line2")
+	assertEqual(t, line3.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad-", "line3")
 	assertEqual(t, line4.Box().Children[0].(*bo.TextBox).Text, "in", "line4")
 }
 
@@ -1138,11 +1137,12 @@ func TestLeaderContent(t *testing.T) {
 	}
 }
 
-// @pytest.mark.xfail
+// expected fail
 // func TestMaxLines(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t, `
+// 	cp := testutils.CaptureLogs()
+// 	defer cp.AssertNoLogs(t)
+
+// 	page := renderOnePage(t, `
 //       <style>
 //         @page {size: 10px 10px;}
 //         @font-face {src: url(weasyprint.otf); font-family: weasyprint}
@@ -1156,40 +1156,43 @@ func TestLeaderContent(t *testing.T) {
 //         abcd efgh ijkl
 //       </p>
 //     `)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, p2 = body.Box().Children
-//     line1, line2 = p1.Box().Children
-//     line3, = p2.Box().Children
-//     text1, = line1.Box().Children
-//     text2, = line2.Box().Children
-//     text3, = line3.Box().Children
-//     assertEqual(t, text1.text == "abcd"
-//     assertEqual(t, text2.text == "efgh"
-//     assertEqual(t, text3.text == "ijkl"
+// 	html := page.Box().Children[0]
+// 	body := html.Box().Children[0]
+// 	p1, p2 := body.Box().Children[0], body.Box().Children[1]
+// 	line1, line2 := p1.Box().Children[0], p1.Box().Children[1]
+// 	line3 := p2.Box().Children[0]
+// 	text1 := line1.Box().Children[0]
+// 	text2 := line2.Box().Children[0]
+// 	text3 := line3.Box().Children[0]
+// 	assertEqual(t, text1.(*bo.TextBox).Text, "abcd", "text1")
+// 	assertEqual(t, text2.(*bo.TextBox).Text, "efgh", "text2")
+// 	assertEqual(t, text3.(*bo.TextBox).Text, "ijkl", "text3")
+// }
 
-// func TestContinue(t *testing.T){
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t, `
-//       <style>
-//         @page {size: 10px 4px;}
-//         @font-face {src: url(weasyprint.otf); font-family: weasyprint}
-//         div {
-//           continue: discard;
-//           font-family: weasyprint;
-//           font-size: 2px;
-//         }
-//       </style>
-//       <div>
-//         abcd efgh ijkl
-//       </div>
-//     `)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p, = body.Box().Children
-//     line1, line2 = p.Box().Children
-//     text1, = line1.Box().Children
-//     text2, = line2.Box().Children
-//     assertEqual(t, text1.text == "abcd"
-//     assertEqual(t, text2.text == "efgh"
+func TestContinue(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+      <style>
+        @page {size: 10px 4px;}
+        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        div {
+          continue: discard;
+          font-family: weasyprint;
+          font-size: 2px;
+        }
+      </style>
+      <div>
+        abcd efgh ijkl
+      </div>
+    `)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	p := body.Box().Children[0]
+	line1, line2 := p.Box().Children[0], p.Box().Children[1]
+	text1 := line1.Box().Children[0]
+	text2 := line2.Box().Children[0]
+	assertEqual(t, text1.(*bo.TextBox).Text, "abcd", "")
+	assertEqual(t, text2.(*bo.TextBox).Text, "efgh", "")
+}

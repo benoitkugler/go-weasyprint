@@ -25,6 +25,8 @@ import (
 	"github.com/benoitkugler/textlayout/pango"
 )
 
+const debugMode = false
+
 type Box = bo.Box
 
 // Initialize ``context.pageMaker``.

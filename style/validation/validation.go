@@ -229,6 +229,7 @@ var (
 		"align-content":              alignContent,
 		"anchor":                     anchor,
 		"block-ellipsis":             blockEllipsis,
+		"continue":                   continue_,
 	}
 	validatorsError = map[string]validatorError{
 		"background-image":  backgroundImage,
@@ -276,6 +277,7 @@ var (
 		"bleed-top",
 		"bleed-bottom",
 		"marks",
+		"continue",
 	)
 	multiValProperties = utils.NewSet(
 		"content",
@@ -2821,6 +2823,16 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 		}
 	}
 	return pr.SDimensions{}, InvalidValue
+}
+
+func continue_(tokens []Token, _ string) pr.CssProperty {
+	keyword := getSingleKeyword(tokens)
+	switch keyword {
+	case "auto", "discard":
+		return pr.String(keyword)
+	default:
+		return nil
+	}
 }
 
 // Remove any top-level whitespace in a token list.

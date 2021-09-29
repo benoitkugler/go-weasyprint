@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"unicode"
@@ -726,6 +727,11 @@ func splitInlineLevel(context *LayoutContext, box_ Box, positionX, maxX pr.Float
 		resumeAt                *tree.SkipStack
 		firstLetter, lastLetter rune
 	)
+
+	if debugMode {
+		fmt.Printf("Split inline level: %T\n", box_)
+	}
+
 	if textBox, ok := box_.(*bo.TextBox); ok {
 		textBox.PositionX = positionX
 		skip := 0
@@ -809,6 +815,10 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		log.Fatalf("expected Line or Inline Box, got %s", box_)
 	}
 	box := box_.Box()
+
+	if debugMode {
+		fmt.Printf("Split inline %T\n", box_)
+	}
 
 	// In some cases (shrink-to-fit result being the preferred width)
 	// maxX is coming from Pango itself,
@@ -918,6 +928,10 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 		lastChild := index == len(box.Children)-1
 		availableWidth := maxX
 		var childWaitingFloats []Box
+
+		if debugMode {
+			fmt.Println("Recursing for child...")
+		}
 		v := splitInlineLevel(context, child_, positionX, availableWidth, skipStack,
 			containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
 		resumeAt = v.resumeAt
@@ -934,6 +948,11 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 				containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
 			newChild, resumeAt, preserved, first, last, newFloatWidths = v.newBox, v.resumeAt, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
 		}
+
+		if debugMode {
+			fmt.Println("Child done.")
+		}
+
 		if box.Style.GetDirection() == "rtl" {
 			maxX -= newFloatWidths.left
 		} else {
@@ -970,7 +989,7 @@ func splitInlineBox(context *LayoutContext, box_ Box, positionX, maxX pr.Float, 
 			waitingChildren = nil
 		}
 
-		if firstLetter < 0 {
+		if firstLetter == 0 {
 			firstLetter = first
 		}
 		if child.TrailingCollapsibleSpace {

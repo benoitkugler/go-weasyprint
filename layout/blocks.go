@@ -400,7 +400,12 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 		resumeAt = nil
 	}
 
-	if bi := box.Style.GetBreakInside(); resumeAt != nil && (bi == "avoid" || bi == "avoid-page") && !pageIsEmpty {
+	boxIsFragmented := resumeAt != nil
+	if box.Style.GetContinue() == "discard" {
+		resumeAt = nil
+	}
+
+	if bi := box.Style.GetBreakInside(); boxIsFragmented && (bi == "avoid" || bi == "avoid-page") && !pageIsEmpty {
 		return nil, blockLayout{nextPage: tree.PageBreak{Break: "any"}}
 	}
 
