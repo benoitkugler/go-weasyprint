@@ -1,4 +1,4 @@
-package document
+package layout
 
 import (
 	"fmt"
@@ -46,12 +46,7 @@ func renderPages(t *testing.T, htmlContent string) []*bo.PageBox {
 		t.Fatal(err)
 	}
 	doc = fakeHTML(doc)
-	renderedDoc := Render(doc, nil, false, fontconfig, nil)
-	out := make([]*bo.PageBox, len(renderedDoc.Pages))
-	for i, v := range renderedDoc.Pages {
-		out[i] = v.pageBox
-	}
-	return out
+	return Layout(doc, nil, false, fontconfig)
 }
 
 // same as renderPages, but expects only on laid out page

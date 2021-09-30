@@ -19,18 +19,18 @@ type indexedBox struct {
 	index int
 }
 
-type FlexLine struct {
+type flexLine struct {
 	line                     []indexedBox
 	crossSize, lowerBaseline pr.Float
 }
 
-func (f FlexLine) reverse() {
+func (f flexLine) reverse() {
 	for left, right := 0, len(f.line)-1; left < right; left, right = left+1, right-1 {
 		f.line[left], f.line[right] = f.line[right], f.line[left]
 	}
 }
 
-func (f FlexLine) sum() pr.Float {
+func (f flexLine) sum() pr.Float {
 	var sum pr.Float
 	for _, child := range f.line {
 		sum += child.box.Box().HypotheticalMainSize
@@ -38,7 +38,7 @@ func (f FlexLine) sum() pr.Float {
 	return sum
 }
 
-func (f FlexLine) allFrozen() bool {
+func (f flexLine) allFrozen() bool {
 	for _, child := range f.line {
 		if !child.box.Box().Frozen {
 			return false
@@ -47,7 +47,7 @@ func (f FlexLine) allFrozen() bool {
 	return true
 }
 
-func (f FlexLine) adjustements() pr.Float {
+func (f flexLine) adjustements() pr.Float {
 	var sum pr.Float
 	for _, child := range f.line {
 		sum += child.box.Box().Adjustment
@@ -55,13 +55,13 @@ func (f FlexLine) adjustements() pr.Float {
 	return sum
 }
 
-func reverse(f []FlexLine) {
+func reverse(f []flexLine) {
 	for left, right := 0, len(f)-1; left < right; left, right = left+1, right-1 {
 		f[left], f[right] = f[right], f[left]
 	}
 }
 
-func sumCross(f []FlexLine) pr.Float {
+func sumCross(f []flexLine) pr.Float {
 	var sumCross pr.Float
 	for _, line := range f {
 		sumCross += line.crossSize
@@ -110,7 +110,7 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 	}
 }
 
-func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
+func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 
 	context.createBlockFormattingContext()
@@ -396,9 +396,9 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	}
 
 	// Step 5
-	var flexLines []FlexLine
+	var flexLines []flexLine
 
-	var line FlexLine
+	var line flexLine
 	var lineSize pr.Float
 	axisSize := getAttr(box, axis, "")
 	children = append([]Box{}, children...)
@@ -414,7 +414,7 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		if box.Style.GetFlexWrap() != "nowrap" && lineSize > axisSize.V() {
 			if len(line.line) != 0 {
 				flexLines = append(flexLines, line)
-				line = FlexLine{line: []indexedBox{{index: i, box: child_}}}
+				line = flexLine{line: []indexedBox{{index: i, box: child_}}}
 				lineSize = child.HypotheticalMainSize
 			} else {
 				line.line = append(line.line, indexedBox{index: i, box: child_})
@@ -608,10 +608,10 @@ func flexLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	// Step 7
 	// TODO: Fix TODO in build.FlexChildren
 	// TODO: Handle breaks
-	var newFlexLines []FlexLine
+	var newFlexLines []flexLine
 	childSkipStack = skipStack
 	for _, line := range flexLines {
-		var newFlexLine FlexLine
+		var newFlexLine flexLine
 		for _, v := range line.line {
 			child_ := v.box
 			child := child_.Box()

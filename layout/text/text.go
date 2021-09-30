@@ -499,7 +499,13 @@ func StrutLayout(style pr.StyleAccessor, context TextLayoutContext) [2]pr.Float 
 }
 
 // ExRatio returns the ratio 1ex/font_size, according to given style.
+// It should be used with a valid text context to get accurate result.
+// Otherwise, if context is `nil`, it returns 1 as a default value.
 func ExRatio(style pr.ElementStyle, context TextLayoutContext) pr.Float {
+	if context == nil {
+		return 1
+	}
+
 	// Avoid recursion for letter-spacing && word-spacing properties
 	style = style.Copy()
 	style.SetLetterSpacing(pr.SToV("normal"))

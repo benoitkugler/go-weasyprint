@@ -12,7 +12,7 @@ import (
 // Layout for tables and internal table boxes.
 
 // Layout for a table box.
-func tableLayout(context *LayoutContext, table_ bo.TableBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 	table := table_.Table()
 	columnWidths := table.ColumnWidths
@@ -697,7 +697,7 @@ func sum(l []pr.Float) pr.Float {
 
 // Run the auto table layout and return a list of column widths.
 // http://www.w3.org/TR/CSS21/tables.html#auto-table-layout
-func autoTableLayout(context *LayoutContext, box *bo.BoxFields, containingBlock bo.Point) {
+func autoTableLayout(context *layoutContext, box *bo.BoxFields, containingBlock bo.Point) {
 	table_ := box.GetWrappedTable()
 	table := table_.Table()
 	tmp := tableAndColumnsPreferredWidths(context, box, false)
@@ -835,7 +835,7 @@ func autoTableLayout(context *LayoutContext, box *bo.BoxFields, containingBlock 
 }
 
 // Find the width of each column and derive the wrapper width.
-func tableWrapperWidth(context *LayoutContext, wrapper *bo.BoxFields, containingBlock bo.MaybePoint) {
+func tableWrapperWidth(context *layoutContext, wrapper *bo.BoxFields, containingBlock bo.MaybePoint) {
 	table := wrapper.GetWrappedTable()
 	resolvePercentages(table, containingBlock, "")
 
@@ -901,7 +901,7 @@ type indexCol struct {
 // Return excess width left (>0) when it's impossible without breaking rules, or 0
 //
 // See http://dbaron.org/css/intrinsic/#distributetocols
-func distributeExcessWidth(context *LayoutContext, grid [][]bo.Box, excessWidth pr.Float, columnWidths []pr.Float,
+func distributeExcessWidth(context *layoutContext, grid [][]bo.Box, excessWidth pr.Float, columnWidths []pr.Float,
 	constrainedness []bool, columnIntrinsicPercentages, columnMaxContentWidths []pr.Float, columnSlice [2]int) pr.Float {
 	// First group
 	var (

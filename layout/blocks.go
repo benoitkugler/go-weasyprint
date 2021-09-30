@@ -23,7 +23,7 @@ type blockLayout struct {
 // `maxPositionY` is the absolute vertical position (as in
 // ``someBox.PositionY``) of the bottom of the
 // content box of the current page area.
-func blockLevelLayout(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
@@ -62,7 +62,7 @@ func blockLevelLayout(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 }
 
 // Call the layout function corresponding to the ``box`` type.
-func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
@@ -91,7 +91,7 @@ func blockLevelLayoutSwitch(context *LayoutContext, box_ bo.BlockLevelBoxITF, ma
 }
 
 // Lay out the block ``box``.
-func blockBoxLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 	box := box_.Box()
 	if box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto" {
@@ -129,7 +129,7 @@ func blockBoxLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 var blockReplacedWidth = handleMinMaxWidth(blockReplacedWidth_)
 
 // @handleMinMaxWidth
-func blockReplacedWidth_(box Box, _ *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+func blockReplacedWidth_(box Box, _ *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	// http://www.w3.org/TR/CSS21/visudet.html#block-replaced-width
 	replacedBoxWidth_(box, nil, containingBlock)
 	blockLevelWidth_(box, nil, containingBlock)
@@ -160,7 +160,7 @@ var blockLevelWidth = handleMinMaxWidth(blockLevelWidth_)
 // @handleMinMaxWidth
 // Set the ``box`` width.
 // containingBlock must be bo.BoxFields
-func blockLevelWidth_(box_ Box, _ *LayoutContext, containingBlock_ containingBlock) (bool, pr.Float) {
+func blockLevelWidth_(box_ Box, _ *layoutContext, containingBlock_ containingBlock) (bool, pr.Float) {
 	box := box_.Box()
 	// "cb" stands for "containing block"
 	var (
@@ -296,13 +296,13 @@ func reverseBoxes(in []Box) []Box {
 	return out
 }
 
-type ChildrenBlockLevel interface {
+type childrenBlockLevel interface {
 	Box
 	Children() []bo.BlockLevelBoxITF
 }
 
 // Set the ``box`` height.
-func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (Box, blockLayout) {
 	box := box_.Box()
 	if !(bo.BlockContainerBoxT.IsInstance(box_) || bo.FlexBoxT.IsInstance(box_)) {
@@ -450,9 +450,9 @@ func blockContainerLayout(context *LayoutContext, box_ Box, maxPositionY pr.Floa
 	newBox_ := bo.CopyWithChildren(box_, newChildren, isStart, resumeAt == nil)
 	newBox := newBox_.Box()
 	if newBox.Height == pr.Auto {
-		if len(context.excludedShapes) != 0 && newBox.Style.GetOverflow() != "visible" {
+		if len(*context.excludedShapes) != 0 && newBox.Style.GetOverflow() != "visible" {
 			maxFloatPositionY := -pr.Inf
-			for _, floatBox := range context.excludedShapes {
+			for _, floatBox := range *context.excludedShapes {
 				v := floatBox.PositionY + floatBox.MarginHeight()
 				if v > maxFloatPositionY {
 					maxFloatPositionY = v
@@ -510,7 +510,7 @@ func findLastInFlowChild(children []Box) Box {
 	return nil
 }
 
-func outOfFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
+func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY pr.Float) (stop bool, resumeAt *tree.SkipStack, children []Box) {
 
 	child := child_.Box()
@@ -557,7 +557,7 @@ func outOfFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child
 	return stop, resumeAt, newChildren
 }
 
-func lineBoxLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ *bo.LineBox, newChildren []Box,
+func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ *bo.LineBox, newChildren []Box,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY, positionY pr.Float,
 	skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle) (
 	abort, stop bool, resumeAt *tree.SkipStack, _ pr.Float, _ []Box) {
@@ -579,7 +579,6 @@ func lineBoxLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ 
 		line := line_.Box()
 		line.ResumeAt = resumeAt
 		newPositionY := line.PositionY + line.Height.V()
-
 		// Add bottom padding and border to the bottom position of the box if needed
 		var offsetY pr.Float
 		if resumeAt == nil || box.Style.GetBoxDecorationBreak() == "clone" {
@@ -649,7 +648,7 @@ func lineBoxLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ 
 	return abort, stop, resumeAt, positionY, newChildren
 }
 
-func inFlowLayout(context *LayoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
+func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY, maxPositionY, positionY pr.Float,
 	skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle, collapsingWithChildren, discard bool) (
 	abort, stop bool, resumeAt *tree.SkipStack, _ pr.Float, _ []pr.Float, nextPage tree.PageBreak, _ []Box) {

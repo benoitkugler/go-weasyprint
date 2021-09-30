@@ -1,6 +1,8 @@
-// The formatting structure is a tree of boxes. It is either "before layout",
-// close to the element tree is it built from, or "after layout", with
-// line breaks and page breaks.
+// Package boxes defines the basic elements of the formatting structure,
+// as a tree of boxes.
+//
+// This tree is build from an HTML document by this package, but the boxes
+// are not correctly positionned yet (see the layout package).
 package boxes
 
 import (
@@ -101,14 +103,6 @@ type methodsBox interface {
 	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
 	RemoveDecoration(box *BoxFields, isStart, isEnd bool)
 	PageValues() (pr.Page, pr.Page)
-}
-
-// BoxType enables passing type as value
-type BoxOldT interface {
-	// Returns true if box is of type (or subtype) BoxType
-	IsInstance(box Box) bool
-
-	AnonymousFrom(parent Box, children []Box) Box
 }
 
 type Background struct {

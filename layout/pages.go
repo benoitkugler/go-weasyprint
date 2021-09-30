@@ -19,57 +19,57 @@ type contentSizer interface {
 	maxContentSize() pr.Float
 }
 
-type orientedBox interface {
-	baseBox() *OrientedBox
+type orientedBoxITF interface {
+	baseBox() *orientedBox
 	restoreBoxAttributes()
 }
 
-type OrientedBox struct {
+type orientedBox struct {
 	// abstract, must be implemented by subclasses
 	contentSizer
 
-	context                 *LayoutContext
+	context                 *layoutContext
 	box                     Box // either *bo.PageBox or *bo.MarginBox
 	marginA, marginB, inner pr.MaybeFloat
 	paddingPlusBorder       pr.Float
 }
 
-func (o *OrientedBox) baseBox() *OrientedBox {
+func (o *orientedBox) baseBox() *orientedBox {
 	return o
 }
 
-func (o OrientedBox) sugar() pr.Float {
+func (o orientedBox) sugar() pr.Float {
 	return o.paddingPlusBorder + o.marginA.V() + o.marginB.V()
 }
 
-func (o OrientedBox) outer() pr.Float {
+func (o orientedBox) outer() pr.Float {
 	return o.sugar() + o.inner.V()
 }
 
-func (o OrientedBox) outerMinContentSize() pr.Float {
+func (o orientedBox) outerMinContentSize() pr.Float {
 	if o.inner == pr.Auto {
 		return o.sugar() + o.minContentSize()
 	}
 	return o.sugar() + o.inner.V()
 }
 
-func (o OrientedBox) outerMaxContentSize() pr.Float {
+func (o orientedBox) outerMaxContentSize() pr.Float {
 	if o.inner == pr.Auto {
 		return o.sugar() + o.maxContentSize()
 	}
 	return o.sugar() + o.inner.V()
 }
 
-func (o *OrientedBox) shrinkToFit(available pr.Float) {
+func (o *orientedBox) shrinkToFit(available pr.Float) {
 	o.inner = pr.Min(pr.Max(o.minContentSize(), available), o.maxContentSize())
 }
 
-type VerticalBox struct {
-	OrientedBox
+type verticalBox struct {
+	orientedBox
 }
 
-func NewVerticalBox(context *LayoutContext, box Box) *VerticalBox {
-	self := new(VerticalBox)
+func newVerticalBox(context *layoutContext, box Box) *verticalBox {
+	self := new(verticalBox)
 	self.context = context
 	self.box = box
 	// Inner dimension: that of the content area, as opposed to the
@@ -80,11 +80,11 @@ func NewVerticalBox(context *LayoutContext, box Box) *VerticalBox {
 	self.marginB = box_.MarginBottom.V()
 	self.paddingPlusBorder = box_.PaddingTop.V() + box_.PaddingBottom.V() +
 		box_.BorderTopWidth.V() + box_.BorderBottomWidth.V()
-	self.OrientedBox.contentSizer = self
+	self.orientedBox.contentSizer = self
 	return self
 }
 
-func (self *VerticalBox) restoreBoxAttributes() {
+func (self *verticalBox) restoreBoxAttributes() {
 	box := self.box.Box()
 	box.Height = self.inner
 	box.MarginTop = self.marginA
@@ -92,21 +92,21 @@ func (self *VerticalBox) restoreBoxAttributes() {
 }
 
 // TODO: Define what are the min-content && max-content heights
-func (self *VerticalBox) minContentSize() pr.Float {
+func (self *verticalBox) minContentSize() pr.Float {
 	return 0
 }
 
-func (self *VerticalBox) maxContentSize() pr.Float {
+func (self *verticalBox) maxContentSize() pr.Float {
 	return 1e6
 }
 
-type HorizontalBox struct {
+type horizontalBox struct {
 	_minContentSize, _maxContentSize pr.MaybeFloat
-	OrientedBox
+	orientedBox
 }
 
-func NewHorizontalBox(context *LayoutContext, box Box) *HorizontalBox {
-	self := new(HorizontalBox)
+func newHorizontalBox(context *layoutContext, box Box) *horizontalBox {
+	self := new(horizontalBox)
 	self.context = context
 	self.box = box
 	box_ := box.Box()
@@ -115,25 +115,25 @@ func NewHorizontalBox(context *LayoutContext, box Box) *HorizontalBox {
 	self.marginB = box_.MarginRight.V()
 	self.paddingPlusBorder = box_.PaddingLeft.V() + box_.PaddingRight.V() +
 		box_.BorderLeftWidth.V() + box_.BorderRightWidth.V()
-	self.OrientedBox.contentSizer = self
+	self.orientedBox.contentSizer = self
 	return self
 }
 
-func (self *HorizontalBox) restoreBoxAttributes() {
+func (self *horizontalBox) restoreBoxAttributes() {
 	box := self.box.Box()
 	box.Width = self.inner
 	box.MarginLeft = self.marginA
 	box.MarginRight = self.marginB
 }
 
-func (self *HorizontalBox) minContentSize() pr.Float {
+func (self *horizontalBox) minContentSize() pr.Float {
 	if self._minContentSize == nil {
 		self._minContentSize = minContentWidth(self.context, self.box, false)
 	}
 	return self._minContentSize.V()
 }
 
-func (self *HorizontalBox) maxContentSize() pr.Float {
+func (self *horizontalBox) maxContentSize() pr.Float {
 	if self._maxContentSize == nil {
 		self._maxContentSize = maxContentWidth(self.context, self.box, false)
 	}
@@ -164,12 +164,12 @@ func countAuto(values ...pr.MaybeFloat) int {
 //         left half (for vertical==false) of the page.
 //         This determines which margin should be "auto" if the values are
 //         over-constrained. (Rule 3 of the algorithm.)
-func computeFixedDimension(context *LayoutContext, box_ *bo.MarginBox, outer pr.Float, vertical, topOrLeft bool) {
-	var boxOriented orientedBox
+func computeFixedDimension(context *layoutContext, box_ *bo.MarginBox, outer pr.Float, vertical, topOrLeft bool) {
+	var boxOriented orientedBoxITF
 	if vertical {
-		boxOriented = NewVerticalBox(context, box_)
+		boxOriented = newVerticalBox(context, box_)
 	} else {
-		boxOriented = NewHorizontalBox(context, box_)
+		boxOriented = newHorizontalBox(context, box_)
 	}
 	box := boxOriented.baseBox()
 
@@ -249,13 +249,13 @@ func computeFixedDimension(context *LayoutContext, box_ *bo.MarginBox, outer pr.
 //     margin-left and margin-right
 // :param outerSum:
 //     The target total outer dimension (max box width or height)
-func computeVariableDimension(context *LayoutContext, sideBoxes_ [3]*bo.MarginBox, vertical bool, outerSum pr.Float) {
-	var sideBoxes [3]orientedBox
+func computeVariableDimension(context *layoutContext, sideBoxes_ [3]*bo.MarginBox, vertical bool, outerSum pr.Float) {
+	var sideBoxes [3]orientedBoxITF
 	for i, box_ := range sideBoxes_ {
 		if vertical {
-			sideBoxes[i] = NewVerticalBox(context, box_)
+			sideBoxes[i] = newVerticalBox(context, box_)
 		} else {
-			sideBoxes[i] = NewHorizontalBox(context, box_)
+			sideBoxes[i] = newHorizontalBox(context, box_)
 		}
 	}
 	boxA, boxB, boxC := sideBoxes[0].baseBox(), sideBoxes[1].baseBox(), sideBoxes[2].baseBox()
@@ -383,7 +383,7 @@ func standardizePageBasedCounters(style pr.ElementStyle, pseudoType string) {
 // Yield laid-out margin boxes for this page.
 // ``state`` is the actual, up-to-date page-state from
 // ``context.pageMaker[context.currentPage]``.
-func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageState) []Box {
+func makeMarginBoxes(context *layoutContext, page *bo.PageBox, state tree.PageState) []Box {
 	// This is a closure only to make calls shorter
 
 	// Return a margin box with resolved percentages.
@@ -392,7 +392,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 	// :param atKeyword: which margin box to return, eg. "@top-left"
 	// :param containingBlock: as expected by :func:`resolvePercentages`.
 	makeBox := func(atKeyword string, containingBlock bo.MaybePoint) *bo.MarginBox {
-		style := context.StyleFor.Get(page.PageType, atKeyword)
+		style := context.styleFor.Get(page.PageType, atKeyword)
 		if style == nil {
 			// doesn't affect counters
 			style = tree.ComputedFromCascaded(nil, nil, page.Style, nil, "", "", nil, context)
@@ -414,7 +414,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 			bo.UpdateCounters(&marginState, box.Style)
 			box.Children = bo.ContentToBoxes(
 				box.Style, box, marginState.QuoteDepth, marginState.CounterValues,
-				context.GetImageFromUri, context.TargetCollector, context.counterStyle, context,
+				context.getImageFromUri, &context.TargetCollector, context.counterStyle, context,
 				page)
 			bo.ProcessWhitespace(box, false)
 			box_ := bo.AnonymousTableBoxes(box)
@@ -527,7 +527,7 @@ func makeMarginBoxes(context *LayoutContext, page *bo.PageBox, state tree.PageSt
 }
 
 // Layout a margin box’s content once the box has dimensions.
-func marginBoxContentLayout(context *LayoutContext, mBox *bo.MarginBox) Box {
+func marginBoxContentLayout(context *layoutContext, mBox *bo.MarginBox) Box {
 	newBox_, tmp := blockContainerLayout(context, mBox, pr.Inf, nil, true,
 		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil, false)
 
@@ -566,7 +566,7 @@ func marginBoxContentLayout(context *LayoutContext, mBox *bo.MarginBox) Box {
 //  is resized to coincide with the margin edges of the page box."
 // http://dev.w3.org/csswg/css3-page/#page-box-page-rule
 // http://www.w3.org/TR/CSS21/visudet.html#blockwidth
-func pageWidthOrHeight(box_ orientedBox, containingBlockSize pr.Float) {
+func pageWidthOrHeight(box_ orientedBoxITF, containingBlockSize pr.Float) {
 	box := box_.baseBox()
 	remaining := containingBlockSize - box.paddingPlusBorder
 	if box.inner == pr.Auto {
@@ -595,15 +595,15 @@ var (
 
 // @handleMinMaxWidth
 // containingBlock must be block
-func pageWidth_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
-	pageWidthOrHeight(NewHorizontalBox(context, box), containingBlock.(block).Width)
+func pageWidth_(box Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
+	pageWidthOrHeight(newHorizontalBox(context, box), containingBlock.(block).Width)
 	return false, 0
 }
 
 // @handleMinMaxHeight
 // containingBlock must be block
-func pageHeight_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
-	pageWidthOrHeight(NewVerticalBox(context, box), containingBlock.(block).Height)
+func pageHeight_(box Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
+	pageWidthOrHeight(newVerticalBox(context, box), containingBlock.(block).Height)
 	return false, 0
 }
 
@@ -616,9 +616,9 @@ func pageHeight_(box Box, context *LayoutContext, containingBlock containingBloc
 // :param pageNumber: integer, start at 1 for the first page
 // :param resumeAt: as returned by ``makePage()`` for the previous page,
 // 	or ``None`` for the first page.
-func makePage(context *LayoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt *tree.SkipStack,
+func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt *tree.SkipStack,
 	pageNumber int, pageState *tree.PageState) (*bo.PageBox, *tree.SkipStack, tree.PageBreak) {
-	style := context.StyleFor.Get(pageType, "")
+	style := context.styleFor.Get(pageType, "")
 
 	// Propagated from the root or <body>.
 	style.SetOverflow(pr.String(rootBox.Box().ViewportOverflow))
@@ -801,7 +801,7 @@ func makePage(context *LayoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 // As the function"s name suggests: the plan is ! to make all pages
 // repeatedly when a missing counter was resolved, but rather re-make the
 // single page where the ``contentChanged`` happened.
-func remakePage(index int, context *LayoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {
+func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {
 	pageMaker := &context.pageMaker
 	tmp := (*pageMaker)[index]
 	// initialResumeAt, initialNextPage, rightPage, initialPageState,remakeState := tmp
@@ -833,7 +833,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.BlockLevelBoxITF, 
 		side = "right"
 	}
 	pageType := utils.PageElement{Side: side, Blank: blank, First: first, Index: index, Name: nextPageName}
-	context.StyleFor.SetPageComputedStylesT(pageType, html)
+	context.styleFor.SetPageComputedStylesT(pageType, html)
 
 	context.forcedBreak = tmp.InitialNextPage.Break != "any" || tmp.InitialNextPage.Page.String != ""
 	context.marginClearance = false
@@ -890,7 +890,7 @@ func remakePage(index int, context *LayoutContext, rootBox bo.BlockLevelBoxITF, 
 
 // Return a list of laid out pages without margin boxes.
 // Re-make pages only if necessary.
-func makeAllPages(context *LayoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML, pages []*bo.PageBox) []*bo.PageBox {
+func makeAllPages(context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML, pages []*bo.PageBox) []*bo.PageBox {
 	var out []*bo.PageBox
 	i := 0
 	for {

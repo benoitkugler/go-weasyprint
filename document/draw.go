@@ -470,7 +470,7 @@ func drawBackground(context Drawer, bg *bo.Background, enableHinting, clipBox bo
 			if err != nil {
 				return err
 			}
-			image, err := images.NewSVGImage(svg, "", nil)
+			image, err := images.NewSVGImage(strings.NewReader(svg), "", nil)
 			if err != nil {
 				return err
 			}
@@ -1196,7 +1196,7 @@ func drawReplacedbox(context Drawer, box_ bo.ReplacedBoxITF) {
 		return
 	}
 
-	drawWidth, drawHeight, drawX, drawY := layout.ReplacedboxLayout(box_)
+	drawWidth, drawHeight, drawX, drawY := layout.LayoutReplacedBox(box_)
 
 	context.OnNewStack(func() error {
 		roundedBoxPath(context, box.RoundedContentBox())

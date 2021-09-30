@@ -9,15 +9,12 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/benoitkugler/go-weasyprint/boxes/counters"
-	"github.com/benoitkugler/go-weasyprint/images"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	mt "github.com/benoitkugler/go-weasyprint/matrix"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/layout"
-	"github.com/benoitkugler/go-weasyprint/logger"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -297,40 +294,11 @@ type Document struct {
 	Metadata utils.DocumentMetadata
 }
 
-// presentationalHints=false, fontConfig=None
-func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
-	presentationalHints bool, fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle) *layout.LayoutContext {
-
-	targetCollector := tree.NewTargetCollector()
-	var (
-		pageRules       []tree.PageRule
-		userStylesheets = stylesheets
-	)
-
-	cache := make(map[string]images.Image)
-	getImageFromUri := func(url, forcedMimeType string) images.Image {
-		return images.GetImageFromUri(cache, html.UrlFetcher, url, forcedMimeType)
-	}
-	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
-	context := layout.NewLayoutContext(getImageFromUri, fontConfig, counterStyle, &targetCollector)
-	context.StyleFor = tree.GetAllComputedStyles(html, userStylesheets, presentationalHints, fontConfig,
-		counterStyle, &pageRules, &targetCollector, context)
-	return context
-}
-
 // fontConfig is mandatory
 // presentationalHints=false
 // counterStyle is optional
-func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle) Document {
-	if counterStyle == nil {
-		counterStyle = make(counters.CounterStyle)
-	}
-	context := newLayoutContext(html, stylesheets, presentationalHints, fontConfig, counterStyle)
-
-	rootBox := bo.BuildFormattingStructure(html.Root, context.StyleFor, context.GetImageFromUri,
-		html.BaseUrl, context.TargetCollector, counterStyle, context)
-
-	pageBoxes := layout.LayoutDocument(html, rootBox, context, -1)
+func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration) Document {
+	pageBoxes := layout.Layout(html, stylesheets, presentationalHints, fontConfig)
 	pages := make([]Page, len(pageBoxes))
 	for i, pageBox := range pageBoxes {
 		pages[i] = NewPage(pageBox, false)

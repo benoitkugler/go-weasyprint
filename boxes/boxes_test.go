@@ -3,6 +3,7 @@ package boxes
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"testing"
@@ -47,7 +48,11 @@ func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils
 	cs := make(counters.CounterStyle)
 	style := tree.GetAllComputedStyles(document, nil, false, nil, cs, nil, nil, nil)
 	imgFetcher := func(url string, forcedMimeType string) images.Image {
-		return images.GetImageFromUri(make(map[string]images.Image), document.UrlFetcher, url, forcedMimeType)
+		out, err := images.GetImageFromUri(make(map[string]images.Image), document.UrlFetcher, false, url, forcedMimeType)
+		if err != nil {
+			log.Println(err)
+		}
+		return out
 	}
 	tr := tree.NewTargetCollector()
 	return document.Root, style, imgFetcher, baseUrl, &tr, cs, nil

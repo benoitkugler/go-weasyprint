@@ -13,7 +13,7 @@ var floatWidth = handleMinMaxWidth(floatWidth_)
 
 // @handleMinMaxWidth
 // containingBlock must be block
-func floatWidth_(box Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+func floatWidth_(box Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	// Check that box.width is auto even if the caller does it too, because
 	// the handleMinMaxWidth decorator can change the value
 	if w := box.Box().Width; w == pr.Auto {
@@ -23,7 +23,7 @@ func floatWidth_(box Box, context *LayoutContext, containingBlock containingBloc
 }
 
 // Set the width and position of floating ``box``.
-func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields, absoluteBoxes,
+func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder) Box {
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
@@ -79,28 +79,28 @@ func floatLayout(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields
 
 	box_ = findFloatPosition(context, box_, containingBlock)
 
-	context.excludedShapes = append(context.excludedShapes, *box_.Box())
+	*context.excludedShapes = append(*context.excludedShapes, box_.Box())
 
 	return box_
 }
 
 // Get the right position of the float ``box``.
-func findFloatPosition(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields) Box {
+func findFloatPosition(context *layoutContext, box_ Box, containingBlock *bo.BoxFields) Box {
 	box := box_.Box()
 	// See http://www.w3.org/TR/CSS2/visuren.html#float-position
 
 	// Point 4 is already handled as box.positionY is set according to the
 	// containing box top position, with collapsing margins handled
 
-	// Points 5 && 6, box.positionY is set to the highest positionY possible
-	if L := len(context.excludedShapes); L != 0 {
-		highestY := context.excludedShapes[L-1].PositionY
+	// Points 5 and 6, box.positionY is set to the highest positionY possible
+	if L := len(*context.excludedShapes); L != 0 {
+		highestY := (*context.excludedShapes)[L-1].PositionY
 		if box.PositionY < highestY {
 			box_.Translate(box_, 0, highestY-box.PositionY, false)
 		}
 	}
 
-	// Points 1 && 2
+	// Points 1 and 2
 	positionX, positionY, availableWidth := avoidCollisions(context, box_, containingBlock, true)
 
 	// Point 9
@@ -117,10 +117,10 @@ func findFloatPosition(context *LayoutContext, box_ Box, containingBlock *bo.Box
 
 // Return nil if there is no clearance, otherwise the clearance value (as Float)
 // collapseMargin = 0
-func getClearance(context *LayoutContext, box *bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
+func getClearance(context *layoutContext, box *bo.BoxFields, collapsedMargin pr.Float) (clearance pr.MaybeFloat) {
 	hypotheticalPosition := box.PositionY + collapsedMargin
 	// Hypothetical position is the position of the top border edge
-	for _, excludedShape := range context.excludedShapes {
+	for _, excludedShape := range *context.excludedShapes {
 		if clear := box.Style.GetClear(); clear == excludedShape.Style.GetFloat() || clear == "both" {
 			y, h := excludedShape.PositionY, excludedShape.MarginHeight()
 			if hypotheticalPosition < y+h {
@@ -136,7 +136,7 @@ func getClearance(context *LayoutContext, box *bo.BoxFields, collapsedMargin pr.
 }
 
 // outer=true
-func avoidCollisions(context *LayoutContext, box_ Box, containingBlock *bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
+func avoidCollisions(context *layoutContext, box_ Box, containingBlock *bo.BoxFields, outer bool) (pr.Float, pr.Float, pr.Float) {
 	excludedShapes := context.excludedShapes
 	box := box_.Box()
 	positionY := box.BorderBoxY()
@@ -153,8 +153,8 @@ func avoidCollisions(context *LayoutContext, box_ Box, containingBlock *bo.BoxFi
 	}
 	var maxLeftBound, maxRightBound pr.Float
 	for {
-		var collidingShapes []bo.BoxFields
-		for _, shape := range excludedShapes {
+		var collidingShapes []*bo.BoxFields
+		for _, shape := range *excludedShapes {
 			// Assign locals to avoid slow attribute lookups.
 			shapePositionY := shape.PositionY
 			shapeMarginHeight := shape.MarginHeight()

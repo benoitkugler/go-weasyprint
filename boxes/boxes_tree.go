@@ -136,11 +136,12 @@ type InlineFlexBox struct {
 	BoxFields
 }
 
-// We need to distinct the classical Box from the special (AbsolutePlaceholder, StackingContext)
 type classicalBox interface {
 	isBox()
 }
 
+// IsBox returns true for all standard boxes defined in this package, but false
+// for the special ones, defined in other packages, like AbsolutePlaceholder or StackingContext.
 func IsBox(b Box) bool {
 	_, is := b.(classicalBox)
 	return is

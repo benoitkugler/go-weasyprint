@@ -1,21 +1,21 @@
-// Transform a "before layout" box tree into an "after layout" tree.
-// (Surprising, hu?)
-
-// Break boxes across lines and pages; determine the size and dimension
-// of each box fragement.
-
-// Boxes in the new tree have *used values* in their ``position_x``,
-// ``position_y``, ``width`` and ``height`` attributes, amongst others.
-
-// See http://www.w3.org/TR/CSS21/cascade.html#used-value
-
-// :copyright: Copyright 2011-2014 Simon Sapin and contributors, see AUTHORS.
-// :license: BSD, see LICENSE for details.
+// Transform a "before layout" box tree into an "after layout" tree,
+// by breaking boxes across lines and pages; and determining the size and dimension
+// of each box fragment.
+//
+// Boxes in the new tree have *used values* in their PositionX,
+// PositionY, Width and Height attributes, amongst others.
+// (see http://www.w3.org/TR/CSS21/cascade.html#used-value)
+//
+// The laid out pages are ready to be printed or display on screen,
+// which is done by the higher level `document` package.
 package layout
 
 import (
+	"log"
+
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
+	"github.com/benoitkugler/go-weasyprint/images"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	"github.com/benoitkugler/go-weasyprint/logger"
@@ -25,13 +25,29 @@ import (
 	"github.com/benoitkugler/textlayout/pango"
 )
 
-const debugMode = false
+const debugMode = true
 
 type Box = bo.Box
 
+// Layout lay out the whole document, returning one box per pages.
+//
+// This includes line breaks, page breaks, absolute size and position for all
+// boxes.
+func Layout(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration) []*bo.PageBox {
+	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
+
+	counterStyle := make(counters.CounterStyle)
+	context := newLayoutContext(html, stylesheets, presentationalHints, fontConfig, counterStyle)
+
+	rootBox := bo.BuildFormattingStructure(html.Root, context.styleFor, context.getImageFromUri,
+		html.BaseUrl, &context.TargetCollector, counterStyle, context)
+
+	return layoutDocument(html, rootBox, context, -1)
+}
+
 // Initialize ``context.pageMaker``.
 // Collect the pagination's states required for page based counters.
-func initializePageMaker(context *LayoutContext, rootBox bo.BoxFields) {
+func initializePageMaker(context *layoutContext, rootBox bo.BoxFields) {
 	context.pageMaker = nil
 
 	// Special case the root box
@@ -79,7 +95,7 @@ func initializePageMaker(context *LayoutContext, rootBox bo.BoxFields) {
 }
 
 // Lay out and yield the fixed boxes of ``pages``.
-func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPage *bo.PageBox) []Box {
+func layoutFixedBoxes(context *layoutContext, pages []*bo.PageBox, containingPage *bo.PageBox) []Box {
 	var out []Box
 	for _, page := range pages {
 		for _, box := range page.FixedBoxes {
@@ -105,14 +121,7 @@ func layoutFixedBoxes(context *LayoutContext, pages []*bo.PageBox, containingPag
 	return out
 }
 
-// Lay out the whole document (maxLoops=-1).
-// This includes line breaks, page breaks, absolute size and position for all
-// boxes. Page based counters might require multiple passes.
-// :param rootBox: root of the box tree (formatting structure of the html)
-//                  the pages' boxes are created from that tree, i.e. this
-//                  structure is not lost during pagination
-// :returns: a list of laid out Page objects.
-func LayoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *LayoutContext, maxLoops int) []*bo.PageBox {
+func layoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layoutContext, maxLoops int) []*bo.PageBox {
 	initializePageMaker(context, *rootBox.Box())
 	if maxLoops == -1 {
 		maxLoops = 8 // default value
@@ -196,43 +205,59 @@ func LayoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *Layou
 		// pageMaker's pageState is ready for the MarginBoxes
 		state := context.pageMaker[context.currentPage].InitialPageState
 		page.Children = append([]Box{root}, makeMarginBoxes(context, page, state)...)
-		layoutBackgrounds(page, context.GetImageFromUri)
+		layoutBackgrounds(page, context.getImageFromUri)
 		out[i] = page
 	}
 	return out
 }
 
-var _ text.TextLayoutContext = (*LayoutContext)(nil)
+var _ text.TextLayoutContext = (*layoutContext)(nil)
 
-// LayoutContext stores the global context needed during layout,
+// layoutContext stores the global context needed during layout,
 // such as various caches.
-type LayoutContext struct {
+type layoutContext struct {
 	// caches
 	stringSet    map[string]map[int][]string
 	strutLayouts map[text.StrutLayoutKey][2]pr.Float
 	tables       map[*bo.TableBox]map[bool]tableContentWidths
 
 	runningElements     map[string]map[int]Box
-	GetImageFromUri     bo.Gifu
+	getImageFromUri     bo.Gifu
 	fontConfig          *text.FontConfiguration
-	TargetCollector     *tree.TargetCollector
+	TargetCollector     tree.TargetCollector
 	counterStyle        counters.CounterStyle
 	dictionaries        map[text.HyphenDictKey]hyphen.Hyphener
-	StyleFor            *tree.StyleFor
+	styleFor            *tree.StyleFor
 	pageMaker           []tree.PageMaker
-	excludedShapes      []bo.BoxFields
-	excludedShapesLists [][]bo.BoxFields
+	excludedShapes      *[]*bo.BoxFields
+	excludedShapesLists [][]*bo.BoxFields
 	currentPage         int
 	marginClearance     bool
 	forcedBreak         bool
 }
 
-func NewLayoutContext(getImageFromUri bo.Gifu,
-	fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle, targetCollector *tree.TargetCollector) *LayoutContext {
-	self := LayoutContext{}
-	self.GetImageFromUri = getImageFromUri
+// presentationalHints=false,
+func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
+	presentationalHints bool, fontConfig *text.FontConfiguration, counterStyle counters.CounterStyle) *layoutContext {
+
+	var (
+		pageRules       []tree.PageRule
+		userStylesheets = stylesheets
+	)
+
+	cache := make(map[string]images.Image)
+	getImageFromUri := func(url, forcedMimeType string) images.Image {
+		out, err := images.GetImageFromUri(cache, html.UrlFetcher, false, url, forcedMimeType)
+		if err != nil {
+			log.Print(err)
+		}
+		return out
+	}
+
+	self := layoutContext{}
+	self.getImageFromUri = getImageFromUri
 	self.fontConfig = fontConfig
-	self.TargetCollector = targetCollector
+	self.TargetCollector = tree.NewTargetCollector()
 	self.counterStyle = counterStyle
 	self.runningElements = map[string]map[int]Box{}
 
@@ -241,35 +266,38 @@ func NewLayoutContext(getImageFromUri bo.Gifu,
 	self.dictionaries = make(map[text.HyphenDictKey]hyphen.Hyphener)
 	self.strutLayouts = make(map[text.StrutLayoutKey][2]pr.Float)
 	self.tables = map[*bo.TableBox]map[bool]tableContentWidths{}
+
+	self.styleFor = tree.GetAllComputedStyles(html, userStylesheets, presentationalHints, fontConfig,
+		counterStyle, &pageRules, &self.TargetCollector, &self)
 	return &self
 }
 
-func (self LayoutContext) RunningElements() map[string]map[int]Box { return self.runningElements }
+func (self *layoutContext) RunningElements() map[string]map[int]Box { return self.runningElements }
 
-func (self LayoutContext) CurrentPage() int { return self.currentPage }
+func (self *layoutContext) CurrentPage() int { return self.currentPage }
 
-func (self *LayoutContext) Fontmap() pango.FontMap { return self.fontConfig.Fontmap }
+func (self *layoutContext) Fontmap() pango.FontMap { return self.fontConfig.Fontmap }
 
-func (self *LayoutContext) HyphenCache() map[text.HyphenDictKey]hyphen.Hyphener {
+func (self *layoutContext) HyphenCache() map[text.HyphenDictKey]hyphen.Hyphener {
 	return self.dictionaries
 }
 
-func (self *LayoutContext) StrutLayoutsCache() map[text.StrutLayoutKey][2]pr.Float {
+func (self *layoutContext) StrutLayoutsCache() map[text.StrutLayoutKey][2]pr.Float {
 	return self.strutLayouts
 }
 
-func (self *LayoutContext) createBlockFormattingContext() {
-	self.excludedShapes = nil
-	self.excludedShapesLists = append(self.excludedShapesLists, self.excludedShapes)
+func (self *layoutContext) createBlockFormattingContext() {
+	self.excludedShapesLists = append(self.excludedShapesLists, nil)
+	self.excludedShapes = &self.excludedShapesLists[len(self.excludedShapesLists)-1]
 }
 
-func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
+func (self *layoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	// See http://www.w3.org/TR/CSS2/visudet.html#root-height
 	rootBox := rootBox_.Box()
-	if rootBox.Style.GetHeight().String == "auto" && len(self.excludedShapes) != 0 {
+	if rootBox.Style.GetHeight().String == "auto" && len(*self.excludedShapes) != 0 {
 		boxBottom := rootBox.ContentBoxY() + rootBox.Height.V()
 		maxShapeBottom := boxBottom
-		for _, shape := range self.excludedShapes {
+		for _, shape := range *self.excludedShapes {
 			v := shape.PositionY + shape.MarginHeight()
 			if v > maxShapeBottom {
 				maxShapeBottom = v
@@ -279,14 +307,14 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	}
 	self.excludedShapesLists = self.excludedShapesLists[:len(self.excludedShapesLists)-1]
 	if L := len(self.excludedShapesLists); L != 0 {
-		self.excludedShapes = self.excludedShapesLists[L-1]
+		self.excludedShapes = &self.excludedShapesLists[L-1]
 	} else {
 		self.excludedShapes = nil
 	}
 }
 
 // Resolve value of string function (as set by string set).
-// We"ll have something like this that represents all assignments on a
+// We'll have something like this that represents all assignments on a
 // given page:
 //
 // {1: [u"First Header"], 3: [u"Second Header"],
@@ -299,7 +327,7 @@ func (self *LayoutContext) finishBlockFormattingContext(rootBox_ Box) {
 // 	Default is the first assignment on the current page
 //  else the most recent assignment (entry value)
 // keyword="first"
-func (self LayoutContext) GetStringSetFor(page Box, name, keyword string) string {
+func (self *layoutContext) GetStringSetFor(page Box, name, keyword string) string {
 	if currentS, in := self.stringSet[name][self.currentPage]; in {
 		// A value was assigned on this page
 		firstString := currentS[0]

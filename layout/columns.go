@@ -18,7 +18,7 @@ type boxOrList struct {
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
+func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
@@ -136,7 +136,7 @@ func columnsLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 			continue
 		}
 
-		excludedShapes := append([]bo.BoxFields{}, context.excludedShapes...)
+		excludedShapes := append([]*bo.BoxFields{}, *context.excludedShapes...)
 
 		// We have a list of children that we have to balance between columns.
 		columnChildren := columnChildrenOrBlock.list
@@ -158,7 +158,7 @@ func columnsLayout(context *LayoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		lostSpace := pr.Inf
 		for {
 			// Remove extra excluded shapes introduced during previous loop
-			context.excludedShapes = context.excludedShapes[:len(excludedShapes)]
+			*context.excludedShapes = (*context.excludedShapes)[:len(excludedShapes)]
 
 			for i := 0; i < count; i += 1 {
 				// Render the column

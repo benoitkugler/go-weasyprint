@@ -1473,12 +1473,12 @@ var (
 	reSpace         = regexp.MustCompile(` +`)
 )
 
-// First part of "The 'white-space' processing model".
+// ProcessWhitespace executes the first part of "The 'white-space' processing model".
 // See http://www.w3.org/TR/CSS21/text.html#white-space-model
 // http://dev.w3.org/csswg/css3-text/#white-space-rules
-// followingCollapsibleSpace = false
-func ProcessWhitespace(_box Box, followingCollapsibleSpace bool) bool {
-	if box, isTextBox := _box.(*TextBox); isTextBox {
+// The default value of followingCollapsibleSpace shoud be `false`.
+func ProcessWhitespace(box Box, followingCollapsibleSpace bool) bool {
+	if box, isTextBox := box.(*TextBox); isTextBox {
 		text := box.Text
 		if text == "" {
 			return followingCollapsibleSpace
@@ -1517,8 +1517,8 @@ func ProcessWhitespace(_box Box, followingCollapsibleSpace bool) bool {
 		box.Text = text
 		return followingCollapsibleSpace
 	}
-	if _, ok := _box.(ParentBoxITF); ok {
-		for _, child := range _box.Box().Children {
+	if _, ok := box.(ParentBoxITF); ok {
+		for _, child := range box.Box().Children {
 			switch child.(type) {
 			case *TextBox, *InlineBox: // leaf
 				followingCollapsibleSpace = ProcessWhitespace(

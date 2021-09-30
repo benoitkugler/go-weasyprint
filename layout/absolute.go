@@ -52,7 +52,7 @@ func (abs AbsolutePlaceholder) String() string {
 	return fmt.Sprintf("<Placeholder %s>", abs.AliasBox)
 }
 
-func ToBoxes(children []*AbsolutePlaceholder) []Box {
+func toBoxes(children []*AbsolutePlaceholder) []Box {
 	asBox := make([]Box, len(children))
 	for i, v := range children {
 		asBox[i] = v
@@ -72,7 +72,7 @@ var absoluteWidth = handleMinMaxWidth(_absoluteWidth)
 
 // @handleMinMaxWidth
 // containingBlock must be block
-func _absoluteWidth(box_ Box, context *LayoutContext, containingBlock containingBlock) (bool, pr.Float) {
+func _absoluteWidth(box_ Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	// http://www.w3.org/TR/CSS2/visudet.html#abs-replaced-width
 	box := box_.Box()
 	// These names are waaay too long
@@ -218,7 +218,7 @@ func absoluteHeight(box_ Box, containingBlock block) (bool, pr.Float) {
 	return translateBoxHeight, translateY
 }
 
-func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
+func absoluteBlock(context *layoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
 	box := box_.Box()
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 
@@ -251,7 +251,7 @@ func absoluteBlock(context *LayoutContext, box_ Box, containingBlock block, fixe
 }
 
 // FIXME: waiting for weasyprint update
-func absoluteFlex(context *LayoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
+func absoluteFlex(context *layoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
 	//     // Avoid a circular import
 	//     from .flex import flexLayout
 
@@ -294,7 +294,7 @@ func absoluteFlex(context *LayoutContext, box_ Box, containingBlock block, fixed
 }
 
 // Set the width of absolute positioned ``box``.
-func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, containingBlock Box, fixedBoxes *[]*AbsolutePlaceholder) {
+func absoluteLayout(context *layoutContext, placeholder *AbsolutePlaceholder, containingBlock Box, fixedBoxes *[]*AbsolutePlaceholder) {
 	if placeholder.layoutDone {
 		log.Fatalf("placeholder can't have its layout done.")
 	}
@@ -302,7 +302,7 @@ func absoluteLayout(context *LayoutContext, placeholder *AbsolutePlaceholder, co
 	placeholder.setLaidOutBox(absoluteBoxLayout(context, box, containingBlock, fixedBoxes))
 }
 
-func absoluteBoxLayout(context *LayoutContext, box Box, cb_ Box, fixedBoxes *[]*AbsolutePlaceholder) Box {
+func absoluteBoxLayout(context *layoutContext, box Box, cb_ Box, fixedBoxes *[]*AbsolutePlaceholder) Box {
 	// http://www.w3.org/TR/CSS2/visudet.html#containing-block-details
 	var containingBlock block
 	cb := cb_.Box()

@@ -2,7 +2,11 @@
 package images
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"io"
+	"io/ioutil"
 	"log"
 	"math"
 	"strings"
@@ -12,6 +16,10 @@ import (
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
+
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 )
 
 type Color = parser.RGBA
@@ -22,8 +30,15 @@ type Image interface {
 	isImage()
 	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
 	IntrinsicRatio() pr.MaybeFloat
-	Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering pr.String)
+	Draw(context backend.Drawer, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String)
 }
+
+var (
+	_ Image = RasterImage{}
+	_ Image = &SVGImage{}
+	_ Image = LinearGradient{}
+	_ Image = RadialGradient{}
+)
 
 type imageSurface interface {
 	getWidth() pr.Float
@@ -45,17 +60,19 @@ func imageLoadingError(err error) error {
 }
 
 type RasterImage struct {
-	imageSurface    imageSurface
+	imageSurface    image.Image
 	intrinsicRatio  pr.Float
 	intrinsicWidth  pr.Float
 	intrinsicHeight pr.Float
+	optimizeSize    bool
 }
 
-func NewRasterImage(imageSurface imageSurface) RasterImage {
+func NewRasterImage(imageSurface image.Image, optimizeSize bool) RasterImage {
 	self := RasterImage{}
+	self.optimizeSize = optimizeSize
 	self.imageSurface = imageSurface
-	self.intrinsicWidth = imageSurface.getWidth()
-	self.intrinsicHeight = imageSurface.getHeight()
+	self.intrinsicWidth = pr.Float(imageSurface.Bounds().Dx())
+	self.intrinsicHeight = pr.Float(imageSurface.Bounds().Dy())
 	self.intrinsicRatio = pr.Inf
 	if self.intrinsicHeight != 0 {
 		self.intrinsicRatio = self.intrinsicWidth / self.intrinsicHeight
@@ -72,7 +89,7 @@ func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, heigh
 	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value
 }
 
-func (r RasterImage) Draw(context backend.Drawer, concreteWidth, concreteHeight pr.Float, imageRendering string) {
+func (r RasterImage) Draw(context backend.Drawer, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
 	hasSize := concreteWidth > 0 && concreteHeight > 0 && r.intrinsicWidth > 0 && r.intrinsicHeight > 0
 	if !hasSize {
 		return
@@ -80,7 +97,7 @@ func (r RasterImage) Draw(context backend.Drawer, concreteWidth, concreteHeight 
 
 	// Use the real intrinsic size here,
 	// not affected by "image-resolution".
-	context.Scale(float64(concreteWidth/r.intrinsicWidth), float64(concreteHeight/r.intrinsicHeight))
+	context.Scale(concreteWidth/pr.Fl(r.intrinsicWidth), concreteHeight/pr.Fl(r.intrinsicHeight))
 	// FIXME:
 	// context.setSourceSurface(r.imageSurface)
 	// context.getSource().setFilter(imagesRenderingToFilter[imageRendering])
@@ -123,23 +140,27 @@ type SVGImage struct {
 	tree            *utils.HTMLNode
 	urlFetcher      utils.UrlFetcher
 	baseUrl         string
-	svgData         string
+	svgData         []byte
 	width           float64
 	height          float64
 }
 
 func (SVGImage) isImage() {}
 
-func NewSVGImage(svgData string, baseUrl string, urlFetcher utils.UrlFetcher) (*SVGImage, error) {
+func NewSVGImage(svgData io.Reader, baseUrl string, urlFetcher utils.UrlFetcher) (*SVGImage, error) {
 	self := new(SVGImage)
 	// Don’t pass data URIs to CairoSVG.
 	// They are useless for relative URIs anyway.
 	if !strings.HasPrefix(strings.ToLower(baseUrl), "data:") {
 		self.baseUrl = baseUrl
 	}
-	self.svgData = svgData
+	content, err := ioutil.ReadAll(svgData)
+	if err != nil {
+		return nil, imageLoadingError(err)
+	}
+	self.svgData = content
 	self.urlFetcher = urlFetcher
-	tree, err := html.Parse(strings.NewReader(self.svgData))
+	tree, err := html.Parse(bytes.NewReader(self.svgData))
 	if err != nil {
 		return nil, imageLoadingError(err)
 	}
@@ -218,76 +239,47 @@ func (SVGImage) Draw(context backend.Drawer, concreteWidth, concreteHeight float
 }
 
 // Get a cairo Pattern from an image URI.
-func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, url, _ string) Image {
-	image, in := cache[url]
+func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
+	img, in := cache[url]
 	if in {
-		return image
+		return img, nil
 	}
-	_, err := fetcher(url)
+	content, err := fetcher(url)
 	if err != nil {
-		log.Printf(`Failed to load image at "%s" (%s)`, url, err)
-		return nil
+		return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
 	}
-	// FIXME: à implémenter
-	image = RadialGradient{}
-	//     try {
-	//         with fetch(urlFetcher, url) as result {
-	//             if "string" := range result {
-	//                 string = result["string"]
-	//             } else {
-	//                 string = result["fileObj"].read()
-	//             } mimeType = forcedMimeType || result["mimeType"]
-	//             if mimeType == "image/svg+xml" {
-	//                 // No fallback for XML-based mimetypes as defined by MIME
-	//                 // Sniffing Standard, see https://mimesniff.spec.whatwg.org/
-	//                 image = SVGImage(string, url, urlFetcher)
-	//             } else {
-	//                 // Try to rely on given mimetype
-	//                 try {
-	//                     if mimeType == "image/png" {
-	//                         try {
-	//                             surface = cairocffi.ImageSurface.createFromPng(
-	//                                 BytesIO(string))
-	//                         } except Exception as exception {
-	//                             raise ImageLoadingError.fromException(exception)
-	//                         } else {
-	//                             image = RasterImage(surface)
-	//                         }
-	//                     } else {
-	//                         image = nil
-	//                     }
-	//                 } except ImageLoadingError {
-	//                     image = nil
-	//                 }
-	//             }
-	//         }
-	//     }
 
-	//                 // Relying on mimetype didn"t work, give the image to GDK-Pixbuf
-	//                 if ! image {
-	//                     if pixbuf  == nil  {
-	//                         raise ImageLoadingError(
-	//                             "Could ! load GDK-Pixbuf. PNG && SVG are "
-	//                             "the only image formats available.")
-	//                     } try {
-	//                         image = SVGImage(string, url, urlFetcher)
-	//                     } except BaseException {
-	//                         try {
-	//                             surface, formatName = (
-	//                                 pixbuf.decodeToImageSurface(string))
-	//                         } except pixbuf.ImageLoadingError as exception {
-	//                             raise ImageLoadingError(str(exception))
-	//                         } if formatName == "jpeg" {
-	//                             surface.setMimeData("image/jpeg", string)
-	//                         } image = RasterImage(surface)
-	//                     }
-	//                 }
-	//     except (URLFetchingError, ImageLoadingError) as exc {
-	//         LOGGER.error("Failed to load image at "%s" (%s)", url, exc)
-	//         image = nil
-	//     }
-	cache[url] = image
-	return image
+	mimeType := forcedMimeType
+	if mimeType == "" {
+		mimeType = content.MimeType
+	}
+
+	var errSvg error
+	// Try to rely on given mimetype for SVG
+	if mimeType == "image/svg+xml" {
+		img, errSvg = NewSVGImage(content.Content, url, fetcher)
+	}
+
+	// Try pillow for raster images, or for failing SVG
+	if img == nil {
+		parsedImage, _, errRaster := image.Decode(content.Content)
+		if errRaster != nil {
+			// Tried SVGImage then raster for a SVG, abort
+			if errSvg != nil {
+				return nil, errSvg
+			}
+
+			// Last chance, try SVG in case mime type in incorrect
+			img, errSvg = NewSVGImage(content.Content, url, fetcher)
+			if errSvg != nil {
+				return nil, errRaster
+			}
+		}
+		img = NewRasterImage(parsedImage, optimizeSize)
+	}
+
+	cache[url] = img
+	return img, nil
 }
 
 // Gradient line size: distance between the starting point and ending point.
