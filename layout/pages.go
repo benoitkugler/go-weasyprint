@@ -745,7 +745,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 
 			// Step 2: local counters
 			// If the box mixed-in page counters changed, update the content
-			// && cache the new values.
+			// and cache the new values.
 			missingCounters := counterLookup.MissingCounters
 			if len(missingCounters) != 0 {
 				if missingCounters.Has("pages") {
@@ -798,7 +798,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 // Start with the initial values from ``context.pageMaker[index]``.
 // The resulting values / initial values for the next page are stored in
 // the ``pageMaker``.
-// As the function"s name suggests: the plan is ! to make all pages
+// As the function"s name suggests: the plan is not to make all pages
 // repeatedly when a missing counter was resolved, but rather re-make the
 // single page where the ``contentChanged`` happened.
 func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {

@@ -49,7 +49,7 @@ func (abs AbsolutePlaceholder) Copy() Box {
 }
 
 func (abs AbsolutePlaceholder) String() string {
-	return fmt.Sprintf("<Placeholder %s>", abs.AliasBox)
+	return fmt.Sprintf("<Placeholder %s (%s)>", abs.AliasBox.Type(), abs.AliasBox.Box().ElementTag)
 }
 
 func toBoxes(children []*AbsolutePlaceholder) []Box {

@@ -34,10 +34,10 @@ type Box = bo.Box
 // This includes line breaks, page breaks, absolute size and position for all
 // boxes.
 func Layout(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration) []*bo.PageBox {
-	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
-
 	counterStyle := make(counters.CounterStyle)
 	context := newLayoutContext(html, stylesheets, presentationalHints, fontConfig, counterStyle)
+
+	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
 
 	rootBox := bo.BuildFormattingStructure(html.Root, context.styleFor, context.getImageFromUri,
 		html.BaseUrl, &context.TargetCollector, counterStyle, context)

@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -27,6 +28,9 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
+	if debugMode {
+		fmt.Printf("\nLayout BLOCK-LEVEL %T\n", box_)
+	}
 	box := box_.Box()
 	if !bo.TableBoxT.IsInstance(box_) {
 		resolvePercentagesBox(box_, containingBlock, "")
@@ -707,14 +711,14 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 		adjoiningMargins = nil
 	}
 
-	notOnlyPlaceholder := false
+	atLeastOneNotPlaceholder := false
 	for _, child := range newChildren {
 		if _, isAbsPlac := child.(*AbsolutePlaceholder); !isAbsPlac {
-			notOnlyPlaceholder = true
+			atLeastOneNotPlaceholder = true
 			break
 		}
 	}
-	pageIsEmptyWithNoChildren := pageIsEmpty && !notOnlyPlaceholder
+	pageIsEmptyWithNoChildren := pageIsEmpty && !atLeastOneNotPlaceholder
 
 	if child.FirstLetterStyle == nil {
 		child.FirstLetterStyle = firstLetterStyle
@@ -725,12 +729,11 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 	nextAdjoiningMargins, collapsingThrough := tmp.adjoiningMargins, tmp.collapsingThrough
 	skipStack = nil
 
-	newChildPlace := AbsolutePlaceholder{AliasBox: newChild_}
 	if newChild_ != nil {
 		newChild := newChild_.Box()
 		// index in its non-laid-out parent, not in future new parent
 		// May be used in findEarlierPageBreak()
-		newChildPlace.index = index
+		newChild.Index = index
 
 		// We need to do this after the child layout to have the
 		// used value for marginTop (eg. it might be a percentage.)
@@ -747,7 +750,6 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 
 		if !collapsingThrough {
 			newPositionY := newChild.BorderBoxY() + newChild.BorderHeight()
-
 			if newPositionY > allowedMaxPositionY && !pageIsEmptyWithNoChildren {
 				// The child overflows the page area, put it on the
 				// next page. (But don’t delay whole blocks if eg.
@@ -806,11 +808,12 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 		return abort, stop, resumeAt, positionY, adjoiningMargins, nextPage, newChildren
 	}
 
-	newChildren = append(newChildren, &newChildPlace)
+	newChildren = append(newChildren, newChild_)
 	if resumeAt != nil {
 		resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
 		stop = true
 	}
+
 	return abort, stop, resumeAt, positionY, adjoiningMargins, nextPage, newChildren
 }
 

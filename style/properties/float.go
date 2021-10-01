@@ -69,7 +69,7 @@ func Floor(x Float) Float {
 }
 
 func Maxs(values ...Float) Float {
-	var max Float
+	max := -Inf
 	for _, w := range values {
 		if w > max {
 			max = w
@@ -79,7 +79,7 @@ func Maxs(values ...Float) Float {
 }
 
 func Mins(values ...Float) Float {
-	var min Float
+	min := Inf
 	for _, w := range values {
 		if w < min {
 			min = w

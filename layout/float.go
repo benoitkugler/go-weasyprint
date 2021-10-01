@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -28,6 +29,9 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
 
+	if debugMode {
+		fmt.Printf("Layout FLOAT: %T\n", box_)
+	}
 	// TODO: This is only handled later in blocks.blockContainerLayout
 	// http://www.w3.org/TR/CSS21/visudet.html#normal-block
 	if cbHeight == pr.Auto {
@@ -102,7 +106,6 @@ func findFloatPosition(context *layoutContext, box_ Box, containingBlock *bo.Box
 
 	// Points 1 and 2
 	positionX, positionY, availableWidth := avoidCollisions(context, box_, containingBlock, true)
-
 	// Point 9
 	// positionY is set now, let's define positionX
 	// for float: left elements, it's already done!
@@ -174,7 +177,6 @@ func avoidCollisions(context *layoutContext, box_ Box, containingBlock *bo.BoxFi
 			}
 
 		}
-
 		// Set the default maximum bounds
 		maxLeftBound = containingBlock.ContentBoxX()
 		maxRightBound = containingBlock.ContentBoxX() + containingBlock.Width.V()
@@ -196,7 +198,7 @@ func avoidCollisions(context *layoutContext, box_ Box, containingBlock *bo.BoxFi
 			// Points 3, 7 && 8
 			if boxWidth > maxRightBound-maxLeftBound {
 				// The box does not fit here
-				var min pr.Float
+				min := pr.Inf
 				for _, shape := range collidingShapes {
 					if v := shape.PositionY + shape.MarginHeight(); v < min {
 						min = v
@@ -214,8 +216,42 @@ func avoidCollisions(context *layoutContext, box_ Box, containingBlock *bo.BoxFi
 		break
 	}
 	positionX := maxLeftBound
-	availableWidth := maxRightBound - maxLeftBound
 
+	// See https://www.w3.org/TR/CSS21/visuren.html#floats
+	// Boxes that can’t collide with floats are:
+	// - floats
+	// - line boxes
+	// - table wrappers
+	// - block-level replaced box
+	// - element establishing new formatting contexts (not handled)
+	if debugMode {
+		if fl := box.Style.GetFloat(); !(fl == "right" || fl == "left" || bo.LineBoxT.IsInstance(box_) ||
+			box.IsTableWrapper || bo.BlockReplacedBoxT.IsInstance(box_)) {
+			panic("assertion failed")
+		}
+	}
+
+	// The x-position of the box depends on its type.
+	positionX = maxLeftBound
+	if box.Style.GetFloat() == "none" {
+		if containingBlock.Style.GetDirection() == "rtl" {
+			if bo.LineBoxT.IsInstance(box_) {
+				// The position of the line is the position of the cursor, at
+				// the right bound.
+				positionX = maxRightBound
+			} else if box.IsTableWrapper {
+				// The position of the right border of the table is at the right
+				// bound.
+				positionX = maxRightBound - boxWidth
+			} else {
+				// The position of the right border of the replaced box is at
+				// the right bound.
+				// assert isinstance(box, boxes.BlockReplacedBox)
+				positionX = maxRightBound - boxWidth
+			}
+		}
+	}
+	availableWidth := maxRightBound - maxLeftBound
 	if !outer {
 		positionX -= box.MarginLeft.V()
 		positionY -= box.MarginTop.V()

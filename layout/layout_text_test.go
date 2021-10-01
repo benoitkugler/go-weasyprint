@@ -23,17 +23,17 @@ func assertEqual(t *testing.T, got, exp interface{}, context string) {
 	}
 }
 
-// unpack 3 chilren
+// unpack 3 children
 func unpack3(box Box) (c1, c2, c3 Box) {
 	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2]
 }
 
-// unpack 4 chilren
+// unpack 4 children
 func unpack4(box Box) (c1, c2, c3, c4 Box) {
 	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3]
 }
 
-// unpack 5 chilren
+// unpack 5 children
 func unpack5(box Box) (c1, c2, c3, c4, c5 Box) {
 	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4]
 }

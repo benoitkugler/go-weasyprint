@@ -730,7 +730,7 @@ func splitInlineLevel(context *layoutContext, box_ Box, positionX, maxX pr.Float
 	)
 
 	if debugMode {
-		fmt.Printf("Split inline level: %T\n", box_)
+		fmt.Printf("\tSplit inline level: %T\n", box_)
 	}
 
 	if textBox, ok := box_.(*bo.TextBox); ok {
@@ -818,7 +818,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 	box := box_.Box()
 
 	if debugMode {
-		fmt.Printf("Split inline %T\n", box_)
+		fmt.Printf("\tSplit inline %T\n", box_)
 	}
 
 	// In some cases (shrink-to-fit result being the preferred width)
@@ -893,7 +893,14 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 				// added here, and not in iterLineBoxes
 				waitingFloats = append(waitingFloats, child_)
 			} else {
+				if debugMode {
+					fmt.Println("\tRecursing for child...")
+				}
 				child_ = floatLayout(context, child_, containingBlock, absoluteBoxes, fixedBoxes)
+				if debugMode {
+					fmt.Println("\tChild done.")
+					fmt.Println()
+				}
 				waitingChildren = append(waitingChildren, indexedBox{index: index, box: child_})
 
 				// Translate previous line children
@@ -931,7 +938,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		var childWaitingFloats []Box
 
 		if debugMode {
-			fmt.Println("Recursing for child...")
+			fmt.Println("\tRecursing for child...")
 		}
 		v := splitInlineLevel(context, child_, positionX, availableWidth, skipStack,
 			containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
@@ -951,7 +958,8 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		}
 
 		if debugMode {
-			fmt.Println("Child done.")
+			fmt.Println("\tChild done.")
+			fmt.Println()
 		}
 
 		if box.Style.GetDirection() == "rtl" {
