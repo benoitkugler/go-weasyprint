@@ -16,7 +16,6 @@ type AliasBox = bo.Box
 type AbsolutePlaceholder struct {
 	AliasBox
 	layoutDone bool
-	index      int
 }
 
 func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {

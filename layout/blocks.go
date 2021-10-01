@@ -521,7 +521,7 @@ func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child
 	child.PositionY += collapseMargin(adjoiningMargins)
 	if child.IsAbsolutelyPositioned() {
 		placeholder := NewAbsolutePlaceholder(child_)
-		placeholder.index = index
+		placeholder.Box().Index = index
 		newChildren = append(newChildren, placeholder)
 		if child.Style.GetPosition().String == "absolute" {
 			*absoluteBoxes = append(*absoluteBoxes, placeholder)
@@ -534,7 +534,7 @@ func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child
 		// New page if overflow
 		if (pageIsEmpty && len(newChildren) == 0) || !(newChild.PositionY+newChild.Height.V() > allowedMaxPositionY) {
 			asPlaceholder := AbsolutePlaceholder{AliasBox: newChild_}
-			asPlaceholder.index = index
+			asPlaceholder.Box().Index = index
 			newChildren = append(newChildren, &asPlaceholder)
 		} else {
 			lastInFlowChild := findLastInFlowChild(newChildren)
