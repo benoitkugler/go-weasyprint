@@ -647,18 +647,24 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	// TODO: handle cases where the root element is something else.
 	// See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 	if !(bo.BlockBoxT.IsInstance(rootBox) || bo.FlexContainerBoxT.IsInstance(rootBox)) {
-		log.Fatalf("expected Block or FlexContainer, got %s", rootBox)
+		panic(fmt.Sprintf("expected Block or FlexContainer, got %s", rootBox))
 	}
 	context.createBlockFormattingContext()
 	context.currentPage = pageNumber
 	pageIsEmpty := true
 	var adjoiningMargins []pr.Float
 	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute && fixed
+
+	if debugMode {
+		fmt.Println("Making page...")
+	}
+
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
 		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins, false)
 	resumeAt = tmp.resumeAt
+
 	if rootBox == nil {
-		log.Fatalln("expected newBox got nil")
+		panic("expected newBox got nil")
 	}
 
 	for _, placeholder := range positionedBoxes {

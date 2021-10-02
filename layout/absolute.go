@@ -217,7 +217,8 @@ func absoluteHeight(box_ Box, containingBlock block) (bool, pr.Float) {
 	return translateBoxHeight, translateY
 }
 
-func absoluteBlock(context *layoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
+// performs either blockContainerLayout or flexLayout on box_
+func absoluteLayoutDriver(context *layoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder, isBlock bool) Box {
 	box := box_.Box()
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 
@@ -231,7 +232,12 @@ func absoluteBlock(context *layoutContext, box_ Box, containingBlock block, fixe
 		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
-	newBox, _ := blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil, false)
+	var newBox Box
+	if isBlock {
+		newBox, _ = blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil, false)
+	} else {
+		newBox, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock, false, &absoluteBoxes, fixedBoxes)
+	}
 
 	for _, childPlaceholder := range absoluteBoxes {
 		absoluteLayout(context, childPlaceholder, newBox, fixedBoxes)
@@ -249,47 +255,12 @@ func absoluteBlock(context *layoutContext, box_ Box, containingBlock block, fixe
 	return newBox
 }
 
-// FIXME: waiting for weasyprint update
+func absoluteBlock(context *layoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
+	return absoluteLayoutDriver(context, box_, containingBlock, fixedBoxes, true)
+}
+
 func absoluteFlex(context *layoutContext, box_ Box, containingBlock block, fixedBoxes *[]*AbsolutePlaceholder) Box {
-	//     // Avoid a circular import
-	//     from .flex import flexLayout
-
-	//     // TODO: this function is really close to absoluteBlock, we should have
-	//     // only one function.
-	//     // TODO: having containingBlockSizes && containingBlock is stupid.
-	//     cbX, cbY, cbWidth, cbHeight = containingBlockSizes
-
-	//     translateBoxWidth, translateX = absoluteWidth(
-	//         box, context, containingBlockSizes)
-	//     translateBoxHeight, translateY = absoluteHeight(
-	//         box, context, containingBlockSizes)
-
-	//     // This box is the containing block for absolute descendants.
-	//     absoluteBoxes = []
-
-	//     if box.isTableWrapper {
-	//         tableWrapperWidth(context, box, (cbWidth, cbHeight))
-	//     }
-
-	//     newBox, _, _, _, _ = flexLayout(
-	//         context, box, maxPositionY=float("inf"), skipStack=None,
-	//         containingBlock=containingBlock, pageIsEmpty=false,
-	//         absoluteBoxes=absoluteBoxes, fixedBoxes=fixedBoxes)
-
-	//     for childPlaceholder := range absoluteBoxes {
-	//         absoluteLayout(context, childPlaceholder, newBox, fixedBoxes)
-	//     }
-
-	//     if translateBoxWidth {
-	//         translateX -= newBox.Width
-	//     } if translateBoxHeight {
-	//         translateY -= newBox.Height
-	//     }
-
-	//     newBox.translate(translateX, translateY)
-
-	// return newBox
-	return nil
+	return absoluteLayoutDriver(context, box_, containingBlock, fixedBoxes, false)
 }
 
 // Set the width of absolute positioned ``box``.

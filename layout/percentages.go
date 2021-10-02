@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -32,8 +33,9 @@ func resolvePositionPercentages(box *bo.BoxFields, containingBlock bo.Point) {
 	box.Bottom = resolveOnePercentage(box.Style.GetBottom(), "bottom", cbHeight, "")
 }
 
-func resolvePercentagesBox(box Box, containingBlock *bo.BoxFields, mainFlexDirection string) {
-	resolvePercentages(box, bo.MaybePoint{containingBlock.Width, containingBlock.Height}, mainFlexDirection)
+func resolvePercentagesBox(box Box, containingBlock containingBlock, mainFlexDirection string) {
+	w, h := containingBlock.ContainingBlock()
+	resolvePercentages(box, bo.MaybePoint{w, h}, mainFlexDirection)
 }
 
 // Set used values as attributes of the box object.
@@ -66,7 +68,7 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 			box.Height = pr.Auto
 		} else {
 			if height.Unit != pr.Px {
-				log.Fatalf("expected percentage, got %d", height.Unit)
+				panic(fmt.Sprintf("expected percentage, got %d", height.Unit))
 			}
 			box.Height = height.Value
 		}

@@ -664,21 +664,11 @@ func inlineBlockBaseline(box_ Box) pr.Float {
 
 var inlineBlockWidth = handleMinMaxWidth(inlineBlockWidth_)
 
-func cbWidth(cb containingBlock) pr.MaybeFloat {
-	switch cb := cb.(type) {
-	case *bo.BoxFields:
-		return cb.Width
-	case block:
-		return cb.Width
-	default:
-		panic("unexpected type")
-	}
-}
-
 // @handleMinMaxWidth
 func inlineBlockWidth_(box_ Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	if box := box_.Box(); box.Width == pr.Auto {
-		box.Width = shrinkToFit(context, box_, cbWidth(containingBlock).V())
+		cbWidth, _ := containingBlock.ContainingBlock()
+		box.Width = shrinkToFit(context, box_, cbWidth.V())
 	}
 	return false, 0
 }

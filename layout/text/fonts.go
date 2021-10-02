@@ -130,7 +130,6 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 			for k, v := range getFontFeatures(features) {
 				featuresString += fmt.Sprintf("<string>%s=%d</string>", k, v)
 			}
-
 			fontconfigStyle, ok := FONTCONFIG_STYLE[ruleDescriptors.FontStyle]
 			if !ok {
 				fontconfigStyle = "roman"
@@ -164,13 +163,13 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 				</edit>
 			  </match>
 			  <match target="font">
-				<test name="file" compare="eq">
+				<test name="family" compare="eq">
 				  <string>%s</string>
 				</test>
 				<edit name="fontfeatures" mode="assign_replace">%s</edit>
 			  </match>
 			</fontconfig>`, fontFilename, ruleDescriptors.FontFamily, fontconfigStyle,
-				fontconfigWeight, fontconfigStretch, fontFilename, featuresString)
+				fontconfigWeight, fontconfigStretch, ruleDescriptors.FontFamily, featuresString)
 
 			err = config.LoadFromMemory(bytes.NewReader([]byte(xml)))
 			if err != nil {

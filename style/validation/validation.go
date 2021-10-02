@@ -1620,7 +1620,7 @@ func _fontFeatureSettings(tokens []Token) pr.SIntStrings {
 			}
 		}
 
-		if feature != "" && value != 0 {
+		if feature != "" {
 			return pr.IntString{String: feature, Int: value}
 		}
 		return pr.IntString{}

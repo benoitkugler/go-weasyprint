@@ -89,8 +89,7 @@ func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, ma
 		return flexLayout(context, box_, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes)
 	} else { // pragma: no cover
-		log.Fatalf("Layout for %s not handled yet", box_)
-		return nil, blockLayout{}
+		panic(fmt.Sprintf("Layout for %s not handled yet", box_))
 	}
 }
 
@@ -119,8 +118,7 @@ func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 
 	newBox__, result := blockContainerLayout(context, box_, maxPositionY, skipStack, pageIsEmpty,
 		absoluteBoxes, fixedBoxes, adjoiningMargins, discard)
-
-	newBox := newBox__.(bo.BlockBoxITF) // blockContainerLayout is type stable
+	newBox, _ := newBox__.(bo.BlockBoxITF) // blockContainerLayout is type stable
 	if newBox != nil && newBox.Box().IsTableWrapper {
 		// Don't collide with floats
 		// http://www.w3.org/TR/CSS21/visuren.html#floats
@@ -310,7 +308,7 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (Box, blockLayout) {
 	box := box_.Box()
 	if !(bo.BlockContainerBoxT.IsInstance(box_) || bo.FlexBoxT.IsInstance(box_)) {
-		log.Fatalf("expected BlockContainer or Flex, got %s", box_)
+		panic(fmt.Sprintf("expected BlockContainer or Flex, got %T", box_))
 	}
 
 	// We have to work around floating point rounding errors here.
@@ -723,12 +721,12 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 	if child.FirstLetterStyle == nil {
 		child.FirstLetterStyle = firstLetterStyle
 	}
+
 	newChild_, tmp := blockLevelLayout(context, child_.(bo.BlockLevelBoxITF), maxPositionY, skipStack,
 		newContainingBlock, pageIsEmptyWithNoChildren, absoluteBoxes, fixedBoxes, adjoiningMargins, discard)
 	resumeAt, nextPage = tmp.resumeAt, tmp.nextPage
 	nextAdjoiningMargins, collapsingThrough := tmp.adjoiningMargins, tmp.collapsingThrough
 	skipStack = nil
-
 	if newChild_ != nil {
 		newChild := newChild_.Box()
 		// index in its non-laid-out parent, not in future new parent
@@ -763,6 +761,7 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 			positionY = newChild.BorderBoxY() + newChild.BorderHeight()
 		}
 	}
+
 	if newChild_ == nil {
 		// Nothing fits in the remaining space of this page: break
 		if pageBreak == "avoid" || pageBreak == "avoid-page" {

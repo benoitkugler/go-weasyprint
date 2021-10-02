@@ -8,10 +8,10 @@ type block struct {
 	X, Y, Width, Height pr.Float
 }
 
-func (b block) IsContainingBlock() {}
+func (b block) ContainingBlock() (width, height pr.MaybeFloat) { return b.Width, b.Height }
 
 type containingBlock interface {
-	IsContainingBlock()
+	ContainingBlock() (width, height pr.MaybeFloat)
 }
 
 type funcMinMax = func(box Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float)

@@ -110,7 +110,7 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 	}
 }
 
-func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
+func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock containingBlock,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 
 	context.createBlockFormattingContext()
@@ -140,20 +140,21 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		marginBottom = box.MarginBottom.V()
 	}
 	var availableMainSpace pr.Float
+	cbWidth, cbHeight := containingBlock.ContainingBlock()
 	boxAxis := getAttr(box, axis, "")
 	if boxAxis != pr.Auto {
 		availableMainSpace = boxAxis.V()
 	} else {
 		if axis == "width" {
-			availableMainSpace = containingBlock.Width.V() - marginLeft - marginRight -
+			availableMainSpace = cbWidth.V() - marginLeft - marginRight -
 				box.PaddingLeft.V() - box.PaddingRight.V() - box.BorderLeftWidth.V() - box.BorderRightWidth.V()
 		} else {
 			mainSpace := maxPositionY - box.PositionY
-			if he := containingBlock.Height; he != pr.Auto {
-				// if hasattr(containingBlock.Height, "unit") {
-				//     assert containingBlock.Height.unit == "px"
-				//     mainSpace = min(mainSpace, containingBlock.Height.value)
-				mainSpace = pr.Min(mainSpace, he.V())
+			if cbHeight != pr.Auto {
+				// if hasattr(cbHeight, "unit") {
+				//     assert cbHeight.unit == "px"
+				//     mainSpace = min(mainSpace, cbHeight.value)
+				mainSpace = pr.Min(mainSpace, cbHeight.V())
 			}
 			availableMainSpace = mainSpace - marginTop - marginBottom -
 				box.PaddingTop.V() - box.PaddingBottom.V() - box.BorderTopWidth.V() - box.BorderBottomWidth.V()
@@ -166,13 +167,13 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	} else {
 		if cross == "height" {
 			mainSpace := maxPositionY - box.ContentBoxY()
-			if he := containingBlock.Height; he != pr.Auto {
+			if he := cbHeight; he != pr.Auto {
 				mainSpace = pr.Min(mainSpace, he.V())
 			}
 			availableCrossSpace = mainSpace - marginTop - marginBottom -
 				box.PaddingTop.V() - box.PaddingBottom.V() - box.BorderTopWidth.V() - box.BorderBottomWidth.V()
 		} else {
-			availableCrossSpace = containingBlock.Width.V() - marginLeft - marginRight -
+			availableCrossSpace = cbWidth.V() - marginLeft - marginRight -
 				box.PaddingLeft.V() - box.PaddingRight.V() - box.BorderLeftWidth.V() - box.BorderRightWidth.V()
 		}
 	}

@@ -218,8 +218,10 @@ func (box *BoxFields) AllChildren() []Box {
 	return box.Children
 }
 
-// Implements layout interface
-func (*BoxFields) IsContainingBlock() {}
+// ContainingBlock implements an interface required for layout.
+func (box *BoxFields) ContainingBlock() (width, height pr.MaybeFloat) {
+	return box.Width, box.Height
+}
 
 func (*BoxFields) isBox() {}
 
@@ -271,9 +273,9 @@ func Descendants(b Box) []Box {
 	return out
 }
 
-func (b BoxFields) GetWrappedTable() TableBoxITF {
-	if b.IsTableWrapper {
-		for _, child := range b.Children {
+func (box *BoxFields) GetWrappedTable() TableBoxITF {
+	if box.IsTableWrapper {
+		for _, child := range box.Children {
 			if asTable, ok := child.(TableBoxITF); ok {
 				return asTable
 			}
@@ -300,71 +302,71 @@ func (BoxFields) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 // ---- Heights and widths -----
 
 // Width of the padding box.
-func (self BoxFields) PaddingWidth() pr.Float {
+func (self *BoxFields) PaddingWidth() pr.Float {
 	return self.Width.V() + self.PaddingLeft.V() + self.PaddingRight.V()
 }
 
 // Height of the padding box.
-func (self BoxFields) PaddingHeight() pr.Float {
+func (self *BoxFields) PaddingHeight() pr.Float {
 	return self.Height.V() + self.PaddingTop.V() + self.PaddingBottom.V()
 }
 
 // Width of the border box.
-func (self BoxFields) BorderWidth() pr.Float {
+func (self *BoxFields) BorderWidth() pr.Float {
 	return self.PaddingWidth() + self.BorderLeftWidth.V() + self.BorderRightWidth.V()
 }
 
 // Height of th.V()e border box.
-func (self BoxFields) BorderHeight() pr.Float {
+func (self *BoxFields) BorderHeight() pr.Float {
 	return self.PaddingHeight() + self.BorderTopWidth.V() + self.BorderBottomWidth.V()
 }
 
 // Width of the margin box (aka. outer box).
-func (self BoxFields) MarginWidth() pr.Float {
+func (self *BoxFields) MarginWidth() pr.Float {
 	return self.BorderWidth() + self.MarginLeft.V() + self.MarginRight.V()
 }
 
 // Height of the margin box (aka. outer box).
-func (self BoxFields) MarginHeight() pr.Float {
+func (self *BoxFields) MarginHeight() pr.Float {
 	return self.BorderHeight() + self.MarginTop.V() + self.MarginBottom.V()
 }
 
 // Corners positions
 
 // Absolute horizontal position of the content box.
-func (self BoxFields) ContentBoxX() pr.Float {
+func (self *BoxFields) ContentBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V() + self.PaddingLeft.V() + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the content box.
-func (self BoxFields) ContentBoxY() pr.Float {
+func (self *BoxFields) ContentBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V() + self.PaddingTop.V() + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the padding box.
-func (self BoxFields) PaddingBoxX() pr.Float {
+func (self *BoxFields) PaddingBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V() + self.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the padding box.
-func (self BoxFields) PaddingBoxY() pr.Float {
+func (self *BoxFields) PaddingBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V() + self.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the border box.
-func (self BoxFields) BorderBoxX() pr.Float {
+func (self *BoxFields) BorderBoxX() pr.Float {
 	return self.PositionX + self.MarginLeft.V()
 }
 
 // Absolute vertical position of the border box.
-func (self BoxFields) BorderBoxY() pr.Float {
+func (self *BoxFields) BorderBoxY() pr.Float {
 	return self.PositionY + self.MarginTop.V()
 }
 
 // Return the rectangle where the box is clickable."""
 // "Border area. That's the area that hit-testing is done on."
 // http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
-func (self BoxFields) HitArea() pr.Rectangle {
+func (self *BoxFields) HitArea() pr.Rectangle {
 	return pr.Rectangle{self.BorderBoxX(), self.BorderBoxY(), self.BorderWidth(), self.BorderHeight()}
 }
 
@@ -376,7 +378,7 @@ type RoundedBox struct {
 // Position, size and radii of a box inside the outer border box.
 // bt, br, bb, and bl are distances from the outer border box,
 // defining a rectangle to be rounded.
-func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
+func (self *BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	tlr := self.BorderTopLeftRadius.V()
 	trr := self.BorderTopRightRadius.V()
 	brr := self.BorderBottomRightRadius.V()
@@ -422,7 +424,7 @@ func (self BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	}
 }
 
-func (self BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
+func (self *BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V()*ratio,
 		self.BorderRightWidth.V()*ratio,
@@ -431,7 +433,7 @@ func (self BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
 }
 
 // Return the position, size and radii of the rounded padding box.
-func (self BoxFields) RoundedPaddingBox() RoundedBox {
+func (self *BoxFields) RoundedPaddingBox() RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V(),
 		self.BorderRightWidth.V(),
@@ -440,12 +442,12 @@ func (self BoxFields) RoundedPaddingBox() RoundedBox {
 }
 
 // Return the position, size and radii of the rounded border box.
-func (self BoxFields) RoundedBorderBox() RoundedBox {
+func (self *BoxFields) RoundedBorderBox() RoundedBox {
 	return self.roundedBox(0, 0, 0, 0)
 }
 
 // Return the position, size and radii of the rounded content box.
-func (self BoxFields) RoundedContentBox() RoundedBox {
+func (self *BoxFields) RoundedContentBox() RoundedBox {
 	return self.roundedBox(
 		self.BorderTopWidth.V()+self.PaddingTop.V(),
 		self.BorderRightWidth.V()+self.PaddingRight.V(),
@@ -456,24 +458,24 @@ func (self BoxFields) RoundedContentBox() RoundedBox {
 // Positioning schemes
 
 // Return whether this box is floated.
-func (self BoxFields) IsFloated() bool {
+func (self *BoxFields) IsFloated() bool {
 	return self.Style.GetFloat() != "none"
 }
 
 // Return whether this box is in the absolute positioning scheme.
-func (self BoxFields) IsAbsolutelyPositioned() bool {
+func (self *BoxFields) IsAbsolutelyPositioned() bool {
 	pos := self.Style.GetPosition()
 	return !pos.Bool && pos.String == "absolute" || pos.String == "fixed"
 }
 
 // Return whether this box is a running element.
-func (self BoxFields) IsRunning() bool {
+func (self *BoxFields) IsRunning() bool {
 	pos := self.Style.GetPosition()
 	return pos.Bool
 }
 
 // Return whether this box is in normal flow.
-func (self BoxFields) IsInNormalFlow() bool {
+func (self *BoxFields) IsInNormalFlow() bool {
 	return !(self.IsFloated() || self.IsAbsolutelyPositioned() || self.IsRunning())
 }
 

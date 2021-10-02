@@ -80,17 +80,19 @@ func (p *TextLayout) setup(context TextLayoutContext, fontSize pr.Fl, style pr.S
 		p.metrics = nil
 	}
 
-	features := getFontFeatures(style)
-	var chunks []string
-	for k, v := range features {
-		chunks = append(chunks, fmt.Sprintf("%s=%d", k, v))
-	}
-	featuresString := strings.Join(chunks, ",")
-	attr := pango.NewAttrFontFeatures(featuresString)
-
 	p.Layout = *pango.NewLayout(pc)
 	p.Layout.SetFontDescription(&fontDesc)
-	p.Layout.SetAttributes(pango.AttrList{attr})
+
+	features := getFontFeatures(style)
+	if len(features) != 0 {
+		var chunks []string
+		for k, v := range features {
+			chunks = append(chunks, fmt.Sprintf("%s=%d", k, v))
+		}
+		featuresString := strings.Join(chunks, ",")
+		attr := pango.NewAttrFontFeatures(featuresString)
+		p.Layout.SetAttributes(pango.AttrList{attr})
+	}
 }
 
 func (p *TextLayout) SetText(text string, justify bool) {
@@ -114,31 +116,27 @@ func (p *TextLayout) SetText(text string, justify bool) {
 		letterSpacing = pr.Fl(ls.Value)
 	}
 
-	var (
-		attrList                          pango.AttrList
-		letterSpacingInt, spaceSpacingInt int32
-	)
 	if text != "" && (wordSpacing != 0 || letterSpacing != 0) {
-		letterSpacingInt = utils.PangoUnitsFromFloat(letterSpacing)
-		spaceSpacingInt = utils.PangoUnitsFromFloat(wordSpacing) + letterSpacingInt
-		attrList = p.Layout.Attributes
-	}
+		letterSpacingInt := utils.PangoUnitsFromFloat(letterSpacing)
+		spaceSpacingInt := utils.PangoUnitsFromFloat(wordSpacing) + letterSpacingInt
+		attrList := p.Layout.Attributes
 
-	addAttr := func(start, end int, spacing int32) {
-		attr := pango.NewAttrLetterSpacing(spacing)
-		attr.StartIndex, attr.EndIndex = start, end
-		attrList.Change(attr)
-	}
-
-	textRunes := p.Layout.Text
-	addAttr(0, len(textRunes), letterSpacingInt)
-	for position, c := range textRunes {
-		if c == ' ' {
-			addAttr(position, position+1, spaceSpacingInt)
+		addAttr := func(start, end int, spacing int32) {
+			attr := pango.NewAttrLetterSpacing(spacing)
+			attr.StartIndex, attr.EndIndex = start, end
+			attrList.Change(attr)
 		}
-	}
 
-	p.Layout.SetAttributes(attrList)
+		textRunes := p.Layout.Text
+		addAttr(0, len(textRunes), letterSpacingInt)
+		for position, c := range textRunes {
+			if c == ' ' {
+				addAttr(position, position+1, spaceSpacingInt)
+			}
+		}
+
+		p.Layout.SetAttributes(attrList)
+	}
 
 	// Tabs width
 	if strings.ContainsRune(text, '\t') {

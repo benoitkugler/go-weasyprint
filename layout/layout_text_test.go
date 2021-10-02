@@ -2,7 +2,6 @@ package layout
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -10,33 +9,6 @@ import (
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
-
-func printBoxes(boxes []Box) {
-	for _, b := range boxes {
-		fmt.Printf("<%s %s> ", b.Type(), b.Box().ElementTag)
-	}
-}
-
-func assertEqual(t *testing.T, got, exp interface{}, context string) {
-	if !reflect.DeepEqual(exp, got) {
-		t.Fatalf("%s: expected\n%v\n got \n%v", context, exp, got)
-	}
-}
-
-// unpack 3 children
-func unpack3(box Box) (c1, c2, c3 Box) {
-	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2]
-}
-
-// unpack 4 children
-func unpack4(box Box) (c1, c2, c3, c4 Box) {
-	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3]
-}
-
-// unpack 5 children
-func unpack5(box Box) (c1, c2, c3, c4, c5 Box) {
-	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4]
-}
 
 func TestTextFontSizeZero(t *testing.T) {
 	cp := testutils.CaptureLogs()

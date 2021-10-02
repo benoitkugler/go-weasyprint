@@ -332,8 +332,8 @@ func NewTableRowGroupBox(elementTag string, style pr.ElementStyle, children []Bo
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.tabularContainer = true
-	out.IsHeader = true
-	out.IsFooter = true
+	out.IsHeader = false
+	out.IsFooter = false
 	return out
 }
 

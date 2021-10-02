@@ -54,6 +54,8 @@ func (h *HTMLNode) ToKey(pseudoType string) ElementKey {
 }
 
 // Get returns the attribute `name` or ""
+// See HasAttr if you need to distinguish between no attribute
+// and an attribute with an empty string value.
 func (h HTMLNode) Get(name string) string {
 	for _, attr := range h.Attr {
 		if attr.Key == name {
@@ -61,6 +63,16 @@ func (h HTMLNode) Get(name string) string {
 		}
 	}
 	return ""
+}
+
+// HasAttr returns true if `name` is among the attributes (possibly empty).
+func (h HTMLNode) HasAttr(name string) bool {
+	for _, attr := range h.Attr {
+		if attr.Key == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *HTMLNode) Iter(tags ...atom.Atom) HtmlIterator {
@@ -334,10 +346,10 @@ type Attachment struct {
 func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata {
 	var (
 		title, description, generator string
-		authors                       []string
+		authors                       = []string{}
 		created, modified             time.Time
 		keywordsSet                   = map[string]bool{}
-		attachments                   []Attachment
+		attachments                   = []Attachment{}
 	)
 	iter := wrapperElement.Iter(atom.Title, atom.Meta, atom.Link)
 	for iter.HasNext() {
@@ -387,7 +399,7 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 			}
 		}
 	}
-	keywords := make([]string, 0, len(keywordsSet))
+	keywords := []string{}
 	for kw := range keywordsSet {
 		keywords = append(keywords, kw)
 	}
@@ -496,6 +508,9 @@ func parseW3cDate(metaName, str string) time.Time {
 			tzMinute = toInt(match[W3CDateReGroupsIndexes["tzMinute"]])
 		}
 	}
-	loc := time.FixedZone(metaName, tzHour*3600+tzMinute*60)
+	loc := time.UTC
+	if tzHour != 0 || tzMinute != 0 {
+		loc = time.FixedZone("w3c", tzHour*3600+tzMinute*60)
+	}
 	return time.Date(year, time.Month(month), day, hour, minute, second, 0, loc)
 }

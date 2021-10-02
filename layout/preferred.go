@@ -430,7 +430,7 @@ func tableAndColumnsPreferredWidths(context *layoutContext, box *bo.BoxFields, o
 		grid[i] = make([]Box, gridWidth)
 	}
 	for j := range zippedGrid {
-		grid[j] = make([]Box, gridHeight)
+		zippedGrid[j] = make([]Box, gridHeight)
 	}
 	rowNumber = 0
 	for _, rowGroup := range table.Children {

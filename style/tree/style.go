@@ -606,10 +606,10 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 }
 
 // Yield ``specificity, (Element, declaration, BaseUrl)`` rules.
-//     Rules from "style" attribute are returned with specificity
-//     ``(1, 0, 0)``.
-//     If ``presentationalHints`` is ``true``, rules from presentational hints
-//     are returned with specificity ``(0, 0, 0)``.
+// Rules from "style" attribute are returned with specificity
+// ``(1, 0, 0)``.
+// If ``presentationalHints`` is ``true``, rules from presentational hints
+// are returned with specificity ``(0, 0, 0)``.
 // presentationalHints=false
 func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl string) (out []sas) {
 	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute string) sa {
@@ -826,7 +826,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					log.Printf("Invalid value for size: %s \n", element.Get("size"))
 				}
 			}
-			if element.Get("color") != "" || element.Get("noshade") != "" {
+			if element.HasAttr("color") || element.HasAttr("noshade") {
 				if size >= 1 {
 					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("border-width:%dpx", size/2))})
 				}

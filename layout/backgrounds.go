@@ -311,7 +311,7 @@ func setCanvasBackground(page *bo.PageBox) {
 			l.PaintingArea = bo.Area{Rect: paintingArea}
 			chosenBox.Background.Layers[i] = l
 		}
-		*page.CanvasBackground = *chosenBox.Background
+		page.CanvasBackground = chosenBox.Background
 		chosenBox.Background = nil
 	} else {
 		page.CanvasBackground = nil

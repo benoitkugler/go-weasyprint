@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -284,6 +285,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		currentPositionY += maxColumnHeight
 		for _, column := range columns {
 			column.Box().Height = maxColumnHeight
+			fmt.Println("col", column.Box().Height)
 			newChildren = append(newChildren, column)
 		}
 	}
@@ -307,9 +309,12 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		heightDifference += box.MinHeight.V() - box.Height.V()
 		box.Height = box.MinHeight
 	}
+	fmt.Println("colbox height", box.Height)
 	for _, child := range reverseBoxes(newChildren) {
 		if child.Box().IsColumn {
 			child.Box().Height = child.Box().Height.V() + heightDifference
+			fmt.Println("colbox height", child.Box().Height)
+
 		} else {
 			break
 		}

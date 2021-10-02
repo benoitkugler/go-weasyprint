@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"reflect"
 	"testing"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -60,6 +61,48 @@ func renderOnePage(t *testing.T, htmlContent string) *bo.PageBox {
 		t.Fatalf("expected one page, got %v", pages)
 	}
 	return pages[0]
+}
+
+func printBoxes(boxes []Box) {
+	for _, b := range boxes {
+		fmt.Printf("<%s %s> ", b.Type(), b.Box().ElementTag)
+	}
+}
+
+func assertEqual(t *testing.T, got, exp interface{}, context string) {
+	if !reflect.DeepEqual(exp, got) {
+		t.Fatalf("%s: expected\n%v\n got \n%v", context, exp, got)
+	}
+}
+
+// unpack 2 children
+func unpack2(box Box) (c1, c2 Box) {
+	return box.Box().Children[0], box.Box().Children[1]
+}
+
+// unpack 3 children
+func unpack3(box Box) (c1, c2, c3 Box) {
+	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2]
+}
+
+// unpack 4 children
+func unpack4(box Box) (c1, c2, c3, c4 Box) {
+	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3]
+}
+
+// unpack 5 children
+func unpack5(box Box) (c1, c2, c3, c4, c5 Box) {
+	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4]
+}
+
+// unpack 7 children
+func unpack7(box Box) (c1, c2, c3, c4, c5, c6, c7 Box) {
+	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4], box.Box().Children[5], box.Box().Children[6]
+}
+
+// unpack 8 children
+func unpack8(box Box) (c1, c2, c3, c4, c5, c6, c7, c8 Box) {
+	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4], box.Box().Children[5], box.Box().Children[6], box.Box().Children[7]
 }
 
 func TestMarginBoxes(t *testing.T) {
