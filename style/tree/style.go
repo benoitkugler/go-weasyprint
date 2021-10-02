@@ -554,7 +554,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 		if mimeType == "" {
 			mimeType = "text/css"
 		}
-		mimeType = strings.TrimSpace(strings.SplitN(mimeType, ";", 1)[0])
+		mimeType = strings.TrimSpace(strings.SplitN(mimeType, ";", 2)[0])
 		// Only keep "type/subtype" from "type/subtype ; param1; param2".
 		if mimeType != "text/css" {
 			continue

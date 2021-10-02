@@ -837,12 +837,6 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 	rightSpacing := box.PaddingRight.V() + box.MarginRight.V() + box.BorderRightWidth.V()
 	contentBoxLeft := positionX
 
-	var children, waitingChildren []indexedBox
-	preservedLineBreak := false
-	var firstLetter, lastLetter rune
-	floatWidths := widths{}
-	var floatResumeAt int
-
 	if box.Style.GetPosition().String == "relative" {
 		absoluteBoxes = nil
 	}
@@ -852,9 +846,13 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		skip, skipStack = skipStack.Skip, skipStack.Stack
 	}
 	var (
-		i        int
-		L        = len(box.Children[skip:])
-		resumeAt *tree.SkipStack
+		i, floatResumeAt          int
+		L                         = len(box.Children[skip:])
+		resumeAt                  *tree.SkipStack
+		children, waitingChildren []indexedBox
+		firstLetter, lastLetter   rune
+		preservedLineBreak        = false
+		floatWidths               widths
 	)
 	for ; i < L; i++ {
 		index := i + skip

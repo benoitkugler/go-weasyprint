@@ -623,164 +623,175 @@ func TestFloatInInline(t *testing.T) {
 	assertEqual(t, p3.Box().Width, pr.Float(2*20), "")
 }
 
-// func TestFloatNextLine(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t,`
-//       <style>
-//         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
-//         body {
-//           font-family: weasyprint;
-//           font-size: 20px;
-//         }
-//         p {
-//           text-align: justify;
-//           width: 13em;
-//         }
-//         span {
-//           float: left;
-//         }
-//       </style>
-//       <p>pp pp pp pp <a><span>ppppp</span> aa</a> pp pp pp pp pp</p>`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     paragraph := body.Box().Children[0]
-//     line1, line2, line3 = paragraph.Box().Children
-//     assertEqual(t, len(line1.Box().Children) == 1)
-//     assertEqual(t, len(line3.Box().Children) == 1)
-//     a, p = line2.Box().Children
-//     span, aText = a.Box().Children
-//     assertEqual(t, span.positionX == 0)
-//     assertEqual(t, span.width == 5 * 20)
-//     assertEqual(t, aText.positionX == a.positionX == 5 * 20)
-//     assertEqual(t, aText.width == a.width == 2 * 20)
-//     assertEqual(t, p.positionX == 7 * 20)
-// }
+func TestFloatNextLine(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-// func TestFloatTextIndent1(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t,`
-//       <style>
-//         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
-//         body {
-//           font-family: weasyprint;
-//           font-size: 20px;
-//         }
-//         p {
-//           text-align: justify;
-//           text-indent: 1em;
-//           width: 14em;
-//         }
-//         span {
-//           float: left;
-//         }
-//       </style>
-//       <p><a>aa <span>float</span> aa</a></p>`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     paragraph := body.Box().Children[0]
-//     line1, = paragraph.Box().Children
-//     a, = line1.Box().Children
-//     a1, span, a2 = a.Box().Children
-//     spanText, = span.Box().Children
-//     assertEqual(t, span.positionX == spanText.positionX == 0)
-//     assertEqual(t, span.width == spanText.width == ()
-//         (1 + 5) * 20)  // text-indent + span text
-//     assertEqual(t, a1.width == 3 * 20)
-//     assertEqual(t, a1.positionX == (1 + 5 + 1) * 20  // span + a1 text-indent)
-//     assertEqual(t, a2.width == 2 * 20  // leading space collapse)
-//     assertEqual(t, a2.positionX == (1 + 5 + 1 + 3) * 20  // span + a1 t-i + a1)
-// }
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        body {
+          font-family: weasyprint;
+          font-size: 20px;
+        }
+        p {
+          text-align: justify;
+          width: 13em;
+        }
+        span {
+          float: left;
+        }
+      </style>
+      <p>pp pp pp pp <a><span>ppppp</span> aa</a> pp pp pp pp pp</p>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	line1, line2, line3 := unpack3(paragraph)
+	assertEqual(t, len(line1.Box().Children), 1, "len")
+	assertEqual(t, len(line3.Box().Children), 1, "len")
+	a, p := line2.Box().Children[0], line2.Box().Children[1]
+	span, aText := a.Box().Children[0], a.Box().Children[1]
+	assertEqual(t, span.Box().PositionX, pr.Float(0), "span")
+	assertEqual(t, span.Box().Width, pr.Float(5*20), "span")
+	assertEqual(t, aText.Box().PositionX, pr.Float(5*20), "aText")
+	assertEqual(t, a.Box().PositionX, pr.Float(5*20), "a")
+	assertEqual(t, aText.Box().Width, pr.Float(2*20), "aText")
+	assertEqual(t, a.Box().Width, pr.Float(2*20), "a")
+	assertEqual(t, p.Box().PositionX, pr.Float(7*20), "p")
+}
 
-// func TestFloatTextIndent2(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t,`
-//       <style>
-//         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
-//         body {
-//           font-family: weasyprint;
-//           font-size: 20px;
-//         }
-//         p {
-//           text-align: justify;
-//           text-indent: 1em;
-//           width: 14em;
-//         }
-//         span {
-//           float: left;
-//         }
-//       </style>
-//       <p>
-//         oooooooooooo
-//         <a>aa <span>float</span> aa</a></p>`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     paragraph := body.Box().Children[0]
-//     line1, line2 = paragraph.Box().Children
-// }
-//     p1, = line1.Box().Children
-//     assertEqual(t, p1.positionX == 1 * 20  // text-indent)
-//     assertEqual(t, p1.width == 12 * 20  // p text)
+func TestFloatTextIndent1(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-//     a, = line2.Box().Children
-//     a1, span, a2 = a.Box().Children
-//     spanText, = span.Box().Children
-//     assertEqual(t, span.positionX == spanText.positionX == 0)
-//     assertEqual(t, span.width == spanText.width == ()
-//         (1 + 5) * 20)  // text-indent + span text
-//     assertEqual(t, a1.width == 3 * 20)
-//     assertEqual(t, a1.positionX == (1 + 5) * 20  // span)
-//     assertEqual(t, a2.width == 2 * 20  // leading space collapse)
-//     assertEqual(t, a2.positionX == (1 + 5 + 3) * 20  // span + a1)
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        body {
+          font-family: weasyprint;
+          font-size: 20px;
+        }
+        p {
+          text-align: justify;
+          text-indent: 1em;
+          width: 14em;
+        }
+        span {
+          float: left;
+        }
+      </style>
+      <p><a>aa <span>float</span> aa</a></p>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	line1 := paragraph.Box().Children[0]
+	a := line1.Box().Children[0]
+	a1, span, a2 := unpack3(a)
+	spanText := span.Box().Children[0]
+	assertEqual(t, span.Box().PositionX, pr.Float(0), "span")
+	assertEqual(t, spanText.Box().PositionX, pr.Float(0), "spanText")
+	assertEqual(t, span.Box().Width, pr.Float((1+5)*20), "span")         // text-indent + span text
+	assertEqual(t, spanText.Box().Width, pr.Float((1+5)*20), "spanText") // text-indent + span text
+	assertEqual(t, a1.Box().Width, pr.Float(3*20), "a1")
+	assertEqual(t, a1.Box().PositionX, pr.Float((1+5+1)*20), "a1")   // span + a1 text-indent)
+	assertEqual(t, a2.Box().Width, pr.Float(2*20), "a2")             // leading space collapse)
+	assertEqual(t, a2.Box().PositionX, pr.Float((1+5+1+3)*20), "a2") // span + a1 t-i + a1)
+}
 
-// func TestFloatTextIndent3(t *testing.T) {
-//   cp := testutils.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
-//     page := renderOnePage(t,`
-//       <style>
-//         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
-//         body {
-//           font-family: weasyprint;
-//           font-size: 20px;
-//         }
-//         p {
-//           text-align: justify;
-//           text-indent: 1em;
-//           width: 14em;
-//         }
-//         span {
-//           float: right;
-//         }
-//       </style>
-//       <p>
-//         oooooooooooo
-//         <a>aa <span>float</span> aa</a>
-//         oooooooooooo
-//       </p>`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     paragraph := body.Box().Children[0]
-//     line1, line2, line3 = paragraph.Box().Children
-// }
-//     p1, = line1.Box().Children
-//     assertEqual(t, p1.positionX == 1 * 20  // text-indent)
-//     assertEqual(t, p1.width == 12 * 20  // p text)
+func TestFloatTextIndent2(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
-//     a, = line2.Box().Children
-//     a1, span, a2 = a.Box().Children
-//     spanText, = span.Box().Children
-//     assertEqual(t, span.positionX == spanText.positionX == (14 - 5 - 1) * 20)
-//     assertEqual(t, span.width == spanText.width == ()
-//         (1 + 5) * 20)  // text-indent + span text
-//     assertEqual(t, a1.positionX == 0  // span)
-//     assertEqual(t, a2.width == 2 * 20  // leading space collapse)
-//     assertEqual(t, a2.positionX == (14 - 5 - 1 - 2) * 20)
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        body {
+          font-family: weasyprint;
+          font-size: 20px;
+        }
+        p {
+          text-align: justify;
+          text-indent: 1em;
+          width: 14em;
+        }
+        span {
+          float: left;
+        }
+      </style>
+      <p>
+        oooooooooooo
+        <a>aa <span>float</span> aa</a></p>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	line1, line2 := paragraph.Box().Children[0], paragraph.Box().Children[1]
 
-//     p2, = line3.Box().Children
-//     assertEqual(t, p2.positionX == 0)
-//     assertEqual(t, p2.width == 12 * 20  // p text)
+	p1 := line1.Box().Children[0]
+	assertEqual(t, p1.Box().PositionX, pr.Float(1*20), "p1") // text-indent
+	assertEqual(t, p1.Box().Width, pr.Float(12*20), "p1")    // p text
+
+	a := line2.Box().Children[0]
+	a1, span, a2 := unpack3(a)
+	spanText := span.Box().Children[0]
+	assertEqual(t, span.Box().PositionX, pr.Float(0), "span")
+	assertEqual(t, spanText.Box().PositionX, pr.Float(0), " spanText")
+	assertEqual(t, span.Box().Width, pr.Float((1+5)*20), "span")           // text-indent + span text
+	assertEqual(t, spanText.Box().Width, pr.Float((1+5)*20), "  spanText") // text-indent + span text
+	assertEqual(t, a1.Box().Width, pr.Float(3*20), "a1")
+	assertEqual(t, a1.Box().PositionX, pr.Float((1+5)*20), "a1")   // span)
+	assertEqual(t, a2.Box().Width, pr.Float(2*20), "a2")           // leading space collapse)
+	assertEqual(t, a2.Box().PositionX, pr.Float((1+5+3)*20), "a2") // span + a1)
+}
+
+func TestFloatTextIndent3(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        body {
+          font-family: weasyprint;
+          font-size: 20px;
+        }
+        p {
+          text-align: justify;
+          text-indent: 1em;
+          width: 14em;
+        }
+        span {
+          float: right;
+        }
+      </style>
+      <p>
+        oooooooooooo
+        <a>aa <span>float</span> aa</a>
+        oooooooooooo
+      </p>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	line1, line2, line3 := unpack3(paragraph)
+
+	p1 := line1.Box().Children[0]
+	assertEqual(t, p1.Box().PositionX, pr.Float(1*20), " p1") // text-indent)
+	assertEqual(t, p1.Box().Width, pr.Float(12*20), " p1")    // p text)
+
+	a := line2.Box().Children[0]
+	a1, span, a2 := unpack3(a)
+	spanText := span.Box().Children[0]
+	assertEqual(t, span.Box().PositionX, pr.Float((14-5-1)*20), " span")
+	assertEqual(t, spanText.Box().PositionX, pr.Float((14-5-1)*20), "   spanText")
+	assertEqual(t, span.Box().Width, pr.Float((1+5)*20), " span")           // text-indent + span text
+	assertEqual(t, spanText.Box().Width, pr.Float((1+5)*20), "   spanText") // text-indent + span text
+	assertEqual(t, a1.Box().PositionX, pr.Float(0), " a1")                  // span)
+	assertEqual(t, a2.Box().Width, pr.Float(2*20), " a2")                   // leading space collapse)
+	assertEqual(t, a2.Box().PositionX, pr.Float((14-5-1-2)*20), " a2")
+
+	p2 := line3.Box().Children[0]
+	assertEqual(t, p2.Box().PositionX, pr.Float(0), " p2")
+	assertEqual(t, p2.Box().Width, pr.Float(12*20), " p2") // p text)
+}
 
 // @pytest.mark.xfail
 // func TestFloatFail(t *testing.T) {

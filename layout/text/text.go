@@ -157,7 +157,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		secondLineText = text
 	}
 
-	nextWord := strings.SplitN(string(secondLineText), " ", 1)[0]
+	nextWord := strings.SplitN(string(secondLineText), " ", 2)[0]
 	if nextWord != "" {
 		if spaceCollapse {
 			// nextWord might fit without a space afterwards

@@ -72,7 +72,7 @@ func size(surface FakeSurface, str string, reference floatOrString) float64 {
 		return 0
 	}
 
-	str = strings.SplitN(normalize(str), " ", 1)[0]
+	str = strings.SplitN(normalize(str), " ", 2)[0]
 	if strings.HasSuffix(str, "%") {
 		if reference.s == "x" {
 			reference.f = surface.contextWidth

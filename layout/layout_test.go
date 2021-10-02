@@ -2,11 +2,13 @@ package layout
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"testing"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
+	"github.com/benoitkugler/go-weasyprint/logger"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/go-weasyprint/utils/testutils"
@@ -20,6 +22,8 @@ const fontmapCache = "../layout/text/test/cache.fc"
 var fontconfig *text.FontConfiguration
 
 func init() {
+	logger.ProgressLogger.SetOutput(io.Discard)
+
 	// this command has to run once
 	// fmt.Println("Scanning fonts...")
 	// _, err := fc.ScanAndCache(fontmapCache)
