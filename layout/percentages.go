@@ -81,10 +81,10 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 	}
 
 	// Used value == computed value
-	box.BorderTopWidth = box.Style.GetTop().ToMaybeFloat()
-	box.BorderRightWidth = box.Style.GetRight().ToMaybeFloat()
-	box.BorderBottomWidth = box.Style.GetBottom().ToMaybeFloat()
-	box.BorderLeftWidth = box.Style.GetLeft().ToMaybeFloat()
+	box.BorderTopWidth = box.Style.GetBorderTopWidth().ToMaybeFloat()
+	box.BorderRightWidth = box.Style.GetBorderRightWidth().ToMaybeFloat()
+	box.BorderBottomWidth = box.Style.GetBorderBottomWidth().ToMaybeFloat()
+	box.BorderLeftWidth = box.Style.GetBorderLeftWidth().ToMaybeFloat()
 
 	// Shrink *content* widths and heights according to box-sizing
 	// Thanks heavens and the spec: Our validator rejects negative values

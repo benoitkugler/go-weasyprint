@@ -17,8 +17,8 @@ def to_go(boxes: list) -> str:
     return code
 
 
-IN = [('p', 'Block', [('p', 'Line', [('p', 'Text', 'start '), ('i', 'Inline', [('b', 'Inline', [('b', 'Text', 'bi1')]), ('i', 'Text', ' '),
-                                                                               ('b', 'Inline', [('b', 'Text', 'bi2')])]), ('p', 'Text', ' '), ('b', 'Inline', [('b', 'Text', 'b1')]), ('p', 'Text', ' end')])])]
+IN = [('body', 'Line', [('object', 'InlineReplaced', '<replaced>'), ('body', 'Text', ' '), ('img', 'InlineReplaced',
+                                                                                            '<replaced>'), ('body', 'Text', ' '), ('embed', 'InlineReplaced', '<replaced>'), ('body', 'Text', ' ')])]
 
 pyperclip.copy(to_go(IN))
 print("Copied in clipboard.")

@@ -1456,3 +1456,22 @@ func TestInlineSpace(t *testing.T) {
 		}}},
 	})
 }
+
+func TestPhEmbedded(t *testing.T) {
+	assertTree(t, parseAndBuild(t, `
+	<object data="data:image/svg+xml,<svg></svg>"
+			align=top hspace=10 vspace=20></object>
+	<img src="data:image/svg+xml,<svg></svg>" alt=text
+			align=right width=10 height=20 />
+	<embed src="data:image/svg+xml,<svg></svg>" align=texttop />
+  `), []serBox{
+		{"body", LineBoxT, bc{c: []serBox{
+			{"object", InlineReplacedBoxT, bc{text: "<replaced>"}},
+			{"body", TextBoxT, bc{text: " "}},
+			{"img", InlineReplacedBoxT, bc{text: "<replaced>"}},
+			{"body", TextBoxT, bc{text: " "}},
+			{"embed", InlineReplacedBoxT, bc{text: "<replaced>"}},
+			{"body", TextBoxT, bc{text: " "}},
+		}}},
+	})
+}

@@ -1,5 +1,7 @@
 package tree
 
+// Test CSS custom proproperties, also known as CSS variables.
+
 import (
 	"fmt"
 	"testing"

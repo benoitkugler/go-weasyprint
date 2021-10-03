@@ -410,6 +410,9 @@ func collectMissingTargetCounter(counterName string, lookupCounterValues tree.Co
 
 	if _, in := lookupCounterValues[counterName]; !in {
 		missingCounters := missingTargetCounters[anchorName]
+		if missingCounters == nil {
+			missingCounters = make(utils.Set)
+		}
 		for s := range missingCounters {
 			if counterName == s {
 				return

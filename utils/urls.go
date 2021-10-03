@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -18,8 +19,6 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/version"
 	"github.com/benoitkugler/textlayout/fonts"
-
-	"github.com/vincent-petithory/dataurl"
 )
 
 // warn if baseUrl is required but missing.
@@ -216,16 +215,11 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 		// data url can't contains spaces and the strings comming from css
 		// may contain tabs when separated on several lines with \
 		urlTarget = htmlSpacesRe.ReplaceAllString(urlTarget, "")
-		data, err := dataurl.DecodeString(urlTarget)
+		data, err := parseDataURL([]byte(urlTarget))
 		if err != nil {
 			return RemoteRessource{}, err
 		}
-		return RemoteRessource{
-			Content:          (*BytesCloser)(bytes.NewReader(data.Data)),
-			MimeType:         data.ContentType(),
-			RedirectedUrl:    urlTarget,
-			ProtocolEncoding: data.Params["charset"],
-		}, nil
+		return data.toResource(urlTarget)
 	}
 
 	data, err := url.Parse(urlTarget)
@@ -301,4 +295,156 @@ func DefaultUrlFetcher(urlTarget string) (RemoteRessource, error) {
 	result.Content = (*BytesCloser)(bytes.NewReader(buf.Bytes()))
 
 	return result, nil
+}
+
+// dataURI represents the parsed "data" URL
+type dataURI struct {
+	params   map[string]string
+	mimeType string
+	data     []byte // before decoding
+	isBase64 bool
+}
+
+// decode the base64 or ascii encoding, but not the charset
+func (d dataURI) toResource(urlTarget string) (RemoteRessource, error) {
+	if d.isBase64 {
+		dbuf := make([]byte, base64.StdEncoding.DecodedLen(len(d.data)))
+		n, err := base64.StdEncoding.Decode(dbuf, d.data)
+		if err != nil {
+			return RemoteRessource{}, fmt.Errorf("invalid base64 data url: %s", err)
+		}
+		d.data = dbuf[:n]
+	} else {
+		var err error
+		d.data, err = unescape(d.data)
+		if err != nil {
+			return RemoteRessource{}, err
+		}
+	}
+	return RemoteRessource{
+		Content:          (*BytesCloser)(bytes.NewReader(d.data)),
+		MimeType:         d.mimeType,
+		RedirectedUrl:    urlTarget,
+		ProtocolEncoding: d.params["charset"],
+	}, nil
+}
+
+// parseDataURL parse the "data" URL into components.
+func parseDataURL(url []byte) (dataURI, error) {
+	// adapted from https://onethinglab.com/data-url-parse-in-golang
+	const (
+		dataURIPrefix   = "data:"
+		defaultMimeType = "text/plain"
+		defaultParam    = "charset=US-ASCII"
+		base64Indicator = "base64"
+	)
+
+	data := url[len(dataURIPrefix):]
+	// split properties and actual encoded data
+	indexSep := bytes.IndexByte(data, ',')
+	if indexSep == -1 {
+		return dataURI{}, errors.New("Data not found in Data URI")
+	}
+	properties, encodedData := string(data[:indexSep]), data[indexSep+1:]
+
+	var result dataURI = dataURI{
+		data:   encodedData,
+		params: make(map[string]string),
+	}
+	for i, prop := range strings.Split(properties, ";") {
+		if i == 0 {
+			if strings.Contains(prop, "/") {
+				result.mimeType = prop
+			} else {
+				params := strings.Split(defaultParam, "=")
+				result.mimeType = defaultMimeType
+				result.params[params[0]] = params[1]
+			}
+		} else {
+			if prop == base64Indicator {
+				result.isBase64 = true
+			} else {
+				// ignore if not valid properties assignment
+				if strings.Contains(prop, "=") {
+					propComponets := strings.SplitN(prop, "=", 2)
+					result.params[propComponets[0]] = propComponets[1]
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func isHex(c byte) bool {
+	switch {
+	case c >= 'a' && c <= 'f':
+		return true
+	case c >= 'A' && c <= 'F':
+		return true
+	case c >= '0' && c <= '9':
+		return true
+	}
+	return false
+}
+
+// borrowed from net/url/url.go
+func unhex(c byte) byte {
+	switch {
+	case '0' <= c && c <= '9':
+		return c - '0'
+	case 'a' <= c && c <= 'f':
+		return c - 'a' + 10
+	case 'A' <= c && c <= 'F':
+		return c - 'A' + 10
+	}
+	return 0
+}
+
+// unescape unescapes a character sequence
+// escaped with Escape(String?).
+func unescape(s []byte) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	reader := bytes.NewReader(s)
+
+	for {
+		r, size, err := reader.ReadRune()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if size > 1 {
+			return nil, fmt.Errorf("rfc2396: non-ASCII char detected")
+		}
+
+		switch r {
+		case '%':
+			eb1, err := reader.ReadByte()
+			if err == io.EOF {
+				return nil, fmt.Errorf("rfc2396: unexpected end of unescape sequence")
+			}
+			if err != nil {
+				return nil, err
+			}
+			if !isHex(eb1) {
+				return nil, fmt.Errorf("rfc2396: invalid char 0x%x in unescape sequence", r)
+			}
+			eb0, err := reader.ReadByte()
+			if err == io.EOF {
+				return nil, fmt.Errorf("rfc2396: unexpected end of unescape sequence")
+			}
+			if err != nil {
+				return nil, err
+			}
+			if !isHex(eb0) {
+				return nil, fmt.Errorf("rfc2396: invalid char 0x%x in unescape sequence", r)
+			}
+			buf.WriteByte(unhex(eb0) + unhex(eb1)*16)
+		default:
+			buf.WriteByte(byte(r))
+		}
+	}
+	return buf.Bytes(), nil
 }

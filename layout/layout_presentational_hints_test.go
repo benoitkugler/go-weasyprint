@@ -22,6 +22,7 @@ func renderWithPH(t *testing.T, input string, withPH bool, baseUrl string) *bo.P
 	if err != nil {
 		t.Fatalf("building tree: %s", err)
 	}
+
 	return Layout(doc, []tree.CSS{PHTESTINGCSS}, withPH, fontconfig)[0]
 }
 
@@ -277,26 +278,26 @@ func TestPhHr(t *testing.T) {
 	assertEqual(t, hr5.Box().Style.GetBorderTopWidth(), pr.FToV(1), "hr5")
 }
 
-// func TestPhEmbedded(t *testing.T) {
-// cp := testutils.CaptureLogs()
-// defer cp.AssertNoLogs(t)
-//     document = tree.NewHTML(utils.InputString(`
-//       <object data="data:image/svg+xml,<svg></svg>"
-//               align=top hspace=10 vspace=20></object>
-//       <img src="data:image/svg+xml,<svg></svg>" alt=text
-//               align=right width=10 height=20 />
-//       <embed src="data:image/svg+xml,<svg></svg>" align=texttop />
-//     `).render(Box().Stylesheets=[PHTESTINGCSS], presentationalHints=true)
-//     page, = document.pages
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     line, = body.Box().Children
-//     object_, text1, img, embed, text2 = line.Box().Children
-//     assertEqual(t, embed.Box().Style["verticalAlign"] , "text-top", "embed")
-//     assertEqual(t, object.Box().Style["verticalAlign"] , "top", "object")
-//     assertEqual(t, object.marginTop , 20, "object")
-//     assertEqual(t, object.marginLeft , 10, "object")
-//     assertEqual(t, img.Box().Style["float"] , "right", "img")
-//     assertEqual(t, img.Box().Width , 10, "img")
-//     assertEqual(t, img.Box().Height , 20, "img")
-// }
+func TestPhEmbedded(t *testing.T) {
+	cp := testutils.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderWithPH(t, `
+      <object data="data:image/svg+xml,<svg></svg>"
+              align=top hspace=10 vspace=20></object>
+      <img src="data:image/svg+xml,<svg></svg>" alt=text
+              align=right width=10 height=20 />
+      <embed src="data:image/svg+xml,<svg></svg>" align=texttop />
+    `, true, "")
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	line := body.Box().Children[0]
+	object, _, img, embed, _ := unpack5(line)
+	assertEqual(t, embed.Box().Style.GetVerticalAlign(), pr.SToV("text-top"), "embed")
+	assertEqual(t, object.Box().Style.GetVerticalAlign(), pr.SToV("top"), "object")
+	assertEqual(t, object.Box().MarginTop, pr.Float(20), "object")
+	assertEqual(t, object.Box().MarginLeft, pr.Float(10), "object")
+	assertEqual(t, img.Box().Style.GetFloat(), pr.String("right"), "img")
+	assertEqual(t, img.Box().Width, pr.Float(10), "img")
+	assertEqual(t, img.Box().Height, pr.Float(20), "img")
+}

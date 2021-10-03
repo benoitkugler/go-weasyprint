@@ -150,7 +150,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				cell.ContentHeight = cell.Height
 				if cell.ComputedHeight != pr.Auto {
 					cell.Height = pr.Max(cell.Height.V(), cell.ComputedHeight.V())
-					fmt.Println("cellHeihgt", cell.Height)
 				}
 				newRowChildren = append(newRowChildren, cell_)
 			}
@@ -219,7 +218,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				rowBottomY = row.PositionY
 				row.Height = pr.Float(0)
 			}
-			fmt.Println("rowHeight", row.Height)
 
 			if len(baselineCells) != 0 {
 				row.Baseline = rowBottomY
@@ -318,7 +316,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			// The last border spacing is outside of the group.
 			group.Height = group.Height.V() - borderSpacingY
 		}
-		fmt.Println("group2 Height", group.Height)
 		return group_, resumeAt, nextPage
 	}
 
@@ -523,7 +520,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		th = table.Height.V()
 	}
 	table.Height = pr.Max(th, positionY-table.ContentBoxY())
-	fmt.Println("table height", table.Height)
 
 	// Layout for column groups and columns
 	columnsHeight := positionY - initialPositionY
@@ -548,7 +544,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				column.Width = pr.Float(0)
 				column.Height = pr.Float(0)
 			}
-			fmt.Println("column ", column.Height)
 			resolvePercentagesBox(group_, &table.BoxFields, "")
 			column.GetCells = getColumnCells(table, column)
 		}
@@ -558,7 +553,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		group.PositionY = initialPositionY
 		group.Width = last.PositionX + last.Width.V() - first.PositionX
 		group.Height = columnsHeight
-		fmt.Println("groupeHeihgt", group.Height)
 	}
 
 	if bi := table.Style.GetBreakInside(); resumeAt != nil && !pageIsEmpty && (bi == "avoid" || bi == "avoid-page") {

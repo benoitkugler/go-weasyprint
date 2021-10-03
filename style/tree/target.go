@@ -137,6 +137,14 @@ type funcStore = map[functionKey]ParseFunc
 
 type ParseFunc = func(CounterValues)
 
+type targetState uint8
+
+const (
+	pending targetState = iota
+	upToDate
+	undefined
+)
+
 // Item controlling Pending targets and page based target counters.
 //
 // Collected in the TargetCollector"s ``items``.
@@ -153,22 +161,17 @@ type TargetLookupItem struct {
 	// TargetBox's pageCounters during pagination
 	CachedPageCounterValues CounterValues
 
-	state string
+	state targetState
 
 	// Anchor position during pagination (pageNumber - 1)
 	PageMakerIndex int
 }
 
-func NewTargetLookupItem(state string) *TargetLookupItem {
-	if state == "" {
-		state = "Pending"
-	}
+func newTargetLookupItem(state targetState) *TargetLookupItem {
 	return &TargetLookupItem{state: state, parseAgainFunctions: funcStore{}, CachedPageCounterValues: CounterValues{}}
 }
 
-func (t TargetLookupItem) IsUpToDate() bool {
-	return t.state == "up-to-date"
-}
+func (t TargetLookupItem) IsUpToDate() bool { return t.state == upToDate }
 
 type optionnalInt struct {
 	int
@@ -216,9 +219,6 @@ type TargetCollector struct {
 	TargetLookupItems  map[string]*TargetLookupItem
 	CounterLookupItems map[functionKey]*CounterLookupItem
 
-	// List of anchors that have already been seen during parsing.
-	existingAnchors utils.Set
-
 	// When collecting is true, computeContentList() collects missing
 	// page counters in CounterLookupItems. Otherwise, it mixes in the
 	// TargetLookupItem's CachedPageCounterValues.
@@ -239,15 +239,13 @@ func NewTargetCollector() TargetCollector {
 	}
 }
 
-func (t TargetCollector) IsCollecting() bool {
-	return t.collecting
-}
+func (t *TargetCollector) IsCollecting() bool { return t.collecting }
 
 // Get anchor name from string or uri token.
 func AnchorNameFromToken(anchorToken pr.ContentProperty) string {
 	asString, _ := anchorToken.Content.(pr.String)
-	asUrl, ok := anchorToken.Content.(pr.NamedString)
-	if anchorToken.Type == "string" && ok && strings.HasPrefix(string(asString), "#") {
+	asUrl, _ := anchorToken.Content.(pr.NamedString)
+	if anchorToken.Type == "string" && strings.HasPrefix(string(asString), "#") {
 		return string(asString[1:])
 	} else if anchorToken.Type == "url" && asUrl.Name == "internal" {
 		return asUrl.String
@@ -255,24 +253,13 @@ func AnchorNameFromToken(anchorToken pr.ContentProperty) string {
 	return ""
 }
 
-// Store ``anchorName`` in ``existingAnchors``.
-func (tc TargetCollector) collectAnchor(anchorName string) {
+// Create a TargetLookupItem for the given `anchorName`.
+func (tc *TargetCollector) collectAnchor(anchorName string) {
 	if anchorName != "" {
-		if tc.existingAnchors.Has(anchorName) {
+		if _, has := tc.TargetLookupItems[anchorName]; has {
 			log.Printf("Anchor defined twice: %s \n", anchorName)
 		} else {
-			tc.existingAnchors.Add(anchorName)
-		}
-	}
-}
-
-// Store a computed internal target"s ``anchorName``.
-// ``anchorName`` must not start with "#" and be already unquoted.
-func (tc TargetCollector) collectComputedTarget(anchorToken pr.ContentProperty) {
-	anchorName := AnchorNameFromToken(anchorToken)
-	if anchorName != "" {
-		if _, in := tc.TargetLookupItems[anchorName]; !in {
-			tc.TargetLookupItems[anchorName] = NewTargetLookupItem("")
+			tc.TargetLookupItems[anchorName] = newTargetLookupItem(pending)
 		}
 	}
 }
@@ -286,22 +273,18 @@ func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBo
 	anchorName := AnchorNameFromToken(anchorToken)
 	item, in := tc.TargetLookupItems[anchorName]
 	if !in {
-		item = NewTargetLookupItem("undefined")
+		item = newTargetLookupItem(undefined)
 	}
 
-	if item.state == "Pending" {
-		if tc.existingAnchors.Has(anchorName) {
-			tc.hadPendingTargets = true
-			key := functionKey{SourceBox: sourceBox, CssToken: cssToken}
-			if _, in := item.parseAgainFunctions[key]; !in {
-				item.parseAgainFunctions[key] = parseAgain
-			}
-		} else {
-			item.state = "undefined"
+	if item.state == pending {
+		tc.hadPendingTargets = true
+		key := functionKey{SourceBox: sourceBox, CssToken: cssToken}
+		if _, in := item.parseAgainFunctions[key]; !in {
+			item.parseAgainFunctions[key] = parseAgain
 		}
 	}
 
-	if item.state == "undefined" {
+	if item.state == undefined {
 		log.Printf("Content discarded: target points to undefined anchor '%s' \n", anchorToken)
 	}
 
@@ -314,8 +297,8 @@ func (tc *TargetCollector) LookupTarget(anchorToken pr.ContentProperty, sourceBo
 // collected anchors are stored.
 func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues CounterValues, targetBox Box) {
 	item := tc.TargetLookupItems[anchorName]
-	if item != nil && item.state == "Pending" {
-		item.state = "up-to-date"
+	if item != nil && item.state == pending {
+		item.state = upToDate
 		item.TargetBox = targetBox
 		// Store the counterValues in the TargetBox like
 		// computeContentList does.
@@ -332,7 +315,7 @@ func (tc *TargetCollector) StoreTarget(anchorName string, targetCounterValues Co
 //
 // The ``missingLink`` attribute added to the parentBox is required to
 // connect the paginated boxes to their originating ``parentBox``.
-func (tc TargetCollector) CollectMissingCounters(parentBox Box, cssToken string,
+func (tc *TargetCollector) CollectMissingCounters(parentBox Box, cssToken string,
 	parseAgainFunction ParseFunc, missingCounters utils.Set, missingTargetCounters map[string]utils.Set) {
 
 	// No counter collection during pagination
@@ -374,7 +357,7 @@ func (tc *TargetCollector) CheckPendingTargets() {
 // Store target's current ``PageMakerIndex`` and page counter values.
 //
 // Eventually update associated targeting boxes.
-func (tc TargetCollector) CacheTargetPageCounters(anchorName string, pageCounterValues CounterValues, pageMakerIndex int,
+func (tc *TargetCollector) CacheTargetPageCounters(anchorName string, pageCounterValues CounterValues, pageMakerIndex int,
 	pageMaker []PageMaker) {
 
 	// Only store page counters when paginating
@@ -383,7 +366,7 @@ func (tc TargetCollector) CacheTargetPageCounters(anchorName string, pageCounter
 	}
 
 	item := tc.TargetLookupItems[anchorName]
-	if item != nil && item.state == "up-to-date" {
+	if item != nil && item.IsUpToDate() {
 		item.PageMakerIndex = pageMakerIndex
 		if !item.CachedPageCounterValues.Equal(pageCounterValues) {
 			item.CachedPageCounterValues = pageCounterValues.Copy()

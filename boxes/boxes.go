@@ -316,7 +316,7 @@ func (self *BoxFields) BorderWidth() pr.Float {
 	return self.PaddingWidth() + self.BorderLeftWidth.V() + self.BorderRightWidth.V()
 }
 
-// Height of th.V()e border box.
+// Height of the border box.
 func (self *BoxFields) BorderHeight() pr.Float {
 	return self.PaddingHeight() + self.BorderTopWidth.V() + self.BorderBottomWidth.V()
 }

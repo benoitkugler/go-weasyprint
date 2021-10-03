@@ -1,7 +1,6 @@
 package boxes
 
 import (
-	"log"
 	"strconv"
 	"strings"
 
@@ -16,7 +15,7 @@ type handlerFunction = func(element *utils.HTMLNode, box Box, getImageFromUri Gi
 
 var htmlHandlers = map[string]handlerFunction{
 	"img":      handleImg,
-	"embded":   handleEmbed,
+	"embed":    handleEmbed,
 	"object":   handleObject,
 	"colgroup": handleColgroup,
 	"col":      handleCol,
@@ -31,14 +30,13 @@ func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseU
 	if in {
 		ls := handler(element, box, getImageFromUri, baseUrl)
 		return ls
-	} else {
-		return []Box{box}
 	}
+	return []Box{box}
 }
 
 // Wrap an image in a replaced box.
 //
-// That box is either block-level || inline-level, depending on what the
+// That box is either block-level or inline-level, depending on what the
 // element should be.
 func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 	var newBox Box
@@ -80,7 +78,7 @@ func handleImg(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl s
 	return nil
 }
 
-// Handle ``<embed>`` elements, return either an image || nothing.
+// Handle ``<embed>`` elements, return either an image or nothing.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-embed-element
 func handleEmbed(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
 	src := element.GetUrlAttribute("src", baseUrl, false)
@@ -95,7 +93,7 @@ func handleEmbed(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl
 	return nil
 }
 
-// Handle ``<object>`` elements, return either an image || the fallback
+// Handle ``<object>`` elements, return either an image or the fallback
 // content.
 // See: https://www.w3.org/TR/html5/embedded-content-0.html#the-object-element
 func handleObject(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
@@ -202,24 +200,4 @@ func handleTd(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 func handleA(element *utils.HTMLNode, box Box, _ Gifu, _ string) []Box {
 	box.Box().IsAttachment = utils.ElementHasLinkType(element, "attachment")
 	return []Box{box}
-}
-
-// Return the base URL for the document.
-// See http://www.w3.org/TR/html5/urls.html#document-base-url
-//
-func findBaseUrl(htmlDocument utils.HTMLNode, fallbackBaseUrl string) string {
-	iter := htmlDocument.Iter(atom.Base)
-	firstBaseElement := iter.Next()
-	if firstBaseElement != nil {
-		href := strings.TrimSpace(firstBaseElement.Get("href"))
-		if href != "" {
-			out, err := utils.BasicUrlJoin(fallbackBaseUrl, href)
-			if err != nil {
-				log.Printf("invalid href : %s\n", err)
-				return fallbackBaseUrl
-			}
-			return out
-		}
-	}
-	return fallbackBaseUrl
 }

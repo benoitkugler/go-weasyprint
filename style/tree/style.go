@@ -611,10 +611,10 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 // If ``presentationalHints`` is ``true``, rules from presentational hints
 // are returned with specificity ``(0, 0, 0)``.
 // presentationalHints=false
-func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl string) (out []sas) {
-	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute string) sa {
+func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl string) (out []styleAttrSpec) {
+	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute string) styleAttr {
 		declarations := parser.ParseDeclarationList2(styleAttribute, false, false)
-		return sa{element: element, declaration: declarations, baseUrl: baseUrl}
+		return styleAttr{element: element, declaration: declarations, baseUrl: baseUrl}
 	}
 
 	iter := tree.Iter()
@@ -623,7 +623,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 		specificity := cascadia.Specificity{1, 0, 0}
 		styleAttribute := element.Get("style")
 		if styleAttribute != "" {
-			out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+			out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 		}
 		if !presentationalHints {
 			continue
@@ -643,38 +643,38 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					}
 				}
 				if styleAttribute != "" {
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 				}
 			}
 			if element.Get("background") != "" {
 				styleAttribute = fmt.Sprintf("background-image:url(%s)", element.Get("background"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bgcolor") != "" {
 				styleAttribute = fmt.Sprintf("background-color:%s", element.Get("bgcolor"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("text") != "" {
 				styleAttribute = fmt.Sprintf("color:%s", element.Get("text"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 		// TODO: we should support link, vlink, alink
 		case atom.Center:
-			out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "text-align:center")})
+			out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, "text-align:center")})
 		case atom.Div:
 			align := strings.ToLower(element.Get("align"))
 			switch align {
 			case "middle":
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "text-align:center")})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, "text-align:center")})
 			case "center", "left", "right", "justify":
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
 			}
 		case atom.Font:
 			if element.Get("color") != "" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
 			}
 			if element.Get("face") != "" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("font-family:%s", element.Get("face")))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("font-family:%s", element.Get("face")))})
 			}
 			if element.Get("size") != "" {
 				size := strings.TrimSpace(element.Get("size"))
@@ -702,13 +702,13 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 						sizeI -= 3
 					}
 					sizeI = utils.MaxInt(1, utils.MinInt(7, sizeI))
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("font-size:%s", fontSizes[sizeI]))})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("font-size:%s", fontSizes[sizeI]))})
 				}
 			}
 		case atom.Table:
 			// TODO: we should support cellpadding
 			if element.Get("cellspacing") != "" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("border-spacing:%spx", element.Get("cellspacing")))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("border-spacing:%spx", element.Get("cellspacing")))})
 			}
 			if element.Get("cellpadding") != "" {
 				cellpadding := element.Get("cellpadding")
@@ -720,7 +720,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				for iterElement.HasNext() {
 					subelement := iterElement.Next()
 					if subelement.DataAtom == atom.Td || subelement.DataAtom == atom.Th {
-						out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(subelement,
+						out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(subelement,
 							fmt.Sprintf("padding-left:%s;padding-right:%s;padding-top:%s;padding-bottom:%s;", cellpadding, cellpadding, cellpadding, cellpadding))})
 					}
 				}
@@ -730,7 +730,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(hspace) {
 					hspace += "px"
 				}
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 					fmt.Sprintf("margin-left:%s;margin-right:%s", hspace, hspace))})
 			}
 			if element.Get("vspace") != "" {
@@ -738,7 +738,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(vspace) {
 					vspace += "px"
 				}
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 					fmt.Sprintf("margin-top:%s;margin-bottom:%s", vspace, vspace))})
 			}
 			if element.Get("width") != "" {
@@ -746,44 +746,44 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(element.Get("width")) {
 					styleAttribute += "px"
 				}
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("height") != "" {
 				styleAttribute = fmt.Sprintf("height:%s", element.Get("height"))
 				if utils.IsDigit(element.Get("height")) {
 					styleAttribute += "px"
 				}
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("background") != "" {
 				styleAttribute = fmt.Sprintf("background-image:url(%s)", element.Get("background"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bgcolor") != "" {
 				styleAttribute = fmt.Sprintf("background-color:%s", element.Get("bgcolor"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bordercolor") != "" {
 				styleAttribute = fmt.Sprintf("border-color:%s", element.Get("bordercolor"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("border") != "" {
 				styleAttribute = fmt.Sprintf("border-width:%spx", element.Get("border"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 		case atom.Tr, atom.Td, atom.Th, atom.Thead, atom.Tbody, atom.Tfoot:
 			align := strings.ToLower(element.Get("align"))
 			if align == "left" || align == "right" || align == "justify" {
 				// TODO: we should align descendants too
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
 			}
 			if element.Get("background") != "" {
 				styleAttribute = fmt.Sprintf("background-image:url(%s)", element.Get("background"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("bgcolor") != "" {
 				styleAttribute = fmt.Sprintf("background-color:%s", element.Get("bgcolor"))
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.DataAtom == atom.Tr || element.DataAtom == atom.Td || element.DataAtom == atom.Th {
 				if element.Get("height") != "" {
@@ -791,7 +791,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					if utils.IsDigit(element.Get("height")) {
 						styleAttribute += "px"
 					}
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 				}
 				if element.DataAtom == atom.Td || element.DataAtom == atom.Th {
 					if element.Get("width") != "" {
@@ -799,7 +799,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 						if utils.IsDigit(element.Get("width")) {
 							styleAttribute += "px"
 						}
-						out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+						out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 					}
 				}
 			}
@@ -807,7 +807,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 			align := strings.ToLower(element.Get("align"))
 			// TODO: we should align descendants too
 			if align == "left" || align == "right" || align == "justify" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("text-align:%s", align))})
 			}
 		case atom.Col:
 			if element.Get("width") != "" {
@@ -815,7 +815,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(element.Get("width")) {
 					styleAttribute += "px"
 				}
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 		case atom.Hr:
 			size := 0
@@ -828,12 +828,12 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 			}
 			if element.HasAttr("color") || element.HasAttr("noshade") {
 				if size >= 1 {
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("border-width:%dpx", size/2))})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("border-width:%dpx", size/2))})
 				}
 			} else if size == 1 {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "border-bottom-width:0")})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, "border-bottom-width:0")})
 			} else if size > 1 {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("height:%dpx", size-2))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("height:%dpx", size-2))})
 			}
 
 			if element.Get("width") != "" {
@@ -841,24 +841,24 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 				if utils.IsDigit(element.Get("width")) {
 					styleAttribute += "px"
 				}
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 			}
 			if element.Get("color") != "" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, fmt.Sprintf("color:%s", element.Get("color")))})
 			}
 		case atom.Iframe, atom.Applet, atom.Embed, atom.Img, atom.Input, atom.Object:
 			if element.DataAtom != atom.Input || strings.ToLower(element.Get("type")) == "image" {
 				align := strings.ToLower(element.Get("align"))
 				if align == "middle" || align == "center" {
 					// TODO: middle && center values are wrong
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, "vertical-align:middle")})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, "vertical-align:middle")})
 				}
 				if element.Get("hspace") != "" {
 					hspace := element.Get("hspace")
 					if utils.IsDigit(hspace) {
 						hspace += "px"
 					}
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 						fmt.Sprintf("margin-left:%s;margin-right:%s", hspace, hspace))})
 				}
 				if element.Get("vspace") != "" {
@@ -866,7 +866,7 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					if utils.IsDigit(vspace) {
 						vspace += "px"
 					}
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 						fmt.Sprintf("margin-top:%s;margin-bottom:%s", vspace, vspace))})
 				}
 				// TODO: img seems to be excluded for width && height, but a
@@ -876,18 +876,18 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 					if utils.IsDigit(element.Get("width")) {
 						styleAttribute += "px"
 					}
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 				}
 				if element.Get("height") != "" {
 					styleAttribute = fmt.Sprintf("height:%s", element.Get("height"))
 					if utils.IsDigit(element.Get("height")) {
 						styleAttribute += "px"
 					}
-					out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element, styleAttribute)})
+					out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element, styleAttribute)})
 				}
 				if element.DataAtom == atom.Img || element.DataAtom == atom.Object || element.DataAtom == atom.Input {
 					if element.Get("border") != "" {
-						out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+						out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 							fmt.Sprintf("border-width:%spx;border-style:solid", element.Get("border")))})
 					}
 				}
@@ -895,13 +895,13 @@ func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl
 		case atom.Ol:
 			// From https://www.w3.org/TR/css-lists-3/
 			if element.Get("start") != "" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 					fmt.Sprintf("counter-reset:list-item %s;counter-increment:list-item -1", element.Get("start")))})
 			}
 		case atom.Ul:
 			// From https://www.w3.org/TR/css-lists-3/
 			if element.Get("value") != "" {
-				out = append(out, sas{specificity: specificity, sa: checkStyleAttribute(element,
+				out = append(out, styleAttrSpec{specificity: specificity, styleAttr: checkStyleAttribute(element,
 					fmt.Sprintf("counter-reset:list-item %s;counter-increment:none", element.Get("value")))})
 			}
 		}
@@ -1297,14 +1297,14 @@ type sheet struct {
 	specificity []int
 }
 
-type sa struct {
+type styleAttr struct {
 	element     *utils.HTMLNode
 	baseUrl     string
 	declaration []Token
 }
 
-type sas struct {
-	sa
+type styleAttrSpec struct {
+	styleAttr
 	specificity cascadia.Specificity
 }
 

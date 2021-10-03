@@ -84,8 +84,8 @@ func (h *HTMLNode) Iter(tags ...atom.Atom) HtmlIterator {
 // HtmlIterator simplify the (depth first) walk on an HTML tree.
 type HtmlIterator struct {
 	tagsMap map[atom.Atom]bool // if nil, means all
+	result  *html.Node         // valid element to return
 	toVisit []*html.Node
-	result  *html.Node // valid element to return
 }
 
 // NewHtmlIterator use `root` as start point.
@@ -346,7 +346,7 @@ type Attachment struct {
 func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata {
 	var (
 		title, description, generator string
-		authors                       = []string{}
+		authors, keywords             = []string{}, []string{}
 		created, modified             time.Time
 		keywordsSet                   = map[string]bool{}
 		attachments                   = []Attachment{}
@@ -364,9 +364,12 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 			content := element.Get("content")
 			switch name {
 			case "keywords":
-				for _, _keyword := range strings.Split(content, ",") {
-					keyword := stripWhitespace(_keyword)
-					keywordsSet[keyword] = true
+				for _, keyword := range strings.Split(content, ",") {
+					keyword = stripWhitespace(keyword)
+					if !keywordsSet[keyword] {
+						keywords = append(keywords, keyword)
+						keywordsSet[keyword] = true
+					}
 				}
 			case "author":
 				authors = append(authors, content)
@@ -398,10 +401,6 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 				}
 			}
 		}
-	}
-	keywords := []string{}
-	for kw := range keywordsSet {
-		keywords = append(keywords, kw)
 	}
 	return DocumentMetadata{
 		Title:       title,

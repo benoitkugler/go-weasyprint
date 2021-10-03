@@ -395,7 +395,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out pr.A
 		if la == 1 {
 			typeOrUnit = "string"
 		} else {
-			ident2, ok := args[0].(parser.IdentToken)
+			ident2, ok := args[1].(parser.IdentToken)
 			if !ok {
 				return
 			}
@@ -404,7 +404,7 @@ func checkAttrFunction(token parser.FunctionBlock, allowedType string) (out pr.A
 			if !isIN {
 				return
 			}
-			if la == 2 {
+			if la < 3 {
 				fallback = fb
 			} else {
 				switch fbValue := args[2].(type) {
@@ -593,10 +593,9 @@ func getTarget(token Token, baseUrl string) (out pr.ContentProperty, err error) 
 	}
 	args = splitOnOptionalComma(args)
 	la := len(args)
-	if la > 0 {
+	if la == 0 {
 		return
 	}
-
 	switch name {
 	case "target-counter":
 		if la != 2 && la != 3 {

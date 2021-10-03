@@ -853,13 +853,17 @@ func lineHeight(computer *ComputedStyle, name string, _value pr.CssProperty) pr.
 
 // Compute the ``anchor`` property.
 func anchor(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProperty {
-	value := string(_value.(pr.String))
-	if node, ok := computer.element.(*utils.HTMLNode); ok && value != "none" {
-		anchorName := node.Get(value)
+	// _value is either "none" or an AttrData
+	attrData, ok := _value.(pr.AttrData)
+	if !ok {
+		return nil
+	}
+	if node, ok := computer.element.(*utils.HTMLNode); ok {
+		anchorName := node.Get(attrData.Name)
 		if anchorName == "" {
 			return nil
 		}
-		return pr.NamedString{String: anchorName}
+		return pr.String(anchorName)
 	}
 	return nil
 }
