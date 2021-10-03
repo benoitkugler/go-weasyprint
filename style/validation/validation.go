@@ -2758,7 +2758,7 @@ func blockEllipsis_(tokens []Token) (out pr.NamedString, ok bool) {
 	}
 	keyword := getKeyword(token)
 	if keyword == "none" || keyword == "auto" {
-		return pr.NamedString{String: keyword}, true
+		return pr.NamedString{Name: keyword}, true
 	}
 	return
 }

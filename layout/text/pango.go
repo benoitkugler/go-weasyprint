@@ -20,9 +20,9 @@ type TextLayoutContext interface {
 // TextLayout wraps a pango.Layout object
 type TextLayout struct {
 	Style   pr.StyleAccessor
-	metrics *pango.FontMetrics // optional
+	Metrics *pango.FontMetrics // optional
 
-	maxWidth pr.MaybeFloat
+	MaxWidth pr.MaybeFloat
 
 	Context TextLayoutContext // will be a *LayoutContext; to avoid circular dependency
 
@@ -37,7 +37,7 @@ func NewTextLayout(context TextLayoutContext, fontSize pr.Fl, style pr.StyleAcce
 
 	layout.JustificationSpacing = justificationSpacing
 	layout.setup(context, fontSize, style)
-	layout.maxWidth = maxWidth
+	layout.MaxWidth = maxWidth
 
 	return &layout
 }
@@ -75,9 +75,9 @@ func (p *TextLayout) setup(context TextLayoutContext, fontSize pr.Fl, style pr.S
 
 	if !style.GetTextDecorationLine().IsNone() {
 		metrics := pc.GetMetrics(&fontDesc, lang)
-		p.metrics = &metrics
+		p.Metrics = &metrics
 	} else {
-		p.metrics = nil
+		p.Metrics = nil
 	}
 
 	p.Layout = *pango.NewLayout(pc)

@@ -190,7 +190,7 @@ var InitialValues = Properties{
 	"text_decoration_style": String("solid"),
 
 	// Overflow Module 3 (WD): https://www.w3.org/TR/css-overflow-3/
-	"block_ellipsis": NamedString{String: "none"},
+	"block_ellipsis": NamedString{Name: "none"},
 	"continue":       String("auto"),
 	"max_lines":      IntString{String: "none"},
 	"overflow":       String("visible"),

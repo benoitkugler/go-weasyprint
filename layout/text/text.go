@@ -425,6 +425,22 @@ func getNextWordBoundaries(t []rune) []int {
 	return out
 }
 
+// GetLastWordEnd returns the index in `t` if the last word,
+// or -1
+func GetLastWordEnd(t []rune) int {
+	if len(t) < 2 {
+		return -1
+	}
+	attrs := getLogAttrs(t)
+	for i := 0; i < len(attrs); i++ {
+		item := attrs[len(attrs)-1]
+		if i != 0 && item.IsWordEnd() {
+			return len(t) - i
+		}
+	}
+	return -1
+}
+
 func CanBreakText(t []rune) pr.MaybeBool {
 	if len(t) < 2 {
 		return nil

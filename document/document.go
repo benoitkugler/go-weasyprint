@@ -271,7 +271,7 @@ func (d Page) Paint(cairoContext Drawer, leftX, topY, scale fl, clip bool) {
 		cairoContext.Rectangle(0, 0, width, height)
 		cairoContext.Clip()
 	}
-	drawPage(d.pageBox, cairoContext, d.enableHinting)
+	drawPage(d.pageBox, cairoContext)
 }
 
 // A rendered document ready to be painted on a cairo context.
