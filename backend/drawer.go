@@ -29,8 +29,8 @@ type Anchor struct {
 }
 
 type Attachment struct {
-	Content            []byte
 	Title, Description string
+	Content            []byte
 }
 
 // type Drawer2 interface {

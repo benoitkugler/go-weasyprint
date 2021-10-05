@@ -3,6 +3,7 @@ package text
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"path/filepath"
 	"strings"
@@ -21,15 +22,17 @@ import (
 type FontConfiguration struct {
 	Fontmap *fcfonts.FontMap
 
-	userFonts map[fonts.FaceID]fonts.Face
+	userFonts    map[fonts.FaceID]fonts.Face
+	fontsContent map[fonts.Face][]byte // to be embedded in the target
 }
 
 // NewFontConfiguration uses a fontconfig database to create a new
 // font configuration
-func NewFontConfiguration(config *fc.Config, dataset fc.Fontset) *FontConfiguration {
+func NewFontConfiguration(fontmap *fcfonts.FontMap) *FontConfiguration {
 	out := &FontConfiguration{
-		Fontmap:   fcfonts.NewFontMap(config, dataset),
-		userFonts: make(map[fonts.FaceID]fonts.Face),
+		Fontmap:      fontmap,
+		userFonts:    make(map[fonts.FaceID]fonts.Face),
+		fontsContent: make(map[fonts.Face][]byte),
 	}
 	out.Fontmap.SetFaceLoader(out)
 	return out
@@ -42,6 +45,10 @@ func (f *FontConfiguration) LoadFace(key fonts.FaceID, format fc.FontFormat) (fo
 	return fcfonts.DefaultLoadFace(key, format)
 }
 
+func (f *FontConfiguration) FontContent(face fonts.Face) []byte {
+	return f.fontsContent[face]
+}
+
 func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescriptors, urlFetcher utils.UrlFetcher) string {
 	if f.Fontmap == nil {
 		return ""
@@ -51,146 +58,162 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 		if url.String == "" {
 			continue
 		}
-		if url.Name == "external" || url.Name == "local" {
-			config := f.Fontmap.Config
-
-			if url.Name == "local" {
-				fontName := url.String
-				pattern := fc.NewPattern()
-				config.Substitute(pattern, nil, fc.MatchResult)
-				pattern.SubstituteDefault()
-				pattern.AddString(fc.FULLNAME, fontName)
-				pattern.AddString(fc.POSTSCRIPT_NAME, fontName)
-				matchingPattern := f.Fontmap.Database.Match(pattern, config)
-
-				// prevent RuntimeError, see issue #677
-				if matchingPattern == nil {
-					log.Printf("Failed to get matching local font for %s", fontName)
-					continue
-				}
-
-				family, _ := matchingPattern.GetString(fc.FULLNAME)
-				postscript, _ := matchingPattern.GetString(fc.POSTSCRIPT_NAME)
-				if fn := strings.ToLower(fontName); fn == strings.ToLower(family) || fn == strings.ToLower(postscript) {
-					filename := matchingPattern.FaceID().File
-					var err error
-					url.String, err = filepath.Abs(filename)
-					if err != nil {
-						log.Printf("Failed to load local font %s: %s", fontName, err)
-						continue
-					}
-				} else {
-					log.Printf("Failed to load local font %s", fontName)
-					continue
-				}
-			}
-
-			result, err := urlFetcher(url.String)
-			if err != nil {
-				log.Printf("Failed to load font at: %s", err)
-			}
-			fontFilename := url.String
-
-			if url.Name == "external" {
-				faces, format := fc.ReadFontFile(result.Content)
-				if format == "" {
-					log.Printf("Failed to load font at %s : unsupported format", fontFilename)
-				}
-				for i, face := range faces {
-					key := fonts.FaceID{
-						File:  fontFilename,
-						Index: uint16(i),
-					}
-					f.userFonts[key] = face
-				}
-			}
-
-			features := pr.Properties{}
-			// avoid nil values
-			features.SetFontKerning("")
-			features.SetFontVariantLigatures(pr.SStrings{})
-			features.SetFontVariantPosition("")
-			features.SetFontVariantCaps("")
-			features.SetFontVariantNumeric(pr.SStrings{})
-			features.SetFontVariantAlternates("")
-			features.SetFontVariantEastAsian(pr.SStrings{})
-			features.SetFontFeatureSettings(pr.SIntStrings{})
-			for _, rules := range ruleDescriptors.FontVariant {
-				if rules.Property.SpecialProperty != nil {
-					continue
-				}
-				if cascaded := rules.Property.ToCascaded(); cascaded.Default == 0 {
-					features[strings.ReplaceAll(rules.Name, "-", "_")] = cascaded.ToCSS()
-				}
-			}
-			if !ruleDescriptors.FontFeatureSettings.IsNone() {
-				features.SetFontFeatureSettings(ruleDescriptors.FontFeatureSettings)
-			}
-			featuresString := ""
-			for k, v := range getFontFeatures(features) {
-				featuresString += fmt.Sprintf("<string>%s=%d</string>", k, v)
-			}
-			fontconfigStyle, ok := FONTCONFIG_STYLE[ruleDescriptors.FontStyle]
-			if !ok {
-				fontconfigStyle = "roman"
-			}
-			fontconfigWeight, ok := FONTCONFIG_WEIGHT[ruleDescriptors.FontWeight]
-			if !ok {
-				fontconfigWeight = "regular"
-			}
-			fontconfigStretch, ok := FONTCONFIG_STRETCH[ruleDescriptors.FontStretch]
-			if !ok {
-				fontconfigStretch = "normal"
-			}
-			xml := fmt.Sprintf(`<?xml version="1.0"?>
-			<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-			<fontconfig>
-			  <match target="scan">
-				<test name="file" compare="eq">
-				  <string>%s</string>
-				</test>
-				<edit name="family" mode="assign_replace">
-				  <string>%s</string>
-				</edit>
-				<edit name="slant" mode="assign_replace">
-				  <const>%s</const>
-				</edit>
-				<edit name="weight" mode="assign_replace">
-				  <const>%s</const>
-				</edit>
-				<edit name="width" mode="assign_replace">
-				  <const>%s</const>
-				</edit>
-			  </match>
-			  <match target="font">
-				<test name="family" compare="eq">
-				  <string>%s</string>
-				</test>
-				<edit name="fontfeatures" mode="assign_replace">%s</edit>
-			  </match>
-			</fontconfig>`, fontFilename, ruleDescriptors.FontFamily, fontconfigStyle,
-				fontconfigWeight, fontconfigStretch, ruleDescriptors.FontFamily, featuresString)
-
-			err = config.LoadFromMemory(bytes.NewReader([]byte(xml)))
-			if err != nil {
-				log.Printf("Failed to load fontconfig config: %s", err)
-			}
-
-			fs, err := config.ScanFontRessource(result.Content, fontFilename)
-			result.Content.Close()
-			if err != nil {
-				log.Printf("Failed to load font at %s", url.String)
-				continue
-			}
-
-			f.Fontmap.Database = append(f.Fontmap.Database, fs...)
-			f.Fontmap.SetConfig(config, f.Fontmap.Database)
-			return fontFilename
+		if !(url.Name == "external" || url.Name == "local") {
+			continue
 		}
+
+		filename, err := f.loadOneFont(url, ruleDescriptors, urlFetcher)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		return filename
 	}
 
 	log.Printf("Font-face %s cannot be loaded", ruleDescriptors.FontFamily)
 	return ""
+}
+
+func (f *FontConfiguration) loadOneFont(url pr.NamedString, ruleDescriptors validation.FontFaceDescriptors, urlFetcher utils.UrlFetcher) (string, error) {
+	config := f.Fontmap.Config
+
+	if url.Name == "local" {
+		fontName := url.String
+		pattern := fc.NewPattern()
+		config.Substitute(pattern, nil, fc.MatchResult)
+		pattern.SubstituteDefault()
+		pattern.AddString(fc.FULLNAME, fontName)
+		pattern.AddString(fc.POSTSCRIPT_NAME, fontName)
+		matchingPattern := f.Fontmap.Database.Match(pattern, config)
+
+		// prevent RuntimeError, see issue #677
+		if matchingPattern == nil {
+			return "", fmt.Errorf("Failed to get matching local font for %s", fontName)
+		}
+
+		family, _ := matchingPattern.GetString(fc.FULLNAME)
+		postscript, _ := matchingPattern.GetString(fc.POSTSCRIPT_NAME)
+		if fn := strings.ToLower(fontName); fn == strings.ToLower(family) || fn == strings.ToLower(postscript) {
+			filename := matchingPattern.FaceID().File
+			var err error
+			url.String, err = filepath.Abs(filename)
+			if err != nil {
+				return "", fmt.Errorf("Failed to load local font %s: %s", fontName, err)
+			}
+		} else {
+			return "", fmt.Errorf("Failed to load local font %s", fontName)
+		}
+	}
+
+	result, err := urlFetcher(url.String)
+	if err != nil {
+		return "", fmt.Errorf("Failed to load font at: %s", err)
+	}
+	fontFilename := url.String
+
+	content, err := ioutil.ReadAll(result.Content)
+	if err != nil {
+		return "", fmt.Errorf("Failed to load font at %s", url.String)
+	}
+	result.Content.Close()
+
+	faces, format := fc.ReadFontFile(bytes.NewReader(content))
+	if format == "" {
+		return "", fmt.Errorf("Failed to load font at %s : unsupported format", fontFilename)
+	}
+
+	if len(faces) != 1 {
+		return "", fmt.Errorf("Font collections are not supported (%s)", url.String)
+	}
+
+	f.fontsContent[faces[0]] = content
+
+	if url.Name == "external" {
+		key := fonts.FaceID{
+			File: fontFilename,
+		}
+		f.userFonts[key] = faces[0]
+	}
+
+	features := pr.Properties{}
+	// avoid nil values
+	features.SetFontKerning("")
+	features.SetFontVariantLigatures(pr.SStrings{})
+	features.SetFontVariantPosition("")
+	features.SetFontVariantCaps("")
+	features.SetFontVariantNumeric(pr.SStrings{})
+	features.SetFontVariantAlternates("")
+	features.SetFontVariantEastAsian(pr.SStrings{})
+	features.SetFontFeatureSettings(pr.SIntStrings{})
+	for _, rules := range ruleDescriptors.FontVariant {
+		if rules.Property.SpecialProperty != nil {
+			continue
+		}
+		if cascaded := rules.Property.ToCascaded(); cascaded.Default == 0 {
+			features[strings.ReplaceAll(rules.Name, "-", "_")] = cascaded.ToCSS()
+		}
+	}
+	if !ruleDescriptors.FontFeatureSettings.IsNone() {
+		features.SetFontFeatureSettings(ruleDescriptors.FontFeatureSettings)
+	}
+	featuresString := ""
+	for k, v := range getFontFeatures(features) {
+		featuresString += fmt.Sprintf("<string>%s=%d</string>", k, v)
+	}
+	fontconfigStyle, ok := FONTCONFIG_STYLE[ruleDescriptors.FontStyle]
+	if !ok {
+		fontconfigStyle = "roman"
+	}
+	fontconfigWeight, ok := FONTCONFIG_WEIGHT[ruleDescriptors.FontWeight]
+	if !ok {
+		fontconfigWeight = "regular"
+	}
+	fontconfigStretch, ok := FONTCONFIG_STRETCH[ruleDescriptors.FontStretch]
+	if !ok {
+		fontconfigStretch = "normal"
+	}
+	xml := fmt.Sprintf(`<?xml version="1.0"?>
+		<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+		<fontconfig>
+		  <match target="scan">
+			<test name="file" compare="eq">
+			  <string>%s</string>
+			</test>
+			<edit name="family" mode="assign_replace">
+			  <string>%s</string>
+			</edit>
+			<edit name="slant" mode="assign_replace">
+			  <const>%s</const>
+			</edit>
+			<edit name="weight" mode="assign_replace">
+			  <const>%s</const>
+			</edit>
+			<edit name="width" mode="assign_replace">
+			  <const>%s</const>
+			</edit>
+		  </match>
+		  <match target="font">
+			<test name="family" compare="eq">
+			  <string>%s</string>
+			</test>
+			<edit name="fontfeatures" mode="assign_replace">%s</edit>
+		  </match>
+		</fontconfig>`, fontFilename, ruleDescriptors.FontFamily, fontconfigStyle,
+		fontconfigWeight, fontconfigStretch, ruleDescriptors.FontFamily, featuresString)
+
+	err = config.LoadFromMemory(bytes.NewReader([]byte(xml)))
+	if err != nil {
+		return "", fmt.Errorf("Failed to load fontconfig config: %s", err)
+	}
+
+	fs, err := config.ScanFontRessource(bytes.NewReader(content), fontFilename)
+	if err != nil {
+		return "", fmt.Errorf("Failed to load font at %s", url.String)
+	}
+
+	f.Fontmap.Database = append(f.Fontmap.Database, fs...)
+	f.Fontmap.SetConfig(config, f.Fontmap.Database)
+	return fontFilename, nil
 }
 
 // Fontconfig features

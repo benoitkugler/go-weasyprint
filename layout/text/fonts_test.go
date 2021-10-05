@@ -3,9 +3,14 @@ package text
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"testing"
 
+	"github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/validation"
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/textlayout/fontconfig"
+	"github.com/benoitkugler/textlayout/fonts"
 )
 
 func TestAddConfig(t *testing.T) {
@@ -48,5 +53,30 @@ func TestAddConfig(t *testing.T) {
 	err := config.LoadFromMemory(bytes.NewReader([]byte(xml)))
 	if err != nil {
 		t.Fatalf("Failed to load fontconfig config: %s", err)
+	}
+}
+
+func TestAddFace(t *testing.T) {
+	fc := NewFontConfiguration(fontmap)
+	url, err := utils.Path2url("../../resources_test/weasyprint.otf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filename := fc.AddFontFace(validation.FontFaceDescriptors{
+		Src:        []properties.NamedString{{Name: "external", String: url}},
+		FontFamily: "weasyprint",
+	}, utils.DefaultUrlFetcher)
+
+	face, err := fc.LoadFace(fonts.FaceID{File: filename}, fontconfig.TrueType)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected, err := ioutil.ReadFile("../../resources_test/weasyprint.otf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(expected, fc.FontContent(face)) {
+		t.Fatal()
 	}
 }

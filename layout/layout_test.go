@@ -14,6 +14,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
+	"github.com/benoitkugler/textlayout/pango/fcfonts"
 )
 
 var baseUrl, _ = utils.Path2url("../resources_test/")
@@ -36,7 +37,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fontconfig = text.NewFontConfiguration(fc.Standard.Copy(), fs)
+	fontconfig = text.NewFontConfiguration(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
 func fakeHTML(html *tree.HTML) *tree.HTML {

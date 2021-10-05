@@ -245,7 +245,7 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 // topY is the Y coordinate of the top of the page, in cairo user units.
 // scale is the Zoom scale in cairo user units per CSS pixel.
 // clip : whether to clip/cut content outside the page. If false, content can overflow.
-func (d Page) Paint(cairoContext Drawer, leftX, topY, scale fl, clip bool) {
+func (d Page) Paint(cairoContext Drawer, fc *text.FontConfiguration, leftX, topY, scale fl, clip bool) {
 	// with stacked(cairoContext) {
 	if d.enableHinting {
 		leftX, topY = cairoContext.UserToDevice(leftX, topY)
@@ -271,7 +271,8 @@ func (d Page) Paint(cairoContext Drawer, leftX, topY, scale fl, clip bool) {
 		cairoContext.Rectangle(0, 0, width, height)
 		cairoContext.Clip()
 	}
-	drawPage(d.pageBox, cairoContext)
+	ctx := drawContext{dst: cairoContext, fonts: fc}
+	ctx.drawPage(d.pageBox)
 }
 
 // A rendered document ready to be painted on a cairo context.
@@ -288,6 +289,8 @@ type Document struct {
 	// as stylesheets and images.
 	urlFetcher utils.UrlFetcher
 
+	fontconfig *text.FontConfiguration
+
 	// A `DocumentMetadata` object.
 	// Contains information that does not belong to a specific page
 	// but to the whole document.
@@ -303,7 +306,7 @@ func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, f
 	for i, pageBox := range pageBoxes {
 		pages[i] = NewPage(pageBox, false)
 	}
-	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher}
+	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher, fontconfig: fontConfig}
 }
 
 // Take a subset of the pages.
