@@ -10,9 +10,9 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
+	"github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
-	"github.com/benoitkugler/textlayout/fonts"
 	"github.com/benoitkugler/textlayout/pango"
 
 	"github.com/benoitkugler/go-weasyprint/layout"
@@ -242,6 +242,14 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 	return ctx.dst.OnNewStack(func() error {
 		box_ := stackingContext.box
 		box := box_.Box()
+
+		// apply the viewport_overflow to the html box, see #35
+		if box.IsForRootElement && (stackingContext.page.Style.GetOverflow() != "visible") {
+			roundedBoxPath(
+				ctx.dst, stackingContext.page.RoundedPaddingBox())
+			ctx.dst.Clip(false)
+		}
+
 		if clips := box.Style.GetClip(); box.IsAbsolutelyPositioned() && len(clips) != 0 {
 			top, right, bottom, left := clips[0], clips[1], clips[2], clips[3]
 			if top.String == "auto" {
@@ -262,108 +270,123 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 				fl(left.Value-right.Value),
 				fl(bottom.Value-top.Value),
 			)
-			ctx.dst.Clip()
+			ctx.dst.Clip(false)
 		}
 
-		ops := func() error {
-			if box.TransformationMatrix != nil {
-				if err := box.TransformationMatrix.Copy().Invert(); err != nil {
-					return err
-				}
-				ctx.dst.Transform(*box.TransformationMatrix)
+		originalDst := ctx.dst
+		opacity := fl(box.Style.GetOpacity())
+		if opacity < 1 { // we draw all the following to a separate group
+			ctx.dst = ctx.dst.AddGroup(pr.Fl(box.BorderBoxX()), pr.Fl(box.BorderBoxY()),
+				pr.Fl(box.BorderWidth()), pr.Fl(box.BorderHeight()))
+		}
+
+		if box.TransformationMatrix != nil {
+			if err := box.TransformationMatrix.Copy().Invert(); err != nil {
+				return err
+			}
+			ctx.dst.Transform(*box.TransformationMatrix)
+		}
+
+		// Point 1 is done in drawPage
+
+		// Point 2
+		if bo.BlockBoxT.IsInstance(box_) || bo.MarginBoxT.IsInstance(box_) ||
+			bo.InlineBlockBoxT.IsInstance(box_) || bo.TableCellBoxT.IsInstance(box_) ||
+			bo.FlexContainerBoxT.IsInstance(box_) {
+			// The canvas background was removed by setCanvasBackground
+			if err := ctx.drawBoxBackgroundAndBorder(box_); err != nil {
+				return err
+			}
+		}
+
+		err := ctx.dst.OnNewStack(func() error {
+			// dont clip the PageBox, see #35
+			if box.Style.GetOverflow() != "visible" && !bo.PageBoxT.IsInstance(box_) {
+				// Only clip the content and the children:
+				// - the background is already clipped
+				// - the border must *not* be clipped
+				roundedBoxPath(ctx.dst, box.RoundedPaddingBox())
+				ctx.dst.Clip(false)
 			}
 
-			// Point 1 is done in drawPage
-
-			// Point 2
-			if bo.BlockBoxT.IsInstance(box_) || bo.MarginBoxT.IsInstance(box_) ||
-				bo.InlineBlockBoxT.IsInstance(box_) || bo.TableCellBoxT.IsInstance(box_) ||
-				bo.FlexContainerBoxT.IsInstance(box_) {
-				// The canvas background was removed by setCanvasBackground
-				if err := ctx.drawBoxBackgroundAndBorder(box_); err != nil {
+			// Point 3
+			for _, childContext := range stackingContext.negativeZContexts {
+				if err := ctx.drawStackingContext(childContext); err != nil {
 					return err
 				}
 			}
-			return ctx.dst.OnNewStack(func() error {
-				if box.Style.GetOverflow() != "visible" {
-					// Only clip the content and the children:
-					// - the background is already clipped
-					// - the border must *not* be clipped
-					roundedBoxPath(ctx.dst, box.RoundedPaddingBox())
-					ctx.dst.Clip()
-				}
 
-				// Point 3
-				for _, childContext := range stackingContext.negativeZContexts {
-					if err := ctx.drawStackingContext(childContext); err != nil {
-						return err
-					}
+			// Point 4
+			for _, block := range stackingContext.blockLevelBoxes {
+				if err := ctx.drawBoxBackgroundAndBorder(block); err != nil {
+					return err
 				}
+			}
 
-				// Point 4
-				for _, block := range stackingContext.blockLevelBoxes {
-					if err := ctx.drawBoxBackgroundAndBorder(block); err != nil {
-						return err
-					}
+			// Point 5
+			for _, childContext := range stackingContext.floatContexts {
+				if err := ctx.drawStackingContext(childContext); err != nil {
+					return err
 				}
+			}
 
-				// Point 5
-				for _, childContext := range stackingContext.floatContexts {
-					if err := ctx.drawStackingContext(childContext); err != nil {
-						return err
-					}
+			// Point 6
+			if bo.InlineBoxT.IsInstance(box_) {
+				if err := ctx.drawInlineLevel(stackingContext.page, box_, 0, "clip", pr.NamedString{Name: "none"}); err != nil {
+					return err
 				}
+			}
 
-				// Point 6
-				if bo.InlineBoxT.IsInstance(box_) {
-					if err := ctx.drawInlineLevel(stackingContext.page, box_, 0, "clip", pr.NamedString{Name: "none"}); err != nil {
-						return err
-					}
-				}
-
-				// Point 7
-				for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
-					if block, ok := block.(bo.ReplacedBoxITF); ok {
-						ctx.drawReplacedbox(block)
-					} else {
-						for _, child := range block.Box().Children {
-							if bo.LineBoxT.IsInstance(child) {
-								if err := ctx.drawInlineLevel(stackingContext.page, child, 0, "clip", pr.NamedString{Name: "none"}); err != nil {
-									return err
-								}
+			// Point 7
+			for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
+				if block, ok := block.(bo.ReplacedBoxITF); ok {
+					ctx.drawReplacedbox(block)
+				} else {
+					for _, child := range block.Box().Children {
+						if bo.LineBoxT.IsInstance(child) {
+							if err := ctx.drawInlineLevel(stackingContext.page, child, 0, "clip", pr.NamedString{Name: "none"}); err != nil {
+								return err
 							}
 						}
 					}
 				}
+			}
 
-				// Point 8
-				for _, childContext := range stackingContext.zeroZContexts {
-					if err := ctx.drawStackingContext(childContext); err != nil {
-						return err
-					}
+			// Point 8
+			for _, childContext := range stackingContext.zeroZContexts {
+				if err := ctx.drawStackingContext(childContext); err != nil {
+					return err
 				}
+			}
 
-				// Point 9
-				for _, childContext := range stackingContext.positiveZContexts {
-					if err := ctx.drawStackingContext(childContext); err != nil {
-						return err
-					}
+			// Point 9
+			for _, childContext := range stackingContext.positiveZContexts {
+				if err := ctx.drawStackingContext(childContext); err != nil {
+					return err
 				}
-				// Point 10
-				ctx.drawOutlines(box_)
+			}
+
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		// Point 10
+		ctx.drawOutlines(box_)
+
+		if opacity < 1 {
+			group := ctx.dst
+			ctx.dst = originalDst
+			ctx.dst.OnNewStack(func() error {
+				ctx.dst.SetAlpha(opacity, true)
+				ctx.dst.SetAlpha(opacity, false)
+				ctx.dst.DrawGroup(group)
 				return nil
 			})
 		}
 
-		opacity := fl(box.Style.GetOpacity())
-		if opacity < 1 {
-			return ctx.dst.OnNewStack(func() error {
-				ctx.dst.SetAlpha(opacity)
-				return ops()
-			})
-		} else {
-			return ops()
-		}
+		return nil
 	})
 }
 
@@ -371,17 +394,31 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 // ``widths`` is a tuple of the inner widths (top, right, bottom, left) from
 // the border box. Radii are adjusted from these values. Default is (0, 0, 0,
 // 0).
-// Inspired by cairo cookbook
-// http://cairographics.org/cookbook/roundedrectangles/
-//
 func roundedBoxPath(context Drawer, radii bo.RoundedBox) {
-	x, y, w, h, tls, trs, brs, bls := float64(radii.X), float64(radii.Y), radii.Width, radii.Height, radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
-	// Note: No support for elliptic radius
-	tl := float64(pr.Max(tls[0], tls[1]))
-	tr := float64(pr.Max(trs[0], trs[1]))
-	br := float64(pr.Max(brs[0], brs[1]))
-	bl := float64(pr.Max(bls[0], bls[1]))
-	context.RoundedRect(x, y, float64(w), float64(h), tl, tr, br, bl)
+	x, y, w, h, tl, tr, br, bl := pr.Fl(radii.X), pr.Fl(radii.Y), pr.Fl(radii.Width), pr.Fl(radii.Height), radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
+	if tl[0] == 0 || tl[1] == 0 || tr[0] == 0 || tr[1] == 0 ||
+		br[0] == 0 || br[1] == 0 || bl[0] == 0 || bl[1] == 0 {
+		// No radius, draw a rectangle
+		context.Rectangle(x, y, w, h)
+		return
+	}
+
+	var r pr.Fl = 0.45
+
+	context.MoveTo(x+pr.Fl(tl[0]), y)
+	context.LineTo(x+w-pr.Fl(tr[0]), y)
+	context.CurveTo(
+		x+w-pr.Fl(tr[0])*r, y, x+w, y+pr.Fl(tr[1])*r, x+w, y+pr.Fl(tr[1]))
+	context.LineTo(x+w, y+h-pr.Fl(br[1]))
+	context.CurveTo(
+		x+w, y+h-pr.Fl(br[1])*r, x+w-pr.Fl(br[0])*r, y+h, x+w-pr.Fl(br[0]),
+		y+h)
+	context.LineTo(x+pr.Fl(bl[0]), y+h)
+	context.CurveTo(
+		x+pr.Fl(bl[0])*r, y+h, x, y+h-pr.Fl(bl[1])*r, x, y+h-pr.Fl(bl[1]))
+	context.LineTo(x, y+pr.Fl(tl[1]))
+	context.CurveTo(
+		x, y+pr.Fl(tl[1])*r, x+pr.Fl(tl[0])*r, y, x+pr.Fl(tl[0]), y)
 }
 
 func formatSVG(svg string, data svgArgs) (string, error) {
@@ -423,7 +460,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 			for _, box := range bg.Layers[len(bg.Layers)-1].ClippedBoxes {
 				roundedBoxPath(ctx.dst, box)
 			}
-			ctx.dst.Clip()
+			ctx.dst.Clip(false)
 		}
 
 		// Background color
@@ -440,10 +477,11 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 						pth += bleed.Top + bleed.Bottom
 					}
 					ctx.dst.Rectangle(ptx, pty, ptw, pth)
-					ctx.dst.Clip()
+					ctx.dst.Clip(false)
 				}
-				ctx.dst.SetSourceRgba(bg.Color.Unpack())
-				ctx.dst.Paint()
+				ctx.dst.Rectangle(ctx.dst.GetPageRectangle())
+				ctx.dst.SetColorRgba(bg.Color, false)
+				ctx.dst.Fill(false)
 				return nil
 			}) // can"t error
 		}
@@ -498,7 +536,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 	})
 }
 
-// Draw the background color && image of the table children.
+// Draw the background color and image of the table children.
 func (ctx drawContext) drawTableBackgrounds(table_ bo.TableBoxITF) error {
 	table := table_.Table()
 	for _, columnGroup := range table.ColumnGroups {
@@ -539,7 +577,7 @@ func (ctx drawContext) drawTableBackgrounds(table_ bo.TableBoxITF) error {
 }
 
 func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRendering pr.String) {
-	if layer.Image == nil {
+	if layer.Image == nil || layer.Size.Height.Value == 0 || layer.Size.Width.Value == 0 {
 		return
 	}
 
@@ -547,18 +585,18 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 	positioningX, positioningY, positioningWidth, positioningHeight := layer.PositioningArea.Rect.Unpack()
 	positionX, positionY := layer.Position.Point[0], layer.Position.Point[1]
 	repeatX, repeatY := layer.Repeat.Reps[0], layer.Repeat.Reps[1]
-	imageWidth, imageHeight := float64(layer.Size.Width.Value), float64(layer.Size.Height.Value)
-	var repeatWidth, repeatHeight float64
+	imageWidth, imageHeight := pr.Fl(layer.Size.Width.Value), pr.Fl(layer.Size.Height.Value)
+	var repeatWidth, repeatHeight pr.Fl
 	switch repeatX {
 	case "no-repeat":
 		// We want at least the whole imageWidth drawn on subSurface, but we
 		// want to be sure it will not be repeated on the paintingWidth.
-		repeatWidth = math.Max(imageWidth, float64(paintingWidth))
+		repeatWidth = utils.Maxs(imageWidth, paintingWidth)
 	case "repeat", "round":
 		// We repeat the image each imageWidth.
 		repeatWidth = imageWidth
 	case "space":
-		nRepeats := math.Floor(float64(positioningWidth) / imageWidth)
+		nRepeats := math.Floor(float64(positioningWidth / imageWidth))
 		if nRepeats >= 2 {
 			// The repeat width is the whole positioning width with one image
 			// removed, divided by (the number of repeated images - 1). This
@@ -567,7 +605,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 			repeatWidth = (float64(positioningWidth) - imageWidth) / (nRepeats - 1)
 			positionX = pr.Float(0)
 		} else {
-			// We don"t repeat the image.
+			// We don't repeat the image.
 			repeatWidth = imageWidth
 		}
 	default:
@@ -577,7 +615,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 	// Comments above apply here too.
 	switch repeatY {
 	case "no-repeat":
-		repeatHeight = math.Max(imageHeight, paintingHeight)
+		repeatHeight = utils.Maxs(imageHeight, paintingHeight)
 	case "repeat", "round":
 		repeatHeight = imageHeight
 	case "space":
@@ -592,28 +630,29 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 		log.Fatalf("unexpected repeatY %s", repeatY)
 	}
 
-	pageWidth, pageHeight := ctx.dst.GetPageSize()
-	nRepeatX, nRepeatY := int(math.Ceil(pageWidth/repeatWidth)), int(math.Ceil(pageHeight/repeatHeight))
+	if repeatX == "no-repeat" && repeatY == "no-repeat" {
+		// PDF patterns always repeat, use a big number to hide repetition
+		_, _, w, h := ctx.dst.GetPageRectangle()
+		repeatWidth = 2 * w
+		repeatHeight = 2 * h
+	}
+
+	mat := matrix.New(1, 0, 0, 1, pr.Fl(positionX.V())+positioningX, pr.Fl(positionY.V())+positioningY)
+	mat = matrix.Mul(mat, ctx.dst.GetTransform())
+	pattern := ctx.dst.AddPattern(imageWidth, imageHeight, repeatWidth, repeatHeight, mat)
+	group := pattern.AddGroup(0, 0, repeatWidth, repeatHeight)
 
 	ctx.dst.OnNewStack(func() error {
-		if !layer.Unbounded {
-			ctx.dst.Rectangle(float64(paintingX), float64(paintingY),
-				paintingWidth, paintingHeight)
-			ctx.dst.Clip()
-		} // else: unrestricted, whole page box
-
-		ctx.dst.Translate(positioningX+float64(positionX.V()),
-			positioningY+float64(positionY.V()))
-		for i := 0; i < nRepeatX; i += 1 {
-			ctx.dst.OnNewStack(func() error {
-				for j := 0; j < nRepeatY; j += 1 {
-					layer.Image.Draw(ctx.dst, imageWidth, imageHeight, imageRendering)
-					ctx.dst.Translate(0, repeatHeight)
-				}
-				return nil
-			})
-			ctx.dst.Translate(repeatWidth, 0)
+		layer.Image.Draw(group, imageWidth, imageHeight, imageRendering)
+		pattern.DrawGroup(group)
+		ctx.dst.SetColorPattern(pattern, false)
+		if layer.Unbounded {
+			x1, y1, x2, y2 := ctx.dst.GetPageRectangle()
+			ctx.dst.Rectangle(x1, y1, x2-x1, y2-y1)
+		} else {
+			ctx.dst.Rectangle(paintingX, paintingY, paintingWidth, paintingHeight)
 		}
+		ctx.dst.Fill(false)
 		return nil
 	})
 }
@@ -822,21 +861,20 @@ func clipBorderSegment(context backend.Drawer, style pr.String, width float64, s
 		lineLength = bbw - px1 + px2
 		length = bbw
 		context.MoveTo(bbx+bbw, mainOffset)
-		context.RelLineTo(-bbw, 0)
-		context.RelLineTo(px1, py1)
-		context.RelLineTo(-px1+bbw+px2, -py1+py2)
+		context.LineTo(bbx, mainOffset)
+		context.LineTo(bbx+px1, mainOffset+py1)
+		context.LineTo(bbx+bbw+px2, mainOffset+py2)
 	} else if side == "left" || side == "right" {
 		a1, b1 = -way*px1-width/2, py1-bt/2
 		a2, b2 = -way*px2-width/2, -py2-bb/2
 		lineLength = bbh - py1 + py2
 		length = bbh
 		context.MoveTo(mainOffset, bby+bbh)
-		context.RelLineTo(0, -bbh)
-		context.RelLineTo(px1, py1)
-		context.RelLineTo(-px1+px2, -py1+bbh+py2)
+		context.LineTo(mainOffset, bby)
+		context.LineTo(mainOffset+px1, bby+py1)
+		context.LineTo(mainOffset+px2, bby+bbh+py2)
 	}
 
-	context.SetFillRule(backend.FillRuleEvenOdd)
 	if style == "dotted" || style == "dashed" {
 		dash := 3 * width
 		if style == "dotted" {
@@ -931,7 +969,7 @@ func clipBorderSegment(context backend.Drawer, style pr.String, width float64, s
 			}
 		} else {
 			// 2x + 1 dashes
-			context.Clip()
+			context.Clip(true)
 			denom := math.Round(length/dash) - utils.FloatModulo(math.Round(length/dash)+1, 2)
 			dash = length
 			if denom != 0 {
@@ -953,20 +991,19 @@ func clipBorderSegment(context backend.Drawer, style pr.String, width float64, s
 			}
 		}
 	}
-	context.Clip()
+	context.Clip(true)
 }
 
-func (ctx drawContext) drawRoundedBorder(box *bo.BoxFields, style pr.String, color []Color) {
-	ctx.dst.SetFillRule(backend.FillRuleEvenOdd)
+func (ctx drawContext) drawRoundedBorder(box *bo.BoxFields, style pr.String, colors []Color) {
 	roundedBoxPath(ctx.dst, box.RoundedPaddingBox())
 	if style == "ridge" || style == "groove" {
 		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1/2))
-		ctx.dst.SetSourceRgba(color[0].Unpack())
-		ctx.dst.Fill()
+		ctx.dst.SetColorRgba(colors[0], false)
+		ctx.dst.Fill(true)
 		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1/2))
 		roundedBoxPath(ctx.dst, box.RoundedBorderBox())
-		ctx.dst.SetSourceRgba(color[1].Unpack())
-		ctx.dst.Fill()
+		ctx.dst.SetColorRgba(colors[1], false)
+		ctx.dst.Fill(true)
 		return
 	}
 	if style == "double" {
@@ -974,23 +1011,22 @@ func (ctx drawContext) drawRoundedBorder(box *bo.BoxFields, style pr.String, col
 		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(2/3))
 	}
 	roundedBoxPath(ctx.dst, box.RoundedBorderBox())
-	ctx.dst.SetSourceRgba(color[0].Unpack())
-	ctx.dst.Fill()
+	ctx.dst.SetColorRgba(colors[0], false)
+	ctx.dst.Fill(true)
 }
 
 func (ctx drawContext) drawRectBorder(box, widths pr.Rectangle, style pr.String, color []Color) {
-	ctx.dst.SetFillRule(backend.FillRuleEvenOdd)
 	bbx, bby, bbw, bbh := box.Unpack()
 	bt, br, bb, bl := widths.Unpack()
 	ctx.dst.Rectangle(box.Unpack())
 	if style == "ridge" || style == "groove" {
 		ctx.dst.Rectangle(bbx+bl/2, bby+bt/2, bbw-(bl+br)/2, bbh-(bt+bb)/2)
-		ctx.dst.SetSourceRgba(color[0].Unpack())
-		ctx.dst.Fill()
+		ctx.dst.SetColorRgba(color[0], false)
+		ctx.dst.Fill(true)
 		ctx.dst.Rectangle(bbx+bl/2, bby+bt/2, bbw-(bl+br)/2, bbh-(bt+bb)/2)
 		ctx.dst.Rectangle(bbx+bl, bby+bt, bbw-bl-br, bbh-bt-bb)
-		ctx.dst.SetSourceRgba(color[1].Unpack())
-		ctx.dst.Fill()
+		ctx.dst.SetColorRgba(color[1], false)
+		ctx.dst.Fill(true)
 		return
 	}
 	if style == "double" {
@@ -998,8 +1034,8 @@ func (ctx drawContext) drawRectBorder(box, widths pr.Rectangle, style pr.String,
 		ctx.dst.Rectangle(bbx+bl*2/3, bby+bt*2/3, bbw-(bl+br)*2/3, bbh-(bt+bb)*2/3)
 	}
 	ctx.dst.Rectangle(bbx+bl, bby+bt, bbw-bl-br, bbh-bt-bb)
-	ctx.dst.SetSourceRgba(color[0].Unpack())
-	ctx.dst.Fill()
+	ctx.dst.SetColorRgba(color[0], false)
+	ctx.dst.Fill(true)
 }
 
 func (ctx drawContext) drawOutlines(box_ Box) {
@@ -1202,9 +1238,12 @@ func (ctx drawContext) drawReplacedbox(box_ bo.ReplacedBoxITF) {
 
 	ctx.dst.OnNewStack(func() error {
 		roundedBoxPath(ctx.dst, box.RoundedContentBox())
-		ctx.dst.Clip()
-		ctx.dst.Translate(float64(drawX), float64(drawY))
-		box.Replacement.Draw(ctx.dst, float64(drawWidth), float64(drawHeight), box.Style.GetImageRendering())
+		ctx.dst.Clip(false)
+		ctx.dst.Transform(matrix.New(1, 0, 0, 1, pr.Fl(drawX), pr.Fl(drawY)))
+		ctx.dst.OnNewStack(func() error {
+			box.Replacement.Draw(ctx.dst, pr.Fl(drawWidth), pr.Fl(drawHeight), box.Style.GetImageRendering())
+			return nil
+		})
 		return nil
 	})
 }
@@ -1268,7 +1307,7 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 	}
 
 	x, y := pr.Fl(textbox.PositionX), pr.Fl(textbox.PositionY+textbox.Baseline.V())
-	ctx.dst.SetSourceRgba(textbox.Style.GetColor().RGBA.Unpack())
+	ctx.dst.SetColorRgba(textbox.Style.GetColor().RGBA, false)
 
 	ctx.drawFirstLine(textbox, textOverflow, blockEllipsis, x, y)
 
@@ -1300,26 +1339,6 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 	if !decoration.None {
 		ctx.drawTextDecoration(textbox, offsetX, pr.Fl(offsetY), thickness, color.RGBA)
 	}
-}
-
-// textDrawing exposes the positionned text glyphs to draw
-// and the associated font, in a backend independent manner
-type textDrawing struct {
-	FontSize pr.Fl
-	X, Y     pr.Fl // origin of the text
-
-	Runs []textRun
-}
-
-type textRun struct {
-	Font   fonts.Face
-	Glyphs []textGlyph
-}
-
-type textGlyph struct {
-	Glyph   pango.Glyph
-	Offset  pr.Fl
-	Kerning int
 }
 
 // Draw the given ``textbox`` line to the document"""
@@ -1375,15 +1394,15 @@ type textGlyph struct {
 // 	var inkRect, logicalRect pango.Rectangle
 // 	for run := firstLine.Runs; run != nil; run = run.Next {
 // 		// Pango objects
-// 		glyph_item := run.Data
-// 		glyph_string := glyph_item.Glyphs
-// 		// glyphs = glyph_string.glyphs
-// 		// num_glyphs = glyph_string.num_glyphs
-// 		// offset = glyph_item.item.offset
-// 		// clusters = glyph_string.log_clusters
+// 		glyphItem := run.Data
+// 		glyphString := glyphItem.Glyphs
+// 		// glyphs = glyphString.glyphs
+// 		// num_glyphs = glyphString.num_glyphs
+// 		// offset = glyphItem.item.offset
+// 		// clusters = glyphString.log_clusters
 
 // 		// Font content
-// 		pangoFont := glyph_item.Item.Analysis.Font
+// 		pangoFont := glyphItem.Item.Analysis.Font
 // 		hb_font := pangoFont.GetHarfbuzzFont()
 // 		hb_face := hb_font.Face()
 // 		// FIXME:
@@ -1400,7 +1419,7 @@ type textGlyph struct {
 
 // 		// Positions of the glyphs in the UTF-8 string
 // 		// utf8_positions = [offset + clusters[i] for i in range(1, num_glyphs)]
-// 		// utf8_positions.append(offset + glyph_item.item.length)
+// 		// utf8_positions.append(offset + glyphItem.item.length)
 
 // 		// Go through the run glyphs
 // 		if font != last_font {
@@ -1412,7 +1431,7 @@ type textGlyph struct {
 // 		}
 // 		context.SetFontSize(font.hash, 1)
 // 		str += "<"
-// 		for i, glyphInfo := range glyph_string.Glyphs {
+// 		for i, glyphInfo := range glyphString.Glyphs {
 // 			width := glyphInfo.Geometry.Width
 // 			utf8_position = utf8_positions[i]
 
@@ -1468,8 +1487,6 @@ type textGlyph struct {
 // }
 
 func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, blockEllipsis pr.NamedString, x, y pr.Fl) {
-	// FIXME: check context.BeginText() and context.EndText()
-
 	layout := &textbox.PangoLayout.Layout
 	layout.SetSingleParagraphMode(true)
 
@@ -1510,7 +1527,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 		}
 	}
 
-	var output textDrawing
+	var output backend.TextDrawing
 
 	fontSize := pr.Fl(textbox.Style.GetFontSize().Value)
 	output.FontSize = fontSize
@@ -1519,20 +1536,16 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	var inkRect, logicalRect pango.Rectangle
 
 	for run := firstLine.Runs; run != nil; run = run.Next {
-		var outRun textRun
+		var outRun backend.TextRun
 
 		// Pango objects
-		glyph_item := run.Data
-		glyph_string := glyph_item.Glyphs
-		// glyphs = glyph_string.glyphs
-		// num_glyphs = glyph_string.num_glyphs
-		// offset = glyph_item.item.offset
-		// clusters = glyph_string.log_clusters
+		glyphItem := run.Data
+		glyphString := glyphItem.Glyphs
 
 		// Font content
-		pangoFont := glyph_item.Item.Analysis.Font
-		hb_font := pangoFont.GetHarfbuzzFont()
-		outRun.Font = hb_font.Face()
+		pangoFont := glyphItem.Item.Analysis.Font
+		hbFont := pangoFont.GetHarfbuzzFont()
+		outRun.Font = hbFont.Face()
 
 		// FIXME:
 		// font_hash = hash(hb_face)
@@ -1548,7 +1561,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 
 		// Positions of the glyphs in the UTF-8 string
 		// utf8_positions = [offset + clusters[i] for i in range(1, num_glyphs)]
-		// utf8_positions.append(offset + glyph_item.item.length)
+		// utf8_positions.append(offset + glyphItem.item.length)
 
 		// Go through the run glyphs
 		if font != last_font {
@@ -1560,8 +1573,8 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 		}
 		context.SetFontSize(font.hash, 1)
 
-		outRun.Glyphs = make([]textGlyph, len(glyph_string.Glyphs))
-		for i, glyphInfo := range glyph_string.Glyphs {
+		outRun.Glyphs = make([]backend.TextGlyph, len(glyphString.Glyphs))
+		for i, glyphInfo := range glyphString.Glyphs {
 			outGlyph := &outRun.Glyphs[i]
 			width := glyphInfo.Geometry.Width
 			utf8_position = utf8_positions[i]
@@ -1606,56 +1619,56 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	ctx.dst.DrawText(output)
 }
 
-func (ctx drawContext) drawWave(x, y, width, offsetX, radius float64) {
-	context.NewPath()
-	diameter := 2 * radius
-	waveIndex := offsetX // diameter
-	remain := offsetX - waveIndex*diameter
+func (ctx drawContext) drawWave(x, y, width, offsetX, radius pr.Fl) {
+	var up pr.Fl = 1
+	maxX := x + width
+	ctx.dst.Rectangle(x, y-2*radius, width, 4*radius)
+	ctx.dst.Clip(false)
 
-	for width > 0 {
-		up := utils.FloatModulo(waveIndex, 2) == 0
-		centerX := x - remain + radius
-		alpha1 := (1 + remain/diameter) * pi
-		alpha2 := (1 + math.Min(1, width/diameter)) * pi
+	x -= offsetX
+	ctx.dst.MoveTo(x, y)
 
-		if up {
-			context.Arc(centerX, y, radius, alpha1, alpha2)
-		} else {
-			context.ArcNegative(centerX, y, radius, -alpha1, -alpha2)
-		}
-
-		x += diameter - remain
-		width -= diameter - remain
-		remain = 0
-		waveIndex += 1
+	for x < maxX {
+		ctx.dst.CurveTo(x+radius/2, y+up*radius,
+			x+3*radius/2, y+up*radius,
+			x+2*radius, y)
+		x += 2 * radius
+		up *= -1
 	}
 }
 
 // Draw text-decoration of ``textbox`` to a ``context``.
 func (ctx drawContext) drawTextDecoration(textbox *bo.TextBox, offsetX, offsetY, thickness pr.Fl, color Color) {
 	style := textbox.Style.GetTextDecorationStyle()
-	// with stacked(context) { // FIXME:
-	context.SetSourceRgba(color.Unpack())
-	context.SetLineWidth(thickness)
+	ctx.dst.OnNewStack(func() error {
+		ctx.dst.SetColorRgba(color, false)
+		ctx.dst.SetLineWidth(thickness)
 
-	if style == "dashed" {
-		context.SetDash([]float64{5 * thickness}, offsetX)
-	} else if style == "dotted" {
-		context.SetDash([]float64{thickness}, offsetX)
-	}
-	posX, posY, width := float64(textbox.PositionX), float64(textbox.PositionY), float64(textbox.Width.V())
-	if style == "wavy" {
-		drawWave(context, posX, posY+offsetY, width, offsetX, 0.75*thickness)
-	} else {
-		context.MoveTo(posX, posY+offsetY)
-		context.RelLineTo(width, 0)
-	}
+		if style == "dashed" {
+			ctx.dst.SetDash([]float64{5 * thickness}, offsetX)
+		} else if style == "dotted" {
+			ctx.dst.SetDash([]float64{thickness}, offsetX)
+		}
 
-	if style == "double" {
-		delta := 2 * thickness
-		context.MoveTo(posX, posY+offsetY+delta)
-		context.RelLineTo(width, 0)
-	}
+		posX, posY, width := float64(textbox.PositionX), float64(textbox.PositionY), float64(textbox.Width.V())
 
-	context.Stroke()
+		if style == "wavy" {
+			thickness *= 0.75
+			ctx.drawWave(posX, posY+offsetY, width, offsetX, thickness)
+		} else {
+			ctx.dst.MoveTo(posX, posY+offsetY)
+			ctx.dst.LineTo(posX+width, posY+offsetY)
+		}
+
+		ctx.dst.SetLineWidth(thickness)
+
+		if style == "double" {
+			delta := 2 * thickness
+			ctx.dst.MoveTo(posX, posY+offsetY+delta)
+			ctx.dst.LineTo(posX+width, posY+offsetY+delta)
+		}
+
+		ctx.dst.Stroke()
+		return nil
+	})
 }

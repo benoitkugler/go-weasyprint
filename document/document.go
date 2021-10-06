@@ -240,39 +240,28 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 	return d
 }
 
-// Paint the page in cairo, on any type of surface (leftX=0, topY=0, scale=1, clip=false).
-// leftX is the X coordinate of the left of the page, in cairo user units.
-// topY is the Y coordinate of the top of the page, in cairo user units.
-// scale is the Zoom scale in cairo user units per CSS pixel.
+// Paint the page on `dst`.
+// leftX is the X coordinate of the left of the page, in user units.
+// topY is the Y coordinate of the top of the page, in user units.
+// scale is the Zoom scale in user units per CSS pixel.
 // clip : whether to clip/cut content outside the page. If false, content can overflow.
-func (d Page) Paint(cairoContext Drawer, fc *text.FontConfiguration, leftX, topY, scale fl, clip bool) {
-	// with stacked(cairoContext) {
-	if d.enableHinting {
-		leftX, topY = cairoContext.UserToDevice(leftX, topY)
-		// Hint in device space
-		leftX = fl(math.Round(float64(leftX)))
-		topY = fl(math.Round(float64(topY)))
-		leftX, topY = cairoContext.DeviceToUser(leftX, topY)
-	}
-	// Make (0, 0) the top-left corner:
-	cairoContext.Translate(leftX, topY)
-	// Make user units CSS pixels:
-	cairoContext.Scale(scale, scale)
-	if clip {
-		width := d.Width
-		height := d.Height
-		if d.enableHinting {
-			width, height = cairoContext.UserToDeviceDistance(width, height)
-			// Hint in device space
-			width = fl(math.Ceil(float64(width)))
-			height = fl(math.Ceil(float64(height)))
-			width, height = cairoContext.DeviceToUserDistance(width, height)
+// (leftX=0, topY=0, scale=1, clip=false)
+func (d Page) Paint(dst Drawer, fc *text.FontConfiguration, leftX, topY, scale fl, clip bool) {
+	err := dst.OnNewStack(func() error {
+		// Make (0, 0) the top-left corner and make user units CSS pixels
+		dst.Transform(mt.New(scale, 0, 0, scale, leftX, topY))
+		if clip {
+			width := d.Width
+			height := d.Height
+			dst.Rectangle(0, 0, width, height)
+			dst.Clip(false)
 		}
-		cairoContext.Rectangle(0, 0, width, height)
-		cairoContext.Clip()
+		ctx := drawContext{dst: dst, fonts: fc}
+		return ctx.drawPage(d.pageBox)
+	})
+	if err != nil {
+		log.Printf("Drawing page: %s", err)
 	}
-	ctx := drawContext{dst: cairoContext, fonts: fc}
-	ctx.drawPage(d.pageBox)
 }
 
 // A rendered document ready to be painted on a cairo context.

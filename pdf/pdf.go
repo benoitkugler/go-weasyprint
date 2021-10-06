@@ -62,7 +62,6 @@ func (c *Context) OnNewStack(f func() error) error {
 }
 
 func (c *Context) Finish() {
-
 }
 
 func (c Context) Fill() {
@@ -126,13 +125,14 @@ func convert(v float64) int {
 	return int(v * 255)
 }
 
-func (c Context) SetSourceRgba(r, g, b, a float64) {
+func (c Context) SetColorRgba(r, g, b, a float64) {
 	ri, gi, bi := convert(r), convert(g), convert(b)
 	c.f.SetAlpha(a, "Normal")
 	c.f.SetFillColor(ri, gi, bi)
 	c.f.SetDrawColor(ri, gi, bi)
 	c.f.SetTextColor(ri, gi, bi)
 }
+
 func (c *Context) SetAlpha(a float64) {
 	c.f.SetAlpha(a, "Normal")
 }
@@ -159,9 +159,11 @@ func (c Context) NewPath() {
 func (c Context) MoveTo(x, y float64) {
 	c.f.MoveTo(x, c.convertY(y))
 }
+
 func (c Context) LineTo(x, y float64) {
 	c.f.LineTo(x, c.convertY(y))
 }
+
 func (c Context) RelLineTo(dx, dy float64) {
 	x, y := c.f.GetXY()
 	c.LineTo(x+dx, c.convertY(y)+dy)
@@ -184,6 +186,7 @@ func (c Context) Arc(xc, yc, radius, angle1, angle2 float64) {
 	}
 	c.f.ArcTo(xc, c.convertY(yc), radius, radius, 0, angle1, angle2)
 }
+
 func (c Context) ArcNegative(xc, yc, radius, angle1, angle2 float64) {
 	// in degrees
 	angle1, angle2 = angle1*180/math.Pi, angle2*180/math.Pi
@@ -193,3 +196,27 @@ func (c Context) ArcNegative(xc, yc, radius, angle1, angle2 float64) {
 	}
 	c.f.ArcTo(xc, c.convertY(yc), radius, radius, 0, angle1, angle2)
 }
+
+// gradient
+// alphas := make([]pr.Fl, len(layout.colors))
+// for i, c :=range layout.colors {
+// 	alphas[i] = c.A
+// }
+
+// alpha_couples := make([][2]pr.Fl, len(alphas)-1)
+// color_couples := make([][3]pr.Fl, len(alphas)-1)
+// for i := range alpha_couples {
+// 	alpha_couples[i] = [2]pr.Fl{alphas[i], alphas[i + 1]}
+// 	color_couples[i] = [3]pr.Fl{layout.colors[i][:3], layout.colors[i + 1][:3], 1}
+// }
+
+// // Premultiply colors
+// for i, alpha in enumerate(alphas):
+// 	if alpha == 0:
+// 		if i > 0:
+// 			color_couples[i - 1][1] = color_couples[i - 1][0]
+// 		if i < len(colors) - 1:
+// 			color_couples[i][0] = color_couples[i][1]
+// for i, (a0, a1) in enumerate(alpha_couples):
+// 	if 0 not in (a0, a1) and (a0, a1) != (1, 1):
+// 		color_couples[i][2] = a0 / a1
