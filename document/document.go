@@ -104,7 +104,7 @@ func rectangleAabb(matrix mt.Transform, posX, posY, width, height fl) [4]fl {
 
 type Link struct {
 	Type, Target string
-	rectangle    [4]fl
+	Rectangle    [4]fl
 }
 
 type bookmarkData struct {
@@ -152,10 +152,10 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 			if matrix != nil {
 				linkS = Link{
 					Type: linkType, Target: target,
-					rectangle: rectangleAabb(*matrix, posX, posY, width, height),
+					Rectangle: rectangleAabb(*matrix, posX, posY, width, height),
 				}
 			} else {
-				linkS = Link{Type: linkType, Target: target, rectangle: [4]fl{posX, posY, width, height}}
+				linkS = Link{Type: linkType, Target: target, Rectangle: [4]fl{posX, posY, width, height}}
 			}
 			*links = append(*links, linkS)
 		}
@@ -178,9 +178,7 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 	}
 }
 
-// Represents a single rendered page.
-// Should be obtained from `Document.pages` but not
-// instantiated directly.
+// Page represents a single rendered page.
 type Page struct {
 	// The page width, including margins, in CSS pixels.
 	Width fl
@@ -215,12 +213,10 @@ type Page struct {
 	// `(x, y)` point in CSS pixels from the top-left of the page.
 	anchors map[string][2]fl
 
-	pageBox       *bo.PageBox
-	enableHinting bool
+	pageBox *bo.PageBox
 }
 
-// enableHinting=false
-func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
+func NewPage(pageBox *bo.PageBox) Page {
 	d := Page{}
 	d.Width = fl(pageBox.MarginWidth())
 	d.Height = fl(pageBox.MarginHeight())
@@ -236,7 +232,6 @@ func NewPage(pageBox *bo.PageBox, enableHinting bool) Page {
 	gatherLinksAndBookmarks(
 		pageBox, &d.bookmarks, &d.links, d.anchors, nil)
 	d.pageBox = pageBox
-	d.enableHinting = enableHinting
 	return d
 }
 
@@ -264,12 +259,9 @@ func (d Page) Paint(dst Drawer, fc *text.FontConfiguration, leftX, topY, scale f
 	}
 }
 
-// A rendered document ready to be painted on a cairo context.
+// Document is a rendered document ready to be painted on a drawing target.
 //
-// Typically obtained from `HTML.render()`, but
-// can also be instantiated directly with a list of `pages <Page>`, a
-// set of `metadata <DocumentMetadata>`, a `urlFetcher` function, and
-// a `fontConfig <text.FontConfiguration>`.
+// It is obtained by calling the `Render()` function.
 type Document struct {
 	// A list of `Page` objects.
 	Pages []Page
@@ -293,7 +285,7 @@ func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, f
 	pageBoxes := layout.Layout(html, stylesheets, presentationalHints, fontConfig)
 	pages := make([]Page, len(pageBoxes))
 	for i, pageBox := range pageBoxes {
-		pages[i] = NewPage(pageBox, false)
+		pages[i] = NewPage(pageBox)
 	}
 	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher, fontconfig: fontConfig}
 }
@@ -363,27 +355,27 @@ func (d Document) ResolveLinks(scale fl) ([][]Link, [][]backend.Anchor) {
 	return pagedLinks, pagedAnchors
 }
 
-type target struct {
-	pageNumber int
-	pos        [2]fl
+type BookmarkTarget struct {
+	PageNumber int
+	Pos        [2]fl
 }
 
-type bookmarkSubtree struct {
-	label    string
-	state    string
-	children []bookmarkSubtree
-	target   target
+type BookmarkSubtree struct {
+	Label    string
+	State    string
+	Children []BookmarkSubtree
+	Target   BookmarkTarget
 }
 
 // Make a tree of all bookmarks in the document.
-func (d Document) MakeBookmarkTree() []bookmarkSubtree {
-	var root []bookmarkSubtree
+func (d Document) MakeBookmarkTree() []BookmarkSubtree {
+	var root []BookmarkSubtree
 	// At one point in the document, for each "output" depth, how much
 	// to add to get the source level (CSS values of bookmark-level).
 	// E.g. with <h1> then <h3>, levelShifts == [0, 1]
 	// 1 means that <h3> has depth 3 - 1 = 2 in the output.
 	var skippedLevels []int
-	lastByDepth := [][]bookmarkSubtree{root}
+	lastByDepth := [][]BookmarkSubtree{root}
 	previousLevel := 0
 	for pageNumber, page := range d.Pages {
 		for _, bk := range page.bookmarks {
@@ -414,8 +406,8 @@ func (d Document) MakeBookmarkTree() []bookmarkSubtree {
 			if depth != len(skippedLevels) || depth < 1 {
 				log.Fatalf("expected depth >= 1 and depth == len(skippedLevels) got %d", depth)
 			}
-			var children []bookmarkSubtree
-			subtree := bookmarkSubtree{label: label, target: target{pageNumber: pageNumber, pos: pos}, children: children, state: state}
+			var children []BookmarkSubtree
+			subtree := BookmarkSubtree{Label: label, Target: BookmarkTarget{PageNumber: pageNumber, Pos: pos}, Children: children, State: state}
 			lastByDepth[depth-1] = append(lastByDepth[depth-1], subtree)
 			lastByDepth = lastByDepth[:depth]
 			lastByDepth = append(lastByDepth, children)
@@ -427,7 +419,7 @@ func (d Document) MakeBookmarkTree() []bookmarkSubtree {
 // Include hyperlinks in current PDF page.
 func (d Document) AddHyperlinks(links []Link, anchorsId map[string]int, context Drawer, scale fl) {
 	for _, link := range links {
-		linkType, linkTarget, rectangle := link.Type, link.Target, link.rectangle
+		linkType, linkTarget, rectangle := link.Type, link.Target, link.Rectangle
 		x, y, w, h := rectangle[0]*scale, rectangle[1]*scale, rectangle[2]*scale, rectangle[3]*scale
 		if linkType == "external" {
 			context.AddExternalLink(x, y, w, h, linkTarget)

@@ -48,6 +48,13 @@ type TextGlyph struct {
 	Kerning int
 }
 
+// Font stores some metadata used in the output document.
+type Font struct {
+	Cmap   map[pango.Glyph][]rune
+	Widths map[pango.Glyph]int
+	Bbox   [4]int
+}
+
 type GradientInit struct {
 	// Kind is either:
 	// 	"solid": init is (r, g, b, a). positions and colors are empty.
@@ -245,6 +252,10 @@ type Drawer interface {
 
 	// DrawText draws the given text using the current fill color.
 	DrawText(TextDrawing)
+
+	// AddFont register a new font to be used in the output and return
+	// an object used to store associated metadata.
+	AddFont(face fonts.Face, content []byte) *Font
 
 	// DrawRasterImage draws the given image at the current point
 	DrawRasterImage(img image.Image, imageRendering string, width, height fl)

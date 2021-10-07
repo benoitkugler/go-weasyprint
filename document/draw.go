@@ -105,17 +105,6 @@ type svgArgs struct {
 	Bleed, HalfBleed Bleed
 }
 
-// The context manager
-// 	with stacked(context):
-//		<body>
-// is equivalent to
-//		context.Save()
-//		try:
-//			<body>
-//  	finally:
-//			context.restore()
-// FIXME: add context manager
-
 // Transform a HSV color to a RGB color.
 func hsv2rgb(hue, saturation, value fl) (r, g, b fl) {
 	c := value * saturation
@@ -1298,10 +1287,6 @@ func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float
 // Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``
 // 	(offsetX=0,textOverflow="clip")
 func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverflow string, blockEllipsis pr.NamedString) {
-	// Pango crashes with font-size: 0
-	// FIXME: should we keep this assertion ?
-	// assert textbox.Style["fontSize"]
-
 	if textbox.Style.GetVisibility() != "visible" {
 		return
 	}
@@ -1340,151 +1325,6 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 		ctx.drawTextDecoration(textbox, offsetX, pr.Fl(offsetY), thickness, color.RGBA)
 	}
 }
-
-// Draw the given ``textbox`` line to the document"""
-// func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, blockEllipsis pr.NamedString, x, y pr.Fl) {
-// 	// FIXME: check context.BeginText() and context.EndText()
-
-// 	layout := &textbox.PangoLayout.Layout
-// 	layout.SetSingleParagraphMode(true)
-
-// 	var ellipsis string
-// 	if textOverflow == "ellipsis" || blockEllipsis.Name != "none" {
-// 		// assert textbox.PangoLayout.maxWidth is not nil
-// 		maxWidth := textbox.PangoLayout.MaxWidth.V()
-// 		layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(pr.Fl(maxWidth))))
-// 		if textOverflow == "ellipsis" {
-// 			layout.SetEllipsize(pango.ELLIPSIZE_END)
-// 		} else {
-// 			ellipsis = blockEllipsis.String
-// 			if blockEllipsis.Name == "auto" {
-// 				ellipsis = "…"
-// 			}
-// 			// Remove last word if hyphenated
-// 			newText := layout.Text
-// 			if hyph := string(textbox.Style.GetHyphenateCharacter()); strings.HasSuffix(string(newText), hyph) {
-// 				lastWordEnd := text.GetLastWordEnd(newText[:len(newText)-len([]rune(hyph))])
-// 				if lastWordEnd != -1 && lastWordEnd != 0 {
-// 					newText = newText[:lastWordEnd]
-// 				}
-// 			}
-// 			textbox.PangoLayout.SetText(string(newText)+ellipsis, false)
-// 		}
-// 	}
-
-// 	firstLine, secondLine := textbox.PangoLayout.GetFirstLine()
-// 	if blockEllipsis != (pr.NamedString{Name: "none"}) {
-// 		for secondLine != 0 {
-// 			lastWordEnd := text.GetLastWordEnd(layout.Text[:-len([]rune(ellipsis))])
-// 			if lastWordEnd == -1 {
-// 				break
-// 			}
-// 			newText := layout.Text[:lastWordEnd]
-// 			textbox.PangoLayout.SetText(string(newText)+ellipsis, false)
-// 			firstLine, secondLine = textbox.PangoLayout.GetFirstLine()
-// 		}
-// 	}
-// 	fontSize := pr.Fl(textbox.Style.GetFontSize().Value)
-// 	utf8_text = textbox.PangoLayout.text.encode("utf-8")
-// 	previous_utf8_position = 0
-// 	stream.text_matrix(fontSize, 0, 0, -fontSize, x, y)
-// 	last_font = nil
-// 	str := ""
-// 	fonts = context.get_fonts()
-// 	var inkRect, logicalRect pango.Rectangle
-// 	for run := firstLine.Runs; run != nil; run = run.Next {
-// 		// Pango objects
-// 		glyphItem := run.Data
-// 		glyphString := glyphItem.Glyphs
-// 		// glyphs = glyphString.glyphs
-// 		// num_glyphs = glyphString.num_glyphs
-// 		// offset = glyphItem.item.offset
-// 		// clusters = glyphString.log_clusters
-
-// 		// Font content
-// 		pangoFont := glyphItem.Item.Analysis.Font
-// 		hb_font := pangoFont.GetHarfbuzzFont()
-// 		hb_face := hb_font.Face()
-// 		// FIXME:
-// 		// font_hash = hash(hb_face)
-// 		// if _, has := fonts[font_hash]; has {
-// 		// 	font = fonts[font_hash]
-// 		// } else {
-// 		// 	hb_blob = harfbuzz.hb_face_reference_blob(hb_face)
-// 		// 	hb_data = harfbuzz.hb_blob_get_data(hb_blob, stream.length)
-// 		// 	file_content = ffi.unpack(hb_data, int(stream.length[0]))
-// 		// 	index = harfbuzz.hb_face_get_index(hb_face)
-// 		// 	font = stream.add_font(font_hash, file_content, pangoFont, index)
-// 		// }
-
-// 		// Positions of the glyphs in the UTF-8 string
-// 		// utf8_positions = [offset + clusters[i] for i in range(1, num_glyphs)]
-// 		// utf8_positions.append(offset + glyphItem.item.length)
-
-// 		// Go through the run glyphs
-// 		if font != last_font {
-// 			if str != "" {
-// 				stream.show_text(str)
-// 			}
-// 			str = ""
-// 			last_font = font
-// 		}
-// 		context.SetFontSize(font.hash, 1)
-// 		str += "<"
-// 		for i, glyphInfo := range glyphString.Glyphs {
-// 			width := glyphInfo.Geometry.Width
-// 			utf8_position = utf8_positions[i]
-
-// 			offset := pr.Fl(glyphInfo.Geometry.XOffset) / fontSize
-// 			if offset != 0 {
-// 				str += fmt.Sprintf(">{-offset}<") // FIXME:
-// 			}
-// 			glyph := glyphInfo.Glyph
-// 			str += fmt.Sprintf("{glyph:04x}") // FIXME:
-
-// 			// Ink bounding box and logical widths in font
-// 			if _, in := font.widths[glyph]; !in {
-// 				pangoFont.GlyphExtents(glyph, &inkRect, &logicalRect)
-// 				x1, y1, x2, y2 := inkRect.X, -inkRect.Y-inkRect.Height,
-// 					inkRect.X+inkRect.Width, -inkRect.Y
-// 				if x1 < font.bbox[0] {
-// 					font.bbox[0] = int(utils.PangoUnitsToFloat(x1*1000) / fontSize)
-// 				}
-// 				if y1 < font.bbox[1] {
-// 					font.bbox[1] = int(utils.PangoUnitsToFloat(y1*1000) / fontSize)
-// 				}
-// 				if x2 > font.bbox[2] {
-// 					font.bbox[2] = int(utils.PangoUnitsToFloat(x2*1000) / fontSize)
-// 				}
-// 				if y2 > font.bbox[3] {
-// 					font.bbox[3] = int(utils.PangoUnitsToFloat(y2*1000) / fontSize)
-// 				}
-// 				font.widths[glyph] = int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize)
-// 			}
-// 			// Kerning, word spacing, letter spacing
-// 			kerning := int(font.widths[glyph] - utils.PangoUnitsToFloat(width*1000)/fontSize + offset)
-// 			if kerning != 0 {
-// 				str += fmt.Sprintf(">{kerning}<") // FIXME
-// 			}
-
-// 			// Mapping between glyphs and characters
-// 			if _, in := font.cmap[glyph]; !in && glyph != pango.GLYPH_EMPTY {
-// 				// utf8_slice = slice(previous_utf8_position, utf8_position) // FIXME:
-// 				// font.cmap[glyph] = utf8_text[utf8_slice].decode("utf-8")
-// 			}
-// 			previous_utf8_position = utf8_position
-// 		}
-// 		// Close the last glyphs list, remove if empty
-// 		if str[len(str)-1] == '<' {
-// 			str = str[:len(str)-1]
-// 		} else {
-// 			str += ">"
-// 		}
-// 	}
-
-// 	// Draw text
-// 	context.show_text(str)
-// }
 
 func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, blockEllipsis pr.NamedString, x, y pr.Fl) {
 	layout := &textbox.PangoLayout.Layout
@@ -1527,93 +1367,80 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 		}
 	}
 
-	var output backend.TextDrawing
-
+	var (
+		output               backend.TextDrawing
+		inkRect, logicalRect pango.Rectangle
+		lastFont             *backend.Font
+	)
 	fontSize := pr.Fl(textbox.Style.GetFontSize().Value)
 	output.FontSize = fontSize
 	output.X, output.Y = x, y
 
-	var inkRect, logicalRect pango.Rectangle
-
+	textRunes := layout.Text
 	for run := firstLine.Runs; run != nil; run = run.Next {
-		var outRun backend.TextRun
 
 		// Pango objects
 		glyphItem := run.Data
 		glyphString := glyphItem.Glyphs
+		offset := glyphItem.Item.Offset
 
 		// Font content
 		pangoFont := glyphItem.Item.Analysis.Font
 		hbFont := pangoFont.GetHarfbuzzFont()
-		outRun.Font = hbFont.Face()
+		face := hbFont.Face()
+		content := ctx.fonts.FontContent(face)
+		outFont := ctx.dst.AddFont(face, content)
 
-		// FIXME:
-		// font_hash = hash(hb_face)
-		// if _, has := fonts[font_hash]; has {
-		// 	font = fonts[font_hash]
-		// } else {
-		// 	hb_blob = harfbuzz.hb_face_reference_blob(hb_face)
-		// 	hb_data = harfbuzz.hb_blob_get_data(hb_blob, stream.length)
-		// 	file_content = ffi.unpack(hb_data, int(stream.length[0]))
-		// 	index = harfbuzz.hb_face_get_index(hb_face)
-		// 	font = stream.add_font(font_hash, file_content, pangoFont, index)
-		// }
-
-		// Positions of the glyphs in the UTF-8 string
-		// utf8_positions = [offset + clusters[i] for i in range(1, num_glyphs)]
-		// utf8_positions.append(offset + glyphItem.item.length)
-
-		// Go through the run glyphs
-		if font != last_font {
-			if str != "" {
-				stream.show_text(str)
-			}
-			str = ""
-			last_font = font
+		if outFont != lastFont { // add a new "run"
+			var outRun backend.TextRun
+			outRun.Font = face
+			output.Runs = append(output.Runs, outRun)
+		} else { // use the last one
 		}
-		context.SetFontSize(font.hash, 1)
+		runDst := &output.Runs[len(output.Runs)-1]
 
-		outRun.Glyphs = make([]backend.TextGlyph, len(glyphString.Glyphs))
+		runDst.Glyphs = make([]backend.TextGlyph, len(glyphString.Glyphs))
 		for i, glyphInfo := range glyphString.Glyphs {
-			outGlyph := &outRun.Glyphs[i]
+			outGlyph := &runDst.Glyphs[i]
 			width := glyphInfo.Geometry.Width
-			utf8_position = utf8_positions[i]
+			glyph := glyphInfo.Glyph
 
 			outGlyph.Offset = pr.Fl(glyphInfo.Geometry.XOffset) / fontSize
-			outGlyph.Glyph = glyphInfo.Glyph
+			outGlyph.Glyph = glyph
 
 			// Ink bounding box and logical widths in font
-			if _, in := font.widths[glyph]; !in {
+			if _, in := outFont.Widths[glyph]; !in {
 				pangoFont.GlyphExtents(glyph, &inkRect, &logicalRect)
 				x1, y1, x2, y2 := inkRect.X, -inkRect.Y-inkRect.Height,
 					inkRect.X+inkRect.Width, -inkRect.Y
-				if x1 < font.bbox[0] {
-					font.bbox[0] = int(utils.PangoUnitsToFloat(x1*1000) / fontSize)
+				if int(x1) < outFont.Bbox[0] {
+					outFont.Bbox[0] = int(utils.PangoUnitsToFloat(x1*1000) / fontSize)
 				}
-				if y1 < font.bbox[1] {
-					font.bbox[1] = int(utils.PangoUnitsToFloat(y1*1000) / fontSize)
+				if int(y1) < outFont.Bbox[1] {
+					outFont.Bbox[1] = int(utils.PangoUnitsToFloat(y1*1000) / fontSize)
 				}
-				if x2 > font.bbox[2] {
-					font.bbox[2] = int(utils.PangoUnitsToFloat(x2*1000) / fontSize)
+				if int(x2) > outFont.Bbox[2] {
+					outFont.Bbox[2] = int(utils.PangoUnitsToFloat(x2*1000) / fontSize)
 				}
-				if y2 > font.bbox[3] {
-					font.bbox[3] = int(utils.PangoUnitsToFloat(y2*1000) / fontSize)
+				if int(y2) > outFont.Bbox[3] {
+					outFont.Bbox[3] = int(utils.PangoUnitsToFloat(y2*1000) / fontSize)
 				}
-				font.widths[glyph] = int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize)
+				outFont.Widths[glyph] = int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize)
 			}
 
 			// Kerning, word spacing, letter spacing
-			outGlyph.Kerning = int(font.widths[glyph] - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
+			outGlyph.Kerning = int(pr.Fl(outFont.Widths[glyph]) - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
 
 			// Mapping between glyphs and characters
-			if _, in := font.cmap[glyph]; !in && glyph != pango.GLYPH_EMPTY {
-				// utf8_slice = slice(previous_utf8_position, utf8_position) // FIXME:
-				// font.cmap[glyph] = utf8_text[utf8_slice].decode("utf-8")
+			startPos := offset + glyphString.LogClusters[i] // Positions of the glyphs in the UTF-8 string
+			endPos := offset + glyphItem.Item.Length
+			if i < len(glyphString.Glyphs)-1 {
+				endPos = offset + glyphString.LogClusters[i+1]
 			}
-			previous_utf8_position = utf8_position
+			if _, in := outFont.Cmap[glyph]; !in && glyph != pango.GLYPH_EMPTY {
+				outFont.Cmap[glyph] = textRunes[startPos:endPos]
+			}
 		}
-
-		output.Runs = append(output.Runs, outRun)
 	}
 
 	ctx.dst.DrawText(output)

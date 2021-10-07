@@ -1,7 +1,7 @@
-package goweasyprint
+package document
 
 import (
-	"os"
+	"io/ioutil"
 	"testing"
 	"text/template"
 )
@@ -9,5 +9,7 @@ import (
 func TestSVG(t *testing.T) {
 	tmp := headerSVG + crop + cross
 	tp := template.Must(template.New("svg").Parse(tmp))
-	tp.Execute(os.Stdout, svgArgs{})
+	if err := tp.Execute(ioutil.Discard, svgArgs{}); err != nil {
+		t.Fatal(err)
+	}
 }
