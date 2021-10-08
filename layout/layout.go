@@ -40,7 +40,7 @@ func Layout(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, f
 	logger.ProgressLogger.Println("Step 4 - Creating formatting structure")
 
 	rootBox := bo.BuildFormattingStructure(html.Root, context.styleFor, context.getImageFromUri,
-		html.BaseUrl, &context.TargetCollector, counterStyle, context)
+		html.BaseUrl, &context.TargetCollector, counterStyle)
 
 	return layoutDocument(html, rootBox, context, -1)
 }

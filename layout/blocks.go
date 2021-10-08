@@ -351,7 +351,7 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 
 	if box.Style.GetPosition().String == "relative" {
 		// New containing block, use a new absolute list
-		absoluteBoxes = nil
+		absoluteBoxes = &[]*AbsolutePlaceholder{}
 	}
 
 	var newChildren []Box

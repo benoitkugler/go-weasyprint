@@ -886,17 +886,17 @@ func (s *AnonymousStyle) SetDirection(v pr.String) {
 	s.dict["direction"] = v
 }
 
-func (s *ComputedStyle) GetDisplay() pr.String {
-	return s.Get("display").(pr.String)
+func (s *ComputedStyle) GetDisplay() pr.Display {
+	return s.Get("display").(pr.Display)
 }
-func (s *ComputedStyle) SetDisplay(v pr.String) {
+func (s *ComputedStyle) SetDisplay(v pr.Display) {
 	s.dict["display"] = v
 }
 
-func (s *AnonymousStyle) GetDisplay() pr.String {
-	return s.Get("display").(pr.String)
+func (s *AnonymousStyle) GetDisplay() pr.Display {
+	return s.Get("display").(pr.Display)
 }
-func (s *AnonymousStyle) SetDisplay(v pr.String) {
+func (s *AnonymousStyle) SetDisplay(v pr.Display) {
 	s.dict["display"] = v
 }
 
@@ -1936,17 +1936,17 @@ func (s *AnonymousStyle) SetTextDecorationColor(v pr.Color) {
 	s.dict["text_decoration_color"] = v
 }
 
-func (s *ComputedStyle) GetTextDecorationLine() pr.NDecorations {
-	return s.Get("text_decoration_line").(pr.NDecorations)
+func (s *ComputedStyle) GetTextDecorationLine() pr.Decorations {
+	return s.Get("text_decoration_line").(pr.Decorations)
 }
-func (s *ComputedStyle) SetTextDecorationLine(v pr.NDecorations) {
+func (s *ComputedStyle) SetTextDecorationLine(v pr.Decorations) {
 	s.dict["text_decoration_line"] = v
 }
 
-func (s *AnonymousStyle) GetTextDecorationLine() pr.NDecorations {
-	return s.Get("text_decoration_line").(pr.NDecorations)
+func (s *AnonymousStyle) GetTextDecorationLine() pr.Decorations {
+	return s.Get("text_decoration_line").(pr.Decorations)
 }
-func (s *AnonymousStyle) SetTextDecorationLine(v pr.NDecorations) {
+func (s *AnonymousStyle) SetTextDecorationLine(v pr.Decorations) {
 	s.dict["text_decoration_line"] = v
 }
 

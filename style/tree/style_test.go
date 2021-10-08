@@ -293,7 +293,7 @@ func TestAnnotateDocument(t *testing.T) {
 	assertProp(t, li0, "margin_bottom", pr.Dimension{Value: 16, Unit: pr.Px}.ToValue())
 	assertProp(t, li0, "margin_left", pr.Dimension{Value: 32, Unit: pr.Px}.ToValue()) // 4em)
 
-	assertProp(t, a, "text_decoration_line", pr.NDecorations{Decorations: utils.NewSet("underline")})
+	assertProp(t, a, "text_decoration_line", pr.Decorations(utils.NewSet("underline")))
 	assertProp(t, a, "font_weight", pr.IntString{Int: 900})
 	assertProp(t, a, "font_size", pr.FToV(24)) // 300% of 8px)
 	assertProp(t, a, "padding_top", pr.Dimension{Value: 1, Unit: pr.Px}.ToValue())

@@ -23,6 +23,8 @@ func NewAbsolutePlaceholder(box Box) *AbsolutePlaceholder {
 	return &out
 }
 
+func (AbsolutePlaceholder) IsClassicalBox() bool { return false }
+
 func (abs *AbsolutePlaceholder) setLaidOutBox(newBox Box) {
 	abs.AliasBox = newBox
 	abs.layoutDone = true
@@ -300,7 +302,7 @@ func absoluteBoxLayout(context *layoutContext, box Box, cb_ Box, fixedBoxes *[]*
 		newBox = absoluteFlex(context, box, containingBlock, fixedBoxes)
 	} else {
 		if !bo.BlockReplacedBoxT.IsInstance(box) {
-			log.Fatalf("box should be a BlockReplaced, got %s", box)
+			panic(fmt.Sprintf("box should be a BlockReplaced, got %T", box))
 		}
 		newBox = absoluteReplaced(box, containingBlock)
 	}

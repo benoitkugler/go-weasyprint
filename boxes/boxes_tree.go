@@ -136,17 +136,6 @@ type InlineFlexBox struct {
 	BoxFields
 }
 
-type classicalBox interface {
-	isBox()
-}
-
-// IsBox returns true for all standard boxes defined in this package, but false
-// for the special ones, defined in other packages, like AbsolutePlaceholder or StackingContext.
-func IsBox(b Box) bool {
-	_, is := b.(classicalBox)
-	return is
-}
-
 type methodsBlockLevelBox interface {
 	BlockLevel() *BlockLevelBox
 }

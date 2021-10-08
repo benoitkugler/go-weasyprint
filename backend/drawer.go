@@ -78,21 +78,23 @@ type GradientLayout struct {
 	ScaleY utils.Fl
 }
 
-type Drawer interface {
+// Output is the main target to the laid out document,
+// in a format agnostic way.
+type Output interface {
+	// AddPage creates a new page with the given dimensions and returns
+	// it to be paint on.
+	AddPage(left, top, right, bottom fl) OutputPage
+
 	// Create and set anchors (target of internal links).
 	// `anchors` is a 0-based list (meaning anchors in page 1 are at index 0)
 	// Returns the identifier for each anchor.
 	CreateAnchors(anchors [][]Anchor) map[string]int
-	AddInternalLink(x, y, w, h fl, linkId int)
-	AddExternalLink(x, y, w, h fl, url string)
 
 	// Add global attachments to the file
 	SetAttachments(as []Attachment)
 	// Embed a file. Calling this method twice with the same id
 	// won't embed the content twice.
 	EmbedFile(id string, a Attachment)
-	// Add file annotation on the current page
-	AddFileAnnotation(x, y, w, h fl, id string)
 
 	// Metadatas
 
@@ -106,21 +108,28 @@ type Drawer interface {
 	SetDateModification(d time.Time)
 
 	// Add an item to the document bookmark hierarchy
-	// `pageNumber` is the page number in the PDF file to link to.
+	// `pageNumber` is the page number in the output file to link to.
 	// `y`is the position in the page
 	AddBookmark(level int, title string, pageNumber int, y fl)
+}
+
+// OutputPage is the target of one laid out page
+type OutputPage interface {
+	AddInternalLink(x, y, w, h fl, linkId int)
+	AddExternalLink(x, y, w, h fl, url string)
+
+	// Add file annotation on the current page
+	AddFileAnnotation(x, y, w, h fl, id string)
 
 	// Returns the current page rectangle
 	GetPageRectangle() (left, top, right, bottom fl)
-	SetPageRectangle(left, top, right, bottom fl)
 
-	// // Returns the MediaBox for the current page
-	// GetMediaBox() (left, top, right, bottom float64)
-	// SetTrimBox(left, top, right, bottom float64)
-	// SetBleedBox(left, top, right, bottom float64)
-	// GetPageSize() (width, height float64)
+	// Adjust the media boxes
 
-	// OnNewStack save the current stack,
+	SetTrimBox(left, top, right, bottom fl)
+	SetBleedBox(left, top, right, bottom fl)
+
+	// OnNewStack save the current graphic stack,
 	// execute the given closure, and restore the stack.
 	// If an error is encoutered, the stack is still restored
 	// and the error is returned
@@ -255,6 +264,8 @@ type Drawer interface {
 
 	// AddFont register a new font to be used in the output and return
 	// an object used to store associated metadata.
+	// This method will be called several times with the same `face` argument,
+	// so caching is advised.
 	AddFont(face fonts.Face, content []byte) *Font
 
 	// DrawRasterImage draws the given image at the current point
@@ -272,9 +283,9 @@ type Pattern interface {
 	// AddGroup creates a new drawing target with the given
 	// bounding box.
 	// If the backend does not support groups, the current target should be returned.
-	AddGroup(x, y, width, height fl) Drawer
+	AddGroup(x, y, width, height fl) OutputPage
 
 	// DrawGroup draw the given target to the main target.
 	// If the backend does not support groups,  this should be a no-op.
-	DrawGroup(group Drawer)
+	DrawGroup(group OutputPage)
 }

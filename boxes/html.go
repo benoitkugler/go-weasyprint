@@ -40,11 +40,10 @@ func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseU
 // element should be.
 func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 	var newBox Box
-	switch box.Box().Style.GetDisplay() {
-	case "block", "list-item", "table":
+	if box.Box().Style.GetDisplay().Has("block") {
 		b := NewBlockReplacedBox(element.Data, box.Box().Style, image)
 		newBox = &b
-	default:
+	} else {
 		b := NewInlineReplacedBox(element.Data, box.Box().Style, image)
 		newBox = &b
 	}

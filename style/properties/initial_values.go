@@ -20,7 +20,7 @@ var InitialValues = Properties{
 	"counter_set":       SIntStrings{Values: IntStrings{}}, // parsed value for "none"
 
 	"direction":           String("ltr"),
-	"display":             String("inline"),
+	"display":             Display{"inline", "flow"},
 	"empty_cells":         String("show"),
 	"float":               String("none"),
 	"height":              SToV("auto"),
@@ -185,7 +185,7 @@ var InitialValues = Properties{
 	"order":           Int(0),
 
 	// Text Decoration Module 3 (CR): https://www.w3.org/TR/css-text-decor-3/
-	"text_decoration_line":  NDecorations{None: true},
+	"text_decoration_line":  Decorations{},
 	"text_decoration_color": CurrentColor,
 	"text_decoration_style": String("solid"),
 

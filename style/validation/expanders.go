@@ -344,6 +344,12 @@ func (b backgroundProps) add(name string) error {
 	return nil
 }
 
+func reverseLayers(a [][]parser.Token) {
+	for left, right := 0, len(a)-1; left < right; left, right = left+1, right-1 {
+		a[left], a[right] = a[right], a[left]
+	}
+}
+
 //@expander("background")
 // Expand the ``background`` shorthand property.
 //     See http://dev.w3.org/csswg/css3-background/#the-background
@@ -381,7 +387,6 @@ func expandBackground(baseUrl, _ string, tokens []parser.Token) (out pr.NamedPro
 			}
 
 			token := tokens[len(tokens)-1:]
-
 			if finalLayer {
 				color := otherColors(token, "")
 				if color != nil {
@@ -532,67 +537,57 @@ func expandBackground(baseUrl, _ string, tokens []parser.Token) (out pr.NamedPro
 		return color, results, nil
 	}
 
-	_layers := SplitOnComma(tokens)
-	n := len(_layers)
-	layers := make([][]parser.Token, n)
-	for i := range _layers {
-		layers[n-1-i] = _layers[i]
-	}
+	layers := SplitOnComma(tokens)
+	reverseLayers(layers)
 
-	var result_color pr.CssProperty
+	var resultColor pr.CssProperty
 
-	n = len(layers)
-	results_images := make(pr.Images, n)
-	results_repeats := make(pr.Repeats, n)
-	results_attachments := make(pr.Strings, n)
-	results_positions := make(pr.Centers, n)
-	results_sizes := make(pr.Sizes, n)
-	results_clips := make(pr.Strings, n)
-	results_origins := make(pr.Strings, n)
+	n := len(layers)
+	resultsImages := make(pr.Images, n)
+	resultsRepeats := make(pr.Repeats, n)
+	resultsAttachments := make(pr.Strings, n)
+	resultsPositions := make(pr.Centers, n)
+	resultsSizes := make(pr.Sizes, n)
+	resultsClips := make(pr.Strings, n)
+	resultsOrigins := make(pr.Strings, n)
 
 	for i, tokens := range layers {
 		layerColor, layer, err := parseLayer(tokens, i == 0)
 		if i == 0 {
-			result_color = layerColor
+			resultColor = layerColor
 		}
 		if err != nil {
 			return nil, err
 		}
-		results_images[i] = layer.image
-		results_repeats[i] = layer.repeat
-		results_attachments[i] = layer.attachment
-		results_positions[i] = layer.position
-		results_sizes[i] = layer.size
-		results_clips[i] = layer.clip
-		results_origins[i] = layer.origin
+		resultsImages[i] = layer.image
+		resultsRepeats[i] = layer.repeat
+		resultsAttachments[i] = layer.attachment
+		resultsPositions[i] = layer.position
+		resultsSizes[i] = layer.size
+		resultsClips[i] = layer.clip
+		resultsOrigins[i] = layer.origin
 	}
 
 	// un-reverse
-	rev_images := make(pr.Images, n)
-	rev_repeats := make(pr.Repeats, n)
-	rev_attachments := make(pr.Strings, n)
-	rev_positions := make(pr.Centers, n)
-	rev_sizes := make(pr.Sizes, n)
-	rev_clips := make(pr.Strings, n)
-	rev_origins := make(pr.Strings, n)
-	for i := range layers {
-		rev_images[n-1-i] = results_images[i]
-		rev_repeats[n-1-i] = results_repeats[i]
-		rev_attachments[n-1-i] = results_attachments[i]
-		rev_positions[n-1-i] = results_positions[i]
-		rev_sizes[n-1-i] = results_sizes[i]
-		rev_clips[n-1-i] = results_clips[i]
-		rev_origins[n-1-i] = results_origins[i]
+	for left, right := 0, n-1; left < right; left, right = left+1, right-1 {
+		resultsImages[left], resultsImages[right] = resultsImages[right], resultsImages[left]
+		resultsRepeats[left], resultsRepeats[right] = resultsRepeats[right], resultsRepeats[left]
+		resultsAttachments[left], resultsAttachments[right] = resultsAttachments[right], resultsAttachments[left]
+		resultsPositions[left], resultsPositions[right] = resultsPositions[right], resultsPositions[left]
+		resultsSizes[left], resultsSizes[right] = resultsSizes[right], resultsSizes[left]
+		resultsClips[left], resultsClips[right] = resultsClips[right], resultsClips[left]
+		resultsOrigins[left], resultsOrigins[right] = resultsOrigins[right], resultsOrigins[left]
 	}
+
 	out = pr.NamedProperties{
-		{Name: "background_image", Property: pr.AsCascaded(rev_images).AsValidated()},
-		{Name: "background_repeat", Property: pr.AsCascaded(rev_repeats).AsValidated()},
-		{Name: "background_attachment", Property: pr.AsCascaded(rev_attachments).AsValidated()},
-		{Name: "background_position", Property: pr.AsCascaded(rev_positions).AsValidated()},
-		{Name: "background_size", Property: pr.AsCascaded(rev_sizes).AsValidated()},
-		{Name: "background_clip", Property: pr.AsCascaded(rev_clips).AsValidated()},
-		{Name: "background_origin", Property: pr.AsCascaded(rev_origins).AsValidated()},
-		{Name: "background-color", Property: pr.AsCascaded(result_color).AsValidated()},
+		{Name: "background_image", Property: pr.AsCascaded(resultsImages).AsValidated()},
+		{Name: "background_repeat", Property: pr.AsCascaded(resultsRepeats).AsValidated()},
+		{Name: "background_attachment", Property: pr.AsCascaded(resultsAttachments).AsValidated()},
+		{Name: "background_position", Property: pr.AsCascaded(resultsPositions).AsValidated()},
+		{Name: "background_size", Property: pr.AsCascaded(resultsSizes).AsValidated()},
+		{Name: "background_clip", Property: pr.AsCascaded(resultsClips).AsValidated()},
+		{Name: "background_origin", Property: pr.AsCascaded(resultsOrigins).AsValidated()},
+		{Name: "background-color", Property: pr.AsCascaded(resultColor).AsValidated()},
 	}
 	return out, nil
 }
@@ -601,7 +596,7 @@ func expandBackground(baseUrl, _ string, tokens []parser.Token) (out pr.NamedPro
 func expandTextDecoration(_, _ string, tokens []parser.Token) (out pr.NamedProperties, err error) {
 	var (
 		textDecorationLine  = utils.Set{}
-		outDecorations      pr.NDecorations
+		outDecorations      pr.Decorations
 		textDecorationColor pr.Color
 		textDecorationStyle string
 	)
@@ -633,11 +628,11 @@ func expandTextDecoration(_, _ string, tokens []parser.Token) (out pr.NamedPrope
 		if len(textDecorationLine) != 1 {
 			return nil, InvalidValue
 		}
-		outDecorations.None = true
+		outDecorations = nil
 	} else if len(textDecorationLine) == 0 {
-		outDecorations.None = true
+		outDecorations = nil
 	} else {
-		outDecorations.Decorations = textDecorationLine
+		outDecorations = pr.Decorations(textDecorationLine)
 	}
 	if parser.Color(textDecorationColor).IsNone() {
 		textDecorationColor = pr.Color{Type: parser.ColorCurrentColor}

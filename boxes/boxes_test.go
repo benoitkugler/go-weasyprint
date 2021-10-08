@@ -10,7 +10,6 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
 	"github.com/benoitkugler/go-weasyprint/images"
-	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -39,7 +38,7 @@ func fakeHTML(html *tree.HTML) *tree.HTML {
 	return html
 }
 
-func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils.HTMLNode, *tree.StyleFor, Gifu, string, *tree.TargetCollector, counters.CounterStyle, text.TextLayoutContext) {
+func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils.HTMLNode, *tree.StyleFor, Gifu, string, *tree.TargetCollector, counters.CounterStyle) {
 	html, err := tree.NewHTML(content, baseUrl, utils.DefaultUrlFetcher, "")
 	if err != nil {
 		t.Fatalf("parsing HTML failed: %s", err)
@@ -55,11 +54,11 @@ func parseBase(t *testing.T, content utils.ContentInput, baseUrl string) (*utils
 		return out
 	}
 	tr := tree.NewTargetCollector()
-	return document.Root, style, imgFetcher, baseUrl, &tr, cs, nil
+	return document.Root, style, imgFetcher, baseUrl, &tr, cs
 }
 
 func parse(t *testing.T, htmlContent string) BoxITF {
-	a, b, c, d, e, f, _ := parseBase(t, utils.InputString(htmlContent), baseUrl)
+	a, b, c, d, e, f := parseBase(t, utils.InputString(htmlContent), baseUrl)
 	boxes := elementToBox(a, b, c, d, e, f, nil)
 	return boxes[0]
 }
@@ -1391,8 +1390,8 @@ func testDisplayNoneRoot(t *testing.T, html string) {
 	defer cp.AssertNoLogs(t)
 
 	box := parseAndBuild(t, html)
-	if d := box.Box().Style.GetDisplay(); d != "block" && d != "flow" {
-		t.Fatal()
+	if d := box.Box().Style.GetDisplay(); d != (pr.Display{"block", "flow"}) {
+		t.Fatalf("unexpected display: %s", d)
 	}
 	if len(box.Box().Children) != 0 {
 		t.Fatal()

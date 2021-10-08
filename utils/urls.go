@@ -307,6 +307,11 @@ type dataURI struct {
 
 // decode the base64 or ascii encoding, but not the charset
 func (d dataURI) toResource(urlTarget string) (RemoteRessource, error) {
+	var err error
+	d.data, err = unescape(d.data)
+	if err != nil {
+		return RemoteRessource{}, err
+	}
 	if d.isBase64 {
 		dbuf := make([]byte, base64.StdEncoding.DecodedLen(len(d.data)))
 		n, err := base64.StdEncoding.Decode(dbuf, d.data)
@@ -314,12 +319,6 @@ func (d dataURI) toResource(urlTarget string) (RemoteRessource, error) {
 			return RemoteRessource{}, fmt.Errorf("invalid base64 data url: %s", err)
 		}
 		d.data = dbuf[:n]
-	} else {
-		var err error
-		d.data, err = unescape(d.data)
-		if err != nil {
-			return RemoteRessource{}, err
-		}
 	}
 	return RemoteRessource{
 		Content:          (*BytesCloser)(bytes.NewReader(d.data)),

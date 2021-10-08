@@ -443,10 +443,10 @@ func (s Properties) SetDirection(v String) {
 	s["direction"] = v
 }
 
-func (s Properties) GetDisplay() String {
-	return s["display"].(String)
+func (s Properties) GetDisplay() Display {
+	return s["display"].(Display)
 }
-func (s Properties) SetDisplay(v String) {
+func (s Properties) SetDisplay(v Display) {
 	s["display"] = v
 }
 
@@ -968,10 +968,10 @@ func (s Properties) SetTextDecorationColor(v Color) {
 	s["text_decoration_color"] = v
 }
 
-func (s Properties) GetTextDecorationLine() NDecorations {
-	return s["text_decoration_line"].(NDecorations)
+func (s Properties) GetTextDecorationLine() Decorations {
+	return s["text_decoration_line"].(Decorations)
 }
-func (s Properties) SetTextDecorationLine(v NDecorations) {
+func (s Properties) SetTextDecorationLine(v Decorations) {
 	s["text_decoration_line"] = v
 }
 
@@ -1270,8 +1270,8 @@ type StyleAccessor interface {
 	GetDirection() String
 	SetDirection(v String)
 
-	GetDisplay() String
-	SetDisplay(v String)
+	GetDisplay() Display
+	SetDisplay(v Display)
 
 	GetEmptyCells() String
 	SetEmptyCells(v String)
@@ -1495,8 +1495,8 @@ type StyleAccessor interface {
 	GetTextDecorationColor() Color
 	SetTextDecorationColor(v Color)
 
-	GetTextDecorationLine() NDecorations
-	SetTextDecorationLine(v NDecorations)
+	GetTextDecorationLine() Decorations
+	SetTextDecorationLine(v Decorations)
 
 	GetTextDecorationStyle() String
 	SetTextDecorationStyle(v String)

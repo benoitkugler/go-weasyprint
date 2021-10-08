@@ -653,7 +653,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	context.currentPage = pageNumber
 	pageIsEmpty := true
 	var adjoiningMargins []pr.Float
-	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute && fixed
+	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute and fixed
 
 	if debugMode {
 		fmt.Println("Making page...")
@@ -669,7 +669,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 
 	for _, placeholder := range positionedBoxes {
 		if placeholder.Box().Style.GetPosition().String == "fixed" {
-			page.FixedBoxes = append(page.FixedBoxes, placeholder)
+			page.FixedBoxes = append(page.FixedBoxes, placeholder.AliasBox)
 		}
 	}
 	for _, absoluteBox := range positionedBoxes {

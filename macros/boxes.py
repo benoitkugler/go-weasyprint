@@ -5,7 +5,6 @@ import inspect
 # the following interfaces need additional methods
 # which must be completed manually
 CLASS_NEED_METHODS = [
-    "Box",
     "BlockLevelBox",
     "ReplacedBox",
     "TableBox",
@@ -38,8 +37,10 @@ def get_parent_classes(class_: type) -> typing.Set[str]:
     return set(c.__name__ for c in class_.__bases__ if c.__name__ != "object")
 
 
+# the root class Box is not returned
 def resolve_ancestors(class_: type) -> typing.Set[str]:
-    level = [c for c in class_.__bases__ if c.__name__ != "object"]
+    level = [c for c in class_.__bases__ if c.__name__ !=
+             "object" and c.__name__ != "Box"]
     out: typing.Set[str] = set(c.__name__ for c in level)
     for parent in level:
         out = out.union(resolve_ancestors(parent))
@@ -69,6 +70,11 @@ def get_itf_and_type_code(class_: type) -> str:
     comment = get_class_comment(c)
 
     class_name = c.__name__
+
+    # special case for the abstract class which is handled manually
+    if class_name == "Box":
+        return ""
+
     type_methods = [f'{parent}ITF' for parent in get_parent_classes(
         c)] + [f"is{class_name} ()"]
 
@@ -93,6 +99,9 @@ def get_itf_and_type_code(class_: type) -> str:
         """
 
         itf_code += f"""func (b {class_name}) Copy() Box {{ return &b }}
+        """
+
+        itf_code += f"""func ({class_name}) IsClassicalBox() bool {{ return true }}
         """
 
         itf_code += f"""func ({class_name}) is{class_name}() {{ }}

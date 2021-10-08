@@ -754,18 +754,20 @@ func content(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssPro
 // Compute the ``display`` property.
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func display(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProperty {
-	value := _value.(pr.String)
+	value := _value.(pr.Display)
 	float_ := computer.specified.float
 	position := computer.specified.position
 	if (!position.Bool && (position.String == "absolute" || position.String == "fixed")) || float_ != "none" || computer.isRootElement() {
-		switch value {
-		case "inline-table":
-			return pr.String("table")
-		case "inline", "table-row-group", "table-column",
-			"table-column-group", "table-header-group",
-			"table-footer-group", "table-row", "table-cell",
-			"table-caption", "inline-block":
-			return pr.String("block")
+		if value == (pr.Display{"inline-table"}) {
+			return pr.Display{"block", "table"}
+		} else if d := value[0]; value[1] == "" && strings.HasPrefix(d, "table-") {
+			return pr.Display{"block", "flow"}
+		} else if d == "inline" {
+			if value.Has("list-item") {
+				return pr.Display{"block", "flow", "list-item"}
+			} else {
+				return pr.Display{"block", "flow"}
+			}
 		}
 	}
 	return value
@@ -789,7 +791,11 @@ func fontSize(computer *ComputedStyle, name string, _value pr.CssProperty) pr.Cs
 		return fs.ToValue()
 	}
 
-	parentFontSize := computer.parentStyle.GetFontSize().Value
+	parentFontSize := pr.InitialValues.GetFontSize().Value
+	if computer.parentStyle != nil {
+		parentFontSize = computer.parentStyle.GetFontSize().Value
+	}
+
 	if value.String == "larger" {
 		for _, keywordValue := range keywordsValues {
 			if keywordValue > parentFontSize {

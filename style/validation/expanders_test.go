@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"reflect"
 	"testing"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -237,7 +238,7 @@ func TestExpandWordWrap(t *testing.T) {
 
 func fillTextDecoration(prop pr.Properties) map[string]pr.ValidatedProperty {
 	base := map[string]pr.ValidatedProperty{
-		"text_decoration_line":  pr.AsCascaded(pr.NDecorations{None: true}).AsValidated(),
+		"text_decoration_line":  pr.AsCascaded(pr.Decorations(nil)).AsValidated(),
 		"text_decoration_color": pr.AsCascaded(pr.CurrentColor).AsValidated(),
 		"text_decoration_style": pr.AsCascaded(pr.String("solid")).AsValidated(),
 	}
@@ -251,13 +252,13 @@ func TestExpandTextDecoration(t *testing.T) {
 	capt := testutils.CaptureLogs()
 
 	assertValidDict(t, "text-decoration: none", fillTextDecoration(pr.Properties{
-		"text_decoration_line": pr.NDecorations{None: true},
+		"text_decoration_line": pr.Decorations(nil),
 	}))
 	assertValidDict(t, "text-decoration: overline", fillTextDecoration(pr.Properties{
-		"text_decoration_line": pr.NDecorations{Decorations: utils.NewSet("overline")},
+		"text_decoration_line": pr.Decorations(utils.NewSet("overline")),
 	}))
 	assertValidDict(t, "text-decoration: overline blink line-through", fillTextDecoration(pr.Properties{
-		"text_decoration_line": pr.NDecorations{Decorations: utils.NewSet("blink", "line-through", "overline")},
+		"text_decoration_line": pr.Decorations(utils.NewSet("blink", "line-through", "overline")),
 	}))
 	assertValidDict(t, "text-decoration: red", fillTextDecoration(pr.Properties{
 		"text_decoration_color": pr.NewColor(1, 0, 0, 1),
@@ -332,4 +333,142 @@ func TestLineClamp(t *testing.T) {
 	assertInvalid(t, `line-clamp: 1px`, "invalid")
 	assertInvalid(t, `line-clamp: 0 "…"`, "invalid")
 	assertInvalid(t, `line-clamp: 1px 2px`, "invalid")
+}
+
+// Helper checking the background pr.
+func assertBackground(t *testing.T, css string, expected map[string]pr.ValidatedProperty) {
+	expanded := expandToDict(t, "background: "+css, "")
+	col, in := expected["background_color"]
+	if !in {
+		col = pr.AsCascaded(pr.InitialValues["background_color"]).AsValidated()
+	}
+	if !reflect.DeepEqual(expanded["background_color"], col) {
+		t.Fatalf("expected %v got %v", col, expanded["background_color"])
+	}
+	delete(expanded, "background_color")
+	delete(expected, "background_color")
+	nbLayers := len(expanded["background_image"].ToCascaded().ToCSS().(pr.Images))
+	for name, value := range expected {
+		if !reflect.DeepEqual(expanded[name], value) {
+			t.Fatalf("for %s expected %v got %v", name, value, expanded[name])
+		}
+		delete(expanded, name)
+		delete(expected, name)
+	}
+	for name, value := range expanded {
+		initv := pr.InitialValues[name].(repeatable)
+		ref := pr.AsCascaded(initv.Repeat(nbLayers)).AsValidated()
+		if !reflect.DeepEqual(value, ref) {
+			t.Fatalf("expected %v got %v", ref, value)
+		}
+	}
+}
+
+// Test the ``background`` property.
+func TestExpandBackground(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	assertBackground(t, "none", toValidated(pr.Properties{}))
+	assertBackground(t, "red", toValidated(pr.Properties{
+		"background_color": pr.NewColor(1, 0, 0, 1),
+	}))
+	assertBackground(t, "url(lipsum.png)", toValidated(pr.Properties{
+		"background_image": pr.Images{pr.UrlImage("http://weasyprint.org/foo/lipsum.png")},
+	}))
+	assertBackground(t, "no-repeat", toValidated(pr.Properties{
+		"background_repeat": pr.Repeats{{"no-repeat", "no-repeat"}},
+	}))
+	assertBackground(t, "fixed", toValidated(pr.Properties{
+		"background_attachment": pr.Strings{"fixed"},
+	}))
+	assertBackground(t, "repeat no-repeat fixed", toValidated(pr.Properties{
+		"background_repeat":     pr.Repeats{{"repeat", "no-repeat"}},
+		"background_attachment": pr.Strings{"fixed"},
+	}))
+	assertBackground(t, "top", toValidated(pr.Properties{
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 0, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top right", toValidated(pr.Properties{
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 100, Unit: pr.Percentage}, pr.Dimension{Value: 0, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top right 20px", toValidated(pr.Properties{
+		"background_position": pr.Centers{{OriginX: "right", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 20, Unit: pr.Px}, pr.Dimension{Value: 0, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top 1% right 20px", toValidated(pr.Properties{
+		"background_position": pr.Centers{{OriginX: "right", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 20, Unit: pr.Px}, pr.Dimension{Value: 1, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top no-repeat", toValidated(pr.Properties{
+		"background_repeat":   pr.Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 0, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top right no-repeat", toValidated(pr.Properties{
+		"background_repeat":   pr.Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 100, Unit: pr.Percentage}, pr.Dimension{Value: 0, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top right 20px no-repeat", toValidated(pr.Properties{
+		"background_repeat":   pr.Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": pr.Centers{{OriginX: "right", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 20, Unit: pr.Px}, pr.Dimension{Value: 0, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "top 1% right 20px no-repeat", toValidated(pr.Properties{
+		"background_repeat":   pr.Repeats{{"no-repeat", "no-repeat"}},
+		"background_position": pr.Centers{{OriginX: "right", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 20, Unit: pr.Px}, pr.Dimension{Value: 1, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "url(bar) #f00 repeat-y center left fixed", toValidated(pr.Properties{
+		"background_color":      pr.NewColor(1, 0, 0, 1),
+		"background_image":      pr.Images{pr.UrlImage("http://weasyprint.org/foo/bar")},
+		"background_repeat":     pr.Repeats{{"no-repeat", "repeat"}},
+		"background_attachment": pr.Strings{"fixed"},
+		"background_position":   pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 0, Unit: pr.Percentage}, pr.Dimension{Value: 50, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "#00f 10% 200px", toValidated(pr.Properties{
+		"background_color":    pr.NewColor(0, 0, 1, 1),
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 10, Unit: pr.Percentage}, pr.Dimension{Value: 200, Unit: pr.Px}}}},
+	}))
+	assertBackground(t, "right 78px fixed", toValidated(pr.Properties{
+		"background_attachment": pr.Strings{"fixed"},
+		"background_position":   pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 100, Unit: pr.Percentage}, pr.Dimension{Value: 78, Unit: pr.Px}}}},
+	}))
+	assertBackground(t, "center / cover red", toValidated(pr.Properties{
+		"background_size":     pr.Sizes{{String: "cover"}},
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 50, Unit: pr.Percentage}}}},
+		"background_color":    pr.NewColor(1, 0, 0, 1),
+	}))
+	assertBackground(t, "center / auto red", toValidated(pr.Properties{
+		"background_size":     pr.Sizes{{Width: pr.SToV("auto"), Height: pr.SToV("auto")}},
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 50, Unit: pr.Percentage}}}},
+		"background_color":    pr.NewColor(1, 0, 0, 1),
+	}))
+	assertBackground(t, "center / 42px", toValidated(pr.Properties{
+		"background_size":     pr.Sizes{{Width: pr.Dimension{Value: 42, Unit: pr.Px}.ToValue(), Height: pr.SToV("auto")}},
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 50, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "center / 7% 4em", toValidated(pr.Properties{
+		"background_size":     pr.Sizes{{Width: pr.Dimension{Value: 7, Unit: pr.Percentage}.ToValue(), Height: pr.Dimension{Value: 4, Unit: pr.Em}.ToValue()}},
+		"background_position": pr.Centers{{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 50, Unit: pr.Percentage}}}},
+	}))
+	assertBackground(t, "red content-box", toValidated(pr.Properties{
+		"background_color":  pr.NewColor(1, 0, 0, 1),
+		"background_origin": pr.Strings{"content-box"},
+		"background_clip":   pr.Strings{"content-box"},
+	}))
+	assertBackground(t, "red border-box content-box", toValidated(pr.Properties{
+		"background_color":  pr.NewColor(1, 0, 0, 1),
+		"background_origin": pr.Strings{"border-box"},
+		"background_clip":   pr.Strings{"content-box"},
+	}))
+	assertBackground(t, "url(bar) center, no-repeat", toValidated(pr.Properties{
+		"background_color": pr.NewColor(0, 0, 0, 0),
+		"background_image": pr.Images{pr.UrlImage("http://weasyprint.org/foo/bar"), pr.NoneImage{}},
+		"background_position": pr.Centers{
+			{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 50, Unit: pr.Percentage}, pr.Dimension{Value: 50, Unit: pr.Percentage}}},
+			{OriginX: "left", OriginY: "top", Pos: pr.Point{pr.Dimension{Value: 0, Unit: pr.Percentage}, pr.Dimension{Value: 0, Unit: pr.Percentage}}},
+		},
+		"background_repeat": pr.Repeats{{"repeat", "repeat"}, {"no-repeat", "no-repeat"}},
+	}))
+	capt.AssertNoLogs(t)
+	assertInvalid(t, "background: 10px lipsum", "invalid")
+	assertInvalid(t, "background-position: 10px lipsum", "invalid")
+	assertInvalid(t, "background: content-box red content-box", "invalid")
+	assertInvalid(t, "background-image: inexistent-gradient(blue, green)", "invalid")
+	// Color must be in the last layer :
+	assertInvalid(t, "background: red, url(foo)", "invalid")
 }

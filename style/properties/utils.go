@@ -46,6 +46,11 @@ func NewColor(r, g, b, a Fl) Color {
 	return Color{RGBA: parser.RGBA{R: r, G: g, B: b, A: a}, Type: parser.ColorRGBA}
 }
 
+// Has returns `true` is v is one of the three elements.
+func (d Display) Has(v string) bool {
+	return d[0] == v || d[1] == v || d[2] == v
+}
+
 const (
 	True  = Bool(true)
 	False = Bool(false)

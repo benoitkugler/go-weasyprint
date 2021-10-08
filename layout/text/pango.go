@@ -176,11 +176,6 @@ func (p *TextLayout) GetFirstLine() (*pango.LayoutLine, int) {
 	return firstLine, index
 }
 
-func (p *TextLayout) GetFontMetrics() interface{} {
-	// FIXME:
-	return nil
-}
-
 // LineSize gets the logical width and height of the given `line`.
 // `style` is used to add letter spacing (if needed).
 func LineSize(line *pango.LayoutLine, style pr.StyleAccessor) (pr.Fl, pr.Fl) {

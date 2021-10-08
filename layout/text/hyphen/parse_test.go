@@ -183,7 +183,6 @@ func TestParsePattern(t *testing.T) {
 		expecteds := parse.FindAllStringSubmatch(data, -1)
 		gots := parsePattern(data, nil)
 		if len(expecteds) != len(gots) {
-			fmt.Println(expecteds, gots)
 			t.Fatalf("parsing failed for: %s: %d %d", data, len(expecteds), len(gots))
 		}
 

@@ -1,7 +1,7 @@
 package document
 
 import (
-	"log"
+	"fmt"
 	"sort"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -9,6 +9,8 @@ import (
 )
 
 type aliasForStackingContext = bo.Box
+
+var _ bo.Box = StackingContext{}
 
 // Stacking contexts define the paint order of all pieces of a document.
 // http://www.w3.org/TR/CSS21/visuren.html#x43
@@ -119,7 +121,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 		} else {
 			if style.GetPosition().String != "static" {
 				if style.GetZIndex().String != "auto" {
-					log.Fatalf("expected auto z-index, got %v", style.GetZIndex())
+					panic(fmt.Sprintf("expected auto z-index, got %v", style.GetZIndex()))
 				}
 				// "Fake" context: sub-contexts will go := range this
 				// `childContexts` list.
@@ -183,3 +185,5 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 	box = dispatchChildren(box)
 	return NewStackingContext(box, children, blocks, floats, blocksAndCells, page)
 }
+
+func (StackingContext) IsClassicalBox() bool { return false }

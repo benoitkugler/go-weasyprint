@@ -86,11 +86,14 @@ func (mp MaybePoint) V() Point {
 	return Point{mp[0].V(), mp[1].V()}
 }
 
-// Very common usage
-type Box = BoxITF
+type BoxITF = Box
 
 // Box is the common interface grouping all possible boxes
-type methodsBox interface {
+type Box interface {
+	// IsClassicalBox returns true for all standard boxes defined in this package, but false
+	// for the special ones, defined in other packages, like AbsolutePlaceholder or StackingContext.
+	IsClassicalBox() bool
+
 	tree.Box
 
 	Type() BoxType

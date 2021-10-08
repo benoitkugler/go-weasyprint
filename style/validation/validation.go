@@ -627,15 +627,14 @@ func _backgroundImage(tokens []Token, baseUrl string) (pr.Image, error) {
 	if len(tokens) != 1 {
 		return nil, nil
 	}
-	_token := tokens[0]
+	token := tokens[0]
 
-	token, ok := _token.(parser.FunctionBlock)
-	if !ok {
+	if _, ok := token.(parser.FunctionBlock); !ok {
 		if getKeyword(token) == "none" {
 			return pr.NoneImage{}, nil
 		}
 	}
-	return getImage(_token, baseUrl)
+	return getImage(token, baseUrl)
 }
 
 func backgroundImage(tokens []Token, baseUrl string) (pr.CssProperty, error) {
@@ -1383,15 +1382,59 @@ func direction(tokens []Token, _ string) pr.CssProperty {
 func display(tokens []Token, _ string) pr.CssProperty {
 	keyword := getSingleKeyword(tokens)
 	switch keyword {
-	case "inline", "block", "inline-block", "list-item", "none",
-		"table", "inline-table", "table-caption",
-		"table-row-group", "table-header-group", "table-footer-group",
-		"table-row", "table-column-group", "table-column", "table-cell",
-		"flex", "inline-flex":
-		return pr.String(keyword)
-	default:
-		return nil
+	case "none", "table-caption", "table-row-group", "table-cell",
+		"table-header-group", "table-footer-group", "table-row",
+		"table-column-group", "table-column":
+		return pr.Display{keyword}
+	case "inline-table", "inline-flex", "inline-grid":
+		return pr.Display{"inline", keyword[7:]}
+	case "inline-block":
+		return pr.Display{"inline", "flow-root"}
 	}
+
+	var outside, inside, listItem string
+	for _, token := range tokens {
+		ident, ok := token.(parser.IdentToken)
+		if !ok {
+			return nil
+		}
+		value := string(ident.Value)
+		switch value {
+		case "block", "inline":
+			if outside != "" {
+				return nil
+			}
+			outside = value
+		case "flow", "flow-root", "table", "flex", "grid":
+			if inside != "" {
+				return nil
+			}
+			inside = value
+		case "list-item":
+			if listItem != "" {
+				return nil
+			}
+			listItem = value
+		default:
+			return nil
+		}
+	}
+
+	if outside == "" {
+		outside = "block"
+	}
+	if inside == "" {
+		inside = "flow"
+	}
+	if listItem != "" {
+		if inside == "flow" || inside == "flow-root" {
+			return pr.Display{outside, inside, listItem}
+		}
+	} else {
+		return pr.Display{outside, inside}
+	}
+
+	return nil
 }
 
 //@validator("float")
@@ -2138,10 +2181,10 @@ func textDecorationLine(tokens []Token, _ string) pr.CssProperty {
 		uniqKeywords.Add(keyword)
 	}
 	if _, in := uniqKeywords["none"]; len(uniqKeywords) == 1 && in { // then uniqKeywords == {"none"}
-		return pr.NDecorations{None: true}
+		return pr.Decorations{}
 	}
 	if valid && len(uniqKeywords) == len(tokens) {
-		return pr.NDecorations{Decorations: uniqKeywords}
+		return pr.Decorations(uniqKeywords)
 	}
 	return nil
 }

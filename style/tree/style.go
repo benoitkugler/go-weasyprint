@@ -180,24 +180,21 @@ func (self *StyleFor) SetComputedStyles(element, parent Element,
 func (s StyleFor) Get(element Element, pseudoType string) pr.ElementStyle {
 	style := s.computedStyles[element.ToKey(pseudoType)]
 	if style != nil {
-		display := string(style.GetDisplay())
-		if strings.Contains(display, "table") {
-			if (display == "table" || display == "inline-table") && style.GetBorderCollapse() == "collapse" {
+		display := style.GetDisplay()
+		if display.Has("table") && style.GetBorderCollapse() == "collapse" {
+			// Padding do not apply
+			style.SetPaddingTop(pr.ZeroPixels.ToValue())
+			style.SetPaddingBottom(pr.ZeroPixels.ToValue())
+			style.SetPaddingLeft(pr.ZeroPixels.ToValue())
+			style.SetPaddingRight(pr.ZeroPixels.ToValue())
+		}
 
-				// Padding do not apply
-				style.SetPaddingTop(pr.ZeroPixels.ToValue())
-				style.SetPaddingBottom(pr.ZeroPixels.ToValue())
-				style.SetPaddingLeft(pr.ZeroPixels.ToValue())
-				style.SetPaddingRight(pr.ZeroPixels.ToValue())
-			}
-			if strings.HasPrefix(display, "table-") && display != "table-caption" {
-
-				// Margins do not apply
-				style.SetMarginTop(pr.ZeroPixels.ToValue())
-				style.SetMarginBottom(pr.ZeroPixels.ToValue())
-				style.SetMarginLeft(pr.ZeroPixels.ToValue())
-				style.SetMarginRight(pr.ZeroPixels.ToValue())
-			}
+		if d := display[0]; display[1] == "" && display[2] == "" && strings.HasPrefix(d, "table-") && d != "table-caption" {
+			// Margins do not apply
+			style.SetMarginTop(pr.ZeroPixels.ToValue())
+			style.SetMarginBottom(pr.ZeroPixels.ToValue())
+			style.SetMarginLeft(pr.ZeroPixels.ToValue())
+			style.SetMarginRight(pr.ZeroPixels.ToValue())
 		}
 	}
 	return style
@@ -246,7 +243,7 @@ var (
 
 type computedRequirements struct {
 	float    pr.String
-	display  pr.String
+	display  pr.Display
 	position pr.BoolString
 }
 
@@ -301,7 +298,7 @@ func newComputedStyle(parentStyle pr.ElementStyle, cascaded cascadedStyle,
 		out.specified.position = position.ToCascaded().ToCSS().(pr.BoolString)
 	}
 	if display.SpecialProperty == nil && display.ToCascaded().Default == 0 {
-		out.specified.display = display.ToCascaded().ToCSS().(pr.String)
+		out.specified.display = display.ToCascaded().ToCSS().(pr.Display)
 	}
 	if float.SpecialProperty == nil && float.ToCascaded().Default == 0 {
 		out.specified.float = float.ToCascaded().ToCSS().(pr.String)

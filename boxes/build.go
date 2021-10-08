@@ -8,7 +8,6 @@ import (
 	"unicode"
 
 	"github.com/benoitkugler/go-weasyprint/images"
-	"github.com/benoitkugler/go-weasyprint/layout/text"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 
@@ -80,9 +79,9 @@ func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.ElementSty
 	style := r.StyleFor.Get(element, pseudoType)
 	if style != nil {
 		if element == r.elementTree {
-			style.SetDisplay("block")
+			style.SetDisplay(pr.Display{"block", "flow"})
 		} else {
-			style.SetDisplay("none")
+			style.SetDisplay(pr.Display{"none"})
 		}
 	}
 	return style
@@ -90,7 +89,7 @@ func (r rootStyleFor) Get(element tree.Element, pseudoType string) pr.ElementSty
 
 // Build a formatting structure (box tree) from an element tree.
 func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleFor, getImageFromUri Gifu,
-	baseUrl string, targetCollector *tree.TargetCollector, cs counters.CounterStyle, textContext text.TextLayoutContext) BlockLevelBoxITF {
+	baseUrl string, targetCollector *tree.TargetCollector, cs counters.CounterStyle) BlockLevelBoxITF {
 
 	boxList := elementToBox(elementTree, styleFor, getImageFromUri, baseUrl, targetCollector, cs, nil)
 
@@ -116,50 +115,66 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleF
 
 // Maps values of the ``display`` CSS property to box types.
 func makeBox(elementTag string, style pr.ElementStyle, content []Box) Box {
-	switch style.GetDisplay() {
-	case "block", "list-item":
+	tmp := style.GetDisplay()
+	display := [2]string{tmp[0], tmp[1]}
+	switch display {
+	case [2]string{"block", "flow"}:
 		b := NewBlockBox(elementTag, style, content)
 		return &b
-	case "inline":
+	case [2]string{"inline", "flow"}:
 		b := NewInlineBox(elementTag, style, content)
 		return &b
-	case "inline-block":
+	case [2]string{"block", "flow-root"}:
+		b := NewBlockBox(elementTag, style, content)
+		return &b
+	case [2]string{"inline", "flow-root"}:
 		b := NewInlineBlockBox(elementTag, style, content)
 		return &b
-	case "table":
+	case [2]string{"block", "table"}:
 		b := NewTableBox(elementTag, style, content)
 		return &b
-	case "inline-table":
+	case [2]string{"inline", "table"}:
 		b := NewInlineTableBox(elementTag, style, content)
 		return &b
-	case "table-row":
+	case [2]string{"block", "flex"}:
+		b := NewFlexBox(elementTag, style, content)
+		return &b
+	case [2]string{"inline", "flex"}:
+		b := NewInlineFlexBox(elementTag, style, content)
+		return &b
+	case [2]string{"table-row"}:
 		b := NewTableRowBox(elementTag, style, content)
 		return &b
-	case "table-row-group", "table-header-group", "table-footer-group":
+	case [2]string{"table-row-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
 		return &b
-	case "table-column":
+	case [2]string{"table-header-group"}:
+		b := NewTableRowGroupBox(elementTag, style, content)
+		return &b
+	case [2]string{"table-footer-group"}:
+		b := NewTableRowGroupBox(elementTag, style, content)
+		return &b
+	case [2]string{"table-column"}:
 		b := NewTableColumnBox(elementTag, style, content)
 		return &b
-	case "table-column-group":
+	case [2]string{"table-column-group"}:
 		b := NewTableColumnGroupBox(elementTag, style, content)
 		return &b
-	case "table-cell":
+	case [2]string{"table-cell"}:
 		b := NewTableCellBox(elementTag, style, content)
 		return &b
-	case "table-caption":
+	case [2]string{"table-caption"}:
 		b := NewTableCaptionBox(elementTag, style, content)
 		return &b
 	default:
-		log.Fatalf("display property %s not supported", style.GetDisplay())
-		return nil
+		panic(fmt.Sprintf("display property %s not supported", tmp))
 	}
 }
 
 // Convert an element and its children into a box with children.
 //
-//    Return a list of boxes. Most of the time the list will have one item but
-//    may have zero or more than one.
+// Return a list of boxes. Most of the time the list will have one item but
+// may have zero or more than one.
 //
 //    Eg.::
 //
@@ -188,7 +203,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	style := styleFor.Get(element, "")
 
 	display := style.GetDisplay()
-	if display == "none" {
+	if display == (pr.Display{"none"}) {
 		return nil
 	}
 
@@ -217,7 +232,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	box.Box().firstLineStyle = styleFor.Get(element, "first-line")
 
 	var children, markerBoxes []Box
-	if display == "list-item" {
+	if display.Has("list-item") {
 		mb := markerToBox(element, state, style, styleFor, getImageFromUri, targetCollector, cs)
 		if mb != nil {
 			markerBoxes = []Box{mb}
@@ -308,7 +323,7 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 
 	display := style.GetDisplay()
 	content := style.GetContent()
-	if display == "none" || content.String == "none" || content.String == "normal" || content.String == "inhibit" {
+	if display == (pr.Display{"none"}) || content.String == "none" || content.String == "normal" || content.String == "inhibit" {
 		return nil
 	}
 
@@ -317,7 +332,7 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 	UpdateCounters(state, style)
 
 	var children []Box
-	if display == "list-item" {
+	if display.Has("list-item") {
 		mb := markerToBox(element, state, style, styleFor, getImageFromUri, targetCollector, cs)
 		if mb != nil {
 			children = append(children, mb)
@@ -339,7 +354,7 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 	box := makeBox(element.Data+"::marker", style, nil)
 	children := &box.Box().Children
 
-	if style.GetDisplay() == "none" {
+	if style.GetDisplay() == (pr.Display{"none"}) {
 		return nil
 	}
 
@@ -828,7 +843,7 @@ func UpdateCounters(state *tree.PageState, style pr.ElementStyle) {
 		// there was no counter-increment declaration for this element.
 		// (Or the winning value was "initial".)
 		// http://dev.w3.org/csswg/css3-lists/#declaring-a-list-item
-		if style.GetDisplay() == "list-item" {
+		if style.GetDisplay().Has("list-item") {
 			counterIncrement = pr.SIntStrings{Values: pr.IntStrings{{String: "list-item", Int: 1}}}
 		} else {
 			counterIncrement = pr.SIntStrings{}
@@ -1113,10 +1128,10 @@ func wrapTable(box TableBoxITF, children boxIterator) Box {
 	for _, _group := range rowGroups {
 		group := _group.Box()
 		display := group.Style.GetDisplay()
-		if display == "table-header-group" && header == nil {
+		if display == (pr.Display{"table-header-group"}) && header == nil {
 			group.IsHeader = true
 			header = _group
-		} else if display == "table-footer-group" && footer == nil {
+		} else if display == (pr.Display{"table-footer-group"}) && footer == nil {
 			group.IsFooter = true
 			footer = _group
 		} else {

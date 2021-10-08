@@ -15,18 +15,18 @@ type AtomicInlineLevelBoxITF interface {
 // A non-replaced element with a ``display`` value of ``block``, ``list-item``
 // generates a block box.
 type BlockBoxITF interface {
-	BlockContainerBoxITF
 	BlockLevelBoxITF
+	BlockContainerBoxITF
 	isBlockBox()
 }
 
 func (BlockBox) Type() BoxType        { return BlockBoxT }
 func (b *BlockBox) Box() *BoxFields   { return &b.BoxFields }
 func (b BlockBox) Copy() Box          { return &b }
+func (BlockBox) IsClassicalBox() bool { return true }
 func (BlockBox) isBlockBox()          {}
-func (BlockBox) isBox()               {}
-func (BlockBox) isBlockContainerBox() {}
 func (BlockBox) isBlockLevelBox()     {}
+func (BlockBox) isBlockContainerBox() {}
 func (BlockBox) isParentBox()         {}
 
 func BlockBoxAnonymousFrom(parent Box, children []Box) *BlockBox {
@@ -64,36 +64,30 @@ type BlockReplacedBoxITF interface {
 	isBlockReplacedBox()
 }
 
-func (BlockReplacedBox) Type() BoxType       { return BlockReplacedBoxT }
-func (b *BlockReplacedBox) Box() *BoxFields  { return &b.BoxFields }
-func (b BlockReplacedBox) Copy() Box         { return &b }
-func (BlockReplacedBox) isBlockReplacedBox() {}
-func (BlockReplacedBox) isReplacedBox()      {}
-func (BlockReplacedBox) isBlockLevelBox()    {}
-func (BlockReplacedBox) isBox()              {}
-
-// Abstract base class for all boxes.
-type BoxITF interface {
-	isBox()
-	methodsBox
-}
+func (BlockReplacedBox) Type() BoxType        { return BlockReplacedBoxT }
+func (b *BlockReplacedBox) Box() *BoxFields   { return &b.BoxFields }
+func (b BlockReplacedBox) Copy() Box          { return &b }
+func (BlockReplacedBox) IsClassicalBox() bool { return true }
+func (BlockReplacedBox) isBlockReplacedBox()  {}
+func (BlockReplacedBox) isReplacedBox()       {}
+func (BlockReplacedBox) isBlockLevelBox()     {}
 
 // A box that is both block-level and a flex container.
 // It behaves as block on the outside and as a flex container on the inside.
 type FlexBoxITF interface {
-	FlexContainerBoxITF
 	BlockLevelBoxITF
+	FlexContainerBoxITF
 	isFlexBox()
 }
 
-func (FlexBox) Type() BoxType       { return FlexBoxT }
-func (b *FlexBox) Box() *BoxFields  { return &b.BoxFields }
-func (b FlexBox) Copy() Box         { return &b }
-func (FlexBox) isFlexBox()          {}
-func (FlexBox) isBox()              {}
-func (FlexBox) isFlexContainerBox() {}
-func (FlexBox) isBlockLevelBox()    {}
-func (FlexBox) isParentBox()        {}
+func (FlexBox) Type() BoxType        { return FlexBoxT }
+func (b *FlexBox) Box() *BoxFields   { return &b.BoxFields }
+func (b FlexBox) Copy() Box          { return &b }
+func (FlexBox) IsClassicalBox() bool { return true }
+func (FlexBox) isFlexBox()           {}
+func (FlexBox) isBlockLevelBox()     {}
+func (FlexBox) isParentBox()         {}
+func (FlexBox) isFlexContainerBox()  {}
 
 func FlexBoxAnonymousFrom(parent Box, children []Box) *FlexBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -112,20 +106,20 @@ type FlexContainerBoxITF interface {
 // A non-replaced element with a 'display' value of 'inline-block' generates
 // an inline-block box.
 type InlineBlockBoxITF interface {
-	BlockContainerBoxITF
 	AtomicInlineLevelBoxITF
+	BlockContainerBoxITF
 	isInlineBlockBox()
 }
 
 func (InlineBlockBox) Type() BoxType           { return InlineBlockBoxT }
 func (b *InlineBlockBox) Box() *BoxFields      { return &b.BoxFields }
 func (b InlineBlockBox) Copy() Box             { return &b }
+func (InlineBlockBox) IsClassicalBox() bool    { return true }
 func (InlineBlockBox) isInlineBlockBox()       {}
-func (InlineBlockBox) isInlineLevelBox()       {}
 func (InlineBlockBox) isAtomicInlineLevelBox() {}
 func (InlineBlockBox) isBlockContainerBox()    {}
-func (InlineBlockBox) isBox()                  {}
 func (InlineBlockBox) isParentBox()            {}
+func (InlineBlockBox) isInlineLevelBox()       {}
 
 func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -139,18 +133,18 @@ func InlineBlockBoxAnonymousFrom(parent Box, children []Box) *InlineBlockBox {
 // A non-replaced element with a ``display`` value of ``inline`` generates an
 // inline box.
 type InlineBoxITF interface {
-	InlineLevelBoxITF
 	ParentBoxITF
+	InlineLevelBoxITF
 	isInlineBox()
 }
 
-func (InlineBox) Type() BoxType      { return InlineBoxT }
-func (b *InlineBox) Box() *BoxFields { return &b.BoxFields }
-func (b InlineBox) Copy() Box        { return &b }
-func (InlineBox) isInlineBox()       {}
-func (InlineBox) isInlineLevelBox()  {}
-func (InlineBox) isBox()             {}
-func (InlineBox) isParentBox()       {}
+func (InlineBox) Type() BoxType        { return InlineBoxT }
+func (b *InlineBox) Box() *BoxFields   { return &b.BoxFields }
+func (b InlineBox) Copy() Box          { return &b }
+func (InlineBox) IsClassicalBox() bool { return true }
+func (InlineBox) isInlineBox()         {}
+func (InlineBox) isParentBox()         {}
+func (InlineBox) isInlineLevelBox()    {}
 
 func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -161,19 +155,19 @@ func InlineBoxAnonymousFrom(parent Box, children []Box) *InlineBox {
 // A box that is both inline-level and a flex container.
 // It behaves as inline on the outside and as a flex container on the inside.
 type InlineFlexBoxITF interface {
-	FlexContainerBoxITF
 	InlineLevelBoxITF
+	FlexContainerBoxITF
 	isInlineFlexBox()
 }
 
-func (InlineFlexBox) Type() BoxType       { return InlineFlexBoxT }
-func (b *InlineFlexBox) Box() *BoxFields  { return &b.BoxFields }
-func (b InlineFlexBox) Copy() Box         { return &b }
-func (InlineFlexBox) isInlineFlexBox()    {}
-func (InlineFlexBox) isInlineLevelBox()   {}
-func (InlineFlexBox) isFlexContainerBox() {}
-func (InlineFlexBox) isBox()              {}
-func (InlineFlexBox) isParentBox()        {}
+func (InlineFlexBox) Type() BoxType        { return InlineFlexBoxT }
+func (b *InlineFlexBox) Box() *BoxFields   { return &b.BoxFields }
+func (b InlineFlexBox) Copy() Box          { return &b }
+func (InlineFlexBox) IsClassicalBox() bool { return true }
+func (InlineFlexBox) isInlineFlexBox()     {}
+func (InlineFlexBox) isParentBox()         {}
+func (InlineFlexBox) isInlineLevelBox()    {}
+func (InlineFlexBox) isFlexContainerBox()  {}
 
 func InlineFlexBoxAnonymousFrom(parent Box, children []Box) *InlineFlexBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -204,11 +198,11 @@ type InlineReplacedBoxITF interface {
 func (InlineReplacedBox) Type() BoxType           { return InlineReplacedBoxT }
 func (b *InlineReplacedBox) Box() *BoxFields      { return &b.BoxFields }
 func (b InlineReplacedBox) Copy() Box             { return &b }
+func (InlineReplacedBox) IsClassicalBox() bool    { return true }
 func (InlineReplacedBox) isInlineReplacedBox()    {}
-func (InlineReplacedBox) isInlineLevelBox()       {}
-func (InlineReplacedBox) isAtomicInlineLevelBox() {}
 func (InlineReplacedBox) isReplacedBox()          {}
-func (InlineReplacedBox) isBox()                  {}
+func (InlineReplacedBox) isAtomicInlineLevelBox() {}
+func (InlineReplacedBox) isInlineLevelBox()       {}
 
 // Box for elements with ``display: inline-table``
 type InlineTableBoxITF interface {
@@ -216,14 +210,14 @@ type InlineTableBoxITF interface {
 	isInlineTableBox()
 }
 
-func (InlineTableBox) Type() BoxType      { return InlineTableBoxT }
-func (b *InlineTableBox) Box() *BoxFields { return &b.BoxFields }
-func (b InlineTableBox) Copy() Box        { return &b }
-func (InlineTableBox) isInlineTableBox()  {}
-func (InlineTableBox) isBox()             {}
-func (InlineTableBox) isBlockLevelBox()   {}
-func (InlineTableBox) isTableBox()        {}
-func (InlineTableBox) isParentBox()       {}
+func (InlineTableBox) Type() BoxType        { return InlineTableBoxT }
+func (b *InlineTableBox) Box() *BoxFields   { return &b.BoxFields }
+func (b InlineTableBox) Copy() Box          { return &b }
+func (InlineTableBox) IsClassicalBox() bool { return true }
+func (InlineTableBox) isInlineTableBox()    {}
+func (InlineTableBox) isBlockLevelBox()     {}
+func (InlineTableBox) isParentBox()         {}
+func (InlineTableBox) isTableBox()          {}
 
 func InlineTableBoxAnonymousFrom(parent Box, children []Box) *InlineTableBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -241,12 +235,12 @@ type LineBoxITF interface {
 	isLineBox()
 }
 
-func (LineBox) Type() BoxType      { return LineBoxT }
-func (b *LineBox) Box() *BoxFields { return &b.BoxFields }
-func (b LineBox) Copy() Box        { return &b }
-func (LineBox) isLineBox()         {}
-func (LineBox) isBox()             {}
-func (LineBox) isParentBox()       {}
+func (LineBox) Type() BoxType        { return LineBoxT }
+func (b *LineBox) Box() *BoxFields   { return &b.BoxFields }
+func (b LineBox) Copy() Box          { return &b }
+func (LineBox) IsClassicalBox() bool { return true }
+func (LineBox) isLineBox()           {}
+func (LineBox) isParentBox()         {}
 
 // Box in page margins, as defined in CSS3 Paged Media
 type MarginBoxITF interface {
@@ -257,9 +251,9 @@ type MarginBoxITF interface {
 func (MarginBox) Type() BoxType        { return MarginBoxT }
 func (b *MarginBox) Box() *BoxFields   { return &b.BoxFields }
 func (b MarginBox) Copy() Box          { return &b }
+func (MarginBox) IsClassicalBox() bool { return true }
 func (MarginBox) isMarginBox()         {}
 func (MarginBox) isBlockContainerBox() {}
-func (MarginBox) isBox()               {}
 func (MarginBox) isParentBox()         {}
 
 // Box for a page.
@@ -270,12 +264,12 @@ type PageBoxITF interface {
 	isPageBox()
 }
 
-func (PageBox) Type() BoxType      { return PageBoxT }
-func (b *PageBox) Box() *BoxFields { return &b.BoxFields }
-func (b PageBox) Copy() Box        { return &b }
-func (PageBox) isPageBox()         {}
-func (PageBox) isBox()             {}
-func (PageBox) isParentBox()       {}
+func (PageBox) Type() BoxType        { return PageBoxT }
+func (b *PageBox) Box() *BoxFields   { return &b.BoxFields }
+func (b PageBox) Copy() Box          { return &b }
+func (PageBox) IsClassicalBox() bool { return true }
+func (PageBox) isPageBox()           {}
+func (PageBox) isParentBox()         {}
 
 // A box that has children.
 type ParentBoxITF interface {
@@ -292,11 +286,11 @@ type ReplacedBoxITF interface {
 	methodsReplacedBox
 }
 
-func (ReplacedBox) Type() BoxType      { return ReplacedBoxT }
-func (b *ReplacedBox) Box() *BoxFields { return &b.BoxFields }
-func (b ReplacedBox) Copy() Box        { return &b }
-func (ReplacedBox) isReplacedBox()     {}
-func (ReplacedBox) isBox()             {}
+func (ReplacedBox) Type() BoxType        { return ReplacedBoxT }
+func (b *ReplacedBox) Box() *BoxFields   { return &b.BoxFields }
+func (b ReplacedBox) Copy() Box          { return &b }
+func (ReplacedBox) IsClassicalBox() bool { return true }
+func (ReplacedBox) isReplacedBox()       {}
 
 // Box for elements with ``display: table``
 type TableBoxITF interface {
@@ -306,13 +300,13 @@ type TableBoxITF interface {
 	methodsTableBox
 }
 
-func (TableBox) Type() BoxType      { return TableBoxT }
-func (b *TableBox) Box() *BoxFields { return &b.BoxFields }
-func (b TableBox) Copy() Box        { return &b }
-func (TableBox) isTableBox()        {}
-func (TableBox) isBlockLevelBox()   {}
-func (TableBox) isBox()             {}
-func (TableBox) isParentBox()       {}
+func (TableBox) Type() BoxType        { return TableBoxT }
+func (b *TableBox) Box() *BoxFields   { return &b.BoxFields }
+func (b TableBox) Copy() Box          { return &b }
+func (TableBox) IsClassicalBox() bool { return true }
+func (TableBox) isTableBox()          {}
+func (TableBox) isBlockLevelBox()     {}
+func (TableBox) isParentBox()         {}
 
 func TableBoxAnonymousFrom(parent Box, children []Box) *TableBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -329,12 +323,12 @@ type TableCaptionBoxITF interface {
 func (TableCaptionBox) Type() BoxType        { return TableCaptionBoxT }
 func (b *TableCaptionBox) Box() *BoxFields   { return &b.BoxFields }
 func (b TableCaptionBox) Copy() Box          { return &b }
+func (TableCaptionBox) IsClassicalBox() bool { return true }
 func (TableCaptionBox) isTableCaptionBox()   {}
-func (TableCaptionBox) isBlockLevelBox()     {}
 func (TableCaptionBox) isBlockContainerBox() {}
-func (TableCaptionBox) isBox()               {}
-func (TableCaptionBox) isBlockBox()          {}
+func (TableCaptionBox) isBlockLevelBox()     {}
 func (TableCaptionBox) isParentBox()         {}
+func (TableCaptionBox) isBlockBox()          {}
 
 func TableCaptionBoxAnonymousFrom(parent Box, children []Box) *TableCaptionBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -351,9 +345,9 @@ type TableCellBoxITF interface {
 func (TableCellBox) Type() BoxType        { return TableCellBoxT }
 func (b *TableCellBox) Box() *BoxFields   { return &b.BoxFields }
 func (b TableCellBox) Copy() Box          { return &b }
+func (TableCellBox) IsClassicalBox() bool { return true }
 func (TableCellBox) isTableCellBox()      {}
 func (TableCellBox) isBlockContainerBox() {}
-func (TableCellBox) isBox()               {}
 func (TableCellBox) isParentBox()         {}
 
 func TableCellBoxAnonymousFrom(parent Box, children []Box) *TableCellBox {
@@ -368,12 +362,12 @@ type TableColumnBoxITF interface {
 	isTableColumnBox()
 }
 
-func (TableColumnBox) Type() BoxType      { return TableColumnBoxT }
-func (b *TableColumnBox) Box() *BoxFields { return &b.BoxFields }
-func (b TableColumnBox) Copy() Box        { return &b }
-func (TableColumnBox) isTableColumnBox()  {}
-func (TableColumnBox) isBox()             {}
-func (TableColumnBox) isParentBox()       {}
+func (TableColumnBox) Type() BoxType        { return TableColumnBoxT }
+func (b *TableColumnBox) Box() *BoxFields   { return &b.BoxFields }
+func (b TableColumnBox) Copy() Box          { return &b }
+func (TableColumnBox) IsClassicalBox() bool { return true }
+func (TableColumnBox) isTableColumnBox()    {}
+func (TableColumnBox) isParentBox()         {}
 
 func TableColumnBoxAnonymousFrom(parent Box, children []Box) *TableColumnBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -390,8 +384,8 @@ type TableColumnGroupBoxITF interface {
 func (TableColumnGroupBox) Type() BoxType          { return TableColumnGroupBoxT }
 func (b *TableColumnGroupBox) Box() *BoxFields     { return &b.BoxFields }
 func (b TableColumnGroupBox) Copy() Box            { return &b }
+func (TableColumnGroupBox) IsClassicalBox() bool   { return true }
 func (TableColumnGroupBox) isTableColumnGroupBox() {}
-func (TableColumnGroupBox) isBox()                 {}
 func (TableColumnGroupBox) isParentBox()           {}
 
 func TableColumnGroupBoxAnonymousFrom(parent Box, children []Box) *TableColumnGroupBox {
@@ -406,12 +400,12 @@ type TableRowBoxITF interface {
 	isTableRowBox()
 }
 
-func (TableRowBox) Type() BoxType      { return TableRowBoxT }
-func (b *TableRowBox) Box() *BoxFields { return &b.BoxFields }
-func (b TableRowBox) Copy() Box        { return &b }
-func (TableRowBox) isTableRowBox()     {}
-func (TableRowBox) isBox()             {}
-func (TableRowBox) isParentBox()       {}
+func (TableRowBox) Type() BoxType        { return TableRowBoxT }
+func (b *TableRowBox) Box() *BoxFields   { return &b.BoxFields }
+func (b TableRowBox) Copy() Box          { return &b }
+func (TableRowBox) IsClassicalBox() bool { return true }
+func (TableRowBox) isTableRowBox()       {}
+func (TableRowBox) isParentBox()         {}
 
 func TableRowBoxAnonymousFrom(parent Box, children []Box) *TableRowBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -425,12 +419,12 @@ type TableRowGroupBoxITF interface {
 	isTableRowGroupBox()
 }
 
-func (TableRowGroupBox) Type() BoxType       { return TableRowGroupBoxT }
-func (b *TableRowGroupBox) Box() *BoxFields  { return &b.BoxFields }
-func (b TableRowGroupBox) Copy() Box         { return &b }
-func (TableRowGroupBox) isTableRowGroupBox() {}
-func (TableRowGroupBox) isBox()              {}
-func (TableRowGroupBox) isParentBox()        {}
+func (TableRowGroupBox) Type() BoxType        { return TableRowGroupBoxT }
+func (b *TableRowGroupBox) Box() *BoxFields   { return &b.BoxFields }
+func (b TableRowGroupBox) Copy() Box          { return &b }
+func (TableRowGroupBox) IsClassicalBox() bool { return true }
+func (TableRowGroupBox) isTableRowGroupBox()  {}
+func (TableRowGroupBox) isParentBox()         {}
 
 func TableRowGroupBoxAnonymousFrom(parent Box, children []Box) *TableRowGroupBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
@@ -446,12 +440,12 @@ type TextBoxITF interface {
 	isTextBox()
 }
 
-func (TextBox) Type() BoxType      { return TextBoxT }
-func (b *TextBox) Box() *BoxFields { return &b.BoxFields }
-func (b TextBox) Copy() Box        { return &b }
-func (TextBox) isTextBox()         {}
-func (TextBox) isInlineLevelBox()  {}
-func (TextBox) isBox()             {}
+func (TextBox) Type() BoxType        { return TextBoxT }
+func (b *TextBox) Box() *BoxFields   { return &b.BoxFields }
+func (b TextBox) Copy() Box          { return &b }
+func (TextBox) IsClassicalBox() bool { return true }
+func (TextBox) isTextBox()           {}
+func (TextBox) isInlineLevelBox()    {}
 
 // BoxType represents a box type.
 type BoxType uint8

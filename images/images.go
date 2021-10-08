@@ -30,7 +30,7 @@ type Image interface {
 	isImage()
 	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
 	IntrinsicRatio() pr.MaybeFloat
-	Draw(context backend.Drawer, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String)
+	Draw(context backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String)
 }
 
 var (
@@ -89,7 +89,7 @@ func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, heigh
 	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value
 }
 
-func (r RasterImage) Draw(context backend.Drawer, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
+func (r RasterImage) Draw(context backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
 	hasSize := concreteWidth > 0 && concreteHeight > 0 && r.intrinsicWidth > 0 && r.intrinsicHeight > 0
 	if !hasSize {
 		return
@@ -211,7 +211,7 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.Mayb
 	return s.intrinsicWidth, s.intrinsicHeight
 }
 
-func (SVGImage) Draw(context backend.Drawer, concreteWidth, concreteHeight float64, imageRendering pr.String) {
+func (SVGImage) Draw(context backend.OutputPage, concreteWidth, concreteHeight float64, imageRendering pr.String) {
 	log.Println("SVG rendering not implemented yet")
 	// FIXME:
 	//         try {
@@ -269,8 +269,9 @@ func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, optimizeS
 			if errSvg != nil {
 				return nil, errRaster
 			}
+		} else {
+			img = NewRasterImage(parsedImage, optimizeSize)
 		}
-		img = NewRasterImage(parsedImage, optimizeSize)
 	}
 
 	cache[url] = img
@@ -435,7 +436,7 @@ func (g gradient) IntrinsicRatio() pr.MaybeFloat {
 	return nil
 }
 
-func (g gradient) Draw(dst backend.Drawer, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
+func (g gradient) Draw(dst backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
 	layout := g.layouter.layout(pr.Float(concreteWidth), pr.Float(concreteHeight))
 
 	if layout.Kind == "solid" {

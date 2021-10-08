@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"strings"
@@ -58,8 +59,7 @@ func resolveImage(image pr.Image, getImageFromUri bo.Gifu) images.Image {
 	case pr.LinearGradient:
 		return images.NewLinearGradient(img)
 	default:
-		log.Panicf("unexpected type for image: %T %v", image, image)
-		return nil
+		panic(fmt.Sprintf("unexpected type for image: %T %v", image, image))
 	}
 }
 

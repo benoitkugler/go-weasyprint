@@ -296,7 +296,7 @@ func removeLastWhitespace(context *layoutContext, box Box) {
 		textBox.Text = newText
 		newBox, resume, _ := splitTextBox(context, textBox, nil, 0)
 		if newBox == nil || resume != -1 {
-			log.Fatalf("expected newBox and no resume, got %v, %v", newBox, resume)
+			panic(fmt.Sprintf("expected newBox and no resume, got %v, %v", newBox, resume))
 		}
 		spaceWidth = textBox.Width.V() - newBox.Box().Width.V()
 		textBox.Width = newBox.Box().Width
@@ -828,7 +828,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 	contentBoxLeft := positionX
 
 	if box.Style.GetPosition().String == "relative" {
-		absoluteBoxes = nil
+		absoluteBoxes = &[]*AbsolutePlaceholder{}
 	}
 
 	var skip int

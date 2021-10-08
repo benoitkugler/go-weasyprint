@@ -172,7 +172,7 @@ func lighten(color Color) Color {
 }
 
 type drawContext struct {
-	dst   Drawer
+	dst   backend.OutputPage
 	fonts *text.FontConfiguration
 }
 
@@ -328,8 +328,8 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 
 			// Point 7
 			for _, block := range append([]Box{box_}, stackingContext.blocksAndCells...) {
-				if block, ok := block.(bo.ReplacedBoxITF); ok {
-					ctx.drawReplacedbox(block)
+				if blockRep, ok := block.(bo.ReplacedBoxITF); ok {
+					ctx.drawReplacedbox(blockRep)
 				} else {
 					for _, child := range block.Box().Children {
 						if bo.LineBoxT.IsInstance(child) {
@@ -383,7 +383,7 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 // ``widths`` is a tuple of the inner widths (top, right, bottom, left) from
 // the border box. Radii are adjusted from these values. Default is (0, 0, 0,
 // 0).
-func roundedBoxPath(context Drawer, radii bo.RoundedBox) {
+func roundedBoxPath(context backend.OutputPage, radii bo.RoundedBox) {
 	x, y, w, h, tl, tr, br, bl := pr.Fl(radii.X), pr.Fl(radii.Y), pr.Fl(radii.Width), pr.Fl(radii.Height), radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
 	if tl[0] == 0 || tl[1] == 0 || tr[0] == 0 || tr[1] == 0 ||
 		br[0] == 0 || br[1] == 0 || bl[0] == 0 || bl[1] == 0 {
@@ -761,7 +761,7 @@ func (ctx drawContext) drawBorder(box_ Box) {
 // Clip one segment of box border (border_widths=nil, radii=nil).
 // The strategy is to remove the zones not needed because of the style or the
 // side before painting.
-func clipBorderSegment(context backend.Drawer, style pr.String, width float64, side string,
+func clipBorderSegment(context backend.OutputPage, style pr.String, width float64, side string,
 	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
 	// if enableHinting && style != "dotted" && (
@@ -1050,7 +1050,7 @@ func (ctx drawContext) drawOutlines(box_ Box) {
 
 	if bo.ParentBoxT.IsInstance(box_) {
 		for _, child := range box.Children {
-			if bo.IsBox(child) {
+			if child.IsClassicalBox() {
 				ctx.drawOutlines(child)
 			}
 		}
@@ -1264,8 +1264,8 @@ func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float
 				if _, ok := child.(StackingContext); !ok {
 					childOffsetX = offsetX + float64(child.Box().PositionX) - float64(box.PositionX)
 				}
-				if child, ok := child.(*bo.TextBox); ok {
-					ctx.drawText(child, childOffsetX, textOverflow, blockEllipsis)
+				if childT, ok := child.(*bo.TextBox); ok {
+					ctx.drawText(childT, childOffsetX, textOverflow, blockEllipsis)
 				} else {
 					if err := ctx.drawInlineLevel(page, child, childOffsetX, textOverflow, blockEllipsis); err != nil {
 						return err
@@ -1308,20 +1308,20 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 	var offsetY pr.Float
 
 	metrics := textbox.PangoLayout.Metrics
-	if decoration.Decorations.Has("overline") {
+	if utils.Set(decoration).Has("overline") {
 		thickness = pr.Fl(metrics.UnderlineThickness)
 		offsetY = textbox.Baseline.V() - pr.Float(metrics.Ascent) + pr.Float(thickness)/2
 	}
-	if decoration.Decorations.Has("underline") {
+	if utils.Set(decoration).Has("underline") {
 		thickness = pr.Fl(metrics.UnderlineThickness)
 		offsetY = textbox.Baseline.V() - pr.Float(metrics.UnderlinePosition) + pr.Float(thickness)/2
 	}
-	if decoration.Decorations.Has("line-through") {
+	if utils.Set(decoration).Has("line-through") {
 		thickness = pr.Fl(metrics.StrikethroughThickness)
 		offsetY = textbox.Baseline.V() - pr.Float(metrics.StrikethroughPosition)
 	}
 
-	if !decoration.None {
+	if !decoration.IsNone() {
 		ctx.drawTextDecoration(textbox, offsetX, pr.Fl(offsetY), thickness, color.RGBA)
 	}
 }

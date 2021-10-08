@@ -47,6 +47,9 @@ func NewHTML(htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.Ur
 	var out HTML
 	// html.Parse wraps the <html> tag
 	out.Root = (*utils.HTMLNode)(root.FirstChild)
+	if out.Root.Type == html.DoctypeNode {
+		out.Root = (*utils.HTMLNode)(out.Root.NextSibling)
+	}
 	out.Root.Parent = nil
 	out.BaseUrl = utils.FindBaseUrl(root, result.BaseUrl)
 	out.UrlFetcher = urlFetcher

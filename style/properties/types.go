@@ -27,10 +27,9 @@ type SContent struct {
 	Contents ContentProperties
 }
 
-type NDecorations struct {
-	Decorations utils.Set
-	None        bool
-}
+type Display [3]string
+
+type Decorations utils.Set
 
 type Transforms []SDimensions
 
@@ -231,4 +230,174 @@ type RadialGradient struct {
 	Size       GradientSize
 	Center     Center
 	Repeating  bool
+}
+
+func (Display) isCssProperty() {}
+
+func (BoolString) isCssProperty() {}
+
+func (v BoolString) IsNone() bool {
+	return v == BoolString{}
+}
+
+func (Center) isCssProperty() {}
+func (v Center) IsNone() bool {
+	return v == Center{}
+}
+
+func (Centers) isCssProperty() {}
+
+func (Color) isCssProperty() {}
+
+func (ContentProperties) isCssProperty() {}
+
+func (Float) isCssProperty() {}
+
+func (Images) isCssProperty() {}
+
+func (Int) isCssProperty() {}
+
+func (IntString) isCssProperty() {}
+func (v IntString) IsNone() bool {
+	return v == IntString{}
+}
+
+func (Ints3) isCssProperty() {}
+func (v Ints3) IsNone() bool {
+	return v == Ints3{}
+}
+
+func (Marks) isCssProperty() {}
+func (v Marks) IsNone() bool {
+	return v == Marks{}
+}
+
+func (Decorations) isCssProperty() {}
+func (v Decorations) IsNone() bool { return len(v) == 0 }
+
+func (NamedString) isCssProperty() {}
+func (v NamedString) IsNone() bool {
+	return v == NamedString{}
+}
+
+func (CounterStyleID) isCssProperty() {}
+func (v CounterStyleID) IsNone() bool {
+	return v.Type == "" && v.Name == "" && v.Symbols == nil
+}
+
+func (Page) isCssProperty() {}
+func (v Page) IsNone() bool {
+	return v == Page{}
+}
+
+func (Point) isCssProperty() {}
+func (v Point) IsNone() bool {
+	return v == Point{}
+}
+
+func (Quotes) isCssProperty() {}
+func (v Quotes) IsNone() bool {
+	return v.Open == nil && v.Close == nil
+}
+
+func (Repeats) isCssProperty() {}
+
+func (SContent) isCssProperty() {}
+func (v SContent) IsNone() bool {
+	return v.String == "" && v.Contents == nil
+}
+
+func (SIntStrings) isCssProperty() {}
+func (v SIntStrings) IsNone() bool {
+	return v.String == "" && v.Values == nil
+}
+
+func (SStrings) isCssProperty() {}
+func (v SStrings) IsNone() bool {
+	return v.String == "" && v.Strings == nil
+}
+
+func (Sizes) isCssProperty() {}
+
+func (String) isCssProperty() {}
+
+func (StringSet) isCssProperty() {}
+func (v StringSet) IsNone() bool {
+	return v.String == ""
+}
+
+func (Strings) isCssProperty() {}
+
+func (Transforms) isCssProperty() {}
+
+func (Value) isCssProperty() {}
+func (v Value) IsNone() bool {
+	return v == Value{}
+}
+
+func (Values) isCssProperty() {}
+
+func (AttrData) isCssProperty() {}
+func (v AttrData) IsNone() bool {
+	return v.Name == "" && v.TypeOrUnit == "" && v.Fallback == nil
+}
+
+func (v ContentProperty) IsNone() bool {
+	return v.Type == ""
+}
+
+func (v DirectionType) IsNone() bool {
+	return v == DirectionType{}
+}
+
+func (v Dimension) IsNone() bool {
+	return v == Dimension{}
+}
+
+func (v NamedProperty) IsNone() bool {
+	return v.Name == "" && v.Property.IsNone()
+}
+
+func (v ColorStop) IsNone() bool {
+	return v == ColorStop{}
+}
+
+func (v GradientSize) IsNone() bool {
+	return v == GradientSize{}
+}
+
+func (v LinearGradient) IsNone() bool {
+	return v.ColorStops == nil && v.Direction == DirectionType{} && v.Repeating == false
+}
+
+func (v Quote) IsNone() bool {
+	return v == Quote{}
+}
+
+func (v OptionalRanges) IsNone() bool {
+	return v.Ranges == nil && v.Auto == false
+}
+
+func (v Size) IsNone() bool {
+	return v == Size{}
+}
+
+func (v RadialGradient) IsNone() bool {
+	return v.ColorStops == nil && v.Shape == "" && v.Size == GradientSize{} && v.Center == Center{} && v.Repeating == false
+}
+
+func (v SContentProp) IsNone() bool {
+	return v.String == "" && v.ContentProperty.IsNone()
+}
+
+func (v SDimensions) IsNone() bool {
+	return v.String == "" && v.Dimensions == nil
+}
+
+func (v IntNamedString) IsNone() bool {
+	return v == IntNamedString{}
+}
+
+func (v Counters) IsNone() bool {
+	return v.Name == "" && v.Separator == "" && v.Style.IsNone()
 }

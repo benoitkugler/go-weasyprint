@@ -27,7 +27,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 
 	if style.GetPosition().String == "relative" {
 		// New containing block, use a new absolute list
-		absoluteBoxes = nil
+		absoluteBoxes = &[]*AbsolutePlaceholder{}
 	}
 
 	box_ = bo.CopyWithChildren(box_, box_.Box().Children, true, true).(bo.BlockBoxITF) // CopyWithChildren preserves the concrete type of box_
