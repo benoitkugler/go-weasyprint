@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -110,11 +111,11 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 	}
 }
 
-func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock containingBlock,
+func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.IntList, containingBlock containingBlock,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 
 	context.createBlockFormattingContext()
-	var resumeAt *tree.SkipStack
+	var resumeAt *tree.IntList
 	box := box_.Box()
 	// Step 1 is done in formattingStructure.Boxes
 	// Step 2
@@ -208,11 +209,11 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	originalSkipStack := skipStack
 	if skipStack != nil {
 		if strings.HasSuffix(string(box.Style.GetFlexDirection()), "-reverse") {
-			children = children[:skipStack.Skip+1]
+			children = children[:skipStack.Value+1]
 		} else {
-			children = children[skipStack.Skip:]
+			children = children[skipStack.Value:]
 		}
-		skipStack = skipStack.Stack
+		skipStack = skipStack.Next
 	} else {
 		skipStack = nil
 	}
@@ -280,11 +281,11 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		// "If a value would resolve to auto for width, it instead resolves
 		// to content for flex-basis." Let's do this for height too.
 		// See https://www.W3.org/TR/css-flexbox-1/#propdef-flex-basis
-		target := &child.Height
+		target, val := &child.Height, child.Style.GetHeight()
 		if axis == "width" {
-			target = &child.Width
+			target, val = &child.Width, child.Style.GetWidth()
 		}
-		*target = resolveOnePercentage(pr.MaybeFloatToValue(*target), axis, availableMainSpace, "")
+		*target = resolveOnePercentage(val, axis, availableMainSpace, "")
 		if flexBasis.String == "auto" {
 			if getCross(child, axis).String == "auto" {
 				flexBasis = pr.SToV("content")
@@ -311,6 +312,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			}
 		}
 
+		fmt.Println(flexBasis)
 		// Step 3.A
 		if flexBasis.String != "content" {
 			child.FlexBaseSize = flexBasis.Value
@@ -387,7 +389,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				childHeight := child.HypotheticalMainSize + child.BorderTopWidth.V() + child.BorderBottomWidth.V() +
 					child.PaddingTop.V() + child.PaddingBottom.V()
 				if getAttr(box, axis, "") == pr.Auto && childHeight+box.Height.V() > availableMainSpace {
-					resumeAt = &tree.SkipStack{Skip: i}
+					resumeAt = &tree.IntList{Value: i}
 					children = children[:i+1]
 					break
 				}
@@ -1114,20 +1116,20 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					pageIsEmpty, absoluteBoxes, fixedBoxes, nil, false)
 				childResumeAt := tmp.resumeAt
 				if newChild == nil {
-					if resumeAt != nil && resumeAt.Skip != 0 {
-						resumeAt = &tree.SkipStack{Skip: resumeAt.Skip + i - 1}
+					if resumeAt != nil && resumeAt.Value != 0 {
+						resumeAt = &tree.IntList{Value: resumeAt.Value + i - 1}
 					}
 				} else {
 					box.Children = append(children, newChild)
 					if childResumeAt != nil {
 						firstLevelSkip := 0
 						if originalSkipStack != nil {
-							firstLevelSkip = originalSkipStack.Skip
+							firstLevelSkip = originalSkipStack.Value
 						}
 						if resumeAt != nil {
-							firstLevelSkip += resumeAt.Skip
+							firstLevelSkip += resumeAt.Value
 						}
-						resumeAt = &tree.SkipStack{Skip: firstLevelSkip + i, Stack: childResumeAt}
+						resumeAt = &tree.IntList{Value: firstLevelSkip + i, Next: childResumeAt}
 					}
 				}
 				if resumeAt != nil {

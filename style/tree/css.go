@@ -135,6 +135,14 @@ func NewMatcher() *matcher {
 	return &matcher{}
 }
 
+func (m matcher) selectors() []cascadia.SelectorGroup {
+	out := make([]cascadia.SelectorGroup, len(m))
+	for i, v := range m {
+		out[i] = v.selector
+	}
+	return out
+}
+
 type matchResult struct {
 	pseudoType  string
 	payload     []validation.ValidatedProperty

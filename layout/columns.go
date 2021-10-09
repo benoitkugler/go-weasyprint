@@ -18,7 +18,7 @@ type boxOrList struct {
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack, containingBlock *bo.BoxFields,
+func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.IntList, containingBlock *bo.BoxFields,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
@@ -290,7 +290,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 
 	if len(box.Children) != 0 && len(newChildren) == 0 {
 		// The box has children but none can be drawn, let's skip the whole box
-		return nil, blockLayout{resumeAt: &tree.SkipStack{Skip: 0}, nextPage: tree.PageBreak{Break: "any"}}
+		return nil, blockLayout{resumeAt: &tree.IntList{Value: 0}, nextPage: tree.PageBreak{Break: "any"}}
 	}
 
 	// Set the height of box and the columns

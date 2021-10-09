@@ -760,7 +760,7 @@ func display(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssPro
 	if (!position.Bool && (position.String == "absolute" || position.String == "fixed")) || float_ != "none" || computer.isRootElement() {
 		if value == (pr.Display{"inline-table"}) {
 			return pr.Display{"block", "table"}
-		} else if d := value[0]; value[1] == "" && strings.HasPrefix(d, "table-") {
+		} else if d := value[0]; value[1] == "" && value[2] == "" && strings.HasPrefix(d, "table-") {
 			return pr.Display{"block", "flow"}
 		} else if d == "inline" {
 			if value.Has("list-item") {

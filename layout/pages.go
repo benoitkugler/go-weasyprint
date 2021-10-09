@@ -616,8 +616,8 @@ func pageHeight_(box Box, context *layoutContext, containingBlock containingBloc
 // :param pageNumber: integer, start at 1 for the first page
 // :param resumeAt: as returned by ``makePage()`` for the previous page,
 // 	or ``None`` for the first page.
-func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt *tree.SkipStack,
-	pageNumber int, pageState *tree.PageState) (*bo.PageBox, *tree.SkipStack, tree.PageBreak) {
+func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt *tree.IntList,
+	pageNumber int, pageState *tree.PageState) (*bo.PageBox, *tree.IntList, tree.PageBreak) {
 	style := context.styleFor.Get(pageType, "")
 
 	// Propagated from the root or <body>.
@@ -638,7 +638,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	pageContentBottom := rootBox.Box().PositionY + page.Height.V()
 	initialContainingBlock := page
 
-	var previousResumeAt *tree.SkipStack
+	var previousResumeAt *tree.IntList
 	if pageType.Blank {
 		previousResumeAt = resumeAt
 		rootBox = bo.CopyWithChildren(rootBox, nil, true, true).(bo.BlockLevelBoxITF) // CopyWithChildren is type stable
@@ -807,7 +807,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 // As the function"s name suggests: the plan is not to make all pages
 // repeatedly when a missing counter was resolved, but rather re-make the
 // single page where the ``contentChanged`` happened.
-func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.SkipStack) {
+func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.IntList) {
 	pageMaker := &context.pageMaker
 	tmp := (*pageMaker)[index]
 	// initialResumeAt, initialNextPage, rightPage, initialPageState,remakeState := tmp
@@ -902,7 +902,7 @@ func makeAllPages(context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tre
 	for {
 		remakeState := context.pageMaker[i].RemakeState
 		var (
-			resumeAt *tree.SkipStack
+			resumeAt *tree.IntList
 			page     *bo.PageBox
 		)
 		if len(pages) == 0 || remakeState.ContentChanged || remakeState.PagesWanted {

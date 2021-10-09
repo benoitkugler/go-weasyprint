@@ -25,7 +25,7 @@ import (
 	"github.com/benoitkugler/textlayout/pango"
 )
 
-const debugMode = false
+const debugMode = true
 
 type Box = bo.Box
 

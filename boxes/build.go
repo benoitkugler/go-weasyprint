@@ -107,6 +107,7 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleF
 	// If this is changed, maybe update layout.pages.makeMarginBoxes()
 	ProcessWhitespace(box, false)
 	box = AnonymousTableBoxes(box)
+	box = FlexBoxes(box)
 	box = InlineInBlock(box)
 	box = BlockInInline(box)
 	box = setViewportOverflow(box)
@@ -1441,7 +1442,7 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 // Remove and add boxes according to the flex model.
 // See http://www.w3.org/TR/css-flexbox-1/#flex-items
 func FlexBoxes(box Box) Box {
-	if !ParentBoxT.IsInstance(box) {
+	if !ParentBoxT.IsInstance(box) || box.Box().IsRunning() {
 		return box
 	}
 
@@ -1461,13 +1462,17 @@ func flexChildren(box Box, children []Box) []Box {
 			if !child.Box().IsAbsolutelyPositioned() {
 				child.Box().IsFlexItem = true
 			}
-			if textBox, ok := child.(*TextBox); ok && strings.Trim(textBox.Text, " ") == "" {
+
+			if textBox, ok := child.(*TextBox); ok {
 				// https://www.w3.org/TR/css-flexbox-1/#flex-items
-				continue
+				if strings.Trim(textBox.Text, " ") == "" {
+					continue
+				}
 			}
-			if _, ok := child.(InlineBlockBoxITF); ok {
+
+			if _, ok := child.(InlineLevelBoxITF); ok {
 				var anonymous *BlockBox
-				if _, ok := box.(ParentBoxITF); ok {
+				if _, ok := child.(ParentBoxITF); ok {
 					anonymous = BlockBoxAnonymousFrom(box, child.Box().Children)
 					anonymous.Style = child.Box().Style
 				} else {
@@ -1480,9 +1485,8 @@ func flexChildren(box Box, children []Box) []Box {
 			}
 		}
 		return flexChildren
-	} else {
-		return children
 	}
+	return children
 }
 
 var (
@@ -1628,7 +1632,7 @@ func InlineInBlock(box Box) Box {
 	var newLineChildren, newChildren []Box
 	for _, childBox := range children {
 		if LineBoxT.IsInstance(childBox) {
-			log.Fatalf("childBox can't be a LineBox")
+			panic(fmt.Sprintf("childBox can't be a LineBox"))
 		}
 		if len(newLineChildren) > 0 && childBox.Box().IsAbsolutelyPositioned() {
 			newLineChildren = append(newLineChildren, childBox)
@@ -1671,12 +1675,12 @@ func InlineInBlock(box Box) Box {
 
 // Build the structure of blocks inside lines.
 //
-//    Inline boxes containing block-level boxes will be broken in two
-//    boxes on each side on consecutive block-level boxes, each side wrapped
-//    in an anonymous block-level box.
+// Inline boxes containing block-level boxes will be broken in two
+// boxes on each side on consecutive block-level boxes, each side wrapped
+// in an anonymous block-level box.
 //
-//    This is the second case in
-//    http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
+// This is the second case in
+// http://www.w3.org/TR/CSS21/visuren.html#anonymous-block-level
 //
 //    Eg. if this is given::
 //
@@ -1743,7 +1747,7 @@ func BlockInInline(box Box) Box {
 			}
 
 			var (
-				stack          *tree.SkipStack
+				stack          *tree.IntList
 				newLine, block Box
 			)
 			for {
@@ -1782,17 +1786,17 @@ func BlockInInline(box Box) Box {
 }
 
 // Find a block-level box in an inline formatting context.
-//     If one is found, return ``(newBox, blockLevelBox, resumeAt)``.
-//     ``newBox`` contains all of ``box`` content before the block-level box.
-//     ``resumeAt`` can be passed as ``skipStack`` in a new call to
-//     this function to resume the search just after the block-level box.
-//     If no block-level box is found after the position marked by
-//     ``skipStack``, return ``(newBox, None, None)``
+// If one is found, return ``(newBox, blockLevelBox, resumeAt)``.
+// ``newBox`` contains all of ``box`` content before the block-level box.
+// ``resumeAt`` can be passed as ``skipStack`` in a new call to
+// this function to resume the search just after the block-level box.
+// If no block-level box is found after the position marked by
+// ``skipStack``, return ``(newBox, None, None)``
 //
-func innerBlockInInline(box Box, skipStack *tree.SkipStack) (Box, Box, *tree.SkipStack) {
+func innerBlockInInline(box Box, skipStack *tree.IntList) (Box, Box, *tree.IntList) {
 	var newChildren []Box
 	var blockLevelBox Box
-	var resumeAt *tree.SkipStack
+	var resumeAt *tree.IntList
 	changed := false
 
 	isStart := skipStack == nil
@@ -1800,8 +1804,8 @@ func innerBlockInInline(box Box, skipStack *tree.SkipStack) (Box, Box, *tree.Ski
 	if isStart {
 		skip = 0
 	} else {
-		skip = skipStack.Skip
-		skipStack = skipStack.Stack
+		skip = skipStack.Value
+		skipStack = skipStack.Next
 	}
 
 	hasBroken := false
@@ -1833,7 +1837,7 @@ func innerBlockInInline(box Box, skipStack *tree.SkipStack) (Box, Box, *tree.Ski
 		}
 
 		if blockLevelBox != nil {
-			resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
+			resumeAt = &tree.IntList{Value: index, Next: resumeAt}
 			box = CopyWithChildren(box, newChildren, isStart, false)
 			hasBroken = true
 			break

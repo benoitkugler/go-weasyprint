@@ -1,7 +1,7 @@
 package properties
 
 import (
-	"log"
+	"fmt"
 	"math"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
@@ -114,7 +114,7 @@ func ResoudPercentage(value Value, referTo Float) MaybeFloat {
 		return value.Value
 	} else {
 		if value.Unit != Percentage {
-			log.Fatalf("expected percentage, got %d", value.Unit)
+			panic(fmt.Sprintf("expected percentage, got %d", value.Unit))
 		}
 		return referTo * value.Value / 100.
 	}

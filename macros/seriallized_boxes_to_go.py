@@ -1,14 +1,14 @@
 import pyperclip
+from typing import *
 
 
-def to_go(boxes: list) -> str:
+def to_go(boxes: List[Any]) -> str:
     code = "[]serBox{"
     for box in boxes:
         tag = box[0]
         type_ = f"{box[1]}BoxT"
         if isinstance(box[2], str):
-
-            content = 'bc{{text: "{0}"}}'.format(repr(box[2])[1:-1])
+            content = 'bc{{text: `{0}`}}'.format(box[2])
         else:
             children = to_go(box[2])
             content = f"bc{{c: {children}}}"
@@ -17,8 +17,13 @@ def to_go(boxes: list) -> str:
     return code
 
 
-IN = [('body', 'Line', [('object', 'InlineReplaced', '<replaced>'), ('body', 'Text', ' '), ('img', 'InlineReplaced',
-                                                                                            '<replaced>'), ('body', 'Text', ' '), ('embed', 'InlineReplaced', '<replaced>'), ('body', 'Text', ' ')])]
+IN = []
+
+with open("/home/benoit/Téléchargements/WeasyPrint/tmp") as f:
+    l = "tmp = " + f.read()
+    loc: Dict[str, Any] = {}
+    exec(l, globals(), loc)
+    IN = loc["tmp"]
 
 pyperclip.copy(to_go(IN))
 print("Copied in clipboard.")

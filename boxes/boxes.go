@@ -208,7 +208,7 @@ type BoxFields struct {
 
 	GetCells func() []Box // closure which may have default implementation or be set
 
-	ResumeAt *tree.SkipStack
+	ResumeAt *tree.IntList
 
 	Background *Background
 }

@@ -48,9 +48,8 @@ type StyleFor struct {
 
 func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool,
 	targetColllector *TargetCollector, textContext text.TextLayoutContext) *StyleFor {
-	cascadedStyles := map[utils.ElementKey]cascadedStyle{}
 	out := StyleFor{
-		CascadedStyles: cascadedStyles,
+		CascadedStyles: map[utils.ElementKey]cascadedStyle{},
 		computedStyles: map[utils.ElementKey]pr.ElementStyle{},
 		sheets:         sheets,
 		textContext:    textContext,
@@ -60,10 +59,10 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool,
 
 	for _, styleAttr := range findStyleAttributes(html.Root, presentationalHints, html.BaseUrl) {
 		// Element, declarations, BaseUrl = attributes
-		style, ok := cascadedStyles[styleAttr.element.ToKey("")]
+		style, ok := out.CascadedStyles[styleAttr.element.ToKey("")]
 		if !ok {
 			style = cascadedStyle{}
-			cascadedStyles[styleAttr.element.ToKey("")] = style
+			out.CascadedStyles[styleAttr.element.ToKey("")] = style
 		}
 		for _, decl := range validation.PreprocessDeclarations(styleAttr.baseUrl, styleAttr.declaration) {
 			// name, values, importance = decl
@@ -95,11 +94,12 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool,
 					specificity = cascadia.Specificity{sh.specificity[0], sh.specificity[1], sh.specificity[2]}
 				}
 				key := element.ToKey(selector.pseudoType)
-				style, in := cascadedStyles[key]
+				style, in := out.CascadedStyles[key]
 				if !in {
 					style = cascadedStyle{}
-					cascadedStyles[key] = style
+					out.CascadedStyles[key] = style
 				}
+
 				for _, decl := range selector.payload {
 					// name, values, importance = decl
 					precedence := declarationPrecedence(sh.origin, decl.Important)
@@ -123,7 +123,7 @@ func newStyleFor(html *HTML, sheets []sheet, presentationalHints bool,
 
 	// Only iterate on pseudo-elements that have cascaded styles. (Others
 	// might as well not exist.)
-	for key := range cascadedStyles {
+	for key := range out.CascadedStyles {
 		// Element, pseudoType
 		if key.PseudoType != "" && !key.IsPageType() {
 			out.SetComputedStyles(key.Element, key.Element, html.Root,
@@ -200,7 +200,7 @@ func (s StyleFor) Get(element Element, pseudoType string) pr.ElementStyle {
 	return style
 }
 
-func (s StyleFor) AddPageDeclarations(page_T utils.PageElement) {
+func (s StyleFor) addPageDeclarations(page_T utils.PageElement) {
 	for _, sh := range s.sheets {
 		// Add declarations for page elements
 		for _, pageR := range sh.sheet.pageRules {
@@ -1143,7 +1143,7 @@ func preprocessStylesheet(deviceMediaType, baseUrl string, stylesheetRules []Tok
 				}
 				for _, sel := range selector {
 					if _, in := pseudoElements[sel.PseudoElement()]; !in {
-						err = fmt.Errorf("Unsupported pseudo-Element : %s", sel.PseudoElement())
+						err = fmt.Errorf("Unsupported pseudo-element : %s", sel.PseudoElement())
 						break
 					}
 				}
@@ -1345,7 +1345,7 @@ func GetAllComputedStyles(html *HTML, userStylesheets []CSS,
 
 // Set style for page types and pseudo-types matching ``pageType``.
 func (styleFor StyleFor) SetPageComputedStylesT(pageType utils.PageElement, html *HTML) {
-	styleFor.AddPageDeclarations(pageType)
+	styleFor.addPageDeclarations(pageType)
 
 	// Apply style for page
 	// @page inherits from the Root Element :

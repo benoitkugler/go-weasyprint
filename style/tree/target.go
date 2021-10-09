@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -26,9 +27,16 @@ type RemakeState struct {
 	ContentChanged, PagesWanted bool
 }
 
-type SkipStack struct {
-	Stack *SkipStack
-	Skip  int
+type IntList struct {
+	Next  *IntList
+	Value int
+}
+
+func (l *IntList) String() string {
+	if l == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("[%d, %s]", l.Value, l.Next)
 }
 
 type PageState struct {
@@ -68,7 +76,7 @@ type PageBreak struct {
 }
 
 type PageMaker struct {
-	InitialResumeAt  *SkipStack
+	InitialResumeAt  *IntList
 	InitialPageState PageState
 	InitialNextPage  PageBreak
 	RemakeState      RemakeState

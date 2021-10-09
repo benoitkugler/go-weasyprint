@@ -13,7 +13,7 @@ import (
 // Page breaking and layout for block-level and block-container boxes.
 
 type blockLayout struct {
-	resumeAt          *tree.SkipStack
+	resumeAt          *tree.IntList
 	adjoiningMargins  []pr.Float
 	nextPage          tree.PageBreak
 	collapsingThrough bool
@@ -24,7 +24,7 @@ type blockLayout struct {
 // `maxPositionY` is the absolute vertical position (as in
 // ``someBox.PositionY``) of the bottom of the
 // content box of the current page area.
-func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
@@ -66,7 +66,7 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 }
 
 // Call the layout function corresponding to the ``box`` type.
-func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
@@ -94,7 +94,7 @@ func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, ma
 }
 
 // Lay out the block ``box``.
-func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 	box := box_.Box()
 	if box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto" {
@@ -304,7 +304,7 @@ type childrenBlockLevel interface {
 }
 
 // Set the ``box`` height.
-func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.SkipStack,
+func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.IntList,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (Box, blockLayout) {
 	box := box_.Box()
 	if !(bo.BlockContainerBoxT.IsInstance(box_) || bo.FlexBoxT.IsInstance(box_)) {
@@ -356,13 +356,13 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 
 	var newChildren []Box
 	nextPage := tree.PageBreak{Break: "any"}
-	var resumeAt *tree.SkipStack
+	var resumeAt *tree.IntList
 	var lastInFlowChild Box
 
 	skip := 0
 	firstLetterStyle := box.FirstLetterStyle
 	if !isStart {
-		skip, skipStack = skipStack.Skip, skipStack.Stack
+		skip, skipStack = skipStack.Value, skipStack.Next
 		firstLetterStyle = nil
 	}
 	L := len(box.Children[skip:])
@@ -513,7 +513,7 @@ func findLastInFlowChild(children []Box) Box {
 }
 
 func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY pr.Float) (stop bool, resumeAt *tree.SkipStack, children []Box) {
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY pr.Float) (stop bool, resumeAt *tree.IntList, children []Box) {
 
 	child := child_.Box()
 	child.PositionY += collapseMargin(adjoiningMargins)
@@ -537,7 +537,7 @@ func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child
 		} else {
 			lastInFlowChild := findLastInFlowChild(newChildren)
 			pageBreak := blockLevelPageBreak(lastInFlowChild, child_)
-			resumeAt = &tree.SkipStack{Skip: index}
+			resumeAt = &tree.IntList{Value: index}
 			if len(newChildren) != 0 && (pageBreak == "avoid" || pageBreak == "avoid-page") {
 				r1, r2 := findEarlierPageBreak(newChildren, absoluteBoxes, fixedBoxes)
 				if r1 != nil || r2 != nil {
@@ -561,8 +561,8 @@ func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child
 
 func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ *bo.LineBox, newChildren []Box,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY, positionY pr.Float,
-	skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle) (
-	abort, stop bool, resumeAt *tree.SkipStack, _ pr.Float, _ []Box) {
+	skipStack *tree.IntList, firstLetterStyle pr.ElementStyle) (
+	abort, stop bool, resumeAt *tree.IntList, _ pr.Float, _ []Box) {
 
 	if len(box.Children) != 1 {
 		log.Fatalf("line box with siblings before layout")
@@ -620,7 +620,7 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 				newChildren = newChildren[:needed-1]
 			}
 			// Page break here, resume before this line
-			resumeAt = &tree.SkipStack{Skip: index, Stack: skipStack}
+			resumeAt = &tree.IntList{Value: index, Next: skipStack}
 			stop = true
 			break
 
@@ -644,7 +644,7 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 	}
 
 	if len(newChildren) != 0 {
-		resumeAt = &tree.SkipStack{Skip: index, Stack: newChildren[len(newChildren)-1].Box().ResumeAt}
+		resumeAt = &tree.IntList{Value: index, Next: newChildren[len(newChildren)-1].Box().ResumeAt}
 	}
 
 	return abort, stop, resumeAt, positionY, newChildren
@@ -652,8 +652,8 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 
 func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY, maxPositionY, positionY pr.Float,
-	skipStack *tree.SkipStack, firstLetterStyle pr.ElementStyle, collapsingWithChildren, discard bool) (
-	abort, stop bool, resumeAt *tree.SkipStack, _ pr.Float, _ []pr.Float, nextPage tree.PageBreak, _ []Box) {
+	skipStack *tree.IntList, firstLetterStyle pr.ElementStyle, collapsingWithChildren, discard bool) (
+	abort, stop bool, resumeAt *tree.IntList, _ pr.Float, _ []pr.Float, nextPage tree.PageBreak, _ []Box) {
 
 	lastInFlowChild := findLastInFlowChild(newChildren)
 	child := child_.Box()
@@ -667,7 +667,7 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 			pageBreak == "recto" || pageBreak == "verso" {
 			pageName, _ := child.PageValues()
 			nextPage = tree.PageBreak{Break: pageBreak, Page: pageName}
-			resumeAt = &tree.SkipStack{Skip: index}
+			resumeAt = &tree.IntList{Value: index}
 			stop = true
 			return abort, stop, resumeAt, positionY, adjoiningMargins, nextPage, newChildren
 		}
@@ -797,7 +797,7 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 			newChildren = nil
 		}
 		if len(newChildren) != 0 {
-			resumeAt = &tree.SkipStack{Skip: index}
+			resumeAt = &tree.IntList{Value: index}
 			stop = true
 		} else {
 			// This was the first child of this box, cancel the box
@@ -809,7 +809,7 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 
 	newChildren = append(newChildren, newChild_)
 	if resumeAt != nil {
-		resumeAt = &tree.SkipStack{Skip: index, Stack: resumeAt}
+		resumeAt = &tree.IntList{Value: index, Next: resumeAt}
 		stop = true
 	}
 
@@ -837,7 +837,8 @@ func establishesFormattingContext(box_ Box) bool {
 		box.IsAbsolutelyPositioned() ||
 		box.IsColumn ||
 		(bo.BlockContainerBoxT.IsInstance(box_) && !bo.BlockBoxT.IsInstance(box_)) ||
-		(bo.BlockBoxT.IsInstance(box_) && box.Style.GetOverflow() != "visible")
+		(bo.BlockBoxT.IsInstance(box_) && box.Style.GetOverflow() != "visible") ||
+		box.Style.GetDisplay().Has("flow-root")
 }
 
 // https://drafts.csswg.org/css-break-3/#possible-breaks
@@ -916,7 +917,7 @@ func blockLevelPageName(siblingBefore, siblingAfter Box) *pr.Page {
 // we need to find an earlier page break opportunity inside `children`.
 // Absolute or fixed placeholders removed from children should also be
 // removed from `absoluteBoxes` or `fixedBoxes`.
-func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []Box, resumeAt *tree.SkipStack) {
+func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []Box, resumeAt *tree.IntList) {
 	if len(children) != 0 && bo.LineBoxT.IsInstance(children[0]) {
 		// Normally `orphans` && `widows` apply to the block container, but
 		// line boxes inherit them.
@@ -927,7 +928,7 @@ func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*Absolute
 			return nil, nil
 		}
 		newChildren = children[:index]
-		resumeAt = &tree.SkipStack{Skip: 0, Stack: newChildren[len(newChildren)-1].Box().ResumeAt}
+		resumeAt = &tree.IntList{Value: 0, Next: newChildren[len(newChildren)-1].Box().ResumeAt}
 		removePlaceholders(children[index:], absoluteBoxes, fixedBoxes)
 		return newChildren, resumeAt
 	}
@@ -947,7 +948,7 @@ func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*Absolute
 				index += 1 // break after child
 				newChildren = children[:index]
 				// Get the index in the original parent
-				resumeAt = &tree.SkipStack{Skip: children[index].Box().Index}
+				resumeAt = &tree.IntList{Value: children[index].Box().Index}
 				hasBroken = true
 				break
 			}
@@ -961,7 +962,7 @@ func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*Absolute
 					newChild := bo.CopyWithChildren(child_, newGrandChildren, true, true)
 					newChildren = append(children[:index], newChild)
 					// Index in the original parent
-					resumeAt = &tree.SkipStack{Skip: newChild.Box().Index, Stack: resumeAt}
+					resumeAt = &tree.IntList{Value: newChild.Box().Index, Next: resumeAt}
 					index += 1 // Remove placeholders after child
 					hasBroken = true
 					break

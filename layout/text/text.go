@@ -1,6 +1,7 @@
 package text
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -81,7 +82,6 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	if !textWrap {
 		maxWidth = nil
 	}
-
 	// Step #1: Get a draft layout with the first line
 	var (
 		layout    *TextLayout
@@ -89,6 +89,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		firstLine *pango.LayoutLine
 		index     int
 	)
+	fmt.Println(text_, textWrap, maxWidth, justificationSpacing, fontSize, style.GetFontFamily(), style.GetFontWeight())
 	if maxWidth, ok := maxWidth.(pr.Float); ok && maxWidth != pr.Inf && fontSize != 0 {
 		var expectedLength int
 		if maxWidth <= 0 {
