@@ -89,7 +89,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		firstLine *pango.LayoutLine
 		index     int
 	)
-	fmt.Println(text_, textWrap, maxWidth, justificationSpacing, fontSize, style.GetFontFamily(), style.GetFontWeight())
+	fmt.Println("splitFirstLine:", text_, maxWidth, fontSize, spaceCollapse, textWrap, justificationSpacing)
 	if maxWidth, ok := maxWidth.(pr.Float); ok && maxWidth != pr.Inf && fontSize != 0 {
 		var expectedLength int
 		if maxWidth <= 0 {

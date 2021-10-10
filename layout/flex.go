@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -312,7 +311,6 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			}
 		}
 
-		fmt.Println(flexBasis)
 		// Step 3.A
 		if flexBasis.String != "content" {
 			child.FlexBaseSize = flexBasis.Value

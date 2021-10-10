@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"strings"
@@ -57,7 +56,6 @@ func minContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
 // This is the width by only breaking at forced line breaks.
 // outer=true
 func maxContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
-	fmt.Println("maxContentWidth")
 	rep, isReplaced := box.(bo.ReplacedBoxITF)
 	if box.Box().IsTableWrapper {
 		return tableAndColumnsPreferredWidths(context, box.Box(), outer).tableMaxContentWidth
@@ -272,7 +270,6 @@ func inlineLineWidths(context *layoutContext, box_ Box, outer, isLineStart,
 		out                     []pr.Float
 		box                     = box_.Box()
 	)
-	fmt.Println("inline line widths")
 	if bo.LineBoxT.IsInstance(box_) {
 		if box.Style.GetTextIndent().Unit == pr.Percentage {
 			// TODO: this is wrong, text-indent percentages should be resolved
@@ -847,7 +844,6 @@ func flexMaxContentWidth(context *layoutContext, box *bo.BoxFields, outer bool) 
 
 // Return the size of the trailing whitespace of ``box``.
 func trailingWhitespaceSize(context *layoutContext, box Box) pr.Float {
-	fmt.Println("trailing")
 	for IsLine(box) {
 		ch := box.Box().Children
 		if len(ch) == 0 {

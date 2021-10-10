@@ -30,15 +30,20 @@ func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) s
 	return out
 }
 
-func BasicUrlJoin(baseUrl, urls string) (string, error) {
+// micmic python urllib.urljoin behavior
+func basicUrlJoin(baseUrl, urls string) (string, error) {
 	parsedBase, err := url.Parse(baseUrl)
 	if err != nil {
 		return "", fmt.Errorf("Invalid base url : %s", baseUrl)
 	}
-	if path.Ext(parsedBase.Path) != "" {
-		parsedBase.Path = path.Join(path.Dir(parsedBase.Path), urls)
-	} else {
-		parsedBase.Path = path.Join(parsedBase.Path, urls)
+	if path.IsAbs(urls) { // join from the root
+		parsedBase.Path = urls
+	} else { // join from the directory
+		if path.Ext(parsedBase.Path) != "" {
+			parsedBase.Path = path.Join(path.Dir(parsedBase.Path), urls)
+		} else {
+			parsedBase.Path = path.Join(parsedBase.Path, urls)
+		}
 	}
 	return parsedBase.String(), nil
 }
@@ -52,7 +57,7 @@ func SafeUrljoin(baseUrl, urls string, allowRelative bool) (string, error) {
 	if parsed.IsAbs() {
 		return parsed.String(), nil
 	} else if baseUrl != "" {
-		return BasicUrlJoin(baseUrl, urls)
+		return basicUrlJoin(baseUrl, urls)
 	} else if allowRelative {
 		return parsed.String(), nil
 	} else {

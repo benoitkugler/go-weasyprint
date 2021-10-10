@@ -128,12 +128,14 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 }
 
 func resoudRadius(box *bo.BoxFields, v pr.Point) bo.MaybePoint {
+	fmt.Println(box.Width)
 	rx := pr.ResoudPercentage(v[0].ToValue(), box.BorderWidth())
 	ry := pr.ResoudPercentage(v[1].ToValue(), box.BorderHeight())
 	return bo.MaybePoint{rx, ry}
 }
 
 func resolveRadiiPercentages(box *bo.BoxFields) {
+	// FIXME:
 	box.BorderTopLeftRadius = resoudRadius(box, box.Style.GetBorderTopLeftRadius())
 	box.BorderTopRightRadius = resoudRadius(box, box.Style.GetBorderTopRightRadius())
 	box.BorderBottomRightRadius = resoudRadius(box, box.Style.GetBorderBottomRightRadius())

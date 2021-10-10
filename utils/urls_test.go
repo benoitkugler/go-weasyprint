@@ -89,3 +89,12 @@ func TestParseDataURL(t *testing.T) {
 		})
 	}
 }
+
+func TestJoinUrl(t *testing.T) {
+	if s, err := basicUrlJoin("http://weasyprint.org/css/main.css", "/css/files/oter.css"); err != nil || s != "http://weasyprint.org/css/files/oter.css" {
+		t.Fatal()
+	}
+	if s, err := basicUrlJoin("http://weasyprint.org/css/main.css", "css/files/oter.css"); err != nil || s != "http://weasyprint.org/css/css/files/oter.css" {
+		t.Fatal()
+	}
+}

@@ -55,6 +55,11 @@ func (l *lineBoxeIterator) Has() bool {
 	}
 	line, resumeAt := getNextLinebox(l.context, l.box, l.positionY, l.skipStack, l.containingBlock,
 		l.absoluteBoxes, l.fixedBoxes, l.firstLetterStyle)
+
+	if debugMode {
+		fmt.Printf("\t\tgetNextLinebox resumeAt: %s\n", resumeAt)
+	}
+
 	if line != nil {
 		l.positionY = line.Box().PositionY + line.Box().Height.V()
 	}
@@ -264,9 +269,11 @@ func skipFirstWhitespace(box Box, skipStack *tree.IntList) (*tree.IntList, bool)
 		}
 		return nil, false
 	}
+
 	if skipStack != nil {
 		panic(fmt.Sprintf("unexpected skip inside %s", box.Type()))
 	}
+
 	return nil, false
 }
 
@@ -719,7 +726,8 @@ func splitInlineLevel(context *layoutContext, box_ Box, positionX, maxX pr.Float
 	)
 
 	if debugMode {
-		fmt.Printf("\tSplit inline level: %T\n", box_)
+		fmt.Println()
+		fmt.Printf("\tSplit inline level: %T (maxX: %f, positionX: %f)...\n", box_, maxX, positionX)
 	}
 
 	if textBox, ok := box_.(*bo.TextBox); ok {
@@ -780,6 +788,10 @@ func splitInlineLevel(context *layoutContext, box_ Box, positionX, maxX pr.Float
 		log.Fatalf("Layout for %v not handled yet", box)
 	}
 
+	if debugMode {
+		fmt.Printf("\t--> done (resumeAt :%s)\n", resumeAt)
+	}
+
 	return splitedInline{
 		newBox:             newBox,
 		resumeAt:           resumeAt,
@@ -802,12 +814,12 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
 
 	if !IsLine(box_) {
-		log.Fatalf("expected Line or Inline Box, got %s", box_)
+		panic(fmt.Sprintf("expected Line or Inline Box, got %T", box_))
 	}
 	box := box_.Box()
 
 	if debugMode {
-		fmt.Printf("\tSplit inline %T\n", box_)
+		fmt.Printf("\tSplit inline box %T (with width %v)\n", box_, box.Width)
 	}
 
 	// In some cases (shrink-to-fit result being the preferred width)
@@ -945,7 +957,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		}
 
 		if debugMode {
-			fmt.Println("\tChild done.")
+			fmt.Printf("\tChild done (resumeAt : %s).\n", resumeAt)
 			fmt.Println()
 		}
 
@@ -1006,7 +1018,6 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 
 			marginWidth := newChild.Box().MarginWidth()
 			newPositionX := newChild.Box().PositionX + marginWidth
-
 			if newPositionX > maxX && !trailingWhitespace {
 				if len(waitingChildren) != 0 {
 					// Too wide, let's try to cut inside waiting children,
@@ -1058,17 +1069,35 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 							// following the original skip stack, we have to
 							// add the original skip stack to the partial
 							// skip stack we get after the new rendering.
+							//
+							// Combining skip stacks is a bit complicated
+							// We have to:
+							// - set `childIndex` as the first number
+							// - append the new stack if it's an absolute one
+							// - otherwise append the combined stacks
+							//   (resumeAt + initialSkipStack)
+							//
+							// extract the initial index
+							var (
+								initialIndex     int
+								currentSkipStack *tree.IntList
+							)
+							if initialSkipStack != nil {
+								initialIndex, currentSkipStack = initialSkipStack.Value, initialSkipStack.Next
+							}
+							// childResumeAt is an absolute skip stack
+							if childIndex > initialIndex {
+								resumeAt = &tree.IntList{Value: childIndex, Next: childResumeAt}
+								break
+							}
 
-							// We have to do :
-							// resumeAt + initialSkipStack
-							// but adding skip stacks is a bit complicated
-							currentSkipStack := initialSkipStack
-							currentResumeAt := &tree.IntList{Value: childIndex, Next: childResumeAt}
+							// combine the stacks
+							currentResumeAt := childResumeAt
 							var stack []int
 							for currentSkipStack != nil && currentResumeAt != nil {
+								var resume int
 								skip, currentSkipStack = currentSkipStack.Value, currentSkipStack.Next
-								currentResumeAt = currentResumeAt.Next
-								resume := currentResumeAt.Value
+								resume, currentResumeAt = currentResumeAt.Value, currentResumeAt.Next
 								stack = append(stack, skip+resume)
 								if resume != 0 {
 									break
@@ -1079,6 +1108,8 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 								index, stack = stack[len(stack)-1], stack[:len(stack)-1]
 								resumeAt = &tree.IntList{Value: index, Next: resumeAt}
 							}
+							// insert the child index
+							resumeAt = &tree.IntList{Value: childIndex, Next: resumeAt}
 							break
 						}
 					}

@@ -89,7 +89,7 @@ var (
 	// yes/no validators for non-shorthand properties
 	// Maps property names to functions taking a property name and a value list,
 	// returning a value or None for invalid.
-	// Also transform values: keyword && URLs are returned as strings.
+	// Also transform values: keyword and URLs are returned as strings.
 	// For properties that take a single value, that value is returned by itself
 	// instead of a list.
 	validators = map[string]validator{

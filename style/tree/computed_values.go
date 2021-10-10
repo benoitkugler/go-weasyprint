@@ -3,7 +3,6 @@ package tree
 import (
 	"fmt"
 	"log"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -58,8 +57,6 @@ var (
 		},
 	}
 
-	computingOrder []string
-
 	// Maps property names to functions returning the computed values
 	computerFunctions = map[string]computerFunc{}
 
@@ -68,11 +65,11 @@ var (
 		"background_image":    backgroundImage,
 		"background_position": backgroundPosition,
 		"object_position":     backgroundPosition,
-		"transform-origin":    transformOrigin,
+		"transform_origin":    transformOrigin,
 
-		"border-spacing":             lengths,
+		"border_spacing":             borderSpacing,
 		"size":                       size,
-		"clip":                       lengths,
+		"clip":                       clip,
 		"border_top_left_radius":     borderRadius,
 		"border_top_right_radius":    borderRadius,
 		"border_bottom_left_radius":  borderRadius,
@@ -103,11 +100,11 @@ var (
 		"hyphenate_limit_zone": length,
 		"flex_basis":           length,
 
-		"bleed-left":          bleed,
-		"bleed-right":         bleed,
-		"bleed-top":           bleed,
-		"bleed-bottom":        bleed,
-		"letter-spacing":      pixelLength,
+		"bleed_left":          bleed,
+		"bleed_right":         bleed,
+		"bleed_top":           bleed,
+		"bleed_bottom":        bleed,
+		"letter_spacing":      pixelLength,
 		"background_size":     backgroundSize,
 		"border_top_width":    borderWidth,
 		"border_right_width":  borderWidth,
@@ -146,25 +143,6 @@ func init() {
 	for _, size := range pr.PageSizes {
 		if size[0].Value > size[1].Value {
 			log.Fatal("page size should be in portrait orientation")
-		}
-	}
-
-	// Some computed value are required by others, so order matters.
-	computingOrder = []string{
-		"font_stretch", "font_weight", "font_family", "font_variant",
-		"font_style", "font_size", "line_height", "marks",
-	}
-	crible := map[string]bool{}
-	for _, k := range computingOrder {
-		crible[k] = true
-	}
-	keys := pr.InitialValues.Keys()
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
-	for _, k := range keys {
-		if !crible[k] {
-			computingOrder = append(computingOrder, k)
 		}
 	}
 
@@ -399,9 +377,13 @@ func transformOrigin(computer *ComputedStyle, name string, _value pr.CssProperty
 	return pr.Point{l[0], l[1]}
 }
 
+func clip(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {
+	return lengths_(computer, name, _value.(pr.Values))
+}
+
 // Compute the lists of lengths that can be percentages.
-func lengths(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {
-	value := _value.(pr.Values)
+// returns a slice with same length as input
+func lengths_(computer *ComputedStyle, name string, value pr.Values) pr.Values {
 	out := make(pr.Values, len(value))
 	for index, v := range value {
 		out[index] = length2(computer, name, v, -1, true)
@@ -418,11 +400,18 @@ func size(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssPro
 	return value
 }
 
+func borderSpacing(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {
+	value := _value.(pr.Point)
+	values := pr.Values{value[0].ToValue(), value[1].ToValue()}
+	tmp := lengths_(computer, name, values)
+	return pr.Point{tmp[0].Dimension, tmp[1].Dimension}
+}
+
 func borderRadius(computer *ComputedStyle, name string, _value pr.CssProperty) pr.CssProperty {
-	value := _value.(pr.Values)
-	out := make(pr.Values, len(value))
+	value := _value.(pr.Point)
+	var out pr.Point
 	for index, v := range value {
-		out[index] = length2(computer, name, v, -1, false)
+		out[index] = length2(computer, name, v.ToValue(), -1, false).Dimension
 	}
 	return out
 }
@@ -521,7 +510,9 @@ func pixelLength(computer *ComputedStyle, name string, _value pr.CssProperty) pr
 	if value.String == "normal" {
 		return value
 	}
-	return length(computer, name, value)
+	out := length2(computer, name, value, -1, true)
+	fmt.Println("pixelLength", out)
+	return out
 }
 
 // Compute the ``background-size`` pr.

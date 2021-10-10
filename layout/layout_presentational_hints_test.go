@@ -225,7 +225,7 @@ func TestPhTables(t *testing.T) {
 	table4 := wrapper4.Box().Children[0]
 	assertEqual(t, table4.Box().Style.GetBorderTopStyle(), pr.String("outset"), "table4")
 	assertEqual(t, table4.Box().Style.GetBorderTopWidth(), pr.FToV(10), "table4")
-	assertEqual(t, table4.Box().Style.GetBorderSpacing(), pr.Point{pr.FToPx(3).Dimension, pr.FToPx(3).Dimension}, "table4")
+	assertEqual(t, table4.Box().Style.GetBorderSpacing(), pr.Point{pr.FToD(3), pr.FToD(3)}, "table4")
 	r, g, b, _ := table4.Box().Style.GetBorderLeftColor().RGBA.Unpack()
 	if !(g > r && g > b) {
 		t.Fatal("color")
