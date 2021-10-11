@@ -1162,8 +1162,10 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		toCopy[i] = boxChild.box
 	}
 
-	newBox_ := bo.CopyWithChildren(box_, toCopy, isStart, isEnd)
+	newBox_ := bo.CopyWithChildren(box_, toCopy)
 	newBox := newBox_.Box()
+	newBox_.RemoveDecoration(newBox, !isStart, !isEnd)
+
 	if bo.LineBoxT.IsInstance(box_) {
 		// We must reset line box width according to its new children
 		newBox.Width = pr.Float(0)

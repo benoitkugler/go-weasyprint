@@ -154,7 +154,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				newRowChildren = append(newRowChildren, cell_)
 			}
 
-			row_ = bo.CopyWithChildren(row_, newRowChildren, true, true)
+			row_ = bo.CopyWithChildren(row_, newRowChildren)
 
 			// Table height algorithm
 			// http://www.w3.org/TR/CSS21/tables.html#height-layout
@@ -291,8 +291,9 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			return nil, nil, nextPage
 		}
 
-		group_ = bo.CopyWithChildren(group_, newGroupChildren, isGroupStart, resumeAt == nil)
+		group_ = bo.CopyWithChildren(group_, newGroupChildren)
 		group = group_.Box()
+		group_.RemoveDecoration(group, !isGroupStart, resumeAt != nil)
 		// Set missing baselines in a second loop because of rowspan
 		for _, row_ := range group.Children {
 			row := row_.Box()
@@ -507,8 +508,9 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 	if footer != nil {
 		newChildren = append(newChildren, footer)
 	}
-	table_ = bo.CopyWithChildren(table_, newChildren, skipStack == nil, resumeAt == nil).(bo.TableBoxITF) // CopyWithChildren is type stable
+	table_ = bo.CopyWithChildren(table_, newChildren).(bo.TableBoxITF) // CopyWithChildren is type stable
 	table = table_.Table()
+	table_.RemoveDecoration(&table.BoxFields, skipStack != nil, resumeAt != nil)
 	if table.Style.GetBorderCollapse() == "collapse" {
 		table.SkippedRows = skippedRows
 	}

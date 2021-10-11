@@ -165,19 +165,22 @@ func NewLineBox(elementTag string, style pr.ElementStyle, children []Box) LineBo
 	return out
 }
 
-func (InlineLevelBox) removeDecoration(box *BoxFields, start, end bool) {
+func (*InlineLevelBox) RemoveDecoration(box *BoxFields, start, end bool) {
+	if box.Style.GetBoxDecorationBreak() == "clone" {
+		return
+	}
 	ltr := box.Style.GetDirection() == "ltr"
 	if start {
-		side := "right"
+		side := SRight
 		if ltr {
-			side = "left"
+			side = SLeft
 		}
 		box.ResetSpacing(side)
 	}
 	if end {
-		side := "left"
+		side := SLeft
 		if ltr {
-			side = "right"
+			side = SRight
 		}
 		box.ResetSpacing(side)
 	}
@@ -237,7 +240,7 @@ func (b TextBox) CopyWithText(text string) *TextBox {
 }
 
 func (u TextBox) RemoveDecoration(b *BoxFields, start, end bool) {
-	u.InlineLevelBox.removeDecoration(b, start, end)
+	u.InlineLevelBox.RemoveDecoration(b, start, end)
 }
 
 func NewInlineBlockBox(elementTag string, style pr.ElementStyle, children []Box) InlineBlockBox {
@@ -246,7 +249,7 @@ func NewInlineBlockBox(elementTag string, style pr.ElementStyle, children []Box)
 }
 
 func (u InlineBox) RemoveDecoration(b *BoxFields, start, end bool) {
-	u.InlineLevelBox.removeDecoration(b, start, end)
+	u.InlineLevelBox.RemoveDecoration(b, start, end)
 }
 
 func NewReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) ReplacedBox {

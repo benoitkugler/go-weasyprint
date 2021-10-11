@@ -127,17 +127,19 @@ func resolvePercentages(box_ Box, containingBlock bo.MaybePoint, mainFlexDirecti
 	}
 }
 
-func resoudRadius(box *bo.BoxFields, v pr.Point) bo.MaybePoint {
-	fmt.Println(box.Width)
+func resoudRadius(box *bo.BoxFields, v pr.Point, side1, side2 bo.Side) bo.MaybePoint {
+	if box.RemoveDecorationSides[side1] || box.RemoveDecorationSides[side2] {
+		return bo.MaybePoint{pr.Float(0), pr.Float(0)}
+	}
 	rx := pr.ResoudPercentage(v[0].ToValue(), box.BorderWidth())
 	ry := pr.ResoudPercentage(v[1].ToValue(), box.BorderHeight())
 	return bo.MaybePoint{rx, ry}
 }
 
 func resolveRadiiPercentages(box *bo.BoxFields) {
-	// FIXME:
-	box.BorderTopLeftRadius = resoudRadius(box, box.Style.GetBorderTopLeftRadius())
-	box.BorderTopRightRadius = resoudRadius(box, box.Style.GetBorderTopRightRadius())
-	box.BorderBottomRightRadius = resoudRadius(box, box.Style.GetBorderBottomRightRadius())
-	box.BorderBottomLeftRadius = resoudRadius(box, box.Style.GetBorderBottomLeftRadius())
+	fmt.Println(box.RemoveDecorationSides)
+	box.BorderTopLeftRadius = resoudRadius(box, box.Style.GetBorderTopLeftRadius(), bo.STop, bo.SLeft)
+	box.BorderTopRightRadius = resoudRadius(box, box.Style.GetBorderTopRightRadius(), bo.STop, bo.SRight)
+	box.BorderBottomRightRadius = resoudRadius(box, box.Style.GetBorderBottomRightRadius(), bo.SBottom, bo.SRight)
+	box.BorderBottomLeftRadius = resoudRadius(box, box.Style.GetBorderBottomLeftRadius(), bo.SBottom, bo.SLeft)
 }

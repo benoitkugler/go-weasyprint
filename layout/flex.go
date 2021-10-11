@@ -180,7 +180,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 
 	// Step 3
 	children := box.Children
-	parentBox_ := bo.CopyWithChildren(box_, children, true, true)
+	parentBox_ := bo.CopyWithChildren(box_, children)
 	parentBox := parentBox_.Box()
 	resolvePercentagesBox(parentBox_, containingBlock, "")
 
@@ -240,7 +240,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			}
 			newChild := child_.Copy()
 			if bo.ParentBoxT.IsInstance(child_) {
-				newChild = bo.CopyWithChildren(child_, child.Children, true, true)
+				newChild = bo.CopyWithChildren(child_, child.Children)
 			}
 			newChild.Box().Style = child.Style.Copy()
 			newChild.Box().Style.SetWidth(pr.SToV("auto"))
@@ -255,7 +255,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			}
 			newChild := child_.Copy()
 			if bo.ParentBoxT.IsInstance(child_) {
-				newChild = bo.CopyWithChildren(child_, child.Children, true, true)
+				newChild = bo.CopyWithChildren(child_, child.Children)
 			}
 			newChild.Box().Style = child.Style.Copy()
 			newChild.Box().Style.SetHeight(pr.SToV("auto"))
@@ -332,7 +332,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				} else {
 					newChild := child_.Copy()
 					if bo.ParentBoxT.IsInstance(child_) {
-						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
+						newChild = bo.CopyWithChildren(child_, child.Children)
 					}
 					newChild.Box().Width = pr.Inf
 					newChild, _ = blockLevelLayout(context, newChild.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
@@ -346,7 +346,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				} else {
 					newChild := child_.Copy()
 					if bo.ParentBoxT.IsInstance(child_) {
-						newChild = bo.CopyWithChildren(child_, child.Children, true, true)
+						newChild = bo.CopyWithChildren(child_, child.Children)
 					}
 					newChild.Box().Width = pr.Float(0)
 					newChild, _ = blockLevelLayout(context, newChild.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
@@ -626,7 +626,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			}
 			childCopy := child_.Copy()
 			if bo.ParentBoxT.IsInstance(child_) {
-				childCopy = bo.CopyWithChildren(child_, child.Children, true, true)
+				childCopy = bo.CopyWithChildren(child_, child.Children)
 			}
 
 			blockLevelWidth(childCopy, nil, parentBox)

@@ -427,7 +427,7 @@ func makeMarginBoxes(context *layoutContext, page *bo.PageBox, state tree.PageSt
 		if !box.IsGenerated {
 			boxF.Width = pr.Float(0)
 			boxF.Height = pr.Float(0)
-			for _, side := range [4]string{"top", "right", "bottom", "left"} {
+			for _, side := range [4]bo.Side{bo.STop, bo.SRight, bo.SLeft, bo.SBottom} {
 				boxF.ResetSpacing(side)
 			}
 		}
@@ -641,7 +641,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	var previousResumeAt *tree.IntList
 	if pageType.Blank {
 		previousResumeAt = resumeAt
-		rootBox = bo.CopyWithChildren(rootBox, nil, true, true).(bo.BlockLevelBoxITF) // CopyWithChildren is type stable
+		rootBox = bo.CopyWithChildren(rootBox, nil).(bo.BlockLevelBoxITF) // CopyWithChildren is type stable
 	}
 
 	// TODO: handle cases where the root element is something else.

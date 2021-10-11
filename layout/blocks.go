@@ -321,10 +321,7 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 	}
 
 	isStart := skipStack == nil
-	if box.Style.GetBoxDecorationBreak() == "slice" && !isStart {
-		// Remove top margin, border && padding :
-		box_.RemoveDecoration(box, true, false)
-	}
+	box_.RemoveDecoration(box, !isStart, false)
 
 	discard = discard || box.Style.GetContinue() == "discard"
 	drawBottomDecoration := discard || box.Style.GetBoxDecorationBreak() == "clone"
@@ -449,8 +446,10 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 		adjoiningMargins = nil
 	}
 
-	newBox_ := bo.CopyWithChildren(box_, newChildren, isStart, resumeAt == nil)
+	newBox_ := bo.CopyWithChildren(box_, newChildren)
 	newBox := newBox_.Box()
+	newBox_.RemoveDecoration(newBox, !isStart, boxIsFragmented && !discard)
+
 	if newBox.Height == pr.Auto {
 		if len(*context.excludedShapes) != 0 && newBox.Style.GetOverflow() != "visible" {
 			maxFloatPositionY := -pr.Inf
@@ -959,7 +958,7 @@ func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*Absolute
 				var newGrandChildren []Box
 				newGrandChildren, resumeAt = findEarlierPageBreak(child.Children, absoluteBoxes, fixedBoxes)
 				if newGrandChildren != nil || resumeAt != nil {
-					newChild := bo.CopyWithChildren(child_, newGrandChildren, true, true)
+					newChild := bo.CopyWithChildren(child_, newGrandChildren)
 					newChildren = append(children[:index], newChild)
 					// Index in the original parent
 					resumeAt = &tree.IntList{Value: newChild.Box().Index, Next: resumeAt}

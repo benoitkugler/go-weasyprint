@@ -76,7 +76,7 @@ func NewStackingContextFromPage(page *bo.PageBox) StackingContext {
 		childContexts[i] = NewStackingContextFromBox(child, page, nil)
 	}
 	// Children are sub-contexts, remove them from the "normal" tree.
-	page = bo.CopyWithChildren(page, nil, true, true).(*bo.PageBox)
+	page = bo.CopyWithChildren(page, nil).(*bo.PageBox)
 	return NewStackingContext(page, childContexts, nil, nil, nil, page)
 }
 

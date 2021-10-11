@@ -30,7 +30,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		absoluteBoxes = &[]*AbsolutePlaceholder{}
 	}
 
-	box_ = bo.CopyWithChildren(box_, box_.Box().Children, true, true).(bo.BlockBoxITF) // CopyWithChildren preserves the concrete type of box_
+	box_ = bo.CopyWithChildren(box_, box_.Box().Children).(bo.BlockBoxITF) // CopyWithChildren preserves the concrete type of box_
 	box := box_.Box()
 	box.PositionY += collapseMargin(adjoiningMargins) - box.MarginTop.V()
 

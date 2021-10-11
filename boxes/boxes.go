@@ -211,6 +211,8 @@ type BoxFields struct {
 	ResumeAt *tree.IntList
 
 	Background *Background
+
+	RemoveDecorationSides [4]bool
 }
 
 func newBoxFields(elementTag string, style pr.ElementStyle, children []Box) BoxFields {
@@ -246,13 +248,13 @@ func (box *BoxFields) SetMissingLink(b tree.Box) {
 	box.missingLink = b
 }
 
-// isStart = isEnd = true
-func CopyWithChildren(box Box, newChildren []Box, isStart bool, isEnd bool) Box {
+// Create a new equivalent box with given ``newChildren``."""
+func CopyWithChildren(box Box, newChildren []Box) Box {
 	newBox := box.Copy()
 	newBox.Box().Children = newChildren
-	if box.Box().Style.GetBoxDecorationBreak() == "slice" {
-		newBox.RemoveDecoration(newBox.Box(), !isStart, !isEnd)
-	}
+	// Clear and reset removed decorations as we don't want to keep the
+	// previous data, for example when a box is split between two pages.
+	box.Box().RemoveDecorationSides = [4]bool{}
 	return newBox
 }
 
@@ -503,46 +505,65 @@ func (b BoxFields) PageValues() (pr.Page, pr.Page) {
 	return start, end
 }
 
-// Set to 0 the margin, padding and border of ``side``.
-func (self *BoxFields) ResetSpacing(side string) {
-	self.Style.Set(fmt.Sprintf("margin_%s", side), pr.ZeroPixels.ToValue())
-	self.Style.Set(fmt.Sprintf("padding_%s", side), pr.ZeroPixels.ToValue())
-	self.Style.Set(fmt.Sprintf("border_%s_width", side), pr.FToV(0))
+type Side uint8
 
-	if side == "top" || side == "bottom" {
-		self.Style.Set(fmt.Sprintf("border_%s_left_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
-		self.Style.Set(fmt.Sprintf("border_%s_right_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
-	} else {
-		self.Style.Set(fmt.Sprintf("border_bottom_%s_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
-		self.Style.Set(fmt.Sprintf("border_top_%s_radius", side), pr.Point{pr.ZeroPixels, pr.ZeroPixels})
+const (
+	SLeft Side = iota
+	SRight
+	STop
+	SBottom
+)
+
+func (s Side) String() string {
+	switch s {
+	case SLeft:
+		return "left"
+	case SRight:
+		return "right"
+	case STop:
+		return "top"
+	case SBottom:
+		return "bottom"
+	default:
+		return ""
 	}
+}
+
+// Set to 0 the margin, padding and border of ``side``.
+func (self *BoxFields) ResetSpacing(side Side) {
+	fmt.Println("resetSpacing", side)
+	self.RemoveDecorationSides[side] = true
 
 	switch side {
-	case "top":
+	case STop:
 		self.MarginTop = pr.Float(0)
 		self.PaddingTop = pr.Float(0)
 		self.BorderTopWidth = pr.Float(0)
-	case "right":
+	case SRight:
 		self.MarginRight = pr.Float(0)
 		self.PaddingRight = pr.Float(0)
 		self.BorderRightWidth = pr.Float(0)
-	case "left":
+	case SLeft:
 		self.MarginLeft = pr.Float(0)
 		self.PaddingLeft = pr.Float(0)
 		self.BorderLeftWidth = pr.Float(0)
-	case "bottom":
+	case SBottom:
 		self.MarginBottom = pr.Float(0)
 		self.PaddingBottom = pr.Float(0)
 		self.BorderBottomWidth = pr.Float(0)
 	}
 }
 
-func (BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
+func (*BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
+	fmt.Println("remove_decoration")
+	if box.Style.GetBoxDecorationBreak() == "clone" {
+		return
+	}
 	if start {
-		box.ResetSpacing("top")
+		box.ResetSpacing(STop)
 	}
 	if end {
-		box.ResetSpacing("bottom")
+		box.ResetSpacing(SBottom)
 	}
 }
 

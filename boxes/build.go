@@ -1202,7 +1202,7 @@ func wrapTable(box TableBoxITF, children boxIterator) Box {
 		}
 		gridHeight += len(groupChildren)
 	}
-	table := CopyWithChildren(box, rowGroups, true, true).(TableBoxITF)
+	table := CopyWithChildren(box, rowGroups).(TableBoxITF)
 	tableBox := table.Table()
 	tableBox.ColumnGroups = columnGroups
 	if tableBox.Style.GetBorderCollapse() == "collapse" {
@@ -1838,14 +1838,14 @@ func innerBlockInInline(box Box, skipStack *tree.IntList) (Box, Box, *tree.IntLi
 
 		if blockLevelBox != nil {
 			resumeAt = &tree.IntList{Value: index, Next: resumeAt}
-			box = CopyWithChildren(box, newChildren, isStart, false)
+			box = CopyWithChildren(box, newChildren)
 			hasBroken = true
 			break
 		}
 	}
 	if !hasBroken {
 		if changed || skip > 0 {
-			box = CopyWithChildren(box, newChildren, isStart, true)
+			box = CopyWithChildren(box, newChildren)
 		}
 	}
 
