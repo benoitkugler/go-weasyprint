@@ -852,16 +852,16 @@ func anchor(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProp
 	// _value is either "none" or an AttrData
 	attrData, ok := _value.(pr.AttrData)
 	if !ok {
-		return nil
+		return pr.String("")
 	}
 	if node, ok := computer.element.(*utils.HTMLNode); ok {
 		anchorName := node.Get(attrData.Name)
 		if anchorName == "" {
-			return nil
+			return pr.String("")
 		}
 		return pr.String(anchorName)
 	}
-	return nil
+	return pr.String("")
 }
 
 // Compute the ``link`` property.

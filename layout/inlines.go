@@ -1285,11 +1285,14 @@ func splitTextBox(context *layoutContext, box *bo.TextBox, availableWidth pr.May
 
 	preservedLineBreak := false
 	if resumeIndex != -1 {
+		if resumeIndex > len(text_) {
+			resumeIndex = len(text_)
+		}
 		between := string(text_[length:resumeIndex])
 		preservedLineBreak = (length != resumeIndex) && len(strings.Trim(between, " ")) != 0
 		if preservedLineBreak {
 			if !lineBreaks.Has(between) {
-				log.Fatalf("Got %s between two lines. Expected nothing or a preserved line break", between)
+				panic(fmt.Sprintf("Got %s between two lines. Expected nothing or a preserved line break", between))
 			}
 		}
 		resumeIndex += skip
