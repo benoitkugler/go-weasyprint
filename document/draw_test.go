@@ -89,7 +89,6 @@ func renderUrl(t *testing.T, url string) {
 }
 
 func TestRealPage(t *testing.T) {
-	// renderUrl(t, "http://www.google.com")
-	// FIXME:
+	renderUrl(t, "http://www.google.com")
 	renderUrl(t, "https://weasyprint.org/")
 }

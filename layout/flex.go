@@ -1,7 +1,7 @@
 package layout
 
 import (
-	"log"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -216,6 +216,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	} else {
 		skipStack = nil
 	}
+
 	childSkipStack := skipStack
 	for _, child_ := range children {
 		child := child_.Box()
@@ -357,7 +358,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				// TODO: should we add padding, borders and margins?
 				child.FlexBaseSize = styleAxis.Value
 			} else {
-				log.Fatalf("unexpected Style[axis] : %v", styleAxis)
+				panic(fmt.Sprintf("unexpected Style[axis] : %v", styleAxis))
 			}
 		}
 		if axis == "width" {
@@ -402,11 +403,12 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	var line flexLine
 	var lineSize pr.Float
 	axisSize := getAttr(box, axis, "")
-	children = append([]Box{}, children...)
-	sort.Slice(children, func(i, j int) bool {
-		return children[i].Box().Style.GetOrder() < children[j].Box().Style.GetOrder()
+
+	sortedChildren := append([]Box{}, children...)
+	sort.Slice(sortedChildren, func(i, j int) bool {
+		return sortedChildren[i].Box().Style.GetOrder() < sortedChildren[j].Box().Style.GetOrder()
 	})
-	for i, child_ := range children {
+	for i, child_ := range sortedChildren {
 		child := child_.Box()
 		if !child.IsFlexItem {
 			continue
@@ -1110,7 +1112,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 		for _, v := range line.line {
 			i, child := v.index, v.box.Box()
 			if child.IsFlexItem {
-				newChild, tmp := blockLevelLayoutSwitch(context, v.box.(bo.BlockLevelBoxITF), maxPositionY, childSkipStack, v.box.Box(),
+				newChild, tmp := blockLevelLayoutSwitch(context, v.box.(bo.BlockLevelBoxITF), maxPositionY, childSkipStack, box,
 					pageIsEmpty, absoluteBoxes, fixedBoxes, nil, false)
 				childResumeAt := tmp.resumeAt
 				if newChild == nil {
@@ -1118,7 +1120,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 						resumeAt = &tree.IntList{Value: resumeAt.Value + i - 1}
 					}
 				} else {
-					box.Children = append(children, newChild)
+					box.Children = append(box.Children, newChild)
 					if childResumeAt != nil {
 						firstLevelSkip := 0
 						if originalSkipStack != nil {

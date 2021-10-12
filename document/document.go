@@ -174,7 +174,7 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 		}
 	}
 
-	for _, child := range box.AllChildren() {
+	for _, child := range box_.AllChildren() {
 		gatherLinksAndBookmarks(child, bookmarks, links, anchors, matrix)
 	}
 }

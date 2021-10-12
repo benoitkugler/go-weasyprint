@@ -6,7 +6,6 @@
 package boxes
 
 import (
-	"fmt"
 	"unicode/utf8"
 
 	"github.com/benoitkugler/go-weasyprint/images"
@@ -531,7 +530,6 @@ func (s Side) String() string {
 
 // Set to 0 the margin, padding and border of ``side``.
 func (self *BoxFields) ResetSpacing(side Side) {
-	fmt.Println("resetSpacing", side)
 	self.RemoveDecorationSides[side] = true
 
 	switch side {
@@ -555,7 +553,6 @@ func (self *BoxFields) ResetSpacing(side Side) {
 }
 
 func (*BoxFields) RemoveDecoration(box *BoxFields, start, end bool) {
-	fmt.Println("remove_decoration")
 	if box.Style.GetBoxDecorationBreak() == "clone" {
 		return
 	}

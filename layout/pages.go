@@ -427,7 +427,7 @@ func makeMarginBoxes(context *layoutContext, page *bo.PageBox, state tree.PageSt
 		if !box.IsGenerated {
 			boxF.Width = pr.Float(0)
 			boxF.Height = pr.Float(0)
-			for _, side := range [4]bo.Side{bo.STop, bo.SRight, bo.SLeft, bo.SBottom} {
+			for _, side := range [4]bo.Side{bo.STop, bo.SRight, bo.SBottom, bo.SLeft} {
 				boxF.ResetSpacing(side)
 			}
 		}

@@ -64,16 +64,21 @@ func resolveImage(image pr.Image, getImageFromUri bo.Gifu) images.Image {
 }
 
 // Fetch and position background images.
-func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu) {
+func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu, layoutChildren bool, style pr.ElementStyle) {
 	// Resolve percentages in border-radius properties
 	box := box_.Box()
 	resolveRadiiPercentages(box)
 
-	for _, child := range box.AllChildren() {
-		layoutBoxBackgrounds(page, child, getImageFromUri)
+	if layoutChildren {
+		for _, child := range box_.AllChildren() {
+			layoutBoxBackgrounds(page, child, getImageFromUri, true, nil)
+		}
 	}
 
-	style := box.Style
+	if style == nil {
+		style = box.Style
+	}
+
 	if style.GetVisibility() == "hidden" {
 		box.Background = nil
 		if page != box_ { // Pages need a background for bleed box
@@ -286,14 +291,14 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 }
 
 // Set a ``canvasBackground`` attribute on the PageBox,
-//  with style for the canvas background, taken from the root elememt
-//  or a <body> child of the root element.
-//  See http://www.w3.org/TR/CSS21/colors.html#background
-func setCanvasBackground(page *bo.PageBox) {
+// with style for the canvas background, taken from the root elememt
+// or a <body> child of the root element.
+// See http://www.w3.org/TR/CSS21/colors.html#background
+func setCanvasBackground(page *bo.PageBox, getImageFromUri bo.Gifu) {
 	rootBox_ := page.Children[0]
 	rootBox := rootBox_.Box()
 	if bo.MarginBoxT.IsInstance(rootBox_) {
-		log.Fatalf("unexpected margin box as first child of page")
+		panic("unexpected margin box as first child of page")
 	}
 	chosenBox_ := rootBox_
 	if strings.ToLower(rootBox.ElementTag) == "html" && rootBox.Background == nil {
@@ -307,11 +312,15 @@ func setCanvasBackground(page *bo.PageBox) {
 	chosenBox := chosenBox_.Box()
 	if chosenBox.Background != nil {
 		paintingArea := boxRectangle(page.BoxFields, "padding-box")
-		for i, l := range chosenBox.Background.Layers {
+		originalBackground := page.Background
+		layoutBoxBackgrounds(page, page, getImageFromUri, false, chosenBox.Style)
+		canvasBg := *page.Background
+		for i, l := range canvasBg.Layers {
 			l.PaintingArea = bo.Area{Rect: paintingArea}
-			chosenBox.Background.Layers[i] = l
+			canvasBg.Layers[i] = l
 		}
-		page.CanvasBackground = chosenBox.Background
+		page.CanvasBackground = &canvasBg
+		page.Background = originalBackground
 		chosenBox.Background = nil
 	} else {
 		page.CanvasBackground = nil
@@ -319,6 +328,6 @@ func setCanvasBackground(page *bo.PageBox) {
 }
 
 func layoutBackgrounds(page *bo.PageBox, getImageFromUri bo.Gifu) {
-	layoutBoxBackgrounds(page, page, getImageFromUri)
-	setCanvasBackground(page)
+	layoutBoxBackgrounds(page, page, getImageFromUri, true, nil)
+	setCanvasBackground(page, getImageFromUri)
 }

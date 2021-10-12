@@ -511,7 +511,6 @@ func pixelLength(computer *ComputedStyle, name string, _value pr.CssProperty) pr
 		return value
 	}
 	out := length2(computer, name, value, -1, true)
-	fmt.Println("pixelLength", out)
 	return out
 }
 
