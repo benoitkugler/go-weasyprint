@@ -89,7 +89,7 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 		mediaType = "print"
 	}
 
-	ressource, err := utils.SelectSource(input, baseUrl, urlFetcher, checkMimeType)
+	ressource, err := utils.FetchSource(input, baseUrl, urlFetcher, checkMimeType)
 	if err != nil {
 		return CSS{}, fmt.Errorf("error fetching css input : %s", err)
 	}
@@ -97,7 +97,7 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 	stylesheet := parser.ParseStylesheet2(ressource.Content, false, false)
 
 	if matcher == nil {
-		matcher = NewMatcher()
+		matcher = newMatcher()
 	}
 	if pageRules == nil {
 		pageRules = &[]PageRule{}
@@ -131,7 +131,7 @@ type match struct {
 
 type matcher []match
 
-func NewMatcher() *matcher {
+func newMatcher() *matcher {
 	return &matcher{}
 }
 

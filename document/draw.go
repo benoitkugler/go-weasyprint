@@ -1377,6 +1377,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	output.X, output.Y = x, y
 
 	textRunes := layout.Text
+	fmt.Println(string(textRunes), len(textRunes))
 	for run := firstLine.Runs; run != nil; run = run.Next {
 
 		// Pango objects

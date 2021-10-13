@@ -52,10 +52,9 @@ type Source struct {
 	Content []byte // utf8 encoded
 }
 
-// Check that only one input is not None, and return it with the
+// FetchSource fetch the html input, and returns it with the
 // normalized ``BaseUrl`` (checkCssMimeType=false).
-// source may have nil content
-func SelectSource(input ContentInput, baseUrl string, urlFetcher UrlFetcher,
+func FetchSource(input ContentInput, baseUrl string, urlFetcher UrlFetcher,
 	checkCssMimeType bool) (out Source, err error) {
 
 	if baseUrl != "" {

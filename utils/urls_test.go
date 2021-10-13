@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"net/url"
 	"reflect"
 	"testing"
 )
@@ -91,10 +92,22 @@ func TestParseDataURL(t *testing.T) {
 }
 
 func TestJoinUrl(t *testing.T) {
-	if s, err := basicUrlJoin("http://weasyprint.org/css/main.css", "/css/files/oter.css"); err != nil || s != "http://weasyprint.org/css/files/oter.css" {
-		t.Fatal()
-	}
-	if s, err := basicUrlJoin("http://weasyprint.org/css/main.css", "css/files/oter.css"); err != nil || s != "http://weasyprint.org/css/css/files/oter.css" {
-		t.Fatal()
+	for _, data := range [][3]string{
+		{"http://weasyprint.org/css/main.css", "/css/files/oter.css", "http://weasyprint.org/css/files/oter.css"},
+		{"http://weasyprint.org/css/main.css", "css/files/oter.css", "http://weasyprint.org/css/css/files/oter.css"},
+		{
+			"https://en.wikipedia.org/wiki/Go_(programming_language)",
+			"/w/load.php?lang=en&modules=ext.cite.styles%7Cext.pygments%2CwikimediaBadges%7Cext.uls.interlanguage%7Cext.visualEditor.desktopArticleTarget.noscript%7Cjquery.makeCollapsible.styles%7Cskins.vector.styles.legacy%7Cwikibase.client.init&only=styles&skin=vector",
+			"https://en.wikipedia.org/w/load.php?lang=en&modules=ext.cite.styles%7Cext.pygments%2CwikimediaBadges%7Cext.uls.interlanguage%7Cext.visualEditor.desktopArticleTarget.noscript%7Cjquery.makeCollapsible.styles%7Cskins.vector.styles.legacy%7Cwikibase.client.init&only=styles&skin=vector",
+		},
+	} {
+		baseUrl, urls, exp := data[0], data[1], data[2]
+		parsedUrl, err := url.Parse(urls)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s, err := basicUrlJoin(baseUrl, parsedUrl); err != nil || s != exp {
+			t.Fatalf("expected\n%s\n, got\n%s", exp, s)
+		}
 	}
 }

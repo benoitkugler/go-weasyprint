@@ -8,10 +8,10 @@ def to_go(boxes: List[Any]) -> str:
         tag = box[0]
         type_ = f"{box[1]}BoxT"
         if isinstance(box[2], str):
-            content = 'bc{{text: `{0}`}}'.format(box[2])
+            content = 'bc{{Text: `{0}`}}'.format(box[2])
         else:
             children = to_go(box[2])
-            content = f"bc{{c: {children}}}"
+            content = f"bc{{C: {children}}}"
         code += f"""{{"{tag}", {type_}, {content}}},\n"""
     code += "}"
     return code

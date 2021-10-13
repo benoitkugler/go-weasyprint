@@ -438,7 +438,7 @@ func (d Document) addHyperlinks(links []Link, anchorsId map[string]int, context 
 
 func (d *Document) fetchAttachment(attachmentUrl string) backend.Attachment {
 	// Attachments from document links like <link> or <a> can only be URLs.
-	tmp, err := utils.SelectSource(utils.InputUrl(attachmentUrl), "", d.urlFetcher, false)
+	tmp, err := utils.FetchSource(utils.InputUrl(attachmentUrl), "", d.urlFetcher, false)
 	if err != nil {
 		log.Printf("Failed to load attachment at url %s: %s\n", attachmentUrl, err)
 		return backend.Attachment{}

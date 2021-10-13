@@ -1,6 +1,7 @@
 package document
 
 import (
+	"io"
 	"io/ioutil"
 	"log"
 	"testing"
@@ -89,6 +90,7 @@ func renderUrl(t *testing.T, url string) {
 }
 
 func TestRealPage(t *testing.T) {
+	outputLog.SetOutput(io.Discard)
 	// renderUrl(t, "http://www.google.com")
 	// renderUrl(t, "https://weasyprint.org/")
 	// FIXME:

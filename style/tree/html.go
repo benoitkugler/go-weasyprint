@@ -36,11 +36,12 @@ func NewHTML(htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.Ur
 	if mediaType == "" {
 		mediaType = "print"
 	}
-	result, err := utils.SelectSource(htmlContent, baseUrl, urlFetcher, false)
+	result, err := utils.FetchSource(htmlContent, baseUrl, urlFetcher, false)
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch html input : %s", err)
 	}
-	root, err := html.Parse(bytes.NewReader(result.Content))
+	root, err := html.ParseWithOptions(bytes.NewReader(result.Content), html.ParseOptionEnableScripting(false))
+	// root, err := html.Parse(bytes.NewReader(result.Content))
 	if err != nil || root.FirstChild == nil {
 		return nil, fmt.Errorf("invalid html input : %s", err)
 	}
