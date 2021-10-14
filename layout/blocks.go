@@ -31,6 +31,9 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 	if debugMode {
 		fmt.Printf("\nLayout BLOCK-LEVEL %T\n", box_)
 	}
+	if absoluteBoxes == nil {
+		panic("")
+	}
 	box := box_.Box()
 	if !bo.TableBoxT.IsInstance(box_) {
 		resolvePercentagesBox(box_, containingBlock, "")
@@ -96,13 +99,16 @@ func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, ma
 // Lay out the block ``box``.
 func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
+	if absoluteBoxes == nil {
+		panic("")
+	}
 	box := box_.Box()
 	if box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto" {
 		newBox_, result := columnsLayout(context, box_, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins)
-		newBox := newBox_.Box()
 		resumeAt := result.resumeAt
 		if resumeAt == nil {
+			newBox := newBox_.Box()
 			bottomSpacing := newBox.MarginBottom.V() + newBox.PaddingBottom.V() + newBox.BorderBottomWidth.V()
 			if bottomSpacing != 0 {
 				maxPositionY -= bottomSpacing
@@ -311,6 +317,10 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 		panic(fmt.Sprintf("expected BlockContainer or Flex, got %T", box_))
 	}
 
+	if absoluteBoxes == nil {
+		panic("")
+	}
+
 	// We have to work around floating point rounding errors here.
 	// The 1e-9 value comes from PEP 485.
 	allowedMaxPositionY := maxPositionY * (1 + 1e-9)
@@ -382,7 +392,8 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 			drawBottomDecoration = drawBottomDecoration || resumeAt == nil
 			adjoiningMargins = nil
 		} else {
-			abort, stop, resumeAt, positionY, adjoiningMargins, nextPage, newChildren = inFlowLayout(context, box, index, child_, newChildren, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins,
+			abort, stop, resumeAt, positionY, adjoiningMargins, nextPage, newChildren = inFlowLayout(context, box, index, child_,
+				newChildren, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins,
 				allowedMaxPositionY, maxPositionY, positionY, skipStack, firstLetterStyle, collapsingWithChildren, discard)
 			skipStack = nil
 		}
@@ -513,7 +524,6 @@ func findLastInFlowChild(children []Box) Box {
 
 func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ Box, newChildren []Box,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY pr.Float) (stop bool, resumeAt *tree.IntList, children []Box) {
-
 	child := child_.Box()
 	child.PositionY += collapseMargin(adjoiningMargins)
 	if child.IsAbsolutelyPositioned() {

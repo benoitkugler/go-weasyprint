@@ -121,7 +121,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	resumeIndex := index
 	text := []rune(text_)
 
-	// Step #2: Don"t split lines when it's not needed
+	// Step #2: Don't split lines when it's not needed
 	if maxWidth == nil {
 		// The first line can take all the place needed
 		return firstLineMetrics(firstLine, text, layout, resumeIndex, spaceCollapse, style, false, "")

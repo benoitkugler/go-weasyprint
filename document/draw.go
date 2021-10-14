@@ -270,10 +270,11 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 		}
 
 		if box.TransformationMatrix != nil {
-			if err := box.TransformationMatrix.Copy().Invert(); err != nil {
-				return err
+			if box.TransformationMatrix.Determinant() != 0 {
+				ctx.dst.Transform(*box.TransformationMatrix)
+			} else {
+				return nil
 			}
-			ctx.dst.Transform(*box.TransformationMatrix)
 		}
 
 		// Point 1 is done in drawPage
@@ -1377,7 +1378,6 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	output.X, output.Y = x, y
 
 	textRunes := layout.Text
-	fmt.Println(string(textRunes), len(textRunes))
 	for run := firstLine.Runs; run != nil; run = run.Next {
 
 		// Pango objects

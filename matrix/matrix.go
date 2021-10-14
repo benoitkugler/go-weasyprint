@@ -28,6 +28,12 @@ func Identity() Transform {
 	return New(1, 0, 0, 1, 0, 0)
 }
 
+// Determinant returns the determinant of the matrix, which is
+// non zero if and only if the transformation is reversible.
+func (t Transform) Determinant() fl {
+	return t.a*t.d - t.b*t.c
+}
+
 func Translation(tx, ty fl) Transform {
 	mt := Identity()
 	mt.Translate(tx, ty)
@@ -70,7 +76,7 @@ func Mul(T, U Transform) Transform {
 // Invert modify the matrix in place. Return an error
 // if the transformation is not bijective.
 func (T *Transform) Invert() error {
-	det := T.a*T.d - T.b*T.c
+	det := T.Determinant()
 	if det == 0 {
 		return errors.New("The transformation is not invertible.")
 	}

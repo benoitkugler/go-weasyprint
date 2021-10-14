@@ -24,17 +24,29 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		borderSpacingX, borderSpacingY = tmp[0].Value, tmp[1].Value
 	}
 
-	// TODO: reverse this for direction: rtl
-	var columnPositions []pr.Float
 	table.ColumnPositions = nil
 	positionX := table.ContentBoxX()
-	rowsX := positionX + borderSpacingX
-	for _, width := range columnWidths {
-		positionX += borderSpacingX
-		columnPositions = append(columnPositions, positionX)
-		positionX += width
+	rowsLeftX := positionX + borderSpacingX
+	var rowsWidth pr.Float
+	if table.Style.GetDirection() == "ltr" {
+		positionX := table.ContentBoxX()
+		rowsX := positionX + borderSpacingX
+		for _, width := range columnWidths {
+			positionX += borderSpacingX
+			table.ColumnPositions = append(table.ColumnPositions, positionX)
+			positionX += width
+		}
+		rowsWidth = positionX - rowsX
+	} else {
+		positionX := table.ContentBoxX() + table.Width.V()
+		rowsX := positionX - borderSpacingX
+		for _, width := range columnWidths {
+			positionX -= borderSpacingX
+			positionX -= width
+			table.ColumnPositions = append(table.ColumnPositions, positionX)
+		}
+		rowsWidth = rowsX - positionX
 	}
-	rowsWidth := positionX - rowsX
 
 	var skippedRows int
 	if table.Style.GetBorderCollapse() == "collapse" {
@@ -68,7 +80,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		originalPageIsEmpty := pageIsEmpty
 		resolvePercentagesBox(group_, &table.BoxFields, "")
 		group := group_.Box()
-		group.PositionX = rowsX
+		group.PositionX = rowsLeftX
 		group.PositionY = positionY
 		group.Width = rowsWidth
 		newGroupChildren := []Box{}
@@ -98,7 +110,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			}
 
 			resolvePercentagesBox(row_, &table.BoxFields, "")
-			row.PositionX = rowsX
+			row.PositionX = rowsLeftX
 			row.PositionY = positionY
 			row.Width = rowsWidth
 			// Place cells at the top of the row and layout their content
@@ -121,7 +133,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 					break
 				}
 				resolvePercentagesBox(cell_, &table.BoxFields, "")
-				cell.PositionX = columnPositions[cell.GridX]
+				cell.PositionX = table.ColumnPositions[cell.GridX]
 				cell.PositionY = row.PositionY
 				cell.MarginTop = pr.Float(0)
 				cell.MarginLeft = pr.Float(0)
@@ -155,6 +167,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			}
 
 			row_ = bo.CopyWithChildren(row_, newRowChildren)
+			row = row_.Box()
 
 			// Table height algorithm
 			// http://www.w3.org/TR/CSS21/tables.html#height-layout
@@ -219,7 +232,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				row.Height = pr.Float(0)
 			}
 
-			if len(baselineCells) != 0 {
+			if len(baselineCells) == 0 {
 				row.Baseline = rowBottomY
 			}
 
@@ -534,8 +547,8 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		for _, column_ := range group.Children {
 			column := column_.Box()
 			resolvePercentagesBox(column_, &table.BoxFields, "")
-			if column.GridX < len(columnPositions) {
-				column.PositionX = columnPositions[column.GridX]
+			if column.GridX < len(table.ColumnPositions) {
+				column.PositionX = table.ColumnPositions[column.GridX]
 				column.PositionY = initialPositionY
 				column.Width = columnWidths[column.GridX]
 				column.Height = columnsHeight

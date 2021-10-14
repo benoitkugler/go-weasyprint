@@ -127,3 +127,15 @@ func TestTextDimension(t *testing.T) {
 	sp2 := makeText(str, pr.Float(200), pr.Properties{"font_size": pr.FToV(20)})
 	assert(t, sp1.Width*sp1.Height < sp2.Width*sp2.Height, "")
 }
+
+func BenchmarkSplitFirstLine(b *testing.B) {
+	newStyle := pr.InitialValues.Copy()
+	newStyle.SetFontFamily(monoFonts)
+	newStyle.UpdateWith(pr.Properties{"font_family": sansFonts, "font_size": pr.FToV(19)})
+	ct := textContext{fontmap: fontmap, dict: make(map[HyphenDictKey]hyphen.Hyphener)}
+
+	text := "This is a text for test. This is a test for text.py"
+	for i := 0; i < b.N; i++ {
+		SplitFirstLine(text, newStyle, ct, pr.Float(200), 0, false)
+	}
+}

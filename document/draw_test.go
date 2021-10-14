@@ -80,7 +80,7 @@ func TestWriteDocument(t *testing.T) {
 	finalDoc.WriteDocument(output{}, 1, nil)
 }
 
-func renderUrl(t *testing.T, url string) {
+func renderUrl(t testing.TB, url string) {
 	doc, err := tree.NewHTML(utils.InputUrl(url), "", nil, "")
 	if err != nil {
 		t.Fatal(err)
@@ -95,4 +95,12 @@ func TestRealPage(t *testing.T) {
 	// renderUrl(t, "https://weasyprint.org/")
 	// FIXME:
 	renderUrl(t, "https://en.wikipedia.org/wiki/Go_(programming_language)")
+}
+
+func BenchmarkWiki(b *testing.B) {
+	outputLog.SetOutput(io.Discard)
+
+	for i := 0; i < b.N; i++ {
+		renderUrl(b, "https://en.wikipedia.org/wiki/Go_(programming_language)")
+	}
 }
