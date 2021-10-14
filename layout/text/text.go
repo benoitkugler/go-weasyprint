@@ -108,7 +108,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 			layout = CreateLayout(text_[:expectedLength], style, context, maxWidth, justificationSpacing)
 			firstLine, index = layout.GetFirstLine()
 			if index == -1 {
-				// The small amount of text fits in one line, give up and use  the whole text
+				// The small amount of text fits in one line, give up and use the whole text
 				layout = nil
 			}
 		}

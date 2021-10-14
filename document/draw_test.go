@@ -93,14 +93,14 @@ func TestRealPage(t *testing.T) {
 	outputLog.SetOutput(io.Discard)
 	// renderUrl(t, "http://www.google.com")
 	// renderUrl(t, "https://weasyprint.org/")
-	// FIXME:
-	renderUrl(t, "https://en.wikipedia.org/wiki/Go_(programming_language)")
+	// renderUrl(t, "https://en.wikipedia.org/wiki/Go_(programming_language)")
+	renderUrl(t, "https://golang.org/doc/go1.17")
 }
 
-func BenchmarkWiki(b *testing.B) {
+func BenchmarkRender(b *testing.B) {
 	outputLog.SetOutput(io.Discard)
 
 	for i := 0; i < b.N; i++ {
-		renderUrl(b, "https://en.wikipedia.org/wiki/Go_(programming_language)")
+		renderUrl(b, "https://golang.org/doc/go1.17")
 	}
 }

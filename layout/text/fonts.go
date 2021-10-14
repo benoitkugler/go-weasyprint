@@ -2,6 +2,7 @@ package text
 
 import (
 	"bytes"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -74,6 +75,13 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 	return ""
 }
 
+// make `s` a valid xml string content
+func escapeXML(s string) string {
+	var b strings.Builder
+	xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
 func (f *FontConfiguration) loadOneFont(url pr.NamedString, ruleDescriptors validation.FontFaceDescriptors, urlFetcher utils.UrlFetcher) (string, error) {
 	config := f.Fontmap.Config
 
@@ -109,8 +117,7 @@ func (f *FontConfiguration) loadOneFont(url pr.NamedString, ruleDescriptors vali
 	if err != nil {
 		return "", fmt.Errorf("Failed to load font at: %s", err)
 	}
-	fontFilename := url.String
-
+	fontFilename := escapeXML(url.String)
 	content, err := ioutil.ReadAll(result.Content)
 	if err != nil {
 		return "", fmt.Errorf("Failed to load font at %s", url.String)
@@ -172,7 +179,8 @@ func (f *FontConfiguration) loadOneFont(url pr.NamedString, ruleDescriptors vali
 	if !ok {
 		fontconfigStretch = "normal"
 	}
-	xml := fmt.Sprintf(`<?xml version="1.0"?>
+
+	xmlConfig := fmt.Sprintf(`<?xml version="1.0"?>
 		<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 		<fontconfig>
 		  <match target="scan">
@@ -201,7 +209,7 @@ func (f *FontConfiguration) loadOneFont(url pr.NamedString, ruleDescriptors vali
 		</fontconfig>`, fontFilename, ruleDescriptors.FontFamily, fontconfigStyle,
 		fontconfigWeight, fontconfigStretch, ruleDescriptors.FontFamily, featuresString)
 
-	err = config.LoadFromMemory(bytes.NewReader([]byte(xml)))
+	err = config.LoadFromMemory(bytes.NewReader([]byte(xmlConfig)))
 	if err != nil {
 		return "", fmt.Errorf("Failed to load fontconfig config: %s", err)
 	}
