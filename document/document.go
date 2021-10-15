@@ -217,6 +217,7 @@ type Page struct {
 	pageBox *bo.PageBox
 }
 
+// NewPage post-process a laid out `PageBox`
 func NewPage(pageBox *bo.PageBox) Page {
 	d := Page{}
 	d.Width = fl(pageBox.MarginWidth())

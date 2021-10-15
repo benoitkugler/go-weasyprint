@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
 // Test the CSS cross references using target-*() functions.
 
 func TestTargetCounter(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -33,17 +33,17 @@ func TestTargetCounter(t *testing.T) {
 	body := html.Box().Children[0]
 	div1, div2, div3, div4 := unpack4(body)
 	before := div1.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "4", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "4", "before")
 	before = div2.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "test 1", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "test 1", "before")
 	before = div3.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "iv", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "iv", "before")
 	before = div4.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "3", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "3", "before")
 }
 
 func TestTargetCounterAttr(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -66,17 +66,17 @@ func TestTargetCounterAttr(t *testing.T) {
 	body := html.Box().Children[0]
 	div1, div2, div3, div4 := unpack4(body)
 	before := div1.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "4", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "4", "before")
 	before = div2.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "1", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "1", "before")
 	before = div3.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "2", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "2", "before")
 	before = div4.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "c", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "c", "before")
 }
 
 func TestTargetCounters(t *testing.T) {
-	// cp := testutils.CaptureLogs()
+	// cp := tu.CaptureLogs()
 	// defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -103,17 +103,17 @@ func TestTargetCounters(t *testing.T) {
 	body := html.Box().Children[0]
 	div1, div2, div3, div4 := unpack4(body)
 	before := div1.Box().Children[1].Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "4.2", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "4.2", "before")
 	before = div2.Box().Children[0].Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "3", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "3", "before")
 	before = div3.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "b.a", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "b.a", "before")
 	before = div4.Box().Children[1].Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "12", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "12", "before")
 }
 
 func TestTargetText(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -142,16 +142,16 @@ func TestTargetText(t *testing.T) {
 	body := html.Box().Children[0]
 	a1, _, a2, _, _, a3, _, a4 := unpack8(body)
 	before := a1.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "test 4 Chapter 4", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "test 4 Chapter 4", "before")
 	before = a2.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "wow", "before")
-	assertEqual(t, len(a3.Box().Children[0].Box().Children[0].Box().Children), 0, "len")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "wow", "before")
+	tu.AssertEqual(t, len(a3.Box().Children[0].Box().Children[0].Box().Children), 0, "len")
 	before = a4.Box().Children[0].Box().Children[0].Box().Children[0]
-	assertEqual(t, before.(*bo.TextBox).Text, "1", "before")
+	tu.AssertEqual(t, before.(*bo.TextBox).Text, "1", "before")
 }
 
 func TestTargetFloat(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -171,6 +171,6 @@ func TestTargetFloat(t *testing.T) {
 	line := div.Box().Children[0]
 	inline := line.Box().Children[0]
 	textBox, after := unpack2(inline)
-	assertEqual(t, textBox.(*bo.TextBox).Text, "link", "textBox")
-	assertEqual(t, after.Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "1", "after")
+	tu.AssertEqual(t, textBox.(*bo.TextBox).Text, "link", "textBox")
+	tu.AssertEqual(t, after.Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "1", "after")
 }

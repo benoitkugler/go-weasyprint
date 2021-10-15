@@ -578,3 +578,58 @@ func (t BoxType) IsInProperParents(type_ BoxType) bool {
 		return false
 	}
 }
+
+// shared utils
+
+type BC struct {
+	Text string
+	C    []SerBox
+}
+
+type SerBox struct {
+	Tag     string
+	Type    BoxType
+	Content BC
+}
+
+func (s SerBox) equals(other SerBox) bool {
+	if s.Tag != other.Tag || s.Type != other.Type || s.Content.Text != other.Content.Text {
+		return false
+	}
+	return SerializedBoxEquals(s.Content.C, other.Content.C)
+}
+
+func SerializedBoxEquals(l1, l2 []SerBox) bool {
+	if len(l1) != len(l2) {
+		return false
+	}
+	for j := range l1 {
+		if !l1[j].equals(l2[j]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Transform a box list into a structure easier to compare for testing.
+func Serialize(boxList []Box) []SerBox {
+	out := make([]SerBox, len(boxList))
+	for i, box := range boxList {
+		out[i].Tag = box.Box().ElementTag
+		out[i].Type = box.Type()
+		// all concrete boxes are either text, replaced, column or parent.
+		if boxT, ok := box.(*TextBox); ok {
+			out[i].Content.Text = boxT.Text
+		} else if _, ok := box.(ReplacedBoxITF); ok {
+			out[i].Content.Text = "<replaced>"
+		} else {
+			var cg []Box
+			if table, ok := box.(TableBoxITF); ok {
+				cg = table.Table().ColumnGroups
+			}
+			cg = append(cg, box.Box().Children...)
+			out[i].Content.C = Serialize(cg)
+		}
+	}
+	return out
+}

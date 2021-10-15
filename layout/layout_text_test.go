@@ -7,11 +7,11 @@ import (
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
 func TestTextFontSizeZero(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -25,13 +25,13 @@ func TestTextFontSizeZero(t *testing.T) {
 	paragraph := body.Box().Children[0]
 	line := paragraph.Box().Children[0]
 	// zero-sized text boxes are removed
-	assertEqual(t, len(line.Box().Children), 0, "children")
-	assertEqual(t, line.Box().Height, pr.Float(0), "line")
-	assertEqual(t, paragraph.Box().Height, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, len(line.Box().Children), 0, "children")
+	tu.AssertEqual(t, line.Box().Height, pr.Float(0), "line")
+	tu.AssertEqual(t, paragraph.Box().Height, pr.Float(0), "paragraph")
 }
 
 func TestTextSpacedInlines(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -43,9 +43,9 @@ func TestTextSpacedInlines(t *testing.T) {
 	line := paragraph.Box().Children[0]
 	start, i, space, b, end := unpack5(line)
 
-	assertEqual(t, start.(*bo.TextBox).Text, "start ", "start")
-	assertEqual(t, space.(*bo.TextBox).Text, " ", "space")
-	assertEqual(t, end.(*bo.TextBox).Text, " end", "end")
+	tu.AssertEqual(t, start.(*bo.TextBox).Text, "start ", "start")
+	tu.AssertEqual(t, space.(*bo.TextBox).Text, " ", "space")
+	tu.AssertEqual(t, end.(*bo.TextBox).Text, " end", "end")
 	if w := space.Box().Width.V(); w <= 0 {
 		t.Fatalf("expected positive width, got %f", w)
 	}
@@ -53,19 +53,19 @@ func TestTextSpacedInlines(t *testing.T) {
 	bi1, space, bi2 := unpack3(i)
 	bi1 = bi1.Box().Children[0]
 	bi2 = bi2.Box().Children[0]
-	assertEqual(t, bi1.(*bo.TextBox).Text, "bi1", "bi1")
-	assertEqual(t, space.(*bo.TextBox).Text, " ", "space")
-	assertEqual(t, bi2.(*bo.TextBox).Text, "bi2", "bi2")
+	tu.AssertEqual(t, bi1.(*bo.TextBox).Text, "bi1", "bi1")
+	tu.AssertEqual(t, space.(*bo.TextBox).Text, " ", "space")
+	tu.AssertEqual(t, bi2.(*bo.TextBox).Text, "bi2", "bi2")
 	if w := space.Box().Width.V(); w <= 0 {
 		t.Fatalf("expected positive width, got %f", w)
 	}
 
 	b1 := b.Box().Children[0]
-	assertEqual(t, b1.(*bo.TextBox).Text, "b1", "b1")
+	tu.AssertEqual(t, b1.(*bo.TextBox).Text, "b1", "b1")
 }
 
 func TestTextAlignLeft(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// <-------------------->  page, body
 	//     +-----+
@@ -87,12 +87,12 @@ func TestTextAlignLeft(t *testing.T) {
 	line := body.Box().Children[0]
 	img1, img2 := line.Box().Children[0], line.Box().Children[1]
 	// initial value for text-align: left (in ltr text)
-	assertEqual(t, img1.Box().PositionX, pr.Float(0), "img1")
-	assertEqual(t, img2.Box().PositionX, pr.Float(40), "img2")
+	tu.AssertEqual(t, img1.Box().PositionX, pr.Float(0), "img1")
+	tu.AssertEqual(t, img2.Box().PositionX, pr.Float(40), "img2")
 }
 
 func TestTextAlignRight(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// <-------------------->  page, body
 	//                +-----+
@@ -116,12 +116,12 @@ func TestTextAlignRight(t *testing.T) {
 	line := body.Box().Children[0]
 	img1, img2 := line.Box().Children[0], line.Box().Children[1]
 
-	assertEqual(t, img1.Box().PositionX, pr.Float(100), "img1") // 200 - 60 - 40
-	assertEqual(t, img2.Box().PositionX, pr.Float(140), "img2") // 200 - 60
+	tu.AssertEqual(t, img1.Box().PositionX, pr.Float(100), "img1") // 200 - 60 - 40
+	tu.AssertEqual(t, img2.Box().PositionX, pr.Float(140), "img2") // 200 - 60
 }
 
 func TestTextAlignCenter(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// <-------------------->  page, body
@@ -146,12 +146,12 @@ func TestTextAlignCenter(t *testing.T) {
 	line := body.Box().Children[0]
 	img1, img2 := line.Box().Children[0], line.Box().Children[1]
 
-	assertEqual(t, img1.Box().PositionX, pr.Float(50), "img1")
-	assertEqual(t, img2.Box().PositionX, pr.Float(90), "img2")
+	tu.AssertEqual(t, img1.Box().PositionX, pr.Float(50), "img1")
+	tu.AssertEqual(t, img2.Box().PositionX, pr.Float(90), "img2")
 }
 
 func TestTextAlignJustify(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -173,24 +173,24 @@ func TestTextAlignJustify(t *testing.T) {
 	image1, space1, strong := unpack3(line1)
 	image2, space2, image3, space3, image4 := unpack5(strong)
 	image5 := line2.Box().Children[0]
-	assertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
-	assertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
-	assertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
+	tu.AssertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
+	tu.AssertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
+	tu.AssertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
 
-	assertEqual(t, image1.Box().PositionX, pr.Float(0), "image1")
-	assertEqual(t, space1.Box().PositionX, pr.Float(40), "space1")
-	assertEqual(t, strong.Box().PositionX, pr.Float(70), "strong")
-	assertEqual(t, image2.Box().PositionX, pr.Float(70), "image2")
-	assertEqual(t, space2.Box().PositionX, pr.Float(130), "space2")
-	assertEqual(t, image3.Box().PositionX, pr.Float(160), "image3")
-	assertEqual(t, space3.Box().PositionX, pr.Float(170), "space3")
-	assertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
-	assertEqual(t, strong.Box().Width.V(), pr.Float(230), "strong")
-	assertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
+	tu.AssertEqual(t, image1.Box().PositionX, pr.Float(0), "image1")
+	tu.AssertEqual(t, space1.Box().PositionX, pr.Float(40), "space1")
+	tu.AssertEqual(t, strong.Box().PositionX, pr.Float(70), "strong")
+	tu.AssertEqual(t, image2.Box().PositionX, pr.Float(70), "image2")
+	tu.AssertEqual(t, space2.Box().PositionX, pr.Float(130), "space2")
+	tu.AssertEqual(t, image3.Box().PositionX, pr.Float(160), "image3")
+	tu.AssertEqual(t, space3.Box().PositionX, pr.Float(170), "space3")
+	tu.AssertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
+	tu.AssertEqual(t, strong.Box().Width.V(), pr.Float(230), "strong")
+	tu.AssertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
 }
 
 func TestTextAlignJustifyAll(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -212,28 +212,28 @@ func TestTextAlignJustifyAll(t *testing.T) {
 	image1, space1, strong := unpack3(line1)
 	image2, space2, image3, space3, image4 := unpack5(strong)
 	image5, space4, image6 := unpack3(line2)
-	assertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
-	assertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
-	assertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
-	assertEqual(t, space4.(*bo.TextBox).Text, " ", "space4")
+	tu.AssertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
+	tu.AssertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
+	tu.AssertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
+	tu.AssertEqual(t, space4.(*bo.TextBox).Text, " ", "space4")
 
-	assertEqual(t, image1.Box().PositionX, pr.Float(0), "image1")
-	assertEqual(t, space1.Box().PositionX, pr.Float(40), "space1")
-	assertEqual(t, strong.Box().PositionX, pr.Float(70), "strong")
-	assertEqual(t, image2.Box().PositionX, pr.Float(70), "image2")
-	assertEqual(t, space2.Box().PositionX, pr.Float(130), "space2")
-	assertEqual(t, image3.Box().PositionX, pr.Float(160), "image3")
-	assertEqual(t, space3.Box().PositionX, pr.Float(170), "space3")
-	assertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
-	assertEqual(t, strong.Box().Width, pr.Float(230), "strong")
+	tu.AssertEqual(t, image1.Box().PositionX, pr.Float(0), "image1")
+	tu.AssertEqual(t, space1.Box().PositionX, pr.Float(40), "space1")
+	tu.AssertEqual(t, strong.Box().PositionX, pr.Float(70), "strong")
+	tu.AssertEqual(t, image2.Box().PositionX, pr.Float(70), "image2")
+	tu.AssertEqual(t, space2.Box().PositionX, pr.Float(130), "space2")
+	tu.AssertEqual(t, image3.Box().PositionX, pr.Float(160), "image3")
+	tu.AssertEqual(t, space3.Box().PositionX, pr.Float(170), "space3")
+	tu.AssertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
+	tu.AssertEqual(t, strong.Box().Width, pr.Float(230), "strong")
 
-	assertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
-	assertEqual(t, space4.Box().PositionX, pr.Float(200), "space4")
-	assertEqual(t, image6.Box().PositionX, pr.Float(290), "image6")
+	tu.AssertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
+	tu.AssertEqual(t, space4.Box().PositionX, pr.Float(200), "space4")
+	tu.AssertEqual(t, image6.Box().PositionX, pr.Float(290), "image6")
 }
 
 func TestTextAlignAllLast(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -256,26 +256,26 @@ func TestTextAlignAllLast(t *testing.T) {
 	image2, space2, image3, space3, image4 := unpack5(strong)
 	image5, image6 := line2.Box().Children[0], line2.Box().Children[1]
 
-	assertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
-	assertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
-	assertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
+	tu.AssertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
+	tu.AssertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
+	tu.AssertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
 
-	assertEqual(t, image1.Box().PositionX, pr.Float(0), "image1")
-	assertEqual(t, space1.Box().PositionX, pr.Float(40), "space1")
-	assertEqual(t, strong.Box().PositionX, pr.Float(70), "strong")
-	assertEqual(t, image2.Box().PositionX, pr.Float(70), "image2")
-	assertEqual(t, space2.Box().PositionX, pr.Float(130), "space2")
-	assertEqual(t, image3.Box().PositionX, pr.Float(160), "image3")
-	assertEqual(t, space3.Box().PositionX, pr.Float(170), "space3")
-	assertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
-	assertEqual(t, strong.Box().Width, pr.Float(230), "strong")
+	tu.AssertEqual(t, image1.Box().PositionX, pr.Float(0), "image1")
+	tu.AssertEqual(t, space1.Box().PositionX, pr.Float(40), "space1")
+	tu.AssertEqual(t, strong.Box().PositionX, pr.Float(70), "strong")
+	tu.AssertEqual(t, image2.Box().PositionX, pr.Float(70), "image2")
+	tu.AssertEqual(t, space2.Box().PositionX, pr.Float(130), "space2")
+	tu.AssertEqual(t, image3.Box().PositionX, pr.Float(160), "image3")
+	tu.AssertEqual(t, space3.Box().PositionX, pr.Float(170), "space3")
+	tu.AssertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
+	tu.AssertEqual(t, strong.Box().Width, pr.Float(230), "strong")
 
-	assertEqual(t, image5.Box().PositionX, pr.Float(90), "image5")
-	assertEqual(t, image6.Box().PositionX, pr.Float(290), "image6")
+	tu.AssertEqual(t, image5.Box().PositionX, pr.Float(90), "image5")
+	tu.AssertEqual(t, image6.Box().PositionX, pr.Float(290), "image6")
 }
 
 func TestTextAlignNotEnoughSpace(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -288,11 +288,11 @@ func TestTextAlignNotEnoughSpace(t *testing.T) {
 	body := html.Box().Children[0]
 	paragraph := body.Box().Children[0]
 	span := paragraph.Box().Children[0]
-	assertEqual(t, span.Box().PositionX, pr.Float(0), "span")
+	tu.AssertEqual(t, span.Box().PositionX, pr.Float(0), "span")
 }
 
 func TestTextAlignJustifyNoSpace(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// single-word line (zero spaces)
@@ -307,11 +307,11 @@ func TestTextAlignJustifyNoSpace(t *testing.T) {
 	paragraph := body.Box().Children[0]
 	line1, _ := paragraph.Box().Children[0], paragraph.Box().Children[1]
 	text := line1.Box().Children[0]
-	assertEqual(t, text.Box().PositionX, pr.Float(0), "text")
+	tu.AssertEqual(t, text.Box().PositionX, pr.Float(0), "text")
 }
 
 func TestTextAlignJustifyTextIndent(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// text-indent
 	page := renderOnePage(t, `
@@ -335,25 +335,25 @@ func TestTextAlignJustifyTextIndent(t *testing.T) {
 	image2, space2, image3, space3, image4 := unpack5(strong)
 	image5 := line2.Box().Children[0]
 
-	assertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
-	assertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
-	assertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
+	tu.AssertEqual(t, space1.(*bo.TextBox).Text, " ", "space1")
+	tu.AssertEqual(t, space2.(*bo.TextBox).Text, " ", "space2")
+	tu.AssertEqual(t, space3.(*bo.TextBox).Text, " ", "space3")
 
-	assertEqual(t, image1.Box().PositionX, pr.Float(3), "image1")
-	assertEqual(t, space1.Box().PositionX, pr.Float(43), "space1")
-	assertEqual(t, strong.Box().PositionX, pr.Float(72), "strong")
-	assertEqual(t, image2.Box().PositionX, pr.Float(72), "image2")
-	assertEqual(t, space2.Box().PositionX, pr.Float(132), "space2")
-	assertEqual(t, image3.Box().PositionX, pr.Float(161), "image3")
-	assertEqual(t, space3.Box().PositionX, pr.Float(171), "space3")
-	assertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
-	assertEqual(t, strong.Box().Width, pr.Float(228), "strong")
+	tu.AssertEqual(t, image1.Box().PositionX, pr.Float(3), "image1")
+	tu.AssertEqual(t, space1.Box().PositionX, pr.Float(43), "space1")
+	tu.AssertEqual(t, strong.Box().PositionX, pr.Float(72), "strong")
+	tu.AssertEqual(t, image2.Box().PositionX, pr.Float(72), "image2")
+	tu.AssertEqual(t, space2.Box().PositionX, pr.Float(132), "space2")
+	tu.AssertEqual(t, image3.Box().PositionX, pr.Float(161), "image3")
+	tu.AssertEqual(t, space3.Box().PositionX, pr.Float(171), "space3")
+	tu.AssertEqual(t, image4.Box().PositionX, pr.Float(200), "image4")
+	tu.AssertEqual(t, strong.Box().Width, pr.Float(228), "strong")
 
-	assertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
+	tu.AssertEqual(t, image5.Box().PositionX, pr.Float(0), "image5")
 }
 
 func TestTextAlignJustifyNoBreakBetweenChildren(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Test justification when line break happens between two inline children
@@ -376,18 +376,18 @@ func TestTextAlignJustifyNoBreakBetweenChildren(t *testing.T) {
 	paragraph := body.Box().Children[0]
 	line1, line2 := paragraph.Box().Children[0], paragraph.Box().Children[1]
 	span1, _, span2, _ := unpack4(line1)
-	assertEqual(t, span1.Box().PositionX, pr.Float(0), "span1")
-	assertEqual(t, span2.Box().PositionX, pr.Float(6*16), "span2") // 1 character + 5 spaces
-	assertEqual(t, line1.Box().Width, pr.Float(7*16), "line1")     // 7em
+	tu.AssertEqual(t, span1.Box().PositionX, pr.Float(0), "span1")
+	tu.AssertEqual(t, span2.Box().PositionX, pr.Float(6*16), "span2") // 1 character + 5 spaces
+	tu.AssertEqual(t, line1.Box().Width, pr.Float(7*16), "line1")     // 7em
 
 	span1, span2, _, span3, _ := unpack5(line2)
-	assertEqual(t, span1.Box().PositionX, pr.Float(0), "span1")
-	assertEqual(t, span2.Box().PositionX, pr.Float(3*16), "span2") // 3 characters
-	assertEqual(t, span3.Box().PositionX, pr.Float(5*16), "span3") // (3 + 1) characters + 1 space
+	tu.AssertEqual(t, span1.Box().PositionX, pr.Float(0), "span1")
+	tu.AssertEqual(t, span2.Box().PositionX, pr.Float(3*16), "span2") // 3 characters
+	tu.AssertEqual(t, span3.Box().PositionX, pr.Float(5*16), "span3") // (3 + 1) characters + 1 space
 }
 
 func TestWordSpacing(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// keep the empty <style> as a regression test: element.text is nil
 	// (Not a string.)
@@ -406,11 +406,11 @@ func TestWordSpacing(t *testing.T) {
 	body = html.Box().Children[0]
 	line = body.Box().Children[0]
 	strong2 := line.Box().Children[0]
-	assertEqual(t, strong2.Box().Width.V()-strong1.Box().Width.V(), pr.Float(33), "strong distance")
+	tu.AssertEqual(t, strong2.Box().Width.V()-strong1.Box().Width.V(), pr.Float(33), "strong distance")
 }
 
 func TestLetterSpacing1(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -427,7 +427,7 @@ func TestLetterSpacing1(t *testing.T) {
 	body = html.Box().Children[0]
 	line = body.Box().Children[0]
 	strong2 := line.Box().Children[0]
-	assertEqual(t, strong2.Box().Width.V()-strong1.Box().Width.V(), pr.Float(34*11), "strong distance")
+	tu.AssertEqual(t, strong2.Box().Width.V()-strong1.Box().Width.V(), pr.Float(34*11), "strong distance")
 
 	// an embedded tag should ! affect the single-line letter spacing
 	page = renderOnePage(t,
@@ -438,7 +438,7 @@ func TestLetterSpacing1(t *testing.T) {
 	body = html.Box().Children[0]
 	line = body.Box().Children[0]
 	strong3 := line.Box().Children[0]
-	assertEqual(t, strong3.Box().Width, strong2.Box().Width, "strong")
+	tu.AssertEqual(t, strong3.Box().Width, strong2.Box().Width, "strong")
 
 	// duplicate wrapped lines should also have same overall width
 	// Note work-around for word-wrap bug (issue #163) by marking word
@@ -457,12 +457,12 @@ func TestLetterSpacing1(t *testing.T) {
 	html = page.Box().Children[0]
 	body = html.Box().Children[0]
 	line1, line2 := body.Box().Children[0], body.Box().Children[1]
-	assertEqual(t, line1.Box().Children[0].Box().Width, line2.Box().Children[0].Box().Width, "")
-	assertEqual(t, line1.Box().Children[0].Box().Width, strong2.Box().Width, "")
+	tu.AssertEqual(t, line1.Box().Children[0].Box().Width, line2.Box().Children[0].Box().Width, "")
+	tu.AssertEqual(t, line1.Box().Children[0].Box().Width, strong2.Box().Width, "")
 }
 
 func TestSpacingEx(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Test regression on ex units in spacing properties
@@ -472,7 +472,7 @@ func TestSpacingEx(t *testing.T) {
 }
 
 func TestTextIndent(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	for _, indent := range []string{"12px", "6%"} {
@@ -491,14 +491,14 @@ func TestTextIndent(t *testing.T) {
 		text1 := lines[0].Box().Children[0]
 		text2 := lines[1].Box().Children[0]
 		text3 := lines[2].Box().Children[0]
-		assertEqual(t, text1.Box().PositionX, pr.Float(22), "text1") // 10px margin-left + 12px indent
-		assertEqual(t, text2.Box().PositionX, pr.Float(10), "text2") // No indent
-		assertEqual(t, text3.Box().PositionX, pr.Float(10), "text3") // No indent
+		tu.AssertEqual(t, text1.Box().PositionX, pr.Float(22), "text1") // 10px margin-left + 12px indent
+		tu.AssertEqual(t, text2.Box().PositionX, pr.Float(10), "text2") // No indent
+		tu.AssertEqual(t, text3.Box().PositionX, pr.Float(10), "text3") // No indent
 	}
 }
 
 func TestTextIndentInline(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1000
 	page := renderOnePage(t, `
@@ -513,11 +513,11 @@ func TestTextIndentInline(t *testing.T) {
 	body := html.Box().Children[0]
 	paragraph := body.Box().Children[0]
 	line := paragraph.Box().Children[0]
-	assertEqual(t, line.Box().Width, pr.Float((4+1)*16), "")
+	tu.AssertEqual(t, line.Box().Width, pr.Float((4+1)*16), "")
 }
 
 func TestTextIndentMultipage(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/706
 
@@ -536,7 +536,7 @@ func TestTextIndentMultipage(t *testing.T) {
 		paragraph := body.Box().Children[0]
 		line := paragraph.Box().Children[0]
 		text := line.Box().Children[0]
-		assertEqual(t, text.Box().PositionX, pr.Float(22), "") // 10px margin-left + 12px indent
+		tu.AssertEqual(t, text.Box().PositionX, pr.Float(22), "") // 10px margin-left + 12px indent
 
 		page = pages[1]
 		html = page.Box().Children[0]
@@ -544,12 +544,12 @@ func TestTextIndentMultipage(t *testing.T) {
 		paragraph = body.Box().Children[0]
 		line = paragraph.Box().Children[0]
 		text = line.Box().Children[0]
-		assertEqual(t, text.Box().PositionX, pr.Float(10), "") // No indent
+		tu.AssertEqual(t, text.Box().PositionX, pr.Float(10), "") // No indent
 	}
 }
 
 func testHyphenateCharacter(t *testing.T, hyphChar string, replacer func(s string) string) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, fmt.Sprintf(`
@@ -571,7 +571,7 @@ func testHyphenateCharacter(t *testing.T, hyphChar string, replacer func(s strin
 	for _, line := range lines {
 		fullText += line.Box().Children[0].(*bo.TextBox).Text
 	}
-	assertEqual(t, replacer(fullText), "hyphénation", "")
+	tu.AssertEqual(t, replacer(fullText), "hyphénation", "")
 }
 
 func TestHyphenateCharacter1(t *testing.T) {
@@ -595,7 +595,7 @@ func TestHyphenateCharacter5(t *testing.T) {
 }
 
 func TestHyphenateManual1(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	total := []rune("hyphénation")
@@ -622,14 +622,14 @@ func TestHyphenateManual1(t *testing.T) {
 			for _, line := range lines {
 				fullText += line.Box().Children[0].(*bo.TextBox).Text
 			}
-			assertEqual(t, strings.ReplaceAll(fullText, hyphenateCharacter, ""), word, "")
+			tu.AssertEqual(t, strings.ReplaceAll(fullText, hyphenateCharacter, ""), word, "")
 
 		}
 	}
 }
 
 func TestHyphenateManual2(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	total := []rune("hy phénation")
@@ -655,7 +655,7 @@ func TestHyphenateManual2(t *testing.T) {
 			}
 			fullText = strings.ReplaceAll(fullText, hyphenateCharacter, "")
 			if text := lines[0].Box().Children[0].(*bo.TextBox).Text; strings.HasSuffix(text, hyphenateCharacter) {
-				assertEqual(t, fullText, word, "")
+				tu.AssertEqual(t, fullText, word, "")
 			} else {
 				if !strings.HasSuffix(text, "y") {
 					t.Fatal()
@@ -672,7 +672,7 @@ func TestHyphenateManual2(t *testing.T) {
 }
 
 func TestHyphenateManual3(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Automatic hyphenation opportunities within a word must be ignored if the
 	// word contains a conditional hyphen, in favor of the conditional
@@ -683,14 +683,14 @@ func TestHyphenateManual3(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	line1, line2, line3, line4 := unpack4(body)
-	assertEqual(t, line1.Box().Children[0].(*bo.TextBox).Text, "in\u00ad-", "line1")
-	assertEqual(t, line2.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad-", "line2")
-	assertEqual(t, line3.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad-", "line3")
-	assertEqual(t, line4.Box().Children[0].(*bo.TextBox).Text, "in", "line4")
+	tu.AssertEqual(t, line1.Box().Children[0].(*bo.TextBox).Text, "in\u00ad-", "line1")
+	tu.AssertEqual(t, line2.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad-", "line2")
+	tu.AssertEqual(t, line3.Box().Children[0].(*bo.TextBox).Text, "lighten\u00ad-", "line3")
+	tu.AssertEqual(t, line4.Box().Children[0].(*bo.TextBox).Text, "in", "line4")
 }
 
 func TestHyphenateLimitZone1(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	page := renderOnePage(t,
 		`<html style="width: 12em; font-family: weasyprint">
@@ -702,7 +702,7 @@ func TestHyphenateLimitZone1(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	lines := body.Box().Children
-	assertEqual(t, len(lines), 2, "")
+	tu.AssertEqual(t, len(lines), 2, "")
 
 	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "-") {
 		t.Fatalf("unexpected <%s>", text)
@@ -711,11 +711,11 @@ func TestHyphenateLimitZone1(t *testing.T) {
 	for _, line := range lines {
 		fullText += line.Box().Children[0].(*bo.TextBox).Text
 	}
-	assertEqual(t, strings.ReplaceAll(fullText, "-", ""), "mmmmm hyphénation", "")
+	tu.AssertEqual(t, strings.ReplaceAll(fullText, "-", ""), "mmmmm hyphénation", "")
 }
 
 func TestHyphenateLimitZone2(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	page := renderOnePage(t,
 		`<html style="width: 12em; font-family: weasyprint">
@@ -727,7 +727,7 @@ func TestHyphenateLimitZone2(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	lines := body.Box().Children
-	assertEqual(t, len(lines), 2, "")
+	tu.AssertEqual(t, len(lines), 2, "")
 
 	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "mm") {
 		t.Fatalf("unexpected <%s>", text)
@@ -736,11 +736,11 @@ func TestHyphenateLimitZone2(t *testing.T) {
 	for _, line := range lines {
 		fullText += line.Box().Children[0].(*bo.TextBox).Text
 	}
-	assertEqual(t, fullText, "mmmmmhyphénation", "")
+	tu.AssertEqual(t, fullText, "mmmmmhyphénation", "")
 }
 
 func TestHyphenateLimitZone3(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	page := renderOnePage(t,
 		`<html style="width: 12em; font-family: weasyprint">
@@ -752,7 +752,7 @@ func TestHyphenateLimitZone3(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	lines := body.Box().Children
-	assertEqual(t, len(lines), 2, "")
+	tu.AssertEqual(t, len(lines), 2, "")
 
 	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "-") {
 		t.Fatalf("unexpected <%s>", text)
@@ -761,11 +761,11 @@ func TestHyphenateLimitZone3(t *testing.T) {
 	for _, line := range lines {
 		fullText += line.Box().Children[0].(*bo.TextBox).Text
 	}
-	assertEqual(t, strings.ReplaceAll(fullText, "-", ""), "mmmmm hyphénation", "")
+	tu.AssertEqual(t, strings.ReplaceAll(fullText, "-", ""), "mmmmm hyphénation", "")
 }
 
 func TestHyphenateLimitZone4(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t,
@@ -778,7 +778,7 @@ func TestHyphenateLimitZone4(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	lines := body.Box().Children
-	assertEqual(t, len(lines), 2, "")
+	tu.AssertEqual(t, len(lines), 2, "")
 
 	if text := lines[0].Box().Children[0].(*bo.TextBox).Text; !strings.HasSuffix(text, "mm") {
 		t.Fatalf("unexpected <%s>", text)
@@ -787,11 +787,11 @@ func TestHyphenateLimitZone4(t *testing.T) {
 	for _, line := range lines {
 		fullText += line.Box().Children[0].(*bo.TextBox).Text
 	}
-	assertEqual(t, fullText, "mmmmmhyphénation", "")
+	tu.AssertEqual(t, fullText, "mmmmmhyphénation", "")
 }
 
 func TestHyphenateLimitChars(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	for _, v := range []struct {
@@ -822,12 +822,12 @@ func TestHyphenateLimitChars(t *testing.T) {
 		html := page.Box().Children[0]
 		body := html.Box().Children[0]
 		lines := body.Box().Children
-		assertEqual(t, len(lines), v.result, v.css)
+		tu.AssertEqual(t, len(lines), v.result, v.css)
 	}
 }
 
 func TestHyphenateLimitCharsPunctuation(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// See https://github.com/Kozea/WeasyPrint/issues/109
@@ -845,12 +845,12 @@ func TestHyphenateLimitCharsPunctuation(t *testing.T) {
 		html := page.Box().Children[0]
 		body := html.Box().Children[0]
 		lines := body.Box().Children
-		assertEqual(t, len(lines), 1, "")
+		tu.AssertEqual(t, len(lines), 1, "")
 	}
 }
 
 func TestOverflowWrap(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	for _, v := range []struct {
@@ -881,12 +881,12 @@ func TestOverflowWrap(t *testing.T) {
 		if !v.test(len(lines)) {
 			t.Fatal()
 		}
-		assertEqual(t, v.fullText, strings.Join(lines, ""), fmt.Sprintf("input %s %s", v.wrap, v.text))
+		tu.AssertEqual(t, v.fullText, strings.Join(lines, ""), fmt.Sprintf("input %s %s", v.wrap, v.text))
 	}
 }
 
 func testWhiteSpaceLines(t *testing.T, width int, space string, expected []string) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, fmt.Sprintf(`
@@ -897,11 +897,11 @@ func testWhiteSpaceLines(t *testing.T, width int, space string, expected []strin
       `, width, space)+"<body><span>This +    \n    is text")
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
-	assertEqual(t, len(body.Box().Children), len(expected), "wrong length")
+	tu.AssertEqual(t, len(body.Box().Children), len(expected), "wrong length")
 	for i, line := range body.Box().Children {
 		box := line.Box().Children[0]
 		text := box.Box().Children[0]
-		assertEqual(t, text.(*bo.TextBox).Text, expected[i], "")
+		tu.AssertEqual(t, text.(*bo.TextBox).Text, expected[i], "")
 	}
 }
 
@@ -974,7 +974,7 @@ func TestWhiteSpace10(t *testing.T) {
 }
 
 func TestWhiteSpace11(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/813
 	page := renderOnePage(t, `
@@ -987,14 +987,14 @@ func TestWhiteSpace11(t *testing.T) {
 	pre := body.Box().Children[0]
 	line1, line2 := pre.Box().Children[0], pre.Box().Children[1]
 	text1, box := line1.Box().Children[0], line1.Box().Children[1]
-	assertEqual(t, text1.(*bo.TextBox).Text, "This", "text1")
-	assertEqual(t, box.Box().ElementTag, "br", "box")
+	tu.AssertEqual(t, text1.(*bo.TextBox).Text, "This", "text1")
+	tu.AssertEqual(t, box.Box().ElementTag, "br", "box")
 	text2 := line2.Box().Children[0]
-	assertEqual(t, text2.(*bo.TextBox).Text, "is text", "text2")
+	tu.AssertEqual(t, text2.(*bo.TextBox).Text, "is text", "text2")
 }
 
 func TestWhiteSpace12(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/813
 	page := renderOnePage(t, `
@@ -1007,13 +1007,13 @@ func TestWhiteSpace12(t *testing.T) {
 	pre := body.Box().Children[0]
 	line1 := pre.Box().Children[0]
 	text1, span, text2 := unpack3(line1)
-	assertEqual(t, text1.(*bo.TextBox).Text, "This is ", "text1")
-	assertEqual(t, span.Box().ElementTag, "span", "span")
-	assertEqual(t, text2.(*bo.TextBox).Text, " text", "text2")
+	tu.AssertEqual(t, text1.(*bo.TextBox).Text, "This is ", "text1")
+	tu.AssertEqual(t, span.Box().ElementTag, "span", "span")
+	tu.AssertEqual(t, text2.(*bo.TextBox).Text, " text", "text2")
 }
 
 func TestTabSize(t *testing.T) {
-	// cp := testutils.CaptureLogs()
+	// cp := tu.CaptureLogs()
 	// defer cp.AssertNoLogs(t)
 
 	for _, v := range []struct {
@@ -1037,12 +1037,12 @@ func TestTabSize(t *testing.T) {
 		body := html.Box().Children[0]
 		paragraph := body.Box().Children[0]
 		line := paragraph.Box().Children[0]
-		assertEqual(t, line.Box().Width, v.width, "for value "+v.value)
+		tu.AssertEqual(t, line.Box().Width, v.width, "for value "+v.value)
 	}
 }
 
 func TestTextTransform(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -1070,12 +1070,12 @@ func TestTextTransform(t *testing.T) {
 	for i, child := range body.Box().Children {
 		line := child.Box().Children[0]
 		text := line.Box().Children[0].(*bo.TextBox)
-		assertEqual(t, text.Text, expected[i], "")
+		tu.AssertEqual(t, text.Text, expected[i], "")
 	}
 }
 
 func TestTextFloatingPreLine(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/610
@@ -1086,7 +1086,7 @@ func TestTextFloatingPreLine(t *testing.T) {
 }
 
 func TestLeaderContent(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	for _, v := range []struct{ leader, content string }{
@@ -1105,13 +1105,13 @@ func TestLeaderContent(t *testing.T) {
 		line := div.Box().Children[0]
 		after := line.Box().Children[0]
 		inline := after.Box().Children[0]
-		assertEqual(t, inline.Box().Children[0].(*bo.TextBox).Text, v.content, "")
+		tu.AssertEqual(t, inline.Box().Children[0].(*bo.TextBox).Text, v.content, "")
 	}
 }
 
 // expected fail
 // func TestMaxLines(t *testing.T) {
-// 	cp := testutils.CaptureLogs()
+// 	cp := tu.CaptureLogs()
 // 	defer cp.AssertNoLogs(t)
 
 // 	page := renderOnePage(t, `
@@ -1136,13 +1136,13 @@ func TestLeaderContent(t *testing.T) {
 // 	text1 := line1.Box().Children[0]
 // 	text2 := line2.Box().Children[0]
 // 	text3 := line3.Box().Children[0]
-// 	assertEqual(t, text1.(*bo.TextBox).Text, "abcd", "text1")
-// 	assertEqual(t, text2.(*bo.TextBox).Text, "efgh", "text2")
-// 	assertEqual(t, text3.(*bo.TextBox).Text, "ijkl", "text3")
+// 	tu.AssertEqual(t, text1.(*bo.TextBox).Text, "abcd", "text1")
+// 	tu.AssertEqual(t, text2.(*bo.TextBox).Text, "efgh", "text2")
+// 	tu.AssertEqual(t, text3.(*bo.TextBox).Text, "ijkl", "text3")
 // }
 
 func TestContinue(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -1165,6 +1165,6 @@ func TestContinue(t *testing.T) {
 	line1, line2 := p.Box().Children[0], p.Box().Children[1]
 	text1 := line1.Box().Children[0]
 	text2 := line2.Box().Children[0]
-	assertEqual(t, text1.(*bo.TextBox).Text, "abcd", "")
-	assertEqual(t, text2.(*bo.TextBox).Text, "efgh", "")
+	tu.AssertEqual(t, text1.(*bo.TextBox).Text, "abcd", "")
+	tu.AssertEqual(t, text2.(*bo.TextBox).Text, "efgh", "")
 }

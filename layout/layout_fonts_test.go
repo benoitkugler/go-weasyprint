@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/textlayout/fonts/truetype"
 )
 
@@ -32,7 +32,7 @@ func TestLoadFont(t *testing.T) {
 }
 
 func TestFontFace(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -44,11 +44,11 @@ func TestFontFace(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	line := body.Box().Children[0]
-	assertEqual(t, line.Box().Width, pr.Float(3*16), "line")
+	tu.AssertEqual(t, line.Box().Width, pr.Float(3*16), "line")
 }
 
 func TestKerningDefault(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Kerning and ligatures are on by default
@@ -62,12 +62,12 @@ func TestKerningDefault(t *testing.T) {
 	body := html.Box().Children[0]
 	line := body.Box().Children[0]
 	span1, span2 := line.Box().Children[0], line.Box().Children[1]
-	assertEqual(t, span1.Box().Width, pr.Float(1.5*16), "span1")
-	assertEqual(t, span2.Box().Width, pr.Float(1.5*16), "span2")
+	tu.AssertEqual(t, span1.Box().Width, pr.Float(1.5*16), "span1")
+	tu.AssertEqual(t, span2.Box().Width, pr.Float(1.5*16), "span2")
 }
 
 func TestKerningDeactivate(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Deactivate kerning
@@ -90,12 +90,12 @@ func TestKerningDeactivate(t *testing.T) {
 	body := html.Box().Children[0]
 	line := body.Box().Children[0]
 	span1, span2 := line.Box().Children[0], line.Box().Children[1]
-	assertEqual(t, span1.Box().Width, pr.Float(1.5*16), "span1")
-	assertEqual(t, span2.Box().Width, pr.Float(2*16), "span2")
+	tu.AssertEqual(t, span1.Box().Width, pr.Float(1.5*16), "span1")
+	tu.AssertEqual(t, span2.Box().Width, pr.Float(2*16), "span2")
 }
 
 func TestKerningLigatureDeactivate(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Deactivate kerning and ligatures
@@ -119,12 +119,12 @@ func TestKerningLigatureDeactivate(t *testing.T) {
 	body := html.Box().Children[0]
 	line := body.Box().Children[0]
 	span1, span2 := line.Box().Children[0], line.Box().Children[1]
-	assertEqual(t, span1.Box().Width, pr.Float((1.5+1+1.5)*16), "span1")
-	assertEqual(t, span2.Box().Width, pr.Float((2+1+4)*16), "span2")
+	tu.AssertEqual(t, span1.Box().Width, pr.Float((1.5+1+1.5)*16), "span1")
+	tu.AssertEqual(t, span2.Box().Width, pr.Float((2+1+4)*16), "span2")
 }
 
 func TestFontFaceDescriptors(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t,
@@ -150,9 +150,9 @@ func TestFontFaceDescriptors(t *testing.T) {
 	body := html.Box().Children[0]
 	line := body.Box().Children[0]
 	kern, subs, dlig, onum, zero := unpack5(line)
-	assertEqual(t, kern.Box().Width, pr.Float(1.5*16), "kern")
-	assertEqual(t, subs.Box().Width, pr.Float(1.5*16), "subs")
-	assertEqual(t, dlig.Box().Width, pr.Float(1.5*16), "dlig")
-	assertEqual(t, onum.Box().Width, pr.Float(1.5*16), "onum")
-	assertEqual(t, zero.Box().Width, pr.Float(1.5*16), "zero")
+	tu.AssertEqual(t, kern.Box().Width, pr.Float(1.5*16), "kern")
+	tu.AssertEqual(t, subs.Box().Width, pr.Float(1.5*16), "subs")
+	tu.AssertEqual(t, dlig.Box().Width, pr.Float(1.5*16), "dlig")
+	tu.AssertEqual(t, onum.Box().Width, pr.Float(1.5*16), "onum")
+	tu.AssertEqual(t, zero.Box().Width, pr.Float(1.5*16), "zero")
 }

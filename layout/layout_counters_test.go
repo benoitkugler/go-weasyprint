@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
 func TestTestCounterSymbols(t *testing.T) {
@@ -27,7 +27,7 @@ func TestTestCounterSymbols(t *testing.T) {
 }
 
 func testCounterSymbols(t *testing.T, arguments string, values [4]string) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, fmt.Sprintf(`
@@ -46,14 +46,14 @@ func testCounterSymbols(t *testing.T, arguments string, values [4]string) {
 	body := html.Box().Children[0]
 	ol := body.Box().Children[0].Box()
 	li1, li2, li3, li4 := ol.Children[0], ol.Children[1], ol.Children[2], ol.Children[3]
-	assertEqual(t, li1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[0], fmt.Sprintf("symbols %s and item %d", arguments, 0))
-	assertEqual(t, li2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[1], fmt.Sprintf("symbols %s and item %d", arguments, 1))
-	assertEqual(t, li3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[2], fmt.Sprintf("symbols %s and item %d", arguments, 2))
-	assertEqual(t, li4.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[3], fmt.Sprintf("symbols %s and item %d", arguments, 3))
+	tu.AssertEqual(t, li1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[0], fmt.Sprintf("symbols %s and item %d", arguments, 0))
+	tu.AssertEqual(t, li2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[1], fmt.Sprintf("symbols %s and item %d", arguments, 1))
+	tu.AssertEqual(t, li3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[2], fmt.Sprintf("symbols %s and item %d", arguments, 2))
+	tu.AssertEqual(t, li4.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, values[3], fmt.Sprintf("symbols %s and item %d", arguments, 3))
 }
 
 func TestCounterSet(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	page := renderOnePage(t, `
@@ -97,30 +97,30 @@ func TestCounterSet(t *testing.T) {
 	art1, art2, art3, art4, art5, art6 := chs[0], chs[1], chs[2], chs[3], chs[4], chs[5]
 
 	h1 := art1.Box().Children[0]
-	assertEqual(t, h1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "1", "h1")
+	tu.AssertEqual(t, h1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "1", "h1")
 
 	h2, h3 := art2.Box().Children[0], art2.Box().Children[1]
-	assertEqual(t, h2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "3", "h2")
-	assertEqual(t, h3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "4", "h3")
+	tu.AssertEqual(t, h2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "3", "h2")
+	tu.AssertEqual(t, h3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "4", "h3")
 
 	h3 = art3.Box().Children[0]
-	assertEqual(t, h3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "5", "h3")
+	tu.AssertEqual(t, h3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "5", "h3")
 
 	h2 = art4.Box().Children[0]
-	assertEqual(t, h2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "3", "h2")
+	tu.AssertEqual(t, h2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "3", "h2")
 
 	h31, h32 := art5.Box().Children[0], art5.Box().Children[1]
-	assertEqual(t, h31.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "4", "h31")
-	assertEqual(t, h32.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "5", "h32")
+	tu.AssertEqual(t, h31.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "4", "h31")
+	tu.AssertEqual(t, h32.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "5", "h32")
 
 	h1, h2, h3 = art6.Box().Children[0], art6.Box().Children[1], art6.Box().Children[2]
-	assertEqual(t, h1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "1", "h1")
-	assertEqual(t, h2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "3", "h2")
-	assertEqual(t, h3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "4", "h3")
+	tu.AssertEqual(t, h1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "1", "h1")
+	tu.AssertEqual(t, h2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "3", "h2")
+	tu.AssertEqual(t, h3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "4", "h3")
 }
 
 func TestCounterMultipleExtends(t *testing.T) {
-	cp := testutils.CaptureLogs()
+	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
 	// Inspired by W3C failing test system-extends-invalid
@@ -171,12 +171,12 @@ func TestCounterMultipleExtends(t *testing.T) {
 	body := html.Box().Children[0]
 	olC := body.Box().Children[0].Box().Children
 	li1, li2, li3, li4, li5, li6, li7, li8 := olC[0], olC[1], olC[2], olC[3], olC[4], olC[5], olC[6], olC[7]
-	assertEqual(t, li1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "a1b", "li1")
-	assertEqual(t, li2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "2b", "li2")
-	assertEqual(t, li3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "c3. ", "li3")
-	assertEqual(t, li4.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "d4. ", "li4")
-	assertEqual(t, li5.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "e5. ", "li5")
-	assertEqual(t, li6.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "6. ", "li6")
-	assertEqual(t, li7.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "7. ", "li7")
-	assertEqual(t, li8.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "8. ", "li8")
+	tu.AssertEqual(t, li1.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "a1b", "li1")
+	tu.AssertEqual(t, li2.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "2b", "li2")
+	tu.AssertEqual(t, li3.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "c3. ", "li3")
+	tu.AssertEqual(t, li4.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "d4. ", "li4")
+	tu.AssertEqual(t, li5.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "e5. ", "li5")
+	tu.AssertEqual(t, li6.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "6. ", "li6")
+	tu.AssertEqual(t, li7.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "7. ", "li7")
+	tu.AssertEqual(t, li8.Box().Children[0].Box().Children[0].Box().Children[0].(*bo.TextBox).Text, "8. ", "li8")
 }
