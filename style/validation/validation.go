@@ -408,7 +408,7 @@ func PreprocessDeclarations(baseUrl string, declarations []Token) []ValidatedPro
 		}
 
 		name := string(declaration.Name)
-		if !strings.HasPrefix(name, "--") { // variable, case sensitive
+		if !strings.HasPrefix(name, "--") { // check for non variable, case insensitive
 			name = declaration.Name.Lower()
 		}
 

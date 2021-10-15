@@ -110,8 +110,9 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 	}
 }
 
+// the returned box as same concrete type than box_
 func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.IntList, containingBlock containingBlock,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.Box, blockLayout) {
 
 	context.createBlockFormattingContext()
 	var resumeAt *tree.IntList
@@ -1181,7 +1182,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	context.finishBlockFormattingContext(box_)
 
 	// TODO: check these returned values
-	return box_.(bo.BlockLevelBoxITF), blockLayout{
+	return box_, blockLayout{
 		resumeAt:          resumeAt,
 		nextPage:          tree.PageBreak{Break: "any"},
 		adjoiningMargins:  nil,

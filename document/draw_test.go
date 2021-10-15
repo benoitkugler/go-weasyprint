@@ -91,10 +91,11 @@ func renderUrl(t testing.TB, url string) {
 
 func TestRealPage(t *testing.T) {
 	outputLog.SetOutput(io.Discard)
-	// renderUrl(t, "http://www.google.com")
-	// renderUrl(t, "https://weasyprint.org/")
-	// renderUrl(t, "https://en.wikipedia.org/wiki/Go_(programming_language)")
-	renderUrl(t, "https://golang.org/doc/go1.17")
+	renderUrl(t, "http://www.google.com")
+	renderUrl(t, "https://weasyprint.org/")
+	renderUrl(t, "https://en.wikipedia.org/wiki/Go_(programming_language)") // rather big document
+	renderUrl(t, "https://golang.org/doc/go1.17")                           // slow because of text layout
+	renderUrl(t, "https://github.com/Kozea/WeasyPrint")
 }
 
 func BenchmarkRender(b *testing.B) {

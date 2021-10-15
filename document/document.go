@@ -483,7 +483,7 @@ func getFilenameFromResult(rawurl string) string {
 	return filename
 }
 
-// WriteDocument paints the pages in the given target, with meta-data (zoom=1, attachments=nil).
+// WriteDocument paints the pages in the given target, with meta-data.
 //
 // The zoom factor is in PDF units per CSS units, and should default to 1.
 // Warning : all CSS units are affected, including physical units like
@@ -491,7 +491,7 @@ func getFilenameFromResult(rawurl string) string {
 // 1, the physical CSS units will thus be "wrong".
 //
 // `attachments` is an optional list of additional file attachments for the
-//  generated PDF document, added to those collected from the metadata.
+// generated PDF document, added to those collected from the metadata.
 func (d *Document) WriteDocument(target backend.Output, zoom float64, attachments []utils.Attachment) {
 	// 0.75 = 72 PDF point per inch / 96 CSS pixel per inch
 	scale := zoom * 0.75

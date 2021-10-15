@@ -89,8 +89,9 @@ func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, ma
 		nextPage := tree.PageBreak{Break: "any"}
 		return box_, blockLayout{resumeAt: nil, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
 	} else if bo.FlexBoxT.IsInstance(box_) {
-		return flexLayout(context, box_, maxPositionY, skipStack, containingBlock,
+		box_, layout := flexLayout(context, box_, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes)
+		return box_.(bo.BlockLevelBoxITF), layout // flexLayout is type stable
 	} else { // pragma: no cover
 		panic(fmt.Sprintf("Layout for %s not handled yet", box_))
 	}

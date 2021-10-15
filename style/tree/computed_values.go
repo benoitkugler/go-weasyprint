@@ -162,9 +162,9 @@ func resolveVar(specified map[string]pr.ValidatedProperty, var_ pr.VarData) pr.R
 	knownVariableNames := utils.NewSet(var_.Name)
 	default_ := var_.Default
 
-	computedValue_, isIn := specified[var_.Name]
+	tmpVal, isSpecified := specified[var_.Name]
 
-	computedValue, ok := computedValue_.SpecialProperty.(pr.RawTokens)
+	computedValue, ok := tmpVal.SpecialProperty.(pr.RawTokens)
 
 	// handle the initial case
 	if ok && len(computedValue) == 1 {
@@ -174,7 +174,7 @@ func resolveVar(specified map[string]pr.ValidatedProperty, var_ pr.VarData) pr.R
 		}
 	}
 
-	if !isIn {
+	if !isSpecified {
 		computedValue = default_
 	}
 	var in bool
@@ -189,11 +189,11 @@ func resolveVar(specified map[string]pr.ValidatedProperty, var_ pr.VarData) pr.R
 			break
 		}
 		knownVariableNames.Add(varFunction.Name)
-		computedValue_, in = specified[varFunction.Name]
+		tmpVal, in = specified[varFunction.Name]
 		if !in {
 			computedValue = varFunction.Default
 		} else {
-			computedValue, _ = computedValue_.SpecialProperty.(pr.RawTokens)
+			computedValue, _ = tmpVal.SpecialProperty.(pr.RawTokens)
 		}
 		default_ = varFunction.Default
 	}
@@ -298,7 +298,7 @@ func computeVariable(varData pr.VarData, name string, computed map[string]pr.Val
 	// See https://drafts.csswg.org/css-variables/#invalid-variables
 	if newValue.IsNone() {
 		log.Printf(`Unsupported computed value "%s" set in variable %s "
-                "for property %s.`, computedValue, strings.ReplaceAll(varData.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
+                "for property %s.`, parser.Serialize(computedValue), strings.ReplaceAll(varData.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
 
 		if _, in := pr.Inherited[name]; in && parentStyle != nil {
 			alreadyComputedValue = true
