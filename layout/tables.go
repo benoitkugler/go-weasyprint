@@ -148,7 +148,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				// The computed height is a minimum
 				cell.ComputedHeight = cell.Height
 				cell.Height = pr.Auto
-				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, true, absoluteBoxes, fixedBoxes, nil, false)
+				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, true, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 				cell = cell_.Box()
 				any := false
 				for _, child := range cell.Children {

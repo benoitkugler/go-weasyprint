@@ -89,6 +89,11 @@ func unpack5(box Box) (c1, c2, c3, c4, c5 Box) {
 	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4]
 }
 
+// unpack 6 children
+func unpack6(box Box) (c1, c2, c3, c4, c5, c6 Box) {
+	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4], box.Box().Children[5]
+}
+
 // unpack 7 children
 func unpack7(box Box) (c1, c2, c3, c4, c5, c6, c7 Box) {
 	return box.Box().Children[0], box.Box().Children[1], box.Box().Children[2], box.Box().Children[3], box.Box().Children[4], box.Box().Children[5], box.Box().Children[6]

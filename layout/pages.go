@@ -529,7 +529,7 @@ func makeMarginBoxes(context *layoutContext, page *bo.PageBox, state tree.PageSt
 // Layout a margin box’s content once the box has dimensions.
 func marginBoxContentLayout(context *layoutContext, mBox *bo.MarginBox) Box {
 	newBox_, tmp := blockContainerLayout(context, mBox, pr.Inf, nil, true,
-		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil, false)
+		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), new([]pr.Float), false)
 
 	if tmp.resumeAt != nil {
 		log.Fatalf("resumeAt should be nil, got %v", tmp.resumeAt)
@@ -660,7 +660,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	}
 
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
-		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, adjoiningMargins, false)
+		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, &adjoiningMargins, false)
 	resumeAt = tmp.resumeAt
 
 	if rootBox == nil {

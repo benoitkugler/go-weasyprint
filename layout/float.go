@@ -72,7 +72,7 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 	if bo.BlockContainerBoxT.IsInstance(box_) {
 		context.createBlockFormattingContext()
 		box_, _ = blockContainerLayout(context, box_, pr.Inf,
-			nil, false, absoluteBoxes, fixedBoxes, nil, false)
+			nil, false, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 		context.finishBlockFormattingContext(box_)
 	} else if bo.FlexContainerBoxT.IsInstance(box_) {
 		box_, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock,

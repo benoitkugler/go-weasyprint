@@ -381,359 +381,388 @@ func testBoxSizingZero(t *testing.T, size string) {
 	}
 }
 
-// COLLAPSING = (
-//     ("10px", "15px", 15),  // ! 25
-//     // "The maximum of the absolute values of the negative adjoining margins is
-//     // deducted from the maximum of the positive adjoining margins"
-//     ("-10px", "15px", 5),
-//     ("10px", "-15px", -5),
-//     ("-10px", "-15px", -15),
-//     ("10px", "auto", 10),  // "auto" is 0
-// )
-// NOTCOLLAPSING = (
-//     ("10px", "15px", 25),
-//     ("-10px", "15px", 5),
-//     ("10px", "-15px", -5),
-//     ("-10px", "-15px", -25),
-//     ("10px", "auto", 10),  // "auto" is 0
-// )
+type collapseData struct {
+	margin1, margin2 string
+	result           pr.Float
+}
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace1(margin1, margin2, resultt*testing.T) {
-//     // Siblings
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #p1 { margin-bottom: %s }
-//         #p2 { margin-top: %s }
-//       </style>
-//       <p id=p1>Lorem ipsum
-//       <p id=p2>dolor sit amet
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, p2 = body.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
+var (
+	COLLAPSING = [...]collapseData{
+		{"10px", "15px", 15}, // ! 25
+		// "The maximum of the absolute values of the negative adjoining margins is
+		// deducted from the maximum of the positive adjoining margins"
+		{"-10px", "15px", 5},
+		{"10px", "-15px", -5},
+		{"-10px", "-15px", -15},
+		{"10px", "auto", 10}, // "auto" is 0
+	}
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace2(margin1, margin2, result*testing.Tt):
-//     // Not siblings, first is nested
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #p1 { margin-bottom: %s }
-//         #p2 { margin-top: %s }
-//       </style>
-//       <div>
-//         <p id=p1>Lorem ipsum
-//       </div>
-//       <p id=p2>dolor sit amet
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div, p2 = body.Box().Children
-//     p1, = div.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
-// }
+	NOTCOLLAPSING = [...]collapseData{
+		{"10px", "15px", 25},
+		{"-10px", "15px", 5},
+		{"10px", "-15px", -5},
+		{"-10px", "-15px", -25},
+		{"10px", "auto", 10}, // "auto" is 0
+	}
+)
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace3(margin1, margin2, resultt*testing.T) {
-//     // Not siblings, second is nested
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #p1 { margin-bottom: %s }
-//         #p2 { margin-top: %s }
-//       </style>
-//       <p id=p1>Lorem ipsum
-//       <div>
-//         <p id=p2>dolor sit amet
-//       </div>
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, div = body.Box().Children
-//     p2, = div.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
+func TestVerticalSpace1(t *testing.T) {
+	for _, data := range COLLAPSING {
+		// Siblings
+		page := renderOnePage(t, fmt.Sprintf(`
+		<style>
+			p { font: 20px/1 serif } /* block height , 20px */
+			#p1 { margin-bottom: %s }
+			#p2 { margin-top: %s }
+		</style>
+		<p id=p1>Lorem ipsum
+		<p id=p2>dolor sit amet
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1, p2 := unpack2(body)
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace4(margin1, margin2, result*testing.Tt):
-//     // Not siblings, second is doubly nested
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #p1 { margin-bottom: %s }
-//         #p2 { margin-top: %s }
-//       </style>
-//       <p id=p1>Lorem ipsum
-//       <div>
-//         <div>
-//             <p id=p2>dolor sit amet
-//         </div>
-//       </div>
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, div1 = body.Box().Children
-//     div2, = div1.Box().Children
-//     p2, = div2.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
-// }
+func TestVerticalSpace2(t *testing.T) {
+	for _, data := range COLLAPSING {
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace5(margin1, margin2, resultt*testing.T) {
-//     // Collapsing with children
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #div1 { margin-top: %s }
-//         #div2 { margin-top: %s }
-//       </style>
-//       <p>Lorem ipsum
-//       <div id=div1>
-//         <div id=div2>
-//           <p id=p2>dolor sit amet
-//         </div>
-//       </div>
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, div1 = body.Box().Children
-//     div2, = div1.Box().Children
-//     p2, = div2.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     // Parent && element edge are the same:
-//     tu.AssertEqual(t, div1.Box().BorderBoxY() , p2.Box().BorderBoxY(), "div1")
-//     tu.AssertEqual(t, div2.Box().BorderBoxY() , p2.Box().BorderBoxY(), "div2")
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
+		// Not siblings, first is nested
+		page := renderOnePage(t, fmt.Sprintf(`
+		<style>
+			p { font: 20px/1 serif } /* block height , 20px */
+			#p1 { margin-bottom: %s }
+			#p2 { margin-top: %s }
+		</style>
+		<div>
+			<p id=p1>Lorem ipsum
+		</div>
+		<p id=p2>dolor sit amet
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		div, p2 := unpack2(body)
+		p1 := div.Box().Children[0]
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-// @pytest.mark.parametrize("margin1, margin2, result", NOTCOLLAPSING)
-// func TestVerticalSpace6(margin1, margin2, result*testing.Tt):
-//     // Block formatting context: Not collapsing with children
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #div1 { margin-top: %s; overflow: hidden }
-//         #div2 { margin-top: %s }
-//       </style>
-//       <p>Lorem ipsum
-//       <div id=div1>
-//         <div id=div2>
-//           <p id=p2>dolor sit amet
-//         </div>
-//       </div>
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, div1 = body.Box().Children
-//     div2, = div1.Box().Children
-//     p2, = div2.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
-// }
+func TestVerticalSpace3(t *testing.T) {
+	for _, data := range COLLAPSING {
+		// Not siblings, second is nested
+		page := renderOnePage(t, fmt.Sprintf(`
+		<style>
+			p { font: 20px/1 serif } /* block height , 20px */
+			#p1 { margin-bottom: %s }
+			#p2 { margin-top: %s }
+		</style>
+		<p id=p1>Lorem ipsum
+		<div>
+			<p id=p2>dolor sit amet
+		</div>
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1, div := unpack2(body)
+		p2 := div.Box().Children[0]
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace7(margin1, margin2, resultt*testing.T) {
-//     // Collapsing through an empty div
-//     page := renderOnePage(t,`
-//       <style>
-//         p { font: 20px/1 serif } /* block height , 20px */
-//         #p1 { margin-bottom: %s }
-//         #p2 { margin-top: %s }
-//         div { margin-bottom: %s; margin-top: %s }
-//       </style>
-//       <p id=p1>Lorem ipsum
-//       <div></div>
-//       <p id=p2>dolor sit amet
-//     ` % (2 * (margin1, margin2)))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, div, p2 = body.Box().Children
-//     p1Bottom = p1.contentBoxY() + p1.Box().Height
-//     p2Top = p2.contentBoxY()
-//     tu.AssertEqual(t, p2Top - p1Bottom , result, "p2Top")
+func TestVerticalSpace4(t *testing.T) {
+	for _, data := range COLLAPSING {
+		// Not siblings, second is doubly nested
+		page := renderOnePage(t, fmt.Sprintf(`
+		<style>
+			p { font: 20px/1 serif } /* block height , 20px */
+			#p1 { margin-bottom: %s }
+			#p2 { margin-top: %s }
+		</style>
+		<p id=p1>Lorem ipsum
+		<div>
+			<div>
+				<p id=p2>dolor sit amet
+			</div>
+		</div>
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1, div1 := unpack2(body)
+		div2 := div1.Box().Children[0]
+		p2 := div2.Box().Children[0]
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-// @pytest.mark.parametrize("margin1, margin2, result", NOTCOLLAPSING)
-// func TestVerticalSpace8(margin1, margin2, result*testing.Tt):
-//     // The root element does ! collapse
-//     page := renderOnePage(t,`
-//       <style>
-//         html { margin-top: %s }
-//         body { margin-top: %s }
-//       </style>
-//       <p>Lorem ipsum
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p1, = body.Box().Children
-//     p1Top = p1.contentBoxY()
-//     // Vertical space from y=0
-//     tu.AssertEqual(t, p1Top , result, "p1Top")
-// }
+func TestVerticalSpace5(t *testing.T) {
+	for _, data := range COLLAPSING {
+		// Collapsing with children
+		page := renderOnePage(t, fmt.Sprintf(`
+		<style>
+			p { font: 20px/1 serif } /* block height , 20px */
+			#div1 { margin-top: %s }
+			#div2 { margin-top: %s }
+		</style>
+		<p>Lorem ipsum
+		<div id=div1>
+			<div id=div2>
+			<p id=p2>dolor sit amet
+			</div>
+		</div>
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1, div1 := unpack2(body)
+		div2 := div1.Box().Children[0]
+		p2 := div2.Box().Children[0]
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		// Parent and element edge are the same:
+		tu.AssertEqual(t, div1.Box().BorderBoxY(), p2.Box().BorderBoxY(), "div1")
+		tu.AssertEqual(t, div2.Box().BorderBoxY(), p2.Box().BorderBoxY(), "div2")
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-// @pytest.mark.parametrize("margin1, margin2, result", COLLAPSING)
-// func TestVerticalSpace9(margin1, margin2, resultt*testing.T) {
-//     // <body> DOES collapse
-//     page := renderOnePage(t,`
-//       <style>
-//         body { margin-top: %s }
-//         div { margin-top: %s }
-//       </style>
-//       <div>
-//         <p>Lorem ipsum
-//     ` % (margin1, margin2))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div, = body.Box().Children
-//     p1, = div.Box().Children
-//     p1Top = p1.contentBoxY()
-//     // Vertical space from y=0
-//     tu.AssertEqual(t, p1Top , result, "p1Top")
+func TestVerticalSpace6(t *testing.T) {
+	for _, data := range NOTCOLLAPSING {
+		// Block formatting context: Not collapsing with children
+		page := renderOnePage(t, fmt.Sprintf(`
+		<style>
+			p { font: 20px/1 serif } /* block height , 20px */
+			#div1 { margin-top: %s; overflow: hidden }
+			#div2 { margin-top: %s }
+		</style>
+		<p>Lorem ipsum
+		<div id=div1>
+			<div id=div2>
+			<p id=p2>dolor sit amet
+			</div>
+		</div>
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1, div1 := unpack2(body)
+		div2 := div1.Box().Children[0]
+		p2 := div2.Box().Children[0]
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-// func TestBoxDecorationBreakBlockSlicet*testing.T():
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestVerticalSpace7(t *testing.T) {
+	for _, data := range COLLAPSING {
+		// Collapsing through an empty div
+		page := renderOnePage(t, fmt.Sprintf(`
+      <style>
+        p { font: 20px/1 serif } /* block height , 20px */
+        #p1 { margin-bottom: %s }
+        #p2 { margin-top: %s }
+        div { margin-bottom: %s; margin-top: %s }
+      </style>
+      <p id=p1>Lorem ipsum
+      <div></div>
+      <p id=p2>dolor sit amet
+    `, data.margin1, data.margin2, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1, _, p2 := unpack3(body)
+		p1Bottom := p1.Box().ContentBoxY() + p1.Box().Height.V()
+		p2Top := p2.Box().ContentBoxY()
+		tu.AssertEqual(t, p2Top-p1Bottom, data.result, "p2Top")
+	}
+}
 
-//     // http://www.w3.org/TR/css3-background/#the-box-decoration-break
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page { size: 100px }
-//         p { padding: 2px; border: 3px solid; margin: 5px }
-//         img { display: block; height: 40px }
-//       </style>
-//       <p>
-//         <img src=pattern.png>
-//         <img src=pattern.png>
-//         <img src=pattern.png>
-//         <img src=pattern.png>`)
-//     html, = page1.Box().Children
-//     body := html.Box().Children[0]
-//     paragraph, = body.Box().Children
-//     img1, img2 = paragraph.Box().Children
-//     tu.AssertEqual(t, paragraph.positionY , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginTop , 5, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderTopWidth , 3, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingTop , 2, "paragraph")
-//     tu.AssertEqual(t, paragraph.contentBoxY() , 10, "paragraph")
-//     tu.AssertEqual(t, img1.positionY , 10, "img1")
-//     tu.AssertEqual(t, img2.positionY , 50, "img2")
-//     tu.AssertEqual(t, paragraph.Box().Height , 90, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginBottom , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderBottomWidth , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingBottom , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginHeight() , 100, "paragraph")
+func TestVerticalSpace8(t *testing.T) {
+	for _, data := range NOTCOLLAPSING {
+		// The root element does not collapse
+		page := renderOnePage(t, fmt.Sprintf(`
+      <style>
+        html { margin-top: %s }
+        body { margin-top: %s }
+      </style>
+      <p>Lorem ipsum
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		p1 := body.Box().Children[0]
+		p1Top := p1.Box().ContentBoxY()
+		// Vertical space from y=0
+		tu.AssertEqual(t, p1Top, data.result, "p1Top")
+	}
+}
 
-//     html, = page2.Box().Children
-//     body := html.Box().Children[0]
-//     paragraph, = body.Box().Children
-//     img1, img2 = paragraph.Box().Children
-//     tu.AssertEqual(t, paragraph.positionY , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginTop , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderTopWidth , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingTop , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.contentBoxY() , 0, "paragraph")
-//     tu.AssertEqual(t, img1.positionY , 0, "img1")
-//     tu.AssertEqual(t, img2.positionY , 40, "img2")
-//     tu.AssertEqual(t, paragraph.Box().Height , 80, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingBottom , 2, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderBottomWidth , 3, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginBottom , 5, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginHeight() , 90, "paragraph")
+func TestVerticalSpace9(t *testing.T) {
+	for _, data := range COLLAPSING {
+		// <body> DOES collapse
+		page := renderOnePage(t, fmt.Sprintf(`
+      <style>
+        body { margin-top: %s }
+        div { margin-top: %s }
+      </style>
+      <div>
+        <p>Lorem ipsum
+    `, data.margin1, data.margin2))
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		div := body.Box().Children[0]
+		p1 := div.Box().Children[0]
+		p1Top := p1.Box().ContentBoxY()
+		// Vertical space from y=0
+		tu.AssertEqual(t, p1Top, data.result, "p1Top")
+	}
+}
 
-// func TestBoxDecorationBreakBlockClonet*testing.T():
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestBoxDecorationBreakBlockSlice(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     // http://www.w3.org/TR/css3-background/#the-box-decoration-break
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page { size: 100px }
-//         p { padding: 2px; border: 3px solid; margin: 5px;
-//             box-decoration-break: clone }
-//         img { display: block; height: 40px }
-//       </style>
-//       <p>
-//         <img src=pattern.png>
-//         <img src=pattern.png>
-//         <img src=pattern.png>
-//         <img src=pattern.png>`)
-//     html, = page1.Box().Children
-//     body := html.Box().Children[0]
-//     paragraph, = body.Box().Children
-//     img1, img2 = paragraph.Box().Children
-//     tu.AssertEqual(t, paragraph.positionY , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginTop , 5, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderTopWidth , 3, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingTop , 2, "paragraph")
-//     tu.AssertEqual(t, paragraph.contentBoxY() , 10, "paragraph")
-//     tu.AssertEqual(t, img1.positionY , 10, "img1")
-//     tu.AssertEqual(t, img2.positionY , 50, "img2")
-//     tu.AssertEqual(t, paragraph.Box().Height , 80, "paragraph")
-//     // TODO: bottom margin should be 0
-//     // https://www.w3.org/TR/css-break-3/#valdef-box-decoration-break-clone
-//     // "Cloned margins are truncated on block-level boxes."
-//     // See https://github.com/Kozea/WeasyPrint/issues/115
-//     tu.AssertEqual(t, paragraph.Box().MarginBottom , 5, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderBottomWidth , 3, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingBottom , 2, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginHeight() , 100, "paragraph")
+	// http://www.w3.org/TR/css3-background/#the-box-decoration-break
+	pages := renderPages(t, `
+      <style>
+        @page { size: 100px }
+        p { padding: 2px; border: 3px solid; margin: 5px }
+        img { display: block; height: 40px }
+      </style>
+      <p>
+        <img src=pattern.png>
+        <img src=pattern.png>
+        <img src=pattern.png>
+        <img src=pattern.png>`)
+	page1, page2 := pages[0], pages[1]
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	img1, img2 := unpack2(paragraph)
+	tu.AssertEqual(t, paragraph.Box().PositionY, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginTop, pr.Float(5), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderTopWidth, pr.Float(3), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingTop, pr.Float(2), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().ContentBoxY(), pr.Float(10), "paragraph")
+	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(10), "img1")
+	tu.AssertEqual(t, img2.Box().PositionY, pr.Float(50), "img2")
+	tu.AssertEqual(t, paragraph.Box().Height, pr.Float(90), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginBottom, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderBottomWidth, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingBottom, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginHeight(), pr.Float(100), "paragraph")
 
-//     html, = page2.Box().Children
-//     body := html.Box().Children[0]
-//     paragraph, = body.Box().Children
-//     img1, img2 = paragraph.Box().Children
-//     tu.AssertEqual(t, paragraph.positionY , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginTop , 0, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderTopWidth , 3, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingTop , 2, "paragraph")
-//     tu.AssertEqual(t, paragraph.contentBoxY() , 5, "paragraph")
-//     tu.AssertEqual(t, img1.positionY , 5, "img1")
-//     tu.AssertEqual(t, img2.positionY , 45, "img2")
-//     tu.AssertEqual(t, paragraph.Box().Height , 80, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().PaddingBottom , 2, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().BorderBottomWidth , 3, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginBottom , 5, "paragraph")
-//     tu.AssertEqual(t, paragraph.Box().MarginHeight() , 95, "paragraph")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	paragraph = body.Box().Children[0]
+	img1, img2 = unpack2(paragraph)
+	tu.AssertEqual(t, paragraph.Box().PositionY, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginTop, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderTopWidth, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingTop, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().ContentBoxY(), pr.Float(0), "paragraph")
+	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(0), "img1")
+	tu.AssertEqual(t, img2.Box().PositionY, pr.Float(40), "img2")
+	tu.AssertEqual(t, paragraph.Box().Height, pr.Float(80), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingBottom, pr.Float(2), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderBottomWidth, pr.Float(3), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginBottom, pr.Float(5), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginHeight(), pr.Float(90), "paragraph")
+}
 
-// func TestBoxDecorationBreakCloneBottomPaddingt*testing.T():
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestBoxDecorationBreakBlockClone(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page { size: 80px; margin: 0 }
-//         div { height: 20px }
-//         article { padding: 12px; box-decoration-break: clone }
-//       </style>
-//       <article>
-//         <div>a</div>
-//         <div>b</div>
-//         <div>c</div>
-//       </article>`)
-//     html, = page1.Box().Children
-//     body := html.Box().Children[0]
-//     article, = body.Box().Children
-//     tu.AssertEqual(t, article.Box().Height , 80 - 2 * 12, "article")
-//     div1, div2 = article.Box().Children
-//     tu.AssertEqual(t, div1.positionY , 12, "div1")
-//     tu.AssertEqual(t, div2.positionY , 12 + 20, "div2")
+	// http://www.w3.org/TR/css3-background/#the-box-decoration-break
+	pages := renderPages(t, `
+      <style>
+        @page { size: 100px }
+        p { padding: 2px; border: 3px solid; margin: 5px;
+            box-decoration-break: clone }
+        img { display: block; height: 40px }
+      </style>
+      <p>
+        <img src=pattern.png>
+        <img src=pattern.png>
+        <img src=pattern.png>
+        <img src=pattern.png>`)
+	page1, page2 := pages[0], pages[1]
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	img1, img2 := unpack2(paragraph)
+	tu.AssertEqual(t, paragraph.Box().PositionY, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginTop, pr.Float(5), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderTopWidth, pr.Float(3), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingTop, pr.Float(2), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().ContentBoxY(), pr.Float(10), "paragraph")
+	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(10), "img1")
+	tu.AssertEqual(t, img2.Box().PositionY, pr.Float(50), "img2")
+	tu.AssertEqual(t, paragraph.Box().Height, pr.Float(80), "paragraph")
+	// TODO: bottom margin should be 0
+	// https://www.w3.org/TR/css-break-3/#valdef-box-decoration-break-clone
+	// "Cloned margins are truncated on block-level boxes."
+	// See https://github.com/Kozea/WeasyPrint/issues/115
+	tu.AssertEqual(t, paragraph.Box().MarginBottom, pr.Float(5), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderBottomWidth, pr.Float(3), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingBottom, pr.Float(2), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginHeight(), pr.Float(100), "paragraph")
 
-//     html, = page2.Box().Children
-//     body := html.Box().Children[0]
-//     article, = body.Box().Children
-//     tu.AssertEqual(t, article.Box().Height , 20, "article")
-//     div, = article.Box().Children
-//     tu.AssertEqual(t, div.positionY , 12, "div")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	paragraph = body.Box().Children[0]
+	img1, img2 = unpack2(paragraph)
+	tu.AssertEqual(t, paragraph.Box().PositionY, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginTop, pr.Float(0), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderTopWidth, pr.Float(3), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingTop, pr.Float(2), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().ContentBoxY(), pr.Float(5), "paragraph")
+	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(5), "img1")
+	tu.AssertEqual(t, img2.Box().PositionY, pr.Float(45), "img2")
+	tu.AssertEqual(t, paragraph.Box().Height, pr.Float(80), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().PaddingBottom, pr.Float(2), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().BorderBottomWidth, pr.Float(3), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginBottom, pr.Float(5), "paragraph")
+	tu.AssertEqual(t, paragraph.Box().MarginHeight(), pr.Float(95), "paragraph")
+}
+
+func TestBoxDecorationBreakCloneBottomPadding(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	pages := renderPages(t, `
+      <style>
+        @page { size: 80px; margin: 0 }
+        div { height: 20px }
+        article { padding: 12px; box-decoration-break: clone }
+      </style>
+      <article>
+        <div>a</div>
+        <div>b</div>
+        <div>c</div>
+      </article>`)
+	page1, page2 := pages[0], pages[1]
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	tu.AssertEqual(t, article.Box().Height, pr.Float(80-2*12), "article")
+	div1, div2 := unpack2(article)
+	tu.AssertEqual(t, div1.Box().PositionY, pr.Float(12), "div1")
+	tu.AssertEqual(t, div2.Box().PositionY, pr.Float(12+20), "div2")
+
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	article = body.Box().Children[0]
+	tu.AssertEqual(t, article.Box().Height, pr.Float(20), "article")
+	div := article.Box().Children[0]
+	tu.AssertEqual(t, div.Box().PositionY, pr.Float(12), "div")
+}
 
 // @pytest.mark.xfail
 // func TestBoxDecorationBreakSliceBottomPadding():  // pragma: no cot*testing.Tver
@@ -757,120 +786,124 @@ func testBoxSizingZero(t *testing.T, size string) {
 //         <div>b</div>
 //         <div>c</div>
 //       </article>`)
-//     html, = page1.Box().Children
+//     html := page1.Box().Children[0]
 //     body := html.Box().Children[0]
-//     article, = body.Box().Children
+//     article := body.Box().Children[0]
 //     tu.AssertEqual(t, article.Box().Height , 80 - 12, "article")
 //     div1, div2 = article.Box().Children
-//     tu.AssertEqual(t, div1.positionY , 12, "div1")
-//     tu.AssertEqual(t, div2.positionY , 12 + 20, "div2")
+//     tu.AssertEqual(t, div1.Box().PositionY , 12, "div1")
+//     tu.AssertEqual(t, div2.Box().PositionY , 12 + 20, "div2")
 
-//     html, = page2.Box().Children
+//     html := page2.Box().Children[0]
 //     body := html.Box().Children[0]
-//     article, = body.Box().Children
+//     article := body.Box().Children[0]
 //     tu.AssertEqual(t, article.Box().Height , 20, "article")
-//     div, = article.Box().Children
-//     tu.AssertEqual(t, div.positionY , 0, "div")
+//     div := article.Box().Children[0]
+//     tu.AssertEqual(t, div.Box().PositionY , 0, "div")
 
-// func TestOverflowAutot*testing.T():
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestOverflowAuto(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     page := renderOnePage(t,`
-//       <article style="overflow: auto">
-//         <div style="float: left; height: 50px; margin: 10px">bla bla bla</div>
-//           toto toto`)
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     article, = body.Box().Children
-//     tu.AssertEqual(t, article.Box().Height , 50 + 10 + 10, "article")
+	page := renderOnePage(t, `
+      <article style="overflow: auto">
+        <div style="float: left; height: 50px; margin: 10px">bla bla bla</div>
+          toto toto`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	tu.AssertEqual(t, article.Box().Height, pr.Float(50+10+10), "article")
+}
 
-// func TestBoxMarginTopRepaginationt*testing.T():
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestBoxMarginTopRepagination(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     // Test regression: https://github.com/Kozea/WeasyPrint/issues/943
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page { size: 50px }
-//         :root { line-height: 1; font-size: 10px }
-//         a::before { content: target-counter(attr(href), page) }
-//         div { margin: 20px 0 0; background: yellow }
-//       </style>
-//       <p><a href="#title"></a></p>
-//       <div>1<br/>1<br/>2<br/>2</div>
-//       <h1 id="title">title</h1>
-//     `)
-//     html, = page1.Box().Children
-//     body := html.Box().Children[0]
-//     p, div = body.Box().Children
-//     tu.AssertEqual(t, div.Box().MarginTop , 20, "div")
-//     tu.AssertEqual(t, div.Box().PaddingBoxY() , 10 + 20, "div")
-// }
-//     html, = page2.Box().Children
-//     body := html.Box().Children[0]
-//     div, h1 = body.Box().Children
-//     tu.AssertEqual(t, div.Box().MarginTop , 0, "div")
-//     tu.AssertEqual(t, div.Box().PaddingBoxY() , 0, "div")
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/943
+	pages := renderPages(t, `
+      <style>
+        @page { size: 50px }
+        :root { line-height: 1; font-size: 10px }
+        a::before { content: target-counter(attr(href), page) }
+        div { margin: 20px 0 0; background: yellow }
+      </style>
+      <p><a href="#title"></a></p>
+      <div>1<br/>1<br/>2<br/>2</div>
+      <h1 id="title">title</h1>
+    `)
+	page1, page2 := pages[0], pages[1]
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	_, div := unpack2(body)
+	tu.AssertEqual(t, div.Box().MarginTop, pr.Float(20), "div")
+	tu.AssertEqual(t, div.Box().PaddingBoxY(), pr.Float(10+20), "div")
 
-// func TestContinueDiscard(t*testing.T) {
-//   capt := tu.CaptureLogs()
-//   defer capt.AssertNoLogs(t)
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	div, _ = unpack2(body)
+	tu.AssertEqual(t, div.Box().MarginTop, pr.Float(0), "div")
+	tu.AssertEqual(t, div.Box().PaddingBoxY(), pr.Float(0), "div")
+}
 
-//     page1, = renderPages(`
-//       <style>
-//         @page { size: 80px; margin: 0 }
-//         div { display: inline-block; width: 100%; height: 25px }
-//         article { continue: discard; border: 1px solid; line-height: 1 }
-//       </style>
-//       <article>
-//         <div>a</div>
-//         <div>b</div>
-//         <div>c</div>
-//         <div>d</div>
-//         <div>e</div>
-//         <div>f</div>
-//       </article>`)
-//     html, = page1.Box().Children
-//     body := html.Box().Children[0]
-//     article, = body.Box().Children
-//     tu.AssertEqual(t, article.Box().Height , 3 * 25, "article")
-//     div1, div2, div3 = article.Box().Children
-//     tu.AssertEqual(t, div1.positionY , 1, "div1")
-//     tu.AssertEqual(t, div2.positionY , 1 + 25, "div2")
-//     tu.AssertEqual(t, div3.positionY , 1 + 25 * 2, "div3")
-//     tu.AssertEqual(t, article.Box().BorderBottomWidth , 1, "article")
-// }
+func TestContinueDiscard(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-// func TestContinueDiscardChildren(t*testing.T) {
-//   capt := tu.CaptureLogs()
-//   defer capt.AssertNoLogs(t)
+	page1 := renderOnePage(t, `
+      <style>
+        @page { size: 80px; margin: 0 }
+        div { display: inline-block; width: 100%; height: 25px }
+        article { continue: discard; border: 1px solid; line-height: 1 }
+      </style>
+      <article>
+        <div>a</div>
+        <div>b</div>
+        <div>c</div>
+        <div>d</div>
+        <div>e</div>
+        <div>f</div>
+      </article>`)
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	tu.AssertEqual(t, article.Box().Height, pr.Float(3*25), "article")
+	div1, div2, div3 := unpack3(article)
+	tu.AssertEqual(t, div1.Box().PositionY, pr.Float(1), "div1")
+	tu.AssertEqual(t, div2.Box().PositionY, pr.Float(1+25), "div2")
+	tu.AssertEqual(t, div3.Box().PositionY, pr.Float(1+25*2), "div3")
+	tu.AssertEqual(t, article.Box().BorderBottomWidth, pr.Float(1), "article")
+}
 
-//     page1, = renderPages(`
-//       <style>
-//         @page { size: 80px; margin: 0 }
-//         div { display: inline-block; width: 100%; height: 25px }
-//         section { border: 1px solid }
-//         article { continue: discard; border: 1px solid; line-height: 1 }
-//       </style>
-//       <article>
-//         <section>
-//           <div>a</div>
-//           <div>b</div>
-//           <div>c</div>
-//           <div>d</div>
-//           <div>e</div>
-//           <div>f</div>
-//         </section>
-//       </article>`)
-//     html, = page1.Box().Children
-//     body := html.Box().Children[0]
-//     article, = body.Box().Children
-//     tu.AssertEqual(t, article.Box().Height , 2 + 3 * 25, "article")
-//     section, = article.Box().Children
-//     tu.AssertEqual(t, section.Box().Height , 3 * 25, "section")
-//     div1, div2, div3 = section.Box().Children
-//     tu.AssertEqual(t, div1.positionY , 2, "div1")
-//     tu.AssertEqual(t, div2.positionY , 2 + 25, "div2")
-//     tu.AssertEqual(t, div3.positionY , 2 + 25 * 2, "div3")
-//     tu.AssertEqual(t, article.Box().BorderBottomWidth , 1, "article")
+func TestContinueDiscardChildren(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	page1 := renderOnePage(t, `
+  	<style>
+        @page { size: 80px; margin: 0 }
+        div { display: inline-block; width: 100%; height: 25px }
+        section { border: 1px solid }
+        article { continue: discard; border: 1px solid; line-height: 1 }
+      </style>
+      <article>
+        <section>
+          <div>a</div>
+          <div>b</div>
+          <div>c</div>
+          <div>d</div>
+          <div>e</div>
+          <div>f</div>
+        </section>
+      </article>`)
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	tu.AssertEqual(t, article.Box().Height, pr.Float(2+3*25), "article")
+	section := article.Box().Children[0]
+	tu.AssertEqual(t, section.Box().Height, pr.Float(3*25), "section")
+	div1, div2, div3 := unpack3(section)
+	tu.AssertEqual(t, div1.Box().PositionY, pr.Float(2), "div1")
+	tu.AssertEqual(t, div2.Box().PositionY, pr.Float(2+25), "div2")
+	tu.AssertEqual(t, div3.Box().PositionY, pr.Float(2+25*2), "div3")
+	tu.AssertEqual(t, article.Box().BorderBottomWidth, pr.Float(1), "article")
+}

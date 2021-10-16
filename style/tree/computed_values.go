@@ -745,8 +745,8 @@ func content(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssPro
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func display(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.Display)
-	float_ := computer.specified.float
-	position := computer.specified.position
+	float_ := computer.specified.Float
+	position := computer.specified.Position
 	if (!position.Bool && (position.String == "absolute" || position.String == "fixed")) || float_ != "none" || computer.isRootElement() {
 		if value == (pr.Display{"inline-table"}) {
 			return pr.Display{"block", "table"}
@@ -767,7 +767,7 @@ func display(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssPro
 // See http://www.w3.org/TR/CSS21/visuren.html#dis-pos-flo
 func floating(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProperty {
 	value := _value.(pr.String)
-	position := computer.specified.position
+	position := computer.specified.Position
 	if position.String == "absolute" || position.String == "fixed" {
 		return pr.String("none")
 	}

@@ -4,20 +4,6 @@ package tree
 
 import pr "github.com/benoitkugler/go-weasyprint/style/properties"
 
-func (s *ComputedStyle) GetWeasySpecifiedDisplay() pr.String {
-	return s.Get("_weasy_specified_display").(pr.String)
-}
-func (s *ComputedStyle) SetWeasySpecifiedDisplay(v pr.String) {
-	s.dict["_weasy_specified_display"] = v
-}
-
-func (s *AnonymousStyle) GetWeasySpecifiedDisplay() pr.String {
-	return s.Get("_weasy_specified_display").(pr.String)
-}
-func (s *AnonymousStyle) SetWeasySpecifiedDisplay(v pr.String) {
-	s.dict["_weasy_specified_display"] = v
-}
-
 func (s *ComputedStyle) GetAlignContent() pr.String {
 	return s.Get("align_content").(pr.String)
 }
@@ -690,17 +676,17 @@ func (s *AnonymousStyle) SetColor(v pr.Color) {
 	s.dict["color"] = v
 }
 
-func (s *ComputedStyle) GetColumnCount() pr.Value {
-	return s.Get("column_count").(pr.Value)
+func (s *ComputedStyle) GetColumnCount() pr.IntString {
+	return s.Get("column_count").(pr.IntString)
 }
-func (s *ComputedStyle) SetColumnCount(v pr.Value) {
+func (s *ComputedStyle) SetColumnCount(v pr.IntString) {
 	s.dict["column_count"] = v
 }
 
-func (s *AnonymousStyle) GetColumnCount() pr.Value {
-	return s.Get("column_count").(pr.Value)
+func (s *AnonymousStyle) GetColumnCount() pr.IntString {
+	return s.Get("column_count").(pr.IntString)
 }
-func (s *AnonymousStyle) SetColumnCount(v pr.Value) {
+func (s *AnonymousStyle) SetColumnCount(v pr.IntString) {
 	s.dict["column_count"] = v
 }
 

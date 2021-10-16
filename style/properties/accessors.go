@@ -2,13 +2,6 @@ package properties
 
 // Code generated from properties/initial_values.go DO NOT EDIT
 
-func (s Properties) GetWeasySpecifiedDisplay() String {
-	return s["_weasy_specified_display"].(String)
-}
-func (s Properties) SetWeasySpecifiedDisplay(v String) {
-	s["_weasy_specified_display"] = v
-}
-
 func (s Properties) GetAlignContent() String {
 	return s["align_content"].(String)
 }
@@ -345,10 +338,10 @@ func (s Properties) SetColor(v Color) {
 	s["color"] = v
 }
 
-func (s Properties) GetColumnCount() Value {
-	return s["column_count"].(Value)
+func (s Properties) GetColumnCount() IntString {
+	return s["column_count"].(IntString)
 }
-func (s Properties) SetColumnCount(v Value) {
+func (s Properties) SetColumnCount(v IntString) {
 	s["column_count"] = v
 }
 
@@ -1081,9 +1074,6 @@ func (s Properties) SetZIndex(v IntString) {
 }
 
 type StyleAccessor interface {
-	GetWeasySpecifiedDisplay() String
-	SetWeasySpecifiedDisplay(v String)
-
 	GetAlignContent() String
 	SetAlignContent(v String)
 
@@ -1228,8 +1218,8 @@ type StyleAccessor interface {
 	GetColor() Color
 	SetColor(v Color)
 
-	GetColumnCount() Value
-	SetColumnCount(v Value)
+	GetColumnCount() IntString
+	SetColumnCount(v IntString)
 
 	GetColumnFill() String
 	SetColumnFill(v String)

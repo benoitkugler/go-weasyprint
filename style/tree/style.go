@@ -241,12 +241,6 @@ var (
 	_ pr.ElementStyle = (*AnonymousStyle)(nil)
 )
 
-type computedRequirements struct {
-	float    pr.String
-	display  pr.Display
-	position pr.BoolString
-}
-
 // ComputedStyle provides on demand access of computed properties
 type ComputedStyle struct {
 	dict      pr.Properties
@@ -260,7 +254,7 @@ type ComputedStyle struct {
 	element     Element
 	pseudoType  string
 	baseUrl     string
-	specified   computedRequirements
+	specified   pr.SpecifiedAttributes
 }
 
 func newComputedStyle(parentStyle pr.ElementStyle, cascaded cascadedStyle,
@@ -295,13 +289,13 @@ func newComputedStyle(parentStyle pr.ElementStyle, cascaded cascadedStyle,
 	_, float := out.cascadeValue("float")
 
 	if position.SpecialProperty == nil && position.ToCascaded().Default == 0 {
-		out.specified.position = position.ToCascaded().ToCSS().(pr.BoolString)
+		out.specified.Position = position.ToCascaded().ToCSS().(pr.BoolString)
 	}
 	if display.SpecialProperty == nil && display.ToCascaded().Default == 0 {
-		out.specified.display = display.ToCascaded().ToCSS().(pr.Display)
+		out.specified.Display = display.ToCascaded().ToCSS().(pr.Display)
 	}
 	if float.SpecialProperty == nil && float.ToCascaded().Default == 0 {
-		out.specified.float = float.ToCascaded().ToCSS().(pr.String)
+		out.specified.Float = float.ToCascaded().ToCSS().(pr.String)
 	}
 
 	return out
@@ -320,6 +314,8 @@ func (c *ComputedStyle) Copy() pr.ElementStyle {
 func (c *ComputedStyle) GetParentStyle() pr.ElementStyle { return c.parentStyle }
 
 func (c *ComputedStyle) GetVariables() map[string]pr.ValidatedProperty { return c.variables }
+
+func (c *ComputedStyle) Specified() pr.SpecifiedAttributes { return c.specified }
 
 func (c *ComputedStyle) cascadeValue(key string) (pr.DefaultKind, pr.ValidatedProperty) {
 	var (
@@ -444,6 +440,7 @@ type AnonymousStyle struct {
 	dict        pr.Properties
 	parentStyle pr.ElementStyle
 	variables   map[string]pr.ValidatedProperty
+	specified   pr.SpecifiedAttributes
 }
 
 func newAnonymousStyle(parentStyle pr.ElementStyle) *AnonymousStyle {
@@ -467,6 +464,9 @@ func newAnonymousStyle(parentStyle pr.ElementStyle) *AnonymousStyle {
 	out.dict.SetBorderRightWidth(pr.Value{})
 	out.dict.SetOutlineWidth(pr.Value{})
 
+	out.specified.Display = out.GetDisplay()
+	out.specified.Float = out.GetFloat()
+	out.specified.Position = out.GetPosition()
 	return out
 }
 
@@ -481,6 +481,8 @@ func (c *AnonymousStyle) Copy() pr.ElementStyle {
 func (c *AnonymousStyle) GetParentStyle() pr.ElementStyle { return c.parentStyle }
 
 func (c *AnonymousStyle) GetVariables() map[string]pr.ValidatedProperty { return c.variables }
+
+func (c *AnonymousStyle) Specified() pr.SpecifiedAttributes { return c.specified }
 
 func (a *AnonymousStyle) Get(key string) pr.CssProperty {
 	if v, has := a.dict[key]; has {

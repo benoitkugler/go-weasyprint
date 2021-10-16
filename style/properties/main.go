@@ -134,6 +134,14 @@ func (p Properties) UpdateWith(other Properties) {
 	}
 }
 
+// SpecifiedAttributes stores the value of
+// CSS properties as specified.
+type SpecifiedAttributes struct {
+	Float    String
+	Display  Display
+	Position BoolString
+}
+
 // ElementStyle defines a common interface to access style properties.
 // Implementations will typically compute the propery on the fly and cache the result.
 type ElementStyle interface {
@@ -152,6 +160,8 @@ type ElementStyle interface {
 
 	GetParentStyle() ElementStyle
 	GetVariables() map[string]ValidatedProperty
+
+	Specified() SpecifiedAttributes
 }
 
 var _ StyleAccessor = Properties(nil)

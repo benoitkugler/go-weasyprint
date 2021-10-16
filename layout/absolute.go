@@ -236,7 +236,7 @@ func absoluteLayoutDriver(context *layoutContext, box_ Box, containingBlock bloc
 
 	var newBox Box
 	if isBlock {
-		newBox, _ = blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, nil, false)
+		newBox, _ = blockContainerLayout(context, box_, pr.Inf, nil, false, &absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 	} else {
 		newBox, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock, false, &absoluteBoxes, fixedBoxes)
 	}

@@ -195,7 +195,7 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY pr.Fl
 
 	line := line_.Box()
 	for _, placeholder := range linePlaceholders {
-		if strings.HasPrefix(string(placeholder.Box().Style.GetWeasySpecifiedDisplay()), "inline") {
+		if placeholder.Box().Style.Specified().Display.Has("inline") {
 			// Inline-level static position :
 			placeholder.Translate(placeholder, 0, positionY-placeholder.Box().PositionY.V(), false)
 		} else {
@@ -639,7 +639,7 @@ func inlineBlockBoxLayout(context *layoutContext, box_ Box, positionX pr.Float, 
 	box.PositionX = positionX
 	box.PositionY = 0
 	box_, _ = blockContainerLayout(context, box_, pr.Inf, skipStack,
-		true, absoluteBoxes, fixedBoxes, nil, false)
+		true, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 	box_.Box().Baseline = inlineBlockBaseline(box_)
 	return box_
 }

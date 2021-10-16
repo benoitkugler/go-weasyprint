@@ -85,7 +85,7 @@ var InitialValues = Properties{
 
 	// Multi-column Layout (WD): https://www.w3.org/TR/css-multicol-1/
 	"column_width":      SToV("auto"),
-	"column_count":      SToV("auto"),
+	"column_count":      IntString{String: "auto"},
 	"column_gap":        Value{Dimension: Dimension{Value: 1, Unit: Em}},
 	"column_rule_color": CurrentColor,
 	"column_rule_style": String("none"),

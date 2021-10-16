@@ -1,7 +1,7 @@
 package layout
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 
@@ -38,7 +38,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 	knownHeight := false
 	if height_.String != "auto" && height_.Unit != pr.Percentage {
 		if height_.Unit != pr.Px {
-			log.Fatalf("expected Px got %v", height_)
+			panic(fmt.Sprintf("expected Px got %v", height_))
 		}
 		knownHeight = true
 		maxPositionY = pr.Min(maxPositionY, box.ContentBoxY()+height_.Value)
@@ -52,7 +52,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 	)
 	cwidth, cccount, cgap := style.GetColumnWidth(), style.GetColumnCount(), style.GetColumnGap().Value
 	if cwidth.String == "auto" && cccount.String != "auto" {
-		count = int(cccount.Value)
+		count = cccount.Int
 		count_ = pr.Float(count)
 		width = pr.Max(0, availableWidth-(count_-1)*cgap) / count_
 	} else if cwidth.String != "auto" && cccount.String == "auto" {
@@ -60,7 +60,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		count_ = pr.Float(count)
 		width = (availableWidth+cgap)/count_ - cgap
 	} else {
-		count = int(pr.Min(cccount.Value, pr.Floor((availableWidth+cgap)/(cwidth.Value+cgap))))
+		count = int(pr.Min(pr.Float(cccount.Int), pr.Floor((availableWidth+cgap)/(cwidth.Value+cgap))))
 		count_ = pr.Float(count)
 		width = (availableWidth+cgap)/count_ - cgap
 	}
@@ -128,7 +128,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 			block.Box().PositionX = box.ContentBoxX()
 			block.Box().PositionY = currentPositionY
 			newChild, tmp := blockLevelLayout(context, block, originalMaxPositionY, skipStack,
-				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins, false)
+				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, &adjoiningMargins, false)
 			adjoiningMargins = tmp.adjoiningMargins
 			newChildren = append(newChildren, newChild)
 			currentPositionY = newChild.Box().BorderHeight() + newChild.Box().BorderBoxY()
@@ -146,7 +146,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		adjoiningMargins = nil
 		columnBox := createColumnBox(columnChildren)
 		newChild, _ := blockBoxLayout(context, columnBox, pr.Inf, skipStack, containingBlock,
-			pageIsEmpty, new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), nil, false)
+			pageIsEmpty, new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), new([]pr.Float), false)
 		height := newChild.Box().MarginHeight()
 		if style.GetColumnFill() == "balance" {
 			height /= count_
@@ -163,7 +163,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 			for i := 0; i < count; i += 1 {
 				// Render the column
 				newBox, tmp := blockBoxLayout(context, columnBox, box.ContentBoxY()+height,
-					columnSkipStack, containingBlock, pageIsEmpty, &[]*AbsolutePlaceholder{}, &[]*AbsolutePlaceholder{}, nil, false)
+					columnSkipStack, containingBlock, pageIsEmpty, &[]*AbsolutePlaceholder{}, &[]*AbsolutePlaceholder{}, new([]pr.Float), false)
 				resumeAt := tmp.resumeAt
 				nextPage = tmp.nextPage
 				if newBox == nil {
@@ -188,7 +188,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 
 					// Get the minimum size needed to render the next box
 					nextBox, _ := blockBoxLayout(context, columnBox, box.ContentBoxY(),
-						columnSkipStack, containingBlock, true, &[]*AbsolutePlaceholder{}, &[]*AbsolutePlaceholder{}, nil, false)
+						columnSkipStack, containingBlock, true, &[]*AbsolutePlaceholder{}, &[]*AbsolutePlaceholder{}, new([]pr.Float), false)
 					for _, child := range nextBox.Box().Children {
 						if child.Box().IsInNormalFlow() {
 							nextBoxSize = child.Box().MarginHeight()
@@ -258,7 +258,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 				columnBox.Box().PositionX += i_ * (width + style.GetColumnGap().Value)
 			}
 			newChild, tmp := blockBoxLayout(context, columnBox, maxPositionY, skipStack,
-				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, nil, false)
+				containingBlock, pageIsEmpty, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 			columnSkipStack = tmp.resumeAt
 			columnNextPage := tmp.nextPage
 			if newChild == nil {
@@ -296,12 +296,13 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 	// Set the height of box and the columns
 	box.Children = newChildren
 	currentPositionY += collapseMargin(adjoiningMargins)
+	height := currentPositionY - box.ContentBoxY()
 	var heightDifference pr.Float
 	if box.Height == pr.Auto {
-		box.Height = currentPositionY - box.PositionY
+		box.Height = height
 		heightDifference = 0
 	} else {
-		heightDifference = box.Height.V() - (currentPositionY - box.PositionY)
+		heightDifference = box.Height.V() - height
 	}
 	if box.MinHeight != pr.Auto && box.MinHeight.V() > box.Height.V() {
 		heightDifference += box.MinHeight.V() - box.Height.V()
