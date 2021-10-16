@@ -992,9 +992,9 @@ func page(tokens []Token, _ string) pr.CssProperty {
 	token := tokens[0]
 	if ident, ok := token.(parser.IdentToken); ok {
 		if ident.Value.Lower() == "auto" {
-			return pr.Page{String: "auto"}
+			return pr.Page{String: "auto", Valid: true}
 		}
-		return pr.Page{String: string(ident.Value)}
+		return pr.Page{String: string(ident.Value), Valid: true}
 	}
 	return nil
 }

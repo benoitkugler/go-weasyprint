@@ -10,7 +10,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-// reference commit : 238e214f9d58da51eed8f790fce34dc5fc1dc67f
+// reference commit : 223e97d99ac681a7a5f59b90ce6bfeba047d9fa8
 
 func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string, stylesheets []tree.CSS,
 	enableHinting, presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []utils.Attachment) error {

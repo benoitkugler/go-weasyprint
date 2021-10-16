@@ -8,15 +8,11 @@ import (
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 )
 
 // parse a simple html with style and an element and return
 // the computed style for this element
 func setupVar(t *testing.T, html string) pr.ElementStyle {
-	cp := testutils.CaptureLogs()
-	defer cp.AssertNoLogs(t)
-
 	page, err := newHtml(utils.InputString(html))
 	if err != nil {
 		t.Fatal(err)

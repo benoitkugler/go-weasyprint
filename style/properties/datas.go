@@ -270,6 +270,6 @@ var (
 
 func init() {
 	for name := range InitialValues {
-		KnownProperties[strings.ReplaceAll(name, "_", "-")] = utils.Has
+		KnownProperties.Add(strings.ReplaceAll(name, "_", "-"))
 	}
 }

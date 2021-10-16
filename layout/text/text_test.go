@@ -48,9 +48,11 @@ type textContext struct {
 	dict    map[HyphenDictKey]hyphen.Hyphener
 }
 
-func (tc textContext) Fontmap() pango.FontMap                            { return tc.fontmap }
-func (tc textContext) HyphenCache() map[HyphenDictKey]hyphen.Hyphener    { return tc.dict }
-func (tc textContext) StrutLayoutsCache() map[StrutLayoutKey][2]pr.Float { return nil }
+func (tc textContext) Fontmap() pango.FontMap                         { return tc.fontmap }
+func (tc textContext) HyphenCache() map[HyphenDictKey]hyphen.Hyphener { return tc.dict }
+func (tc textContext) StrutLayoutsCache() map[StrutLayoutKey][2]pr.Float {
+	return make(map[StrutLayoutKey][2]pr.Float)
+}
 
 // Wrapper for SplitFirstLine() creating a style dict.
 func makeText(text string, width pr.MaybeFloat, style pr.Properties) Splitted {

@@ -42,9 +42,9 @@ func (c capturedLogs) CheckEqual(refs []string, t *testing.T) {
 	}
 }
 
-func (c capturedLogs) AssertNoLogs(t *testing.T) {
+func (c *capturedLogs) AssertNoLogs(t *testing.T) {
 	l := c.Logs()
 	if len(l) > 0 {
-		t.Fatalf("expected no logs, got %v (%d)", l, len(l))
+		t.Fatalf("expected no logs, got (%d): \n %s", len(l), strings.Join(l, "\n"))
 	}
 }

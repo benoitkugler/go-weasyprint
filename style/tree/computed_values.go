@@ -937,16 +937,18 @@ func verticalAlign(computer *ComputedStyle, name string, _value pr.CssProperty) 
 		out.String = value.String
 	case "super":
 		out.Value = computer.GetFontSize().Value * 0.5
+		out.Unit = pr.Scalar
 	case "sub":
 		out.Value = computer.GetFontSize().Value * -0.5
+		out.Unit = pr.Scalar
 	default:
-		out.Value = length2(computer, name, value, -1, true).Value
-	}
-	if value.Unit == pr.Percentage {
-		// TODO: support
-		// height, _ = strutLayout(computer.computed)
-		// return height * value.value / 100.
-		log.Println("% not supported for vertical-align")
+		out.Unit = pr.Scalar
+		if value.Unit == pr.Percentage {
+			height := text.StrutLayout(computer, computer.textContext)[0]
+			out.Value = height * value.Value / 100
+		} else {
+			out.Value = length2(computer, name, value, -1, true).Value
+		}
 	}
 	return out
 }

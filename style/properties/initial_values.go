@@ -138,7 +138,7 @@ var InitialValues = Properties{
 
 	// Paged Media 3 (WD): https://www.w3.org/TR/css-page-3/
 	"size":         A4.ToPixels(),
-	"page":         Page{String: "auto", Valid: true},
+	"page":         Page{String: "auto"},
 	"bleed_left":   SToV("auto"),
 	"bleed_right":  SToV("auto"),
 	"bleed_top":    SToV("auto"),
@@ -200,7 +200,4 @@ var InitialValues = Properties{
 	"anchor": String(""),    // computed value of "none"
 	"link":   NamedString{}, // computed value of "none"
 	"lang":   NamedString{}, // computed value of "none"
-
-	// Internal, to implement the "static position" for absolute boxes.
-	"_weasy_specified_display": String("inline"),
 }

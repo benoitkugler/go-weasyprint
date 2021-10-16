@@ -45,13 +45,13 @@ func fakeHTML(html *tree.HTML) *tree.HTML {
 }
 
 // lay out a document and return a list of PageBox objects
-func renderPages(t *testing.T, htmlContent string) []*bo.PageBox {
+func renderPages(t *testing.T, htmlContent string, css ...tree.CSS) []*bo.PageBox {
 	doc, err := tree.NewHTML(utils.InputString(htmlContent), baseUrl, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	doc = fakeHTML(doc)
-	return Layout(doc, nil, false, fontconfig)
+	return Layout(doc, css, false, fontconfig)
 }
 
 // same as renderPages, but expects only on laid out page

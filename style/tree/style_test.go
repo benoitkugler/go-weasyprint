@@ -577,8 +577,9 @@ func isClose(a, b pr.Float) bool {
 }
 
 func TestFontSize(t *testing.T) {
-	//@assertNoLogs
 	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
 	html_, err := newHtml(utils.InputString("<p>a<span>b"))
 	if err != nil {
 		t.Fatal(err)
@@ -600,7 +601,6 @@ func TestFontSize(t *testing.T) {
 			t.Fatalf("child:expected %v got %v", te.childSize, got)
 		}
 	}
-	capt.AssertNoLogs(t)
 }
 
 func TestCounterStyleInvalid(t *testing.T) {
@@ -625,140 +625,3 @@ func TestCounterStyleInvalid(t *testing.T) {
 		}
 	}
 }
-
-// TODO: a déplacer dans la partie qui implémente render()
-
-//@assertNoLogs
-// @pytest.mark.parametrize("style", (
-// "<style> html { color red; color: blue; color",
-// "<html style="color; color: blue; color red">",
-// ))
-// func TestErrorRecovery(t *testing.T) {
-// capt := testutils.CaptureLogs()
-// with captureLogs() as logs:
-// document = FakeHTML(string=style)
-// page, = document.render().pages
-// html, = page.PageBox.children
-// assert html.style["color"] == (0, 0, 1, 1)  // blue
-// assert len(logs) == 2
-
-//
-//
-////@assertNoLogs
-//func TestLineHeightInheritance():
-//capt := testutils.CaptureLogs()do
-//cument = FakeHTML(string="""
-//<style>
-//html { font-size: 10px; line-height: 140% }
-//section { font-size: 10px; line-height: 1.4 }
-//div, p { font-size: 20px; vertical-align: 50% }
-//</style>
-//<body><div><section><p></p></section></div></body>
-//""")
-//page, = document.render().pages
-//html, = page.PageBox.children
-//body, = html.children
-//div, = body.children
-//section, = div.children
-//paragraph, = section.children
-//assert html.style["fontSize"] == 10
-//assert div.style["fontSize"] == 20
-//// 140% of 10px = 14px is inherited from html
-//assert strutLayout(div.style)[0] == 14
-//assert div.style["verticalAlign"] == 7  // 50 % of 14px
-//}
-//assert paragraph.style["fontSize"] == 20
-//// 1.4 is inherited from p, 1.4 * 20px on em = 28px
-//assert strutLayout(paragraph.style)[0] == 28
-//assert paragraph.style["verticalAlign"] == 14  // 50% of 28px
-//
-//
-////@assertNoLogs
-//func TestImportant(t *testing.T) {
-//capt := testutils.CaptureLogs()
-//	document = FakeHTML(string="""
-//	<style>
-//		p:nth-child(1) { color: lime }
-//	body p:nth-child(2) { color: red }
-//}
-//p:nth-child(3) { color: lime !important }
-//body p:nth-child(3) { color: red }
-//
-//body p:nth-child(5) { color: lime }
-//p:nth-child(5) { color: red }
-//
-//p:nth-child(6) { color: red }
-//p:nth-child(6) { color: lime }
-//</style>
-//<p></p>
-//<p></p>
-//<p></p>
-//<p></p>
-//<p></p>
-//<p></p>
-//""")
-//page, = document.render(stylesheets=[CSS(string="""
-//body p:nth-child(1) { color: red }
-//p:nth-child(2) { color: lime !important }
-//
-//p:nth-child(4) { color: lime !important }
-//body p:nth-child(4) { color: red }
-//""")]).pages
-//html, = page.PageBox.children
-//body, = html.children
-//for paragraph := range body.children {
-//assert paragraph.style["color"] == (0, 1, 0, 1)  // lime (light green)
-//}
-//
-//
-////@assertNoLogs
-//func TestNamedPages(t *testing.T) {
-//capt := testutils.CaptureLogs()
-//	document = FakeHTML(string="""
-//	<style>
-//	@page NARRow { size: landscape }
-//	div { page: AUTO }
-//	p { page: NARRow }
-//	</style>
-//	<div><p><span>a</span></p></div>
-//		""")
-//	page, = document.render().pages
-//	html, = page.PageBox.children
-//	body, = html.children
-//	div, = body.children
-//	p, = div.children
-//	span, = p.children
-//	assert html.style["page"] == ""
-//	assert body.style["page"] == ""
-//	assert div.style["page"] == ""
-//	assert p.style["page"] == "NARRow"
-//	assert span.style["page"] == "NARRow"
-//
-//
-//	//@assertNoLogs
-//	@pytest.mark.parametrize("value, width", (
-//	capt := testutils.CaptureLogs()
-//		("96px", 96),
-//		("1in", 96),
-//	("72pt", 96),
-//	("6pc", 96),
-//	("2.54cm", 96),
-//	("25.4mm", 96),
-//	("101.6q", 96),
-//	("1.1em", 11),
-//	("1.1rem", 17.6),
-//	// TODO: ch && ex units don"t work with font-face, see computedValues.py
-//	// ("1.1ch", 11),
-//	// ("1.5ex", 12),
-//))
-//	func TestUnits(value, width):
-//	document = FakeHTML(BaseUrl=BASEURL, string="""
-//	<style>@font-face { src: url(AHEM___.TTF); font-family: ahem }</style>
-//	<body style="font: 10px ahem"><p style="margin-left: %s"></p>""" % value)
-//	page, = document.render().pages
-//	html, = page.PageBox.children
-//	body, = html.children
-//	p, = body.children
-//	assert p.marginLeft == width
-//
-//

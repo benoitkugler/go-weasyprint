@@ -466,7 +466,7 @@ type StrutLayoutKey struct {
 
 // StrutLayout returns a tuple of the used value of `line-height` and the baseline.
 // The baseline is given from the top edge of line height.
-// `context` is an optional cache
+// `context` is mandatory for the text layout.
 func StrutLayout(style pr.StyleAccessor, context TextLayoutContext) [2]pr.Float {
 	fontSize := style.GetFontSize().Value
 	lineHeight := style.GetLineHeight()
@@ -484,11 +484,10 @@ func StrutLayout(style pr.StyleAccessor, context TextLayoutContext) [2]pr.Float 
 		fontWeight:           style.GetFontWeight(),
 		lineHeight:           lineHeight,
 	}
-	if context != nil {
-		layouts := context.StrutLayoutsCache()
-		if v, ok := layouts[key]; ok {
-			return v
-		}
+
+	layouts := context.StrutLayoutsCache()
+	if v, ok := layouts[key]; ok {
+		return v
 	}
 
 	layout := NewTextLayout(context, pr.Fl(fontSize), style, 0, nil)
