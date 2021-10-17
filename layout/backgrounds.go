@@ -210,12 +210,11 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		}
 	}
 
-	var hasZero bool
+	var intrinsicWidth, intrinsicHeight, ratio pr.MaybeFloat
 	if image != nil {
-		v1, v2 := image.GetIntrinsicSize(pr.FToV(1), pr.FToV(1))
-		hasZero = v1 == pr.Float(0) || v2 == pr.Float(0)
+		intrinsicWidth, intrinsicHeight, ratio = image.GetIntrinsicSize(resolution, box.Style.GetFontSize())
 	}
-	if image == nil || hasZero {
+	if image == nil || (intrinsicWidth == pr.Float(0) || intrinsicHeight == pr.Float(0)) {
 		return bo.BackgroundLayer{
 			Image: nil, Unbounded: box_ == page, PaintingArea: bo.Area{Rect: paintingArea},
 			Size: pr.Size{String: "unused"}, Position: bo.Position{String: "unused"}, Repeat: bo.Repeat{String: "unused"},
@@ -235,13 +234,13 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 	// paintingX, paintingY, paintingWidth, paintingHeight := paintingArea[0], paintingArea[1], paintingArea[2], paintingArea[3]
 	var imageWidth, imageHeight pr.Float
 	if size.String == "cover" {
-		imageWidth, imageHeight = coverConstraintImageSizing(positioningWidth, positioningHeight, image.IntrinsicRatio())
+		imageWidth, imageHeight = coverConstraintImageSizing(positioningWidth, positioningHeight, ratio)
 	} else if size.String == "contain" {
-		imageWidth, imageHeight = containConstraintImageSizing(positioningWidth, positioningHeight, image.IntrinsicRatio())
+		imageWidth, imageHeight = containConstraintImageSizing(positioningWidth, positioningHeight, ratio)
 	} else {
 		sizeWidth, sizeHeight := size.Width, size.Height
-		iwidth, iheight := image.GetIntrinsicSize(resolution, box.Style.GetFontSize())
-		imageWidth, imageHeight = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(),
+		iwidth, iheight, iratio := image.GetIntrinsicSize(resolution, box.Style.GetFontSize())
+		imageWidth, imageHeight = defaultImageSizing(iwidth, iheight, iratio,
 			pr.ResoudPercentage(sizeWidth, positioningWidth), pr.ResoudPercentage(sizeHeight, positioningHeight), positioningWidth, positioningHeight)
 	}
 

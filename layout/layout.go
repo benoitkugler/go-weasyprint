@@ -11,6 +11,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -248,6 +249,7 @@ func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
 	cache := make(map[string]images.Image)
 	getImageFromUri := func(url, forcedMimeType string) images.Image {
 		out, err := images.GetImageFromUri(cache, html.UrlFetcher, false, url, forcedMimeType)
+		fmt.Printf("%s %T %s\n", url, out, err)
 		if err != nil {
 			log.Print(err)
 		}

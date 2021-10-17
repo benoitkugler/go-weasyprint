@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"strings"
@@ -753,8 +754,8 @@ func replacedMinContentWidth(box *bo.ReplacedBox, outer bool) pr.Float {
 			w = pr.Float(0)
 		} else {
 			image := box.Replacement
-			iwidth, iheight := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
-			w, _ = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(), pr.Auto, h, 300, 150)
+			iwidth, iheight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+			w, _ = defaultImageSizing(iwidth, iheight, ratio, pr.Auto, h, 300, 150)
 		}
 	} else if width.Unit == pr.Percentage {
 		// See https://drafts.csswg.org/css-sizing/#intrinsic-contribution
@@ -762,7 +763,7 @@ func replacedMinContentWidth(box *bo.ReplacedBox, outer bool) pr.Float {
 	} else if width.Unit == pr.Px {
 		w = width.Value
 	} else {
-		log.Fatalf("expected Px got %d", width.Unit)
+		panic(fmt.Sprintf("expected Px got %d", width.Unit))
 	}
 	return adjust(&box.BoxFields, outer, w, true, true)
 }
@@ -785,8 +786,8 @@ func replacedMaxContentWidth(box *bo.ReplacedBox, outer bool) pr.Float {
 		}
 
 		image := box.Replacement
-		iwidth, iheight := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
-		w, _ = defaultImageSizing(iwidth, iheight, image.IntrinsicRatio(), pr.Auto, h, 300, 150)
+		iwidth, iheight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+		w, _ = defaultImageSizing(iwidth, iheight, ratio, pr.Auto, h, 300, 150)
 
 	} else if width.Unit == pr.Percentage {
 		// See https://drafts.csswg.org/css-sizing/#intrinsic-contribution

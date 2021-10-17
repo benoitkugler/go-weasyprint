@@ -359,7 +359,8 @@ func consumeUrl(css string, pos int) (value string, newPos int, err error) {
 		pos += 1
 	}
 	if pos >= length { // EOF
-		return "", pos, nil
+		// FIXME: chech other changes and update tests
+		return "", pos, errors.New("EOF in URL")
 	}
 	c := rune(css[pos])
 	if c == '"' || c == '\'' {

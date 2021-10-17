@@ -15,7 +15,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
-	"golang.org/x/net/html"
+	"github.com/benoitkugler/oksvg/svgicon"
 
 	_ "image/gif"
 	_ "image/jpeg"
@@ -28,8 +28,7 @@ type Color = parser.RGBA
 // such as gradient, SVG, or JPEG, PNG, etc...
 type Image interface {
 	isImage()
-	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height pr.MaybeFloat)
-	IntrinsicRatio() pr.MaybeFloat
+	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height, ratio pr.MaybeFloat)
 	Draw(context backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String)
 }
 
@@ -82,11 +81,9 @@ func NewRasterImage(imageSurface image.Image, optimizeSize bool) RasterImage {
 
 func (r RasterImage) isImage() {}
 
-func (r RasterImage) IntrinsicRatio() pr.MaybeFloat { return r.intrinsicRatio }
-
-func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, height pr.MaybeFloat) {
+func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, height, ratio pr.MaybeFloat) {
 	// Raster images are affected by the "image-resolution" property.
-	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value
+	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value, r.intrinsicRatio
 }
 
 func (r RasterImage) Draw(context backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
@@ -128,15 +125,12 @@ func newFakeSurface() FakeSurface {
 }
 
 type SVGImage struct {
-	intrinsicWidth  pr.MaybeFloat
-	intrinsicHeight pr.MaybeFloat
-	intrinsicRatio  pr.MaybeFloat
-	tree            *utils.HTMLNode
-	urlFetcher      utils.UrlFetcher
-	baseUrl         string
-	svgData         []byte
-	width           float64
-	height          float64
+	icon       *svgicon.SvgIcon
+	urlFetcher utils.UrlFetcher
+	baseUrl    string
+	svgData    []byte
+	width      float64
+	height     float64
 }
 
 func (SVGImage) isImage() {}
@@ -154,16 +148,12 @@ func NewSVGImage(svgData io.Reader, baseUrl string, urlFetcher utils.UrlFetcher)
 	}
 	self.svgData = content
 	self.urlFetcher = urlFetcher
-	tree, err := html.Parse(bytes.NewReader(self.svgData))
+
+	self.icon, err = svgicon.ReadIconStream(bytes.NewReader(self.svgData), svgicon.StrictErrorMode)
 	if err != nil {
 		return nil, imageLoadingError(err)
 	}
-	self.tree = (*utils.HTMLNode)(tree)
 	return self, nil
-}
-
-func (s SVGImage) IntrinsicRatio() pr.MaybeFloat {
-	return s.intrinsicRatio
 }
 
 //  func CairosvgUrlFetcher(self, src, mimetype) {
@@ -173,42 +163,38 @@ func (s SVGImage) IntrinsicRatio() pr.MaybeFloat {
 //         } return data["fileObj"].read()
 //     }
 
-func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (width, height pr.MaybeFloat) {
-	// Vector images may be affected by the font size.
-	fakeSurface := newFakeSurface()
-	fakeSurface.fontSize = float64(fontSize.Value)
-	// Percentages don't provide an intrinsic size, we transform percentages
-	// into 0 using a (0, 0) context size :
-	// http://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
-	s.width = size(fakeSurface, s.tree.Get("width"), floatOrString{s: "xy"})
-	s.height = size(fakeSurface, s.tree.Get("height"), floatOrString{s: "xy"})
-	_, _, viewbox := nodeFormat(fakeSurface, s.tree, true)
-	s.intrinsicWidth = nil
-	if s.width != 0 {
-		s.intrinsicWidth = pr.Float(s.width)
+func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (pr.MaybeFloat, pr.MaybeFloat, pr.MaybeFloat) {
+	width, height := s.icon.Width, s.icon.Height
+	if width == "" {
+		width = "100%"
 	}
-	s.intrinsicHeight = nil
-	if s.height != 0 {
-		s.intrinsicHeight = pr.Float(s.height)
+	if height == "" {
+		height = "100%"
 	}
-	s.intrinsicRatio = nil
-	if len(viewbox) != 0 {
-		if s.width != 0 && s.height != 0 {
-			s.intrinsicRatio = pr.Float(s.width / s.height)
-		} else {
-			if viewbox[2] != 0 && viewbox[3] != 0 {
-				s.intrinsicRatio = pr.Float(viewbox[2] / viewbox[3])
-				if s.width != 0 {
-					s.intrinsicHeight = pr.Float(s.width) / s.intrinsicRatio.V()
-				} else if s.height != 0 {
-					s.intrinsicWidth = pr.Float(s.height) * s.intrinsicRatio.V()
-				}
+
+	var intrinsicWidth, intrinsicHeight, ratio pr.MaybeFloat
+	if !strings.ContainsRune(width, '%') {
+		intrinsicWidth = size(width, fontSize.Value, nil)
+	}
+	if !strings.ContainsRune(height, '%') {
+		intrinsicHeight = size(height, fontSize.Value, nil)
+	}
+
+	if intrinsicWidth == nil || intrinsicHeight == nil {
+		viewbox := s.icon.ViewBox
+		if viewbox.W != 0 && viewbox.H != 0 {
+			ratio = pr.Float(viewbox.W / viewbox.H)
+			if pr.Is(intrinsicWidth) {
+				intrinsicHeight = intrinsicWidth.V() / ratio.V()
+			} else if pr.Is(intrinsicHeight) {
+				intrinsicWidth = intrinsicHeight.V() * ratio.V()
 			}
 		}
-	} else if s.width != 0 && s.height != 0 {
-		s.intrinsicRatio = pr.Float(s.width / s.height)
+	} else if pr.Is(intrinsicWidth) && pr.Is(intrinsicHeight) {
+		ratio = intrinsicWidth.V() / intrinsicHeight.V()
 	}
-	return s.intrinsicWidth, s.intrinsicHeight
+
+	return intrinsicWidth, intrinsicHeight, ratio
 }
 
 func (SVGImage) Draw(context backend.OutputPage, concreteWidth, concreteHeight float64, imageRendering pr.String) {
@@ -239,6 +225,7 @@ func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, optimizeS
 	if in {
 		return img, nil
 	}
+
 	content, err := fetcher(url)
 	if err != nil {
 		return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
@@ -252,22 +239,28 @@ func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, optimizeS
 	var errSvg error
 	// Try to rely on given mimetype for SVG
 	if mimeType == "image/svg+xml" {
-		img, errSvg = NewSVGImage(content.Content, url, fetcher)
+		var svgIm *SVGImage
+		svgIm, errSvg = NewSVGImage(content.Content, url, fetcher)
+		if svgIm != nil {
+			img = svgIm
+		}
 	}
 
 	// Try pillow for raster images, or for failing SVG
 	if img == nil {
+		content.Content.Seek(0, io.SeekStart)
 		parsedImage, _, errRaster := image.Decode(content.Content)
 		if errRaster != nil {
 			// Tried SVGImage then raster for a SVG, abort
 			if errSvg != nil {
-				return nil, errSvg
+				return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errSvg)
 			}
 
 			// Last chance, try SVG in case mime type in incorrect
+			content.Content.Seek(0, io.SeekStart)
 			img, errSvg = NewSVGImage(content.Content, url, fetcher)
 			if errSvg != nil {
-				return nil, errRaster
+				return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errRaster)
 			}
 		} else {
 			img = NewRasterImage(parsedImage, optimizeSize)
@@ -427,13 +420,9 @@ func newGradient(colorStops []pr.ColorStop, repeating bool) gradient {
 	return self
 }
 
-func (g gradient) GetIntrinsicSize(_, _ pr.Value) (pr.MaybeFloat, pr.MaybeFloat) {
+func (g gradient) GetIntrinsicSize(_, _ pr.Value) (pr.MaybeFloat, pr.MaybeFloat, pr.MaybeFloat) {
 	// Gradients are not affected by image resolution, parent or font size.
-	return nil, nil
-}
-
-func (g gradient) IntrinsicRatio() pr.MaybeFloat {
-	return nil
+	return nil, nil, nil
 }
 
 func (g gradient) Draw(dst backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {

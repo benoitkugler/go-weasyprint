@@ -1,10 +1,26 @@
 package utils
 
 import (
+	"io/ioutil"
 	"net/url"
 	"reflect"
 	"testing"
 )
+
+func TestURLFetcher(t *testing.T) {
+	u := url.PathEscape("<svg width='4' height='4'></svg>")
+	content, err := DefaultUrlFetcher("data:image/svg+xml," + u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ioutil.ReadAll(content.Content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "<svg width='4' height='4'></svg>" {
+		t.Fatalf("unexpected %s", b)
+	}
+}
 
 func TestFetchUrlData(t *testing.T) {
 	testData := func(input, expected string) {
@@ -26,6 +42,7 @@ func TestFetchUrlData(t *testing.T) {
 	}
 
 	testData("data:image/svg+xml,<svg></svg>", "<svg></svg>")
+	testData("data:image/svg+xml,<svg width='4' height='4'></svg>", "<svg width='4' height='4'></svg>")
 	testData("data:text/css;charset=ASCII,a%7Bcolor%3AcurrentColor%7D", "a{color:currentColor}")
 	testData(`data:text/css;charset=utf-16le;base64,bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=`, "li{color:red}")
 	testData("data:,ul {border-width: 1000px !important}", "ul {border-width: 1000px !important}")

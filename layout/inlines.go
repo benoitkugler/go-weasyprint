@@ -417,10 +417,10 @@ var replacedBoxWidth = handleMinMaxWidth(replacedBoxWidth_)
 func replacedBoxWidth_(box_ Box, _ *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	box__, ok := box_.(bo.ReplacedBoxITF)
 	if !ok {
-		log.Fatalf("expected ReplacedBox instance, got %s", box_)
+		panic(fmt.Sprintf("expected ReplacedBox instance, got %s", box_))
 	}
 	box := box__.Replaced()
-	intrinsicWidth, intrinsicHeight := box.Replacement.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+	intrinsicWidth, intrinsicHeight, ratio := box.Replacement.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
 
 	// This algorithm simply follows the different points of the specification
 	// http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-width
@@ -428,10 +428,10 @@ func replacedBoxWidth_(box_ Box, _ *layoutContext, containingBlock containingBlo
 		if intrinsicWidth != nil {
 			// Point #1
 			box.Width = intrinsicWidth
-		} else if box.Replacement.IntrinsicRatio() != nil {
+		} else if ratio != nil {
 			if intrinsicHeight != nil {
 				// Point #2 first part
-				box.Width = intrinsicHeight.V() * box.Replacement.IntrinsicRatio().V()
+				box.Width = intrinsicHeight.V() * ratio.V()
 				// Point #3
 				blockLevelWidth(box, nil, containingBlock)
 			}
@@ -439,7 +439,7 @@ func replacedBoxWidth_(box_ Box, _ *layoutContext, containingBlock containingBlo
 	}
 
 	if box.Width == pr.Auto {
-		if ir := box.Replacement.IntrinsicRatio(); ir != nil {
+		if ir := ratio; ir != nil {
 			// Point #2 second part
 			box.Width = box.Height.V() * ir.V()
 		} else if intrinsicWidth != nil {
@@ -466,21 +466,20 @@ func replacedBoxHeight_(box_ Box, _ *layoutContext, _ containingBlock) (bool, pr
 	}
 	box := box__.Replaced()
 	// http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-height
-	_, intrinsicHeight := box.Replacement.GetIntrinsicSize(
+	_, intrinsicHeight, ratio := box.Replacement.GetIntrinsicSize(
 		box.Style.GetImageResolution(), box.Style.GetFontSize())
-	intrinsicRatio := box.Replacement.IntrinsicRatio()
 
 	// Test pr.Auto on the computed width, not the used width
 	if box.Height == pr.Auto && box.Width == pr.Auto {
 		box.Height = intrinsicHeight
-	} else if box.Height == pr.Auto && pr.Is(intrinsicRatio) {
-		box.Height = box.Width.V() / intrinsicRatio.V()
+	} else if box.Height == pr.Auto && pr.Is(ratio) {
+		box.Height = box.Width.V() / ratio.V()
 	}
 
 	if box.Height == pr.Auto && box.Width == pr.Auto && intrinsicHeight != nil {
 		box.Height = intrinsicHeight
-	} else if intrinsicRatio != nil && box.Height == pr.Auto {
-		box.Height = box.Width.V() / intrinsicRatio.V()
+	} else if ratio != nil && box.Height == pr.Auto {
+		box.Height = box.Width.V() / ratio.V()
 	} else if box.Height == pr.Auto && intrinsicHeight != nil {
 		box.Height = intrinsicHeight
 	} else if box.Height == pr.Auto {

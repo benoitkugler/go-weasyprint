@@ -349,7 +349,7 @@ func parseDataURL(url []byte) (dataURI, error) {
 	// split properties and actual encoded data
 	indexSep := bytes.IndexByte(data, ',')
 	if indexSep == -1 {
-		return dataURI{}, errors.New("Data not found in Data URI")
+		return dataURI{}, errors.New("data not found in Data URI")
 	}
 	properties, encodedData := string(data[:indexSep]), data[indexSep+1:]
 

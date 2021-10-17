@@ -1,12 +1,14 @@
 package images
 
 import (
+	"fmt"
 	"log"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
 
+	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/validation"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -15,7 +17,7 @@ var (
 	re2 = regexp.MustCompile("[ \n\r\t,]+")
 	// re3 = regexp.MustCompile(`(\.[0-9-]+)(?=\.)`)
 
-	UNITS = map[string]float64{
+	UNITS = map[string]pr.Float{
 		"mm": 1 / 25.4,
 		"cm": 1 / 2.54,
 		"in": 1,
@@ -39,60 +41,61 @@ type floatOrString struct {
 	f float64
 }
 
-func toFloat(s string, offset int) float64 {
+func toFloat(s string, offset int) (pr.Float, error) {
 	rs := []rune(s)
 	s = string(rs[:len(rs)-offset])
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		log.Fatalf("wrong string for float : %s", s)
+		return 0, fmt.Errorf("wrong string for float : %s", s)
 	}
-	return f
+	return pr.Float(f), nil
 }
 
-// Replace a ``str`` with units by a float value.
-// If ``reference`` is a float, it is used as reference for percentages. If it
-// is ``"x"``, we use the viewport width as reference. If it is ``"y"``, we
-// use the viewport height as reference. If it is ``"xy"``, we use
-// ``(viewportWidth ** 2 + viewportHeight ** 2) ** .5 / 2 ** .5`` as
-// reference.
-// reference="xy"
-func size(surface FakeSurface, str string, reference floatOrString) float64 {
+// Compute size from string, resolving units and percentages.
+func size(str string, fontSize pr.MaybeFloat, reference pr.MaybeFloat) pr.Float {
 	if str == "" {
 		return 0
 	}
 
 	f, err := strconv.ParseFloat(str, 64)
 	if err == nil {
-		return f
+		return pr.Float(f)
 	}
 	// Not a float, try something else
 
-	// No surface (for parsing only)
-	if (surface == FakeSurface{}) {
-		return 0
-	}
-
 	str = strings.SplitN(normalize(str), " ", 2)[0]
 	if strings.HasSuffix(str, "%") {
-		if reference.s == "x" {
-			reference.f = surface.contextWidth
-		} else if reference.s == "y" {
-			reference.f = surface.contextHeight
-		} else if reference.s == "xy" {
-			reference.f = math.Sqrt(math.Pow(surface.contextWidth, 2)+math.Pow(surface.contextHeight, 2)) / math.Sqrt(2)
+		v, err := toFloat(str, 1)
+		if err != nil {
+			log.Println(err)
+			return 0
 		}
-		return toFloat(str, 1) * reference.f / 100
+		return v * reference.V() / 100
 	} else if strings.HasSuffix(str, "em") {
-		return surface.fontSize * toFloat(str, 2)
+		v, err := toFloat(str, 2)
+		if err != nil {
+			log.Println(err)
+			return 0
+		}
+		return fontSize.V() * v
 	} else if strings.HasSuffix(str, "ex") {
 		// Assume that 1em == 2ex
-		return surface.fontSize * toFloat(str, 2) / 2
+		v, err := toFloat(str, 2)
+		if err != nil {
+			log.Println(err)
+			return 0
+		}
+		return fontSize.V() * v / 2
 	}
 
-	for unit, coefficient := range UNITS {
-		if strings.HasSuffix(str, unit) {
-			number := toFloat(str, len([]rune(unit)))
-			return number * surface.dpi * coefficient
+	for suffix, unit := range validation.LENGTHUNITS {
+		if coefficient, has := pr.LengthsToPixels[unit]; has && strings.HasSuffix(str, suffix) {
+			number, err := toFloat(str, len([]rune(suffix)))
+			if err != nil {
+				log.Println(err)
+				return 0
+			}
+			return number * coefficient
 		}
 	}
 
@@ -100,43 +103,21 @@ func size(surface FakeSurface, str string, reference floatOrString) float64 {
 	return 0
 }
 
-// Return ``(width, height, viewbox)`` of ``node``.
-// If ``reference`` is ``true``, we can rely on surface size to resolve
-// percentages.
-// reference=true
-func nodeFormat(surface FakeSurface, node *utils.HTMLNode, reference bool) (float64, float64, []float64) {
-	var refW, refH floatOrString // init at 0
-	if reference {
-		refW.s = "x"
-		refH.s = "y"
-	}
-	widthS := node.Get("width")
-	if widthS == "" {
-		widthS = "100%"
-	}
-	heightS := node.Get("height")
-	if heightS == "" {
-		heightS = "100%"
-	}
-	width := size(surface, widthS, refW)
-	height := size(surface, heightS, refH)
+// Return ``viewbox`` of ``node``.
+func getViewBox(node *utils.HTMLNode) []pr.Float {
 	viewbox := node.Get("viewBox")
-	var viewboxF []float64
-	if viewbox != "" {
-		viewbox = re2.ReplaceAllString(viewbox, " ")
-		for _, position := range strings.Split(viewbox, " ") {
-			f, err := strconv.ParseFloat(position, 64)
-			if err != nil {
-				log.Fatalf("wring string for float %s", position)
-			}
-			viewboxF = append(viewboxF, f)
-		}
-		if width == 0 {
-			width = viewboxF[2]
-		}
-		if height == 0 {
-			height = viewboxF[3]
-		}
+	if viewbox == "" {
+		return nil
 	}
-	return width, height, viewboxF
+
+	var out []pr.Float
+	for _, position := range strings.Split(normalize(viewbox), " ") {
+		f, err := strconv.ParseFloat(position, 64)
+		if err != nil {
+			log.Printf("wrong string for float %s in viewbox", position)
+			return nil
+		}
+		out = append(out, pr.Float(f))
+	}
+	return out
 }

@@ -82,18 +82,18 @@ func LayoutReplacedBox(box_ bo.ReplacedBoxITF) (drawWidth, drawHeight, positionX
 	position := box.Style.GetObjectPosition()
 
 	image := box.Replacement
-	intrinsicWidth, intrinsicHeight := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+	intrinsicWidth, intrinsicHeight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
 	if intrinsicWidth == nil || intrinsicHeight == nil {
-		intrinsicWidth, intrinsicHeight = containConstraintImageSizing(box.Width.V(), box.Height.V(), image.IntrinsicRatio())
+		intrinsicWidth, intrinsicHeight = containConstraintImageSizing(box.Width.V(), box.Height.V(), ratio)
 	}
 
 	if objectFit == "fill" {
 		drawWidth, drawHeight = box.Width.V(), box.Height.V()
 	} else {
 		if objectFit == "contain" || objectFit == "scale-down" {
-			drawWidth, drawHeight = containConstraintImageSizing(box.Width.V(), box.Height.V(), image.IntrinsicRatio())
+			drawWidth, drawHeight = containConstraintImageSizing(box.Width.V(), box.Height.V(), ratio)
 		} else if objectFit == "cover" {
-			drawWidth, drawHeight = coverConstraintImageSizing(box.Width.V(), box.Height.V(), image.IntrinsicRatio())
+			drawWidth, drawHeight = coverConstraintImageSizing(box.Width.V(), box.Height.V(), ratio)
 		} else if objectFit == "none" {
 			drawWidth, drawHeight = intrinsicWidth.V(), intrinsicHeight.V()
 		} else {

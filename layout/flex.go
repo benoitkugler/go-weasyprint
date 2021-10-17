@@ -338,7 +338,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					}
 					newChild.Box().Width = pr.Inf
 					newChild, _ = blockLevelLayout(context, newChild.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
-						parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil, false)
+						parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 					child.FlexBaseSize = newChild.Box().MarginHeight()
 				}
 			} else if styleAxis.String == "min-content" {
@@ -438,7 +438,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	if box.Style.GetFlexWrap() == "wrap-reverse" {
 		reverse(flexLines)
 	}
-	if strings.HasPrefix(string(box.Style.GetFlexDirection()), "-reverse") {
+	if strings.HasSuffix(string(box.Style.GetFlexDirection()), "-reverse") {
 		for _, line := range flexLines {
 			line.reverse()
 		}
@@ -634,7 +634,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 
 			blockLevelWidth(childCopy, nil, parentBox)
 			newChild, tmp := blockLevelLayoutSwitch(context, childCopy.(bo.BlockLevelBoxITF), pr.Inf, childSkipStack,
-				parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, nil, false)
+				parentBox, pageIsEmpty, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 			adjoiningMargins := tmp.adjoiningMargins
 			child.Baseline = pr.Float(0)
 			if bl := findInFlowBaseline(newChild, false); bl != nil {
@@ -877,6 +877,10 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			freeSpace = 0
 		}
 
+		if box.Style.GetDirection() == "rtl" && axis == "width" {
+			freeSpace = -freeSpace
+		}
+
 		if justifyContent == "flex-end" {
 			positionAxis += freeSpace
 		} else if justifyContent == "center" {
@@ -894,14 +898,21 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				if justifyContent == "stretch" {
 					child.Width = child.Width.V() + freeSpace/pr.Float(len(line.line))
 				}
+
 			} else {
 				child.PositionY = positionAxis
 			}
+
 			if axis == "width" {
-				positionAxis += child.MarginWidth()
+				if box.Style.GetDirection() == "rtl" {
+					positionAxis += -child.MarginWidth()
+				} else {
+					positionAxis += child.MarginWidth()
+				}
 			} else {
 				positionAxis += child.MarginHeight()
 			}
+
 			if justifyContent == "space-around" {
 				positionAxis += freeSpace / pr.Float(len(line.line))
 			} else if justifyContent == "space-between" {
@@ -1114,7 +1125,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 			i, child := v.index, v.box.Box()
 			if child.IsFlexItem {
 				newChild, tmp := blockLevelLayoutSwitch(context, v.box.(bo.BlockLevelBoxITF), maxPositionY, childSkipStack, box,
-					pageIsEmpty, absoluteBoxes, fixedBoxes, nil, false)
+					pageIsEmpty, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 				childResumeAt := tmp.resumeAt
 				if newChild == nil {
 					if resumeAt != nil && resumeAt.Value != 0 {
