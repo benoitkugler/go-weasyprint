@@ -330,13 +330,19 @@ func backgroundImage(computer *ComputedStyle, name string, _value pr.CssProperty
 	for i, image := range value {
 		switch gradient := image.(type) {
 		case pr.LinearGradient:
-			for j, pos := range gradient.ColorStops {
-				gradient.ColorStops[j].Position = length2(computer, name, pr.Value{Dimension: pos.Position}, -1, false).Dimension
+			for j, cl := range gradient.ColorStops {
+				if !cl.Position.IsNone() {
+					cl.Position = length2(computer, name, pr.Value{Dimension: cl.Position}, -1, false).Dimension
+					gradient.ColorStops[j] = cl
+				}
 			}
 			image = gradient
 		case pr.RadialGradient:
-			for j, pos := range gradient.ColorStops {
-				gradient.ColorStops[j].Position = length2(computer, name, pr.Value{Dimension: pos.Position}, -1, false).Dimension
+			for j, cl := range gradient.ColorStops {
+				if !cl.Position.IsNone() {
+					cl.Position = length2(computer, name, pr.Value{Dimension: cl.Position}, -1, false).Dimension
+					gradient.ColorStops[j] = cl
+				}
 			}
 			gradient.Center = _backgroundPosition(computer, name, []pr.Center{gradient.Center})[0]
 			if gradient.Size.IsExplicit() {

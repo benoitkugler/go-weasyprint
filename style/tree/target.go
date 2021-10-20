@@ -27,6 +27,7 @@ type RemakeState struct {
 	ContentChanged, PagesWanted bool
 }
 
+// IntList is a link list of int
 type IntList struct {
 	Next  *IntList
 	Value int

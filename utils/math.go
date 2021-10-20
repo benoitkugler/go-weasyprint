@@ -50,8 +50,14 @@ func ModLikePython(d, m int) int {
 
 // FloatModulo implements Python modulo for float numbers, like
 //	4.456 % 3
-func FloatModulo(x float64, i int) float64 {
+func FloatModulo(x Fl, i int) Fl {
 	x2 := math.Floor(x)
 	diff := x - x2
 	return float64(ModLikePython(int(x2), i)) + diff
+}
+
+// Round rounds f with 12 digits precision
+func Round(f Fl) Fl {
+	n := math.Pow10(12)
+	return Fl(math.Round(float64(f)*n) / n)
 }

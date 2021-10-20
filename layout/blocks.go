@@ -81,13 +81,8 @@ func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, ma
 		return blockBoxLayout(context, blockBox, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes, adjoiningMargins, discard)
 	} else if isReplacedBox && bo.BlockReplacedBoxT.IsInstance(box_) {
-		box_ = blockReplacedBoxLayout(replacedBox, containingBlock).(bo.BlockLevelBoxITF) // blockReplacedBoxLayout is type stable
-		box := replacedBox.Box()
-		// Don't collide with floats
-		// http://www.w3.org/TR/CSS21/visuren.html#floats
-		box.PositionX, box.PositionY, _ = avoidCollisions(context, replacedBox, containingBlock, false)
-		nextPage := tree.PageBreak{Break: "any"}
-		return box_, blockLayout{resumeAt: nil, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
+		b, v := blockReplacedBoxLayout(context, replacedBox, containingBlock)
+		return b.(bo.BlockLevelBoxITF), v // blockReplacedBoxLayout is type stable
 	} else if bo.FlexBoxT.IsInstance(box_) {
 		box_, layout := flexLayout(context, box_, maxPositionY, skipStack, containingBlock,
 			pageIsEmpty, absoluteBoxes, fixedBoxes)
@@ -143,25 +138,6 @@ func blockReplacedWidth_(box Box, _ *layoutContext, containingBlock containingBl
 	replacedBoxWidth_(box, nil, containingBlock)
 	blockLevelWidth_(box, nil, containingBlock)
 	return false, 0
-}
-
-// Lay out the block :class:`boxes.ReplacedBox` ``box``.
-func blockReplacedBoxLayout(box_ bo.ReplacedBoxITF, containingBlock *bo.BoxFields) bo.ReplacedBoxITF {
-	box_ = box_.Copy().(bo.ReplacedBoxITF) // Copy is type stable
-	box := box_.Box()
-	if box.Style.GetWidth().String == "auto" && box.Style.GetHeight().String == "auto" {
-		computedMarginsL, computedMarginsR := box.MarginLeft, box.MarginRight
-		blockReplacedWidth_(box_, nil, containingBlock)
-		replacedBoxHeight_(box_, nil, nil)
-		minMaxAutoReplaced(box)
-		box.MarginLeft, box.MarginRight = computedMarginsL, computedMarginsR
-		blockLevelWidth_(box_, nil, containingBlock)
-	} else {
-		blockReplacedWidth(box_, nil, containingBlock)
-		replacedBoxHeight(box_, nil, nil)
-	}
-
-	return box_
 }
 
 var blockLevelWidth = handleMinMaxWidth(blockLevelWidth_)

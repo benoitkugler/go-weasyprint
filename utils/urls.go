@@ -54,7 +54,7 @@ func basicUrlJoin(baseUrl string, urls *url.URL) (string, error) {
 func SafeUrljoin(baseUrl, urls string, allowRelative bool) (string, error) {
 	parsed, err := url.Parse(urls)
 	if err != nil {
-		return "", fmt.Errorf("Invalid url : %s", urls)
+		return "", fmt.Errorf("Invalid url : %s (%s)", urls, err)
 	}
 	if parsed.IsAbs() {
 		return parsed.String(), nil
@@ -157,10 +157,10 @@ func Path2url(urlPath string) (out string, err error) {
 //
 // If ``string`` looks like an URL, return it unchanged. Otherwise assume a
 // filename and convert it to a ``file://`` URL.
-func EnsureUrl(urlS string) (string, error) {
+func ensureUrl(urlS string) (string, error) {
 	parsed, err := url.Parse(urlS)
 	if err != nil {
-		return "", fmt.Errorf("Invalid url : %s", urlS)
+		return "", fmt.Errorf("Invalid url : %s (%s)", urlS, err)
 	}
 	if parsed.IsAbs() {
 		return urlS, nil

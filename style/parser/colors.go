@@ -241,8 +241,7 @@ func (c Color) IsNone() bool {
 }
 
 func round(f utils.Fl) myFloat {
-	n := math.Pow10(10)
-	return myFloat(math.Round(float64(f)*n) / n)
+	return myFloat(utils.Round(f))
 }
 
 func (c Color) toJson() jsonisable {

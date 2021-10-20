@@ -99,6 +99,7 @@ func getImage(_token Token, baseUrl string) (pr.Image, error) {
 					return nil, err
 				}
 			}
+			fmt.Println(parsedColorsStop)
 			return pr.LinearGradient{
 				Direction:  direction,
 				Repeating:  name == "repeating-linear-gradient",
@@ -250,6 +251,9 @@ func parseColorStop(tokens []Token) (pr.ColorStop, error) {
 	switch len(tokens) {
 	case 1:
 		color := parser.ParseColor(tokens[0])
+		if color.Type == parser.ColorCurrentColor {
+			return pr.ColorStop{Color: pr.Color(parser.ParseColor2("black"))}, nil
+		}
 		if !color.IsNone() {
 			return pr.ColorStop{Color: pr.Color(color)}, nil
 		}

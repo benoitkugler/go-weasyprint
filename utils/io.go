@@ -58,7 +58,7 @@ func FetchSource(input ContentInput, baseUrl string, urlFetcher UrlFetcher,
 	checkCssMimeType bool) (out Source, err error) {
 
 	if baseUrl != "" {
-		baseUrl, err = EnsureUrl(baseUrl)
+		baseUrl, err = ensureUrl(baseUrl)
 		if err != nil {
 			return
 		}

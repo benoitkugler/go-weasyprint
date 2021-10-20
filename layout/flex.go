@@ -204,7 +204,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	if bo.FlexBoxT.IsInstance(parentBox_) {
 		blockLevelWidth(parentBox_, nil, containingBlock)
 	} else {
-		parentBox.Width = flexMaxContentWidth(context, parentBox, true)
+		parentBox.Width = flexMaxContentWidth(context, parentBox_, true)
 	}
 	originalSkipStack := skipStack
 	if skipStack != nil {

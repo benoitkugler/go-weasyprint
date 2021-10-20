@@ -57,10 +57,10 @@ type Font struct {
 
 type GradientInit struct {
 	// Kind is either:
-	// 	"solid": init is (r, g, b, a). positions and colors are empty.
-	// 	"linear": init is (x0, y0, x1, y1)
+	// 	"solid": Colors is then a one element array and Positions and Data are empty.
+	// 	"linear": Data is (x0, y0, x1, y1)
 	// 			  coordinates of the starting and ending points.
-	// 	"radial": init is (cx0, cy0, radius0, cx1, cy1, radius1)
+	// 	"radial": Data is (cx0, cy0, radius0, cx1, cy1, radius1)
 	// 			  coordinates of the starting end ending circles
 	Kind string
 	Data [6]utils.Fl

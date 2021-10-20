@@ -219,16 +219,39 @@ func (SVGImage) Draw(context backend.OutputPage, concreteWidth, concreteHeight f
 	//         }
 }
 
+// Cache stores the result of fetching an image, or any error encoutered
+type Cache struct {
+	images map[string]Image
+	errors map[string]error
+}
+
+func NewCache() Cache {
+	return Cache{
+		images: make(map[string]Image),
+		errors: make(map[string]error),
+	}
+}
+
 // Get a cairo Pattern from an image URI.
-func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
-	img, in := cache[url]
+func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
+	img, in := cache.images[url]
 	if in {
 		return img, nil
 	}
+	if err, in := cache.errors[url]; in {
+		return nil, err
+	}
+
+	var err error
+	defer func() {
+		cache.images[url] = img
+		cache.errors[url] = err
+	}()
 
 	content, err := fetcher(url)
 	if err != nil {
-		return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
+		err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
+		return nil, err
 	}
 
 	mimeType := forcedMimeType
@@ -251,24 +274,24 @@ func GetImageFromUri(cache map[string]Image, fetcher utils.UrlFetcher, optimizeS
 		content.Content.Seek(0, io.SeekStart)
 		parsedImage, _, errRaster := image.Decode(content.Content)
 		if errRaster != nil {
-			// Tried SVGImage then raster for a SVG, abort
-			if errSvg != nil {
-				return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errSvg)
+			if errSvg != nil { // Tried SVGImage then raster for a SVG, abort
+				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errSvg)
+				return nil, err
 			}
 
 			// Last chance, try SVG in case mime type in incorrect
 			content.Content.Seek(0, io.SeekStart)
 			img, errSvg = NewSVGImage(content.Content, url, fetcher)
 			if errSvg != nil {
-				return nil, fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errRaster)
+				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errRaster)
+				return nil, err
 			}
 		} else {
 			img = NewRasterImage(parsedImage, optimizeSize)
 		}
 	}
 
-	cache[url] = img
-	return img, nil
+	return img, err
 }
 
 // Gradient line size: distance between the starting point and ending point.
@@ -341,9 +364,10 @@ func normalizeStopPostions(positions []pr.Fl) (pr.Fl, pr.Fl) {
 
 // http://dev.w3.org/csswg/css-images-3/#find-the-average-color-of-a-gradient
 func gradientAverageColor(colors []Color, positions []pr.Fl) Color {
+	fmt.Println(colors, positions)
 	nbStops := len(positions)
 	if nbStops <= 1 || nbStops != len(colors) {
-		log.Fatalf("expected same length, at least 2, got %d, %d", nbStops, len(colors))
+		panic(fmt.Sprintf("expected same length, at least 2, got %d, %d", nbStops, len(colors)))
 	}
 	totalLength := positions[nbStops-1] - positions[0]
 	if totalLength == 0 {
@@ -364,15 +388,19 @@ func gradientAverageColor(colors []Color, positions []pr.Fl) Color {
 	}
 	var resultR, resultG, resultB, resultA utils.Fl
 	totalWeight := 2 * totalLength
-	for i, position := range positions[1:] {
-		i = i + 1
+	for i_, position := range positions[1:] {
+		i := i_ + 1
 		weight := utils.Fl((position - positions[i-1]) / totalWeight)
-		for j := i - 1; j < i; j += 1 {
-			resultR += premulR[j] * weight
-			resultG += premulG[j] * weight
-			resultB += premulB[j] * weight
-			resultA += alpha[j] * weight
-		}
+		j := i - 1
+		resultR += premulR[j] * weight
+		resultG += premulG[j] * weight
+		resultB += premulB[j] * weight
+		resultA += alpha[j] * weight
+		j = i
+		resultR += premulR[j] * weight
+		resultG += premulG[j] * weight
+		resultB += premulB[j] * weight
+		resultA += alpha[j] * weight
 	}
 	// Un-premultiply:
 	if resultA != 0 {
@@ -394,7 +422,7 @@ var patternsT = map[string]int{
 
 type layouter interface {
 	// width, height: Gradient box. Top-left is at coordinates (0, 0).
-	layout(width, height pr.Float) backend.GradientLayout
+	Layout(width, height pr.Float) backend.GradientLayout
 }
 
 type gradient struct {
@@ -426,7 +454,7 @@ func (g gradient) GetIntrinsicSize(_, _ pr.Value) (pr.MaybeFloat, pr.MaybeFloat,
 }
 
 func (g gradient) Draw(dst backend.OutputPage, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
-	layout := g.layouter.layout(pr.Float(concreteWidth), pr.Float(concreteHeight))
+	layout := g.layouter.Layout(pr.Float(concreteWidth), pr.Float(concreteHeight))
 
 	if layout.Kind == "solid" {
 		dst.Rectangle(0, 0, concreteWidth, concreteHeight)
@@ -446,6 +474,7 @@ type LinearGradient struct {
 func (LinearGradient) isImage() {}
 
 func NewLinearGradient(from pr.LinearGradient) LinearGradient {
+	fmt.Println(from.ColorStops)
 	self := LinearGradient{gradient: newGradient(from.ColorStops, from.Repeating)}
 	self.layouter = self
 	// ("corner", keyword) or ("angle", radians)
@@ -475,9 +504,10 @@ func reverseFloats(a []pr.Fl) []pr.Fl {
 	return out
 }
 
-func (self LinearGradient) layout(width, height pr.Float) backend.GradientLayout {
+func (self LinearGradient) Layout(width, height pr.Float) backend.GradientLayout {
+	// Only one color, render the gradient as a solid color
 	if len(self.colors) == 1 {
-		return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid", Data: toData(self.colors[0])}}
+		return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid"}, Colors: []parser.RGBA{self.colors[0]}}
 	}
 	// (dx, dy) is the unit vector giving the direction of the gradient.
 	// Positive dx: right, positive dy: down.
@@ -504,6 +534,11 @@ func (self LinearGradient) layout(width, height pr.Float) backend.GradientLayout
 		dx = pr.Fl(math.Sin(angle))
 		dy = pr.Fl(-math.Cos(angle))
 	}
+
+	// Round dx and dy to avoid floating points errors caused by
+	// trigonometry and angle units conversions
+	dx, dy = utils.Round(dx), utils.Round(dy)
+
 	// Distance between center && ending point,
 	// ie. half of between the starting point && ending point :
 	colors := self.colors
@@ -522,13 +557,12 @@ func (self LinearGradient) layout(width, height pr.Float) backend.GradientLayout
 		}
 	}
 	first, last := normalizeStopPostions(positions)
-
 	if self.repeating {
 		// Render as a solid color if the first and last positions are equal
 		// See https://drafts.csswg.org/css-images-3/#repeating-gradients
 		if first == last {
 			color := gradientAverageColor(colors, positions)
-			return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid", Data: toData(color)}}
+			return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid"}, Colors: []parser.RGBA{color}}
 		}
 
 		// Define defined gradient length and steps between positions
@@ -551,7 +585,6 @@ func (self LinearGradient) layout(width, height pr.Float) backend.GradientLayout
 			colors = append(colors, nextColors[i%len(nextColors)])
 			positions = append(positions, positions[len(positions)-1]+step)
 			last += step * stopLength
-
 		}
 
 		// Add colors before last step
@@ -609,9 +642,9 @@ func handleDegenerateRadial(sizeX, sizeY pr.Float) (pr.Float, pr.Float) {
 	return sizeX, sizeY
 }
 
-func (self RadialGradient) layout(width, height pr.Float) backend.GradientLayout {
+func (self RadialGradient) Layout(width, height pr.Float) backend.GradientLayout {
 	if len(self.colors) == 1 {
-		return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid", Data: toData(self.colors[0])}}
+		return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid"}, Colors: []parser.RGBA{self.colors[0]}}
 	}
 	originX, centerX_, originY, centerY_ := self.center.OriginX, self.center.Pos[0], self.center.OriginY, self.center.Pos[1]
 	centerX := pr.ResoudPercentage(centerX_.ToValue(), width).V()
@@ -657,7 +690,7 @@ func (self RadialGradient) layout(width, height pr.Float) backend.GradientLayout
 			if positions[len(positions)-1] <= 0 {
 				// All stops are negatives,
 				// everything is "padded" with the last color.
-				return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid", Data: toData(self.colors[len(self.colors)-1])}}
+				return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid"}, Colors: []parser.RGBA{self.colors[len(self.colors)-1]}}
 			}
 
 			for i, position := range positions {
@@ -693,7 +726,7 @@ func (self RadialGradient) layout(width, height pr.Float) backend.GradientLayout
 	// See https://drafts.csswg.org/css-images-3/#repeating-gradients
 	if first == last && self.repeating {
 		color := gradientAverageColor(colors, positions)
-		return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid", Data: toData(color)}}
+		return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "solid"}, Colors: []parser.RGBA{color}}
 	}
 
 	// Define the coordinates of the gradient circles

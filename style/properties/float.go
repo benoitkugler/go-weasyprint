@@ -100,7 +100,12 @@ func Hypot(a, b Float) Float {
 	return Float(math.Hypot(float64(a), float64(b)))
 }
 
-func Abs(x Float) Float { return Float(math.Abs(float64(x))) }
+func Abs(x Float) Float {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
 
 // Return the percentage of the reference value, or the value unchanged.
 // ``referTo`` is the length for 100%. If ``referTo`` is not a number, it
