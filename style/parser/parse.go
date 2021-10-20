@@ -56,10 +56,10 @@ func ParseOneComponentValue(input []Token) Token {
 	first := nextSignificant(tokens)
 	second := nextSignificant(tokens)
 	if first == nil {
-		return ParseError{Origine: newOr(1, 1), Kind: "empty", Message: "Input is empty"}
+		return ParseError{position: newPosition(1, 1), Kind: "empty", Message: "Input is empty"}
 	}
 	if second != nil {
-		return ParseError{Origine: second.Position(), Kind: "extra-input", Message: "Got more than one token"}
+		return ParseError{position: second.Position(), Kind: "extra-input", Message: "Got more than one token"}
 	}
 	return first
 }
@@ -67,7 +67,7 @@ func ParseOneComponentValue(input []Token) Token {
 // If `skipComments`,  ignore all CSS comments.
 //   skipComments = false
 func ParseOneComponentValue2(css string, skipComments bool) Token {
-	l := ParseComponentValueList(css, skipComments)
+	l := parseComponentValueList(css, skipComments)
 	return ParseOneComponentValue(l)
 }
 
@@ -79,7 +79,7 @@ func ParseOneDeclaration(input []Token) Token {
 	tokens := NewTokenIterator(input)
 	firstToken := nextSignificant(tokens)
 	if firstToken == nil {
-		return ParseError{Origine: newOr(1, 1), Kind: "empty", Message: "Input is empty"}
+		return ParseError{position: newPosition(1, 1), Kind: "empty", Message: "Input is empty"}
 	}
 	return parseDeclaration(firstToken, tokens)
 }
@@ -87,7 +87,7 @@ func ParseOneDeclaration(input []Token) Token {
 //     If  `skipComments`, ignore all CSS comments.
 // skipComments=false
 func ParseOneDeclaration2(css string, skipComments bool) Token {
-	l := ParseComponentValueList(css, skipComments)
+	l := parseComponentValueList(css, skipComments)
 	return ParseOneDeclaration(l)
 }
 
@@ -99,25 +99,25 @@ func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 	name, ok := firstToken.(IdentToken)
 	if !ok {
 		return ParseError{
-			Origine: name.Origine,
-			Kind:    "invalid",
-			Message: fmt.Sprintf("Expected <ident> for declaration name, got %s.", firstToken.Type()),
+			position: name.position,
+			Kind:     "invalid",
+			Message:  fmt.Sprintf("Expected <ident> for declaration name, got %s.", firstToken.Type()),
 		}
 	}
 	colon := nextSignificant(tokens)
 	if colon == nil {
 		return ParseError{
-			Origine: name.Origine,
-			Kind:    "invalid",
-			Message: "Expected ':' after declaration name, got EOF",
+			position: name.position,
+			Kind:     "invalid",
+			Message:  "Expected ':' after declaration name, got EOF",
 		}
 	}
 
 	if lit, ok := colon.(LiteralToken); !ok || lit.Value != ":" {
 		return ParseError{
-			Origine: colon.Position(),
-			Kind:    "invalid",
-			Message: fmt.Sprintf("Expected ':' after declaration name, got %s.", colon.Type()),
+			position: colon.Position(),
+			Kind:     "invalid",
+			Message:  fmt.Sprintf("Expected ':' after declaration name, got %s.", colon.Type()),
 		}
 	}
 
@@ -152,7 +152,7 @@ func parseDeclaration(firstToken Token, tokens *tokenIterator) Token {
 	}
 
 	return Declaration{
-		Origine:   name.Origine,
+		position:  name.position,
 		Name:      name.Value,
 		Value:     value,
 		Important: state == "important",
@@ -212,7 +212,7 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 
 // skipComments = false, skipWhitespace = false
 func ParseDeclarationList2(css string, skipComments, skipWhitespace bool) []Token {
-	l := ParseComponentValueList(css, skipComments)
+	l := parseComponentValueList(css, skipComments)
 	return ParseDeclarationList(l, skipComments, skipWhitespace)
 }
 
@@ -225,14 +225,14 @@ func ParseOneRule(input []Token) Token {
 	tokens := NewTokenIterator(input)
 	first := nextSignificant(tokens)
 	if first == nil {
-		return ParseError{Origine: newOr(1, 1), Kind: "empty", Message: "Input is empty"}
+		return ParseError{position: newPosition(1, 1), Kind: "empty", Message: "Input is empty"}
 	}
 
 	rule := consumeRule(first, tokens)
 	next := nextSignificant(tokens)
 	if next != nil {
 		return ParseError{
-			Origine: next.Position(), Kind: "extra-input",
+			position: next.Position(), Kind: "extra-input",
 			Message: fmt.Sprintf("Expected a single rule, got %s after the first rule.", next.Type()),
 		}
 	}
@@ -242,7 +242,7 @@ func ParseOneRule(input []Token) Token {
 //     If `skipComments`, ignore all CSS comments.
 //     skipComments=false
 func ParseOneRule2(css string, skipComments bool) Token {
-	l := ParseComponentValueList(css, skipComments)
+	l := parseComponentValueList(css, skipComments)
 	return ParseOneRule(l)
 }
 
@@ -283,7 +283,7 @@ func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 
 // skipComments=false, skipWhitespace=false
 func ParseRuleList2(css string, skipComments, skipWhitespace bool) []Token {
-	l := ParseComponentValueList(css, skipComments)
+	l := parseComponentValueList(css, skipComments)
 	return ParseRuleList(l, skipComments, skipWhitespace)
 }
 
@@ -325,7 +325,7 @@ func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 }
 
 func ParseStylesheet2(input []byte, skipComments, skipWhitespace bool) []Token {
-	l := ParseComponentValueList(string(input), skipComments)
+	l := parseComponentValueList(string(input), skipComments)
 	return ParseStylesheet(l, skipComments, skipWhitespace)
 }
 
@@ -357,16 +357,16 @@ func consumeRule(_firstToken Token, tokens *tokenIterator) Token {
 		}
 		if !hasBroken {
 			return ParseError{
-				Origine: prelude[len(prelude)-1].Position(),
-				Kind:    "invalid",
-				Message: "EOF reached before {} block for a qualified rule.",
+				position: prelude[len(prelude)-1].Position(),
+				Kind:     "invalid",
+				Message:  "EOF reached before {} block for a qualified rule.",
 			}
 		}
 	}
 	return QualifiedRule{
-		Origine: _firstToken.Position(),
-		Content: block.Content,
-		Prelude: &prelude,
+		position: _firstToken.Position(),
+		Content:  block.Content,
+		Prelude:  &prelude,
 	}
 }
 
@@ -394,9 +394,9 @@ func consumeAtRule(atKeyword AtKeywordToken, tokens *tokenIterator) AtRule {
 	return AtRule{
 		AtKeyword: atKeyword.Value,
 		QualifiedRule: QualifiedRule{
-			Origine: atKeyword.Origine,
-			Prelude: &prelude,
-			Content: content,
+			position: atKeyword.position,
+			Prelude:  &prelude,
+			Content:  content,
 		},
 	}
 }

@@ -2,41 +2,41 @@ package parser
 
 import (
 	"encoding/json"
+	"io"
 
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 const (
-	QualifiedRuleT       tokenType = "qualified-rule"
-	AtRuleT              tokenType = "at-rule"
-	DeclarationT         tokenType = "declaration"
-	ParseErrorT          tokenType = "error"
-	CommentT             tokenType = "comment"
-	WhitespaceTokenT     tokenType = "whitespace"
-	LiteralTokenT        tokenType = "literal"
-	IdentTokenT          tokenType = "ident"
-	AtKeywordTokenT      tokenType = "at-keyword"
-	HashTokenT           tokenType = "hash"
-	StringTokenT         tokenType = "string"
-	URLTokenT            tokenType = "url"
-	UnicodeRangeTokenT   tokenType = "unicode-range"
-	NumberTokenT         tokenType = "number"
-	PercentageTokenT     tokenType = "percentage"
-	DimensionTokenT      tokenType = "dimension"
-	ParenthesesBlockT    tokenType = "() block"
-	SquareBracketsBlockT tokenType = "[] block"
-	CurlyBracketsBlockT  tokenType = "{} block"
-	FunctionBlockT       tokenType = "function"
+	QualifiedRuleT       TokenType = "qualified-rule"
+	AtRuleT              TokenType = "at-rule"
+	DeclarationT         TokenType = "declaration"
+	ParseErrorT          TokenType = "error"
+	CommentT             TokenType = "comment"
+	WhitespaceTokenT     TokenType = "whitespace"
+	LiteralTokenT        TokenType = "literal"
+	IdentTokenT          TokenType = "ident"
+	AtKeywordTokenT      TokenType = "at-keyword"
+	HashTokenT           TokenType = "hash"
+	StringTokenT         TokenType = "string"
+	URLTokenT            TokenType = "url"
+	UnicodeRangeTokenT   TokenType = "unicode-range"
+	NumberTokenT         TokenType = "number"
+	PercentageTokenT     TokenType = "percentage"
+	DimensionTokenT      TokenType = "dimension"
+	ParenthesesBlockT    TokenType = "() block"
+	SquareBracketsBlockT TokenType = "[] block"
+	CurlyBracketsBlockT  TokenType = "{} block"
+	FunctionBlockT       TokenType = "function"
 )
 
-type tokenType string
+type TokenType string
 
 type Token interface {
 	jsonisable
-	isToken()
-	Position() Origine
-	Type() tokenType
-	serializeTo(write func(s string))
+	Position() position
+	Type() TokenType
+	serializeTo(io.StringWriter)
 }
 
 type jsonisable interface {
@@ -51,42 +51,37 @@ func (s LowerableString) Lower() string {
 	return utils.AsciiLower(string(s))
 }
 
-type Origine struct {
+type position struct {
 	Line, Column int
 }
 
-func newOr(line, column int) Origine {
-	return Origine{Line: line, Column: column}
+func newPosition(line, column int) position {
+	return position{Line: line, Column: column}
 }
 
-// guards type
-func (n Origine) isToken() {}
-
-func (n Origine) Position() Origine {
-	return n
-}
+func (n position) Position() position { return n }
 
 // shared tokens
 type stringToken struct {
 	Value string
-	Origine
+	position
 }
 
 type bracketsBlock struct {
 	Content *[]Token
-	Origine
+	position
 }
 
 type numericToken struct {
 	Representation string
-	Origine
+	position
 	Value     float64
 	IsInteger bool
 }
 
 type QualifiedRule struct {
 	Prelude, Content *[]Token
-	Origine
+	position
 }
 
 type AtRule struct {
@@ -97,14 +92,14 @@ type AtRule struct {
 type Declaration struct {
 	Name  LowerableString
 	Value []Token
-	Origine
+	position
 	Important bool
 }
 
 type ParseError struct {
 	Kind    string
 	Message string
-	Origine
+	position
 }
 
 type (
@@ -113,26 +108,41 @@ type (
 	LiteralToken    stringToken
 	IdentToken      struct {
 		Value LowerableString
-		Origine
+		position
 	}
 )
 
 type AtKeywordToken struct {
 	Value LowerableString
-	Origine
+	position
 }
 
 type HashToken struct {
 	Value string
-	Origine
+	position
 	IsIdentifier bool
 }
 
+type StringToken struct {
+	Value string
+	position
+	isError bool
+}
+
+const (
+	errorInString = iota + 1
+	errorInURL
+)
+
+type URLToken struct {
+	Value string
+	position
+	isError uint8
+}
+
 type (
-	StringToken       stringToken
-	URLToken          stringToken
 	UnicodeRangeToken struct {
-		Origine
+		position
 		Start, End uint32
 	}
 )
@@ -153,32 +163,32 @@ type (
 	FunctionBlock       struct {
 		Arguments *[]Token
 		Name      LowerableString
-		Origine
+		position
 	}
 )
 
 // ----------- boilerplate code for token type -------------------------------------
 
-func (t QualifiedRule) Type() tokenType       { return QualifiedRuleT }
-func (t AtRule) Type() tokenType              { return AtRuleT }
-func (t Declaration) Type() tokenType         { return DeclarationT }
-func (t ParseError) Type() tokenType          { return ParseErrorT }
-func (t Comment) Type() tokenType             { return CommentT }
-func (t WhitespaceToken) Type() tokenType     { return WhitespaceTokenT }
-func (t LiteralToken) Type() tokenType        { return LiteralTokenT }
-func (t IdentToken) Type() tokenType          { return IdentTokenT }
-func (t AtKeywordToken) Type() tokenType      { return AtKeywordTokenT }
-func (t HashToken) Type() tokenType           { return HashTokenT }
-func (t StringToken) Type() tokenType         { return StringTokenT }
-func (t URLToken) Type() tokenType            { return URLTokenT }
-func (t UnicodeRangeToken) Type() tokenType   { return UnicodeRangeTokenT }
-func (t NumberToken) Type() tokenType         { return NumberTokenT }
-func (t PercentageToken) Type() tokenType     { return PercentageTokenT }
-func (t DimensionToken) Type() tokenType      { return DimensionTokenT }
-func (t ParenthesesBlock) Type() tokenType    { return ParenthesesBlockT }
-func (t SquareBracketsBlock) Type() tokenType { return SquareBracketsBlockT }
-func (t CurlyBracketsBlock) Type() tokenType  { return CurlyBracketsBlockT }
-func (t FunctionBlock) Type() tokenType       { return FunctionBlockT }
+func (t QualifiedRule) Type() TokenType       { return QualifiedRuleT }
+func (t AtRule) Type() TokenType              { return AtRuleT }
+func (t Declaration) Type() TokenType         { return DeclarationT }
+func (t ParseError) Type() TokenType          { return ParseErrorT }
+func (t Comment) Type() TokenType             { return CommentT }
+func (t WhitespaceToken) Type() TokenType     { return WhitespaceTokenT }
+func (t LiteralToken) Type() TokenType        { return LiteralTokenT }
+func (t IdentToken) Type() TokenType          { return IdentTokenT }
+func (t AtKeywordToken) Type() TokenType      { return AtKeywordTokenT }
+func (t HashToken) Type() TokenType           { return HashTokenT }
+func (t StringToken) Type() TokenType         { return StringTokenT }
+func (t URLToken) Type() TokenType            { return URLTokenT }
+func (t UnicodeRangeToken) Type() TokenType   { return UnicodeRangeTokenT }
+func (t NumberToken) Type() TokenType         { return NumberTokenT }
+func (t PercentageToken) Type() TokenType     { return PercentageTokenT }
+func (t DimensionToken) Type() TokenType      { return DimensionTokenT }
+func (t ParenthesesBlock) Type() TokenType    { return ParenthesesBlockT }
+func (t SquareBracketsBlock) Type() TokenType { return SquareBracketsBlockT }
+func (t CurlyBracketsBlock) Type() TokenType  { return CurlyBracketsBlockT }
+func (t FunctionBlock) Type() TokenType       { return FunctionBlockT }
 
 // ---------------------------------- Methods ----------------------------------
 

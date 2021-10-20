@@ -8,15 +8,15 @@ import (
 func TestSerialization(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
 	runTest(t, inputs, resJson, func(css string) []Token {
-		parsed := ParseComponentValueList(css, true)
-		return ParseComponentValueList(Serialize(parsed), true)
+		parsed := parseComponentValueList(css, true)
+		return parseComponentValueList(Serialize(parsed), true)
 	})
 }
 
 func TestIdentifiers(t *testing.T) {
 	source := "\fezeze"
-	ref := ParseComponentValueList(source, false)
-	resToTest := ParseComponentValueList(Serialize(ref), false)
+	ref := parseComponentValueList(source, false)
+	resToTest := parseComponentValueList(Serialize(ref), false)
 	res, err := marshalJSON(resToTest)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestSkip(t *testing.T) {
     `
 	noWs := ParseStylesheet2([]byte(source), false, true)
 	noComment := ParseStylesheet2([]byte(source), true, false)
-	default_ := ParseComponentValueList(source, false)
+	default_ := parseComponentValueList(source, false)
 	if Serialize(noWs) == source {
 		t.Fail()
 	}
@@ -56,7 +56,7 @@ func TestSkip(t *testing.T) {
 
 func TestCommentEof(t *testing.T) {
 	source := "/* foo "
-	parsed := ParseComponentValueList(source, false)
+	parsed := parseComponentValueList(source, false)
 	if Serialize(parsed) != "/* foo */" {
 		t.Fail()
 	}
@@ -92,7 +92,7 @@ func TestSerializeDeclarations(t *testing.T) {
 
 func TestBackslashDelim(t *testing.T) {
 	source := "\\\nfoo"
-	tokens := ParseComponentValueList(source, false)
+	tokens := parseComponentValueList(source, false)
 	if len(tokens) != 3 {
 		t.Fatalf("bad token length : expected 3 got %d", len(tokens))
 	}
@@ -112,10 +112,10 @@ func TestBackslashDelim(t *testing.T) {
 func TestDataurl(t *testing.T) {
 	input := `@import "data:text/css;charset=utf-16le;base64,\
 				bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=";`
-	fmt.Println(Serialize(ParseComponentValueList(input, true)))
+	fmt.Println(Serialize(parseComponentValueList(input, true)))
 }
 
 func TestDebug(t *testing.T) {
-	ls := ParseComponentValueList(`.foo\:bar`, false)
+	ls := parseComponentValueList(`.foo\:bar`, false)
 	fmt.Println(Serialize(ls))
 }

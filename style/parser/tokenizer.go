@@ -27,7 +27,7 @@ type nestedBlock struct {
 // the return values (and recursively its blocks and functions)
 // will not contain any `Comment` object.
 // skipComments = false
-func ParseComponentValueList(css string, skipComments bool) []Token {
+func parseComponentValueList(css string, skipComments bool) []Token {
 	// This turns out to be faster than a regexp:
 	css = strings.ReplaceAll(css, "\u0000", "\uFFFD")
 	css = strings.ReplaceAll(css, "\r\n", "\n")
@@ -53,7 +53,7 @@ mainLoop:
 		}
 		// First character in a line is in column 1.
 		column := pos - lastNewline
-		tokenPos := newOr(line, column)
+		tokenPos := newPosition(line, column)
 
 		tokenStartPos = pos
 		c := css[pos]
@@ -68,43 +68,60 @@ mainLoop:
 				}
 			}
 			value := css[tokenStartPos:pos]
-			*ts = append(*ts, WhitespaceToken{Origine: tokenPos, Value: value})
+			*ts = append(*ts, WhitespaceToken{position: tokenPos, Value: value})
 			continue
 		case 'U', 'u':
 			if pos+2 < length && css[pos+1] == '+' && strings.ContainsRune("0123456789abcdefABCDEF?", rune(css[pos+2])) {
 				var start, end int64
 				start, end, pos, err = consumeUnicodeRange(css, pos+2)
 				if err != nil {
-					*ts = append(*ts, ParseError{Origine: tokenPos, Kind: "invalid number", Message: err.Error()})
+					*ts = append(*ts, ParseError{position: tokenPos, Kind: "invalid number", Message: err.Error()})
 				} else {
-					*ts = append(*ts, UnicodeRangeToken{Origine: tokenPos, Start: uint32(start), End: uint32(end)})
+					*ts = append(*ts, UnicodeRangeToken{position: tokenPos, Start: uint32(start), End: uint32(end)})
 				}
 				continue
 			}
 		}
 		if strings.HasPrefix(css[pos:], "-->") { // Check before identifiers
-			*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: "-->"})
+			*ts = append(*ts, LiteralToken{position: tokenPos, Value: "-->"})
 			pos += 3
 			continue
 		} else if isIdentStart(css, pos) {
 			var value string
 			value, pos = consumeIdent(css, pos)
 			if !(pos < length && css[pos] == '(') { // Not a function
-				*ts = append(*ts, IdentToken{Origine: tokenPos, Value: LowerableString(value)})
+				*ts = append(*ts, IdentToken{position: tokenPos, Value: LowerableString(value)})
 				continue
 			}
 			pos += 1 // Skip the "("
 			if utils.AsciiLower(value) == "url" {
-				value, pos, err = consumeUrl(css, pos)
-				if err != nil {
-					*ts = append(*ts, ParseError{Origine: tokenPos, Kind: "bad-url", Message: err.Error()})
-				} else {
-					*ts = append(*ts, URLToken{Origine: tokenPos, Value: value})
+				urlPos := pos
+				for urlPos < length && strings.ContainsRune(" \n\t", rune(css[urlPos])) {
+					urlPos += 1
 				}
-				continue
+				if urlPos >= length || (css[urlPos] != '"' && css[urlPos] != '\'') {
+					var addValue bool
+					value, pos, addValue, err = consumeUrl(css, pos)
+					if addValue {
+						var isError uint8
+						if err != nil {
+							switch err.Error() {
+							case "eof-in-string":
+								isError = errorInString
+							case "eof-in-url":
+								isError = errorInURL
+							}
+						}
+						*ts = append(*ts, URLToken{position: tokenPos, Value: value, isError: isError})
+					}
+					if err != nil {
+						*ts = append(*ts, ParseError{position: tokenPos, Kind: err.Error(), Message: err.Error()})
+					}
+					continue
+				}
 			}
 			funcBlock := FunctionBlock{
-				Origine:   tokenPos,
+				position:  tokenPos,
 				Name:      LowerableString(value),
 				Arguments: new([]Token),
 			}
@@ -127,7 +144,7 @@ mainLoop:
 			_, err = strconv.ParseInt(repr, 10, 0)
 			isInt := err == nil
 			n := numericToken{
-				Origine:        tokenPos,
+				position:       tokenPos,
 				Representation: repr,
 				IsInteger:      isInt,
 				Value:          value,
@@ -149,9 +166,9 @@ mainLoop:
 			pos += 1
 			if pos < length && isIdentStart(css, pos) {
 				value, pos = consumeIdent(css, pos)
-				*ts = append(*ts, AtKeywordToken{Origine: tokenPos, Value: LowerableString(value)})
+				*ts = append(*ts, AtKeywordToken{position: tokenPos, Value: LowerableString(value)})
 			} else {
-				*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: "@"})
+				*ts = append(*ts, LiteralToken{position: tokenPos, Value: "@"})
 			}
 		case '#':
 			pos += 1
@@ -162,27 +179,27 @@ mainLoop:
 					(r == '\\' && !strings.HasPrefix(css[pos:], "\\\n")) { // Valid escape
 					isIdentifier := isIdentStart(css, pos)
 					value, pos = consumeIdent(css, pos)
-					*ts = append(*ts, HashToken{Origine: tokenPos, Value: value, IsIdentifier: isIdentifier})
+					*ts = append(*ts, HashToken{position: tokenPos, Value: value, IsIdentifier: isIdentifier})
 					continue
 				}
 			}
-			*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: "#"})
+			*ts = append(*ts, LiteralToken{position: tokenPos, Value: "#"})
 		case '{':
-			brack := CurlyBracketsBlock{Origine: tokenPos, Content: new([]Token)}
+			brack := CurlyBracketsBlock{position: tokenPos, Content: new([]Token)}
 			*ts = append(*ts, brack)
 			stack = append(stack, nestedBlock{tokens: ts, endChar: endChar})
 			endChar = '}'
 			ts = brack.Content
 			pos += 1
 		case '[':
-			brack := SquareBracketsBlock{Origine: tokenPos, Content: new([]Token)}
+			brack := SquareBracketsBlock{position: tokenPos, Content: new([]Token)}
 			*ts = append(*ts, brack)
 			stack = append(stack, nestedBlock{tokens: ts, endChar: endChar})
 			endChar = ']'
 			ts = brack.Content
 			pos += 1
 		case '(':
-			brack := ParenthesesBlock{Origine: tokenPos, Content: new([]Token)}
+			brack := ParenthesesBlock{position: tokenPos, Content: new([]Token)}
 			*ts = append(*ts, brack)
 			stack = append(stack, nestedBlock{tokens: ts, endChar: endChar})
 			endChar = ')'
@@ -196,14 +213,16 @@ mainLoop:
 			ts, endChar = block.tokens, block.endChar
 			pos += 1
 		case '}', ']', ')':
-			*ts = append(*ts, ParseError{Origine: tokenPos, Kind: string(rune(c)), Message: "Unmatched " + string(rune(c))})
+			*ts = append(*ts, ParseError{position: tokenPos, Kind: string(rune(c)), Message: "Unmatched " + string(rune(c))})
 			pos += 1
 		case '\'', '"':
-			value, pos, err = consumeQuotedString(css, pos)
+			var addValue bool
+			value, pos, addValue, err = consumeQuotedString(css, pos)
+			if addValue {
+				*ts = append(*ts, StringToken{position: tokenPos, Value: value, isError: err != nil})
+			}
 			if err != nil {
-				*ts = append(*ts, ParseError{Origine: tokenPos, Kind: "bad-string", Message: "bad string token"})
-			} else {
-				*ts = append(*ts, StringToken{Origine: tokenPos, Value: value})
+				*ts = append(*ts, ParseError{position: tokenPos, Kind: err.Error(), Message: "bad string token"})
 			}
 		default:
 			switch {
@@ -212,32 +231,32 @@ mainLoop:
 				pos += 2 + index
 				if index == -1 {
 					if !skipComments {
-						*ts = append(*ts, Comment{Origine: tokenPos, Value: css[tokenStartPos+2:]})
+						*ts = append(*ts, Comment{position: tokenPos, Value: css[tokenStartPos+2:]})
 					}
 					break mainLoop
 				}
 				if !skipComments {
-					*ts = append(*ts, Comment{Origine: tokenPos, Value: css[tokenStartPos+2 : pos]})
+					*ts = append(*ts, Comment{position: tokenPos, Value: css[tokenStartPos+2 : pos]})
 				}
 				pos += 2
 			case strings.HasPrefix(css[pos:], "<!--"):
-				*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: "<!--"})
+				*ts = append(*ts, LiteralToken{position: tokenPos, Value: "<!--"})
 				pos += 4
 			case strings.HasPrefix(css[pos:], "||"):
-				*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: "||"})
+				*ts = append(*ts, LiteralToken{position: tokenPos, Value: "||"})
 				pos += 2
 			case strings.ContainsRune("~|^$*", rune(c)):
 				pos += 1
 				if strings.HasPrefix(css[pos:], "=") {
 					pos += 1
-					*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: string(rune(c)) + "="})
+					*ts = append(*ts, LiteralToken{position: tokenPos, Value: string(rune(c)) + "="})
 				} else {
-					*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: string(rune(c))})
+					*ts = append(*ts, LiteralToken{position: tokenPos, Value: string(rune(c))})
 				}
 			default:
 				r, w := utf8.DecodeRuneInString(css[pos:])
 				pos += w
-				*ts = append(*ts, LiteralToken{Origine: tokenPos, Value: string(r)})
+				*ts = append(*ts, LiteralToken{position: tokenPos, Value: string(r)})
 			}
 		}
 	}
@@ -352,21 +371,20 @@ func consumeUnicodeRange(css string, pos int) (start, end int64, newPos int, err
 }
 
 // http://dev.w3.org/csswg/css-syntax/#consume-a-url-token
-func consumeUrl(css string, pos int) (value string, newPos int, err error) {
+func consumeUrl(css string, pos int) (value string, newPos int, addValue bool, err error) {
 	length := len(css)
 	// Skip whitespace
 	for pos < length && strings.ContainsRune(" \n\t", rune(css[pos])) {
 		pos += 1
 	}
 	if pos >= length { // EOF
-		// FIXME: chech other changes and update tests
-		return "", pos, errors.New("EOF in URL")
+		return "", pos, true, errors.New("eof-in-url")
 	}
 	c := rune(css[pos])
 	if c == '"' || c == '\'' {
-		value, pos, err = consumeQuotedString(css, pos)
+		value, pos, addValue, err = consumeQuotedString(css, pos)
 	} else if c == ')' {
-		return "", pos + 1, nil
+		return "", pos + 1, true, nil
 	} else {
 		var chunks []string
 		startPos := pos
@@ -374,14 +392,14 @@ func consumeUrl(css string, pos int) (value string, newPos int, err error) {
 		for {
 			if pos >= length { // EOF
 				chunks = append(chunks, css[startPos:pos])
-				return strings.Join(chunks, ""), pos, nil
+				return strings.Join(chunks, ""), pos, true, errors.New("eof-in-url")
 			}
 			c, w := utf8.DecodeRuneInString(css[pos:])
 			switch {
 			case c == ')':
 				chunks = append(chunks, css[startPos:pos])
 				pos += w
-				return strings.Join(chunks, ""), pos, nil
+				return strings.Join(chunks, ""), pos, true, nil
 			case c == ' ' || c == '\n' || c == '\t':
 				chunks = append(chunks, css[startPos:pos])
 				value = strings.Join(chunks, "")
@@ -416,11 +434,13 @@ func consumeUrl(css string, pos int) (value string, newPos int, err error) {
 		}
 		if pos < length {
 			if css[pos] == ')' {
-				return value, pos + 1, nil
+				return value, pos + 1, true, err
 			}
-			err = errors.New("url too long")
 		} else {
-			return value, pos, nil
+			if err == nil {
+				err = errors.New("eof-in-url")
+			}
+			return value, pos, true, err
 		}
 	}
 
@@ -436,12 +456,12 @@ func consumeUrl(css string, pos int) (value string, newPos int, err error) {
 			pos += w
 		}
 	}
-	return "", pos, err // bad-url
+	return "", pos, false, errors.New("bad-url") // bad-url
 }
 
-// Returnq unescapedValue
+// Returns unescapedValue
 // http://dev.w3.org/csswg/css-syntax/#consume-a-string-token
-func consumeQuotedString(css string, pos int) (string, int, error) {
+func consumeQuotedString(css string, pos int) (string, int, bool, error) {
 	quote := rune(css[pos])
 	if quote != '"' && quote != '\'' {
 		log.Fatal("first char should be a quote")
@@ -474,15 +494,17 @@ mainLoop:
 			} // else: Escaped EOF, do nothing
 			startPos = pos
 		case '\n': // Unescaped newline
-			return "", pos, errors.New("bad-string") // bad-string
+			return "", pos, false, errors.New("bad-string") // bad-string
 		default:
 			pos += w
 		}
 	}
+	var err error
 	if !hasBroken {
 		chunks = append(chunks, css[startPos:pos])
+		err = errors.New("eof-in-string")
 	}
-	return strings.Join(chunks, ""), pos, nil
+	return strings.Join(chunks, ""), pos, true, err
 }
 
 // Return (unescapedChar, newPos).

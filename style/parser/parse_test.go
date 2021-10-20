@@ -63,7 +63,7 @@ func runTestOneToken(t *testing.T, css, resJson []string, fn func(input string) 
 func TestComponentValueList(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
 	runTest(t, inputs, resJson, func(s string) []Token {
-		return ParseComponentValueList(s, true)
+		return parseComponentValueList(s, true)
 	})
 }
 
