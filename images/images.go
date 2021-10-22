@@ -364,7 +364,6 @@ func normalizeStopPostions(positions []pr.Fl) (pr.Fl, pr.Fl) {
 
 // http://dev.w3.org/csswg/css-images-3/#find-the-average-color-of-a-gradient
 func gradientAverageColor(colors []Color, positions []pr.Fl) Color {
-	fmt.Println(colors, positions)
 	nbStops := len(positions)
 	if nbStops <= 1 || nbStops != len(colors) {
 		panic(fmt.Sprintf("expected same length, at least 2, got %d, %d", nbStops, len(colors)))
@@ -474,7 +473,6 @@ type LinearGradient struct {
 func (LinearGradient) isImage() {}
 
 func NewLinearGradient(from pr.LinearGradient) LinearGradient {
-	fmt.Println(from.ColorStops)
 	self := LinearGradient{gradient: newGradient(from.ColorStops, from.Repeating)}
 	self.layouter = self
 	// ("corner", keyword) or ("angle", radians)
@@ -661,7 +659,6 @@ func (self RadialGradient) Layout(width, height pr.Float) backend.GradientLayout
 
 	colors := self.colors
 	positions := processColorStops(sizeX, self.stopPositions)
-
 	if !self.repeating {
 		// Add explicit colors at boundaries if needed, because PDF doesn’t
 		// extend color stops that are not displayed
@@ -681,7 +678,7 @@ func (self RadialGradient) Layout(width, height pr.Float) backend.GradientLayout
 		if self.repeating {
 			// Add vector lengths to first position until positive
 			vectorLength := positions[len(positions)-1] - positions[0]
-			offset := vectorLength * pr.Fl(1+math.Ceil(float64(-positions[0]/vectorLength)))
+			offset := vectorLength * pr.Fl(1+math.Floor(float64(-positions[0]/vectorLength)))
 			for i, p := range positions {
 				positions[i] = p + offset
 			}
@@ -739,7 +736,7 @@ func (self RadialGradient) Layout(width, height pr.Float) backend.GradientLayout
 	return backend.GradientLayout{ScaleY: scaleY, GradientInit: backend.GradientInit{Kind: "radial", Data: circles}, Positions: positions, Colors: colors}
 }
 
-func (self RadialGradient) repeat(width, height, scaleY pr.Float, points [6]pr.Fl, positions []pr.Fl, colors []parser.RGBA) ([6]pr.Fl, []pr.Fl, []parser.RGBA) {
+func (r RadialGradient) repeat(width, height, scaleY pr.Float, points [6]pr.Fl, positions []pr.Fl, colors []parser.RGBA) ([6]pr.Fl, []pr.Fl, []parser.RGBA) {
 	// Keep original lists and values, they’re useful
 	originalColors := append([]parser.RGBA{}, colors...)
 	originalPositions := append([]pr.Fl{}, positions...)
@@ -758,13 +755,14 @@ func (self RadialGradient) repeat(width, height, scaleY pr.Float, points [6]pr.F
 		// Repeat colors and extrapolate positions
 		repeat := 1 + repeatAfter
 		colors = make([]parser.RGBA, len(colors)*repeat)
-		positions = make([]pr.Fl, 0, len(positions)*repeat)
+		tmpPositions := make([]pr.Fl, 0, len(positions)*repeat)
 		for i := 0; i < repeat; i++ {
 			copy(colors[i*len(originalColors):], originalColors)
 			for _, position := range positions {
-				positions = append(positions, pr.Fl(i)+position)
+				tmpPositions = append(tmpPositions, pr.Fl(i)+position)
 			}
 		}
+		positions = tmpPositions
 		points[5] = points[5] + gradientLength*pr.Fl(repeatAfter)
 	}
 
@@ -777,7 +775,7 @@ func (self RadialGradient) repeat(width, height, scaleY pr.Float, points [6]pr.F
 	repeatBefore := points[2] / gradientLength
 
 	// Set the inner circle size to 0
-	points[3] = 0
+	points[2] = 0
 
 	// Find how many times the whole gradient can be repeated
 	fullRepeat := int(repeatBefore)

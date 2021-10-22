@@ -2,7 +2,7 @@
 // by breaking boxes across lines and pages; and determining the size and dimension
 // of each box fragment.
 //
-// Boxes in the new tree have *used values* in their PositionX,
+// Boxes in the new tree have `used values` in their PositionX,
 // PositionY, Width and Height attributes, amongst others.
 // (see http://www.w3.org/TR/CSS21/cascade.html#used-value)
 //
@@ -25,6 +25,7 @@ import (
 	"github.com/benoitkugler/textlayout/pango"
 )
 
+// if true, print debug information into Stdout
 const debugMode = false
 
 type Box = bo.Box

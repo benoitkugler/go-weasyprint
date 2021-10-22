@@ -448,14 +448,14 @@ func TestRadialGradient(t *testing.T) {
 		page := renderOnePage(t, "<style>@page { background: "+gradientCss)
 		layer := page.Background.Layers[0]
 		result := layer.Image.(images.RadialGradient).Layout(400, 300)
-		tu.AssertEqual(t, result.ScaleY, scaleY, "result[0]")
+		tu.AssertEqual(t, result.ScaleY, scaleY, "scale for "+gradientCss)
 		tu.AssertEqual(t, result.Kind, type_, "result[1]")
 
 		if type_ == "radial" {
 			centerX, centerY, radius0, radius1 := init[0], init[1], init[2], init[3]
 			init = [6]pr.Fl{centerX, centerY / scaleY, radius0, centerX, centerY / scaleY, radius1}
 		}
-		approxEqualSlice(t, result.GradientInit.Data[:], init[:], "Data")
+		approxEqualSlice(t, result.GradientInit.Data[:], init[:], "Data for "+gradientCss)
 		tu.AssertEqual(t, result.Positions, positions, "Positions for "+gradientCss)
 		tu.AssertEqual(t, len(result.Colors) >= len(colors), true, "colors length")
 		for i := range colors {
@@ -472,80 +472,92 @@ func TestRadialGradient(t *testing.T) {
 	layout("radial-gradient(0 0, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 1e-7}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 	layout("radial-gradient(1px 0, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 1e7}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1e-14)
 	layout("radial-gradient(0 1px, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 1e-7}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1e14)
-	// FIXME:
-	layout("repeating-radial-gradient(100px 200px, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 300}, []pr.Fl{0, 1, 1, 2, 2, 3}, []parser.RGBA{blue, lime}, 200/100)
+	layout("repeating-radial-gradient(100px 200px, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 300}, []pr.Fl{0, 1, 1, 2, 2, 3}, []parser.RGBA{blue, lime}, 200./100)
 	layout("repeating-radial-gradient(42px, blue -100px, lime 100px)", "radial", [6]pr.Fl{200, 150, 0, 300}, []pr.Fl{-0.5, 0, 0, 1}, []parser.RGBA{pr.NewColor(0, 0.5, 0.5, 1).RGBA, lime, blue, lime}, 1)
 	layout("radial-gradient(42px, blue -20px, lime -1px)", "solid", [6]pr.Fl{}, nil, []parser.RGBA{lime}, 1)
 	layout("radial-gradient(42px, blue -20px, lime 0)", "solid", [6]pr.Fl{}, nil, []parser.RGBA{lime}, 1)
 	layout("radial-gradient(42px, blue -20px, lime 20px)", "radial", [6]pr.Fl{200, 150, 0, 20}, []pr.Fl{0, 1}, []parser.RGBA{pr.NewColor(0, .5, .5, 1).RGBA, lime}, 1)
 
-	// layout("radial-gradient(100px 120px, blue, lime)", [6]pr.Fl{200, 150, 0, 100}, (120 / 100))
-	// layout("radial-gradient(25% 40%, blue, lime)", [6]pr.Fl{200, 150, 0, 100}, (120 / 100))
+	layout("radial-gradient(100px 120px, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 100}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 120./100)
+	layout("radial-gradient(25% 40%, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 100}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 120./100)
 
-	// layout("radial-gradient(circle closest-side, blue, lime)", [6]pr.Fl{200, 150, 0, 150})
-	// layout("radial-gradient(circle closest-side at 150px 50px, blue, lime)", [6]pr.Fl{150, 50, 0, 50})
-	// layout("radial-gradient(circle closest-side at 45px 50px, blue, lime)", [6]pr.Fl{45, 50, 0, 45})
-	// layout("radial-gradient(circle closest-side at 420px 50px, blue, lime)", [6]pr.Fl{420, 50, 0, 20})
-	// layout("radial-gradient(circle closest-side at 420px 281px, blue, lime)", [6]pr.Fl{420, 281, 0, 19})
+	layout("radial-gradient(circle closest-side, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 150}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle closest-side at 150px 50px, blue, lime)", "radial", [6]pr.Fl{150, 50, 0, 50}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle closest-side at 45px 50px, blue, lime)", "radial", [6]pr.Fl{45, 50, 0, 45}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle closest-side at 420px 50px, blue, lime)", "radial", [6]pr.Fl{420, 50, 0, 20}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle closest-side at 420px 281px, blue, lime)", "radial", [6]pr.Fl{420, 281, 0, 19}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 
-	// layout("radial-gradient(closest-side, blue 20%, lime)", [6]pr.Fl{200, 150, 40, 200}, 150/200)
-	// layout("radial-gradient(closest-side at 300px 20%, blue, lime)", [6]pr.Fl{300, 60, 0, 100}, 60/100)
-	// layout("radial-gradient(closest-side at 10% 230px, blue, lime)", [6]pr.Fl{40, 230, 0, 40}, 70/40)
+	layout("radial-gradient(closest-side, blue 20%, lime)", "radial", [6]pr.Fl{200, 150, 40, 200}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
+	layout("radial-gradient(closest-side at 300px 20%, blue, lime)", "radial", [6]pr.Fl{300, 60, 0, 100}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 60./100)
+	layout("radial-gradient(closest-side at 10% 230px, blue, lime)", "radial", [6]pr.Fl{40, 230, 0, 40}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 70./40)
 
-	// layout("radial-gradient(circle farthest-side, blue, lime)", [6]pr.Fl{200, 150, 0, 200})
-	// layout("radial-gradient(circle farthest-side at 150px 50px, blue, lime)", [6]pr.Fl{150, 50, 0, 250})
-	// layout("radial-gradient(circle farthest-side at 45px 50px, blue, lime)", [6]pr.Fl{45, 50, 0, 355})
-	// layout("radial-gradient(circle farthest-side at 420px 50px, blue, lime)", [6]pr.Fl{420, 50, 0, 420})
-	// layout("radial-gradient(circle farthest-side at 220px 310px, blue, lime)", [6]pr.Fl{220, 310, 0, 310})
+	layout("radial-gradient(circle farthest-side, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle farthest-side at 150px 50px, blue, lime)", "radial", [6]pr.Fl{150, 50, 0, 250}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle farthest-side at 45px 50px, blue, lime)", "radial", [6]pr.Fl{45, 50, 0, 355}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle farthest-side at 420px 50px, blue, lime)", "radial", [6]pr.Fl{420, 50, 0, 420}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle farthest-side at 220px 310px, blue, lime)", "radial", [6]pr.Fl{220, 310, 0, 310}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 
-	// layout("radial-gradient(farthest-side, blue, lime)", [6]pr.Fl{200, 150, 0, 200}, 150/200)
-	// layout("radial-gradient(farthest-side at 300px 20%, blue, lime)", [6]pr.Fl{300, 60, 0, 300}, 240/300)
-	// layout("radial-gradient(farthest-side at 10% 230px, blue, lime)", [6]pr.Fl{40, 230, 0, 360}, 230/360)
+	layout("radial-gradient(farthest-side, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
+	layout("radial-gradient(farthest-side at 300px 20%, blue, lime)", "radial", [6]pr.Fl{300, 60, 0, 300}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 240./300)
+	layout("radial-gradient(farthest-side at 10% 230px, blue, lime)", "radial", [6]pr.Fl{40, 230, 0, 360}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 230./360)
 
-	// layout("radial-gradient(circle closest-corner, blue, lime)", [6]pr.Fl{200, 150, 0, 250})
-	// layout("radial-gradient(circle closest-corner at 340px 80px, blue, lime)", [6]pr.Fl{340, 80, 0, 100})
-	// layout("radial-gradient(circle closest-corner at 0 342px, blue, lime)", [6]pr.Fl{0, 342, 0, 42})
+	layout("radial-gradient(circle closest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 250}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle closest-corner at 340px 80px, blue, lime)", "radial", [6]pr.Fl{340, 80, 0, 100}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle closest-corner at 0 342px, blue, lime)", "radial", [6]pr.Fl{0, 342, 0, 42}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 
-	// layout("radial-gradient(closest-corner, blue, lime)", [6]pr.Fl{200, 150, 0, 200 * 2 * *0.5}, 150/200)
-	// layout("radial-gradient(closest-corner at 450px 100px, blue, lime)", [6]pr.Fl{450, 100, 0, 50 * 2 * *0.5}, 100/50)
-	// layout("radial-gradient(closest-corner at 40px 210px, blue, lime)", [6]pr.Fl{40, 210, 0, 40 * 2 * *0.5}, 90/40)
+	layout("radial-gradient(closest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
+	layout("radial-gradient(closest-corner at 450px 100px, blue, lime)", "radial", [6]pr.Fl{450, 100, 0, 50 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 100./50)
+	layout("radial-gradient(closest-corner at 40px 210px, blue, lime)", "radial", [6]pr.Fl{40, 210, 0, 40 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 90./40)
 
-	// layout("radial-gradient(circle farthest-corner, blue, lime)", [6]pr.Fl{200, 150, 0, 250})
-	// layout("radial-gradient(circle farthest-corner at 300px -100px, blue, lime)", [6]pr.Fl{300, -100, 0, 500})
-	// layout("radial-gradient(circle farthest-corner at 400px 0, blue, lime)", [6]pr.Fl{400, 0, 0, 500})
+	layout("radial-gradient(circle farthest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 250}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle farthest-corner at 300px -100px, blue, lime)", "radial", [6]pr.Fl{300, -100, 0, 500}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
+	layout("radial-gradient(circle farthest-corner at 400px 0, blue, lime)", "radial", [6]pr.Fl{400, 0, 0, 500}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 
-	// layout("radial-gradient(farthest-corner, blue, lime)", [6]pr.Fl{200, 150, 0, 200 * 2 * *0.5}, 150/200)
-	// layout("radial-gradient(farthest-corner at 450px 100px, blue, lime)", [6]pr.Fl{450, 100, 0, 450 * 2 * *0.5}, 200/450)
-	// layout("radial-gradient(farthest-corner at 40px 210px, blue, lime)", [6]pr.Fl{40, 210, 0, 360 * 2 * *0.5}, 210/360)
+	layout("radial-gradient(farthest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
+	layout("radial-gradient(farthest-corner at 450px 100px, blue, lime)", "radial", [6]pr.Fl{450, 100, 0, 450 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 200./450)
+	layout("radial-gradient(farthest-corner at 40px 210px, blue, lime)", "radial", [6]pr.Fl{40, 210, 0, 360 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 210./360)
 }
 
-// @pytest.mark.parametrize("props, divWidth", (
-//     ({}, 4),
-//     ({"min-width": "10px"}, 10),
-//     ({"max-width": "1px"}, 1),
-//     ({"width": "10px"}, 10),
-//     ({"width": "1px"}, 1),
-//     ({"min-height": "10px"}, 10),
-//     ({"max-height": "1px"}, 1),
-//     ({"height": "10px"}, 10),
-//     ({"height": "1px"}, 1),
-//     ({"min-width": "10px", "min-height": "1px"}, 10),
-//     ({"min-width": "1px", "min-height": "10px"}, 10),
-//     ({"max-width": "10px", "max-height": "1px"}, 1),
-//     ({"max-width": "1px", "max-height": "10px"}, 1),
-// ))
-// func TestImageMinMaxWidth(t*testing.T,props, divWidth) {
-//     default = {
-//         "min-width": "auto", "max-width": "none", "width": "auto",
-//         "min-height": "auto", "max-height": "none", "height": "auto"}
-//     page := renderOnePage(t,`
-//       <style> img { display: block; %s } </style>
-//       <div style="display: inline-block">
-//         <img src="pattern.png"><img src="pattern.svg">
-//       </div>` % ";".join(
-//           f"{key}: {props.get(key, value)}" for key, value := range default.items()))
-//     html := page.Box().Children[0]
-//     body := html.Box().Children[0]
-//     line := body.Box().Children[0]
-//     div := line.Box().Children[0]
-//     tu.AssertEqual(t, div.Box().Width , divWidth
+func TestImageMinMaxWidth(t *testing.T) {
+	default_ := map[string]string{
+		"min-width": "auto", "max-width": "none", "width": "auto",
+		"min-height": "auto", "max-height": "none", "height": "auto",
+	}
+	for _, data := range []struct {
+		props    map[string]string
+		divWidth pr.Float
+	}{
+		{map[string]string{}, 4},
+		{map[string]string{"min-width": "10px"}, 10},
+		{map[string]string{"max-width": "1px"}, 1},
+		{map[string]string{"width": "10px"}, 10},
+		{map[string]string{"width": "1px"}, 1},
+		{map[string]string{"min-height": "10px"}, 10},
+		{map[string]string{"max-height": "1px"}, 1},
+		{map[string]string{"height": "10px"}, 10},
+		{map[string]string{"height": "1px"}, 1},
+		{map[string]string{"min-width": "10px", "min-height": "1px"}, 10},
+		{map[string]string{"min-width": "1px", "min-height": "10px"}, 10},
+		{map[string]string{"max-width": "10px", "max-height": "1px"}, 1},
+		{map[string]string{"max-width": "1px", "max-height": "10px"}, 1},
+	} {
+		var values []string
+		for k, v := range default_ {
+			if v2, has := data.props[k]; has {
+				v = v2
+			}
+			values = append(values, fmt.Sprintf("%s: %s", k, v))
+		}
+		htmlInput := fmt.Sprintf(`
+		<style> img { display: block; %s } </style>
+		<div style="display: inline-block">
+			<img src="pattern.png"><img src="pattern.svg">
+		</div>`, strings.Join(values, ";"))
+		page := renderOnePage(t, htmlInput)
+		html := page.Box().Children[0]
+		body := html.Box().Children[0]
+		line := body.Box().Children[0]
+		div := line.Box().Children[0]
+		tu.AssertEqual(t, div.Box().Width, data.divWidth, fmt.Sprintf("div width for %v", data.props))
+	}
+}

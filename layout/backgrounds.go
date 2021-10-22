@@ -87,7 +87,6 @@ func layoutBoxBackgrounds(page *bo.PageBox, box_ Box, getImageFromUri bo.Gifu, l
 	}
 
 	bs := style.GetBackgroundImage()
-	fmt.Println("in style", bs)
 	images := make([]images.Image, len(bs))
 	anyImages := false
 	for i, v := range bs {
@@ -223,7 +222,6 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		}
 	}
 
-	fmt.Println(intrinsicWidth, intrinsicHeight, ratio)
 	var positioningArea [4]pr.Float
 	if attachment == "fixed" {
 		// Initial containing block

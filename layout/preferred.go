@@ -24,15 +24,17 @@ import (
 // *Warning:* both availableOuterWidth and the return value are
 // for width of the *content area*, not margin area.
 // http://www.w3.org/TR/CSS21/visudet.html#float-width
-func shrinkToFit(context *layoutContext, box Box, availableWidth pr.Float) pr.Float {
-	return pr.Min(pr.Max(minContentWidth(context, box, false), availableWidth), maxContentWidth(context, box, false))
+func shrinkToFit(context *layoutContext, box Box, availableContentWidth pr.Float) pr.Float {
+	return pr.Min(
+		pr.Max(minContentWidth(context, box, false), availableContentWidth),
+		maxContentWidth(context, box, false),
+	)
 }
 
 // Return the min-content width for ``box``.
 // This is the width by breaking at every line-break opportunity.
 // outer=true
 func minContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
-	rep, isReplaced := box.(bo.ReplacedBoxITF)
 	if box.Box().IsTableWrapper {
 		return tableAndColumnsPreferredWidths(context, box.Box(), outer).tableMinContentWidth
 	} else if bo.TableCellBoxT.IsInstance(box) {
@@ -43,13 +45,12 @@ func minContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
 		return columnGroupContentWidth(box)
 	} else if IsLine(box) {
 		return inlineMinContentWidth(context, box, outer, nil, false, true)
-	} else if isReplaced {
+	} else if rep, isReplaced := box.(bo.ReplacedBoxITF); isReplaced {
 		return replacedMinContentWidth(rep.Replaced(), outer)
 	} else if bo.FlexContainerBoxT.IsInstance(box) {
 		return flexMinContentWidth(context, box, outer)
 	} else {
-		log.Fatalf("min-content width for %T not handled yet", box)
-		return 0
+		panic(fmt.Sprintf("min-content width for %T not handled yet", box))
 	}
 }
 
@@ -132,10 +133,11 @@ func minMax(box Box, width pr.Float) pr.Float {
 			}
 			maxHeight := box.Box().Style.GetMaxHeight()
 			if maxHeight.String != "auto" && maxHeight.Unit != pr.Percentage {
-				resMax = pr.Max(resMax, maxHeight.Value*ratio.V())
+				resMax = pr.Min(resMax, maxHeight.Value*ratio.V())
 			}
 		}
 	}
+
 	return pr.Max(resMin, pr.Min(width, resMax))
 }
 
@@ -185,7 +187,6 @@ func marginWidth(box *bo.BoxFields, width pr.Float, left, right bool) pr.Float {
 // left=true, right=true
 func adjust(box Box, outer bool, width pr.Float, left, right bool) pr.Float {
 	fixed := minMax(box, width)
-
 	if outer {
 		return marginWidth(box.Box(), fixed, left, right)
 	} else {

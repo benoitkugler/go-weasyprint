@@ -159,10 +159,14 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY pr.Fl
 		removeLastWhitespace(context, line_)
 
 		newPositionX, _, newAvailableWidth := avoidCollisions(context, linebox, containingBlock, false)
-		// TODO: handle rtl
 		newAvailableWidth -= floatWidths.right
 		alignmentAvailableWidth := newAvailableWidth + newPositionX - linebox.PositionX
 		offsetX := textAlign(context, line_, alignmentAvailableWidth, resumeAt == nil || preservedLineBreak)
+
+		if containingBlock.Style.GetDirection() == "rtl" {
+			offsetX = -offsetX
+			offsetX -= line.Width.V()
+		}
 
 		bottom, top := lineBoxVerticality(context, line_)
 		line.Baseline = -top
@@ -439,8 +443,8 @@ func atomicBox(context *layoutContext, box Box, positionX pr.Float, skipStack *t
 		}
 		box = inlineBlockBoxLayout(context, box, positionX, skipStack, containingBlock,
 			absoluteBoxes, fixedBoxes)
-	} else { // pragma: no cover
-		log.Fatalf("Layout for %s not handled yet", box)
+	} else {
+		panic(fmt.Sprintf("Layout for %s not handled yet", box))
 	}
 	return box
 }
@@ -466,7 +470,6 @@ func inlineBlockBoxLayout(context *layoutContext, box_ Box, positionX pr.Float, 
 	}
 
 	inlineBlockWidth(box_, context, containingBlock)
-
 	box.PositionX = positionX
 	box.PositionY = 0
 	box_, _ = blockContainerLayout(context, box_, pr.Inf, skipStack,
@@ -505,7 +508,10 @@ var inlineBlockWidth = handleMinMaxWidth(inlineBlockWidth_)
 func inlineBlockWidth_(box_ Box, context *layoutContext, containingBlock containingBlock) (bool, pr.Float) {
 	if box := box_.Box(); box.Width == pr.Auto {
 		cbWidth, _ := containingBlock.ContainingBlock()
-		box.Width = shrinkToFit(context, box_, cbWidth.V())
+		availableContentWidth := cbWidth.V() - (box.MarginLeft.V() + box.MarginRight.V() +
+			box.BorderLeftWidth.V() + box.BorderRightWidth.V() +
+			box.PaddingLeft.V() + box.PaddingRight.V())
+		box.Width = shrinkToFit(context, box_, availableContentWidth)
 	}
 	return false, 0
 }

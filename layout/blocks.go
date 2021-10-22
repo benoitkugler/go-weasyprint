@@ -117,7 +117,6 @@ func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 		tableWrapperWidth(context, box, bo.MaybePoint{containingBlock.Width, containingBlock.Height})
 	}
 	blockLevelWidth(box_, nil, containingBlock)
-
 	newBox__, result := blockContainerLayout(context, box_, maxPositionY, skipStack, pageIsEmpty,
 		absoluteBoxes, fixedBoxes, adjoiningMargins, discard)
 	newBox, _ := newBox__.(bo.BlockBoxITF) // blockContainerLayout is type stable
