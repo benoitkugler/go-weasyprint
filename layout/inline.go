@@ -1151,13 +1151,14 @@ type boxMinMax struct {
 func lineBoxVerticality(context *layoutContext, box Box) (pr.Float, pr.Float) {
 	var topBottomSubtrees []Box
 	maxY, minY := alignedSubtreeVerticality(context, box, &topBottomSubtrees, 0)
-	subtreesWithMinMax := make([]boxMinMax, len(topBottomSubtrees))
-	for i, subtree := range topBottomSubtrees {
+	subtreesWithMinMax := make([]boxMinMax, 0, len(topBottomSubtrees))
+	for i := 0; i < len(topBottomSubtrees); i++ { // note that topBottomSubtrees may grow over this loop
+		subtree := topBottomSubtrees[i]
 		var subMaxY, subMinY pr.MaybeFloat
 		if !subtree.Box().IsFloated() {
 			subMaxY, subMinY = alignedSubtreeVerticality(context, subtree, &topBottomSubtrees, 0)
 		}
-		subtreesWithMinMax[i] = boxMinMax{box: subtree, max: subMaxY, min: subMinY}
+		subtreesWithMinMax = append(subtreesWithMinMax, boxMinMax{box: subtree, max: subMaxY, min: subMinY})
 	}
 
 	if len(subtreesWithMinMax) != 0 {
@@ -1183,7 +1184,7 @@ func lineBoxVerticality(context *layoutContext, box Box) (pr.Float, pr.Float) {
 		} else if va.String == "bottom" {
 			dy = maxY - v.max.V()
 		} else {
-			log.Fatalf("expected top or bottom, got %v", va)
+			panic(fmt.Sprintf("expected top or bottom, got %v", va))
 		}
 		translateSubtree(v.box, dy)
 	}

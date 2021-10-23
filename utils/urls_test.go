@@ -117,6 +117,7 @@ func TestJoinUrl(t *testing.T) {
 			"/w/load.php?lang=en&modules=ext.cite.styles%7Cext.pygments%2CwikimediaBadges%7Cext.uls.interlanguage%7Cext.visualEditor.desktopArticleTarget.noscript%7Cjquery.makeCollapsible.styles%7Cskins.vector.styles.legacy%7Cwikibase.client.init&only=styles&skin=vector",
 			"https://en.wikipedia.org/w/load.php?lang=en&modules=ext.cite.styles%7Cext.pygments%2CwikimediaBadges%7Cext.uls.interlanguage%7Cext.visualEditor.desktopArticleTarget.noscript%7Cjquery.makeCollapsible.styles%7Cskins.vector.styles.legacy%7Cwikibase.client.init&only=styles&skin=vector",
 		},
+		{"https://en.wikipedia.org/wiki/Go_(programming_language)", "//upload.wikimedia.org/wikipedia/commons/thumb/0/05/Go_Logo_Blue.svg/215px-Go_Logo_Blue.svg.png", "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Go_Logo_Blue.svg/215px-Go_Logo_Blue.svg.png"},
 	} {
 		baseUrl, urls, exp := data[0], data[1], data[2]
 		parsedUrl, err := url.Parse(urls)

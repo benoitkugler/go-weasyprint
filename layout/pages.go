@@ -417,6 +417,7 @@ func makeMarginBoxes(context *layoutContext, page *bo.PageBox, state tree.PageSt
 				context.getImageFromUri, &context.TargetCollector, context.counterStyle, context,
 				page)
 			bo.ProcessWhitespace(box, false)
+			bo.ProcessTextTransform(box)
 			box_ := bo.AnonymousTableBoxes(box)
 			box_ = bo.FlexBoxes(box_)
 			box_ = bo.InlineInBlock(box_)

@@ -263,7 +263,7 @@ func TestInlineInBlock1(t *testing.T) {
 							{"em", InlineBoxT, BC{C: []SerBox{
 								{"em", TextBoxT, BC{Text: "World"}},
 							}}},
-							{"div", TextBoxT, BC{Text: "!\n"}},
+							{"div", TextBoxT, BC{Text: "! "}},
 						}}},
 					}},
 				},
@@ -283,7 +283,7 @@ func TestInlineInBlock1(t *testing.T) {
 			{"em", InlineBoxT, BC{C: []SerBox{
 				{"em", TextBoxT, BC{Text: "World"}},
 			}}},
-			{"div", TextBoxT, BC{Text: "!\n"}},
+			{"div", TextBoxT, BC{Text: "! "}},
 			{"p", BlockBoxT, BC{C: []SerBox{{"p", TextBoxT, BC{Text: "Lipsum."}}}}},
 		}}},
 	})
@@ -304,7 +304,7 @@ func TestInlineInBlock2(t *testing.T) {
 				{"div", LineBoxT, BC{C: []SerBox{
 					{"div", TextBoxT, BC{Text: "Hello, "}},
 					{"em", InlineBoxT, BC{C: []SerBox{{"em", TextBoxT, BC{Text: "World"}}}}},
-					{"div", TextBoxT, BC{Text: "!\n"}},
+					{"div", TextBoxT, BC{Text: "! "}},
 				}}},
 			}}},
 		}}},
@@ -381,7 +381,7 @@ func TestBlockInInline(t *testing.T) {
 						{"strong", InlineBoxT, BC{C: []SerBox{
 							{"strong", TextBoxT, BC{Text: "dolor "}},
 							{"span", BlockBoxT, BC{C: []SerBox{{"span", LineBoxT, BC{C: []SerBox{{"span", TextBoxT, BC{Text: "sit"}}}}}}}},
-							{"strong", TextBoxT, BC{Text: "\n      "}},
+							{"strong", TextBoxT, BC{Text: " "}},
 							{"span", BlockBoxT, BC{C: []SerBox{{"span", LineBoxT, BC{C: []SerBox{{"span", TextBoxT, BC{Text: "amet,"}}}}}}}},
 						}}},
 						{"span", BlockBoxT, BC{C: []SerBox{
@@ -414,7 +414,7 @@ func TestBlockInInline(t *testing.T) {
 				{"span", BlockBoxT, BC{C: []SerBox{{"span", LineBoxT, BC{C: []SerBox{{"span", TextBoxT, BC{Text: "sit"}}}}}}}},
 				{"p", BlockBoxT, BC{C: []SerBox{
 					{"p", LineBoxT, BC{C: []SerBox{
-						{"em", InlineBoxT, BC{C: []SerBox{{"strong", InlineBoxT, BC{C: []SerBox{{"strong", TextBoxT, BC{Text: "\n      "}}}}}}}},
+						{"em", InlineBoxT, BC{C: []SerBox{{"strong", InlineBoxT, BC{C: []SerBox{{"strong", TextBoxT, BC{Text: " "}}}}}}}},
 					}}},
 				}}},
 				{"span", BlockBoxT, BC{C: []SerBox{{"span", LineBoxT, BC{C: []SerBox{{"span", TextBoxT, BC{Text: "amet,"}}}}}}}},
@@ -1463,7 +1463,7 @@ func loadExpected(filename string) ([]SerBox, error) {
 }
 
 func TestRealPage(t *testing.T) {
-	log.Default().SetOutput(io.Discard)
+	// log.Default().SetOutput(io.Discard)
 	got := buildFile(t, utils.InputFilename("../resources_test/Wikipedia-Go.html"), "https://en.wikipedia.org/wiki/Go_(programming_language)")
 
 	expected, err := loadExpected("../resources_test/Wikipedia-Go-expected.json")

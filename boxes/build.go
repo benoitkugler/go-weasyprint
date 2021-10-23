@@ -105,7 +105,6 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleF
 
 	box.Box().IsForRootElement = true
 	// If this is changed, maybe update layout.pages.makeMarginBoxes()
-	ProcessWhitespace(box, false)
 	box = AnonymousTableBoxes(box)
 	box = FlexBoxes(box)
 	box = InlineInBlock(box)
@@ -287,8 +286,9 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 	}
 
 	box.Box().Children = children
-	// calculate string-set and bookmark-label
+	ProcessWhitespace(box, false)
 	setContentLists(element, box, style, counterValues, targetCollector, cs)
+	ProcessTextTransform(box)
 
 	if len(markerBoxes) > 0 && len(box.Box().Children) == 1 {
 		// See https://www.w3.org/TR/css-lists-3/#list-style-position-outside
@@ -475,7 +475,6 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 		}
 		if L := len(contentBoxes); L != 0 {
 			if textBox, ok := contentBoxes[L-1].(*TextBox); ok {
-				textBox.OriginalText += text
 				textBox.Text += text
 				return
 			}
@@ -1556,6 +1555,45 @@ func ProcessWhitespace(box Box, followingCollapsibleSpace bool) bool {
 	return followingCollapsibleSpace
 }
 
+func ProcessTextTransform(box Box) {
+	if box, ok := box.(*TextBox); ok {
+		text, style := box.Text, box.Style
+		textTransform := box.Style.GetTextTransform()
+		if textTransform != "none" {
+			switch textTransform {
+			case "uppercase":
+				text = strings.ToUpper(text)
+			case "lowercase":
+				text = strings.ToLower(text)
+			// Python’s unicode.captitalize is not the same.
+			case "capitalize":
+				text = strings.Title(strings.ToLower(text))
+			case "full-width":
+				text = strings.Map(func(u rune) rune {
+					rep, in := asciiToWide[u]
+					if !in {
+						return u
+					}
+					return rep
+				}, text)
+			}
+		}
+		if style.GetHyphens() == "none" {
+			text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
+		}
+		box.Text = text
+	}
+
+	// recursion
+	if ParentBoxT.IsInstance(box) && !box.Box().IsRunning() {
+		for _, child := range box.Box().Children {
+			if TextBoxT.IsInstance(child) || InlineBoxT.IsInstance(child) {
+				ProcessTextTransform(child)
+			}
+		}
+	}
+}
+
 // Build the structure of lines inside blocks and return a new box tree.
 //
 // Consecutive inline-level boxes in a block container box are wrapped into a
@@ -1883,10 +1921,9 @@ func boxText(box Box) string {
 	if ParentBoxT.IsInstance(box) {
 		for _, child := range Descendants(box) {
 			et := child.Box().ElementTag
-			if !strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
-				if tBox, is := child.(*TextBox); is {
-					builder.WriteString(tBox.Text)
-				}
+			if child, ok := child.(*TextBox); ok &&
+				!strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
+				builder.WriteString(child.Text)
 			}
 		}
 	}

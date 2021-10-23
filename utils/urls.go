@@ -36,7 +36,10 @@ func basicUrlJoin(baseUrl string, urls *url.URL) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Invalid base url : %s", baseUrl)
 	}
-	if path.IsAbs(urls.Path) { // join from the root
+	if urls.Host != "" { // copy the scheme from base
+		urls.Scheme = parsedBase.Scheme
+		*parsedBase = *urls
+	} else if path.IsAbs(urls.Path) { // join from the root
 		parsedBase.Path = urls.Path
 	} else { // join from the directory
 		if path.Ext(parsedBase.Path) != "" {

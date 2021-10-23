@@ -3,7 +3,6 @@ package boxes
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/images"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
@@ -41,7 +40,6 @@ type TextBox struct {
 
 	PangoLayout          *text.TextLayout
 	Text                 string
-	OriginalText         string
 	JustificationSpacing pr.Float
 }
 
@@ -198,34 +196,10 @@ func (b *InlineBox) hitArea() (x, y, w, h pr.Float) {
 
 func NewTextBox(elementTag string, style pr.ElementStyle, text string) TextBox {
 	if len(text) == 0 {
-		log.Fatalf("empty text")
-	}
-	originalText := text
-	textTransform := style.GetTextTransform()
-	if textTransform != "none" {
-		switch textTransform {
-		case "uppercase":
-			text = strings.ToUpper(text)
-		case "lowercase":
-			text = strings.ToLower(text)
-		// Python’s unicode.captitalize is not the same.
-		case "capitalize":
-			text = strings.Title(strings.ToLower(text))
-		case "full-width":
-			text = strings.Map(func(u rune) rune {
-				rep, in := asciiToWide[u]
-				if !in {
-					return u
-				}
-				return rep
-			}, text)
-		}
-	}
-	if style.GetHyphens() == "none" {
-		text = strings.ReplaceAll(text, "\u00AD", "") //  U+00AD SOFT HYPHEN (SHY)
+		panic("NewTextBox called with empty text")
 	}
 	box := newBoxFields(elementTag, style, nil)
-	out := TextBox{BoxFields: box, Text: text, OriginalText: originalText}
+	out := TextBox{BoxFields: box, Text: text}
 	return out
 }
 
