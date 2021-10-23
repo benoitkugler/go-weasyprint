@@ -76,8 +76,8 @@ func newVerticalBox(context *layoutContext, box Box) *verticalBox {
 	// outer dimension: that of the margin area.
 	box_ := box.Box()
 	self.inner = box_.Height
-	self.marginA = box_.MarginTop.V()
-	self.marginB = box_.MarginBottom.V()
+	self.marginA = box_.MarginTop
+	self.marginB = box_.MarginBottom
 	self.paddingPlusBorder = box_.PaddingTop.V() + box_.PaddingBottom.V() +
 		box_.BorderTopWidth.V() + box_.BorderBottomWidth.V()
 	self.orientedBox.contentSizer = self
@@ -111,8 +111,8 @@ func newHorizontalBox(context *layoutContext, box Box) *horizontalBox {
 	self.box = box
 	box_ := box.Box()
 	self.inner = box_.Width
-	self.marginA = box_.MarginLeft.V()
-	self.marginB = box_.MarginRight.V()
+	self.marginA = box_.MarginLeft
+	self.marginB = box_.MarginRight
 	self.paddingPlusBorder = box_.PaddingLeft.V() + box_.PaddingRight.V() +
 		box_.BorderLeftWidth.V() + box_.BorderRightWidth.V()
 	self.orientedBox.contentSizer = self
