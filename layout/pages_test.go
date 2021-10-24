@@ -346,180 +346,195 @@ func TestPageBreaksComplex4(t *testing.T) {
 	tu.AssertEqual(t, img2.Box().Height, pr.Float(25), "img2")
 }
 
-// TODO:
+func TestPageBreaksComplex5(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-// func TestPageBreaksComplex5(t *testing.T) {
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+	// Reference for the next test
+	pages := renderPages(t, `
+      <style>
+        @page { size: 100px; margin: 0 }
+        img { height: 30px; display: block; }
+        p { orphans: 1; widows: 1 }
+      </style>
+      <div>
+        <img src=pattern.png style="page-break-after: always">
+        <section>
+          <img src=pattern.png>
+          <img src=pattern.png>
+        </section>
+      </div>
+      <img src=pattern.png><!-- page break here -->
+      <img src=pattern.png>
+    `)
+	page1, page2, page3 := pages[0], pages[1], pages[2]
 
-//     // Reference for the next test
-//     page1, page2, page3 = renderPages(`
-//       <style>
-//         @page { size: 100px; margin: 0 }
-//         img { height: 30px; display: block; }
-//         p { orphans: 1; widows: 1 }
-//       </style>
-//       <div>
-//         <img src=pattern.png style="page-break-after: always">
-//         <section>
-//           <img src=pattern.png>
-//           <img src=pattern.png>
-//         </section>
-//       </div>
-//       <img src=pattern.png><!-- page break here -->
-//       <img src=pattern.png>
-//     `)
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div := body.Box().Children[0]
-//     tu.AssertEqual(t, div.Box().Height , 100, "div")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div, img4 = body.Box().Children
-//     tu.AssertEqual(t, div.Box().Height , 60, "div")
-//     tu.AssertEqual(t, img4.Box().Height , 30, "img4")
-//     html := page3.Box().Children[0]
-//     body := html.Box().Children[0]
-//     img5, = body.Box().Children
-//     tu.AssertEqual(t, img5.Box().Height , 30, "img5")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	div := body.Box().Children[0]
+	tu.AssertEqual(t, div.Box().Height, pr.Float(100), "div")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	div, img4 := unpack2(body)
+	tu.AssertEqual(t, div.Box().Height, pr.Float(60), "div")
+	tu.AssertEqual(t, img4.Box().Height, pr.Float(30), "img4")
+	html = page3.Box().Children[0]
+	body = html.Box().Children[0]
+	img5 := body.Box().Children[0]
+	tu.AssertEqual(t, img5.Box().Height, pr.Float(30), "img5")
+}
 
-// func TestPageBreaksComplex6(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestPageBreaksComplex6(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     page1, page2, page3 = renderPages(`
-//       <style>
-//         @page { size: 100px; margin: 0 }
-//         img { height: 30px; display: block; }
-//         p { orphans: 1; widows: 1 }
-//       </style>
-//       <div>
-//         <img src=pattern.png style="page-break-after: always">
-//         <section>
-//           <img src=pattern.png><!-- page break here -->
-//           <img src=pattern.png style="page-break-after: avoid">
-//         </section>
-//       </div>
-//       <img src=pattern.png style="page-break-after: avoid">
-//       <img src=pattern.png>
-//     `)
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div := body.Box().Children[0]
-//     tu.AssertEqual(t, div.Box().Height , 100, "div")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div := body.Box().Children[0]
-//     section, = div.Box().Children
-//     img2, = section.Box().Children
-//     tu.AssertEqual(t, img2.Box().Height , 30, "img2")
-//     // TODO: currently this is 60: we do ! increase the used height of blocks
-//     // to make them fill the blank space at the end of the age when we remove
-//     // children from them for some break-*: avoid.
-//     // See TODOs := range blocks.blockContainerLayout
-//     // tu.AssertEqual(t, div.Box().Height , 100, "div")
-//     html := page3.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div, img4, img5, = body.Box().Children
-//     tu.AssertEqual(t, div.Box().Height , 30, "div")
-//     tu.AssertEqual(t, img4.Box().Height , 30, "img4")
-//     tu.AssertEqual(t, img5.Box().Height , 30, "img5")
-// }
+	pages := renderPages(t, `
+      <style>
+        @page { size: 100px; margin: 0 }
+        img { height: 30px; display: block; }
+        p { orphans: 1; widows: 1 }
+      </style>
+      <div>
+        <img src=pattern.png style="page-break-after: always">
+        <section>
+          <img src=pattern.png><!-- page break here -->
+          <img src=pattern.png style="page-break-after: avoid">
+        </section>
+      </div>
+      <img src=pattern.png style="page-break-after: avoid">
+      <img src=pattern.png>
+    `)
+	page1, page2, page3 := pages[0], pages[1], pages[2]
 
-// func TestPageBreaksComplex7(t *testing.T) {
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	div := body.Box().Children[0]
+	tu.AssertEqual(t, div.Box().Height, pr.Float(100), "div")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	div = body.Box().Children[0]
+	section := div.Box().Children[0]
+	img2 := section.Box().Children[0]
+	tu.AssertEqual(t, img2.Box().Height, pr.Float(30), "img2")
+	// TODO: currently this is 60: we do not increase the used height of blocks
+	// to make them fill the blank space at the end of the age when we remove
+	// children from them for some break-*: avoid.
+	// See TODOs in blocks.blockContainerLayout
+	// tu.AssertEqual(t, div.Box().Height , pr.Float(100), "div")
+	html = page3.Box().Children[0]
+	body = html.Box().Children[0]
+	div, img4, img5 := unpack3(body)
+	tu.AssertEqual(t, div.Box().Height, pr.Float(30), "div")
+	tu.AssertEqual(t, img4.Box().Height, pr.Float(30), "img4")
+	tu.AssertEqual(t, img5.Box().Height, pr.Float(30), "img5")
+}
 
-//     page1, page2, page3 = renderPages(`
-//       <style>
-//         @page { @bottom-center { content: counter(page) } }
-//         @page:blank { @bottom-center { content: none } }
-//       </style>
-//       <p style="page-break-after: right">foo</p>
-//       <p>bar</p>
-//     `)
-//     tu.AssertEqual(t, len(page1.Box().Children) , 2  // content && @bottom-center, "len")
-//     tu.AssertEqual(t, len(page2.Box().Children) , 1  // content only, "len")
-//     tu.AssertEqual(t, len(page3.Box().Children) , 2  // content && @bottom-center, "len")
+func TestPageBreaksComplex7(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-// func TestPageBreaksComplex8(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+	pages := renderPages(t, `
+      <style>
+        @page { @bottom-center { content: counter(page) } }
+        @page:blank { @bottom-center { content: none } }
+      </style>
+      <p style="page-break-after: right">foo</p>
+      <p>bar</p>
+    `)
+	page1, page2, page3 := pages[0], pages[1], pages[2]
 
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page { size: 75px; margin: 0 }
-//         div { height: 20px }
-//       </style>
-//       <div></div>
-//       <section>
-//         <div></div>
-//         <div style="page-break-after: avoid">
-//           <div style="position: absolute"></div>
-//           <div style="position: fixed"></div>
-//         </div>
-//       </section>
-//       <div></div>
-//     `)
-//     html := page1.Box().Children[0]
-//     body, Div = html.Box().Children
-//     div1, section = body.Box().Children
-//     div2, = section.Box().Children
-//     tu.AssertEqual(t, div1.Box().PositionY , 0, "div1")
-//     tu.AssertEqual(t, div2.Box().PositionY , 20, "div2")
-//     tu.AssertEqual(t, div1.Box().Height , 20, "div1")
-//     tu.AssertEqual(t, div2.Box().Height , 20, "div2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section, div4 = body.Box().Children
-//     div3, = section.Box().Children
-//     absolute, fixed = div3.Box().Children
-//     tu.AssertEqual(t, div3.Box().PositionY , 0, "div3")
-//     tu.AssertEqual(t, div4.Box().PositionY , 20, "div4")
-//     tu.AssertEqual(t, div3.Box().Height , 20, "div3")
-//     tu.AssertEqual(t, div4.Box().Height , 20, "div4")
-// }
+	tu.AssertEqual(t, len(page1.Box().Children), 2, "len") // content && @bottom-center
+	tu.AssertEqual(t, len(page2.Box().Children), 1, "len") // content only
+	tu.AssertEqual(t, len(page3.Box().Children), 2, "len") // content && @bottom-center
+}
 
-// @pytest.mark.parametrize("breakAfter, marginBreak, marginTop", (
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+func TestPageBreaksComplex8(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     ("page", "auto", 5),
-//     ("auto", "auto", 0),
-//     ("page", "keep", 5),
-//     ("auto", "keep", 5),
-//     ("page", "discard", 0),
-//     ("auto", "discard", 0),
-// ))
-// func TestMarginBreak(t *testing.TbreakAfter, marginBreak, marginTop) {
-//     page1, page2 = renderPages(`
-//       <style>
-//         @page { size: 70px; margin: 0 }
-//         div { height: 63px; margin: 5px 0 8px;
-//               break-after: %s; margin-break: %s }
-//       </style>
-//       <section>
-//         <div></div>
-//       </section>
-//       <section>
-//         <div></div>
-//       </section>
-//     ` % (breakAfter, marginBreak))
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section, = body.Box().Children
-//     div := section.Box().Children[0]
-//     tu.AssertEqual(t, div.Box().MarginTop , 5, "div")
+	pages := renderPages(t, `
+      <style>
+        @page { size: 75px; margin: 0 }
+        div { height: 20px }
+      </style>
+      <div></div>
+      <section>
+        <div></div>
+        <div style="page-break-after: avoid">
+          <div style="position: absolute"></div>
+          <div style="position: fixed"></div>
+        </div>
+      </section>
+      <div></div>
+    `)
+	page1, page2 := pages[0], pages[1]
 
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section, = body.Box().Children
-//     div := section.Box().Children[0]
-//     tu.AssertEqual(t, div.Box().MarginTop , marginTop, "div")
+	html := page1.Box().Children[0]
+	body, _ := unpack2(html)
+	div1, section := unpack2(body)
+	div2 := section.Box().Children[0]
+	tu.AssertEqual(t, div1.Box().PositionY, pr.Float(0), "div1")
+	tu.AssertEqual(t, div2.Box().PositionY, pr.Float(20), "div2")
+	tu.AssertEqual(t, div1.Box().Height, pr.Float(20), "div1")
+	tu.AssertEqual(t, div2.Box().Height, pr.Float(20), "div2")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	section, div4 := unpack2(body)
+	div3 := section.Box().Children[0]
+	_, _ = unpack2(div3)
+	tu.AssertEqual(t, div3.Box().PositionY, pr.Float(0), "div3")
+	tu.AssertEqual(t, div4.Box().PositionY, pr.Float(20), "div4")
+	tu.AssertEqual(t, div3.Box().Height, pr.Float(20), "div3")
+	tu.AssertEqual(t, div4.Box().Height, pr.Float(20), "div4")
+}
+
+func TestMarginBreak(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	for _, data := range []struct {
+		breakAfter, marginBreak string
+		marginTop               pr.Float
+	}{
+		{"page", "auto", 5},
+		{"auto", "auto", 0},
+		{"page", "keep", 5},
+		{"auto", "keep", 5},
+		{"page", "discard", 0},
+		{"auto", "discard", 0},
+	} {
+		pages := renderPages(t, fmt.Sprintf(`
+		<style>
+			@page { size: 70px; margin: 0 }
+			div { height: 63px; margin: 5px 0 8px;
+				break-after: %s; margin-break: %s }
+		</style>
+		<section>
+			<div></div>
+		</section>
+		<section>
+			<div></div>
+		</section>
+		`, data.breakAfter, data.marginBreak))
+		page1, page2 := pages[0], pages[1]
+
+		html := page1.Box().Children[0]
+		body := html.Box().Children[0]
+		section := body.Box().Children[0]
+		div := section.Box().Children[0]
+		tu.AssertEqual(t, div.Box().MarginTop, pr.Float(5), "div")
+
+		html = page2.Box().Children[0]
+		body = html.Box().Children[0]
+		section = body.Box().Children[0]
+		div = section.Box().Children[0]
+		tu.AssertEqual(t, div.Box().MarginTop, data.marginTop, "div")
+	}
+}
 
 // @pytest.mark.xfail
 
-// func TestMarginBreakClearance(t *testing.T):
+// func TestMarginBreakClearance(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
@@ -542,7 +557,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     section, = body.Box().Children
 //     div := section.Box().Children[0]
 //     tu.AssertEqual(t, div.Box().MarginTop , 5, "div")
-// }
+//
 //     html := page2.Box().Children[0]
 //     body := html.Box().Children[0]
 //     section, = body.Box().Children
@@ -552,294 +567,330 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, div2.Box().MarginTop , 5, "div2")
 //     tu.AssertEqual(t, div2.contentBoxY() , 5, "div2")
 
-// @pytest.mark.parametrize("direction, pageBreak, pagesNumber", (
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+func TestRectoVersoBreak(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     ("ltr", "recto", 3),
-//     ("ltr", "verso", 2),
-//     ("rtl", "recto", 3),
-//     ("rtl", "verso", 2),
-//     ("ltr", "right", 3),
-//     ("ltr", "left", 2),
-//     ("rtl", "right", 2),
-//     ("rtl", "left", 3),
-// ))
-// func TestRectoVersoBreak(t *testing.Tdirection, pageBreak, pagesNumber) {
-//     pages = renderPages(`
-//       <style>
-//         html { direction: %s }
-//         p { break-before: %s }
-//       </style>
-//       abc
-//       <p>def</p>
-//     ` % (direction, pageBreak))
-//     tu.AssertEqual(t, len(pages) , pagesNumber, "len")
+	for _, data := range []struct {
+		direction, pageBreak string
+		pagesNumber          int
+	}{
+		{"ltr", "recto", 3},
+		{"ltr", "verso", 2},
+		{"rtl", "recto", 3},
+		{"rtl", "verso", 2},
+		{"ltr", "right", 3},
+		{"ltr", "left", 2},
+		{"rtl", "right", 2},
+		{"rtl", "left", 3},
+	} {
+		pages := renderPages(t, fmt.Sprintf(`
+      <style>
+        html { direction: %s }
+        p { break-before: %s }
+      </style>
+      abc
+      <p>def</p>
+    `, data.direction, data.pageBreak))
+		tu.AssertEqual(t, len(pages), data.pagesNumber, "len")
+	}
+}
 
-// func TestPageNames1(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestPageNames1(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     pages = renderPages(`
-//       <style>
-//         @page { size: 100px 100px }
-//         section { page: small }
-//       </style>
-//       <div>
-//         <section>large</section>
-//       </div>
-//     `)
-//     page1, = pages
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (100, 100), "(page1")
-// }
+	pages := renderPages(t, `
+      <style>
+        @page { size: 100px 100px }
+        section { page: small }
+      </style>
+      <div>
+        <section>large</section>
+      </div>
+    `)
+	page1 := pages[0]
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(100), "page1")
+}
 
-// func TestPageNames2(t *testing.T) {
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+func TestPageNames2(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     pages = renderPages(`
-//       <style>
-//         @page { size: 100px 100px }
-//         @page narrow { margin: 1px }
-//         section { page: small }
-//       </style>
-//       <div>
-//         <section>large</section>
-//       </div>
-//     `)
-//     page1, = pages
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (100, 100), "(page1")
+	pages := renderPages(t, `
+      <style>
+        @page { size: 100px 100px }
+        @page narrow { margin: 1px }
+        section { page: small }
+      </style>
+      <div>
+        <section>large</section>
+      </div>
+    `)
+	page1 := pages[0]
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(100), "page1")
+}
 
-// func TestPageNames3(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+func TestPageNames3(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     pages = renderPages(`
-//       <style>
-//         @page { margin: 0 }
-//         @page narrow { size: 100px 200px }
-//         @page large { size: 200px 100px }
-//         div { page: narrow }
-//         section { page: large }
-//       </style>
-//       <div>
-//         <section>large</section>
-//         <section>large</section>
-//         <p>narrow</p>
-//       </div>
-//     `)
-//     page1, page2 = pages
-// }
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (200, 100), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div := body.Box().Children[0]
-//     section1, section2 = div.Box().Children
-//     tu.AssertEqual(t, section1.Box().ElementTag , section2.Box().ElementTag , "section", "section1")
+	pages := renderPages(t, `
+      <style>
+        @page { margin: 0 }
+        @page narrow { size: 100px 200px }
+        @page large { size: 200px 100px }
+        div { page: narrow }
+        section { page: large }
+      </style>
+      <div>
+        <section>large</section>
+        <section>large</section>
+        <p>narrow</p>
+      </div>
+    `)
+	page1, page2 := pages[0], pages[1]
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (100, 200), "(page2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     div := body.Box().Children[0]
-//     p, = div.Box().Children
-//     tu.AssertEqual(t, p.Box().ElementTag , "p", "p")
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(200), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(100), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	div := body.Box().Children[0]
+	section1, section2 := unpack2(div)
+	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section2")
 
-// func TestPageNames4(t *testing.T) {
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(200), "page1")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	div = body.Box().Children[0]
+	p := div.Box().Children[0]
+	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+}
 
-//     pages = renderPages(`
-//       <style>
-//         @page { size: 200px 200px; margin: 0 }
-//         @page small { size: 100px 100px }
-//         p { page: small }
-//       </style>
-//       <section>normal</section>
-//       <section>normal</section>
-//       <p>small</p>
-//       <section>small</section>
-//     `)
-//     page1, page2 = pages
+func TestPageNames4(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (200, 200), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section1, section2 = body.Box().Children
-//     tu.AssertEqual(t, section1.Box().ElementTag , section2.Box().ElementTag , "section", "section1")
+	pages := renderPages(t, `
+      <style>
+        @page { size: 200px 200px; margin: 0 }
+        @page small { size: 100px 100px }
+        p { page: small }
+      </style>
+      <section>normal</section>
+      <section>normal</section>
+      <p>small</p>
+      <section>small</section>
+    `)
+	page1, page2 := pages[0], pages[1]
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (100, 100), "(page2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p, section = body.Box().Children
-//     tu.AssertEqual(t, p.Box().ElementTag , "p", "p")
-//     tu.AssertEqual(t, section.Box().ElementTag , "section", "section")
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(200), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(200), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	section1, section2 := unpack2(body)
+	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
 
-// func TestPageNames5(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page1")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	p, section := unpack2(body)
+	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+}
 
-//     pages = renderPages(`
-//       <style>
-//         @page { size: 200px 200px; margin: 0 }
-//         @page small { size: 100px 100px }
-//         div { page: small }
-//       </style>
-//       <section><p>a</p>b</section>
-//       <section>c<div>d</div></section>
-//     `)
-//     page1, page2 = pages
-// }
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (200, 200), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section1, section2 = body.Box().Children
-//     tu.AssertEqual(t, section1.Box().ElementTag , section2.Box().ElementTag , "section", "section1")
-//     p, line = section1.Box().Children
-//     line := section2.Box().Children[0]
+func TestPageNames5(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (100, 100), "(page2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section2, = body.Box().Children
-//     div := section2.Box().Children[0]
+	pages := renderPages(t, `
+      <style>
+        @page { size: 200px 200px; margin: 0 }
+        @page small { size: 100px 100px }
+        div { page: small }
+      </style>
+      <section><p>a</p>b</section>
+      <section>c<div>d</div></section>
+    `)
+	page1, page2 := pages[0], pages[1]
 
-// func TestPageNames6(t *testing.T) {
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(200), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(200), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	section1, section2 := unpack2(body)
+	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
+	_, _ = unpack2(section1)
+	_ = section2.Box().Children[0]
 
-//     pages = renderPages(`
-//       <style>
-//         @page { margin: 0 }
-//         @page large { size: 200px 200px }
-//         @page small { size: 100px 100px }
-//         section { page: large }
-//         div { page: small }
-//       </style>
-//       <section>a<p>b</p>c</section>
-//       <section>d<div>e</div>f</section>
-//     `)
-//     page1, page2, page3 = pages
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page1")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	section2 = body.Box().Children[0]
+	_ = section2.Box().Children[0]
+}
 
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (200, 200), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section1, section2 = body.Box().Children
-//     tu.AssertEqual(t, section1.Box().ElementTag , section2.Box().ElementTag , "section", "section1")
-//     line1, p, line2 = section1.Box().Children
-//     line := section2.Box().Children[0]
+func TestPageNames6(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (100, 100), "(page2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section2, = body.Box().Children
-//     div := section2.Box().Children[0]
+	pages := renderPages(t, `
+      <style>
+        @page { margin: 0 }
+        @page large { size: 200px 200px }
+        @page small { size: 100px 100px }
+        section { page: large }
+        div { page: small }
+      </style>
+      <section>a<p>b</p>c</section>
+      <section>d<div>e</div>f</section>
+    `)
+	page1, page2, page3 := pages[0], pages[1], pages[2]
 
-//     tu.AssertEqual(t, (page3.Box().Width, page3.Box().Height) , (200, 200), "(page3")
-//     html := page3.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section2, = body.Box().Children
-//     line := section2.Box().Children[0]
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(200), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(200), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	section1, section2 := unpack2(body)
+	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
+	_, _, _ = unpack3(section1)
+	_ = section2.Box().Children[0]
 
-// func TestPageNames7(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page1")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	section2 = body.Box().Children[0]
+	_ = section2.Box().Children[0]
 
-//     pages = renderPages(`
-//       <style>
-//         @page { size: 200px 200px; margin: 0 }
-//         @page small { size: 100px 100px }
-//         p { page: small; break-before: right }
-//       </style>
-//       <section>normal</section>
-//       <section>normal</section>
-//       <p>small</p>
-//       <section>small</section>
-//     `)
-//     page1, page2, page3 = pages
-// }
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (200, 200), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section1, section2 = body.Box().Children
-//     tu.AssertEqual(t, section1.Box().ElementTag , section2.Box().ElementTag , "section", "section1")
+	tu.AssertEqual(t, page3.Box().Width, pr.Float(200), "page3")
+	tu.AssertEqual(t, page3.Box().Height, pr.Float(200), "page3")
+	html = page3.Box().Children[0]
+	body = html.Box().Children[0]
+	section2 = body.Box().Children[0]
+	_ = section2.Box().Children[0]
+}
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (200, 200), "(page2")
-//     html := page2.Box().Children[0]
-//     tu.AssertEqual(t, ! html.Box().Children, "!")
+func TestPageNames7(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-//     tu.AssertEqual(t, (page3.Box().Width, page3.Box().Height) , (100, 100), "(page3")
-//     html := page3.Box().Children[0]
-//     body := html.Box().Children[0]
-//     p, section = body.Box().Children
-//     tu.AssertEqual(t, p.Box().ElementTag , "p", "p")
-//     tu.AssertEqual(t, section.Box().ElementTag , "section", "section")
+	pages := renderPages(t, `
+      <style>
+        @page { size: 200px 200px; margin: 0 }
+        @page small { size: 100px 100px }
+        p { page: small; break-before: right }
+      </style>
+      <section>normal</section>
+      <section>normal</section>
+      <p>small</p>
+      <section>small</section>
+    `)
+	page1, page2, page3 := pages[0], pages[1], pages[2]
 
-// func TestPageNames8(t *testing.T) {
-// 	capt := tu.CaptureLogs()
-// 	defer capt.AssertNoLogs(t)
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(200), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(200), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	section1, section2 := unpack2(body)
+	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
 
-//     pages = renderPages(`
-//       <style>
-//         @page small { size: 100px 100px }
-//         section { page: small }
-//         p { line-height: 80px }
-//       </style>
-//       <section>
-//         <p>small</p>
-//         <p>small</p>
-//       </section>
-//     `)
-//     page1, page2 = pages
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(200), "page2")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(200), "page2")
+	html = page2.Box().Children[0]
+	tu.AssertEqual(t, len(html.Box().Children), 0, "!")
 
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (100, 100), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section, = body.Box().Children
-//     p, = section.Box().Children
-//     tu.AssertEqual(t, section.Box().ElementTag , "section", "section")
-//     tu.AssertEqual(t, p.Box().ElementTag , "p", "p")
+	tu.AssertEqual(t, page3.Box().Width, pr.Float(100), "page3")
+	tu.AssertEqual(t, page3.Box().Height, pr.Float(100), "page3")
+	html = page3.Box().Children[0]
+	body = html.Box().Children[0]
+	p, section := unpack2(body)
+	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+}
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (100, 100), "(page2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section, = body.Box().Children
-//     p, = section.Box().Children
-//     tu.AssertEqual(t, section.Box().ElementTag , "section", "section")
-//     tu.AssertEqual(t, p.Box().ElementTag , "p", "p")
+func TestPageNames8(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
 
-// func TestPageNames9(t *testing.T):
-// capt := tu.CaptureLogs()
-// defer capt.AssertNoLogs(t)
+	pages := renderPages(t, `
+      <style>
+        @page small { size: 100px 100px }
+        section { page: small }
+        p { line-height: 80px }
+      </style>
+      <section>
+        <p>small</p>
+        <p>small</p>
+      </section>
+    `)
+	page1, page2 := pages[0], pages[1]
 
-//     pages = renderPages(`
-//       <style>
-//         @page { size: 200px 200px }
-//         @page small { size: 100px 100px }
-//         section { break-after: page; page: small }
-//         article { page: small }
-//       </style>
-//       <section>
-//         <div>big</div>
-//         <div>big</div>
-//       </section>
-//       <article>
-//         <div>small</div>
-//         <div>small</div>
-//       </article>
-//     `)
-//     page1, page2, = pages
-// }
-//     tu.AssertEqual(t, (page1.Box().Width, page1.Box().Height) , (100, 100), "(page1")
-//     html := page1.Box().Children[0]
-//     body := html.Box().Children[0]
-//     section, = body.Box().Children
-//     tu.AssertEqual(t, section.Box().ElementTag , "section", "section")
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(100), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	section := body.Box().Children[0]
+	p := section.Box().Children[0]
+	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
 
-//     tu.AssertEqual(t, (page2.Box().Width, page2.Box().Height) , (100, 100), "(page2")
-//     html := page2.Box().Children[0]
-//     body := html.Box().Children[0]
-//     article, = body.Box().Children
-//     tu.AssertEqual(t, article.Box().ElementTag , "article", "article")
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page2")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page2")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	section = body.Box().Children[0]
+	p = section.Box().Children[0]
+	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+}
+
+func TestPageNames9(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	pages := renderPages(t, `
+      <style>
+        @page { size: 200px 200px }
+        @page small { size: 100px 100px }
+        section { break-after: page; page: small }
+        article { page: small }
+      </style>
+      <section>
+        <div>big</div>
+        <div>big</div>
+      </section>
+      <article>
+        <div>small</div>
+        <div>small</div>
+      </article>
+    `)
+	page1, page2 := pages[0], pages[1]
+
+	tu.AssertEqual(t, page1.Box().Width, pr.Float(100), "page1")
+	tu.AssertEqual(t, page1.Box().Height, pr.Float(100), "page1")
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	section := body.Box().Children[0]
+	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+
+	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page2")
+	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page2")
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	article := body.Box().Children[0]
+	tu.AssertEqual(t, article.Box().ElementTag, "article", "article")
+}
 
 // @pytest.mark.parametrize("style, lineCounts", (
 // 	capt := tu.CaptureLogs()
@@ -852,7 +903,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     ("orphans: 2; widows: 2; page-break-inside: avoid", [0, 7]),
 // ))
 // func TestOrphansWidowsAvoid(t *testing.Tstyle, lineCounts) {
-//     pages = renderPages(`
+//     pages := renderPages(t,`
 //       <style>
 //         @page { size: 200px }
 //         h1 { height: 120px }
@@ -864,7 +915,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //       <!-- There is room for 4 lines after h1 on the fist page -->
 //       <p>one two three four five six seven</p>
 //     ` % style)
-//     for i, page := range enumerate(pages):
+//     for i, page := range enumerate(pages){
 //         html := page.Box().Children[0]
 //         body := html.Box().Children[0]
 //         bodyChildren = body.Box().Children if i else body.Box().Children[1:]  // skip h1
@@ -872,12 +923,12 @@ func TestPageBreaksComplex4(t *testing.T) {
 //         tu.AssertEqual(t, lineCounts.pop(0) , count, "lineCounts")
 //     tu.AssertEqual(t, ! lineCounts, "!")
 
-// func TestPageAndLineboxBreaking(t *testing.T):
+// func TestPageAndLineboxBreaking(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
 //     // Empty <span/> tests a corner case := range skipFirstWhitespace()
-//     pages = renderPages(`
+//     pages := renderPages(t,`
 //       <style>
 //         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
 //         @page { size: 100px; margin: 2px; border: 1px solid }
@@ -939,7 +990,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     html, topLeft, topRight, bottomLeft, bottomRight = page.Box().Children
 //     for marginBox, text := range zip(
 //             [topLeft, topRight, bottomLeft, bottomRight],
-//             ["topLeft", "topRight", "bottomLeft", "bottomRight"]):
+//             ["topLeft", "topRight", "bottomLeft", "bottomRight"]){
 
 //         line := marginBox.Box().Children[0]
 //         text := line.Box().Children[0]
@@ -966,7 +1017,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, bottomRight.Box().MarginWidth() , 300  // margin-right, "bottomRight")
 //     tu.AssertEqual(t, bottomRight.Box().MarginHeight() , 400  // margin-bottom, "bottomRight")
 
-// func TestMarginBoxesFixedDimension2(t *testing.T):
+// func TestMarginBoxesFixedDimension2(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
@@ -1010,7 +1061,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, marginBox.Box().MarginRight , 10, "marginBox")
 //     tu.AssertEqual(t, marginBox.Box().Width , 130  // As specified, "marginBox")
 
-// func TestMarginBoxesFixedDimension4(t *testing.T):
+// func TestMarginBoxesFixedDimension4(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
@@ -1059,7 +1110,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, marginBox.Box().MarginRight , -30  // rule 3, after rule 2, "marginBox")
 //     tu.AssertEqual(t, marginBox.Box().Width , 130  // As specified, "marginBox")
 
-// func TestMarginBoxesFixedDimension6(t *testing.T):
+// func TestMarginBoxesFixedDimension6(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
@@ -1098,7 +1149,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, marginBox.Box().MarginBottom , 0, "marginBox")
 //     tu.AssertEqual(t, marginBox.Box().Height , 100, "marginBox")
 
-// func TestMarginBoxesFixedDimension8(t *testing.T):
+// func TestMarginBoxesFixedDimension8(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
@@ -1137,7 +1188,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, marginBox.Box().MarginBottom , -50  // outside, "marginBox")
 //     tu.AssertEqual(t, marginBox.Box().Height , 150, "marginBox")
 
-// func images(*widths):
+// func images(*widths){
 //     return " ".join(
 //         f"url(\"data:image/svg+xml,<svg width="{width}" height="10"></svg>\")"
 //         for width := range widths)
@@ -1231,7 +1282,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //      ` % (images(250, 60), images(250, 180)),
 //      [275, 325]),  // 250 + (100 * 1 / 4), 250 + (100 * 3 / 4)
 // ))
-// func TestPageStyle(t *testing.Tcss, widths):
+// func TestPageStyle(t *testing.Tcss, widths){
 //     expectedAtKeywords = [
 //         atKeyword for atKeyword := range [
 //             "@top-left", "@top-center", "@top-right"]
@@ -1301,11 +1352,11 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     tu.AssertEqual(t, line2.Box().PositionY , 43, "line2")
 //     tu.AssertEqual(t, line3.Box().PositionY , 83, "line3")
 
-// func TestMarginBoxesElement(t *testing.T):
+// func TestMarginBoxesElement(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
-//     pages = renderPages(`
+//     pages := renderPages(t,`
 //       <style>
 //         footer {
 //           position: running(footer);
@@ -1367,7 +1418,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //     ("first-except", ("", "", "", "3-last", "")),
 // ))
 // func TestRunningElements(t *testing.Targument, texts) {
-//     pages = renderPages(`
+//     pages := renderPages(t,`
 //       <style>
 //         @page {
 //           margin: 50px;
@@ -1396,7 +1447,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //       </article>
 //     ` % argument)
 //     tu.AssertEqual(t, len(pages) , 5, "len")
-//     for page, text := range zip(pages, texts):
+//     for page, text := range zip(pages, texts){
 //         html, margin = page.Box().Children
 //         if margin.Box().Children:
 //             h1, = margin.Box().Children
@@ -1406,7 +1457,7 @@ func TestPageBreaksComplex4(t *testing.T) {
 //         else:
 //             tu.AssertEqual(t, ! text, "!")
 
-// func TestRunningElementsDisplay(t *testing.T):
+// func TestRunningElementsDisplay(t *testing.T){
 // capt := tu.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 

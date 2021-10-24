@@ -652,7 +652,6 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	}
 	context.createBlockFormattingContext()
 	context.currentPage = pageNumber
-	pageIsEmpty := true
 	var adjoiningMargins []pr.Float
 	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute and fixed
 
@@ -661,7 +660,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	}
 
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
-		&initialContainingBlock.BoxFields, pageIsEmpty, &positionedBoxes, &positionedBoxes, &adjoiningMargins, false)
+		&initialContainingBlock.BoxFields, true, &positionedBoxes, &positionedBoxes, &adjoiningMargins, false)
 	resumeAt = tmp.resumeAt
 
 	if rootBox == nil {

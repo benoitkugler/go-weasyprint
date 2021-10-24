@@ -2,7 +2,6 @@ package layout
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 
@@ -95,9 +94,6 @@ func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, ma
 // Lay out the block ``box``.
 func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins *[]pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
-	if absoluteBoxes == nil {
-		panic("")
-	}
 	box := box_.Box()
 	if box.Style.GetColumnWidth().String != "auto" || box.Style.GetColumnCount().String != "auto" {
 		newBox_, result := columnsLayout(context, box_, maxPositionY, skipStack, containingBlock,
@@ -293,10 +289,6 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 		panic(fmt.Sprintf("expected BlockContainer or Flex, got %T", box_))
 	}
 
-	if absoluteBoxes == nil {
-		panic("")
-	}
-
 	// We have to work around floating point rounding errors here.
 	// The 1e-9 value comes from PEP 485.
 	allowedMaxPositionY := maxPositionY * (1 + 1e-9)
@@ -351,9 +343,14 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 	L := len(box.Children[skip:])
 	var i int
 	for i = 0; i < L; i++ {
-		child_ := box.Children[skip:][i]
 		index := i + skip
+		child_ := box.Children[skip:][i]
 		child := child_.Box()
+
+		if debugMode {
+			fmt.Printf("Block container layout child %d: %s, in normal flow: %v\n", i, child_.Type(), child.IsInNormalFlow())
+		}
+
 		child.PositionX = positionX
 		child.PositionY = positionY // does not count margins in adjoiningMargins
 
@@ -553,7 +550,7 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 	abort, stop bool, resumeAt *tree.IntList, _ pr.Float, _ []Box) {
 
 	if len(box.Children) != 1 {
-		log.Fatalf("line box with siblings before layout")
+		panic("line box with siblings before layout")
 	}
 	if len(adjoiningMargins) != 0 {
 		positionY += collapseMargin(adjoiningMargins)
@@ -650,7 +647,7 @@ func inFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child_ B
 		// Between in-flow siblings
 		pageBreak = blockLevelPageBreak(lastInFlowChild, child_)
 		pageName_ := blockLevelPageName(lastInFlowChild, child_)
-		if pageName_ != nil ||
+		if (pageName_.String != "" || pageName_.Page != 0) ||
 			pageBreak == "page" || pageBreak == "left" || pageBreak == "right" ||
 			pageBreak == "recto" || pageBreak == "verso" {
 			pageName, _ := child.PageValues()
@@ -891,14 +888,15 @@ func blockLevelPageBreak(siblingBefore, siblingAfter Box) string {
 	return string(result)
 }
 
-// Return the next page name when siblings don't have the same names.
-func blockLevelPageName(siblingBefore, siblingAfter Box) *pr.Page {
+// Return the next page name when siblings don't have the same names,
+// or the zero value.
+func blockLevelPageName(siblingBefore, siblingAfter Box) pr.Page {
 	_, beforePage := siblingBefore.PageValues()
 	afterPage, _ := siblingAfter.PageValues()
 	if beforePage != afterPage {
-		return &afterPage
+		return afterPage
 	}
-	return nil
+	return pr.Page{}
 }
 
 // Because of a `page-break-before: avoid` or a `page-break-after: avoid`
