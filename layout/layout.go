@@ -218,11 +218,11 @@ var _ text.TextLayoutContext = (*layoutContext)(nil)
 // such as various caches.
 type layoutContext struct {
 	// caches
-	stringSet    map[string]map[int][]string
-	strutLayouts map[text.StrutLayoutKey][2]pr.Float
-	tables       map[*bo.TableBox]map[bool]tableContentWidths
+	stringSet       map[string]map[int][]string
+	runningElements map[string]map[int][]Box
+	strutLayouts    map[text.StrutLayoutKey][2]pr.Float
+	tables          map[*bo.TableBox]map[bool]tableContentWidths
 
-	runningElements     map[string]map[int]Box
 	getImageFromUri     bo.Gifu
 	fontConfig          *text.FontConfiguration
 	TargetCollector     tree.TargetCollector
@@ -260,7 +260,7 @@ func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
 	self.fontConfig = fontConfig
 	self.TargetCollector = tree.NewTargetCollector()
 	self.counterStyle = counterStyle
-	self.runningElements = map[string]map[int]Box{}
+	self.runningElements = map[string]map[int][]Box{}
 
 	// Cache
 	self.stringSet = make(map[string]map[int][]string)
@@ -272,8 +272,6 @@ func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
 		counterStyle, &pageRules, &self.TargetCollector, &self)
 	return &self
 }
-
-func (self *layoutContext) RunningElements() map[string]map[int]Box { return self.runningElements }
 
 func (self *layoutContext) CurrentPage() int { return self.currentPage }
 
@@ -314,6 +312,36 @@ func (self *layoutContext) finishBlockFormattingContext(rootBox_ Box) {
 	}
 }
 
+func resolveKeyword(keyword, name string, page Box) string {
+	switch keyword {
+	case "first":
+		return "first"
+	case "start":
+		element := page
+		for element != nil {
+			if element.Box().Style.GetStringSet().String != "none" {
+				for _, v := range element.Box().Style.GetStringSet().Contents {
+					if v.String == name {
+						return "first"
+					}
+				}
+			}
+			if bo.ParentBoxT.IsInstance(element) {
+				if len(element.Box().Children) > 0 {
+					element = element.Box().Children[0]
+					continue
+				}
+			}
+			break
+		}
+	case "last":
+		return "last"
+	case "first-except":
+		return "return"
+	}
+	return ""
+}
+
 // Resolve value of string function (as set by string set).
 // We'll have something like this that represents all assignments on a
 // given page:
@@ -325,37 +353,19 @@ func (self *layoutContext) finishBlockFormattingContext(rootBox_ Box) {
 // http://dev.w3.org/csswg/css-gcpm/#funcdef-string
 //
 // `keyword` indicates which value of the named string to use.
-// 	Default is the first assignment on the current page
-//  else the most recent assignment (entry value)
+// Default is the first assignment on the current page
+// else the most recent assignment (entry value)
 // keyword="first"
 func (self *layoutContext) GetStringSetFor(page Box, name, keyword string) string {
 	if currentS, in := self.stringSet[name][self.currentPage]; in {
 		// A value was assigned on this page
-		firstString := currentS[0]
-		lastString := currentS[len(currentS)-1]
-		switch keyword {
+		switch resolveKeyword(keyword, name, page) {
 		case "first":
-			return firstString
-		case "start":
-			element := page
-			for element != nil {
-				if element.Box().Style.GetStringSet().String != "none" {
-					for _, v := range element.Box().Style.GetStringSet().Contents {
-						if v.String == name {
-							return firstString
-						}
-					}
-				}
-				if bo.ParentBoxT.IsInstance(element) {
-					if len(element.Box().Children) > 0 {
-						element = element.Box().Children[0]
-						continue
-					}
-				}
-				break
-			}
+			return currentS[0]
 		case "last":
-			return lastString
+			return currentS[len(currentS)-1]
+		case "return":
+			return ""
 		}
 	}
 	// Search backwards through previous pages
@@ -365,4 +375,25 @@ func (self *layoutContext) GetStringSetFor(page Box, name, keyword string) strin
 		}
 	}
 	return ""
+}
+
+func (self *layoutContext) GetRunningElementFor(page Box, name, keyword string) Box {
+	if currentS, in := self.runningElements[name][self.currentPage]; in {
+		// A value was assigned on this page
+		switch resolveKeyword(keyword, name, page) {
+		case "first":
+			return currentS[0]
+		case "last":
+			return currentS[len(currentS)-1]
+		case "return":
+			return nil
+		}
+	}
+	// Search backwards through previous pages
+	for previousPage := self.currentPage - 1; previousPage > 0; previousPage -= 1 {
+		if currentS, in := self.runningElements[name][previousPage]; in {
+			return currentS[len(currentS)-1]
+		}
+	}
+	return nil
 }

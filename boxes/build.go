@@ -59,9 +59,10 @@ func init() {
 }
 
 type Context interface {
-	RunningElements() map[string]map[int]Box
+	// RunningElements() map[string]map[int]Box
 	CurrentPage() int
-	GetStringSetFor(page Box, name string, keyword string) string
+	GetStringSetFor(page Box, name, keyword string) string
+	GetRunningElementFor(page Box, name, keyword string) Box
 }
 
 type Gifu = func(url, forcedMimeType string) images.Image
@@ -637,21 +638,35 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 				}
 			}
 		case "element()":
-			value := content.AsString()
-			runningElements := context.RunningElements()
-			if _, in := runningElements[value]; !in {
-				// TODO: emit warning
+			value := content.AsStrings()
+			if !inPageContext {
+				log.Printf("element(%s) is only allowed in page margins", strings.Join(value, " "))
 				continue
 			}
-			var newBox Box
-			for i := context.CurrentPage() - 1; i > -1; i -= 1 {
-				runningBox, in := runningElements[value][i]
-				if !in {
-					continue
-				}
-				newBox = deepcopy(runningBox)
-				break
+			if len(value) == 1 {
+				value = append(value, "first")
 			}
+			newBox := context.GetRunningElementFor(page, value[0], value[1])
+			if newBox == nil {
+				continue
+			}
+
+			// runningElements := context.RunningElements()
+			// if _, in := runningElements[value]; !in {
+			// 	// TODO: emit warning
+			// 	continue
+			// }
+			// var newBox Box
+			// for i := context.CurrentPage() - 1; i > -1; i -= 1 {
+			// 	runningBox, in := runningElements[value][i]
+			// 	if !in {
+			// 		continue
+			// 	}
+			// 	break
+			// }
+
+			newBox = deepcopy(newBox)
+
 			newBox.Box().Style.SetPosition(pr.BoolString{String: "static"})
 			for _, child := range Descendants(newBox) {
 				if content := child.Box().Style.GetContent(); content.String == "normal" || content.String == "none" {
@@ -662,7 +677,6 @@ func computeContentList(contentList pr.ContentProperties, parentBox Box, counter
 					getImageFromUri, targetCollector, cs, context, page)
 			}
 			contentBoxes = append(contentBoxes, newBox)
-
 		case "leader()":
 			textBox := TextBoxAnonymousFrom(parentBox, content.AsLeader())
 			leaderBox := InlineBoxAnonymousFrom(parentBox, []Box{textBox})

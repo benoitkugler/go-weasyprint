@@ -189,11 +189,6 @@ func NewInlineBox(elementTag string, style pr.ElementStyle, children []Box) Inli
 	return out
 }
 
-// Return the (x, y, w, h) rectangle where the box is clickable.
-func (b *InlineBox) hitArea() (x, y, w, h pr.Float) {
-	return b.Box().BorderBoxX(), b.Box().PositionY, b.Box().BorderWidth(), b.Box().MarginHeight()
-}
-
 func NewTextBox(elementTag string, style pr.ElementStyle, text string) TextBox {
 	if len(text) == 0 {
 		panic("NewTextBox called with empty text")

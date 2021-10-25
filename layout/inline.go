@@ -697,75 +697,12 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		child_ := box.Children[index]
 		child := child_.Box()
 		child.PositionY = box.PositionY
-		if child.IsAbsolutelyPositioned() {
-			child.PositionX = positionX
-			placeholder := NewAbsolutePlaceholder(child_)
-			*linePlaceholders = append(*linePlaceholders, placeholder)
-			waitingChildren = append(waitingChildren, indexedBox{index: index, box: placeholder})
-			if child.Style.GetPosition().String == "absolute" {
-				*absoluteBoxes = append(*absoluteBoxes, placeholder)
-			} else {
-				*fixedBoxes = append(*fixedBoxes, placeholder)
+		if !child.IsInNormalFlow() {
+			inlineOutOfFlowLayout(context, box_, containingBlock, index, child_, children, lineChildren,
+				&waitingChildren, &waitingFloats, absoluteBoxes, fixedBoxes, linePlaceholders, &floatWidths, maxX, positionX)
+			if child.IsFloated() {
+				floatResumeAt = index + 1
 			}
-			continue
-		} else if child.IsFloated() {
-			child.PositionX = positionX
-			floatWidth := shrinkToFit(context, child_, containingBlock.Width.V())
-
-			// To retrieve the real available space for floats, we must remove
-			// the trailing whitespaces from the line
-			var nonFloatingChildren []Box
-			for _, v := range append(children, waitingChildren...) {
-				if !v.box.Box().IsFloated() {
-					nonFloatingChildren = append(nonFloatingChildren, v.box)
-				}
-			}
-			if Lf := len(nonFloatingChildren); Lf != 0 {
-				floatWidth -= trailingWhitespaceSize(context, nonFloatingChildren[Lf-1])
-			}
-
-			if floatWidth > maxX-positionX || len(waitingFloats) != 0 {
-				// TODO: the absolute and fixed boxes in the floats must be
-				// added here, and not in iterLineBoxes
-				waitingFloats = append(waitingFloats, child_)
-			} else {
-				if debugMode {
-					fmt.Println("\tRecursing for child...")
-				}
-				child_ = floatLayout(context, child_, containingBlock, absoluteBoxes, fixedBoxes)
-				if debugMode {
-					fmt.Println("\tChild done.")
-					fmt.Println()
-				}
-				waitingChildren = append(waitingChildren, indexedBox{index: index, box: child_})
-
-				// Translate previous line children
-				dx := pr.Max(child.MarginWidth(), 0)
-				floatWidths.add(child.Style.GetFloat(), dx)
-				if child.Style.GetFloat() == "left" {
-					if bo.LineBoxT.IsInstance(box_) {
-						// The parent is the line, update the current position
-						// for the next child. When the parent is not the line
-						// (it is an inline block), the current position of the
-						// line is updated by the box itself (see next
-						// splitInlineLevel call).
-						positionX += dx
-					}
-				} else if child.Style.GetFloat() == "right" {
-					// Update the maximum x position for the next children
-					maxX -= dx
-				}
-				for _, oldChild := range lineChildren {
-					if !oldChild.box.Box().IsInNormalFlow() {
-						continue
-					}
-					if (child.Style.GetFloat() == "left" && box.Style.GetDirection() == "ltr") ||
-						(child.Style.GetFloat() == "right" && box.Style.GetDirection() == "rtl") {
-						oldChild.box.Translate(oldChild.box, dx, 0, true)
-					}
-				}
-			}
-			floatResumeAt = index + 1
 			continue
 		}
 
@@ -1068,6 +1005,93 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		firstLetter:        firstLetter,
 		lastLetter:         lastLetter,
 		floatWidths:        floatWidths,
+	}
+}
+
+func (context *layoutContext) addRunning(child_ bo.Box) {
+	runningName := child_.Box().Style.GetPosition().String
+	currentRE, has := context.runningElements[runningName]
+	if !has {
+		currentRE = map[int][]Box{}
+		context.runningElements[runningName] = currentRE
+	}
+	currentRE[context.currentPage] = append(currentRE[context.currentPage], child_)
+}
+
+func inlineOutOfFlowLayout(context *layoutContext, box Box, containingBlock *bo.BoxFields, index int, child_ Box, children,
+	lineChildren []indexedBox, waitingChildren *[]indexedBox, waitingFloats *[]Box,
+	absoluteBoxes, fixedBoxes, linePlaceholders *[]*AbsolutePlaceholder, floatWidths *widths,
+	maxX, positionX pr.Float) {
+	child := child_.Box()
+	if child.IsAbsolutelyPositioned() {
+		child.PositionX = positionX
+		placeholder := NewAbsolutePlaceholder(child_)
+		*linePlaceholders = append(*linePlaceholders, placeholder)
+		*waitingChildren = append(*waitingChildren, indexedBox{index: index, box: placeholder})
+		if child.Style.GetPosition().String == "absolute" {
+			*absoluteBoxes = append(*absoluteBoxes, placeholder)
+		} else {
+			*fixedBoxes = append(*fixedBoxes, placeholder)
+		}
+	} else if child.IsFloated() {
+		child.PositionX = positionX
+		floatWidth := shrinkToFit(context, child_, containingBlock.Width.V())
+
+		// To retrieve the real available space for floats, we must remove
+		// the trailing whitespaces from the line
+		var nonFloatingChildren []Box
+		for _, v := range append(children, *waitingChildren...) {
+			if !v.box.Box().IsFloated() {
+				nonFloatingChildren = append(nonFloatingChildren, v.box)
+			}
+		}
+		if Lf := len(nonFloatingChildren); Lf != 0 {
+			floatWidth -= trailingWhitespaceSize(context, nonFloatingChildren[Lf-1])
+		}
+
+		if floatWidth > maxX-positionX || len(*waitingFloats) != 0 {
+			// TODO: the absolute and fixed boxes in the floats must be
+			// added here, and not in iterLineBoxes
+			*waitingFloats = append(*waitingFloats, child_)
+		} else {
+			if debugMode {
+				fmt.Println("\tRecursing for child...")
+			}
+			child_ = floatLayout(context, child_, containingBlock, absoluteBoxes, fixedBoxes)
+			if debugMode {
+				fmt.Println("\tChild done.")
+				fmt.Println()
+			}
+			*waitingChildren = append(*waitingChildren, indexedBox{index: index, box: child_})
+
+			// Translate previous line children
+			dx := pr.Max(child.MarginWidth(), 0)
+			floatWidths.add(child.Style.GetFloat(), dx)
+			if child.Style.GetFloat() == "left" {
+				if bo.LineBoxT.IsInstance(box) {
+					// The parent is the line, update the current position
+					// for the next child. When the parent is not the line
+					// (it is an inline block), the current position of the
+					// line is updated by the box itself (see next
+					// splitInlineLevel call).
+					positionX += dx
+				}
+			} else if child.Style.GetFloat() == "right" {
+				// Update the maximum x position for the next children
+				maxX -= dx
+			}
+			for _, oldChild := range lineChildren {
+				if !oldChild.box.Box().IsInNormalFlow() {
+					continue
+				}
+				if (child.Style.GetFloat() == "left" && box.Box().Style.GetDirection() == "ltr") ||
+					(child.Style.GetFloat() == "right" && box.Box().Style.GetDirection() == "rtl") {
+					oldChild.box.Translate(oldChild.box, dx, 0, true)
+				}
+			}
+		}
+	} else if child.IsRunning() {
+		context.addRunning(child_)
 	}
 }
 

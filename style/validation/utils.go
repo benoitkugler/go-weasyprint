@@ -267,23 +267,30 @@ func parseColorStop(tokens []Token) (pr.ColorStop, error) {
 	return pr.ColorStop{}, InvalidValue
 }
 
+func parseURLToken(value, baseURL string) (url pr.NamedString, attr pr.AttrData, err error) {
+	if strings.HasPrefix(value, "#") {
+		return pr.NamedString{Name: "internal", String: utils.Unquote(value[1:])}, attr, nil
+	} else {
+		var joined string
+		joined, err = utils.SafeUrljoin(baseURL, value, false)
+		if err != nil {
+			return
+		}
+		return pr.NamedString{Name: "external", String: joined}, attr, nil
+	}
+}
+
 func getUrl(_token Token, baseUrl string) (url pr.NamedString, attr pr.AttrData, err error) {
 	switch token := _token.(type) {
 	case parser.URLToken:
-		if strings.HasPrefix(token.Value, "#") {
-			return pr.NamedString{Name: "internal", String: utils.Unquote(token.Value[1:])}, attr, nil
-		} else {
-			var joined string
-			joined, err = utils.SafeUrljoin(baseUrl, token.Value, false)
-			if err != nil {
-				return
-			}
-			return pr.NamedString{Name: "external", String: joined}, attr, nil
-		}
+		return parseURLToken(token.Value, baseUrl)
 	case parser.FunctionBlock:
 		if token.Name == "attr" {
 			attr = checkAttrFunction(token, "url")
 			return
+		} else if L := len(*token.Arguments); token.Name == "url" && (L == 1 || L == 2) {
+			val, _ := (*token.Arguments)[0].(parser.StringToken)
+			return parseURLToken(val.Value, baseUrl)
 		}
 	}
 	return

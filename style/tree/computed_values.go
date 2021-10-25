@@ -200,91 +200,6 @@ func resolveVar(specified map[string]pr.ValidatedProperty, var_ pr.VarData) pr.R
 	return computedValue
 }
 
-// Return a dict of computed value for the given element from
-// `specified`, which must contain values for all the properties.
-// `computed` will be updated with the missing properties.
-// `parentStyle` is a dict of computed value of the parent element
-// (and should contain value for all properties), or nil for the root element.
-// `targetCollector` is used to get computed targets.
-func compute(element Element, pseudoType string, specified map[string]pr.CascadedProperty, computed, parentStyle,
-	rootStyle pr.Properties, baseUrl string, targetCollector *TargetCollector) {
-	// if parentStyle == nil {
-	// 	parentStyle = pr.InitialValues
-	// }
-
-	// computer := &computer{
-	// 	isRootElement:   parentStyle == nil,
-	// 	element:         element,
-	// 	pseudoType:      pseudoType,
-	// 	specified:       specified,
-	// 	computed:        computed,
-	// 	parentStyle:     parentStyle,
-	// 	rootStyle:       rootStyle,
-	// 	baseUrl:         baseUrl,
-	// 	targetCollector: targetCollector,
-	// }
-	// // To have better typing, we start by resolving all var() and custom propperties.
-	// resolveds := make(pr.Properties, len(computingOrder))
-	// for _, name := range computingOrder {
-	// 	value := specified[name]
-	// 	if var_, ok := value.SpecialProperty.(pr.VarData); ok {
-	// 		computedValue := resolveVar(specified, var_)
-	// 		var newValue pr.CssProperty
-	// 		if computedValue != nil {
-	// 			val, err := validation.Validate(strings.ReplaceAll(name, "_", "-"), computedValue, baseUrl)
-	// 			if err != nil {
-	// 				log.Printf("Unsupported computed value set in variable `%s` for property `%s`.",
-	// 					strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
-	// 				continue
-	// 			}
-	// 			if val.Default != 0 || val.ToCascaded().SpecialProperty != nil {
-	// 				log.Printf("Unsupported 'inherited' or 'initial' set in variable `%s` for property `%s`",
-	// 					strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
-	// 			}
-	// 			newValue = val.ToCascaded().ToCSS()
-	// 		}
-
-	// 		// See https://drafts.csswg.org/css-variables/#invalid-variables
-	// 		if newValue == nil {
-	// 			chunks := make([]string, len(computedValue))
-	// 			for i, token := range computedValue {
-	// 				chunks[i] = parser.SerializeOne(token)
-	// 			}
-	// 			cp := strings.Join(chunks, "")
-	// 			log.Printf("Unsupported computed value `%s` set in variable `%s` for property `%s`.", cp,
-	// 				strings.ReplaceAll(var_.Name, "_", "-"), strings.ReplaceAll(name, "_", "-"))
-	// 			if pr.Inherited.Has(name) && parentStyle != nil {
-	// 				newValue = parentStyle[name]
-	// 			} else {
-	// 				newValue = pr.InitialValues[name]
-	// 			}
-	// 		}
-	// 		resolveds[name] = newValue
-	// 	} else if _, ok := value.SpecialProperty.(pr.RawTokens); ok {
-	// 		log.Printf("unexpected custom property for %s\n", name)
-	// 	} else {
-	// 		resolveds[name] = value.ToCSS()
-	// 	}
-	// }
-
-	// for _, name := range computingOrder {
-
-	// 	if _, in := computed[name]; in {
-	// 		// Already computed
-	// 		continue
-	// 	}
-	// 	value := resolveds[name]
-
-	// 	fn := computerFunctions[name]
-	// 	if fn != nil {
-	// 		value = fn(computer, name, value)
-	// 	}
-	// 	// else: same as specified
-	// 	computed[name] = value
-	// }
-	// computed.SetWeasySpecifiedDisplay(resolveds.GetDisplay())
-}
-
 // value is either a VarData or a normal property; it cannot be a RawToken
 func computeVariable(varData pr.VarData, name string, computed map[string]pr.ValidatedProperty, baseUrl string, parentStyle pr.ElementStyle) (pr.CascadedProperty, bool) {
 	alreadyComputedValue := false
@@ -310,18 +225,6 @@ func computeVariable(varData pr.VarData, name string, computed map[string]pr.Val
 	}
 
 	return newValue, alreadyComputedValue
-}
-
-type computer struct {
-	element         Element
-	computed        pr.Properties
-	specified       map[string]pr.CascadedProperty
-	rootStyle       pr.Properties
-	parentStyle     pr.Properties
-	targetCollector *TargetCollector
-	pseudoType      string
-	baseUrl         string
-	isRootElement   bool
 }
 
 // backgroundImage computes lenghts in gradient background-image.

@@ -150,20 +150,20 @@ func countAuto(values ...pr.MaybeFloat) int {
 	return out
 }
 
-//     Compute and set a margin box fixed dimension on ``box``, as described in:
-//     http://dev.w3.org/csswg/css3-page/#margin-constraints
-//     :param box:
-//         The margin box to work on
-//     :param outer:
-//         The target outer dimension (value of a page margin)
-//     :param vertical:
-//         true to set height, margin-top and margin-bottom; false for width,
-//         margin-left and margin-right
-//     :param topOrLeft:
-//         true if the margin box in if the top half (for vertical==true) or
-//         left half (for vertical==false) of the page.
-//         This determines which margin should be "auto" if the values are
-//         over-constrained. (Rule 3 of the algorithm.)
+// Compute and set a margin box fixed dimension on ``box``, as described in:
+// http://dev.w3.org/csswg/css3-page/#margin-constraints
+// :param box:
+//     The margin box to work on
+// :param outer:
+//     The target outer dimension (value of a page margin)
+// :param vertical:
+//     true to set height, margin-top and margin-bottom; false for width,
+//     margin-left and margin-right
+// :param topOrLeft:
+//     true if the margin box in if the top half (for vertical==true) or
+//     left half (for vertical==false) of the page.
+//     This determines which margin should be "auto" if the values are
+//     over-constrained. (Rule 3 of the algorithm.)
 func computeFixedDimension(context *layoutContext, box_ *bo.MarginBox, outer pr.Float, vertical, topOrLeft bool) {
 	var boxOriented orientedBoxITF
 	if vertical {
@@ -290,7 +290,7 @@ func computeVariableDimension(context *layoutContext, sideBoxes_ [3]*bo.MarginBo
 					// Therefore, one of the last two "if" statements would not
 					// have lead us here.
 					if weightSum <= 0 {
-						log.Fatalf("weightSum must be > 0, got %f", weightSum)
+						panic(fmt.Sprintf("weightSum must be > 0, got %f", weightSum))
 					}
 					boxB.inner = boxB.inner.V() + available*weightB/weightSum
 				}
@@ -305,7 +305,7 @@ func computeVariableDimension(context *layoutContext, sideBoxes_ [3]*bo.MarginBo
 	} else {
 		// Non-generated boxes get zero for every box-model property
 		if boxB.inner.V() != 0 {
-			log.Fatalf("expected boxB.inner == 0, got %v", boxB.inner)
+			panic(fmt.Sprintf("expected boxB.inner == 0, got %v", boxB.inner))
 		}
 		if boxA.inner == pr.Auto && boxC.inner == pr.Auto {
 			if outerSum >= (boxA.outerMaxContentSize() + boxC.outerMaxContentSize()) {
@@ -326,7 +326,7 @@ func computeVariableDimension(context *layoutContext, sideBoxes_ [3]*bo.MarginBo
 					// Therefore, one of the last two "if" statements would not
 					// have lead us here.
 					if weightSum <= 0 {
-						log.Fatalf("weightSum must be > 0, got %f", weightSum)
+						panic(fmt.Sprintf("weightSum must be > 0, got %f", weightSum))
 					}
 					boxA.inner = boxA.inner.V() + available*weightA/weightSum
 					boxC.inner = boxC.inner.V() + available*weightC/weightSum
@@ -341,7 +341,7 @@ func computeVariableDimension(context *layoutContext, sideBoxes_ [3]*bo.MarginBo
 
 	// And, we’re done!
 	if countAuto(boxA.inner, boxB.inner, boxC.inner) > 0 {
-		log.Fatalln("unexpected auto value")
+		panic("unexpected auto value")
 	}
 
 	// Set the actual attributes back.
@@ -483,18 +483,18 @@ func makeMarginBoxes(context *layoutContext, page *bo.PageBox, state tree.PageSt
 		}
 		// We need the three boxes together for the variable dimension:
 		computeVariableDimension(context, sideBoxes, vertical, variableOuter.V())
-		offsets := []pr.Float{0, 0.5, 1}
+		offsets := [...]pr.Float{0, 0.5, 1}
 		for i := range sideBoxes {
 			box, offset := sideBoxes[i], offsets[i]
 			if !box.IsGenerated {
 				continue
 			}
-			box.PositionX = positionX
 			box.PositionY = positionY
+			box.PositionX = positionX
 			if vertical {
 				box.PositionY += offset * (variableOuter.V() - box.MarginHeight())
 			} else {
-				box.PositionX += offset * (-box.MarginWidth())
+				box.PositionX += offset * (variableOuter.V() - box.MarginWidth())
 			}
 			computeFixedDimension(context, box, fixedOuter.V(), !vertical, prefix == "top" || prefix == "left")
 			generatedBoxes = append(generatedBoxes, box)
@@ -533,7 +533,7 @@ func marginBoxContentLayout(context *layoutContext, mBox *bo.MarginBox) Box {
 		new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), new([]pr.Float), false)
 
 	if tmp.resumeAt != nil {
-		log.Fatalf("resumeAt should be nil, got %v", tmp.resumeAt)
+		panic(fmt.Sprintf("resumeAt should be nil, got %v", tmp.resumeAt))
 	}
 	box := newBox_.Box()
 	verticalAlign := box.Style.GetVerticalAlign()

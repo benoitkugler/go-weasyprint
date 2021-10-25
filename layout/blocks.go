@@ -532,14 +532,7 @@ func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child
 			stop = true
 		}
 	} else if child.IsRunning() {
-		run := child.Style.GetPosition().String
-		default_ := map[int]Box{}
-		currentRE, has := context.runningElements[run]
-		if !has {
-			currentRE = default_
-			context.runningElements[run] = default_
-		}
-		currentRE[context.currentPage-1] = child_
+		context.addRunning(child_)
 	}
 	return stop, resumeAt, newChildren
 }
@@ -602,7 +595,7 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 			}
 			if needed != 0 && needed <= overOrphans {
 				// Remove lines to keep them for the next page
-				newChildren = newChildren[:needed-1]
+				newChildren = newChildren[:len(newChildren)-needed]
 			}
 			// Page break here, resume before this line
 			resumeAt = &tree.IntList{Value: index, Next: skipStack}
