@@ -460,7 +460,7 @@ func tableAndColumnsPreferredWidths(context *layoutContext, box *bo.BoxFields, o
 	// Define the total horizontal border spacing
 	var totalHorizontalBorderSpacing pr.Float
 	if table.Style.GetBorderCollapse() == "separate" && gridWidth > 0 {
-		var tot pr.Float
+		var tot pr.Float = 1
 		for _, column := range zippedGrid {
 			any := false
 			for _, b := range column {

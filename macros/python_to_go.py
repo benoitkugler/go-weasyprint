@@ -3,10 +3,10 @@ import sys
 
 refunc = re.compile("^(def )")
 respace = re.compile(" *")
-path = sys.argv[1]
+INPUT = sys.argv[1]
 indent_stack = []
 in_comment = False
-with open(path) as f:
+with open(INPUT) as f:
     s = ""
     for line in f.readlines():
         parts = line.split("_")
@@ -83,5 +83,5 @@ while i < len(lines):
         out.append(l)
         i += 1
 
-with open(path, "w") as f:
+with open(INPUT, "w") as f:
     f.write("\n".join(out))
