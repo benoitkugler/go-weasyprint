@@ -2,7 +2,6 @@ package layout
 
 import (
 	"fmt"
-	"log"
 	"math"
 
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
@@ -104,7 +103,7 @@ func _absoluteWidth(box_ Box, context *layoutContext, containingBlock containing
 		availableWidth := cbWidth - (paddingPlusBordersX + box.MarginLeft.V() + box.MarginRight.V())
 		box.Width = shrinkToFit(context, box_, availableWidth)
 	} else if left != pr.Auto && right != pr.Auto && width != pr.Auto {
-		widthForMargins := cbWidth - (right.V() + left.V() + paddingPlusBordersX)
+		widthForMargins := cbWidth - (right.V() + left.V() + width.V() + paddingPlusBordersX)
 		if marginL == pr.Auto && marginR == pr.Auto {
 			if width.V()+paddingPlusBordersX+right.V()+left.V() <= cbWidth {
 				box.MarginLeft = widthForMargins / 2
@@ -180,7 +179,7 @@ func absoluteHeight(box_ Box, containingBlock block) (bool, pr.Float) {
 			box.MarginBottom = pr.Float(0)
 		}
 	} else if top != pr.Auto && bottom != pr.Auto && height != pr.Auto {
-		heightForMargins := cbHeight - (top.V() + bottom.V() + paddingsPlusBordersY)
+		heightForMargins := cbHeight - (top.V() + bottom.V() + height.V() + paddingsPlusBordersY)
 		if marginT == pr.Auto && marginB == pr.Auto {
 			box.MarginTop = heightForMargins / 2
 			box.MarginBottom = box.MarginTop
@@ -268,7 +267,7 @@ func absoluteFlex(context *layoutContext, box_ Box, containingBlock block, fixed
 // Set the width of absolute positioned ``box``.
 func absoluteLayout(context *layoutContext, placeholder *AbsolutePlaceholder, containingBlock Box, fixedBoxes *[]*AbsolutePlaceholder) {
 	if placeholder.layoutDone {
-		log.Fatalf("placeholder can't have its layout done.")
+		panic("placeholder can't have its layout done.")
 	}
 	box := placeholder.AliasBox
 	placeholder.setLaidOutBox(absoluteBoxLayout(context, box, containingBlock, fixedBoxes))

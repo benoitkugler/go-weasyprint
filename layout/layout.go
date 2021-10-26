@@ -112,8 +112,8 @@ func layoutFixedBoxes(context *layoutContext, pages []*bo.PageBox, containingPag
 			out = append(out, absoluteBoxLayout(context, box, containingPage, &absoluteBoxes))
 			for len(absoluteBoxes) != 0 {
 				var newAbsoluteBoxes []*AbsolutePlaceholder
-				for _, box := range absoluteBoxes {
-					absoluteLayout(context, box, containingPage, &newAbsoluteBoxes)
+				for _, absBox := range absoluteBoxes {
+					absoluteLayout(context, absBox, containingPage, &newAbsoluteBoxes)
 				}
 				absoluteBoxes = newAbsoluteBoxes
 			}

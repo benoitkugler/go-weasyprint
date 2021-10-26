@@ -672,8 +672,8 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 			page.FixedBoxes = append(page.FixedBoxes, placeholder.AliasBox)
 		}
 	}
-	for _, absoluteBox := range positionedBoxes {
-		absoluteLayout(context, absoluteBox, page, &positionedBoxes)
+	for i := 0; i < len(positionedBoxes); i++ { // note that positionedBoxes may grow over the loop
+		absoluteLayout(context, positionedBoxes[i], page, &positionedBoxes)
 	}
 	context.finishBlockFormattingContext(rootBox)
 

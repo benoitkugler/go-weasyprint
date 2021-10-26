@@ -16,8 +16,8 @@ type BlockLevelBox struct {
 }
 
 type BlockBox struct {
-	BoxFields
 	BlockLevelBox
+	BoxFields
 }
 
 type LineBox struct {
@@ -54,13 +54,13 @@ type InlineBlockBox struct {
 }
 
 type ReplacedBox struct {
-	BoxFields
 	Replacement images.Image
+	BoxFields
 }
 
 type BlockReplacedBox struct {
-	ReplacedBox
 	BlockLevelBox
+	ReplacedBox
 }
 
 type InlineReplacedBox struct {
@@ -125,8 +125,8 @@ type MarginBox struct {
 }
 
 type FlexBox struct {
-	BoxFields
 	BlockLevelBox
+	BoxFields
 }
 
 type InlineFlexBox struct {

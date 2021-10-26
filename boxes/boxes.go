@@ -99,9 +99,7 @@ type Box interface {
 
 	Box() *BoxFields
 	Copy() Box
-	// String() string
 	AllChildren() []Box
-	// ignoreFloats = false
 	Translate(box Box, dx, dy pr.Float, ignoreFloats bool)
 	RemoveDecoration(box *BoxFields, isStart, isEnd bool)
 	PageValues() (pr.Page, pr.Page)
@@ -306,72 +304,72 @@ func (BoxFields) Translate(box Box, dx, dy pr.Float, ignoreFloats bool) {
 // ---- Heights and widths -----
 
 // Width of the padding box.
-func (self *BoxFields) PaddingWidth() pr.Float {
-	return self.Width.V() + self.PaddingLeft.V() + self.PaddingRight.V()
+func (b *BoxFields) PaddingWidth() pr.Float {
+	return b.Width.V() + b.PaddingLeft.V() + b.PaddingRight.V()
 }
 
 // Height of the padding box.
-func (self *BoxFields) PaddingHeight() pr.Float {
-	return self.Height.V() + self.PaddingTop.V() + self.PaddingBottom.V()
+func (b *BoxFields) PaddingHeight() pr.Float {
+	return b.Height.V() + b.PaddingTop.V() + b.PaddingBottom.V()
 }
 
 // Width of the border box.
-func (self *BoxFields) BorderWidth() pr.Float {
-	return self.PaddingWidth() + self.BorderLeftWidth.V() + self.BorderRightWidth.V()
+func (b *BoxFields) BorderWidth() pr.Float {
+	return b.PaddingWidth() + b.BorderLeftWidth.V() + b.BorderRightWidth.V()
 }
 
 // Height of the border box.
-func (self *BoxFields) BorderHeight() pr.Float {
-	return self.PaddingHeight() + self.BorderTopWidth.V() + self.BorderBottomWidth.V()
+func (b *BoxFields) BorderHeight() pr.Float {
+	return b.PaddingHeight() + b.BorderTopWidth.V() + b.BorderBottomWidth.V()
 }
 
 // Width of the margin box (aka. outer box).
-func (self *BoxFields) MarginWidth() pr.Float {
-	return self.BorderWidth() + self.MarginLeft.V() + self.MarginRight.V()
+func (b *BoxFields) MarginWidth() pr.Float {
+	return b.BorderWidth() + b.MarginLeft.V() + b.MarginRight.V()
 }
 
 // Height of the margin box (aka. outer box).
-func (self *BoxFields) MarginHeight() pr.Float {
-	return self.BorderHeight() + self.MarginTop.V() + self.MarginBottom.V()
+func (b *BoxFields) MarginHeight() pr.Float {
+	return b.BorderHeight() + b.MarginTop.V() + b.MarginBottom.V()
 }
 
 // Corners positions
 
 // Absolute horizontal position of the content box.
-func (self *BoxFields) ContentBoxX() pr.Float {
-	return self.PositionX + self.MarginLeft.V() + self.PaddingLeft.V() + self.BorderLeftWidth.V()
+func (b *BoxFields) ContentBoxX() pr.Float {
+	return b.PositionX + b.MarginLeft.V() + b.PaddingLeft.V() + b.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the content box.
-func (self *BoxFields) ContentBoxY() pr.Float {
-	return self.PositionY + self.MarginTop.V() + self.PaddingTop.V() + self.BorderTopWidth.V()
+func (b *BoxFields) ContentBoxY() pr.Float {
+	return b.PositionY + b.MarginTop.V() + b.PaddingTop.V() + b.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the padding box.
-func (self *BoxFields) PaddingBoxX() pr.Float {
-	return self.PositionX + self.MarginLeft.V() + self.BorderLeftWidth.V()
+func (b *BoxFields) PaddingBoxX() pr.Float {
+	return b.PositionX + b.MarginLeft.V() + b.BorderLeftWidth.V()
 }
 
 // Absolute vertical position of the padding box.
-func (self *BoxFields) PaddingBoxY() pr.Float {
-	return self.PositionY + self.MarginTop.V() + self.BorderTopWidth.V()
+func (b *BoxFields) PaddingBoxY() pr.Float {
+	return b.PositionY + b.MarginTop.V() + b.BorderTopWidth.V()
 }
 
 // Absolute horizontal position of the border box.
-func (self *BoxFields) BorderBoxX() pr.Float {
-	return self.PositionX + self.MarginLeft.V()
+func (b *BoxFields) BorderBoxX() pr.Float {
+	return b.PositionX + b.MarginLeft.V()
 }
 
 // Absolute vertical position of the border box.
-func (self *BoxFields) BorderBoxY() pr.Float {
-	return self.PositionY + self.MarginTop.V()
+func (b *BoxFields) BorderBoxY() pr.Float {
+	return b.PositionY + b.MarginTop.V()
 }
 
 // Return the rectangle where the box is clickable."""
 // "Border area. That's the area that hit-testing is done on."
 // http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
-func (self *BoxFields) HitArea() pr.Rectangle {
-	return pr.Rectangle{self.BorderBoxX(), self.BorderBoxY(), self.BorderWidth(), self.BorderHeight()}
+func (b *BoxFields) HitArea() pr.Rectangle {
+	return pr.Rectangle{b.BorderBoxX(), b.BorderBoxY(), b.BorderWidth(), b.BorderHeight()}
 }
 
 type RoundedBox struct {
@@ -382,11 +380,11 @@ type RoundedBox struct {
 // Position, size and radii of a box inside the outer border box.
 // bt, br, bb, and bl are distances from the outer border box,
 // defining a rectangle to be rounded.
-func (self *BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
-	tlr := self.BorderTopLeftRadius.V()
-	trr := self.BorderTopRightRadius.V()
-	brr := self.BorderBottomRightRadius.V()
-	blr := self.BorderBottomLeftRadius.V()
+func (b *BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
+	tlr := b.BorderTopLeftRadius.V()
+	trr := b.BorderTopRightRadius.V()
+	brr := b.BorderBottomRightRadius.V()
+	blr := b.BorderBottomLeftRadius.V()
 
 	tlrx := pr.Max(0, tlr[0]-bl)
 	tlry := pr.Max(0, tlr[1]-bt)
@@ -397,10 +395,10 @@ func (self *BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	blrx := pr.Max(0, blr[0]-bl)
 	blry := pr.Max(0, blr[1]-bb)
 
-	x := self.BorderBoxX() + bl
-	y := self.BorderBoxY() + bt
-	width := self.BorderWidth() - bl - br
-	height := self.BorderHeight() - bt - bb
+	x := b.BorderBoxX() + bl
+	y := b.BorderBoxY() + bt
+	width := b.BorderWidth() - bl - br
+	height := b.BorderHeight() - bt - bb
 
 	// Fix overlapping curves
 	// See http://www.w3.org/TR/css3-background/#corner-overlap
@@ -428,59 +426,59 @@ func (self *BoxFields) roundedBox(bt, br, bb, bl pr.Float) RoundedBox {
 	}
 }
 
-func (self *BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
-	return self.roundedBox(
-		self.BorderTopWidth.V()*ratio,
-		self.BorderRightWidth.V()*ratio,
-		self.BorderBottomWidth.V()*ratio,
-		self.BorderLeftWidth.V()*ratio)
+func (b *BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
+	return b.roundedBox(
+		b.BorderTopWidth.V()*ratio,
+		b.BorderRightWidth.V()*ratio,
+		b.BorderBottomWidth.V()*ratio,
+		b.BorderLeftWidth.V()*ratio)
 }
 
 // Return the position, size and radii of the rounded padding box.
-func (self *BoxFields) RoundedPaddingBox() RoundedBox {
-	return self.roundedBox(
-		self.BorderTopWidth.V(),
-		self.BorderRightWidth.V(),
-		self.BorderBottomWidth.V(),
-		self.BorderLeftWidth.V())
+func (b *BoxFields) RoundedPaddingBox() RoundedBox {
+	return b.roundedBox(
+		b.BorderTopWidth.V(),
+		b.BorderRightWidth.V(),
+		b.BorderBottomWidth.V(),
+		b.BorderLeftWidth.V())
 }
 
 // Return the position, size and radii of the rounded border box.
-func (self *BoxFields) RoundedBorderBox() RoundedBox {
-	return self.roundedBox(0, 0, 0, 0)
+func (b *BoxFields) RoundedBorderBox() RoundedBox {
+	return b.roundedBox(0, 0, 0, 0)
 }
 
 // Return the position, size and radii of the rounded content box.
-func (self *BoxFields) RoundedContentBox() RoundedBox {
-	return self.roundedBox(
-		self.BorderTopWidth.V()+self.PaddingTop.V(),
-		self.BorderRightWidth.V()+self.PaddingRight.V(),
-		self.BorderBottomWidth.V()+self.PaddingBottom.V(),
-		self.BorderLeftWidth.V()+self.PaddingLeft.V())
+func (b *BoxFields) RoundedContentBox() RoundedBox {
+	return b.roundedBox(
+		b.BorderTopWidth.V()+b.PaddingTop.V(),
+		b.BorderRightWidth.V()+b.PaddingRight.V(),
+		b.BorderBottomWidth.V()+b.PaddingBottom.V(),
+		b.BorderLeftWidth.V()+b.PaddingLeft.V())
 }
 
 // Positioning schemes
 
 // Return whether this box is floated.
-func (self *BoxFields) IsFloated() bool {
-	return self.Style.GetFloat() != "none"
+func (b *BoxFields) IsFloated() bool {
+	return b.Style.GetFloat() != "none"
 }
 
 // Return whether this box is in the absolute positioning scheme.
-func (self *BoxFields) IsAbsolutelyPositioned() bool {
-	pos := self.Style.GetPosition()
+func (b *BoxFields) IsAbsolutelyPositioned() bool {
+	pos := b.Style.GetPosition()
 	return !pos.Bool && pos.String == "absolute" || pos.String == "fixed"
 }
 
 // Return whether this box is a running element.
-func (self *BoxFields) IsRunning() bool {
-	pos := self.Style.GetPosition()
+func (b *BoxFields) IsRunning() bool {
+	pos := b.Style.GetPosition()
 	return pos.Bool
 }
 
 // Return whether this box is in normal flow.
-func (self *BoxFields) IsInNormalFlow() bool {
-	return !(self.IsFloated() || self.IsAbsolutelyPositioned() || self.IsRunning())
+func (b *BoxFields) IsInNormalFlow() bool {
+	return !(b.IsFloated() || b.IsAbsolutelyPositioned() || b.IsRunning())
 }
 
 // Start and end page values for named pages
@@ -529,26 +527,26 @@ func (s Side) String() string {
 }
 
 // Set to 0 the margin, padding and border of ``side``.
-func (self *BoxFields) ResetSpacing(side Side) {
-	self.RemoveDecorationSides[side] = true
+func (b *BoxFields) ResetSpacing(side Side) {
+	b.RemoveDecorationSides[side] = true
 
 	switch side {
 	case STop:
-		self.MarginTop = pr.Float(0)
-		self.PaddingTop = pr.Float(0)
-		self.BorderTopWidth = pr.Float(0)
+		b.MarginTop = pr.Float(0)
+		b.PaddingTop = pr.Float(0)
+		b.BorderTopWidth = pr.Float(0)
 	case SRight:
-		self.MarginRight = pr.Float(0)
-		self.PaddingRight = pr.Float(0)
-		self.BorderRightWidth = pr.Float(0)
+		b.MarginRight = pr.Float(0)
+		b.PaddingRight = pr.Float(0)
+		b.BorderRightWidth = pr.Float(0)
 	case SLeft:
-		self.MarginLeft = pr.Float(0)
-		self.PaddingLeft = pr.Float(0)
-		self.BorderLeftWidth = pr.Float(0)
+		b.MarginLeft = pr.Float(0)
+		b.PaddingLeft = pr.Float(0)
+		b.BorderLeftWidth = pr.Float(0)
 	case SBottom:
-		self.MarginBottom = pr.Float(0)
-		self.PaddingBottom = pr.Float(0)
-		self.BorderBottomWidth = pr.Float(0)
+		b.MarginBottom = pr.Float(0)
+		b.PaddingBottom = pr.Float(0)
+		b.BorderBottomWidth = pr.Float(0)
 	}
 }
 
