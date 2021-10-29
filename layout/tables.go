@@ -17,7 +17,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 	table := table_.Table()
 	columnWidths := table.ColumnWidths
-
 	var borderSpacingX, borderSpacingY pr.Float
 	if table.Style.GetBorderCollapse() == "separate" {
 		tmp := table.Style.GetBorderSpacing()
@@ -99,7 +98,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			row := row_.Box()
 			indexRow := i + skip
 			row.Index = indexRow
-
 			if len(newGroupChildren) != 0 {
 				pageBreak := blockLevelPageBreak(newGroupChildren[len(newGroupChildren)-1], row_)
 				if pageBreak == "page" || pageBreak == "recto" || pageBreak == "verso" || pageBreak == "left" || pageBreak == "right" {
@@ -117,7 +115,13 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			var newRowChildren []Box
 			for cellIndex, cell_ := range row.Children {
 				cell := cell_.Box()
-				spannedWidths := columnWidths[cell.GridX:][:cell.Colspan]
+				var spannedWidths []pr.Float
+				if cell.GridX < len(columnWidths) {
+					spannedWidths = columnWidths[cell.GridX:]
+				}
+				if cell.Colspan < len(spannedWidths) {
+					spannedWidths = spannedWidths[:cell.Colspan]
+				}
 				// In the fixed layout the grid width is set by cells in
 				// the first row and column elements.
 				// This may be less than the previous value of cell.colspan
@@ -141,14 +145,15 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				bordersPlusPadding := cell.BorderWidth() // with width==0
 				// TODO: we should remove the number of columns with no
 				// originating cells to cell.colspan, see testLayoutTableAuto49
-				cell.Width = borderSpacingX*pr.Float(cell.Colspan-1) - bordersPlusPadding
+				width := borderSpacingX*pr.Float(cell.Colspan-1) - bordersPlusPadding
 				for _, sw := range spannedWidths {
-					cell.Width = cell.Width.V() + sw
+					width += sw
 				}
+				cell.Width = width
 				// The computed height is a minimum
 				cell.ComputedHeight = cell.Height
 				cell.Height = pr.Auto
-				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, true, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
+				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, false, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 				cell = cell_.Box()
 				any := false
 				for _, child := range cell.Children {
@@ -168,7 +173,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 
 			row_ = bo.CopyWithChildren(row_, newRowChildren)
 			row = row_.Box()
-
 			// Table height algorithm
 			// http://www.w3.org/TR/CSS21/tables.html#height-layout
 
@@ -276,8 +280,9 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 					previousRow := newGroupChildren[len(newGroupChildren)-1]
 					pageBreak := blockLevelPageBreak(previousRow, row_)
 					if pageBreak == "avoid" {
-						newGroupChildren, resumeAt = findEarlierPageBreak(newGroupChildren, absoluteBoxes, fixedBoxes)
-						if newGroupChildren != nil || resumeAt != nil {
+						newGroupChildrenTmp, resumeAtTmp := findEarlierPageBreak(newGroupChildren, absoluteBoxes, fixedBoxes)
+						if newGroupChildrenTmp != nil || resumeAtTmp != nil {
+							newGroupChildren, resumeAt = newGroupChildrenTmp, resumeAtTmp
 							break
 						}
 					} else {
@@ -324,12 +329,14 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 					row.Baseline = pr.Float(0)
 				}
 			}
+
 		}
 		group.Height = positionY - group.PositionY
 		if len(group.Children) != 0 {
 			// The last border spacing is outside of the group.
 			group.Height = group.Height.V() - borderSpacingY
 		}
+
 		return group_, resumeAt, nextPage
 	}
 
@@ -396,6 +403,12 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 	// Layout for row groups, rows and cells
 	positionY := table.ContentBoxY() + borderSpacingY
 	initialPositionY := positionY
+	var tableRows []Box
+	for _, child := range table.Children {
+		if !child.Box().IsHeader && !child.Box().IsFooter {
+			tableRows = append(tableRows, child)
+		}
+	}
 
 	allGroupsLayout := func() (Box, []Box, Box, pr.Float, *tree.IntList, tree.PageBreak) {
 		var (
@@ -404,29 +417,39 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			resumeAt                   *tree.IntList
 			nextPage                   tree.PageBreak
 		)
+
+		// If the page is not empty, we try to render the header and the footer
+		// on it. If the table does not fit on the page, we try to render it on
+		// the next page.
+		//
+		// If the page is empty and the header and footer are too big, there
+		// are not rendered. If no row can be rendered because of the header and
+		// the footer, the header and/or the footer are not rendered.
+
+		headerFooterMaxPositionY := pr.Inf
+		if pageIsEmpty {
+			headerFooterMaxPositionY = maxPositionY
+		}
+
 		if len(table.Children) != 0 && table.Children[0].Box().IsHeader {
 			header = table.Children[0]
-			header, resumeAt, nextPage = groupLayout(header, positionY, maxPositionY, false, nil)
+			header, resumeAt, nextPage = groupLayout(header, positionY, headerFooterMaxPositionY, false, nil)
 			if header != nil && resumeAt == nil {
 				headerHeight = header.Box().Height.V() + borderSpacingY
 			} else { // Header too big for the page
 				header = nil
 			}
-		} else {
-			header = nil
-		}
+		} // else header = nil
 
 		if L := len(table.Children); L != 0 && table.Children[L-1].Box().IsFooter {
 			footer = table.Children[L-1]
-			footer, resumeAt, nextPage = groupLayout(footer, positionY, maxPositionY, false, nil)
+			footer, resumeAt, nextPage = groupLayout(footer, positionY, headerFooterMaxPositionY, false, nil)
 			if footer != nil && resumeAt == nil {
 				footerHeight = footer.Box().Height.V() + borderSpacingY
 			} else { // Footer too big for the page
 				footer = nil
 			}
-		} else {
-			footer = nil
-		}
+		} // else footer = nil
 
 		// Don't remove headers and footers if breaks are avoided in line groups
 		skip := 0
@@ -446,7 +469,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			// Try with both the header and footer
 			newTableChildren, resumeAt, nextPage, endPositionY := bodyGroupsLayout(skipStack, positionY+headerHeight,
 				maxPositionY-footerHeight, avoidBreaks)
-			if len(newTableChildren) != 0 || !pageIsEmpty {
+			if len(newTableChildren) != 0 || len(tableRows) == 0 || !pageIsEmpty {
 				footer.Translate(footer, 0, endPositionY-footer.Box().PositionY, false)
 				endPositionY += footerHeight
 				return header, newTableChildren, footer, endPositionY, resumeAt, nextPage
@@ -459,7 +482,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		if header != nil && footer == nil {
 			// Try with just the header
 			newTableChildren, resumeAt, nextPage, endPositionY := bodyGroupsLayout(skipStack, positionY+headerHeight, maxPositionY, avoidBreaks)
-			if len(newTableChildren) != 0 || !pageIsEmpty {
+			if len(newTableChildren) != 0 || len(tableRows) == 0 || !pageIsEmpty {
 				return header, newTableChildren, footer, endPositionY, resumeAt, nextPage
 			} else {
 				// We could not fit any content, drop the header
@@ -470,7 +493,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		if footer != nil && header == nil {
 			// Try with just the footer
 			newTableChildren, resumeAt, nextPage, endPositionY := bodyGroupsLayout(skipStack, positionY, maxPositionY-footerHeight, avoidBreaks)
-			if len(newTableChildren) != 0 || !pageIsEmpty {
+			if len(newTableChildren) != 0 || len(tableRows) == 0 || !pageIsEmpty {
 				footer.Translate(footer, 0, endPositionY-footer.Box().PositionY, false)
 				endPositionY += footerHeight
 				return header, newTableChildren, footer, endPositionY, resumeAt, nextPage
@@ -505,7 +528,6 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 	}
 
 	header, newTableChildren, footer, positionY, resumeAt, nextPage := allGroupsLayout()
-
 	if newTableChildren == nil {
 		if resumeAt != nil {
 			panic(fmt.Sprintf("resumeAt should be nil, got %v", resumeAt))
@@ -574,6 +596,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		table_ = nil
 		resumeAt = nil
 	}
+
 	return table_, blockLayout{resumeAt: resumeAt, nextPage: nextPage, adjoiningMargins: nil, collapsingThrough: false}
 }
 
@@ -590,7 +613,7 @@ func addTopPadding(box *bo.BoxFields, extraPadding pr.Float) {
 func fixedTableLayout(box *bo.BoxFields) {
 	table := box.GetWrappedTable().Table()
 	if table.Width == pr.Auto {
-		log.Fatalf("table width can't be auto here")
+		panic("table width can't be auto here")
 	}
 	var allColumns []Box
 	for _, columnGroup := range table.ColumnGroups {
@@ -615,7 +638,7 @@ func fixedTableLayout(box *bo.BoxFields) {
 	// `width` on column boxes
 	for i, column_ := range allColumns {
 		column := column_.Box()
-		column.Width = resolveOnePercentage(pr.MaybeFloatToValue(column.Width), "width", table.Width.V(), "")
+		column.Width = resolveOnePercentage(column.Style.GetWidth(), "width", table.Width.V(), "")
 		if column.Width != pr.Auto {
 			columnWidths[i] = column.Width
 		}
@@ -714,10 +737,11 @@ func sum(l []pr.Float) pr.Float {
 
 // Run the auto table layout and return a list of column widths.
 // http://www.w3.org/TR/CSS21/tables.html#auto-table-layout
-func autoTableLayout(context *layoutContext, box *bo.BoxFields, containingBlock bo.Point) {
+func autoTableLayout(context *layoutContext, box_ Box, containingBlock bo.Point) {
+	box := box_.Box()
 	table_ := box.GetWrappedTable()
 	table := table_.Table()
-	tmp := tableAndColumnsPreferredWidths(context, box, false)
+	tmp := tableAndColumnsPreferredWidths(context, box_, false)
 	var margins pr.Float
 	if box.MarginLeft != pr.Auto {
 		margins += box.MarginLeft.V()
@@ -854,16 +878,16 @@ func autoTableLayout(context *layoutContext, box *bo.BoxFields, containingBlock 
 }
 
 // Find the width of each column and derive the wrapper width.
-func tableWrapperWidth(context *layoutContext, wrapper *bo.BoxFields, containingBlock bo.MaybePoint) {
+func tableWrapperWidth(context *layoutContext, wrapper_ Box, containingBlock bo.MaybePoint) {
+	wrapper := wrapper_.Box()
 	table := wrapper.GetWrappedTable()
 	resolvePercentages(table, containingBlock, "")
 
 	if table.Box().Style.GetTableLayout() == "fixed" && table.Box().Width != pr.Auto {
 		fixedTableLayout(wrapper)
 	} else {
-		autoTableLayout(context, wrapper, containingBlock.V())
+		autoTableLayout(context, wrapper_, containingBlock.V())
 	}
-
 	wrapper.Width = table.Box().BorderWidth()
 }
 
@@ -910,7 +934,7 @@ func findInFlowBaseline(box Box, last bool, baselinesT ...bo.BoxType) pr.MaybeFl
 	return nil
 }
 
-type indexCol struct {
+type indexedCol struct {
 	column []Box
 	i      int
 }
@@ -924,26 +948,27 @@ func distributeExcessWidth(context *layoutContext, grid [][]bo.Box, excessWidth 
 	constrainedness []bool, columnIntrinsicPercentages, columnMaxContentWidths []pr.Float, columnSlice [2]int) pr.Float {
 	// First group
 	var (
-		columns       []indexCol
+		columns       []indexedCol
 		currentWidths []pr.Float
 	)
 	for i, column := range grid[columnSlice[0]:columnSlice[1]] {
 		if !constrainedness[i+columnSlice[0]] && columnIntrinsicPercentages[i+columnSlice[0]] == 0 &&
 			columnMaxContentWidths[i+columnSlice[0]] > 0 {
-			v := indexCol{i: i + columnSlice[0], column: column}
+			v := indexedCol{i: i + columnSlice[0], column: column}
 			columns = append(columns, v)
 			currentWidths = append(currentWidths, columnWidths[v.i])
 		}
 	}
 	if len(columns) != 0 {
+		L := utils.MinInt(len(columnMaxContentWidths), len(currentWidths))
 		var (
 			sumDifferences pr.Float
-			differences    []pr.Float
+			differences    = make([]pr.Float, L)
 		)
-		for i := range columnMaxContentWidths {
+		for i := 0; i < L; i++ {
 			v := pr.Max(0, columnMaxContentWidths[i]-currentWidths[i])
+			differences[i] = v
 			sumDifferences += v
-			differences = append(differences, v)
 		}
 		if sumDifferences > excessWidth {
 			for i, difference := range differences {
@@ -979,20 +1004,21 @@ func distributeExcessWidth(context *layoutContext, grid [][]bo.Box, excessWidth 
 	for i, column := range grid[columnSlice[0]:columnSlice[1]] {
 		if constrainedness[i+columnSlice[0]] && columnIntrinsicPercentages[i+columnSlice[0]] == 0 &&
 			columnMaxContentWidths[i+columnSlice[0]] > 0 {
-			v := indexCol{column, i + columnSlice[0]}
+			v := indexedCol{column, i + columnSlice[0]}
 			columns = append(columns, v)
 			currentWidths = append(currentWidths, columnWidths[v.i])
 		}
 	}
 	if len(columns) != 0 {
+		L := utils.MinInt(len(columnMaxContentWidths), len(currentWidths))
 		var (
 			sumDifferences pr.Float
-			differences    []pr.Float
+			differences    = make([]pr.Float, L)
 		)
-		for i := range columnMaxContentWidths {
+		for i := 0; i < L; i++ {
 			v := pr.Max(0, columnMaxContentWidths[i]-currentWidths[i])
+			differences[i] = v
 			sumDifferences += v
-			differences = append(differences, v)
 		}
 		if sumDifferences > excessWidth {
 			for i, difference := range differences {
@@ -1013,7 +1039,7 @@ func distributeExcessWidth(context *layoutContext, grid [][]bo.Box, excessWidth 
 	mapIndex := map[int]bool{}
 	for i, column := range grid[columnSlice[0]:columnSlice[1]] {
 		if columnIntrinsicPercentages[i+columnSlice[0]] > 0 {
-			v := indexCol{i: i + columnSlice[0], column: column}
+			v := indexedCol{i: i + columnSlice[0], column: column}
 			columns = append(columns, v)
 			mapIndex[v.i] = true
 		}
@@ -1082,7 +1108,7 @@ func distributeExcessWidth(context *layoutContext, grid [][]bo.Box, excessWidth 
 				}
 			}
 		}
-		if anyColumn && columnIntrinsicPercentages[i+columnSlice[0]] == 0 && anyMaxContent {
+		if anyColumn && columnIntrinsicPercentages[i+columnSlice[0]] == 0 && !anyMaxContent {
 			columns_ = append(columns_, i+columnSlice[0])
 		}
 	}
@@ -1092,7 +1118,6 @@ func distributeExcessWidth(context *layoutContext, grid [][]bo.Box, excessWidth 
 		}
 		return 0
 	}
-
 	// Fifth group, part 2, aka abort
 	return excessWidth
 }

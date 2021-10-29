@@ -28,11 +28,9 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins *[]pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
 	if debugMode {
-		fmt.Printf("\nLayout BLOCK-LEVEL %T\n", box_)
+		fmt.Printf("\nLayout BLOCK-LEVEL %T (resume at : %s)\n", box_, skipStack)
 	}
-	if absoluteBoxes == nil {
-		panic("")
-	}
+
 	box := box_.Box()
 	if !bo.TableBoxT.IsInstance(box_) {
 		resolvePercentagesBox(box_, containingBlock, "")
@@ -110,9 +108,10 @@ func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 		}
 		return newBox_, result
 	} else if box.IsTableWrapper {
-		tableWrapperWidth(context, box, bo.MaybePoint{containingBlock.Width, containingBlock.Height})
+		tableWrapperWidth(context, box_, bo.MaybePoint{containingBlock.Width, containingBlock.Height})
 	}
 	blockLevelWidth(box_, nil, containingBlock)
+
 	newBox__, result := blockContainerLayout(context, box_, maxPositionY, skipStack, pageIsEmpty,
 		absoluteBoxes, fixedBoxes, adjoiningMargins, discard)
 	newBox, _ := newBox__.(bo.BlockBoxITF) // blockContainerLayout is type stable
@@ -122,6 +121,7 @@ func blockBoxLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr
 		positionX, positionY, _ := avoidCollisions(context, newBox, containingBlock, false)
 		newBox.Translate(newBox, positionX-newBox.Box().PositionX, positionY-newBox.Box().PositionY, false)
 	}
+
 	return newBox, result
 }
 
@@ -892,13 +892,14 @@ func blockLevelPageName(siblingBefore, siblingAfter Box) pr.Page {
 	return pr.Page{}
 }
 
+// Find the last possible page break in ``children``
 // Because of a `page-break-before: avoid` or a `page-break-after: avoid`
 // we need to find an earlier page break opportunity inside `children`.
 // Absolute or fixed placeholders removed from children should also be
 // removed from `absoluteBoxes` or `fixedBoxes`.
 func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (newChildren []Box, resumeAt *tree.IntList) {
 	if len(children) != 0 && bo.LineBoxT.IsInstance(children[0]) {
-		// Normally `orphans` && `widows` apply to the block container, but
+		// Normally `orphans` and `widows` apply to the block container, but
 		// line boxes inherit them.
 		orphans := int(children[0].Box().Style.GetOrphans())
 		widows := int(children[0].Box().Style.GetWidows())
@@ -915,41 +916,57 @@ func findEarlierPageBreak(children []Box, absoluteBoxes, fixedBoxes *[]*Absolute
 	var (
 		previousInFlow Box
 		index          int
-		hasBroken      bool
+		i_, L          = 0, len(children)
 	)
-	L := len(children)
-	for i_ := range children { // reversed(list(enumerate(children)))
+	for i_ = 0; i_ < L; i_++ { // reversed(list(enumerate(children)))
 		index = L - i_ - 1
 		child_ := children[index]
 		child := child_.Box()
+
+		if bo.TableRowGroupBoxT.IsInstance(child_) && (child.IsHeader || child.IsFooter) {
+			// We don’t want to break pages before table headers or footers.
+			continue
+		} else if child.IsColumn {
+			// We don’t want to break pages between columns.
+			continue
+		}
+
 		if child.IsInNormalFlow() {
 			if pb := blockLevelPageBreak(child_, previousInFlow); previousInFlow != nil && pb != "avoid" && pb != "avoid-page" {
 				index += 1 // break after child
 				newChildren = children[:index]
 				// Get the index in the original parent
 				resumeAt = &tree.IntList{Value: children[index].Box().Index}
-				hasBroken = true
 				break
 			}
 			previousInFlow = child_
 		}
 		if bi := child.Style.GetBreakInside(); child.IsInNormalFlow() && bi != "avoid" && bi != "avoid-page" {
 			if bo.BlockBoxT.IsInstance(child_) || bo.TableBoxT.IsInstance(child_) || bo.TableRowGroupBoxT.IsInstance(child_) {
-				var newGrandChildren []Box
-				newGrandChildren, resumeAt = findEarlierPageBreak(child.Children, absoluteBoxes, fixedBoxes)
-				if newGrandChildren != nil || resumeAt != nil {
+				newGrandChildren, resumeAtTmp := findEarlierPageBreak(child.Children, absoluteBoxes, fixedBoxes)
+				if newGrandChildren != nil || resumeAtTmp != nil {
+					resumeAt = resumeAtTmp
 					newChild := bo.CopyWithChildren(child_, newGrandChildren)
 					newChildren = append(children[:index], newChild)
+
+					// Re-add footer at the end of split table
+					if bo.TableRowGroupBoxT.IsInstance(child_) {
+						for _, nextChild := range children[index:] {
+							if nextChild.Box().IsFooter {
+								newChildren = append(newChildren, nextChild)
+							}
+						}
+					}
+
 					// Index in the original parent
 					resumeAt = &tree.IntList{Value: newChild.Box().Index, Next: resumeAt}
 					index += 1 // Remove placeholders after child
-					hasBroken = true
 					break
 				}
 			}
 		}
 	}
-	if !hasBroken {
+	if i_ == L {
 		return nil, nil
 	}
 

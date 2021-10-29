@@ -39,7 +39,7 @@ func init() {
 	fc = text.NewFontConfiguration(fcfonts.NewFontMap(fontconfig.Standard.Copy(), fs))
 }
 
-// convert a PDF file to an image using Ghostscript, and extract the pixels
+// convert a PDF file to an image using Ghostscript, and extract the pixels,
 // expecting a one color image
 func pdfToColor(filename string) (color.RGBA, error) {
 	img, err := pdfToImage(filename)
@@ -166,3 +166,71 @@ func BenchmarkRender(b *testing.B) {
 		renderUrl(b, "https://golang.org/doc/go1.17")
 	}
 }
+
+// TODO:
+// func TestTableVerticalAlign(t *testing.T) {
+// 	capt := tu.CaptureLogs()
+// 	defer capt.AssertNoLogs(t)
+
+// 	assertPixels("tableVerticalAlign", pr.Float(28), pr.Float(10), `
+//         rrrrrrrrrrrrrrrrrrrrrrrrrrrr
+//         rBBBBBBBBBBBBBBBBBBBBBBBBBBr
+//         rBrBBBBBBBBBBrrBBrrBBBr
+//         rBrBBBBBBrBBrBBrrBBrrBBrBr
+//         rBBBrBBBBrBBrBBrrBBrrBBrBr
+//         rBBBrBBBBBBBBrrBBrrBBBr
+//         rBBBBBrBBBBBB_BB_BBBr
+//         rBBBBBrBBBBBB_BB_BBBr
+//         rBBBBBBBBBBBBBBBBBBBBBBBBBBr
+//         rrrrrrrrrrrrrrrrrrrrrrrrrrrr
+//     `, `
+//       <style>
+//         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+//         @page { size: 28px 10px }
+//         html { background: #fff; font-size: 1px; color: red }
+//         body { margin: 0; width: 28px; height: 10px }
+//         td {
+//           width: 1em;
+//           padding: 0 !important;
+//           border: 1px solid blue;
+//           line-height: 1em;
+//           font-family: weasyprint;
+//         }
+//       </style>
+//       <table style="border: 1px solid red; border-spacing: 0">
+//         <tr>
+//           <!-- Test vertical-align: top, auto height -->
+//           <td style="vertical-align: top">o o</td>
+
+//           <!-- Test vertical-align: middle, auto height -->
+//           <td style="vertical-align: middle">o o</td>
+
+//           <!-- Test vertical-align: bottom, fixed useless height -->
+//           <td style="vertical-align: bottom; height: 2em">o o</td>
+
+//           <!-- Test default vertical-align value (baseline),
+//                fixed useless height -->
+//           <td style="height: 5em">o o</td>
+
+//           <!-- Test vertical-align: baseline with baseline set by next cell,
+//                auto height -->
+//           <td style="vertical-align: baseline">o o</td>
+
+//           <!-- Set baseline height to 2px, auto height -->
+//           <td style="vertical-align: baseline; font-size: 2em">o o</td>
+
+//           <!-- Test padding-bottom, fixed useless height,
+//                set the height of the cells to 2 lines * 2em + 2px = 6px -->
+//           <td style="vertical-align: baseline; height: 1em;
+//                      font-size: 2em; padding-bottom: 2px !important">
+//             o o
+//           </td>
+
+//           <!-- Test padding-top, auto height -->
+//           <td style="vertical-align: top; padding-top: 1em !important">
+//             o o
+//           </td>
+//         </tr>
+//       </table>
+//     `) // noqa
+// }

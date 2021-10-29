@@ -63,12 +63,6 @@ func renderOnePage(t *testing.T, htmlContent string) *bo.PageBox {
 	return pages[0]
 }
 
-func printBoxes(boxes []Box) {
-	for _, b := range boxes {
-		fmt.Printf("<%s %s> ", b.Type(), b.Box().ElementTag)
-	}
-}
-
 // unpack 2 children
 func unpack2(box Box) (c1, c2 Box) {
 	return box.Box().Children[0], box.Box().Children[1]

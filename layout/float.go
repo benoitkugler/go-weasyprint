@@ -66,7 +66,7 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 	}
 
 	if box.IsTableWrapper {
-		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
+		tableWrapperWidth(context, box_, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
 	if bo.BlockContainerBoxT.IsInstance(box_) {

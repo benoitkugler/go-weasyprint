@@ -33,10 +33,10 @@ func shrinkToFit(context *layoutContext, box Box, availableContentWidth pr.Float
 
 // Return the min-content width for ``box``.
 // This is the width by breaking at every line-break opportunity.
-// outer=true
+// outer should default to true
 func minContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
 	if box.Box().IsTableWrapper {
-		return tableAndColumnsPreferredWidths(context, box.Box(), outer).tableMinContentWidth
+		return tableAndColumnsPreferredWidths(context, box, outer).tableMinContentWidth
 	} else if bo.TableCellBoxT.IsInstance(box) {
 		return tableCellMinContentWidth(context, box, outer)
 	} else if bo.BlockContainerBoxT.IsInstance(box) || bo.TableColumnBoxT.IsInstance(box) || bo.FlexBoxT.IsInstance(box) {
@@ -60,7 +60,7 @@ func minContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
 func maxContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
 	rep, isReplaced := box.(bo.ReplacedBoxITF)
 	if box.Box().IsTableWrapper {
-		return tableAndColumnsPreferredWidths(context, box.Box(), outer).tableMaxContentWidth
+		return tableAndColumnsPreferredWidths(context, box, outer).tableMaxContentWidth
 	} else if bo.TableCellBoxT.IsInstance(box) {
 		return tableCellMaxContentWidth(context, box, outer)
 	} else if bo.BlockContainerBoxT.IsInstance(box) || bo.TableColumnBoxT.IsInstance(box) || bo.FlexBoxT.IsInstance(box) {
@@ -81,7 +81,7 @@ func maxContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
 
 type fnBlock = func(*layoutContext, Box, bool) pr.Float
 
-// Helper to create ``block*ContentWidth.``
+// Helper to create ``block_*_ContentWidth.``
 func blockContentWidth(context *layoutContext, box Box, function fnBlock, outer bool) pr.Float {
 	width := box.Box().Style.GetWidth()
 	var widthValue pr.Float
@@ -101,10 +101,11 @@ func blockContentWidth(context *layoutContext, box Box, function fnBlock, outer 
 		widthValue = max
 	} else {
 		if width.Unit != pr.Px {
-			log.Fatalf("expected Px got %d", width.Unit)
+			panic(fmt.Sprintf("expected Px got %d", width.Unit))
 		}
 		widthValue = width.Value
 	}
+
 	return adjust(box, outer, widthValue, true, true)
 }
 
@@ -161,7 +162,7 @@ func marginWidth(box *bo.BoxFields, width pr.Float, left, right bool) pr.Float {
 			case pr.Percentage:
 				percentages += styleValue.Value
 			default:
-				log.Fatalf("expected Px or Percentage, got %d", styleValue.Unit)
+				panic(fmt.Sprintf("expected Px or Percentage, got %d", styleValue.Unit))
 			}
 		}
 	}
@@ -182,8 +183,8 @@ func marginWidth(box *bo.BoxFields, width pr.Float, left, right bool) pr.Float {
 }
 
 // Respect min/max && adjust width depending on ``outer``.
-//     If ``outer`` is set to ``true``, return margin width, else return content
-//     width.
+// If ``outer`` is set to ``true``, return margin width, else return content
+// width.
 // left=true, right=true
 func adjust(box Box, outer bool, width pr.Float, left, right bool) pr.Float {
 	fixed := minMax(box, width)
@@ -197,7 +198,8 @@ func adjust(box Box, outer bool, width pr.Float, left, right bool) pr.Float {
 // Return the min-content width for a ``BlockBox``.
 // outer=true
 func blockMinContentWidth(context *layoutContext, box Box, outer bool) pr.Float {
-	return blockContentWidth(context, box, minContentWidth, outer)
+	v := blockContentWidth(context, box, minContentWidth, outer)
+	return v
 }
 
 // Return the max-content width for a ``BlockBox``.
@@ -418,7 +420,8 @@ type tableContentWidths struct {
 // Return content widths for the auto layout table and its columns.
 // http://dbaron.org/css/intrinsic/
 // outer = true
-func tableAndColumnsPreferredWidths(context *layoutContext, box *bo.BoxFields, outer bool) tableContentWidths {
+func tableAndColumnsPreferredWidths(context *layoutContext, box_ Box, outer bool) tableContentWidths {
+	box := box_.Box()
 	table_ := box.GetWrappedTable()
 	table := table_.Table()
 
@@ -480,8 +483,8 @@ func tableAndColumnsPreferredWidths(context *layoutContext, box *bo.BoxFields, o
 		table.Children = nil
 		minWidth := blockMinContentWidth(context, table_, false)
 		maxWidth := blockMaxContentWidth(context, table_, false)
-		outerMinWidth := adjust(table, true, blockMinContentWidth(context, table_, true), true, true)
-		outerMaxWidth := adjust(table, true, blockMaxContentWidth(context, table_, true), true, true)
+		outerMinWidth := adjust(box_, true, blockMinContentWidth(context, table_, true), true, true)
+		outerMaxWidth := adjust(box_, true, blockMaxContentWidth(context, table_, true), true, true)
 		context.tables[table] = map[bool]tableContentWidths{
 			false: {
 				tableMinContentWidth:         minWidth,
@@ -720,8 +723,8 @@ outerLoop:
 
 	tableMinContentWidth = pr.Max(tableMinContentWidth, adjust(table, false, tableMinWidth, true, true))
 	tableMaxContentWidth = pr.Max(tableMaxContentWidth, adjust(table, false, tableMaxWidth, true, true))
-	tableOuterMinContentWidth := marginWidth(&table.BoxFields, marginWidth(&table.BoxFields, tableMinContentWidth, true, true), true, true)
-	tableOuterMaxContentWidth := marginWidth(&table.BoxFields, marginWidth(&table.BoxFields, tableMaxContentWidth, true, true), true, true)
+	tableOuterMinContentWidth := marginWidth(&table.BoxFields, marginWidth(box, tableMinContentWidth, true, true), true, true)
+	tableOuterMaxContentWidth := marginWidth(&table.BoxFields, marginWidth(box, tableMaxContentWidth, true, true), true, true)
 
 	result := tableContentWidths{
 		columnMinContentWidths:       minContentWidths,

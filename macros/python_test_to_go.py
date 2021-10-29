@@ -10,7 +10,10 @@ ATTRS = [
     "height",
     "margin",
     "children",
-    "columnGroups"
+    "border",
+    "columnGroups",
+    "content",
+    "colspan"
 ]
 
 

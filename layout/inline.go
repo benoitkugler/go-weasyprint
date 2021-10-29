@@ -439,7 +439,7 @@ func atomicBox(context *layoutContext, box Box, positionX pr.Float, skipStack *t
 		box.Box().Baseline = box.Box().MarginHeight()
 	} else if bo.InlineBlockBoxT.IsInstance(box) {
 		if box.Box().IsTableWrapper {
-			tableWrapperWidth(context, box.Box(), bo.MaybePoint{containingBlock.Width, containingBlock.Height})
+			tableWrapperWidth(context, box, bo.MaybePoint{containingBlock.Width, containingBlock.Height})
 		}
 		box = inlineBlockBoxLayout(context, box, positionX, skipStack, containingBlock,
 			absoluteBoxes, fixedBoxes)

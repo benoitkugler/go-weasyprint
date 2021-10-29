@@ -230,7 +230,7 @@ func absoluteLayoutDriver(context *layoutContext, box_ Box, containingBlock bloc
 	var absoluteBoxes []*AbsolutePlaceholder
 
 	if box.IsTableWrapper {
-		tableWrapperWidth(context, box, bo.MaybePoint{cbWidth, cbHeight})
+		tableWrapperWidth(context, box_, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
 	var newBox Box

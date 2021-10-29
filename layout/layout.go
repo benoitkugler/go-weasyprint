@@ -11,6 +11,7 @@
 package layout
 
 import (
+	"fmt"
 	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -29,6 +30,12 @@ import (
 const debugMode = false
 
 type Box = bo.Box
+
+func printBoxes(boxes []Box) {
+	for _, b := range boxes {
+		fmt.Printf("<%s %s> ", b.Type(), b.Box().ElementTag)
+	}
+}
 
 // Layout lay out the whole document, returning one box per pages.
 //

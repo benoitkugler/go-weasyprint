@@ -662,7 +662,6 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
 		&initialContainingBlock.BoxFields, true, &positionedBoxes, &positionedBoxes, &adjoiningMargins, false)
 	resumeAt = tmp.resumeAt
-
 	if rootBox == nil {
 		panic("expected newBox got nil")
 	}
