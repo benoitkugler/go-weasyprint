@@ -19,6 +19,8 @@ var outputLog = log.New(os.Stdout, "output: ", log.Ltime)
 
 // var outputLog = log.New(io.Discard, "output: ", log.Ltime)
 
+var _ backend.Output = output{}
+
 type output struct{}
 
 func (output) AddPage(left, top, right, bottom fl) backend.OutputPage {
@@ -26,9 +28,8 @@ func (output) AddPage(left, top, right, bottom fl) backend.OutputPage {
 	return outputPage{}
 }
 
-func (output) CreateAnchors(anchors [][]backend.Anchor) map[string]int {
+func (output) CreateAnchors(anchors [][]backend.Anchor) {
 	outputLog.Println("CreateAnchors")
-	return make(map[string]int)
 }
 
 func (output) SetAttachments(as []backend.Attachment) {
@@ -71,7 +72,7 @@ func (output) SetDateModification(d time.Time) {
 	outputLog.Println("SetDateModification")
 }
 
-func (output) AddBookmark(level int, title string, pageNumber int, y fl) {
+func (output) SetBookmarks([]backend.BookmarkNode) {
 	outputLog.Println("AddBookmark")
 }
 
@@ -79,7 +80,7 @@ type outputPage struct {
 	pattern
 }
 
-func (outputPage) AddInternalLink(x, y, w, h fl, linkId int) {
+func (outputPage) AddInternalLink(x, y, w, h fl, anchorName string) {
 	outputLog.Println("AddInternalLink")
 }
 

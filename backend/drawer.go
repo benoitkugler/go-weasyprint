@@ -18,7 +18,7 @@ type fl = utils.Fl
 type Anchor struct {
 	Name string
 	// Origin at the top-left of the page
-	Pos [2]fl
+	X, Y fl
 }
 
 type Attachment struct {
@@ -78,6 +78,15 @@ type GradientLayout struct {
 	ScaleY utils.Fl
 }
 
+// BookmarkNode exposes the outline hierarchy of the document
+type BookmarkNode struct {
+	Label     string
+	Children  []BookmarkNode
+	Open      bool // state of the outline item
+	PageIndex int  // page index (0-based) to link to
+	X, Y      fl   // position in the page
+}
+
 // Output is the main target to the laid out document,
 // in a format agnostic way.
 type Output interface {
@@ -85,16 +94,19 @@ type Output interface {
 	// it to be paint on.
 	AddPage(left, top, right, bottom fl) OutputPage
 
-	// Create and set anchors (target of internal links).
-	// `anchors` is a 0-based list (meaning anchors in page 1 are at index 0)
-	// Returns the identifier for each anchor.
-	CreateAnchors(anchors [][]Anchor) map[string]int
+	// CreateAnchors register a list of anchors per page, which are named targets of internal links.
+	// `anchors` is a 0-based list, meaning anchors in page 1 are at index 0.
+	// The origin of internal link has been be added by `OutputPage.AddInternalLink`.
+	// `CreateAnchors` is called after all the pages have been create and processed
+	CreateAnchors(anchors [][]Anchor)
 
 	// Add global attachments to the file
 	SetAttachments(as []Attachment)
+
 	// Embed a file. Calling this method twice with the same id
 	// won't embed the content twice.
-	EmbedFile(id string, a Attachment)
+	// `fileID` will be passed to `OutputPage.AddFileAnnotation`
+	EmbedFile(fileID string, a Attachment)
 
 	// Metadatas
 
@@ -107,19 +119,23 @@ type Output interface {
 	SetDateCreation(d time.Time)
 	SetDateModification(d time.Time)
 
-	// Add an item to the document bookmark hierarchy
-	// `pageNumber` is the page number in the output file to link to.
-	// `y`is the position in the page
-	AddBookmark(level int, title string, pageNumber int, y fl)
+	// SetBookmarks setup the document outline
+	SetBookmarks(root []BookmarkNode)
 }
 
 // OutputPage is the target of one laid out page
 type OutputPage interface {
-	AddInternalLink(x, y, w, h fl, linkId int)
-	AddExternalLink(x, y, w, h fl, url string)
+	// AddInternalLink shows a link on the page, pointing to the
+	// named anchor, which will be registered with `Output.CreateAnchors`
+	AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName string)
 
-	// Add file annotation on the current page
-	AddFileAnnotation(x, y, w, h fl, id string)
+	// AddExternalLink shows a link on the page, pointing to
+	// the given url
+	AddExternalLink(xMin, yMin, xMax, yMax fl, url string)
+
+	// AddFileAnnotation adds a file annotation on the current page.
+	// The file content has been added with `Output.EmdedFile`.
+	AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string)
 
 	// Returns the current page rectangle
 	GetPageRectangle() (left, top, right, bottom fl)

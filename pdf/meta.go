@@ -1,85 +1,170 @@
 package pdf
 
 import (
+	"fmt"
+	"log"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
-	"github.com/benoitkugler/gofpdf"
+	"github.com/benoitkugler/pdf/model"
 )
 
-func (s Context) SetTitle(title string) {
-	s.f.SetTitle(title, true)
+func (s *Context) SetTitle(title string) {
+	s.document.Trailer.Info.Title = title
 }
-func (s Context) SetDescription(description string) {
-	s.f.SetSubject(description, true)
+
+func (s *Context) SetDescription(description string) {
+	s.document.Trailer.Info.Subject = description
 }
-func (s Context) SetCreator(creator string) {
-	s.f.SetCreator(creator, true)
+
+func (s *Context) SetCreator(creator string) {
+	s.document.Trailer.Info.Creator = creator
 }
-func (s Context) SetAuthors(authors []string) {
-	s.f.SetKeywords(strings.Join(authors, ", "), true)
+
+func (s *Context) SetAuthors(authors []string) {
+	s.document.Trailer.Info.Keywords = strings.Join(authors, ", ")
 }
-func (s Context) SetKeywords(keywords []string) {
-	s.f.SetKeywords(strings.Join(keywords, ", "), true)
+
+func (s *Context) SetKeywords(keywords []string) {
+	s.document.Trailer.Info.Keywords = strings.Join(keywords, ", ")
 }
-func (s Context) SetProducer(producer string) {
-	s.f.SetProducer(producer, true)
+
+func (s *Context) SetProducer(producer string) {
+	s.document.Trailer.Info.Producer = producer
 }
-func (s Context) SetDateCreation(d time.Time) {
-	s.f.SetCreationDate(d)
+
+func (s *Context) SetDateCreation(d time.Time) {
+	s.document.Trailer.Info.CreationDate = d
 }
-func (s Context) SetDateModification(d time.Time) {
-	s.f.SetModificationDate(d)
+
+func (s *Context) SetDateModification(d time.Time) {
+	s.document.Trailer.Info.ModDate = d
 }
 
 // links
 
-func (c Context) CreateAnchors(anchors [][]backend.Anchor) map[string]int {
-	out := map[string]int{}
+func (c *Context) CreateAnchors(anchors [][]backend.Anchor) {
+	// pages have been processed, meaning that len(anchors) == len(c.pages)
+
+	var names []model.NameToDest
 	for i, l := range anchors {
-		page := i + 1 // anchors is 0-based
+		page := c.pages[i]
 		for _, anchor := range l {
-			y := anchor.Pos[1]
-			id := c.f.AddLink()      // create new link
-			c.f.SetLink(id, y, page) // place target
-			out[anchor.Name] = id    // register association
+			names = append(names, model.NameToDest{
+				Name: model.DestinationString(anchor.Name),
+				Destination: model.DestinationExplicitIntern{
+					Page: page,
+					Location: model.DestinationLocationXYZ{
+						Left: model.ObjFloat(anchor.X),
+						Top:  model.ObjFloat(anchor.Y),
+					},
+				},
+			})
 		}
 	}
-	return out
-}
 
-func (c Context) AddInternalLink(x, y, w, h float64, linkId int) {
-	c.f.Link(x, c.convertY(y), w, h, linkId)
-}
+	sort.Slice(names, func(i, j int) bool { return names[i].Name < names[j].Name })
 
-func (c Context) AddExternalLink(x, y, w, h float64, url string) {
-	c.f.LinkString(x, c.convertY(y), w, h, url)
+	c.document.Catalog.Names.Dests.Names = names
 }
 
 // embedded files
 
-// Add global attachments to the file
-func (c Context) SetAttachments(as []backend.Attachment) {
-	cv := make([]gofpdf.Attachment, len(as))
-	for i, a := range as {
-		cv[i] = gofpdf.Attachment{Content: a.Content, Filename: a.Title, Description: a.Description}
+func newFileSpec(a backend.Attachment) *model.FileSpec {
+	stream, err := model.NewStream(a.Content, model.Filter{Name: model.Flate})
+	if err != nil {
+		log.Printf("failed to compress attachement %s: %s", a.Title, err)
+		// default to non compressed format
+		stream = model.Stream{Content: a.Content}
 	}
-	c.f.SetAttachments(cv)
+	fs := &model.FileSpec{
+		UF:   a.Title,
+		Desc: a.Description,
+		EF: &model.EmbeddedFileStream{
+			Stream: stream,
+		},
+	}
+	fs.EF.Params.SetChecksumAndSize(a.Content)
+	return fs
+}
+
+// Add global attachments to the file, which are compressed using FlateDecode filter
+func (c *Context) SetAttachments(as []backend.Attachment) {
+	var files model.EmbeddedFileTree
+	for i, a := range as {
+		fs := newFileSpec(a)
+		files = append(files, model.NameToFile{
+			Name:     fmt.Sprintf("attachement_%d", i),
+			FileSpec: fs,
+		})
+	}
+
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+
+	c.document.Catalog.Names.EmbeddedFiles = files
 }
 
 // Embed a file. Calling this method twice with the same id
 // won't embed the content twice.
-func (c Context) EmbedFile(id string, a backend.Attachment) {
-	ptr := c.fileAnnotationsMap[id] // cache the attachment by id
-	if ptr == nil {
-		ptr = &gofpdf.Attachment{Content: a.Content, Filename: a.Title, Description: a.Description}
-		c.fileAnnotationsMap[id] = ptr
+func (c *Context) EmbedFile(fileID string, a backend.Attachment) {
+	ptr := c.embeddedFiles[fileID] // cache the attachment by id
+	if ptr != nil {
+		return
 	}
+
+	c.embeddedFiles[fileID] = newFileSpec(a)
 }
 
-// Add file annotation on the current page
-func (c Context) AddFileAnnotation(x, y, w, h float64, id string) {
-	a := c.fileAnnotationsMap[id]
-	c.f.AddAttachmentAnnotation(a, x, c.convertY(y), w, h)
+func bookmarksToOutline(root []backend.BookmarkNode, pages []*model.PageObject) *model.Outline {
+	var nodeToItem func(node backend.BookmarkNode, parent model.OutlineNode) *model.OutlineItem
+	nodeToItem = func(node backend.BookmarkNode, parent model.OutlineNode) *model.OutlineItem {
+		out := &model.OutlineItem{
+			Parent: parent,
+			Title:  node.Label,
+			Open:   node.Open,
+			Dest: model.DestinationExplicitIntern{
+				Page: pages[node.PageIndex],
+				Location: model.DestinationLocationXYZ{
+					Left: model.ObjFloat(node.X),
+					Top:  model.ObjFloat(node.Y),
+				},
+			},
+		}
+		var lastChild *model.OutlineItem
+		for i, child := range node.Children {
+			childItem := nodeToItem(child, out)
+			if i == 0 {
+				out.First = childItem
+			}
+			if lastChild != nil {
+				lastChild.Next = childItem
+			}
+
+			lastChild = childItem
+		}
+		return out
+	}
+	var (
+		outline   model.Outline
+		lastChild *model.OutlineItem
+	)
+	for i, node := range root {
+		item := nodeToItem(node, &outline)
+		if i == 0 {
+			outline.First = item
+		}
+		if lastChild != nil {
+			lastChild.Next = item
+		}
+
+		lastChild = item
+	}
+
+	return &outline
+}
+
+func (c *Context) SetBookmarks(root []backend.BookmarkNode) {
+	c.document.Catalog.Outlines = bookmarksToOutline(root, c.pages)
 }

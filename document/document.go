@@ -90,7 +90,7 @@ func getMatrix(box_ Box) *mt.Transform {
 }
 
 // Apply a transformation matrix to an axis-aligned rectangle
-// and return its axis-aligned bounding box as ``(x, y, width, height)``
+// and return its axis-aligned bounding box as ``(x_min, y_min, x_max, y_max)``
 func rectangleAabb(matrix mt.Transform, posX, posY, width, height fl) [4]fl {
 	x1, y1 := matrix.TransformPoint(posX, posY)
 	x2, y2 := matrix.TransformPoint(posX+width, posY)
@@ -100,17 +100,31 @@ func rectangleAabb(matrix mt.Transform, posX, posY, width, height fl) [4]fl {
 	boxY1 := utils.Mins(y1, y2, y3, y4)
 	boxX2 := utils.Maxs(x1, x2, x3, x4)
 	boxY2 := utils.Maxs(y1, y2, y3, y4)
-	return [4]fl{boxX1, boxY1, boxX2 - boxX1, boxY2 - boxY1}
+	return [4]fl{boxX1, boxY1, boxX2, boxY2}
 }
 
+//  Link is a positionned link in a page.
 type Link struct {
-	Type, Target string
-	Rectangle    [4]fl
+	// Type is one of three strings :
+	// - "external": `target` is an absolute URL
+	// - "internal": `target` is an anchor name
+	//   The anchor might be defined in another page,
+	//   in multiple pages (in which case the first occurence is used),
+	//   or not at all.
+	// - "attachment": `target` is an absolute URL and points
+	//   to a resource to attach to the document.
+	Type string
+
+	Target string
+
+	// [x_min, y_min, x_max, y_max] in CSS
+	// pixels from the top-left of the page.
+	Rectangle [4]fl
 }
 
 type bookmarkData struct {
 	label    string
-	state    string
+	open     bool
 	position [2]fl
 	level    int
 }
@@ -131,7 +145,7 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 	if lvl := box.Style.GetBookmarkLevel(); lvl.String != "none" {
 		bookmarkLevel = lvl.Int
 	}
-	state := string(box.Style.GetBookmarkState())
+	state := box.Style.GetBookmarkState()
 	link := box.Style.GetLink()
 	anchorName := string(box.Style.GetAnchor())
 	hasBookmark := bookmarkLabel != "" && bookmarkLevel != 0
@@ -166,7 +180,7 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 		if hasBookmark {
 			*bookmarks = append(*bookmarks, bookmarkData{
 				level: bookmarkLevel, label: bookmarkLabel,
-				position: [2]fl{posX, posY}, state: state,
+				position: [2]fl{posX, posY}, open: state == "open",
 			})
 		}
 		if hasAnchor {
@@ -181,44 +195,31 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 
 // Page represents a single rendered page.
 type Page struct {
-	// The page width, including margins, in CSS pixels.
-	Width fl
+	pageBox *bo.PageBox
 
-	// The page height, including margins, in CSS pixels.
-	Height fl
-
-	// The page bleed widths as a `dict` with `"top"`, `"right"`,
-	// `"bottom"` and `"left"` as keys, and values in CSS pixels.
-	Bleed Bleed
+	// The `dict` mapping each anchor name to its target, an
+	// `(x, y)` point in CSS pixels from the top-left of the page.
+	anchors map[string][2]fl
 
 	// `bookmarkLevel` and `bookmarkLabel` are based on
 	// the CSS properties of the same names. `target` is an `(x, y)`
 	// point in CSS pixels from the top-left of the page.
 	bookmarks []bookmarkData
 
-	// The `list` of `(linkType, target, rectangle)` `tuples
-	// <tuple>`. A `rectangle` is `(x, y, width, height)`, in CSS
-	// pixels from the top-left of the page. `linkType` is one of three
-	// strings :
-	// * `"external"`: `target` is an absolute URL
-	// * `"internal"`: `target` is an anchor name (see
-	//   :attr:`Page.anchors`).
-	//   The anchor might be defined in another page,
-	//   in multiple pages (in which case the first occurence is used),
-	//   or not at all.
-	// * `"attachment"`: `target` is an absolute URL && points
-	//   to a resource to attach to the document.
 	links []Link
 
-	// The `dict` mapping each anchor name to its target, an
-	// `(x, y)` point in CSS pixels from the top-left of the page.
-	anchors map[string][2]fl
+	// The page bleed widths with values in CSS pixels.
+	Bleed Bleed
 
-	pageBox *bo.PageBox
+	// The page width, including margins, in CSS pixels.
+	Width fl
+
+	// The page height, including margins, in CSS pixels.
+	Height fl
 }
 
-// NewPage post-process a laid out `PageBox`
-func NewPage(pageBox *bo.PageBox) Page {
+// newPage post-process a laid out `PageBox`.
+func newPage(pageBox *bo.PageBox) Page {
 	d := Page{}
 	d.Width = fl(pageBox.MarginWidth())
 	d.Height = fl(pageBox.MarginHeight())
@@ -284,13 +285,12 @@ type Document struct {
 // ready to be painted.
 //
 // fontConfig is mandatory
-// presentationalHints=false
-// counterStyle is optional
+// presentationalHints should default to `false`
 func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration) Document {
 	pageBoxes := layout.Layout(html, stylesheets, presentationalHints, fontConfig)
 	pages := make([]Page, len(pageBoxes))
 	for i, pageBox := range pageBoxes {
-		pages[i] = NewPage(pageBox)
+		pages[i] = newPage(pageBox)
 	}
 	return Document{Pages: pages, Metadata: html.GetMetadata(), urlFetcher: html.UrlFetcher, fontconfig: fontConfig}
 }
@@ -333,7 +333,7 @@ func (d *Document) resolveLinks(scale fl) ([][]Link, [][]backend.Anchor) {
 			if !anchors.Has(anchorName) {
 				pos[0] *= scale
 				pos[1] *= scale
-				current = append(current, backend.Anchor{Name: anchorName, Pos: pos})
+				current = append(current, backend.Anchor{Name: anchorName, X: pos[0], Y: pos[1]})
 				anchors.Add(anchorName)
 			}
 		}
@@ -360,31 +360,19 @@ func (d *Document) resolveLinks(scale fl) ([][]Link, [][]backend.Anchor) {
 	return pagedLinks, pagedAnchors
 }
 
-type BookmarkTarget struct {
-	pageNumber int
-	pos        [2]fl
-}
-
-type bookmarkSubtree struct {
-	label    string
-	state    string
-	children []bookmarkSubtree
-	target   BookmarkTarget
-}
-
 // Make a tree of all bookmarks in the document.
-func (d Document) makeBookmarkTree() []bookmarkSubtree {
-	var root []bookmarkSubtree
+func (d Document) makeBookmarkTree() []backend.BookmarkNode {
+	var root []backend.BookmarkNode
 	// At one point in the document, for each "output" depth, how much
 	// to add to get the source level (CSS values of bookmark-level).
 	// E.g. with <h1> then <h3>, levelShifts == [0, 1]
 	// 1 means that <h3> has depth 3 - 1 = 2 in the output.
 	var skippedLevels []int
-	lastByDepth := [][]bookmarkSubtree{root}
+	lastByDepth := [][]backend.BookmarkNode{root}
 	previousLevel := 0
 	for pageNumber, page := range d.Pages {
 		for _, bk := range page.bookmarks {
-			level, label, pos, state := bk.level, bk.label, bk.position, bk.state
+			level, label, pos, open := bk.level, bk.label, bk.position, bk.open
 			if level > previousLevel {
 				// Example: if the previous bookmark is a <h2>, the next
 				// depth "should" be for <h3>. If now we get a <h6> we’re
@@ -411,8 +399,8 @@ func (d Document) makeBookmarkTree() []bookmarkSubtree {
 			if depth != len(skippedLevels) || depth < 1 {
 				log.Fatalf("expected depth >= 1 and depth == len(skippedLevels) got %d", depth)
 			}
-			var children []bookmarkSubtree
-			subtree := bookmarkSubtree{label: label, target: BookmarkTarget{pageNumber: pageNumber, pos: pos}, children: children, state: state}
+			var children []backend.BookmarkNode
+			subtree := backend.BookmarkNode{Label: label, PageIndex: pageNumber, X: pos[0], Y: pos[1], Children: children, Open: open}
 			lastByDepth[depth-1] = append(lastByDepth[depth-1], subtree)
 			lastByDepth = lastByDepth[:depth]
 			lastByDepth = append(lastByDepth, children)
@@ -422,18 +410,25 @@ func (d Document) makeBookmarkTree() []bookmarkSubtree {
 }
 
 // Include hyperlinks in current PDF page.
-func (d Document) addHyperlinks(links []Link, anchorsId map[string]int, context backend.OutputPage, scale fl) {
+func (d Document) addHyperlinks(links []Link, context backend.OutputPage, scale mt.Transform) {
 	for _, link := range links {
 		linkType, linkTarget, rectangle := link.Type, link.Target, link.Rectangle
-		x, y, w, h := rectangle[0]*scale, rectangle[1]*scale, rectangle[2]*scale, rectangle[3]*scale
+		xMin, yMin := scale.TransformPoint(rectangle[0], rectangle[1])
+		xMax, yMax := scale.TransformPoint(rectangle[2], rectangle[3])
 		if linkType == "external" {
-			context.AddExternalLink(x, y, w, h, linkTarget)
+			context.AddExternalLink(xMin, yMin, xMax, yMax, linkTarget)
 		} else if linkType == "internal" {
-			context.AddInternalLink(x, y, w, h, anchorsId[linkTarget])
+			context.AddInternalLink(xMin, yMin, xMax, yMax, linkTarget)
 		} else if linkType == "attachment" {
 			// actual embedding has be done previously
-			context.AddFileAnnotation(x, y, w, h, linkTarget)
+			context.AddFileAnnotation(xMin, yMin, xMax, yMax, linkTarget)
 		}
+	}
+}
+
+func (d *Document) scaleAnchors(anchors []backend.Anchor, matrix mt.Transform) {
+	for i, a := range anchors {
+		anchors[i].X, anchors[i].Y = matrix.TransformPoint(a.X, a.Y)
 	}
 }
 
@@ -484,11 +479,11 @@ func getFilenameFromResult(rawurl string) string {
 	return filename
 }
 
-// WriteDocument paints the pages in the given target, with meta-data.
+// WriteDocument paints the pages in the given `target`, with meta-data.
 //
 // The zoom factor is in PDF units per CSS units, and should default to 1.
 // Warning : all CSS units are affected, including physical units like
-// ``cm`` and named sizes like ``A4``.  For values other than
+// `cm` and named sizes like `A4`.  For values other than
 // 1, the physical CSS units will thus be "wrong".
 //
 // `attachments` is an optional list of additional file attachments for the
@@ -502,8 +497,6 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 
 	logger.ProgressLogger.Println("Step 6 - Drawing pages")
 
-	anchorsId := target.CreateAnchors(pagedAnchors)
-
 	for i, page := range d.Pages {
 		pageWidth := scale * (page.Width + float64(page.Bleed.Left) + float64(page.Bleed.Right))
 		pageHeight := scale * (page.Height + float64(page.Bleed.Top) + float64(page.Bleed.Bottom))
@@ -516,10 +509,15 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 		outputPage.Transform(mt.New(1, 0, 0, -1, 0, page.Height*scale))
 		page.Paint(outputPage, d.fontconfig, 0, 0, scale, false)
 
-		d.addHyperlinks(pagedLinks[i], anchorsId, outputPage, scale)
+		// Draw from the top-left corner
+		matrix := mt.New(scale, 0, 0, -scale, 0, page.Height*scale)
 
+		d.addHyperlinks(pagedLinks[i], outputPage, matrix)
+		d.scaleAnchors(pagedAnchors[i], matrix)
 		page.Bleed.setMediaBoxes([4]fl{left, top, right, bottom}, outputPage)
 	}
+
+	target.CreateAnchors(pagedAnchors)
 
 	logger.ProgressLogger.Println("Step 7 - Adding PDF metadata")
 
@@ -536,26 +534,7 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 	d.embedFileAnnotations(pagedLinks, target)
 
 	// Set bookmarks
-	bookmarks := d.makeBookmarkTree()
-	levels := make([]int, len(bookmarks)) // 0 is the root level
-	for len(bookmarks) != 0 {
-		bookmark := bookmarks[0]
-		bookmarks = bookmarks[1:]
-		title := bookmark.label
-		page, y := bookmark.target.pageNumber, bookmark.target.pos[1]
-		children := bookmark.children
-		// state := bookmark.state
-
-		level := levels[len(levels)-1]
-		levels = levels[:len(levels)-1]
-		target.AddBookmark(level, title, page+1, y*scale)
-		// preparing children bookmarks
-		childLevel := level + 1
-		for i := 0; i < len(children); i += 1 {
-			levels = append(levels, childLevel)
-		}
-		bookmarks = append(children, bookmarks...)
-	}
+	target.SetBookmarks(d.makeBookmarkTree())
 
 	// Set document information
 	target.SetTitle(d.Metadata.Title)
@@ -569,9 +548,7 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 }
 
 func (d *Document) embedFileAnnotations(pagedLinks [][]Link, context backend.Output) {
-	// A single link can be split in multiple regions. We don't want to embed
-	// a file multiple times of course, so keep a reference to every embedded
-	// URL and reuse the object number.
+	// A single link can be split in multiple regions.
 	for _, rl := range pagedLinks {
 		for _, link := range rl {
 			if link.Type == "attachment" {

@@ -115,60 +115,60 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleF
 }
 
 // Maps values of the ``display`` CSS property to box types.
-func makeBox(elementTag string, style pr.ElementStyle, content []Box) Box {
+func makeBox(elementTag string, style pr.ElementStyle, content []Box) (Box, error) {
 	tmp := style.GetDisplay()
 	display := [2]string{tmp[0], tmp[1]}
 	switch display {
 	case [2]string{"block", "flow"}:
 		b := NewBlockBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"inline", "flow"}:
 		b := NewInlineBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"block", "flow-root"}:
 		b := NewBlockBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"inline", "flow-root"}:
 		b := NewInlineBlockBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"block", "table"}:
 		b := NewTableBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"inline", "table"}:
 		b := NewInlineTableBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"block", "flex"}:
 		b := NewFlexBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"inline", "flex"}:
 		b := NewInlineFlexBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-row"}:
 		b := NewTableRowBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-row-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-header-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-footer-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-column"}:
 		b := NewTableColumnBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-column-group"}:
 		b := NewTableColumnGroupBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-cell"}:
 		b := NewTableCellBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	case [2]string{"table-caption"}:
 		b := NewTableCaptionBox(elementTag, style, content)
-		return &b
+		return &b, nil
 	default:
-		panic(fmt.Sprintf("display property %s not supported", tmp))
+		return nil, fmt.Errorf("Ignored box %s: display property %s not supported", elementTag, tmp)
 	}
 }
 
@@ -208,7 +208,11 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 		return nil
 	}
 
-	box := makeBox(element.Data, style, nil)
+	box, err := makeBox(element.Data, style, nil)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 
 	if state == nil {
 		// use a list to have a shared mutable object
@@ -329,7 +333,11 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 		return nil
 	}
 
-	box := makeBox(fmt.Sprintf("%s::%s", element.Data, pseudoType), style, nil)
+	box, err := makeBox(fmt.Sprintf("%s::%s", element.Data, pseudoType), style, nil)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
 
 	UpdateCounters(state, style)
 
@@ -353,7 +361,12 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector, cs counters.CounterStyle) Box {
 	style := styleFor.Get(element, "marker")
 
-	box := makeBox(element.Data+"::marker", style, nil)
+	box, err := makeBox(element.Data+"::marker", style, nil)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+
 	children := &box.Box().Children
 
 	if style.GetDisplay() == (pr.Display{"none"}) {
