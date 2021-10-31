@@ -172,7 +172,7 @@ func lighten(color Color) Color {
 }
 
 type drawContext struct {
-	dst   backend.OutputPage
+	dst   backend.OutputGraphic
 	fonts *text.FontConfiguration
 }
 
@@ -384,7 +384,7 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 // ``widths`` is a tuple of the inner widths (top, right, bottom, left) from
 // the border box. Radii are adjusted from these values. Default is (0, 0, 0,
 // 0).
-func roundedBoxPath(context backend.OutputPage, radii bo.RoundedBox) {
+func roundedBoxPath(context backend.OutputGraphic, radii bo.RoundedBox) {
 	x, y, w, h, tl, tr, br, bl := pr.Fl(radii.X), pr.Fl(radii.Y), pr.Fl(radii.Width), pr.Fl(radii.Height), radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
 	if tl[0] == 0 || tl[1] == 0 || tr[0] == 0 || tr[1] == 0 ||
 		br[0] == 0 || br[1] == 0 || bl[0] == 0 || bl[1] == 0 {
@@ -762,7 +762,7 @@ func (ctx drawContext) drawBorder(box_ Box) {
 // Clip one segment of box border (border_widths=nil, radii=nil).
 // The strategy is to remove the zones not needed because of the style or the
 // side before painting.
-func clipBorderSegment(context backend.OutputPage, style pr.String, width float64, side string,
+func clipBorderSegment(context backend.OutputGraphic, style pr.String, width float64, side string,
 	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
 	// if enableHinting && style != "dotted" && (

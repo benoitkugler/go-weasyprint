@@ -191,11 +191,11 @@ func (outputPage) DrawGradient(gradient backend.GradientLayout, width, height fl
 
 type pattern struct{}
 
-func (pattern) AddGroup(x, y, width, height fl) backend.OutputPage {
+func (pattern) AddGroup(x, y, width, height fl) backend.OutputGraphic {
 	outputLog.Println("AddGroup")
 	return outputPage{}
 }
 
-func (pattern) DrawGroup(group backend.OutputPage) {
+func (pattern) DrawGroup(group backend.OutputGraphic) {
 	outputLog.Println("DrawGroup")
 }

@@ -137,13 +137,18 @@ type OutputPage interface {
 	// The file content has been added with `Output.EmdedFile`.
 	AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string)
 
-	// Returns the current page rectangle
-	GetPageRectangle() (left, top, right, bottom fl)
-
 	// Adjust the media boxes
 
 	SetTrimBox(left, top, right, bottom fl)
 	SetBleedBox(left, top, right, bottom fl)
+
+	OutputGraphic
+}
+
+// OutputGraphic is a surface and the target of graphic operations
+type OutputGraphic interface {
+	// Returns the current page rectangle
+	GetPageRectangle() (left, top, right, bottom fl)
 
 	// OnNewStack save the current graphic stack,
 	// execute the given closure, and restore the stack.
@@ -199,12 +204,12 @@ type OutputPage interface {
 	// it refers to the user space and CTM in effect
 	// at the time of the stroking operation,
 	// not the user space and CTM in effect
-	// at the time of the call to :meth:`set_line_width`.
+	// at the time of the call to `SetLineWidth`.
 	// The simplest usage makes both of these spaces identical.
 	// That is, if there is no change to the CTM
-	// between a call to :meth:`set_line_width`
+	// between a call to `SetLineWidth`
 	// and the stroking operation,
-	// then one can just pass user-space values to :meth:`set_line_width`
+	// then one can just pass user-space values to `SetLineWidth`
 	// and ignore this note.
 	//
 	// As with the other stroke parameters,
@@ -212,7 +217,7 @@ type OutputPage interface {
 	// `Stroke` but does not have any effect during path construction.
 	SetLineWidth(width fl)
 
-	// Sets the dash pattern to be used by :meth:`stroke`.
+	// Sets the dash pattern to be used by Stroke.
 	// A dash pattern is specified by dashes, a list of positive values.
 	// Each value provides the length of alternate "on" and "off"
 	// portions of the stroke.
@@ -223,12 +228,12 @@ type OutputPage interface {
 	// as if the segment were a separate sub-path.
 	// In particular, it is valid to use an "on" length of 0
 	// with `LINE_CAP_ROUND` or `LINE_CAP_SQUARE`
-	// in order to distributed dots or squares along a path.
+	// in order to distribute dots or squares along a path.
 	//
 	// Note: The length values are in user-space units
 	// as evaluated at the time of stroking.
 	// This is not necessarily the same as the user space
-	// at the time of :meth:`set_dash`.
+	// at the time of SetDash.
 	//
 	// If `dashes` is empty dashing is disabled.
 	// If it is of length 1 a symmetric pattern is assumed
@@ -299,9 +304,9 @@ type Pattern interface {
 	// AddGroup creates a new drawing target with the given
 	// bounding box.
 	// If the backend does not support groups, the current target should be returned.
-	AddGroup(x, y, width, height fl) OutputPage
+	AddGroup(x, y, width, height fl) OutputGraphic
 
 	// DrawGroup draw the given target to the main target.
-	// If the backend does not support groups,  this should be a no-op.
-	DrawGroup(group OutputPage)
+	// If the backend does not support groups, this should be a no-op.
+	DrawGroup(group OutputGraphic)
 }
