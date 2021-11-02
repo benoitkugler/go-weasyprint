@@ -1,7 +1,7 @@
 package pdf
 
 import (
-	"image"
+	"io"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/matrix"
@@ -161,17 +161,24 @@ func (g *group) Clip(evenOdd bool) {
 }
 
 func (g *group) SetColorRgba(color parser.RGBA, stroke bool) {
+	alpha := color.A
+	color.A = 1 // do not take into account the opacity, it is handled by `SetAlpha`
 	if stroke {
 		g.app.SetColorStroke(color)
 	} else {
 		g.app.SetColorFill(color)
 	}
+	g.SetAlpha(alpha, stroke)
 }
 
 // Set current alpha
 // `stroke` controls whether stroking or filling operations are concerned.
 func (g *group) SetAlpha(alpha fl, stroke bool) {
-	panic("not implemented") // TODO: Implement
+	if stroke {
+		g.app.SetStrokeAlpha(alpha)
+	} else {
+		g.app.SetFillAlpha(alpha)
+	}
 }
 
 func (g *group) SetLineWidth(width fl) {
@@ -206,7 +213,6 @@ func (g *group) Stroke() {
 // by applying `mt` as an additional transformation.
 // The new transformation of user space takes place
 // after any existing transformation.
-// `Restore` or `Finish` should be called.
 func (g *group) Transform(mt matrix.Transform) {
 	a, b, c, d, e, f := mt.Data()
 	g.app.Transform(model.Matrix{a, b, c, d, e, f})
@@ -253,13 +259,147 @@ func (g *group) AddFont(face fonts.Face, content []byte) *backend.Font {
 }
 
 // DrawRasterImage draws the given image at the current point
-func (g *group) DrawRasterImage(img image.Image, imageRendering string, width fl, height fl) {
-	panic("not implemented") // TODO: Implement
+func (g *group) DrawRasterImage(imgContent io.ReadCloser, imgFormat, imageRendering string, width fl, height fl) {
+	mimeType := "image/" + imgFormat
+	cs.ParseImage(imgContent)
 }
 
 // DrawGradient draws the given gradient at the current point.
 // Solid gradient are already handled, meaning that only linear and radial
 // must be taken care of.
-func (g *group) DrawGradient(gradient backend.GradientLayout, width fl, height fl) {
-	panic("not implemented") // TODO: Implement
+func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl) {
+	alphas := make([]fl, len(layout.Colors))
+	var needOpacity bool
+	for i, c := range layout.Colors {
+		alphas[i] = c.A
+		if c.A != 1 {
+			needOpacity = true
+		}
+	}
+
+	alphaCouples := make([][2]fl, len(alphas)-1)
+	colorCouples := make([][2][3]fl, len(alphas)-1)
+	exponents := make([]int, len(alphas)-1)
+	for i := range alphaCouples {
+		alphaCouples[i] = [2]fl{alphas[i], alphas[i+1]}
+		colorCouples[i] = [2][3]fl{
+			{layout.Colors[i].R, layout.Colors[i].G, layout.Colors[i].B},
+			{layout.Colors[i+1].R, layout.Colors[i+1].G, layout.Colors[i+1].B},
+		}
+		exponents[i] = 1
+	}
+
+	// Premultiply colors
+	for i, alpha := range alphas {
+		if alpha == 0 {
+			if i > 0 {
+				colorCouples[i-1][1] = colorCouples[i-1][0]
+			}
+			if i < len(layout.Colors)-1 {
+				colorCouples[i][0] = colorCouples[i][1]
+			}
+		}
+	}
+	for i, v := range alphaCouples {
+		a0, a1 := v[0], v[1]
+		if a0 != 0 && a1 != 0 && v != ([2]fl{1, 1}) {
+			exponents[i] = int(a0 / a1)
+		}
+	}
+
+	var functions, alphaFunctions []model.FunctionDict
+	for i, v := range colorCouples {
+		c0, c1 := v[0], v[1]
+		n := exponents[i]
+		fn := model.FunctionDict{
+			Domain: []model.Range{{0, 1}},
+			FunctionType: model.FunctionExpInterpolation{
+				C0: c0[:],
+				C1: c1[:],
+				N:  n,
+			},
+		}
+		functions = append(functions, fn)
+
+		alphaFn := fn
+		a0, a1 := alphaCouples[i][0], alphaCouples[i][1]
+		alphaFn.FunctionType = model.FunctionExpInterpolation{
+			C0: []model.Fl{a0},
+			C1: []model.Fl{a1},
+			N:  1,
+		}
+		alphaFunctions = append(alphaFunctions, alphaFn)
+	}
+	bg := model.BaseGradient{
+		Domain: [2]fl{layout.Positions[0], layout.Positions[len(layout.Positions)-1]},
+		Function: []model.FunctionDict{{
+			Domain: []model.Range{{layout.Positions[0], layout.Positions[len(layout.Positions)-1]}},
+			FunctionType: model.FunctionStitching{
+				Functions: functions,
+				Bounds:    layout.Positions[1 : len(layout.Positions)-1],
+				Encode:    model.FunctionEncodeRepeat(len(layout.Colors) - 1),
+			},
+		}},
+	}
+	if !layout.Reapeating {
+		bg.Extend = [2]bool{true, true}
+	}
+
+	// alpha stream is similar
+	alphaBg := bg
+	alphaBg.Function = alphaFunctions
+
+	var type_, alphaType model.Shading
+	if layout.Kind == "linear" {
+		type_ = model.ShadingAxial{
+			BaseGradient: bg,
+			Coords:       [4]fl{layout.Data[0], layout.Data[1], layout.Data[2], layout.Data[3]},
+		}
+		alphaType = model.ShadingAxial{
+			BaseGradient: alphaBg,
+			Coords:       [4]fl{layout.Data[0], layout.Data[1], layout.Data[2], layout.Data[3]},
+		}
+	} else {
+		type_ = model.ShadingRadial{
+			BaseGradient: bg,
+			Coords:       layout.Data,
+		}
+		alphaType = model.ShadingRadial{
+			BaseGradient: alphaBg,
+			Coords:       layout.Data,
+		}
+	}
+
+	sh := model.ShadingDict{
+		ColorSpace:  model.ColorSpaceRGB,
+		ShadingType: type_,
+	}
+	alphaSh := model.ShadingDict{
+		ColorSpace:  model.ColorSpaceGray,
+		ShadingType: alphaType,
+	}
+
+	g.Transform(matrix.New(1, 0, 0, layout.ScaleY, 0, 0))
+
+	if needOpacity {
+		alphaStream := cs.NewAppearance(width, height)
+
+		alphaStream.Transform(model.Matrix{1, 0, 0, layout.ScaleY, 0, 0})
+		shName := alphaStream.AddShading(&alphaSh)
+		alphaStream.Ops(cs.OpShFill{Shading: shName})
+		transparency := alphaStream.ToXFormObject(false)
+
+		alphaState := model.GraphicState{
+			SMask: model.SoftMaskDict{
+				S: model.ObjName("Luminosity"),
+				G: &model.XObjectTransparencyGroup{XObjectForm: *transparency},
+			},
+			Ca:  1,
+			AIS: false,
+		}
+
+		g.app.SetGraphicState(&alphaState)
+	}
+
+	g.app.Shading(&sh)
 }

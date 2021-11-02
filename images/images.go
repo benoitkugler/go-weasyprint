@@ -33,24 +33,11 @@ type Image interface {
 }
 
 var (
-	_ Image = RasterImage{}
+	_ Image = rasterImage{}
 	_ Image = &SVGImage{}
 	_ Image = LinearGradient{}
 	_ Image = RadialGradient{}
 )
-
-type imageSurface interface {
-	getWidth() pr.Float
-	getHeight() pr.Float
-}
-
-// Map values of the image-rendering property to cairo FILTER values.
-// Values are normalized to lower case.
-var imagesRenderingToFilter = map[string]int{
-	"auto":        0, // cairocffi.FILTERBILINEAR,
-	"crisp-edges": 1, // cairocffi.FILTERBEST,
-	"pixelated":   2, // cairocffi.FILTERNEAREST,
-}
 
 // An error occured when loading an image.
 // The image data is probably corrupted or in an invalid format.
@@ -58,20 +45,23 @@ func imageLoadingError(err error) error {
 	return fmt.Errorf("error loading image : %s", err)
 }
 
-type RasterImage struct {
-	imageSurface    image.Image
+type rasterImage struct {
+	imageContent io.ReadCloser
+	imageFormat  string
+
 	intrinsicRatio  pr.Float
 	intrinsicWidth  pr.Float
 	intrinsicHeight pr.Float
 	optimizeSize    bool
 }
 
-func NewRasterImage(imageSurface image.Image, optimizeSize bool) RasterImage {
-	self := RasterImage{}
+func newRasterImage(imageConfig image.Config, format string, content io.ReadCloser, optimizeSize bool) rasterImage {
+	self := rasterImage{}
 	self.optimizeSize = optimizeSize
-	self.imageSurface = imageSurface
-	self.intrinsicWidth = pr.Float(imageSurface.Bounds().Dx())
-	self.intrinsicHeight = pr.Float(imageSurface.Bounds().Dy())
+	self.imageContent = content
+	self.imageFormat = format
+	self.intrinsicWidth = pr.Float(imageConfig.Width)
+	self.intrinsicHeight = pr.Float(imageConfig.Height)
 	self.intrinsicRatio = pr.Inf
 	if self.intrinsicHeight != 0 {
 		self.intrinsicRatio = self.intrinsicWidth / self.intrinsicHeight
@@ -79,20 +69,20 @@ func NewRasterImage(imageSurface image.Image, optimizeSize bool) RasterImage {
 	return self
 }
 
-func (r RasterImage) isImage() {}
+func (r rasterImage) isImage() {}
 
-func (r RasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, height, ratio pr.MaybeFloat) {
+func (r rasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, height, ratio pr.MaybeFloat) {
 	// Raster images are affected by the "image-resolution" property.
 	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value, r.intrinsicRatio
 }
 
-func (r RasterImage) Draw(context backend.OutputGraphic, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
+func (r rasterImage) Draw(context backend.OutputGraphic, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
 	hasSize := concreteWidth > 0 && concreteHeight > 0 && r.intrinsicWidth > 0 && r.intrinsicHeight > 0
 	if !hasSize {
 		return
 	}
 
-	context.DrawRasterImage(r.imageSurface, string(imageRendering), concreteWidth, concreteHeight)
+	context.DrawRasterImage(r.imageContent, r.imageFormat, string(imageRendering), concreteWidth, concreteHeight)
 }
 
 // class ScaledSVGSurface(cairosvg.surface.SVGSurface) {
@@ -106,23 +96,6 @@ func (r RasterImage) Draw(context backend.OutputGraphic, concreteWidth, concrete
 //         return scale / 0.75
 //     }
 // }
-
-// Fake CairoSVG surface used to get SVG attributes.
-type FakeSurface struct {
-	contextHeight float64
-	contextWidth  float64
-	fontSize      float64
-	dpi           float64
-}
-
-func newFakeSurface() FakeSurface {
-	return FakeSurface{
-		contextHeight: 0,
-		contextWidth:  0,
-		fontSize:      12,
-		dpi:           96,
-	}
-}
 
 type SVGImage struct {
 	icon       *svgicon.SvgIcon
@@ -269,10 +242,10 @@ func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, u
 		}
 	}
 
-	// Try pillow for raster images, or for failing SVG
+	// Look for raster images, or for failing SVG
 	if img == nil {
 		content.Content.Seek(0, io.SeekStart)
-		parsedImage, _, errRaster := image.Decode(content.Content)
+		imageConfig, imageFormat, errRaster := image.DecodeConfig(content.Content)
 		if errRaster != nil {
 			if errSvg != nil { // Tried SVGImage then raster for a SVG, abort
 				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errSvg)
@@ -287,7 +260,8 @@ func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, u
 				return nil, err
 			}
 		} else {
-			img = NewRasterImage(parsedImage, optimizeSize)
+			content.Content.Seek(0, io.SeekStart)
+			img = newRasterImage(imageConfig, imageFormat, content.Content, optimizeSize)
 		}
 	}
 
@@ -454,6 +428,7 @@ func (g gradient) GetIntrinsicSize(_, _ pr.Value) (pr.MaybeFloat, pr.MaybeFloat,
 
 func (g gradient) Draw(dst backend.OutputGraphic, concreteWidth, concreteHeight pr.Fl, imageRendering pr.String) {
 	layout := g.layouter.Layout(pr.Float(concreteWidth), pr.Float(concreteHeight))
+	layout.Reapeating = g.repeating
 
 	if layout.Kind == "solid" {
 		dst.Rectangle(0, 0, concreteWidth, concreteHeight)

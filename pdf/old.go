@@ -159,27 +159,3 @@ func (c Context) ArcNegative(xc, yc, radius, angle1, angle2 float64) {
 	}
 	c.f.ArcTo(xc, c.convertY(yc), radius, radius, 0, angle1, angle2)
 }
-
-// gradient
-// alphas := make([]pr.Fl, len(layout.colors))
-// for i, c :=range layout.colors {
-// 	alphas[i] = c.A
-// }
-
-// alpha_couples := make([][2]pr.Fl, len(alphas)-1)
-// color_couples := make([][3]pr.Fl, len(alphas)-1)
-// for i := range alpha_couples {
-// 	alpha_couples[i] = [2]pr.Fl{alphas[i], alphas[i + 1]}
-// 	color_couples[i] = [3]pr.Fl{layout.colors[i][:3], layout.colors[i + 1][:3], 1}
-// }
-
-// // Premultiply colors
-// for i, alpha in enumerate(alphas):
-// 	if alpha == 0:
-// 		if i > 0:
-// 			color_couples[i - 1][1] = color_couples[i - 1][0]
-// 		if i < len(colors) - 1:
-// 			color_couples[i][0] = color_couples[i][1]
-// for i, (a0, a1) in enumerate(alpha_couples):
-// 	if 0 not in (a0, a1) and (a0, a1) != (1, 1):
-// 		color_couples[i][2] = a0 / a1

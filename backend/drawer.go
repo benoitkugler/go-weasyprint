@@ -3,7 +3,7 @@
 package backend
 
 import (
-	"image"
+	"io"
 	"time"
 
 	"github.com/benoitkugler/go-weasyprint/matrix"
@@ -75,7 +75,8 @@ type GradientLayout struct {
 	GradientInit
 
 	// used for ellipses radial gradients. 1 otherwise.
-	ScaleY utils.Fl
+	ScaleY     utils.Fl
+	Reapeating bool
 }
 
 // BookmarkNode exposes the outline hierarchy of the document
@@ -290,7 +291,7 @@ type OutputGraphic interface {
 	AddFont(face fonts.Face, content []byte) *Font
 
 	// DrawRasterImage draws the given image at the current point
-	DrawRasterImage(img image.Image, imageRendering string, width, height fl)
+	DrawRasterImage(imgContent io.ReadCloser, imageFormat string, imageRendering string, width, height fl)
 
 	// DrawGradient draws the given gradient at the current point.
 	// Solid gradient are already handled, meaning that only linear and radial
