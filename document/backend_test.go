@@ -1,7 +1,6 @@
 package document
 
 import (
-	"io"
 	"log"
 	"os"
 	"time"
@@ -181,7 +180,7 @@ func (outputPage) AddFont(face fonts.Face, content []byte) *backend.Font {
 	return &backend.Font{Cmap: make(map[pango.Glyph][]rune), Widths: make(map[pango.Glyph]int)}
 }
 
-func (outputPage) DrawRasterImage(imgContent io.ReadCloser, imageFormat string, imageRendering string, width, height fl) {
+func (outputPage) DrawRasterImage(img backend.RasterImage, width, height fl) {
 	outputLog.Println("DrawRasterImage")
 }
 

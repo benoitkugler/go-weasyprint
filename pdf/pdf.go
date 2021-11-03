@@ -28,76 +28,72 @@ import (
 // }
 
 var (
-	_ backend.Output     = (*Context)(nil)
-	_ backend.OutputPage = (*contextPage)(nil)
+	_ backend.Output     = (*Output)(nil)
+	_ backend.OutputPage = (*outputPage)(nil)
 )
 
-// Context implements backend.Output
-type Context struct {
+// Output implements backend.Output
+type Output struct {
 	// global map for files embedded in the PDF
 	// and used in file annotations
 	embeddedFiles map[string]*model.FileSpec
 
+	// global shared cache for image content
+	images map[int]*model.XObjectImage
+
 	document model.Document
 
-	// temporary content, will be copied in the document (see Finalize)
-	pages []*model.PageObject
-
-	// f *gofpdf.Fpdf
-
-	// fileAnnotationsMap map[string]*gofpdf.Attachment
-
-	// matrixToPdf, matrixToPdfInv matrix.Transform
-
-	// fillRule int
+	// temporary content, will be copied in the document (see `finalize`)
+	pages []*outputPage
 }
 
-func NewContext() *Context {
-	out := Context{
+func NewOutput() *Output {
+	out := Output{
 		embeddedFiles: make(map[string]*model.FileSpec),
+		images:        make(map[int]*model.XObjectImage),
 	}
 	return &out
 }
 
-func (c *Context) AddPage(left, top, right, bottom fl) backend.OutputPage {
-	out := newContextPage(left, top, right, bottom, c.embeddedFiles)
-	c.pages = append(c.pages, &out.page)
+func (c *Output) AddPage(left, top, right, bottom fl) backend.OutputPage {
+	out := newContextPage(left, top, right, bottom, c.embeddedFiles, c.images)
+	c.pages = append(c.pages, out)
 	return out
 }
 
-func (s *Context) SetTitle(title string) {
+func (s *Output) SetTitle(title string) {
 	s.document.Trailer.Info.Title = title
 }
 
-func (s *Context) SetDescription(description string) {
+func (s *Output) SetDescription(description string) {
 	s.document.Trailer.Info.Subject = description
 }
 
-func (s *Context) SetCreator(creator string) {
+func (s *Output) SetCreator(creator string) {
 	s.document.Trailer.Info.Creator = creator
 }
 
-func (s *Context) SetAuthors(authors []string) {
+func (s *Output) SetAuthors(authors []string) {
 	s.document.Trailer.Info.Keywords = strings.Join(authors, ", ")
 }
 
-func (s *Context) SetKeywords(keywords []string) {
+func (s *Output) SetKeywords(keywords []string) {
 	s.document.Trailer.Info.Keywords = strings.Join(keywords, ", ")
 }
 
-func (s *Context) SetProducer(producer string) {
+func (s *Output) SetProducer(producer string) {
 	s.document.Trailer.Info.Producer = producer
 }
 
-func (s *Context) SetDateCreation(d time.Time) {
+func (s *Output) SetDateCreation(d time.Time) {
 	s.document.Trailer.Info.CreationDate = d
 }
 
-func (s *Context) SetDateModification(d time.Time) {
+func (s *Output) SetDateModification(d time.Time) {
 	s.document.Trailer.Info.ModDate = d
 }
 
-func (c *Context) CreateAnchors(anchors [][]backend.Anchor) {
+func (c *Output) CreateAnchors(anchors [][]backend.Anchor) {
 	// pages have been processed, meaning that len(anchors) == len(c.pages)
 
 	var names []model.NameToDest
@@ -107,7 +103,7 @@ func (c *Context) CreateAnchors(anchors [][]backend.Anchor) {
 			names = append(names, model.NameToDest{
 				Name: model.DestinationString(anchor.Name),
 				Destination: model.DestinationExplicitIntern{
-					Page: page,
+					Page: &page.page,
 					Location: model.DestinationLocationXYZ{
 						Left: model.ObjFloat(anchor.X),
 						Top:  model.ObjFloat(anchor.Y),
@@ -143,7 +139,7 @@ func newFileSpec(a backend.Attachment) *model.FileSpec {
 }
 
 // Add global attachments to the file, which are compressed using FlateDecode filter
-func (c *Context) SetAttachments(as []backend.Attachment) {
+func (c *Output) SetAttachments(as []backend.Attachment) {
 	var files model.EmbeddedFileTree
 	for i, a := range as {
 		fs := newFileSpec(a)
@@ -160,7 +156,7 @@ func (c *Context) SetAttachments(as []backend.Attachment) {
 
 // Embed a file. Calling this method twice with the same id
 // won't embed the content twice.
-func (c *Context) EmbedFile(fileID string, a backend.Attachment) {
+func (c *Output) EmbedFile(fileID string, a backend.Attachment) {
 	ptr := c.embeddedFiles[fileID] // cache the attachment by id
 	if ptr != nil {
 		return
@@ -169,7 +165,7 @@ func (c *Context) EmbedFile(fileID string, a backend.Attachment) {
 	c.embeddedFiles[fileID] = newFileSpec(a)
 }
 
-func bookmarksToOutline(root []backend.BookmarkNode, pages []*model.PageObject) *model.Outline {
+func bookmarksToOutline(root []backend.BookmarkNode, pages []*outputPage) *model.Outline {
 	var nodeToItem func(node backend.BookmarkNode, parent model.OutlineNode) *model.OutlineItem
 
 	nodesToItem := func(nodes []backend.BookmarkNode, parent model.OutlineNode) *model.OutlineItem {
@@ -193,7 +189,7 @@ func bookmarksToOutline(root []backend.BookmarkNode, pages []*model.PageObject) 
 			Title:  node.Label,
 			Open:   node.Open,
 			Dest: model.DestinationExplicitIntern{
-				Page: pages[node.PageIndex],
+				Page: &pages[node.PageIndex].page,
 				Location: model.DestinationLocationXYZ{
 					Left: model.ObjFloat(node.X),
 					Top:  model.ObjFloat(node.Y),
@@ -208,6 +204,20 @@ func bookmarksToOutline(root []backend.BookmarkNode, pages []*model.PageObject) 
 	return &outline
 }
 
-func (c *Context) SetBookmarks(root []backend.BookmarkNode) {
+func (c *Output) SetBookmarks(root []backend.BookmarkNode) {
 	c.document.Catalog.Outlines = bookmarksToOutline(root, c.pages)
+}
+
+// Finalize setup and returns the final document
+func (c *Output) Finalize() model.Document {
+	pages := make([]model.PageNode, len(c.pages))
+	for i, p := range c.pages {
+		p.finalize()
+		pages[i] = &p.page
+	}
+	c.document.Catalog.Pages = model.PageTree{
+		Kids: pages,
+	}
+
+	return c.document
 }

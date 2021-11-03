@@ -12,12 +12,30 @@ import (
 
 // reference commit : 223e97d99ac681a7a5f59b90ce6bfeba047d9fa8
 
-func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string, stylesheets []tree.CSS,
-	enableHinting, presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []utils.Attachment) error {
+// HtmlToPdf performs the convertion of an HTML document (`htmlContent`) to a PDF file,
+// written in `target`.
+// It is a wrapper around the following steps :
+// 	- `tree.NewHTML` parses the input files (HTML and CSS)
+//	- `document.Render` layout the document, creating an intermediate representation ...
+// 	- ... which is transformed into an in-memory PDF by `document.WriteDocument`, using the `pdf.Ouput` backend.
+//	- model.Write eventually serialize the PDF into `target`
+//
+// See `HtmlToPdfOptions` for more options.
+func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, fontConfig *text.FontConfiguration) error {
+	return HtmlToPdfOptions(target, htmlContent, "", nil, "", nil, false, fontConfig, 1, nil)
+}
+
+// HtmlToPdfOptions is the same as HtmlToPdf, with control overs the following parameters:
+// TODO:
+func HtmlToPdfOptions(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string, stylesheets []tree.CSS,
+	presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []utils.Attachment) error {
 	parsedHtml, err := tree.NewHTML(htmlContent, baseUrl, urlFetcher, mediaType)
 	if err != nil {
 		return err
 	}
 	doc := document.Render(parsedHtml, stylesheets, presentationalHints, fontConfig)
-	return pdf.WritePDF(doc, target, zoom, attachments)
+	output := pdf.NewOutput()
+	doc.WriteDocument(output, zoom, attachments)
+	pdfDoc := output.Finalize()
+	return pdfDoc.Write(target, nil)
 }

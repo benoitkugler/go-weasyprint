@@ -146,6 +146,19 @@ type OutputPage interface {
 	OutputGraphic
 }
 
+// RasterImage is an image to be included in the ouput.
+type RasterImage struct {
+	Content  io.ReadCloser
+	MimeType string
+
+	// Rendering is the CSS property for this image.
+	Rendering string
+
+	// ID is a unique identifier which permits caching
+	// image content when possible.
+	ID int
+}
+
 // OutputGraphic is a surface and the target of graphic operations
 type OutputGraphic interface {
 	// Returns the current page rectangle
@@ -290,8 +303,8 @@ type OutputGraphic interface {
 	// so caching is advised.
 	AddFont(face fonts.Face, content []byte) *Font
 
-	// DrawRasterImage draws the given image at the current point
-	DrawRasterImage(imgContent io.ReadCloser, imageFormat string, imageRendering string, width, height fl)
+	// DrawRasterImage draws the given image at the current point, with the given dimensions.
+	DrawRasterImage(img RasterImage, width, height fl)
 
 	// DrawGradient draws the given gradient at the current point.
 	// Solid gradient are already handled, meaning that only linear and radial

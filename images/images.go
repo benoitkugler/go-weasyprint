@@ -46,8 +46,7 @@ func imageLoadingError(err error) error {
 }
 
 type rasterImage struct {
-	imageContent io.ReadCloser
-	imageFormat  string
+	image backend.RasterImage
 
 	intrinsicRatio  pr.Float
 	intrinsicWidth  pr.Float
@@ -55,11 +54,12 @@ type rasterImage struct {
 	optimizeSize    bool
 }
 
-func newRasterImage(imageConfig image.Config, format string, content io.ReadCloser, optimizeSize bool) rasterImage {
+func newRasterImage(imageConfig image.Config, content io.ReadCloser, mimeType string, id int, optimizeSize bool) rasterImage {
 	self := rasterImage{}
 	self.optimizeSize = optimizeSize
-	self.imageContent = content
-	self.imageFormat = format
+	self.image.Content = content
+	self.image.MimeType = mimeType
+	self.image.ID = id
 	self.intrinsicWidth = pr.Float(imageConfig.Width)
 	self.intrinsicHeight = pr.Float(imageConfig.Height)
 	self.intrinsicRatio = pr.Inf
@@ -82,7 +82,8 @@ func (r rasterImage) Draw(context backend.OutputGraphic, concreteWidth, concrete
 		return
 	}
 
-	context.DrawRasterImage(r.imageContent, r.imageFormat, string(imageRendering), concreteWidth, concreteHeight)
+	r.image.Rendering = string(imageRendering)
+	context.DrawRasterImage(r.image, concreteWidth, concreteHeight)
 }
 
 // class ScaledSVGSurface(cairosvg.surface.SVGSurface) {
@@ -193,32 +194,29 @@ func (SVGImage) Draw(context backend.OutputGraphic, concreteWidth, concreteHeigh
 }
 
 // Cache stores the result of fetching an image, or any error encoutered
-type Cache struct {
-	images map[string]Image
-	errors map[string]error
+type Cache map[string]struct {
+	img Image
+	err error
 }
 
-func NewCache() Cache {
-	return Cache{
-		images: make(map[string]Image),
-		errors: make(map[string]error),
-	}
-}
+func NewCache() Cache { return make(Cache) }
 
-// Get a cairo Pattern from an image URI.
+// Gets an image from an image URI.
 func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
-	img, in := cache.images[url]
+	res, in := cache[url]
 	if in {
-		return img, nil
-	}
-	if err, in := cache.errors[url]; in {
-		return nil, err
+		return res.img, res.err
 	}
 
-	var err error
+	var (
+		img Image
+		err error
+	)
 	defer func() {
-		cache.images[url] = img
-		cache.errors[url] = err
+		cache[url] = struct {
+			img Image
+			err error
+		}{img, err}
 	}()
 
 	content, err := fetcher(url)
@@ -261,7 +259,7 @@ func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, u
 			}
 		} else {
 			content.Content.Seek(0, io.SeekStart)
-			img = newRasterImage(imageConfig, imageFormat, content.Content, optimizeSize)
+			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, len(cache), optimizeSize)
 		}
 	}
 

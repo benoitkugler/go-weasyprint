@@ -1,7 +1,7 @@
 package pdf
 
 import (
-	"io"
+	"log"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/matrix"
@@ -16,44 +16,54 @@ type fl = utils.Fl
 
 var (
 	_ backend.OutputGraphic = (*group)(nil)
-	_ backend.OutputPage    = (*contextPage)(nil)
+	_ backend.OutputPage    = (*outputPage)(nil)
 )
 
 // group implements backend.OutputGraphic and
 // is represented by a XObjectForm in PDF
 type group struct {
+	images map[int]*model.XObjectImage // global shared cache for image content
+
 	app           cs.Appearance
 	pageRectangle [4]fl // left, top, right, bottom
 }
 
-func newGroup(left, top, right, bottom fl) group {
+func newGroup(images map[int]*model.XObjectImage, left, top, right, bottom fl) group {
 	return group{
+		images:        images,
 		pageRectangle: [4]fl{left, top, right, bottom},
 		app:           cs.NewAppearance(right-left, top-bottom),
 	}
 }
 
-// contextPage implements backend.OutputPage
-type contextPage struct {
-	page model.PageObject
+// outputPage implements backend.OutputPage
+type outputPage struct {
+	page model.PageObject // the content stream is written in `group`
 
 	embeddedFiles map[string]*model.FileSpec
 	group
 }
 
 func newContextPage(left, top, right, bottom fl,
-	embeddedFiles map[string]*model.FileSpec) *contextPage {
-	out := &contextPage{
+	embeddedFiles map[string]*model.FileSpec,
+	images map[int]*model.XObjectImage,
+) *outputPage {
+	out := &outputPage{
 		embeddedFiles: embeddedFiles,
-		group:         newGroup(left, top, right, bottom),
+		group:         newGroup(images, left, top, right, bottom),
 	}
 	return out
 }
 
-func (cp *contextPage) AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName string) {
+// update the underlying PageObject with the content stream
+func (cp *outputPage) finalize() {
+	cp.app.ApplyToPageObject(&cp.page, false)
+}
+
+func (cp *outputPage) AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName string) {
 	an := model.AnnotationDict{
 		BaseAnnotation: model.BaseAnnotation{
-			Rect: model.Rectangle{xMin, yMin, xMax, yMax},
+			Rect: model.Rectangle{Llx: xMin, Lly: yMin, Urx: xMax, Ury: yMax},
 		},
 		Subtype: model.AnnotationLink{
 			BS:   &model.BorderStyle{W: model.ObjFloat(0)},
@@ -63,10 +73,10 @@ func (cp *contextPage) AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName str
 	cp.page.Annots = append(cp.page.Annots, &an)
 }
 
-func (cp *contextPage) AddExternalLink(xMin, yMin, xMax, yMax fl, url string) {
+func (cp *outputPage) AddExternalLink(xMin, yMin, xMax, yMax fl, url string) {
 	an := model.AnnotationDict{
 		BaseAnnotation: model.BaseAnnotation{
-			Rect: model.Rectangle{xMin, yMin, xMax, yMax},
+			Rect: model.Rectangle{Llx: xMin, Lly: yMin, Urx: xMax, Ury: yMax},
 		},
 		Subtype: model.AnnotationLink{
 			BS: &model.BorderStyle{W: model.ObjFloat(0)},
@@ -77,8 +87,8 @@ func (cp *contextPage) AddExternalLink(xMin, yMin, xMax, yMax fl, url string) {
 }
 
 // Add file annotation on the current page
-func (cp *contextPage) AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string) {
-	rect := model.Rectangle{xMin, yMin, xMax, yMax}
+func (cp *outputPage) AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string) {
+	rect := model.Rectangle{Llx: xMin, Lly: yMin, Urx: xMax, Ury: yMax}
 	an := model.AnnotationDict{
 		BaseAnnotation: model.BaseAnnotation{
 			Rect: rect,
@@ -96,12 +106,12 @@ func (cp *contextPage) AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID strin
 }
 
 // Adjust the media boxes
-func (cp *contextPage) SetTrimBox(left fl, top fl, right fl, bottom fl) {
-	cp.page.TrimBox = &model.Rectangle{left, top, right, bottom}
+func (cp *outputPage) SetTrimBox(left fl, top fl, right fl, bottom fl) {
+	cp.page.TrimBox = &model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}
 }
 
-func (cp *contextPage) SetBleedBox(left fl, top fl, right fl, bottom fl) {
-	cp.page.BleedBox = &model.Rectangle{left, top, right, bottom}
+func (cp *outputPage) SetBleedBox(left fl, top fl, right fl, bottom fl) {
+	cp.page.BleedBox = &model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}
 }
 
 // graphic operations
@@ -125,8 +135,8 @@ func (g *group) OnNewStack(task func() error) error {
 // AddGroup creates a new drawing target with the given
 // bounding box.
 // If the backend does not support groups, the current target should be returned.
-func (group) AddGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
-	out := newGroup(x, y, x+width, y+height)
+func (g *group) AddGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
+	out := newGroup(g.images, x, y, x+width, y+height)
 	return &out
 }
 
@@ -259,9 +269,21 @@ func (g *group) AddFont(face fonts.Face, content []byte) *backend.Font {
 }
 
 // DrawRasterImage draws the given image at the current point
-func (g *group) DrawRasterImage(imgContent io.ReadCloser, imgFormat, imageRendering string, width fl, height fl) {
-	mimeType := "image/" + imgFormat
-	cs.ParseImage(imgContent)
+func (g *group) DrawRasterImage(img backend.RasterImage, width fl, height fl) {
+	// check the global cache
+	obj, has := g.images[img.ID]
+	if !has {
+		var err error
+		obj, _, err = cs.ParseImage(img.Content, img.MimeType)
+		if err != nil {
+			log.Printf("failed to process image: %s", err)
+			return
+		}
+		obj.Interpolate = img.Rendering == "auto"
+		g.images[img.ID] = obj
+	}
+
+	g.app.AddXObjectDims(obj, 0, height, width, -height)
 }
 
 // DrawGradient draws the given gradient at the current point.
@@ -394,7 +416,7 @@ func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl)
 				S: model.ObjName("Luminosity"),
 				G: &model.XObjectTransparencyGroup{XObjectForm: *transparency},
 			},
-			Ca:  1,
+			Ca:  model.ObjFloat(1),
 			AIS: false,
 		}
 
