@@ -14,6 +14,6 @@ This module implements a static HTML renderer, which works by :
 
 - laying out this tree, that is attributing position and dimensions to the boxes, and performing line, paragraph and page breaks (package `layout`)
 
-- drawing the laid out tree to an output. Contrary to the Python library, this step is here performed on an abtract output, which must implement the `backend.Output` interface. This means than the core layout logic could easely be reused for other purposes.
+- drawing the laid out tree to an output. Contrary to the Python library, this step is here performed on an abtract output, which must implement the `backend.Output` interface. This means than the core layout logic could easily be reused for other purposes.
 
 - the package `pdf` implements one output for PDF files, building on `benoitkugler/pdf/model`
