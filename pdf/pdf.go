@@ -10,6 +10,7 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/pdf/model"
+	"github.com/benoitkugler/textlayout/fonts"
 )
 
 // type graphicState struct {
@@ -41,6 +42,9 @@ type Output struct {
 	// global shared cache for image content
 	images map[int]*model.XObjectImage
 
+	// global shared cache for fonts
+	fonts map[fonts.Face]font
+
 	document model.Document
 
 	// temporary content, will be copied in the document (see `finalize`)
@@ -51,12 +55,13 @@ func NewOutput() *Output {
 	out := Output{
 		embeddedFiles: make(map[string]*model.FileSpec),
 		images:        make(map[int]*model.XObjectImage),
+		fonts:         make(map[fonts.Face]font),
 	}
 	return &out
 }
 
 func (c *Output) AddPage(left, top, right, bottom fl) backend.OutputPage {
-	out := newContextPage(left, top, right, bottom, c.embeddedFiles, c.images)
+	out := newContextPage(left, top, right, bottom, c.embeddedFiles, c.images, c.fonts)
 	c.pages = append(c.pages, out)
 	return out
 }
@@ -218,6 +223,9 @@ func (c *Output) Finalize() model.Document {
 	c.document.Catalog.Pages = model.PageTree{
 		Kids: pages,
 	}
+
+	// fonts
+	c.writeFonts()
 
 	return c.document
 }

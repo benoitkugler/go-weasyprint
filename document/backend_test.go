@@ -75,9 +75,7 @@ func (output) SetBookmarks([]backend.BookmarkNode) {
 	outputLog.Println("AddBookmark")
 }
 
-type outputPage struct {
-	pattern
-}
+type outputPage struct{}
 
 func (outputPage) AddInternalLink(x, y, w, h fl, anchorName string) {
 	outputLog.Println("AddInternalLink")
@@ -109,15 +107,6 @@ func (outputPage) OnNewStack(f func() error) error {
 	return f()
 }
 
-func (outputPage) AddPattern(width, height, repeatWidth, repeatHeight fl, mt matrix.Transform) backend.Pattern {
-	outputLog.Println("AddPattern")
-	return pattern{}
-}
-
-func (outputPage) SetColorPattern(pattern backend.Pattern, stroke bool) {
-	outputLog.Println("SetColorPattern")
-}
-
 func (outputPage) Rectangle(x fl, y fl, width fl, height fl) {
 	outputLog.Println("Rectangle")
 }
@@ -146,17 +135,16 @@ func (outputPage) Fill(evenOdd bool) {
 	outputLog.Println("Fill")
 }
 
+func (outputPage) FillWithImage(backend.BackgroundImage, backend.BackgroundImageOptions) {
+	outputLog.Println("Fill")
+}
+
 func (outputPage) Stroke() {
 	outputLog.Println("Stroke")
 }
 
 func (outputPage) Transform(mt matrix.Transform) {
 	outputLog.Println("Transform")
-}
-
-func (outputPage) GetTransform() matrix.Transform {
-	outputLog.Println("GetTransform")
-	return matrix.Identity()
 }
 
 func (outputPage) MoveTo(x fl, y fl) {
@@ -188,13 +176,11 @@ func (outputPage) DrawGradient(gradient backend.GradientLayout, width, height fl
 	outputLog.Println("DrawGradient")
 }
 
-type pattern struct{}
-
-func (pattern) AddGroup(x, y, width, height fl) backend.OutputGraphic {
+func (outputPage) AddGroup(x, y, width, height fl) backend.OutputGraphic {
 	outputLog.Println("AddGroup")
 	return outputPage{}
 }
 
-func (pattern) DrawGroup(group backend.OutputGraphic) {
+func (outputPage) DrawGroup(group backend.OutputGraphic) {
 	outputLog.Println("DrawGroup")
 }

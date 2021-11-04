@@ -627,22 +627,23 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 		repeatHeight = 2 * h
 	}
 
-	mat := matrix.New(1, 0, 0, 1, pr.Fl(positionX.V())+positioningX, pr.Fl(positionY.V())+positioningY)
-	mat = matrix.Mul(mat, ctx.dst.GetTransform())
-	pattern := ctx.dst.AddPattern(imageWidth, imageHeight, repeatWidth, repeatHeight, mat)
-	group := pattern.AddGroup(0, 0, repeatWidth, repeatHeight)
-
+	options := backend.BackgroundImageOptions{
+		ImageWidth:   imageWidth,
+		ImageHeight:  imageHeight,
+		RepeatWidth:  repeatWidth,
+		RepeatHeight: repeatHeight,
+		X:            pr.Fl(positionX.V()) + positioningX,
+		Y:            pr.Fl(positionY.V()) + positioningY,
+		Rendering:    string(imageRendering),
+	}
 	ctx.dst.OnNewStack(func() error {
-		layer.Image.Draw(group, imageWidth, imageHeight, imageRendering)
-		pattern.DrawGroup(group)
-		ctx.dst.SetColorPattern(pattern, false)
 		if layer.Unbounded {
 			x1, y1, x2, y2 := ctx.dst.GetPageRectangle()
 			ctx.dst.Rectangle(x1, y1, x2-x1, y2-y1)
 		} else {
 			ctx.dst.Rectangle(paintingX, paintingY, paintingWidth, paintingHeight)
 		}
-		ctx.dst.Fill(false)
+		ctx.dst.FillWithImage(layer.Image, options)
 		return nil
 	})
 }
@@ -1231,7 +1232,7 @@ func (ctx drawContext) drawReplacedbox(box_ bo.ReplacedBoxITF) {
 		ctx.dst.Clip(false)
 		ctx.dst.Transform(matrix.New(1, 0, 0, 1, pr.Fl(drawX), pr.Fl(drawY)))
 		ctx.dst.OnNewStack(func() error {
-			box.Replacement.Draw(ctx.dst, pr.Fl(drawWidth), pr.Fl(drawHeight), box.Style.GetImageRendering())
+			box.Replacement.Draw(ctx.dst, pr.Fl(drawWidth), pr.Fl(drawHeight), string(box.Style.GetImageRendering()))
 			return nil
 		})
 		return nil

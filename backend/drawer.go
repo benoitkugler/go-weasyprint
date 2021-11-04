@@ -159,6 +159,17 @@ type RasterImage struct {
 	ID int
 }
 
+type BackgroundImage interface {
+	Draw(context OutputGraphic, concreteWidth, concreteHeight fl, imageRendering string)
+}
+
+type BackgroundImageOptions struct {
+	ImageWidth, ImageHeight   fl
+	RepeatWidth, RepeatHeight fl
+	X, Y                      fl     // where to paint the image
+	Rendering                 string // CSS rendering property
+}
+
 // OutputGraphic is a surface and the target of graphic operations
 type OutputGraphic interface {
 	// Returns the current page rectangle
@@ -170,10 +181,14 @@ type OutputGraphic interface {
 	// and the error is returned
 	OnNewStack(func() error) error
 
-	Pattern
+	// AddGroup creates a new drawing target with the given
+	// bounding box.
+	// If the backend does not support groups, the current target should be returned.
+	AddGroup(x, y, width, height fl) OutputGraphic
 
-	AddPattern(width, height, repeatWidth, repeatHeight fl, mt matrix.Transform) Pattern
-	SetColorPattern(pattern Pattern, stroke bool)
+	// DrawGroup draw the given target to the main target.
+	// If the backend does not support groups, this should be a no-op.
+	DrawGroup(group OutputGraphic)
 
 	// Adds a rectangle
 	// of the given size to the current path,
@@ -261,6 +276,11 @@ type OutputGraphic interface {
 	// After `fill`, the current path will is cleared
 	Fill(evenOdd bool)
 
+	// FillWithImage fills the current path using the given image.
+	// Usually, the given image would be painted on an temporary OutputGraphic,
+	// which would then be used as fill pattern.
+	FillWithImage(img BackgroundImage, options BackgroundImageOptions)
+
 	// A drawing operator that strokes the current path
 	// according to the current line width, line join, line cap,
 	// and dash settings.
@@ -271,10 +291,7 @@ type OutputGraphic interface {
 	// by applying `mt` as an additional transformation.
 	// The new transformation of user space takes place
 	// after any existing transformation.
-	// `Restore` or `Finish` should be called.
 	Transform(mt matrix.Transform)
-	// GetTransform returns the current transformation matrix.
-	GetTransform() matrix.Transform
 
 	// Begin a new sub-path.
 	// After this call the current point will be ``(x, y)``.
@@ -310,17 +327,4 @@ type OutputGraphic interface {
 	// Solid gradient are already handled, meaning that only linear and radial
 	// must be taken care of.
 	DrawGradient(gradient GradientLayout, width, height fl)
-}
-
-// Pattern enables to use complex drawings (like pattern or images)
-// as stroke or fill color.
-type Pattern interface {
-	// AddGroup creates a new drawing target with the given
-	// bounding box.
-	// If the backend does not support groups, the current target should be returned.
-	AddGroup(x, y, width, height fl) OutputGraphic
-
-	// DrawGroup draw the given target to the main target.
-	// If the backend does not support groups, this should be a no-op.
-	DrawGroup(group OutputGraphic)
 }

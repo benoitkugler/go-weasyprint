@@ -23,14 +23,17 @@ var (
 // is represented by a XObjectForm in PDF
 type group struct {
 	images map[int]*model.XObjectImage // global shared cache for image content
+	fonts  map[fonts.Face]font         // global shared cache for fonts content
 
 	app           cs.Appearance
 	pageRectangle [4]fl // left, top, right, bottom
 }
 
-func newGroup(images map[int]*model.XObjectImage, left, top, right, bottom fl) group {
+func newGroup(images map[int]*model.XObjectImage, fonts map[fonts.Face]font,
+	left, top, right, bottom fl) group {
 	return group{
 		images:        images,
+		fonts:         fonts,
 		pageRectangle: [4]fl{left, top, right, bottom},
 		app:           cs.NewAppearance(right-left, top-bottom),
 	}
@@ -47,10 +50,11 @@ type outputPage struct {
 func newContextPage(left, top, right, bottom fl,
 	embeddedFiles map[string]*model.FileSpec,
 	images map[int]*model.XObjectImage,
+	fonts map[fonts.Face]font,
 ) *outputPage {
 	out := &outputPage{
 		embeddedFiles: embeddedFiles,
-		group:         newGroup(images, left, top, right, bottom),
+		group:         newGroup(images, fonts, left, top, right, bottom),
 	}
 	return out
 }
@@ -136,7 +140,7 @@ func (g *group) OnNewStack(task func() error) error {
 // bounding box.
 // If the backend does not support groups, the current target should be returned.
 func (g *group) AddGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
-	out := newGroup(g.images, x, y, x+width, y+height)
+	out := newGroup(g.images, g.fonts, x, y, x+width, y+height)
 	return &out
 }
 
@@ -145,14 +149,6 @@ func (g *group) AddGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic 
 func (g *group) DrawGroup(gr backend.OutputGraphic) {
 	form := gr.(*group).app.ToXFormObject(true)
 	g.app.AddXObject(form)
-}
-
-func (g *group) AddPattern(width fl, height fl, repeatWidth fl, repeatHeight fl, mt matrix.Transform) backend.Pattern {
-	panic("not implemented") // TODO: Implement
-}
-
-func (g *group) SetColorPattern(pattern backend.Pattern, stroke bool) {
-	panic("not implemented") // TODO: Implement
 }
 
 // Adds a rectangle of the given size to the current path,
@@ -211,6 +207,34 @@ func (g *group) Fill(evenOdd bool) {
 	}
 }
 
+func (g *group) FillWithImage(img backend.BackgroundImage, opts backend.BackgroundImageOptions) {
+	mat := model.Matrix{1, 0, 0, 1, opts.X, opts.Y} // translate
+	mat = mat.Multiply(g.app.State.Matrix)
+
+	// paint the image on an intermediate object
+	imageOutput := newGroup(g.images, g.fonts, 0, 0, opts.RepeatWidth, opts.RepeatHeight)
+	img.Draw(&imageOutput, opts.ImageWidth, opts.ImageHeight, opts.Rendering)
+	imageXObject := imageOutput.app.ToXFormObject(false)
+
+	// initiate the pattern ...
+	pattern := &model.PatternTiling{
+		XStep: opts.RepeatWidth, YStep: opts.RepeatHeight,
+		Matrix:     mat,
+		PaintType:  1,
+		TilingType: 1,
+	}
+	// ... and insert the image in its content stream
+	patternApp := cs.NewAppearance(opts.ImageWidth, opts.ImageHeight)
+	patternApp.AddXObject(imageXObject)
+	patternApp.ApplyToTilling(pattern)
+
+	// select the color space and fill
+	patternName := g.app.AddPattern(pattern)
+	g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: "Pattern"})
+	g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
+	g.Fill(false)
+}
+
 // A drawing operator that strokes the current path
 // according to the current line width, line join, line cap,
 // and dash settings.
@@ -226,12 +250,6 @@ func (g *group) Stroke() {
 func (g *group) Transform(mt matrix.Transform) {
 	a, b, c, d, e, f := mt.Data()
 	g.app.Transform(model.Matrix{a, b, c, d, e, f})
-}
-
-// GetTransform returns the current transformation matrix.
-func (g *group) GetTransform() matrix.Transform {
-	m := g.app.State.Matrix
-	return matrix.New(m[0], m[1], m[2], m[3], m[4], m[5])
 }
 
 // Begin a new sub-path.
@@ -253,19 +271,6 @@ func (g *group) LineTo(x fl, y fl) {
 // y2)`` as the Bézier control points.
 func (g *group) CurveTo(x1 fl, y1 fl, x2 fl, y2 fl, x3 fl, y3 fl) {
 	g.app.Ops(cs.OpCubicTo{X1: x1, Y1: y1, X2: x2, Y2: y2, X3: x3, Y3: y3})
-}
-
-// DrawText draws the given text using the current fill color.
-func (g *group) DrawText(_ backend.TextDrawing) {
-	panic("not implemented") // TODO: Implement
-}
-
-// AddFont register a new font to be used in the output and return
-// an object used to store associated metadata.
-// This method will be called several times with the same `face` argument,
-// so caching is advised.
-func (g *group) AddFont(face fonts.Face, content []byte) *backend.Font {
-	panic("not implemented") // TODO: Implement
 }
 
 // DrawRasterImage draws the given image at the current point
