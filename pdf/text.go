@@ -1,9 +1,9 @@
 package pdf
 
 import (
-	"fmt"
-
 	"github.com/benoitkugler/go-weasyprint/backend"
+	"github.com/benoitkugler/pdf/contentstream"
+	pdfFonts "github.com/benoitkugler/pdf/fonts"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/textlayout/fonts"
 	"github.com/benoitkugler/textlayout/pango"
@@ -19,9 +19,22 @@ func (g *group) DrawText(text backend.TextDrawing) {
 	g.app.BeginText()
 	defer g.app.EndText()
 
-	// TODO: Implement
+	g.app.SetTextMatrix(text.FontSize, 0, 0, -text.FontSize, text.X, text.Y)
+
 	for _, run := range text.Runs {
-		fmt.Println(run.Glyphs)
+		pdfFont := g.fonts[run.Font]
+		g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pdfFont.FontDict}, 1)
+
+		var out []contentstream.SpacedGlyph
+		for _, g := range run.Glyphs {
+			out = append(out, contentstream.SpacedGlyph{
+				SpaceSubtractedBefore: -int(g.Offset),
+				GID:                   g.Glyph.GID(),
+				SpaceSubtractedAfter:  g.Kerning,
+			})
+		}
+
+		g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
 	}
 }
 

@@ -44,8 +44,8 @@ type TextRun struct {
 // TextGlyph stores a glyph and it's position
 type TextGlyph struct {
 	Glyph   pango.Glyph
-	Offset  utils.Fl
-	Kerning int
+	Offset  utils.Fl // normalized by FontSize
+	Kerning int      // normalized by FontSize
 }
 
 // Font stores some metadata used in the output document.
@@ -312,6 +312,7 @@ type OutputGraphic interface {
 	CurveTo(x1, y1, x2, y2, x3, y3 fl)
 
 	// DrawText draws the given text using the current fill color.
+	// The fonts of the runs have been registred with `AddFont`.
 	DrawText(TextDrawing)
 
 	// AddFont register a new font to be used in the output and return
