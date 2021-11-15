@@ -46,6 +46,8 @@ func (f *FontConfiguration) LoadFace(key fonts.FaceID, format fc.FontFormat) (fo
 	return fcfonts.DefaultLoadFace(key, format)
 }
 
+// FontContent returns the content of the given face, which may be needed
+// in the final output.
 func (f *FontConfiguration) FontContent(face fonts.Face) []byte {
 	return f.fontsContent[face]
 }

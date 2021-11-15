@@ -37,22 +37,38 @@ type TextDrawing struct {
 
 // TextRun is a serie of glyphs with constant font.
 type TextRun struct {
-	Font   fonts.Face
+	Font   pango.Font
 	Glyphs []TextGlyph
 }
 
 // TextGlyph stores a glyph and it's position
 type TextGlyph struct {
-	Glyph   pango.Glyph
+	Glyph   fonts.GID
 	Offset  utils.Fl // normalized by FontSize
 	Kerning int      // normalized by FontSize
 }
 
 // Font stores some metadata used in the output document.
 type Font struct {
-	Cmap   map[pango.Glyph][]rune
-	Widths map[pango.Glyph]int
+	Cmap   map[fonts.GID][]rune
+	Widths map[fonts.GID]int
 	Bbox   [4]int
+}
+
+// IsFixedPitch returns true if only one width is used,
+// that is if the font is monospaced.
+func (f *Font) IsFixedPitch() bool {
+	seen := -1
+	for _, w := range f.Widths {
+		if seen == -1 {
+			seen = w
+			continue
+		}
+		if w != seen {
+			return false
+		}
+	}
+	return true
 }
 
 type GradientInit struct {
@@ -93,6 +109,7 @@ type BookmarkNode struct {
 type Output interface {
 	// AddPage creates a new page with the given dimensions and returns
 	// it to be paint on.
+	// The y axis grows downward, meaning bottom > top
 	AddPage(left, top, right, bottom fl) OutputPage
 
 	// CreateAnchors register a list of anchors per page, which are named targets of internal links.
@@ -319,7 +336,7 @@ type OutputGraphic interface {
 	// an object used to store associated metadata.
 	// This method will be called several times with the same `face` argument,
 	// so caching is advised.
-	AddFont(face fonts.Face, content []byte) *Font
+	AddFont(font pango.Font, content []byte) *Font
 
 	// DrawRasterImage draws the given image at the current point, with the given dimensions.
 	DrawRasterImage(img RasterImage, width, height fl)

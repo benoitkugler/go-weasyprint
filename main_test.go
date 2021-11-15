@@ -9,6 +9,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/logger"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/pdf/reader/file"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
 )
@@ -39,14 +40,20 @@ func TestRealPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
 
-	// url := "http://www.google.com"
-	url := "https://weasyprint.org/"
+	url := "http://www.google.com"
+	// url := "https://weasyprint.org/"
 	// url := "https://en.wikipedia.org/wiki/Go_(programming_language)" // rather big document
 	// url := "https://golang.org/doc/go1.17"                           // slow because of text layout
 	// url := "https://github.com/Kozea/WeasyPrint"
 	err = HtmlToPdf(f, utils.InputUrl(url), fontconfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.Close()
+
+	_, err = file.ReadFile("/tmp/testa.pdf", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

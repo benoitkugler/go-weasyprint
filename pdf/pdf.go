@@ -11,6 +11,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/textlayout/fonts"
+	"github.com/benoitkugler/textlayout/pango"
 )
 
 // type graphicState struct {
@@ -33,17 +34,26 @@ var (
 	_ backend.OutputPage = (*outputPage)(nil)
 )
 
+type cache struct {
+	// global shared cache for image content
+	images map[int]*model.XObjectImage
+
+	// global shared cache for fonts
+	fonts map[pango.Font]pdfFont
+
+	// global shared cache for font files
+	// the same face may be used at different size
+	// and we don't want to duplicate the font file
+	fontFiles map[fonts.Face]*model.FontFile
+}
+
 // Output implements backend.Output
 type Output struct {
 	// global map for files embedded in the PDF
 	// and used in file annotations
 	embeddedFiles map[string]*model.FileSpec
 
-	// global shared cache for image content
-	images map[int]*model.XObjectImage
-
-	// global shared cache for fonts
-	fonts map[fonts.Face]font
+	cache cache
 
 	document model.Document
 
@@ -54,14 +64,17 @@ type Output struct {
 func NewOutput() *Output {
 	out := Output{
 		embeddedFiles: make(map[string]*model.FileSpec),
-		images:        make(map[int]*model.XObjectImage),
-		fonts:         make(map[fonts.Face]font),
+		cache: cache{
+			images:    make(map[int]*model.XObjectImage),
+			fonts:     make(map[pango.Font]pdfFont),
+			fontFiles: make(map[fonts.Face]*model.FontFile),
+		},
 	}
 	return &out
 }
 
 func (c *Output) AddPage(left, top, right, bottom fl) backend.OutputPage {
-	out := newContextPage(left, top, right, bottom, c.embeddedFiles, c.images, c.fonts)
+	out := newContextPage(left, top, right, bottom, c.embeddedFiles, c.cache)
 	c.pages = append(c.pages, out)
 	return out
 }

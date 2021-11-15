@@ -1391,11 +1391,11 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 		hbFont := pangoFont.GetHarfbuzzFont()
 		face := hbFont.Face()
 		content := ctx.fonts.FontContent(face)
-		outFont := ctx.dst.AddFont(face, content)
+		outFont := ctx.dst.AddFont(pangoFont, content)
 
 		if outFont != lastFont { // add a new "run"
 			var outRun backend.TextRun
-			outRun.Font = face
+			outRun.Font = pangoFont
 			output.Runs = append(output.Runs, outRun)
 		} else { // use the last one
 		}
@@ -1408,10 +1408,10 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			glyph := glyphInfo.Glyph
 
 			outGlyph.Offset = pr.Fl(glyphInfo.Geometry.XOffset) / fontSize
-			outGlyph.Glyph = glyph
+			outGlyph.Glyph = glyph.GID()
 
 			// Ink bounding box and logical widths in font
-			if _, in := outFont.Widths[glyph]; !in {
+			if _, in := outFont.Widths[outGlyph.Glyph]; !in {
 				pangoFont.GlyphExtents(glyph, &inkRect, &logicalRect)
 				x1, y1, x2, y2 := inkRect.X, -inkRect.Y-inkRect.Height,
 					inkRect.X+inkRect.Width, -inkRect.Y
@@ -1427,11 +1427,11 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 				if int(y2) > outFont.Bbox[3] {
 					outFont.Bbox[3] = int(utils.PangoUnitsToFloat(y2*1000) / fontSize)
 				}
-				outFont.Widths[glyph] = int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize)
+				outFont.Widths[outGlyph.Glyph] = int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize)
 			}
 
 			// Kerning, word spacing, letter spacing
-			outGlyph.Kerning = int(pr.Fl(outFont.Widths[glyph]) - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
+			outGlyph.Kerning = int(pr.Fl(outFont.Widths[outGlyph.Glyph]) - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
 
 			// Mapping between glyphs and characters
 			startPos := offset + glyphString.LogClusters[i] // Positions of the glyphs in the UTF-8 string
@@ -1439,8 +1439,8 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			if i < len(glyphString.Glyphs)-1 {
 				endPos = offset + glyphString.LogClusters[i+1]
 			}
-			if _, in := outFont.Cmap[glyph]; !in && glyph != pango.GLYPH_EMPTY {
-				outFont.Cmap[glyph] = textRunes[startPos:endPos]
+			if _, in := outFont.Cmap[outGlyph.Glyph]; !in && glyph != pango.GLYPH_EMPTY {
+				outFont.Cmap[outGlyph.Glyph] = textRunes[startPos:endPos]
 			}
 		}
 	}

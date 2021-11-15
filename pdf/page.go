@@ -9,7 +9,6 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 	cs "github.com/benoitkugler/pdf/contentstream"
 	"github.com/benoitkugler/pdf/model"
-	"github.com/benoitkugler/textlayout/fonts"
 )
 
 type fl = utils.Fl
@@ -22,20 +21,18 @@ var (
 // group implements backend.OutputGraphic and
 // is represented by a XObjectForm in PDF
 type group struct {
-	images map[int]*model.XObjectImage // global shared cache for image content
-	fonts  map[fonts.Face]font         // global shared cache for fonts content
+	cache
 
 	app           cs.Appearance
 	pageRectangle [4]fl // left, top, right, bottom
 }
 
-func newGroup(images map[int]*model.XObjectImage, fonts map[fonts.Face]font,
+func newGroup(cache cache,
 	left, top, right, bottom fl) group {
 	return group{
-		images:        images,
-		fonts:         fonts,
+		cache:         cache,
 		pageRectangle: [4]fl{left, top, right, bottom},
-		app:           cs.NewAppearance(right-left, top-bottom),
+		app:           cs.NewAppearance(right-left, bottom-top),
 	}
 }
 
@@ -49,12 +46,11 @@ type outputPage struct {
 
 func newContextPage(left, top, right, bottom fl,
 	embeddedFiles map[string]*model.FileSpec,
-	images map[int]*model.XObjectImage,
-	fonts map[fonts.Face]font,
+	cache cache,
 ) *outputPage {
 	out := &outputPage{
 		embeddedFiles: embeddedFiles,
-		group:         newGroup(images, fonts, left, top, right, bottom),
+		group:         newGroup(cache, left, top, right, bottom),
 	}
 	return out
 }
@@ -140,7 +136,7 @@ func (g *group) OnNewStack(task func() error) error {
 // bounding box.
 // If the backend does not support groups, the current target should be returned.
 func (g *group) AddGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
-	out := newGroup(g.images, g.fonts, x, y, x+width, y+height)
+	out := newGroup(g.cache, x, y, x+width, y+height)
 	return &out
 }
 
@@ -212,7 +208,7 @@ func (g *group) FillWithImage(img backend.BackgroundImage, opts backend.Backgrou
 	mat = mat.Multiply(g.app.State.Matrix)
 
 	// paint the image on an intermediate object
-	imageOutput := newGroup(g.images, g.fonts, 0, 0, opts.RepeatWidth, opts.RepeatHeight)
+	imageOutput := newGroup(g.cache, 0, 0, opts.RepeatWidth, opts.RepeatHeight)
 	img.Draw(&imageOutput, opts.ImageWidth, opts.ImageHeight, opts.Rendering)
 	imageXObject := imageOutput.app.ToXFormObject(false)
 
