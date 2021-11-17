@@ -4,6 +4,7 @@
 package document
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"net/url"
@@ -505,6 +506,7 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 		right := left + pageWidth
 		bottom := top + pageHeight
 
+		fmt.Println("before page", left, top, right, bottom)
 		outputPage := target.AddPage(left/scale, top/scale, right/scale, bottom/scale)
 		outputPage.Transform(mt.New(1, 0, 0, -1, 0, page.Height*scale))
 		page.Paint(outputPage, d.fontconfig, 0, 0, scale, false)
@@ -582,6 +584,7 @@ func (bleed Bleed) setMediaBoxes(mediaBox [4]fl, target backend.OutputPage) {
 	bleedRight := trimRight + math.Min(10, bleed.Right)
 	bleedBottom := trimBottom + math.Min(10, bleed.Bottom)
 
+	target.SetMediaBox(left, top, right, bottom)
 	target.SetTrimBox(trimLeft, trimTop, trimRight, trimBottom)
 	target.SetBleedBox(bleedLeft, bleedTop, bleedRight, bleedBottom)
 }

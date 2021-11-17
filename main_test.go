@@ -36,7 +36,7 @@ func init() {
 }
 
 func TestRealPage(t *testing.T) {
-	f, err := os.Create("/tmp/testa.pdf")
+	f, err := os.Create("/tmp/test_google.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestRealPage(t *testing.T) {
 
 	f.Close()
 
-	_, err = file.ReadFile("/tmp/testa.pdf", nil)
+	_, err = file.ReadFile("/tmp/test_google.pdf", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

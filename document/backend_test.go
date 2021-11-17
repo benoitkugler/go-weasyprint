@@ -94,6 +94,10 @@ func (outputPage) GetPageRectangle() (left, top, right, bottom fl) {
 	return 0, 0, 10, 10
 }
 
+func (outputPage) SetMediaBox(left, top, right, bottom fl) {
+	outputLog.Println("SetTrimBox")
+}
+
 func (outputPage) SetTrimBox(left, top, right, bottom fl) {
 	outputLog.Println("SetTrimBox")
 }

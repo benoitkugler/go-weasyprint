@@ -1,6 +1,7 @@
 package pdf
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
@@ -29,10 +30,11 @@ type group struct {
 
 func newGroup(cache cache,
 	left, top, right, bottom fl) group {
+	fmt.Println(right-left, bottom-top)
 	return group{
 		cache:         cache,
 		pageRectangle: [4]fl{left, top, right, bottom},
-		app:           cs.NewAppearance(right-left, bottom-top),
+		app:           cs.NewAppearance(right-left, bottom-top), // y grows downward
 	}
 }
 
@@ -57,7 +59,10 @@ func newContextPage(left, top, right, bottom fl,
 
 // update the underlying PageObject with the content stream
 func (cp *outputPage) finalize() {
+	// the MediaBox is the unsclaled BBox. TODO: why ?
+	mediaBox := *cp.page.MediaBox
 	cp.app.ApplyToPageObject(&cp.page, false)
+	cp.page.MediaBox = &mediaBox
 }
 
 func (cp *outputPage) AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName string) {
@@ -106,6 +111,10 @@ func (cp *outputPage) AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string
 }
 
 // Adjust the media boxes
+func (cp *outputPage) SetMediaBox(left fl, top fl, right fl, bottom fl) {
+	cp.page.MediaBox = &model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}
+}
+
 func (cp *outputPage) SetTrimBox(left fl, top fl, right fl, bottom fl) {
 	cp.page.TrimBox = &model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}
 }

@@ -157,6 +157,7 @@ type OutputPage interface {
 
 	// Adjust the media boxes
 
+	SetMediaBox(left, top, right, bottom fl)
 	SetTrimBox(left, top, right, bottom fl)
 	SetBleedBox(left, top, right, bottom fl)
 
