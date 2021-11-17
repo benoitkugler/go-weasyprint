@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+
+	"github.com/benoitkugler/textlayout/language"
 )
 
 var (
@@ -19,7 +21,7 @@ type Hyphener struct {
 	left, right int
 }
 
-func NewHyphener(lang string, left, right int) Hyphener {
+func NewHyphener(lang language.Language, left, right int) Hyphener {
 	filename := languages[LanguageFallback(lang)]
 	var out Hyphener
 	out.left, out.right = left, right
@@ -165,14 +167,11 @@ type Data struct {
 //
 // We use the normal truncation inheritance. This function needs aliases
 // including scripts for languages with multiple regions available.
-func LanguageFallback(language string) string {
-	parts := strings.Split(strings.ReplaceAll(language, "-", "_"), "_")
-	for len(parts) != 0 {
-		language := strings.Join(parts, "_")
-		if _, ok := languages[language]; ok {
-			return language
+func LanguageFallback(lang language.Language) language.Language {
+	for _, lg := range lang.SimpleInheritance() {
+		if _, ok := languages[lg]; ok {
+			return lg
 		}
-		parts = parts[:len(parts)-1]
 	}
 	return ""
 }

@@ -14,3 +14,5 @@ require (
 replace github.com/benoitkugler/oksvg => ../oksvg
 
 replace github.com/benoitkugler/pdf => ../pdf
+
+replace github.com/benoitkugler/textlayout => ../textlayout

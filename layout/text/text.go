@@ -7,6 +7,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/textlayout/language"
 	"github.com/benoitkugler/textlayout/pango"
 )
 
@@ -64,7 +65,7 @@ func hyphenDictionaryIterations(word string, hyphen rune) (out []string) {
 }
 
 type HyphenDictKey struct {
-	lang               string
+	lang               language.Language
 	left, right, total int
 }
 
@@ -188,7 +189,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 
 	// Step #4: Try to hyphenate
 	hyphens := style.GetHyphens()
-	lang := style.GetLang().String
+	lang := language.NewLanguage(style.GetLang().String)
 	if lang != "" {
 		lang = hyphen.LanguageFallback(lang)
 	}

@@ -815,11 +815,11 @@ func TestOverflowAuto(t *testing.T) {
 	tu.AssertEqual(t, article.Box().Height, pr.Float(50+10+10), "article")
 }
 
+// Test regression: https://github.com/Kozea/WeasyPrint/issues/943
 func TestBoxMarginTopRepagination(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	// Test regression: https://github.com/Kozea/WeasyPrint/issues/943
 	pages := renderPages(t, `
       <style>
         @page { size: 50px }
@@ -834,6 +834,7 @@ func TestBoxMarginTopRepagination(t *testing.T) {
 	page1, page2 := pages[0], pages[1]
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
+	fmt.Println(body.Box().Children[0])
 	_, div := unpack2(body)
 	tu.AssertEqual(t, div.Box().MarginTop, pr.Float(20), "div")
 	tu.AssertEqual(t, div.Box().PaddingBoxY(), pr.Float(10+20), "div")

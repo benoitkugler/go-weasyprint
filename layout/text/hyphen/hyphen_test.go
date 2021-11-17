@@ -3,6 +3,8 @@ package hyphen
 import (
 	"reflect"
 	"testing"
+
+	"github.com/benoitkugler/textlayout/language"
 )
 
 // def test_inserted():
@@ -17,7 +19,7 @@ import (
 //         'autoband-', 'ventieldopje')
 
 func TestIterate(t *testing.T) {
-	dic := NewHyphener("nl_NL", 2, 2)
+	dic := NewHyphener(language.NewLanguage("nl_NL"), 2, 2)
 	exp := []string{"Amster", "Am"}
 	got := dic.Iterate("Amsterdam")
 	if !reflect.DeepEqual(exp, got) {
@@ -35,7 +37,7 @@ func TestAlternative(t *testing.T) {
 }
 
 func TestFallbackDict(t *testing.T) {
-	dic := NewHyphener("nl_NL-variant", 2, 2)
+	dic := NewHyphener(language.NewLanguage("nl_NL-variant"), 2, 2)
 	exp := []string{"Amster", "Am"}
 	got := dic.Iterate("Amsterdam")
 	if !reflect.DeepEqual(exp, got) {
@@ -85,25 +87,25 @@ func TestFallbackDict(t *testing.T) {
 //         pyphen.Pyphen(lang=lang)
 
 func TestFallback(t *testing.T) {
-	if LanguageFallback("en") != "en" {
+	if LanguageFallback(language.NewLanguage("en")) != language.NewLanguage("en") {
 		t.Fatal("unexpected fallback")
 	}
-	if LanguageFallback("en_US") != "en_US" {
+	if LanguageFallback(language.NewLanguage("en_US")) != language.NewLanguage("en_US") {
 		t.Fatal("unexpected fallback")
 	}
-	if LanguageFallback("en_FR") != "en" {
+	if LanguageFallback(language.NewLanguage("en_FR")) != language.NewLanguage("en") {
 		t.Fatal("unexpected fallback")
 	}
-	if LanguageFallback("sr-Latn") != "sr_Latn" {
+	if LanguageFallback(language.NewLanguage("sr-Latn")) != language.NewLanguage("sr_Latn") {
 		t.Fatal("unexpected fallback")
 	}
-	if LanguageFallback("sr-Cyrl") != "sr" {
+	if LanguageFallback(language.NewLanguage("sr-Cyrl")) != language.NewLanguage("sr") {
 		t.Fatal("unexpected fallback")
 	}
-	if LanguageFallback("fr-Latn-FR") != "fr" {
+	if LanguageFallback(language.NewLanguage("fr-Latn-FR")) != language.NewLanguage("fr") {
 		t.Fatal("unexpected fallback")
 	}
-	if LanguageFallback("en-US_variant1-x") != "en_US" {
+	if LanguageFallback(language.NewLanguage("en-US_variant1-x")) != language.NewLanguage("en_US") {
 		t.Fatal("unexpected fallback")
 	}
 }

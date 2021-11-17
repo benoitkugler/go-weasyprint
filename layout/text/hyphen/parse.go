@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/textlayout/language"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
@@ -190,13 +191,13 @@ func (p *alternativeParser) parse(c rune) DataInt {
 	return DataInt{V: v, Data: data}
 }
 
-func getLanguages(dir embed.FS) (map[string]string, error) {
+func getLanguages(dir embed.FS) (map[language.Language]string, error) {
 	l, err := fs.ReadDir(dir, "dictionaries")
 	if err != nil {
 		return nil, err
 	}
 
-	out := map[string]string{}
+	out := map[language.Language]string{}
 
 	for _, file := range l {
 		filename := file.Name()
@@ -204,11 +205,11 @@ func getLanguages(dir embed.FS) (map[string]string, error) {
 			continue
 		}
 
-		name := filename[5 : len(filename)-4]
+		name := language.NewLanguage(filename[5 : len(filename)-4])
 		fullPath := filepath.Join("dictionaries", filename)
 
 		out[name] = fullPath
-		shortName := strings.Split(name, "_")[0]
+		shortName := language.NewLanguage(strings.Split(string(name), "-")[0])
 		if _, ok := out[shortName]; !ok {
 			out[shortName] = fullPath
 		}
