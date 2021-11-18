@@ -12,7 +12,6 @@ package layout
 
 import (
 	"fmt"
-	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	"github.com/benoitkugler/go-weasyprint/boxes/counters"
@@ -23,11 +22,14 @@ import (
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/textlayout/pango"
 )
 
 // if true, print debug information into Stdout
 const debugMode = false
+
+var debugLogger testutils.IndentLogger
 
 type Box = bo.Box
 
@@ -255,10 +257,7 @@ func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
 
 	cache := images.NewCache()
 	getImageFromUri := func(url, forcedMimeType string) images.Image {
-		out, err := images.GetImageFromUri(cache, html.UrlFetcher, false, url, forcedMimeType)
-		if err != nil {
-			log.Print(err)
-		}
+		out, _ := images.GetImageFromUri(cache, html.UrlFetcher, false, url, forcedMimeType)
 		return out
 	}
 

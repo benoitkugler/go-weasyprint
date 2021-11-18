@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -47,4 +48,26 @@ func (c *capturedLogs) AssertNoLogs(t *testing.T) {
 	if len(l) > 0 {
 		t.Fatalf("expected no logs, got (%d): \n %s", len(l), strings.Join(l, "\n"))
 	}
+}
+
+// IndentLogger enable to write debug message with a tree structure.
+type IndentLogger struct {
+	level int
+}
+
+// LineWithIndent prints the message with the given indent level, then increases it.
+func (il *IndentLogger) LineWithIndent(format string, args ...interface{}) {
+	il.Line(format, args...)
+	il.level++
+}
+
+// LineWithDedent decreases the level, then write the message.
+func (il *IndentLogger) LineWithDedent(format string, args ...interface{}) {
+	il.level--
+	il.Line(format, args...)
+}
+
+// Line simply writes the message without changing the indentation.
+func (il *IndentLogger) Line(format string, args ...interface{}) {
+	fmt.Println(strings.Repeat(" ", il.level) + fmt.Sprintf(format, args...))
 }

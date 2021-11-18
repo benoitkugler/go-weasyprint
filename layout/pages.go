@@ -656,7 +656,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute and fixed
 
 	if debugMode {
-		fmt.Println("Making page...")
+		debugLogger.LineWithIndent("Making page...")
 	}
 
 	rootBox, tmp := blockLevelLayout(context, rootBox, pageContentBottom, resumeAt,
@@ -847,8 +847,13 @@ func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, 
 	pageNumber := index + 1
 	page, resumeAt, nextPage := makePage(context, rootBox, pageType, tmp.InitialResumeAt,
 		pageNumber, &pageState)
+
+	if debugMode {
+		debugLogger.LineWithDedent("Page done (resume at: %s)\n", resumeAt)
+	}
+
 	if (nextPage == tree.PageBreak{}) {
-		log.Fatalf("expected nextPage")
+		panic("expected nextPage")
 	}
 	if blank {
 		nextPage.Page = tmp.InitialNextPage.Page

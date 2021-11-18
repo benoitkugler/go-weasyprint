@@ -123,7 +123,7 @@ func TestImages5(t *testing.T) {
 	_ = renderPages(t, "<img src=nonexistent.png><img src=nonexistent.png>")
 	// Failures are cached too: only one error
 	logs := capt.Logs()
-	tu.AssertEqual(t, len(logs), 1, "")
+	tu.AssertEqual(t, len(logs), 1, fmt.Sprintf("%v", logs))
 	tu.AssertEqual(t, strings.Contains(logs[0], "Failed to load image"), true, "")
 }
 

@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"fmt"
 	"log"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -30,7 +29,7 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
 
 	if debugMode {
-		fmt.Printf("Layout FLOAT: %T\n", box_)
+		debugLogger.LineWithIndent("Layout FLOAT: %T", box_)
 	}
 	// TODO: This is only handled later in blocks.blockContainerLayout
 	// http://www.w3.org/TR/CSS21/visudet.html#normal-block

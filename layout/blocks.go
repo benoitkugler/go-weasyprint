@@ -28,7 +28,7 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins *[]pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
 	if debugMode {
-		fmt.Printf("\nLayout BLOCK-LEVEL %T (resume at : %s)\n", box_, skipStack)
+		debugLogger.LineWithIndent("Layout BLOCK-LEVEL %T (resume at : %s)", box_, skipStack)
 	}
 
 	box := box_.Box()
@@ -348,7 +348,7 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 		child := child_.Box()
 
 		if debugMode {
-			fmt.Printf("Block container layout child %d: %s, in normal flow: %v\n", i, child_.Type(), child.IsInNormalFlow())
+			debugLogger.LineWithIndent("Block container layout child %d: %s, in normal flow: %v", i, child_.Type(), child.IsInNormalFlow())
 		}
 
 		child.PositionX = positionX
@@ -372,6 +372,10 @@ func blockContainerLayout(context *layoutContext, box_ Box, maxPositionY pr.Floa
 				allowedMaxPositionY, maxPositionY, positionY, skipStack, firstLetterStyle, collapsingWithChildren, discard)
 			skipStack = nil
 			adjoiningMargins = &adjoiningMarginsV
+		}
+
+		if debugMode {
+			debugLogger.LineWithDedent("--> block child done (resume at: %s)", resumeAt)
 		}
 
 		if abort {

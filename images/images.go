@@ -209,17 +209,22 @@ func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, u
 	}
 
 	var (
-		img Image
-		err error
+		img     Image
+		err     error
+		content utils.RemoteRessource
 	)
 	defer func() {
+		if err != nil {
+			log.Println(err)
+		}
+
 		cache[url] = struct {
 			img Image
 			err error
 		}{img, err}
 	}()
 
-	content, err := fetcher(url)
+	content, err = fetcher(url)
 	if err != nil {
 		err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
 		return nil, err
