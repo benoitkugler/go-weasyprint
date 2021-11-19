@@ -67,7 +67,7 @@ func TestAddFace(t *testing.T) {
 		FontFamily: "weasyprint",
 	}, utils.DefaultUrlFetcher)
 
-	face, err := fc.LoadFace(fonts.FaceID{File: filename}, fontconfig.TrueType)
+	_, err = fc.LoadFace(fonts.FaceID{File: filename}, fontconfig.TrueType)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestAddFace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(expected, fc.FontContent(face)) {
+	if !bytes.Equal(expected, fc.FontContent(fonts.FaceID{File: filename})) {
 		t.Fatal()
 	}
 }

@@ -1,7 +1,6 @@
 package pdf
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
@@ -30,7 +29,6 @@ type group struct {
 
 func newGroup(cache cache,
 	left, top, right, bottom fl) group {
-	fmt.Println(right-left, bottom-top)
 	return group{
 		cache:         cache,
 		pageRectangle: [4]fl{left, top, right, bottom},
@@ -165,9 +163,9 @@ func (g *group) Rectangle(x fl, y fl, width fl, height fl) {
 
 func (g *group) Clip(evenOdd bool) {
 	if evenOdd {
-		g.app.Ops(cs.OpEOClip{})
+		g.app.Ops(cs.OpEOClip{}, cs.OpEndPath{})
 	} else {
-		g.app.Ops(cs.OpClip{})
+		g.app.Ops(cs.OpClip{}, cs.OpEndPath{})
 	}
 }
 

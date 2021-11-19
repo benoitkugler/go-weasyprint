@@ -24,7 +24,7 @@ type FontConfiguration struct {
 	Fontmap *fcfonts.FontMap
 
 	userFonts    map[fonts.FaceID]fonts.Face
-	fontsContent map[fonts.Face][]byte // to be embedded in the target
+	fontsContent map[string][]byte // to be embedded in the target
 }
 
 // NewFontConfiguration uses a fontconfig database to create a new
@@ -33,7 +33,7 @@ func NewFontConfiguration(fontmap *fcfonts.FontMap) *FontConfiguration {
 	out := &FontConfiguration{
 		Fontmap:      fontmap,
 		userFonts:    make(map[fonts.FaceID]fonts.Face),
-		fontsContent: make(map[fonts.Face][]byte),
+		fontsContent: make(map[string][]byte),
 	}
 	out.Fontmap.SetFaceLoader(out)
 	return out
@@ -48,8 +48,17 @@ func (f *FontConfiguration) LoadFace(key fonts.FaceID, format fc.FontFormat) (fo
 
 // FontContent returns the content of the given face, which may be needed
 // in the final output.
-func (f *FontConfiguration) FontContent(face fonts.Face) []byte {
-	return f.fontsContent[face]
+func (f *FontConfiguration) FontContent(faceID fonts.FaceID) []byte {
+	// either the font is loaded at run time or is loaded from disk
+	if content, has := f.fontsContent[faceID.File]; has {
+		return content
+	}
+
+	b, err := ioutil.ReadFile(faceID.File)
+	if err != nil {
+		log.Println(err)
+	}
+	return b
 }
 
 func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescriptors, urlFetcher utils.UrlFetcher) string {
@@ -135,13 +144,12 @@ func (f *FontConfiguration) loadOneFont(url pr.NamedString, ruleDescriptors vali
 		return "", fmt.Errorf("Font collections are not supported (%s)", url.String)
 	}
 
-	f.fontsContent[faces[0]] = content
-
 	if url.Name == "external" {
 		key := fonts.FaceID{
 			File: fontFilename,
 		}
 		f.userFonts[key] = faces[0]
+		f.fontsContent[key.File] = content
 	}
 
 	features := pr.Properties{}

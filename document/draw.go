@@ -1388,9 +1388,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 
 		// Font content
 		pangoFont := glyphItem.Item.Analysis.Font
-		hbFont := pangoFont.GetHarfbuzzFont()
-		face := hbFont.Face()
-		content := ctx.fonts.FontContent(face)
+		content := ctx.fonts.FontContent(pangoFont.FaceID())
 		outFont := ctx.dst.AddFont(pangoFont, content)
 
 		if outFont != lastFont { // add a new "run"

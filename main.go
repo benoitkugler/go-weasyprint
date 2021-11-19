@@ -26,9 +26,15 @@ func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, fontConfig *tex
 }
 
 // HtmlToPdfOptions is the same as HtmlToPdf, with control overs the following parameters:
-// TODO:
-func HtmlToPdfOptions(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher, mediaType string, stylesheets []tree.CSS,
-	presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []utils.Attachment) error {
+// 	- `baseUrl` is used as reference for links (stylesheets, images, etc...). If empty, it is
+//	deduced from the html content.
+//	- `urlFetcher` is a function called when resolving resources. If nil, it defaults to `utils.DefautUrlFetcher`.
+//	- `mediaType` is the CSS media type used to query CSS rules. It defaults to "print".
+//	- `presentationHints` controls whether or not the additional presentation stylesheet is used.
+//	- `zoom` is a zoom factor
+//	- `attachements` is an additional list of attachements to include into the PDF file.
+func HtmlToPdfOptions(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher,
+	mediaType string, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []utils.Attachment) error {
 	parsedHtml, err := tree.NewHTML(htmlContent, baseUrl, urlFetcher, mediaType)
 	if err != nil {
 		return err

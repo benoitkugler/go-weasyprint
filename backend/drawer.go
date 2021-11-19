@@ -219,14 +219,15 @@ type OutputGraphic interface {
 	// with the current path as it would be filled by `Fill`
 	// and according to the fill rule given in `evenOdd`.
 	//
-	// After `Clip`, the current path will be cleared.
+	// After `Clip`, the current path will be cleared (or closed).
 	//
 	// The current clip region affects all drawing operations
 	// by effectively masking out any changes to the surface
 	// that are outside the current clip region.
 	//
 	// Calling `Clip` can only make the clip region smaller,
-	// never larger, but you can call it in the `OnNewStack` closure argument.
+	// never larger, but you can call it in the `OnNewStack` closure argument,
+	// so that the original clip region is restored afterwards.
 	Clip(evenOdd bool)
 
 	// Sets the color which will be used for any subsequent drawing operation.

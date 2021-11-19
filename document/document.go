@@ -4,7 +4,6 @@
 package document
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"net/url"
@@ -506,7 +505,6 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 		right := left + pageWidth
 		bottom := top + pageHeight
 
-		fmt.Println("before page", left, top, right, bottom)
 		outputPage := target.AddPage(left/scale, top/scale, right/scale, bottom/scale)
 		outputPage.Transform(mt.New(1, 0, 0, -1, 0, page.Height*scale))
 		page.Paint(outputPage, d.fontconfig, 0, 0, scale, false)

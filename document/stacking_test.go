@@ -137,28 +137,3 @@ func TestImageContexts(t *testing.T) {
 		{Tag: "img", Type: bo.InlineReplacedBoxT, Content: bo.BC{Text: "<replaced>"}},
 	}, "")
 }
-
-// TODO: finish when PDF output is implemented
-// @assertNoLogs
-// @pytest.mark.parametrize("zIndexes, color", (
-//     ((3, 2, 1), "R"),
-//     ((1, 2, 3), "G"),
-//     ((1, 2, -3), "B"),
-//     ((1, 2, "auto"), "B"),
-//     ((-1, "auto", -2), "B"),
-// ))
-// func TestZIndex(t *testing.T) {
-//   cp := tu.CaptureLogs()
-//   defer cp.AssertNoLogs(t)
-
-//   for _ ,data := range []struct{
-//     zIndexes []pr.MaybeFloat
-//     color string
-//   }{
-
-//   } {
-//     assertPixels(
-//         "zIndex%s%s%s" % zIndexes, 10, 10, "\n".join([color * 10] * 10),
-//         zIndexSource % zIndexes)
-//     }
-//   }
