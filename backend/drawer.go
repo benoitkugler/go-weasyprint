@@ -73,13 +73,13 @@ func (f *Font) IsFixedPitch() bool {
 
 type GradientInit struct {
 	// Kind is either:
-	// 	"solid": Colors is then a one element array and Positions and Data are empty.
-	// 	"linear": Data is (x0, y0, x1, y1)
+	// 	"solid": Colors is then a one element array and Positions and Coords are empty.
+	// 	"linear": Coords is (x0, y0, x1, y1)
 	// 			  coordinates of the starting and ending points.
-	// 	"radial": Data is (cx0, cy0, radius0, cx1, cy1, radius1)
+	// 	"radial": Coords is (cx0, cy0, radius0, cx1, cy1, radius1)
 	// 			  coordinates of the starting end ending circles
-	Kind string
-	Data [6]utils.Fl
+	Kind   string
+	Coords [6]utils.Fl
 }
 
 type GradientLayout struct {

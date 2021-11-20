@@ -41,11 +41,11 @@ func TestRealPage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	url := "http://www.google.com"
+	// url := "http://www.google.com"
 	// url := "https://weasyprint.org/"
 	// url := "https://en.wikipedia.org/wiki/Go_(programming_language)" // rather big document
 	// url := "https://golang.org/doc/go1.17"                           // slow because of text layout
-	// url := "https://github.com/Kozea/WeasyPrint"
+	url := "https://github.com/Kozea/WeasyPrint"
 	err = HtmlToPdf(f, utils.InputUrl(url), fontconfig)
 	if err != nil {
 		t.Fatal(err)

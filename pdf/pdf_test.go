@@ -21,6 +21,7 @@ func finishAndSave(c *Output, t *testing.T) {
 func TestPaint(t *testing.T) {
 	c := NewOutput()
 	page := c.AddPage(0, 200, 100, 0)
+	page.SetMediaBox(0, 200, 100, 0)
 	page.SetColorRgba(parser.RGBA{R: 0, G: 1, B: 0, A: 1}, true)
 	page.SetColorRgba(parser.RGBA{R: 0, G: 1, B: 1, A: 1}, false)
 	// pdf.SetFont("Helvetica", "", 15)

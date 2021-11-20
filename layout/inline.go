@@ -311,10 +311,28 @@ func removeLastWhitespace(context *layoutContext, box Box) {
 		}
 		spaceWidth = textBox.Width.V() - newBox.Box().Width.V()
 		textBox.Width = newBox.Box().Width
+
+		// RTL line, the trailing space is at the left of the box. We have to
+		// translate the box to align the stripped text with the right edge of
+		// the box.
+		if newBox.PangoLayout.FirstLineDirection%2 != 0 {
+			textBox.PositionX -= spaceWidth
+			for _, ancestor := range ancestors {
+				ancestor.Box().PositionX -= spaceWidth
+			}
+		}
 	} else {
 		spaceWidth = textBox.Width.V()
 		textBox.Width = pr.Float(0)
 		textBox.Text = ""
+
+		// RTL line, the textbox with a trailing space is now empty at the left
+		// of the line. We have to translate the line to align it with the right
+		// edge of the box.
+		line := ancestors[0]
+		if line.Box().Style.GetDirection() == "rtl" {
+			line.Translate(line, -spaceWidth, 0, true)
+		}
 	}
 
 	for _, ancestor := range ancestors {
@@ -716,14 +734,21 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 			containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
 		resumeAt = v.resumeAt
 		newChild, preserved, first, last, newFloatWidths := v.newBox, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
+
+		var endSpacing pr.Float
+		if box.Style.GetDirection() == "rtl" {
+			endSpacing = leftSpacing
+			maxX -= newFloatWidths.left
+		} else {
+			endSpacing = rightSpacing
+			maxX -= newFloatWidths.right
+		}
+
 		if lastChild && rightSpacing != 0 && resumeAt == nil {
 			// TODO: we should take care of children added into absoluteBoxes,
 			// fixedBoxes and other lists.
-			if box.Style.GetDirection() == "rtl" {
-				availableWidth -= leftSpacing
-			} else {
-				availableWidth -= rightSpacing
-			}
+			availableWidth -= endSpacing
+
 			v := splitInlineLevel(context, child_, positionX, availableWidth, skipStack,
 				containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
 			newChild, resumeAt, preserved, first, last, newFloatWidths = v.newBox, v.resumeAt, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
@@ -731,12 +756,6 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 
 		if debugMode {
 			debugLogger.LineWithDedent("--> inline level child %T done (resumeAt : %s).", child_, resumeAt)
-		}
-
-		if box.Style.GetDirection() == "rtl" {
-			maxX -= newFloatWidths.left
-		} else {
-			maxX -= newFloatWidths.right
 		}
 
 		skipStack = nil
@@ -815,7 +834,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 								nil, box, absoluteBoxes, fixedBoxes, linePlaceholders, waitingFloats, lineChildren)
 							childNewChild, childResumeAt := tmp.newBox, tmp.resumeAt
 
-							// As PangoLayout and PangoLogAttr don"t always
+							// As PangoLayout and PangoLogAttr don't always
 							// agree, we have to rely on the actual split to
 							// know whether the child was broken.
 							// https://github.com/Kozea/WeasyPrint/issues/614

@@ -890,9 +890,9 @@ func TestVerticalAlign5(t *testing.T) {
 	tu.AssertEqual(t, img2.Box().Height, pr.Float(60), "img2")
 	// middle of the image (positionY + 20) is at half the ex-height above
 	// the baseline of the parent. The ex-height of weasyprint.otf is 0.8em
-	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(35.2), "img1") // 60 - 0.5 * 0.8 * font-size - 40/2
+	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(35.2012), "img1") // 60 - 0.5 * 0.8 * font-size - 40/2
 	tu.AssertEqual(t, img2.Box().PositionY, pr.Float(0), "img2")
-	tu.AssertEqual(t, line.Box().Height, pr.Float(75.2), "line")
+	tu.AssertEqual(t, line.Box().Height, pr.Float(75.2012), "line")
 	tu.AssertEqual(t, body.Box().Height, line.Box().Height, "body")
 }
 

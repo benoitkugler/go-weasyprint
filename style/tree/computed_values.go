@@ -431,13 +431,9 @@ func backgroundSize(computer *ComputedStyle, name string, _value pr.CssProperty)
 		if v.String == "contain" || v.String == "cover" {
 			out[index] = pr.Size{String: v.String}
 		} else {
-			l := _lengthOrPercentageTuple2(computer, name, []pr.Dimension{
-				v.Width.Dimension,
-				v.Height.Dimension,
-			})
 			out[index] = pr.Size{
-				Width:  pr.Value{Dimension: l[0]},
-				Height: pr.Value{Dimension: l[1]},
+				Width:  length2(computer, name, v.Width, -1, false),
+				Height: length2(computer, name, v.Height, -1, false),
 			}
 		}
 	}

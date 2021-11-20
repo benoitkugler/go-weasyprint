@@ -250,6 +250,7 @@ func avoidCollisions(context *layoutContext, box_ Box, containingBlock *bo.BoxFi
 			}
 		}
 	}
+
 	availableWidth := maxRightBound - maxLeftBound
 	if !outer {
 		positionX -= box.MarginLeft.V()

@@ -269,10 +269,11 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 				pr.Fl(box.BorderWidth()), pr.Fl(box.BorderHeight()))
 		}
 
-		if box.TransformationMatrix != nil {
-			if box.TransformationMatrix.Determinant() != 0 {
-				ctx.dst.Transform(*box.TransformationMatrix)
+		if mat := getMatrix(box_); mat != nil {
+			if mat.Determinant() != 0 {
+				ctx.dst.Transform(*mat)
 			} else {
+				log.Printf("non invertible transformation matrix %v\n", mat)
 				return nil
 			}
 		}
@@ -386,8 +387,8 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 // 0).
 func roundedBoxPath(context backend.OutputGraphic, radii bo.RoundedBox) {
 	x, y, w, h, tl, tr, br, bl := pr.Fl(radii.X), pr.Fl(radii.Y), pr.Fl(radii.Width), pr.Fl(radii.Height), radii.TopLeft, radii.TopRight, radii.BottomRight, radii.BottomLeft
-	if tl[0] == 0 || tl[1] == 0 || tr[0] == 0 || tr[1] == 0 ||
-		br[0] == 0 || br[1] == 0 || bl[0] == 0 || bl[1] == 0 {
+	if (tl[0] == 0 || tl[1] == 0) && (tr[0] == 0 || tr[1] == 0) &&
+		(br[0] == 0 || br[1] == 0) && (bl[0] == 0 || bl[1] == 0) {
 		// No radius, draw a rectangle
 		context.Rectangle(x, y, w, h)
 		return
@@ -436,7 +437,7 @@ func (ctx drawContext) drawBackgroundDefaut(bg *bo.Background) error {
 	return ctx.drawBackground(bg, true, Bleed{}, pr.Marks{})
 }
 
-// Draw the background color and image to a ``cairo.Context``
+// Draw the background color and image
 // If ``clipBox`` is set to ``false``, the background is not clipped to the
 // border box of the background, but only to the painting area
 // clipBox=true bleed=nil marks=()
@@ -506,7 +507,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 			}
 
 			// Painting area is the PDF media box
-			size := pr.Size{Width: pr.FToV(width), Height: pr.FToV(height)}
+			size := [2]pr.Float{pr.Float(width), pr.Float(height)}
 			position := bo.Position{Point: bo.MaybePoint{pr.Float(x), pr.Float(y)}}
 			repeat := bo.Repeat{Reps: [2]string{"no-repeat", "no-repeat"}}
 			unbounded := true
@@ -567,7 +568,7 @@ func (ctx drawContext) drawTableBackgrounds(table_ bo.TableBoxITF) error {
 }
 
 func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRendering pr.String) {
-	if layer.Image == nil || layer.Size.Height.Value == 0 || layer.Size.Width.Value == 0 {
+	if layer.Image == nil || layer.Size[0] == 0 || layer.Size[1] == 0 {
 		return
 	}
 
@@ -575,7 +576,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 	positioningX, positioningY, positioningWidth, positioningHeight := layer.PositioningArea.Rect.Unpack()
 	positionX, positionY := layer.Position.Point[0], layer.Position.Point[1]
 	repeatX, repeatY := layer.Repeat.Reps[0], layer.Repeat.Reps[1]
-	imageWidth, imageHeight := pr.Fl(layer.Size.Width.Value), pr.Fl(layer.Size.Height.Value)
+	imageWidth, imageHeight := pr.Fl(layer.Size[0]), pr.Fl(layer.Size[1])
 	var repeatWidth, repeatHeight pr.Fl
 	switch repeatX {
 	case "no-repeat":
@@ -670,9 +671,9 @@ func styledColor(style pr.String, color Color, side string) []Color {
 	return []Color{color}
 }
 
-// Draw the box border to a ``cairo.Context``.
+// Draw the box border
 func (ctx drawContext) drawBorder(box_ Box) {
-	// We need a plan to draw beautiful borders, and that"s difficult, no need
+	// We need a plan to draw beautiful borders, and that's difficult, no need
 	// to lie. Let's try to find the cases that we can handle in a smart way.
 	box := box_.Box()
 
@@ -988,18 +989,18 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 func (ctx drawContext) drawRoundedBorder(box *bo.BoxFields, style pr.String, colors []Color) {
 	roundedBoxPath(ctx.dst, box.RoundedPaddingBox())
 	if style == "ridge" || style == "groove" {
-		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1/2))
+		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1./2))
 		ctx.dst.SetColorRgba(colors[0], false)
 		ctx.dst.Fill(true)
-		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1/2))
+		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1./2))
 		roundedBoxPath(ctx.dst, box.RoundedBorderBox())
 		ctx.dst.SetColorRgba(colors[1], false)
 		ctx.dst.Fill(true)
 		return
 	}
 	if style == "double" {
-		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1/3))
-		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(2/3))
+		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(1./3))
+		roundedBoxPath(ctx.dst, box.RoundedBoxRatio(2./3))
 	}
 	roundedBoxPath(ctx.dst, box.RoundedBorderBox())
 	ctx.dst.SetColorRgba(colors[0], false)
@@ -1034,7 +1035,7 @@ func (ctx drawContext) drawOutlines(box_ Box) {
 	width_ := box.Style.GetOutlineWidth()
 	color := tree.ResolveColor(box.Style, "outline_color").RGBA
 	style := box.Style.GetOutlineStyle()
-	if box.Style.GetVisibility() == "visible" && !width_.IsNone() && color.A != 0 {
+	if box.Style.GetVisibility() == "visible" && width_.Value != 0 && color.A != 0 {
 		width := width_.Value
 		outlineBox := pr.Rectangle{
 			box.BorderBoxX() - width, box.BorderBoxY() - width,
@@ -1218,7 +1219,7 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 	}
 }
 
-// Draw the given :class:`boxes.ReplacedBox` to a ``cairo.context``.
+// Draw the given :class:`boxes.ReplacedBox`
 func (ctx drawContext) drawReplacedbox(box_ bo.ReplacedBoxITF) {
 	box := box_.Replaced()
 	if box.Style.GetVisibility() != "visible" || !pr.Is(box.Width) || !pr.Is(box.Height) {

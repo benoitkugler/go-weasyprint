@@ -212,8 +212,8 @@ func (g *group) Fill(evenOdd bool) {
 
 func (g *group) FillWithImage(img backend.BackgroundImage, opts backend.BackgroundImageOptions) {
 	mat := model.Matrix{1, 0, 0, 1, opts.X, opts.Y} // translate
-	mat = mat.Multiply(g.app.State.Matrix)
 
+	mat = mat.Multiply(g.app.State.Matrix)
 	// paint the image on an intermediate object
 	imageOutput := newGroup(g.cache, 0, 0, opts.RepeatWidth, opts.RepeatHeight)
 	img.Draw(&imageOutput, opts.ImageWidth, opts.ImageHeight, opts.Rendering)
@@ -360,43 +360,49 @@ func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl)
 		}
 		alphaFunctions = append(alphaFunctions, alphaFn)
 	}
+
+	stitching := model.FunctionStitching{
+		Functions: functions,
+		Bounds:    layout.Positions[1 : len(layout.Positions)-1],
+		Encode:    model.FunctionEncodeRepeat(len(layout.Colors) - 1),
+	}
+	stitchingAlpha := stitching
+	stitchingAlpha.Functions = alphaFunctions
+
 	bg := model.BaseGradient{
 		Domain: [2]fl{layout.Positions[0], layout.Positions[len(layout.Positions)-1]},
 		Function: []model.FunctionDict{{
-			Domain: []model.Range{{layout.Positions[0], layout.Positions[len(layout.Positions)-1]}},
-			FunctionType: model.FunctionStitching{
-				Functions: functions,
-				Bounds:    layout.Positions[1 : len(layout.Positions)-1],
-				Encode:    model.FunctionEncodeRepeat(len(layout.Colors) - 1),
-			},
+			Domain:       []model.Range{{layout.Positions[0], layout.Positions[len(layout.Positions)-1]}},
+			FunctionType: stitching,
 		}},
 	}
+
 	if !layout.Reapeating {
 		bg.Extend = [2]bool{true, true}
 	}
 
 	// alpha stream is similar
-	alphaBg := bg
-	alphaBg.Function = alphaFunctions
+	alphaBg := bg.Clone()
+	alphaBg.Function[0].FunctionType = stitchingAlpha
 
 	var type_, alphaType model.Shading
 	if layout.Kind == "linear" {
 		type_ = model.ShadingAxial{
 			BaseGradient: bg,
-			Coords:       [4]fl{layout.Data[0], layout.Data[1], layout.Data[2], layout.Data[3]},
+			Coords:       [4]fl{layout.Coords[0], layout.Coords[1], layout.Coords[2], layout.Coords[3]},
 		}
 		alphaType = model.ShadingAxial{
 			BaseGradient: alphaBg,
-			Coords:       [4]fl{layout.Data[0], layout.Data[1], layout.Data[2], layout.Data[3]},
+			Coords:       [4]fl{layout.Coords[0], layout.Coords[1], layout.Coords[2], layout.Coords[3]},
 		}
 	} else {
 		type_ = model.ShadingRadial{
 			BaseGradient: bg,
-			Coords:       layout.Data,
+			Coords:       layout.Coords,
 		}
 		alphaType = model.ShadingRadial{
 			BaseGradient: alphaBg,
-			Coords:       layout.Data,
+			Coords:       layout.Coords,
 		}
 	}
 

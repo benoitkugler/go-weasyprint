@@ -29,7 +29,7 @@ type TextLayout struct {
 	Layout pango.Layout
 
 	JustificationSpacing pr.Fl
-	firstLineDirection   pango.Direction
+	FirstLineDirection   pango.Direction
 }
 
 func NewTextLayout(context TextLayoutContext, fontSize pr.Fl, style pr.StyleAccessor, justificationSpacing pr.Fl, maxWidth pr.MaybeFloat) *TextLayout {
@@ -45,7 +45,7 @@ func NewTextLayout(context TextLayoutContext, fontSize pr.Fl, style pr.StyleAcce
 func (p *TextLayout) setup(context TextLayoutContext, fontSize pr.Fl, style pr.StyleAccessor) {
 	p.Context = context
 	p.Style = style
-	p.firstLineDirection = 0
+	p.FirstLineDirection = 0
 	fontmap := context.Fontmap()
 	pc := pango.NewContext(fontmap)
 	pc.SetRoundGlyphPositions(false)
@@ -171,7 +171,7 @@ func (p *TextLayout) GetFirstLine() (*pango.LayoutLine, int) {
 		index = secondLine.StartIndex
 	}
 
-	p.firstLineDirection = firstLine.ResolvedDir
+	p.FirstLineDirection = firstLine.ResolvedDir
 
 	return firstLine, index
 }

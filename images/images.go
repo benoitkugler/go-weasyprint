@@ -45,6 +45,84 @@ func imageLoadingError(err error) error {
 	return fmt.Errorf("error loading image : %s", err)
 }
 
+// Cache stores the result of fetching an image, or any error encoutered
+type Cache map[string]struct {
+	img Image
+	err error
+}
+
+func NewCache() Cache { return make(Cache) }
+
+// Gets an image from an image URI.
+func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
+	res, in := cache[url]
+	if in {
+		return res.img, res.err
+	}
+
+	var (
+		img     Image
+		err     error
+		content utils.RemoteRessource
+	)
+	defer func() {
+		if err != nil {
+			log.Println(err)
+		}
+
+		cache[url] = struct {
+			img Image
+			err error
+		}{img, err}
+	}()
+
+	content, err = fetcher(url)
+	if err != nil {
+		err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
+		return nil, err
+	}
+
+	mimeType := forcedMimeType
+	if mimeType == "" {
+		mimeType = content.MimeType
+	}
+
+	var errSvg error
+	// Try to rely on given mimetype for SVG
+	if mimeType == "image/svg+xml" {
+		var svgIm *SVGImage
+		svgIm, errSvg = NewSVGImage(content.Content, url, fetcher)
+		if svgIm != nil {
+			img = svgIm
+		}
+	}
+
+	// Look for raster images, or for failing SVG
+	if img == nil {
+		content.Content.Seek(0, io.SeekStart)
+		imageConfig, imageFormat, errRaster := image.DecodeConfig(content.Content)
+		if errRaster != nil {
+			if errSvg != nil { // Tried SVGImage then raster for a SVG, abort
+				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errSvg)
+				return nil, err
+			}
+
+			// Last chance, try SVG in case mime type in incorrect
+			content.Content.Seek(0, io.SeekStart)
+			img, errSvg = NewSVGImage(content.Content, url, fetcher)
+			if errSvg != nil {
+				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errRaster)
+				return nil, err
+			}
+		} else {
+			content.Content.Seek(0, io.SeekStart)
+			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, len(cache), optimizeSize)
+		}
+	}
+
+	return img, err
+}
+
 type rasterImage struct {
 	image backend.RasterImage
 
@@ -191,84 +269,6 @@ func (SVGImage) Draw(context backend.OutputGraphic, concreteWidth, concreteHeigh
 	//             LOGGER.error(
 	//                 "Failed to draw an SVG image at %s : %s", self.baseUrl, e)
 	//         }
-}
-
-// Cache stores the result of fetching an image, or any error encoutered
-type Cache map[string]struct {
-	img Image
-	err error
-}
-
-func NewCache() Cache { return make(Cache) }
-
-// Gets an image from an image URI.
-func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
-	res, in := cache[url]
-	if in {
-		return res.img, res.err
-	}
-
-	var (
-		img     Image
-		err     error
-		content utils.RemoteRessource
-	)
-	defer func() {
-		if err != nil {
-			log.Println(err)
-		}
-
-		cache[url] = struct {
-			img Image
-			err error
-		}{img, err}
-	}()
-
-	content, err = fetcher(url)
-	if err != nil {
-		err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, err)
-		return nil, err
-	}
-
-	mimeType := forcedMimeType
-	if mimeType == "" {
-		mimeType = content.MimeType
-	}
-
-	var errSvg error
-	// Try to rely on given mimetype for SVG
-	if mimeType == "image/svg+xml" {
-		var svgIm *SVGImage
-		svgIm, errSvg = NewSVGImage(content.Content, url, fetcher)
-		if svgIm != nil {
-			img = svgIm
-		}
-	}
-
-	// Look for raster images, or for failing SVG
-	if img == nil {
-		content.Content.Seek(0, io.SeekStart)
-		imageConfig, imageFormat, errRaster := image.DecodeConfig(content.Content)
-		if errRaster != nil {
-			if errSvg != nil { // Tried SVGImage then raster for a SVG, abort
-				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errSvg)
-				return nil, err
-			}
-
-			// Last chance, try SVG in case mime type in incorrect
-			content.Content.Seek(0, io.SeekStart)
-			img, errSvg = NewSVGImage(content.Content, url, fetcher)
-			if errSvg != nil {
-				err = fmt.Errorf(`Failed to load image at "%s" (%s)`, url, errRaster)
-				return nil, err
-			}
-		} else {
-			content.Content.Seek(0, io.SeekStart)
-			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, len(cache), optimizeSize)
-		}
-	}
-
-	return img, err
 }
 
 // Gradient line size: distance between the starting point and ending point.
@@ -452,7 +452,7 @@ func (LinearGradient) isImage() {}
 
 func NewLinearGradient(from pr.LinearGradient) LinearGradient {
 	self := LinearGradient{gradient: newGradient(from.ColorStops, from.Repeating)}
-	self.layouter = self
+	self.layouter = &self
 	// ("corner", keyword) or ("angle", radians)
 	self.direction = from.Direction
 	return self
@@ -575,7 +575,7 @@ func (self LinearGradient) Layout(width, height pr.Float) backend.GradientLayout
 	startX := (pr.Fl(width) - dx*vectorLength) / 2
 	startY := (pr.Fl(height) - dy*vectorLength) / 2
 	points := [6]pr.Fl{startX + dx*first, startY + dy*first, startX + dx*last, startY + dy*last, 0, 0}
-	return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "linear", Data: points}, Positions: positions, Colors: colors}
+	return backend.GradientLayout{ScaleY: 1, GradientInit: backend.GradientInit{Kind: "linear", Coords: points}, Positions: positions, Colors: colors}
 }
 
 type RadialGradient struct {
@@ -589,7 +589,7 @@ func (RadialGradient) isImage() {}
 
 func NewRadialGradient(from pr.RadialGradient) RadialGradient {
 	self := RadialGradient{gradient: newGradient(from.ColorStops, from.Repeating)}
-	self.layouter = self
+	self.layouter = &self
 	//  Type of ending shape: "circle" || "ellipse"
 	self.shape = from.Shape
 	// sizeType: "keyword"
@@ -711,7 +711,7 @@ func (self RadialGradient) Layout(width, height pr.Float) backend.GradientLayout
 		circles, positions, colors = self.repeat(width, height, pr.Float(scaleY), circles, positions, colors)
 	}
 
-	return backend.GradientLayout{ScaleY: scaleY, GradientInit: backend.GradientInit{Kind: "radial", Data: circles}, Positions: positions, Colors: colors}
+	return backend.GradientLayout{ScaleY: scaleY, GradientInit: backend.GradientInit{Kind: "radial", Coords: circles}, Positions: positions, Colors: colors}
 }
 
 func (r RadialGradient) repeat(width, height, scaleY pr.Float, points [6]pr.Fl, positions []pr.Fl, colors []parser.RGBA) ([6]pr.Fl, []pr.Fl, []parser.RGBA) {

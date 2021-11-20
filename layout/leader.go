@@ -81,7 +81,7 @@ func handleLeader(context *layoutContext, line *bo.LineBox, containingBlock cont
 		leaderBox.Children = children
 
 		if line.Style.GetDirection() == "rtl" {
-			leaderBox_.Translate(leaderBox_, extraWidth, 0, false)
+			leaderBox_.Translate(leaderBox_, -extraWidth, 0, false)
 		}
 	}
 

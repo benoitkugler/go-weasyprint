@@ -26,9 +26,11 @@ import (
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
 )
 
-const fontmapCache = "layout/text/test/cache.fc"
+const fontmapCache = "../layout/text/test/cache.fc"
 
 var fontconfig *text.FontConfiguration
+
+var joker = color.RGBA{}
 
 var colorByName = map[byte]color.RGBA{
 	'_': {R: 255, G: 255, B: 255, A: 255}, // white
@@ -44,7 +46,7 @@ var colorByName = map[byte]color.RGBA{
 	'h': {R: 64, G: 0, B: 64, A: 255},     // half average of B and R.
 	'a': {R: 0, G: 0, B: 254, A: 255},     // JPG is lossy...
 	'p': {R: 192, G: 0, B: 63, A: 255},    // R above R above B above #fff.
-	'z': {},
+	'z': joker,                            // unspecified, accepts anything
 }
 
 func init() {
@@ -89,10 +91,13 @@ func pdfToImage(f *os.File, zoom utils.Fl) (image.Image, error) {
 		resolution   = 96.
 		antialiasing = 1
 	)
+
 	cmd := exec.Command("gs", "-q", "-dNOPAUSE", fmt.Sprintf("-dTextAlphaBits=%d", antialiasing),
 		fmt.Sprintf("-dGraphicsAlphaBits=%d", antialiasing), "-sDEVICE=png16m",
 		fmt.Sprintf("-r%d", int(resolution/zoom)),
+		"-dBufferSpace=500000000", // 500 MB
 		"-sOutputFile=-", f.Name())
+
 	var output bytes.Buffer
 	cmd.Stdout = &output
 
@@ -232,41 +237,102 @@ func TestZIndex(t *testing.T) {
 func parsePixels(pixels string) [][]color.RGBA {
 	pixels = strings.TrimSpace(pixels)
 	lines := strings.Split(pixels, "\n")
-	out := make([][]color.RGBA, len(lines))
-	for i, line := range lines {
+	var out [][]color.RGBA
+	for _, line := range lines {
+		line = strings.Split(line, "#")[0]
 		line = strings.TrimSpace(line)
-		out[i] = make([]color.RGBA, len(line)) // line is ASCII only
-		for j, c := range line {
-			out[i][j] = colorByName[byte(c)]
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
 		}
+		row := make([]color.RGBA, len(line)) // line is ASCII only
+		for j, c := range line {
+			row[j] = colorByName[byte(c)]
+		}
+		out = append(out, row)
 	}
 	return out
 }
 
-func assertPixelsEqual(t *testing.T, input string, expected string) {
+func assertPixelsEqual(t *testing.T, context, expected, input string) {
+	t.Helper()
+
 	got := htmlToPDF(t, input, pdfZoom)
 
 	img, err := pdfToImage(got, pdfZoom)
 	if err != nil {
 		fmt.Println(got.Name())
-		t.Fatal(err)
+		t.Fatal(context, err)
 	}
 
 	gotPixels := imagePixels(img)
 	expectedPixels := parsePixels(expected)
 	if len(gotPixels) != len(expectedPixels) {
-		t.Fatalf("expected pixels length %d, got %d", len(expectedPixels), len(gotPixels))
+		t.Fatalf("%s: expected %d pixels rows, got %d", context, len(expectedPixels), len(gotPixels))
 	}
 
 	for i, exp := range expectedPixels {
+		for j, v := range exp {
+			if v == joker {
+				gotPixels[i][j] = joker
+			}
+		}
 		if !reflect.DeepEqual(gotPixels[i], exp) {
 			fmt.Println(got.Name())
-			t.Fatalf("unexpected pixels at line %d", i)
+			t.Fatalf("%s: unexpected pixels at line %d", context, i)
 		}
 	}
 
 	got.Close()
 	os.Remove(got.Name())
+}
+
+func arePixelsAlmostEqual(pix1, pix2 [][]color.RGBA, tolerance uint8) bool {
+	diff := func(a, b uint8) uint8 {
+		if a < b {
+			return b - a
+		}
+		return a - b
+	}
+
+	if len(pix1) != len(pix2) {
+		return false
+	}
+
+	for i, line1 := range pix1 {
+		line2 := pix2[i]
+		if len(line1) != len(line2) {
+			return false
+		}
+
+		for j, c1 := range line1 {
+			c2 := line2[j]
+			if diff(c1.R, c2.R) > tolerance || diff(c1.G, c2.G) > tolerance || diff(c1.B, c2.B) > tolerance || diff(c1.A, c2.A) > tolerance {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func assertSameRendering(t *testing.T, context, input1, input2 string, tolerance uint8) {
+	got1 := htmlToPDF(t, input1, pdfZoom)
+	img1, err := pdfToImage(got1, pdfZoom)
+	if err != nil {
+		t.Fatal(context, err)
+	}
+	gotPixels1 := imagePixels(img1)
+
+	got2 := htmlToPDF(t, input2, pdfZoom)
+	img2, err := pdfToImage(got2, pdfZoom)
+	if err != nil {
+		t.Fatal(context, err)
+	}
+	gotPixels2 := imagePixels(img2)
+
+	if !arePixelsAlmostEqual(gotPixels1, gotPixels2, tolerance) {
+		t.Fatal(context, err)
+	}
 }
 
 func TestTableVerticalAlign(t *testing.T) {
@@ -287,7 +353,7 @@ func TestTableVerticalAlign(t *testing.T) {
     `
 
 	input := `<style>
-        @font-face { src: url(resources_test/weasyprint.otf); font-family: weasyprint }
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
         @page { size: 28px 10px }
         html { background: #fff; font-size: 1px; color: red }
         body { margin: 0; width: 28px; height: 10px }
@@ -335,5 +401,5 @@ func TestTableVerticalAlign(t *testing.T) {
         </tr>
       </table>
     `
-	assertPixelsEqual(t, input, pixels)
+	assertPixelsEqual(t, "", pixels, input)
 }

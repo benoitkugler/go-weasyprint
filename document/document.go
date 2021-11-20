@@ -39,54 +39,54 @@ func getMatrix(box_ Box) *mt.Transform {
 	//  multiple inline-level boxes."
 	// http://www.w3.org/TR/css3-2d-transforms/#introduction
 	box := box_.Box()
-	if trans := box.Style.GetTransform(); len(trans) != 0 && !bo.InlineBoxT.IsInstance(box_) {
-		borderWidth := box.BorderWidth()
-		borderHeight := box.BorderHeight()
-		or := box.Style.GetTransformOrigin()
-		offsetX := pr.ResoudPercentage(or[0].ToValue(), borderWidth).V()
-		offsetY := pr.ResoudPercentage(or[1].ToValue(), borderHeight).V()
-		originX := fl(box.BorderBoxX() + offsetX)
-		originY := fl(box.BorderBoxY() + offsetY)
-
-		var matrix mt.Transform
-		matrix.Translate(originX, originY)
-		for _, t := range trans {
-			name, args := t.String, t.Dimensions
-			// The length of args depends on `name`, see package validation for details.
-			switch name {
-			case "scale":
-				sx, sy := toF(args[0]), toF(args[1])
-				matrix.Scale(sx, sy)
-			case "rotate":
-				angle := toF(args[0])
-				matrix.Rotate(angle)
-			case "translate":
-				translateX, translateY := args[0], args[1]
-				matrix.Translate(
-					fl(pr.ResoudPercentage(translateX.ToValue(), borderWidth).V()),
-					fl(pr.ResoudPercentage(translateY.ToValue(), borderHeight).V()),
-				)
-			default:
-				var leftMat mt.Transform
-				switch name {
-				case "skewx":
-					leftMat = mt.New(1, 0, fl(math.Tan(float64(toF(args[0])))), 1, 0, 0)
-				case "skewy":
-					leftMat = mt.New(1, fl(math.Tan(float64(toF(args[0])))), 0, 1, 0, 0)
-				case "matrix":
-					leftMat = mt.New(toF(args[0]), toF(args[1]), toF(args[2]),
-						toF(args[3]), toF(args[4]), toF(args[5]))
-				default:
-					log.Fatalf("unexpected name for CSS transform property : %s", name)
-				}
-				matrix = mt.Mul(leftMat, matrix)
-			}
-		}
-		matrix.Translate(-originX, -originY)
-		box.TransformationMatrix = &matrix
-		return &matrix
+	trans := box.Style.GetTransform()
+	if len(trans) == 0 || bo.InlineBoxT.IsInstance(box_) {
+		return nil
 	}
-	return nil
+
+	borderWidth := box.BorderWidth()
+	borderHeight := box.BorderHeight()
+	or := box.Style.GetTransformOrigin()
+	offsetX := pr.ResoudPercentage(or[0].ToValue(), borderWidth).V()
+	offsetY := pr.ResoudPercentage(or[1].ToValue(), borderHeight).V()
+	originX := fl(box.BorderBoxX() + offsetX)
+	originY := fl(box.BorderBoxY() + offsetY)
+
+	matrix := mt.New(1, 0, 0, 1, originX, originY)
+	for _, t := range trans {
+		name, args := t.String, t.Dimensions
+		// The length of args depends on `name`, see package validation for details.
+		switch name {
+		case "scale":
+			sx, sy := toF(args[0]), toF(args[1])
+			matrix.Scale(sx, sy)
+		case "rotate":
+			angle := toF(args[0])
+			matrix.Rotate(angle)
+		case "translate":
+			translateX, translateY := args[0], args[1]
+			matrix.Translate(
+				fl(pr.ResoudPercentage(translateX.ToValue(), borderWidth).V()),
+				fl(pr.ResoudPercentage(translateY.ToValue(), borderHeight).V()),
+			)
+		default:
+			var leftMat mt.Transform
+			switch name {
+			case "skewx":
+				leftMat = mt.New(1, 0, fl(math.Tan(float64(toF(args[0])))), 1, 0, 0)
+			case "skewy":
+				leftMat = mt.New(1, fl(math.Tan(float64(toF(args[0])))), 0, 1, 0, 0)
+			case "matrix":
+				leftMat = mt.New(toF(args[0]), toF(args[1]), toF(args[2]),
+					toF(args[3]), toF(args[4]), toF(args[5]))
+			default:
+				log.Fatalf("unexpected name for CSS transform property : %s", name)
+			}
+			matrix = mt.Mul(leftMat, matrix)
+		}
+	}
+	matrix.Translate(-originX, -originY)
+	return &matrix
 }
 
 // Apply a transformation matrix to an axis-aligned rectangle
@@ -505,7 +505,7 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 		right := left + pageWidth
 		bottom := top + pageHeight
 
-		outputPage := target.AddPage(left/scale, top/scale, right/scale, bottom/scale)
+		outputPage := target.AddPage(left/scale, top/scale, (right-left)/scale, (bottom-top)/scale)
 		outputPage.Transform(mt.New(1, 0, 0, -1, 0, page.Height*scale))
 		page.Paint(outputPage, d.fontconfig, 0, 0, scale, false)
 

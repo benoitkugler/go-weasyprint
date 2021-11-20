@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/benoitkugler/go-weasyprint/images"
-	"github.com/benoitkugler/go-weasyprint/matrix"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -131,9 +130,9 @@ type BackgroundLayer struct {
 	Position        Position
 	Repeat          Repeat
 	ClippedBoxes    []RoundedBox
-	Size            pr.Size
 	PaintingArea    Area
 	PositioningArea Area
+	Size            [2]pr.Float // width, height
 	Unbounded       bool
 }
 
@@ -156,8 +155,6 @@ type BoxFields struct {
 
 	IsAttachment bool
 	// isListMarker         bool
-
-	TransformationMatrix *matrix.Transform
 
 	BookmarkLabel string
 
@@ -436,11 +433,7 @@ func (b *BoxFields) RoundedBoxRatio(ratio pr.Float) RoundedBox {
 
 // Return the position, size and radii of the rounded padding box.
 func (b *BoxFields) RoundedPaddingBox() RoundedBox {
-	return b.roundedBox(
-		b.BorderTopWidth.V(),
-		b.BorderRightWidth.V(),
-		b.BorderBottomWidth.V(),
-		b.BorderLeftWidth.V())
+	return b.RoundedBoxRatio(1)
 }
 
 // Return the position, size and radii of the rounded border box.

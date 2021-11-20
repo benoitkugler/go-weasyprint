@@ -137,7 +137,7 @@ var (
 		"border-right-width":         borderWidth,
 		"border-left-width":          borderWidth,
 		"border-bottom-width":        borderWidth,
-		"colunm-rule-width":          borderWidth,
+		"column-rule-width":          borderWidth,
 		"outline-width":              borderWidth,
 		"column-width":               columnWidth,
 		"column-span":                columnSpan,

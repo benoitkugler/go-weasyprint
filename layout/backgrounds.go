@@ -217,7 +217,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 	if image == nil || (intrinsicWidth == pr.Float(0) || intrinsicHeight == pr.Float(0)) {
 		return bo.BackgroundLayer{
 			Image: nil, Unbounded: box_ == page, PaintingArea: bo.Area{Rect: paintingArea},
-			Size: pr.Size{String: "unused"}, Position: bo.Position{String: "unused"}, Repeat: bo.Repeat{String: "unused"},
+			Size: [2]pr.Float{}, Position: bo.Position{String: "unused"}, Repeat: bo.Repeat{String: "unused"},
 			PositioningArea: bo.Area{String: "unused"}, ClippedBoxes: clippedBoxes,
 		}
 	}
@@ -231,7 +231,6 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 	}
 
 	_, _, positioningWidth, positioningHeight := positioningArea[0], positioningArea[1], positioningArea[2], positioningArea[3]
-	// paintingX, paintingY, paintingWidth, paintingHeight := paintingArea[0], paintingArea[1], paintingArea[2], paintingArea[3]
 	var imageWidth, imageHeight pr.Float
 	if size.String == "cover" {
 		imageWidth, imageHeight = coverConstraintImageSizing(positioningWidth, positioningHeight, ratio)
@@ -279,10 +278,10 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 
 	return bo.BackgroundLayer{
 		Image:           image,
-		Size:            pr.Size{Width: imageWidth.ToValue(), Height: imageHeight.ToValue()},
+		Size:            [2]pr.Float{imageWidth, imageHeight},
 		Position:        bo.Position{Point: bo.MaybePoint{positionX, positionY}},
 		Repeat:          bo.Repeat{Reps: repeat},
-		Unbounded:       box_ == page,
+		Unbounded:       false,
 		PaintingArea:    bo.Area{Rect: paintingArea},
 		PositioningArea: bo.Area{Rect: positioningArea},
 		ClippedBoxes:    clippedBoxes,

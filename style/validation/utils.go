@@ -99,7 +99,6 @@ func getImage(_token Token, baseUrl string) (pr.Image, error) {
 					return nil, err
 				}
 			}
-			fmt.Println(parsedColorsStop)
 			return pr.LinearGradient{
 				Direction:  direction,
 				Repeating:  name == "repeating-linear-gradient",

@@ -108,6 +108,8 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 	dispatch := func(box Box) Box {
 		if absPlac, ok := box.(*layout.AbsolutePlaceholder); ok {
 			box = absPlac.AliasBox
+		} else if stack, ok := box.(StackingContext); ok {
+			box = stack.box
 		}
 		style := box.Box().Style
 		absoluteAndZIndex := style.GetPosition().String != "static" && style.GetZIndex().String != "auto"

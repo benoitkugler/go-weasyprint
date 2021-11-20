@@ -61,8 +61,8 @@ func mult(T_, T Transform, out *Transform) {
 	out.b = T_.b*T.a + T_.d*T.b
 	out.c = T_.a*T.c + T_.c*T.d
 	out.d = T_.b*T.c + T_.d*T.d
-	out.e = T_.a*T.e + T_.c*T.f + T_.e
-	out.f = T_.b*T.e + T_.d*T.f + T_.f
+	out.e = T_.e*T.a + T_.f*T.b + T.e
+	out.f = T_.e*T.c + T_.f*T.d + T.f
 }
 
 // Mul returns the transform T * U,
