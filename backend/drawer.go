@@ -199,14 +199,13 @@ type OutputGraphic interface {
 	// and the error is returned
 	OnNewStack(func() error) error
 
-	// AddGroup creates a new drawing target with the given
-	// bounding box.
-	// If the backend does not support groups, the current target should be returned.
-	AddGroup(x, y, width, height fl) OutputGraphic
+	// AddOpacityGroup creates a new drawing target with the given
+	// bounding box. The return `OutputGraphic` will be then
+	// passed to `DrawOpacityGroup`
+	AddOpacityGroup(x, y, width, height fl) OutputGraphic
 
-	// DrawGroup draw the given target to the main target.
-	// If the backend does not support groups, this should be a no-op.
-	DrawGroup(group OutputGraphic)
+	// DrawOpacityGroup draw the given target to the main target, applying the given opacity (in [0,1]).
+	DrawOpacityGroup(opacity fl, group OutputGraphic)
 
 	// Adds a rectangle
 	// of the given size to the current path,

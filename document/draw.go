@@ -265,7 +265,7 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 		originalDst := ctx.dst
 		opacity := fl(box.Style.GetOpacity())
 		if opacity < 1 { // we draw all the following to a separate group
-			ctx.dst = ctx.dst.AddGroup(pr.Fl(box.BorderBoxX()), pr.Fl(box.BorderBoxY()),
+			ctx.dst = ctx.dst.AddOpacityGroup(pr.Fl(box.BorderBoxX()), pr.Fl(box.BorderBoxY()),
 				pr.Fl(box.BorderWidth()), pr.Fl(box.BorderHeight()))
 		}
 
@@ -370,9 +370,7 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 			group := ctx.dst
 			ctx.dst = originalDst
 			ctx.dst.OnNewStack(func() error {
-				ctx.dst.SetAlpha(opacity, true)
-				ctx.dst.SetAlpha(opacity, false)
-				ctx.dst.DrawGroup(group)
+				ctx.dst.DrawOpacityGroup(opacity, group)
 				return nil
 			})
 		}
@@ -457,7 +455,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 		// Background color
 		if bg.Color.A > 0 {
 			ctx.dst.OnNewStack(func() error {
-				paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect
+				paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea
 				if !paintingArea.IsNone() {
 					ptx, pty, ptw, pth := paintingArea.Unpack()
 					if (bleed != Bleed{}) {
@@ -478,7 +476,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 		}
 
 		if (bleed != Bleed{}) && !marks.IsNone() {
-			x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Rect.Unpack()
+			x, y, width, height := bg.Layers[len(bg.Layers)-1].PaintingArea.Unpack()
 			x -= bleed.Left
 			y -= bleed.Top
 			width += bleed.Left + bleed.Right
@@ -511,8 +509,8 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 			position := bo.Position{Point: bo.MaybePoint{pr.Float(x), pr.Float(y)}}
 			repeat := bo.Repeat{Reps: [2]string{"no-repeat", "no-repeat"}}
 			unbounded := true
-			paintingArea := bo.Area{Rect: pr.Rectangle{pr.Float(x), pr.Float(y), pr.Float(width), pr.Float(height)}}
-			positioningArea := bo.Area{Rect: pr.Rectangle{0, 0, pr.Float(width), pr.Float(height)}}
+			paintingArea := pr.Rectangle{pr.Float(x), pr.Float(y), pr.Float(width), pr.Float(height)}
+			positioningArea := pr.Rectangle{0, 0, pr.Float(width), pr.Float(height)}
 			layer := bo.BackgroundLayer{
 				Image: image, Size: size, Position: position, Repeat: repeat, Unbounded: unbounded,
 				PaintingArea: paintingArea, PositioningArea: positioningArea,
@@ -572,8 +570,8 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 		return
 	}
 
-	paintingX, paintingY, paintingWidth, paintingHeight := layer.PaintingArea.Rect.Unpack()
-	positioningX, positioningY, positioningWidth, positioningHeight := layer.PositioningArea.Rect.Unpack()
+	paintingX, paintingY, paintingWidth, paintingHeight := layer.PaintingArea.Unpack()
+	positioningX, positioningY, positioningWidth, positioningHeight := layer.PositioningArea.Unpack()
 	positionX, positionY := layer.Position.Point[0], layer.Position.Point[1]
 	repeatX, repeatY := layer.Repeat.Reps[0], layer.Repeat.Reps[1]
 	imageWidth, imageHeight := pr.Fl(layer.Size[0]), pr.Fl(layer.Size[1])
@@ -690,10 +688,8 @@ func (ctx drawContext) drawBorder(box_ Box) {
 						positionX, child.Box().PositionY,
 						crw.Value, box.Height.V(),
 					}
-					clipBorderSegment(ctx.dst,
-						box.Style.GetColumnRuleStyle(),
-						float64(crw.Value), "left", borderBox,
-						&borderWidths, nil)
+					clipBorderSegment(ctx.dst, box.Style.GetColumnRuleStyle(),
+						float64(crw.Value), "left", borderBox, &borderWidths, nil)
 					ctx.drawRectBorder(borderBox, borderWidths,
 						box.Style.GetColumnRuleStyle(), styledColor(
 							box.Style.GetColumnRuleStyle(),
@@ -767,16 +763,6 @@ func (ctx drawContext) drawBorder(box_ Box) {
 func clipBorderSegment(context backend.OutputGraphic, style pr.String, width float64, side string,
 	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
-	// if enableHinting && style != "dotted" && (
-	// // Borders smaller than 1 device unit would disappear
-	// // without anti-aliasing.
-	// math.Hypot(context.UserToDevice(float64(width), 0)) >= 1 &&
-	// 	math.Hypot(context.UserToDevice(0, float64(width))) >= 1) {
-	// 	// Avoid an artifact in the corner joining two solid borders
-	// 	// of the same color.
-	// 	context.SetAntialias(backend.Antialiasnil)
-	// }
-
 	bbx, bby, bbw, bbh := borderBox.Unpack()
 	var tlh, tlv, trh, trv, brh, brv, blh, blv float64
 	if radii != nil {
@@ -846,6 +832,7 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 		angle = 4
 		mainOffset = bbx
 	}
+
 	var a1, b1, a2, b2, lineLength, length float64
 	if side == "top" || side == "bottom" {
 		a1, b1 = px1-bl/2, way*py1-width/2
@@ -1087,46 +1074,54 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 		// One of the list is empty: don’t bother with empty tables
 		return
 	}
-	columnPositions := table.ColumnPositions
+	columnPositions := table.ColumnPositions // shallow copy
 	gridHeight := len(rowHeights)
 	gridWidth := len(columnWidths)
+
 	if gridWidth != len(columnPositions) {
-		log.Fatalf("expected same gridWidth and columnPositions length, got %d, %d", gridWidth, len(columnPositions))
+		panic(fmt.Sprintf("expected same gridWidth and columnPositions length, got %d, %d", gridWidth, len(columnPositions)))
 	}
+
 	// Add the end of the last column, but make a copy from the table attr.
-	columnPositions = append(columnPositions, columnPositions[len(columnPositions)-1]+columnWidths[len(columnWidths)-1])
-	// Add the end of the last row. No copy here, we own this list
+	if table.Style.GetDirection() == "ltr" {
+		columnPositions = append(columnPositions, columnPositions[len(columnPositions)-1]+columnWidths[len(columnWidths)-1])
+	} else {
+		columnPositions = append([]pr.Float{columnPositions[0] + columnWidths[0]}, columnPositions...)
+	}
+
+	// Add the end of the last row.
 	rowPositions = append(rowPositions, rowPositions[len(rowPositions)-1]+rowHeights[len(rowHeights)-1])
 	verticalBorders, horizontalBorders := table.CollapsedBorderGrid.Vertical, table.CollapsedBorderGrid.Horizontal
+
 	headerRows := 0
 	if table.Children[0].Box().IsHeader {
 		headerRows = len(table.Children[0].Box().Children)
 	}
+
 	footerRows := 0
 	if L := len(table.Children); table.Children[L-1].Box().IsFooter {
 		footerRows = len(table.Children[L-1].Box().Children)
 	}
+
 	skippedRows := table.SkippedRows
 	bodyRowsOffset := 0
 	if skippedRows != 0 {
 		bodyRowsOffset = skippedRows - headerRows
 	}
-	if headerRows == 0 {
-		headerRows = -1
-	}
-	firstFooterRow := gridHeight + 1
-	if footerRows != 0 {
-		firstFooterRow = gridHeight - footerRows - 1
-	}
+
 	originalGridHeight := len(verticalBorders)
 	footerRowsOffset := originalGridHeight - gridHeight
 
 	rowNumber := func(y int, horizontal bool) int {
-		if y < (headerRows + boolToInt(horizontal)) {
+		// Examples in comments for 2 headers rows, 5 body rows, 3 footer rows
+		if headerRows != 0 && y < (headerRows+boolToInt(horizontal)) {
+			// Row in header: y < 2 for vertical, y < 3 for horizontal
 			return y
-		} else if y >= (firstFooterRow + boolToInt(horizontal)) {
+		} else if footerRows != 0 && y >= (gridHeight-footerRows-boolToInt(horizontal)) {
+			// Row in footer: y >= 7 for vertical, y >= 6 for horizontal
 			return y + footerRowsOffset
 		} else {
+			// Row in body: 2 >= y > 7 for vertical, 3 >= y > 6 for horizontal
 			return y + bodyRowsOffset
 		}
 	}
@@ -1134,7 +1129,7 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 	var segments []segment
 
 	// vertical=true
-	halfMaxWidth := func(borderList [][]bo.Border, yxPairs [][2]int, vertical bool) pr.Float {
+	halfMaxWidth := func(borderList [][]bo.Border, yxPairs [2][2]int, vertical bool) pr.Float {
 		var result pr.Float
 		for _, tmp := range yxPairs {
 			y, x := tmp[0], tmp[1]
@@ -1159,9 +1154,9 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 		}
 		posX := columnPositions[x]
 		posY1 := rowPositions[y] - halfMaxWidth(horizontalBorders,
-			[][2]int{{y, x - 1}, {y, x}}, false)
+			[2][2]int{{y, x - 1}, {y, x}}, false)
 		posY2 := rowPositions[y+1] + halfMaxWidth(horizontalBorders,
-			[][2]int{{y + 1, x - 1}, {y + 1, x}}, false)
+			[2][2]int{{y + 1, x - 1}, {y + 1, x}}, false)
 		segments = append(segments, segment{
 			Border: border, side: "left",
 			borderBox: pr.Rectangle{posX - pr.Float(border.Width)/2, posY1, 0, posY2 - posY1},
@@ -1175,10 +1170,16 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 			return
 		}
 		posY := rowPositions[y]
-		posX1 := columnPositions[x] - halfMaxWidth(verticalBorders,
-			[][2]int{{y - 1, x}, {y, x}}, true)
-		posX2 := columnPositions[x+1] + halfMaxWidth(verticalBorders,
-			[][2]int{{y - 1, x + 1}, {y, x + 1}}, true)
+		shiftBefore := halfMaxWidth(verticalBorders, [2][2]int{{y - 1, x}, {y, x}}, true)
+		shiftAfter := halfMaxWidth(verticalBorders, [2][2]int{{y - 1, x + 1}, {y, x + 1}}, true)
+		var posX1, posX2 pr.Float
+		if table.Style.GetDirection() == "ltr" {
+			posX1 = columnPositions[x] - shiftBefore
+			posX2 = columnPositions[x+1] + shiftAfter
+		} else {
+			posX1 = columnPositions[x+1] - shiftAfter
+			posX2 = columnPositions[x] + shiftBefore
+		}
 		segments = append(segments, segment{
 			Border: border, side: "top",
 			borderBox: pr.Rectangle{posX1, posY - pr.Float(border.Width)/2, posX2 - posX1, 0},
@@ -1200,7 +1201,7 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 	// Since the number of different scores is expected to be small compared
 	// to the number of segments, there should be little changes and Timsort
 	// should be closer to O(n) than O(n * log(n))
-	sort.Slice(segments, func(i, j int) bool {
+	sort.SliceStable(segments, func(i, j int) bool {
 		return segments[i].Border.Score.Lower(segments[j].Border.Score)
 	})
 
@@ -1360,7 +1361,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	firstLine, secondLine := textbox.PangoLayout.GetFirstLine()
 	if blockEllipsis != (pr.NamedString{Name: "none"}) {
 		for secondLine != 0 {
-			lastWordEnd := text.GetLastWordEnd(layout.Text[:-len([]rune(ellipsis))])
+			lastWordEnd := text.GetLastWordEnd(layout.Text[:len(layout.Text)-len([]rune(ellipsis))])
 			if lastWordEnd == -1 {
 				break
 			}

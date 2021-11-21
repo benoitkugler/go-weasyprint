@@ -137,7 +137,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 
 	var (
 		clippedBoxes []bo.RoundedBox
-		paintingArea [4]pr.Float
+		paintingArea pr.Rectangle
 	)
 	box := box_.Box()
 	if box_ == page {
@@ -183,17 +183,19 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		cells := box.GetCells()
 		if len(cells) != 0 {
 			clippedBoxes = nil
-			var max pr.Float
+			maxX, minX := -pr.Inf, pr.Inf
 			for _, cell := range cells {
 				clippedBoxes = append(clippedBoxes, cell.Box().RoundedBorderBox())
-				if v := cell.Box().BorderBoxY() + cell.Box().BorderWidth(); v > max {
-					max = v
+				if v := cell.Box().BorderBoxX() + cell.Box().BorderWidth(); v > maxX {
+					maxX = v
+				}
+				if v := cell.Box().BorderBoxX(); v < minX {
+					minX = v
 				}
 			}
-			maxX := max
 			paintingArea = [4]pr.Float{
-				box.BorderBoxX(), box.BorderBoxY(),
-				maxX - box.BorderBoxX(), box.BorderBoxY() + box.BorderHeight(),
+				minX, box.BorderBoxY(),
+				maxX - minX, box.BorderBoxY() + box.BorderHeight(),
 			}
 		}
 	} else {
@@ -216,9 +218,9 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 	}
 	if image == nil || (intrinsicWidth == pr.Float(0) || intrinsicHeight == pr.Float(0)) {
 		return bo.BackgroundLayer{
-			Image: nil, Unbounded: box_ == page, PaintingArea: bo.Area{Rect: paintingArea},
+			Image: nil, Unbounded: box_ == page, PaintingArea: paintingArea,
 			Size: [2]pr.Float{}, Position: bo.Position{String: "unused"}, Repeat: bo.Repeat{String: "unused"},
-			PositioningArea: bo.Area{String: "unused"}, ClippedBoxes: clippedBoxes,
+			ClippedBoxes: clippedBoxes,
 		}
 	}
 
@@ -282,8 +284,8 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		Position:        bo.Position{Point: bo.MaybePoint{positionX, positionY}},
 		Repeat:          bo.Repeat{Reps: repeat},
 		Unbounded:       false,
-		PaintingArea:    bo.Area{Rect: paintingArea},
-		PositioningArea: bo.Area{Rect: positioningArea},
+		PaintingArea:    paintingArea,
+		PositioningArea: positioningArea,
 		ClippedBoxes:    clippedBoxes,
 	}
 }
@@ -314,7 +316,7 @@ func setCanvasBackground(page *bo.PageBox, getImageFromUri bo.Gifu) {
 		layoutBoxBackgrounds(page, page, getImageFromUri, false, chosenBox.Style)
 		canvasBg := *page.Background
 		for i, l := range canvasBg.Layers {
-			l.PaintingArea = bo.Area{Rect: paintingArea}
+			l.PaintingArea = paintingArea
 			canvasBg.Layers[i] = l
 		}
 		page.CanvasBackground = &canvasBg

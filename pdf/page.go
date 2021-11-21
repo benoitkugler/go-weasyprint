@@ -141,16 +141,22 @@ func (g *group) OnNewStack(task func() error) error {
 
 // AddGroup creates a new drawing target with the given
 // bounding box.
-// If the backend does not support groups, the current target should be returned.
-func (g *group) AddGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
+func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
 	out := newGroup(g.cache, x, y, x+width, y+height)
 	return &out
 }
 
 // DrawGroup add the `gr` to the current target. It will panic
 // if `gr` was not created with `AddGroup`
-func (g *group) DrawGroup(gr backend.OutputGraphic) {
-	form := gr.(*group).app.ToXFormObject(true)
+func (g *group) DrawOpacityGroup(opacity fl, gr backend.OutputGraphic) {
+	content := gr.(*group).app.ToXFormObject(false)
+	form := &model.XObjectTransparencyGroup{
+		XObjectForm: *content,
+		CS:          model.ColorSpaceRGB,
+		I:           true,
+	}
+	g.app.SetFillAlpha(opacity)
+	g.app.SetStrokeAlpha(opacity)
 	g.app.AddXObject(form)
 }
 

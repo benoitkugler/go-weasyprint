@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -104,13 +104,43 @@ func pdfToImage(f *os.File, zoom utils.Fl) (image.Image, error) {
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
+	pngs := output.Bytes()
+	const MAGIC_NUMBER = "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"
 
-	img, err := png.Decode(&output)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Ghoscript output: %s", err)
+	if !bytes.HasPrefix(pngs, []byte(MAGIC_NUMBER)) {
+		return nil, fmt.Errorf("invalid Ghoscript output: %s", string(pngs))
 	}
 
-	return img, nil
+	// for multiples page, we find each of them in the stream
+	// and concatenate them
+	pages := bytes.Split(pngs[8:], []byte(MAGIC_NUMBER))
+	var images []image.Image
+	var maxWidth, totalHeight int
+	for _, page := range pages {
+		img, err := png.Decode(bytes.NewReader(append([]byte(MAGIC_NUMBER), page...)))
+		if err != nil {
+			return nil, fmt.Errorf("invalid Ghoscript output: %s", err)
+		}
+		bounds := img.Bounds()
+		if bounds.Dx() > maxWidth {
+			maxWidth = bounds.Dx()
+		}
+		totalHeight += bounds.Dy()
+		images = append(images, img)
+	}
+
+	finalImage := image.NewRGBA(image.Rect(0, 0, maxWidth, totalHeight))
+	top := 0
+	for _, img := range images {
+		sr := img.Bounds()
+		// center the image
+		dp := image.Point{X: (maxWidth - sr.Dx()) / 2, Y: top}
+		r := image.Rectangle{Min: dp, Max: dp.Add(sr.Size())}
+		draw.Draw(finalImage, r, img, sr.Min, draw.Src)
+		top += sr.Dy()
+	}
+
+	return finalImage, nil
 }
 
 // use the light UA stylesheet
@@ -235,6 +265,16 @@ func TestZIndex(t *testing.T) {
 // convert from a human-friendly string representation
 // to a matrix of colors
 func parsePixels(pixels string) [][]color.RGBA {
+	return parsePixelsExt(pixels, make(map[byte]color.RGBA))
+}
+
+func parsePixelsExt(pixels string, pixelsOveride map[byte]color.RGBA) [][]color.RGBA {
+	for k, v := range colorByName {
+		if _, has := pixelsOveride[k]; !has {
+			pixelsOveride[k] = v
+		}
+	}
+
 	pixels = strings.TrimSpace(pixels)
 	lines := strings.Split(pixels, "\n")
 	var out [][]color.RGBA
@@ -246,28 +286,26 @@ func parsePixels(pixels string) [][]color.RGBA {
 		}
 		row := make([]color.RGBA, len(line)) // line is ASCII only
 		for j, c := range line {
-			row[j] = colorByName[byte(c)]
+			row[j] = pixelsOveride[byte(c)]
 		}
 		out = append(out, row)
 	}
 	return out
 }
 
-func assertPixelsEqual(t *testing.T, context, expected, input string) {
+func assertPixelsEqualFromPixels(t *testing.T, context string, expectedPixels [][]color.RGBA, input string) {
 	t.Helper()
 
 	got := htmlToPDF(t, input, pdfZoom)
 
 	img, err := pdfToImage(got, pdfZoom)
 	if err != nil {
-		fmt.Println(got.Name())
-		t.Fatal(context, err)
+		t.Fatal(context, "file", got.Name(), err)
 	}
 
 	gotPixels := imagePixels(img)
-	expectedPixels := parsePixels(expected)
 	if len(gotPixels) != len(expectedPixels) {
-		t.Fatalf("%s: expected %d pixels rows, got %d", context, len(expectedPixels), len(gotPixels))
+		t.Fatalf("%s (file %s): expected %d pixels rows, got %d", context, got.Name(), len(expectedPixels), len(gotPixels))
 	}
 
 	for i, exp := range expectedPixels {
@@ -276,14 +314,26 @@ func assertPixelsEqual(t *testing.T, context, expected, input string) {
 				gotPixels[i][j] = joker
 			}
 		}
-		if !reflect.DeepEqual(gotPixels[i], exp) {
-			fmt.Println(got.Name())
-			t.Fatalf("%s: unexpected pixels at line %d", context, i)
+
+		if len(gotPixels[i]) != len(exp) {
+			t.Fatalf("%s (file %s): unexpected length for row %d : expected %d, got %d", context, got.Name(), i, len(exp), len(gotPixels[i]))
+		}
+
+		for j, v := range exp {
+			g := gotPixels[i][j]
+			if v != g {
+				t.Fatalf("%s (file: %s): pixel at (%d, %d): expected %v, got %v", context, got.Name(), i, j, v, g)
+			}
 		}
 	}
 
 	got.Close()
 	os.Remove(got.Name())
+}
+
+func assertPixelsEqual(t *testing.T, context, expected, input string) {
+	t.Helper()
+	assertPixelsEqualFromPixels(t, context, parsePixels(expected), input)
 }
 
 func arePixelsAlmostEqual(pix1, pix2 [][]color.RGBA, tolerance uint8) bool {
@@ -316,6 +366,8 @@ func arePixelsAlmostEqual(pix1, pix2 [][]color.RGBA, tolerance uint8) bool {
 }
 
 func assertSameRendering(t *testing.T, context, input1, input2 string, tolerance uint8) {
+	t.Helper()
+
 	got1 := htmlToPDF(t, input1, pdfZoom)
 	img1, err := pdfToImage(got1, pdfZoom)
 	if err != nil {
@@ -331,7 +383,7 @@ func assertSameRendering(t *testing.T, context, input1, input2 string, tolerance
 	gotPixels2 := imagePixels(img2)
 
 	if !arePixelsAlmostEqual(gotPixels1, gotPixels2, tolerance) {
-		t.Fatal(context, err)
+		t.Fatal(context, "got different rendering")
 	}
 }
 

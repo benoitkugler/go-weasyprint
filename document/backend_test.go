@@ -180,11 +180,11 @@ func (outputPage) DrawGradient(gradient backend.GradientLayout, width, height fl
 	outputLog.Println("DrawGradient")
 }
 
-func (outputPage) AddGroup(x, y, width, height fl) backend.OutputGraphic {
+func (outputPage) AddOpacityGroup(x, y, width, height fl) backend.OutputGraphic {
 	outputLog.Println("AddGroup")
 	return outputPage{}
 }
 
-func (outputPage) DrawGroup(group backend.OutputGraphic) {
+func (outputPage) DrawOpacityGroup(opacity fl, group backend.OutputGraphic) {
 	outputLog.Println("DrawGroup")
 }

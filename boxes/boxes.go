@@ -130,8 +130,8 @@ type BackgroundLayer struct {
 	Position        Position
 	Repeat          Repeat
 	ClippedBoxes    []RoundedBox
-	PaintingArea    Area
-	PositioningArea Area
+	PaintingArea    pr.Rectangle
+	PositioningArea pr.Rectangle
 	Size            [2]pr.Float // width, height
 	Unbounded       bool
 }

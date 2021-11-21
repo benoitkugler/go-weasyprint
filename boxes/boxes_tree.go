@@ -142,9 +142,9 @@ func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
 	return b
 }
 
-func NewBlockBox(elementTag string, style pr.ElementStyle, children []Box) BlockBox {
+func NewBlockBox(elementTag string, style pr.ElementStyle, children []Box) *BlockBox {
 	out := BlockBox{BoxFields: newBoxFields(elementTag, style, children)}
-	return out
+	return &out
 }
 
 func LineBoxAnonymousFrom(parent Box, children []Box) Box {
@@ -184,9 +184,9 @@ func (*InlineLevelBox) RemoveDecoration(box *BoxFields, start, end bool) {
 	}
 }
 
-func NewInlineBox(elementTag string, style pr.ElementStyle, children []Box) InlineBox {
+func NewInlineBox(elementTag string, style pr.ElementStyle, children []Box) *InlineBox {
 	out := InlineBox{BoxFields: newBoxFields(elementTag, style, children)}
-	return out
+	return &out
 }
 
 func NewTextBox(elementTag string, style pr.ElementStyle, text string) TextBox {
@@ -212,9 +212,9 @@ func (u TextBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.RemoveDecoration(b, start, end)
 }
 
-func NewInlineBlockBox(elementTag string, style pr.ElementStyle, children []Box) InlineBlockBox {
+func NewInlineBlockBox(elementTag string, style pr.ElementStyle, children []Box) *InlineBlockBox {
 	out := InlineBlockBox{BoxFields: newBoxFields(elementTag, style, children)}
-	return out
+	return &out
 }
 
 func (u InlineBox) RemoveDecoration(b *BoxFields, start, end bool) {
@@ -253,10 +253,10 @@ type methodsTableBox interface {
 	Table() *TableBox
 }
 
-func NewTableBox(elementTag string, style pr.ElementStyle, children []Box) TableBox {
+func NewTableBox(elementTag string, style pr.ElementStyle, children []Box) *TableBox {
 	out := TableBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.tabularContainer = true
-	return out
+	return &out
 }
 
 // Table implements InstanceTableBox
@@ -283,36 +283,36 @@ func (b *TableBox) PageValues() (pr.Page, pr.Page) {
 	return s.GetPage(), s.GetPage()
 }
 
-func NewInlineTableBox(elementTag string, style pr.ElementStyle, children []Box) InlineTableBox {
-	out := InlineTableBox{TableBox: NewTableBox(elementTag, style, children)}
-	return out
+func NewInlineTableBox(elementTag string, style pr.ElementStyle, children []Box) *InlineTableBox {
+	out := InlineTableBox{TableBox: *NewTableBox(elementTag, style, children)}
+	return &out
 }
 
-func NewTableRowGroupBox(elementTag string, style pr.ElementStyle, children []Box) TableRowGroupBox {
+func NewTableRowGroupBox(elementTag string, style pr.ElementStyle, children []Box) *TableRowGroupBox {
 	out := TableRowGroupBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.tabularContainer = true
 	out.IsHeader = false
 	out.IsFooter = false
-	return out
+	return &out
 }
 
-func NewTableRowBox(elementTag string, style pr.ElementStyle, children []Box) TableRowBox {
+func NewTableRowBox(elementTag string, style pr.ElementStyle, children []Box) *TableRowBox {
 	out := TableRowBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.tabularContainer = true
-	return out
+	return &out
 }
 
-func NewTableColumnGroupBox(elementTag string, style pr.ElementStyle, children []Box) TableColumnGroupBox {
+func NewTableColumnGroupBox(elementTag string, style pr.ElementStyle, children []Box) *TableColumnGroupBox {
 	out := TableColumnGroupBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.span = 1
 	out.GetCells = out.defaultGetCells
-	return out
+	return &out
 }
 
 // Return cells that originate in the group's columns.
@@ -326,34 +326,28 @@ func (b *TableColumnGroupBox) defaultGetCells() []Box {
 	return out
 }
 
-func NewTableColumnBox(elementTag string, style pr.ElementStyle, children []Box) TableColumnBox {
+func NewTableColumnBox(elementTag string, style pr.ElementStyle, children []Box) *TableColumnBox {
 	out := TableColumnBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.span = 1
-	out.GetCells = out.defaultGetCells
-	return out
+	// GetCells is setup during table layout
+	return &out
 }
 
-// Return cells that originate in the column.
-// May be overriden on instances.
-func (b *TableColumnBox) defaultGetCells() []Box {
-	return []Box{}
-}
-
-func NewTableCellBox(elementTag string, style pr.ElementStyle, children []Box) TableCellBox {
+func NewTableCellBox(elementTag string, style pr.ElementStyle, children []Box) *TableCellBox {
 	out := TableCellBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.internalTableOrCaption = true
 	out.Colspan = 1
 	out.Rowspan = 1
-	return out
+	return &out
 }
 
-func NewTableCaptionBox(elementTag string, style pr.ElementStyle, children []Box) TableCaptionBox {
-	out := TableCaptionBox{BlockBox: NewBlockBox(elementTag, style, children)}
+func NewTableCaptionBox(elementTag string, style pr.ElementStyle, children []Box) *TableCaptionBox {
+	out := TableCaptionBox{BlockBox: *NewBlockBox(elementTag, style, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
-	return out
+	return &out
 }
 
 func NewPageBox(pageType utils.PageElement, style pr.ElementStyle) *PageBox {
@@ -376,14 +370,14 @@ func (b *MarginBox) String() string {
 	return fmt.Sprintf("<MarginBox %s>", b.AtKeyword)
 }
 
-func NewFlexBox(elementTag string, style pr.ElementStyle, children []Box) FlexBox {
+func NewFlexBox(elementTag string, style pr.ElementStyle, children []Box) *FlexBox {
 	out := FlexBox{BoxFields: newBoxFields(elementTag, style, children)}
-	return out
+	return &out
 }
 
-func NewInlineFlexBox(elementTag string, style pr.ElementStyle, children []Box) InlineFlexBox {
+func NewInlineFlexBox(elementTag string, style pr.ElementStyle, children []Box) *InlineFlexBox {
 	out := InlineFlexBox{BoxFields: newBoxFields(elementTag, style, children)}
-	return out
+	return &out
 }
 
 func (u InlineFlexBox) RemoveDecoration(b *BoxFields, start, end bool) {

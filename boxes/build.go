@@ -121,52 +121,52 @@ func makeBox(elementTag string, style pr.ElementStyle, content []Box) (Box, erro
 	switch display {
 	case [2]string{"block", "flow"}:
 		b := NewBlockBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"inline", "flow"}:
 		b := NewInlineBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"block", "flow-root"}:
 		b := NewBlockBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"inline", "flow-root"}:
 		b := NewInlineBlockBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"block", "table"}:
 		b := NewTableBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"inline", "table"}:
 		b := NewInlineTableBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"block", "flex"}:
 		b := NewFlexBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"inline", "flex"}:
 		b := NewInlineFlexBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-row"}:
 		b := NewTableRowBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-row-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-header-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-footer-group"}:
 		b := NewTableRowGroupBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-column"}:
 		b := NewTableColumnBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-column-group"}:
 		b := NewTableColumnGroupBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-cell"}:
 		b := NewTableCellBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	case [2]string{"table-caption"}:
 		b := NewTableCaptionBox(elementTag, style, content)
-		return &b, nil
+		return b, nil
 	default:
 		return nil, fmt.Errorf("Ignored box %s: display property %s not supported", elementTag, tmp)
 	}

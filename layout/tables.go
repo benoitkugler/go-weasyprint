@@ -137,7 +137,11 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 					break
 				}
 				resolvePercentagesBox(cell_, &table.BoxFields, "")
-				cell.PositionX = table.ColumnPositions[cell.GridX]
+				if table.Style.GetDirection() == "ltr" {
+					cell.PositionX = table.ColumnPositions[cell.GridX]
+				} else {
+					cell.PositionX = table.ColumnPositions[cell.GridX+cell.Colspan-1]
+				}
 				cell.PositionY = row.PositionY
 				cell.MarginTop = pr.Float(0)
 				cell.MarginLeft = pr.Float(0)

@@ -133,8 +133,10 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY pr.Fl
 		waitingFloats                              []Box
 	)
 	for {
-		linebox.PositionX = positionX
-		linebox.PositionY = positionY
+		linebox.PositionX, linebox.PositionY = positionX, positionY
+		originalPositionX, originalPositionY := positionX, positionY
+		originalWidth := linebox.Width.V()
+
 		maxX := positionX + availableWidth
 		positionX += linebox.TextIndent.V()
 
@@ -190,7 +192,15 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY pr.Fl
 		newExcludedShapes := context.excludedShapes
 		context.excludedShapes = &excludedShapes
 		positionX, positionY, availableWidth = avoidCollisions(context, line_, containingBlock, false)
-		if positionX == linebox.PositionX && positionY == linebox.PositionY {
+
+		var condition bool
+		if containingBlock.Style.GetDirection() == "ltr" {
+			condition = positionX == originalPositionX && positionY == originalPositionY
+		} else {
+			condition = positionX+line.Width.V() == originalPositionX+originalWidth && positionY == originalPositionY
+		}
+
+		if condition {
 			context.excludedShapes = newExcludedShapes
 			break
 		}
@@ -367,7 +377,7 @@ func firstLetterToBox(context *layoutContext, box Box, skipStack *tree.IntList, 
 		letterStyle := tree.ComputedFromCascaded(nil, nil, firstLetterStyle, nil, "", "", nil, context)
 		if strings.HasSuffix(textBox.ElementTag, "::first-letter") {
 			letterBox := bo.NewInlineBox(textBox.ElementTag+"::first-letter", letterStyle, []Box{child})
-			box.Box().Children[0] = &letterBox
+			box.Box().Children[0] = letterBox
 		} else if textBox.Text != "" {
 			text := []rune(textBox.Text)
 			characterFound := false
@@ -400,7 +410,7 @@ func firstLetterToBox(context *layoutContext, box Box, skipStack *tree.IntList, 
 					letterBox := bo.NewInlineBox(textBox.ElementTag+"::first-letter", firstLetterStyle, nil)
 					textBox_ := bo.NewTextBox(textBox.ElementTag+"::first-letter", letterStyle, firstLetter)
 					letterBox.Children = []Box{&textBox_}
-					textBox.Children = append([]Box{&letterBox}, textBox.Children...)
+					textBox.Children = append([]Box{letterBox}, textBox.Children...)
 				} else {
 					letterBox := bo.NewBlockBox(textBox.ElementTag+"::first-letter", firstLetterStyle, nil)
 					letterBox.FirstLetterStyle = nil
@@ -408,7 +418,7 @@ func firstLetterToBox(context *layoutContext, box Box, skipStack *tree.IntList, 
 					letterBox.Children = []Box{&lineBox}
 					textBox_ := bo.NewTextBox(textBox.ElementTag+"::first-letter", letterStyle, firstLetter)
 					lineBox.Children = []Box{&textBox_}
-					textBox.Children = append([]Box{&letterBox}, textBox.Children...)
+					textBox.Children = append([]Box{letterBox}, textBox.Children...)
 				}
 				if skipStack != nil && childSkipStack != nil {
 					skipStack = &tree.IntList{Value: skipStack.Value, Next: &tree.IntList{

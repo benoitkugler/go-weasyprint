@@ -13,7 +13,9 @@ import (
 
 type handlerFunction = func(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box
 
-var htmlHandlers = map[string]handlerFunction{
+// HTMLHandlers map a tag name to a callback creating the boxes needed.
+// It is exposed for internal tests and should not be modified otherwise.
+var HTMLHandlers = map[string]handlerFunction{
 	"img":      handleImg,
 	"embed":    handleEmbed,
 	"object":   handleObject,
@@ -26,7 +28,7 @@ var htmlHandlers = map[string]handlerFunction{
 
 // HandleElement handle HTML elements that need special care.
 func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
-	handler, in := htmlHandlers[box.Box().ElementTag]
+	handler, in := HTMLHandlers[box.Box().ElementTag]
 	if in {
 		ls := handler(element, box, getImageFromUri, baseUrl)
 		return ls

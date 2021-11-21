@@ -21,11 +21,6 @@ ABSTRACT_TYPES = [
     "InlineLevelBox",
 ]
 
-# def class_by_name(class_name: str) -> type:
-#     v = getattr(source_box, class_name)
-#     assert isinstance(v, type)
-#     return v
-
 
 def get_class_comment(c: type) -> str:
     python_comment = inspect.getdoc(c) or ""
@@ -116,7 +111,7 @@ def get_itf_and_type_code(class_: type) -> str:
         func {class_name}AnonymousFrom(parent Box, children []Box) *{class_name} {{
             style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
             out := New{class_name}(parent.Box().ElementTag, style, children)
-            return &out
+            return out
         }}
         """
 
