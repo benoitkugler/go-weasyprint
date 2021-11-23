@@ -160,6 +160,7 @@ func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 func NewLineBox(elementTag string, style pr.ElementStyle, children []Box) LineBox {
 	out := LineBox{BoxFields: newBoxFields(elementTag, style, children)}
 	out.TextOverflow = "clip"
+	out.BlockEllipsis = pr.NamedString{Name: "none"}
 	return out
 }
 

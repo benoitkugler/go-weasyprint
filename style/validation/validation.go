@@ -231,6 +231,7 @@ var (
 		"anchor":                     anchor,
 		"block-ellipsis":             blockEllipsis,
 		"continue":                   continue_,
+		"max-lines":                  maxLines,
 	}
 	validatorsError = map[string]validatorError{
 		"background-image":  backgroundImage,
@@ -279,6 +280,7 @@ var (
 		"bleed-bottom",
 		"marks",
 		"continue",
+		"max-lines",
 	)
 	multiValProperties = utils.NewSet(
 		"content",
@@ -2867,6 +2869,22 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 		}
 	}
 	return pr.SDimensions{}, InvalidValue
+}
+
+func maxLines(tokens []Token, _ string) pr.CssProperty {
+	if len(tokens) != 1 {
+		return nil
+	}
+	token := tokens[0]
+	if token, ok := token.(parser.NumberToken); ok {
+		if token.IsInteger {
+			return pr.IntString{Int: token.IntValue()}
+		}
+	}
+	if keyword := getKeyword(token); keyword == "none" {
+		return pr.IntString{String: "none"}
+	}
+	return nil
 }
 
 func continue_(tokens []Token, _ string) pr.CssProperty {

@@ -3,6 +3,7 @@ package pdf
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -28,6 +29,7 @@ func (g *group) DrawText(text backend.TextDrawing) {
 
 	g.app.SetTextMatrix(text.FontSize, 0, 0, -text.FontSize, text.X, text.Y)
 
+	fmt.Println(text)
 	for _, run := range text.Runs {
 		pf := g.fonts[run.Font]
 		g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)

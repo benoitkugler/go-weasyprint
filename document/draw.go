@@ -1334,6 +1334,8 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	layout := &textbox.PangoLayout.Layout
 	layout.SetSingleParagraphMode(true)
 
+	fmt.Println(textOverflow, blockEllipsis, string(layout.Text))
+
 	var ellipsis string
 	if textOverflow == "ellipsis" || blockEllipsis.Name != "none" {
 		// assert textbox.PangoLayout.maxWidth is not nil
@@ -1381,6 +1383,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	output.X, output.Y = x, y
 
 	textRunes := layout.Text
+	fmt.Println("text", textRunes, string(textRunes))
 	for run := firstLine.Runs; run != nil; run = run.Next {
 
 		// Pango objects

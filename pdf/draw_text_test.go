@@ -2,7 +2,7 @@ package pdf
 
 import "testing"
 
-// FIXME: Test how text is drawn.
+// Test how text is drawn.
 
 func TestTextOverflowClip(t *testing.T) {
 	assertPixelsEqual(t, "text_overflow", `
@@ -114,6 +114,7 @@ func TestTextAlignRtlTrailingWhitespace(t *testing.T) {
 }
 
 func TestMaxLinesEllipsis(t *testing.T) {
+	// FIXME:
 	assertPixelsEqual(t, "max_lines_ellipsis", `
         BBBBBBBB__
         BBBBBBBB__
