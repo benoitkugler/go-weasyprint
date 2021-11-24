@@ -13,7 +13,7 @@ BASE_URL = "https://en.wikipedia.org/wiki/Go_(programming_language)"
 OUTPUT = "resources_test/Wikipedia-Go-expected.json"
 
 
-def dump_tree(box: boxes.Box) -> None:
+def tree_to_json(box: boxes.Box) -> str:
     assert box.element_tag == 'html'
     assert isinstance(box, boxes.BlockBox)
     assert len(box.children) == 1
@@ -23,8 +23,7 @@ def dump_tree(box: boxes.Box) -> None:
     assert box.element_tag == 'body'
 
     output = serialize(box.children)
-    with open(OUTPUT, "w") as fp:
-        json.dump(output, fp, indent=2)
+    return json.dumps(output, indent=2)
 
 
 TEST_UA_STYLESHEET = CSS(filename="style/tree/tests_ua.css")
@@ -112,17 +111,32 @@ def serialize(box_list: [Box]) -> list:
     } for box in box_list]
 
 
-print("Loading HTML...")
-document = FakeHTML(filename=FILENAME, base_url=BASE_URL)
-counter_style = CounterStyle()
-style_for = get_all_computed_styles(document, counter_style=counter_style)
-get_image_from_uri = functools.partial(
-    images.get_image_from_uri, cache={}, url_fetcher=document.url_fetcher,
-    optimize_size=())
-target_collector = TargetCollector()
-print("Building tree...")
-tree = build_formatting_structure(document.etree_element, style_for, get_image_from_uri, BASE_URL,
-                                  target_collector, counter_style)
-print("Exporting as JSON...")
-dump_tree(tree)
-print("Done.")
+def dump_tree(document: FakeHTML) -> str:
+    counter_style = CounterStyle()
+    style_for = get_all_computed_styles(document, counter_style=counter_style)
+    get_image_from_uri = functools.partial(
+        images.get_image_from_uri, cache={}, url_fetcher=document.url_fetcher,
+        optimize_size=())
+    target_collector = TargetCollector()
+    print("Building tree...")
+    tree = build_formatting_structure(document.etree_element, style_for, get_image_from_uri, BASE_URL,
+                                      target_collector, counter_style)
+    print("Exporting as JSON...")
+    return tree_to_json(tree)
+
+
+# print("Loading HTML...")
+# document = FakeHTML(filename=FILENAME, base_url=BASE_URL)
+# js = dump_tree(document)
+# with open(OUTPUT, "w") as fp:
+#     fp.write(js)
+# print("Done.")
+
+
+print(dump_tree(FakeHTML(string="""
+    <style>
+        @page { size: 300px 30px }
+        body { margin: 0; background: #fff }
+    </style>
+    <p><a href="another url"><span>[some url] </span>some content</p>
+    """)))

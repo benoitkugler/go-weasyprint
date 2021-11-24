@@ -319,7 +319,7 @@ func TestLineClamp(t *testing.T) {
 	assertValidDict(t, "line-clamp: 2", toValidated(pr.Properties{
 		"max_lines":      pr.IntString{Int: 2},
 		"continue":       pr.String("discard"),
-		"block_ellipsis": pr.NamedString{String: "auto"},
+		"block_ellipsis": pr.NamedString{Name: "auto"},
 	}))
 	assertValidDict(t, `line-clamp: 3 "…"`, toValidated(pr.Properties{
 		"max_lines":      pr.IntString{Int: 3},

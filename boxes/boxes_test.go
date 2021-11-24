@@ -130,7 +130,7 @@ var properChildren = map[BoxType][]BoxType{
 //
 // - A block container can contain either only block-level boxes or
 //   only line boxes;
-// - Line boxes and inline boxes can only contain inline-level boxes.
+// - Line boxes and inline boxes can only contain inline-level
 func sanityChecks(box Box) error {
 	if !ParentBoxT.IsInstance(box) {
 		return nil
@@ -1418,6 +1418,34 @@ func TestPhEmbedded(t *testing.T) {
 			{"body", TextBoxT, BC{Text: " "}},
 			{"embed", InlineReplacedBoxT, BC{Text: "<replaced>"}},
 			{"body", TextBoxT, BC{Text: " "}},
+		}}},
+	})
+}
+
+func TestNoNewLine(t *testing.T) {
+	assertTree(t, parseAndBuild(t, `
+	<style>
+	@page { size: 300px 30px }
+	body { margin: 0; background: #fff }
+</style>
+<p><a href="another url"><span>[some url] </span>some content</p>
+`), []SerBox{
+		{Tag: "p", Type: 0x2, Content: BC{
+			C: []SerBox{{Tag: "p", Type: 0xf, Content: BC{C: []SerBox{
+				{Tag: "a", Type: 0xa, Content: BC{C: []SerBox{
+					{Tag: "span", Type: 0xa, Content: BC{C: []SerBox{
+						{Tag: "span", Type: 0x1b, Content: BC{Text: "[some url] "}},
+					}}},
+					{Tag: "a", Type: 0x1b, Content: BC{Text: "some content"}},
+				}}},
+			}}}},
+		}},
+		{Tag: "body", Type: 0x2, Content: BC{C: []SerBox{
+			{Tag: "body", Type: 0xf, Content: BC{C: []SerBox{
+				{Tag: "a", Type: 0xa, Content: BC{C: []SerBox{
+					{Tag: "a", Type: 0x1b, Content: BC{Text: " "}},
+				}}},
+			}}},
 		}}},
 	})
 }

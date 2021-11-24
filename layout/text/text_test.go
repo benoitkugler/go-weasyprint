@@ -141,3 +141,9 @@ func BenchmarkSplitFirstLine(b *testing.B) {
 		SplitFirstLine(text, newStyle, ct, pr.Float(200), 0, false)
 	}
 }
+
+func TestGetLastWordEnd(t *testing.T) {
+	if i := GetLastWordEnd([]rune{99, 99, 32, 99}); i != 2 {
+		t.Fatalf("expected %d, got %d", 2, i)
+	}
+}

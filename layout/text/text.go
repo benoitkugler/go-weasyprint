@@ -50,7 +50,7 @@ func CreateLayout(text string, style pr.StyleAccessor, context TextLayoutContext
 		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(utils.Maxs(0, pr.Fl(maxWidth)))))
 	}
 
-	layout.SetText(text, false)
+	layout.SetText(text)
 	return layout
 }
 
@@ -163,7 +163,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 			// nextWord might fit without a space afterwards
 			// only try when space collapsing is allowed
 			newFirstLineText := firstLineText + nextWord
-			layout.SetText(newFirstLineText, false)
+			layout.SetText(newFirstLineText)
 			firstLine, index = layout.GetFirstLine()
 			firstLineWidth, _ = LineSize(firstLine, style)
 			if index == -1 && firstLineText != "" {
@@ -252,7 +252,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 				if id := strings.LastIndexByte(firstLineText, ' '); id != -1 {
 					firstLineText, nextWord = firstLineText[:id], firstLineText[id+1:]
 					nextWord = " " + nextWord
-					layout.SetText(firstLineText, false)
+					layout.SetText(firstLineText)
 					firstLine, index = layout.GetFirstLine()
 					resumeIndex = len([]rune(firstLineText + " "))
 				} else {
@@ -299,7 +299,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 				// Recreate the layout with no maxWidth to be sure that
 				// we don't break before or inside the hyphenate character
 				hyphenated = true
-				layout.SetText(hyphenatedFirstLineText, false)
+				layout.SetText(hyphenatedFirstLineText)
 				layout.Layout.SetWidth(-1)
 				firstLine, index = layout.GetFirstLine()
 				resumeIndex = len([]rune(newFirstLineText))
@@ -315,7 +315,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		// we don't break inside the hyphenate-character string
 		hyphenated = true
 		hyphenatedFirstLineText := firstLineText + hyphenateCharacter
-		layout.SetText(hyphenatedFirstLineText, false)
+		layout.SetText(hyphenatedFirstLineText)
 		layout.Layout.SetWidth(-1)
 		firstLine, index = layout.GetFirstLine()
 		resumeIndex = len([]rune(firstLineText))
@@ -329,7 +329,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	if !minimum && overflowWrap == "break-word" && space < 0 {
 		// Is it really OK to remove hyphenation for word-break ?
 		hyphenated = false
-		layout.SetText(string(text), false)
+		layout.SetText(string(text))
 		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(maxWidthV)))
 		layout.Layout.SetWrap(pango.WRAP_CHAR)
 		firstLine, index = layout.GetFirstLine()
@@ -369,7 +369,7 @@ func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *TextLayo
 
 		// Remove soft hyphens
 		textNoHyphens := strings.ReplaceAll(firstLineText, "\u00ad", "")
-		layout.SetText(textNoHyphens, false)
+		layout.SetText(textNoHyphens)
 
 		firstLine, _ = layout.GetFirstLine()
 		length = 0
@@ -433,7 +433,7 @@ func GetLastWordEnd(t []rune) int {
 	}
 	attrs := getLogAttrs(t)
 	for i := 0; i < len(attrs); i++ {
-		item := attrs[len(attrs)-1]
+		item := attrs[len(attrs)-1-i]
 		if i != 0 && item.IsWordEnd() {
 			return len(t) - i
 		}
@@ -492,7 +492,7 @@ func StrutLayout(style pr.StyleAccessor, context TextLayoutContext) [2]pr.Float 
 	}
 
 	layout := NewTextLayout(context, pr.Fl(fontSize), style, 0, nil)
-	layout.SetText(" ", false)
+	layout.SetText(" ")
 	line, _ := layout.GetFirstLine()
 	sp := firstLineMetrics(line, nil, layout, -1, false, style, false, "")
 	if lineHeight.String == "normal" {
@@ -530,7 +530,7 @@ func ExRatio(style pr.ElementStyle, context TextLayoutContext) pr.Float {
 	var fontSize pr.Fl = 1000
 
 	layout := NewTextLayout(context, fontSize, style, 0, nil)
-	layout.SetText("x", false)
+	layout.SetText("x")
 	line, _ := layout.GetFirstLine()
 
 	var inkExtents pango.Rectangle

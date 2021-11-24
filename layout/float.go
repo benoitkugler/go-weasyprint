@@ -84,6 +84,10 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 
 	*context.excludedShapes = append(*context.excludedShapes, box_.Box())
 
+	if debugMode {
+		debugLogger.LineWithDedent("")
+	}
+
 	return box_
 }
 

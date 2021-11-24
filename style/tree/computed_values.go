@@ -386,7 +386,7 @@ func length2(computer *ComputedStyle, _ string, value pr.Value, fontSize pr.Floa
 			result = value.Value * fontSize * text.ExRatio(computer, computer.textContext)
 		case pr.Ch:
 			layout := text.NewTextLayout(computer.textContext, float64(fontSize), computer, 0, nil)
-			layout.SetText("0", false)
+			layout.SetText("0")
 			line, _ := layout.GetFirstLine()
 			logicalWidth, _ := text.LineSize(line, computer)
 			result = value.Value * pr.Float(logicalWidth)

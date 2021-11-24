@@ -153,7 +153,7 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY pr.Fl
 		line := line_.Box()
 		linebox.Width, linebox.Height = line.Width, line.Height
 
-		if isPhantomLinebox(*line) && !preservedLineBreak {
+		if isPhantomLinebox(line) && !preservedLineBreak {
 			line.Height = pr.Float(0)
 			break
 		}
@@ -1025,6 +1025,10 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX pr.Float, 
 		lastLetter = letterFalse
 	}
 
+	if debugMode {
+		debugLogger.LineWithDedent("--> split inline box %T done", box_)
+	}
+
 	return splitedInline{
 		newBox:             newBox_,
 		resumeAt:           resumeAt,
@@ -1088,7 +1092,7 @@ func inlineOutOfFlowLayout(context *layoutContext, box Box, containingBlock *bo.
 			child_ = floatLayout(context, child_, containingBlock, absoluteBoxes, fixedBoxes)
 
 			if debugMode {
-				debugLogger.LineWithDedent("-->Float child %T done.", child_)
+				debugLogger.LineWithDedent("--> Float child %T done.", child_)
 			}
 
 			*waitingChildren = append(*waitingChildren, indexedBox{index: index, box: child_})
@@ -1467,19 +1471,19 @@ func addWordSpacing(context *layoutContext, box_ Box, justificationSpacing, xAdv
 	return xAdvance
 }
 
-// http://www.w3.org/TR/CSS21/visuren.html#phantom-line-box
-func isPhantomLinebox(linebox bo.BoxFields) bool {
+// Shttp://www.w3.org/TR/CSS21/visuren.html#phantom-line-box
+func isPhantomLinebox(linebox *bo.BoxFields) bool {
 	for _, child_ := range linebox.Children {
-		child := *child_.Box()
+		child := child_.Box()
 		if bo.InlineBoxT.IsInstance(child_) {
 			if !isPhantomLinebox(child) {
 				return false
 			}
 			for _, side := range [4]string{"top", "right", "bottom", "left"} {
 				m := child.Style.Get("margin_" + side).(pr.Value).Value
-				b := child.Style.Get("border_" + side + "_width").(pr.Value)
+				b := child.Style.Get("border_" + side + "_width").(pr.Value).Value
 				p := child.Style.Get("padding_" + side).(pr.Value).Value
-				if m != 0 || !b.IsNone() || p != 0 {
+				if m != 0 || b != 0 || p != 0 {
 					return false
 				}
 			}

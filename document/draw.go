@@ -1298,6 +1298,7 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 	x, y := pr.Fl(textbox.PositionX), pr.Fl(textbox.PositionY+textbox.Baseline.V())
 	ctx.dst.SetColorRgba(textbox.Style.GetColor().RGBA, false)
 
+	textbox.PangoLayout.ApplyJustification()
 	ctx.drawFirstLine(textbox, textOverflow, blockEllipsis, x, y)
 
 	// Draw text decoration
@@ -1312,17 +1313,18 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 	var offsetY pr.Float
 
 	metrics := textbox.PangoLayout.Metrics
+
 	if utils.Set(decoration).Has("overline") {
-		thickness = pr.Fl(metrics.UnderlineThickness)
-		offsetY = textbox.Baseline.V() - pr.Float(metrics.Ascent) + pr.Float(thickness)/2
+		thickness = utils.PangoUnitsToFloat((metrics.UnderlineThickness))
+		offsetY = textbox.Baseline.V() - pr.Float(utils.PangoUnitsToFloat(metrics.Ascent)) + pr.Float(thickness)/2
 	}
 	if utils.Set(decoration).Has("underline") {
-		thickness = pr.Fl(metrics.UnderlineThickness)
-		offsetY = textbox.Baseline.V() - pr.Float(metrics.UnderlinePosition) + pr.Float(thickness)/2
+		thickness = utils.PangoUnitsToFloat((metrics.UnderlineThickness))
+		offsetY = textbox.Baseline.V() - pr.Float(utils.PangoUnitsToFloat(metrics.UnderlinePosition)) + pr.Float(thickness)/2
 	}
 	if utils.Set(decoration).Has("line-through") {
-		thickness = pr.Fl(metrics.StrikethroughThickness)
-		offsetY = textbox.Baseline.V() - pr.Float(metrics.StrikethroughPosition)
+		thickness = utils.PangoUnitsToFloat((metrics.StrikethroughThickness))
+		offsetY = textbox.Baseline.V() - pr.Float(utils.PangoUnitsToFloat(metrics.StrikethroughPosition))
 	}
 
 	if !decoration.IsNone() {
@@ -1333,8 +1335,6 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, blockEllipsis pr.NamedString, x, y pr.Fl) {
 	layout := &textbox.PangoLayout.Layout
 	layout.SetSingleParagraphMode(true)
-
-	fmt.Println(textOverflow, blockEllipsis, string(layout.Text))
 
 	var ellipsis string
 	if textOverflow == "ellipsis" || blockEllipsis.Name != "none" {
@@ -1356,19 +1356,19 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 					newText = newText[:lastWordEnd]
 				}
 			}
-			textbox.PangoLayout.SetText(string(newText)+ellipsis, false)
+			textbox.PangoLayout.SetText(string(newText) + ellipsis)
 		}
 	}
 
 	firstLine, secondLine := textbox.PangoLayout.GetFirstLine()
-	if blockEllipsis != (pr.NamedString{Name: "none"}) {
-		for secondLine != 0 {
+	if blockEllipsis.Name != "none" {
+		for secondLine != 0 && secondLine != -1 {
 			lastWordEnd := text.GetLastWordEnd(layout.Text[:len(layout.Text)-len([]rune(ellipsis))])
 			if lastWordEnd == -1 {
 				break
 			}
 			newText := layout.Text[:lastWordEnd]
-			textbox.PangoLayout.SetText(string(newText)+ellipsis, false)
+			textbox.PangoLayout.SetText(string(newText) + ellipsis)
 			firstLine, secondLine = textbox.PangoLayout.GetFirstLine()
 		}
 	}
@@ -1383,13 +1383,12 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	output.X, output.Y = x, y
 
 	textRunes := layout.Text
-	fmt.Println("text", textRunes, string(textRunes))
 	for run := firstLine.Runs; run != nil; run = run.Next {
 
 		// Pango objects
 		glyphItem := run.Data
 		glyphString := glyphItem.Glyphs
-		offset := glyphItem.Item.Offset
+		runStart := glyphItem.Item.Offset
 
 		// Font content
 		pangoFont := glyphItem.Item.Analysis.Font
@@ -1437,10 +1436,10 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			outGlyph.Kerning = int(pr.Fl(outFont.Widths[outGlyph.Glyph]) - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
 
 			// Mapping between glyphs and characters
-			startPos := offset + glyphString.LogClusters[i] // Positions of the glyphs in the UTF-8 string
-			endPos := offset + glyphItem.Item.Length
+			startPos := runStart + glyphString.LogClusters[i] // Positions of the glyphs in the UTF-8 string
+			endPos := runStart + glyphItem.Item.Length
 			if i < len(glyphString.Glyphs)-1 {
-				endPos = offset + glyphString.LogClusters[i+1]
+				endPos = runStart + glyphString.LogClusters[i+1]
 			}
 			if _, in := outFont.Cmap[outGlyph.Glyph]; !in && glyph != pango.GLYPH_EMPTY {
 				outFont.Cmap[outGlyph.Glyph] = textRunes[startPos:endPos]
@@ -1472,8 +1471,9 @@ func (ctx drawContext) drawWave(x, y, width, offsetX, radius pr.Fl) {
 // Draw text-decoration of ``textbox`` to a ``context``.
 func (ctx drawContext) drawTextDecoration(textbox *bo.TextBox, offsetX, offsetY, thickness pr.Fl, color Color) {
 	style := textbox.Style.GetTextDecorationStyle()
+
 	ctx.dst.OnNewStack(func() error {
-		ctx.dst.SetColorRgba(color, false)
+		ctx.dst.SetColorRgba(color, true)
 		ctx.dst.SetLineWidth(thickness)
 
 		if style == "dashed" {

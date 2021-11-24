@@ -991,7 +991,7 @@ func expandLineClamp(_, _ string, tokens []parser.Token) (out pr.NamedProperties
 			return pr.NamedProperties{
 				{Name: "max_lines", Property: pr.AsCascaded(pr.IntString{Int: nb.IntValue()}).AsValidated()},
 				{Name: "continue", Property: pr.AsCascaded(pr.String("discard")).AsValidated()},
-				{Name: "block-ellipsis", Property: pr.AsCascaded(pr.NamedString{String: "auto"}).AsValidated()},
+				{Name: "block-ellipsis", Property: pr.AsCascaded(pr.NamedString{Name: "auto"}).AsValidated()},
 			}, nil
 		}
 	} else if len(tokens) == 2 {

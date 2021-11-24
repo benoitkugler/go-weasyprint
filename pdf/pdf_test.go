@@ -1,22 +1,13 @@
 package pdf
 
 import (
-	"fmt"
+	"io"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 )
-
-func finishAndSave(c *Output, t *testing.T) {
-	doc := c.Finalize()
-	err := doc.WriteFile("test.pdf", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("Saved in test.pdf")
-}
 
 func TestPaint(t *testing.T) {
 	c := NewOutput()
@@ -35,7 +26,12 @@ func TestPaint(t *testing.T) {
 		page.Fill(false)
 		return nil
 	})
-	finishAndSave(c, t)
+
+	doc := c.Finalize()
+	err := doc.Write(io.Discard, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func init() {

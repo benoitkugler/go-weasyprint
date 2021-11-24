@@ -369,21 +369,22 @@ func assertSameRendering(t *testing.T, context, input1, input2 string, tolerance
 	t.Helper()
 
 	got1 := htmlToPDF(t, input1, pdfZoom)
+	got2 := htmlToPDF(t, input2, pdfZoom)
+
 	img1, err := pdfToImage(got1, pdfZoom)
 	if err != nil {
 		t.Fatal(context, err)
 	}
-	gotPixels1 := imagePixels(img1)
-
-	got2 := htmlToPDF(t, input2, pdfZoom)
 	img2, err := pdfToImage(got2, pdfZoom)
 	if err != nil {
 		t.Fatal(context, err)
 	}
+
+	gotPixels1 := imagePixels(img1)
 	gotPixels2 := imagePixels(img2)
 
 	if !arePixelsAlmostEqual(gotPixels1, gotPixels2, tolerance) {
-		t.Fatal(context, "got different rendering")
+		t.Fatal(context, "got different rendering", got1.Name(), got2.Name())
 	}
 }
 

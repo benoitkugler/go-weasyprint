@@ -1547,3 +1547,16 @@ func TestRunningElementsDisplay(t *testing.T) {
 	tu.AssertEqual(t, centerT, "block", "")
 	tu.AssertEqual(t, rightT, "table", "")
 }
+
+func TestNoNewPage(t *testing.T) {
+	pages := renderPages(t, `           
+	<style>
+		@page { size: 300px 30px }
+		body { margin: 0; background: #fff }
+	</style>
+	<p><a href="another url"><span>[some url] </span>some content</p>
+	`)
+	if len(pages) != 1 {
+		t.Fatalf("expected one page, got %d", len(pages))
+	}
+}

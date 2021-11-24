@@ -114,7 +114,6 @@ func TestTextAlignRtlTrailingWhitespace(t *testing.T) {
 }
 
 func TestMaxLinesEllipsis(t *testing.T) {
-	// FIXME:
 	assertPixelsEqual(t, "max_lines_ellipsis", `
         BBBBBBBB__
         BBBBBBBB__

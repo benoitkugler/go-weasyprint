@@ -27,10 +27,6 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins *[]pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
 
-	if debugMode {
-		debugLogger.LineWithIndent("Layout BLOCK-LEVEL %T (resume at : %s)", box_, skipStack)
-	}
-
 	box := box_.Box()
 	if !bo.TableBoxT.IsInstance(box_) {
 		resolvePercentagesBox(box_, containingBlock, "")
@@ -69,6 +65,11 @@ func blockLevelLayout(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPosit
 func blockLevelLayoutSwitch(context *layoutContext, box_ bo.BlockLevelBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
 	containingBlock *bo.BoxFields, pageIsEmpty bool, absoluteBoxes,
 	fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins *[]pr.Float, discard bool) (bo.BlockLevelBoxITF, blockLayout) {
+
+	if debugMode {
+		debugLogger.LineWithIndent("Layout BLOCK-LEVEL %T (resume at : %s)", box_, skipStack)
+		defer debugLogger.LineWithDedent("")
+	}
 
 	blockBox, isBlockBox := box_.(bo.BlockBoxITF)
 	replacedBox, isReplacedBox := box_.(bo.ReplacedBoxITF)
@@ -542,7 +543,7 @@ func outOfFlowLayout(context *layoutContext, box *bo.BoxFields, index int, child
 }
 
 func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ *bo.LineBox, newChildren []Box,
-	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, allowedMaxPositionY, positionY pr.Float,
+	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float, maxPositionY, positionY pr.Float,
 	skipStack *tree.IntList, firstLetterStyle pr.ElementStyle) (
 	abort, stop bool, resumeAt *tree.IntList, _ pr.Float, _ []Box) {
 
@@ -572,7 +573,7 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 		// Allow overflow if the first line of the page is higher
 		// than the page itself so that we put *something* on this
 		// page and can advance in the context.
-		if newPositionY+offsetY > allowedMaxPositionY && (len(newChildren) != 0 || !pageIsEmpty) {
+		if newPositionY+offsetY > maxPositionY && (len(newChildren) != 0 || !pageIsEmpty) {
 			overOrphans := len(newChildren) - int(box.Style.GetOrphans())
 			if overOrphans < 0 && !pageIsEmpty {
 				// Reached the bottom of the page before we had
@@ -606,7 +607,7 @@ func lineBoxLayout(context *layoutContext, box *bo.BoxFields, index int, child_ 
 			stop = true
 			break
 
-		} else if pageIsEmpty && newPositionY > allowedMaxPositionY {
+		} else if pageIsEmpty && newPositionY > maxPositionY {
 			// Remove the top border when a page is empty && the box is
 			// too high to be drawn := range one page
 			newPositionY -= box.MarginTop.V()

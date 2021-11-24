@@ -95,7 +95,14 @@ func (p *TextLayout) setup(context TextLayoutContext, fontSize pr.Fl, style pr.S
 	}
 }
 
-func (p *TextLayout) SetText(text string, justify bool) {
+func (p *TextLayout) SetText(text string) { p.setText(text, false) }
+
+// ApplyJustification re-layout the text, applying justification.
+func (p *TextLayout) ApplyJustification() {
+	p.setText(string(p.Layout.Text), true)
+}
+
+func (p *TextLayout) setText(text string, justify bool) {
 	if index := strings.IndexByte(text, '\n'); index != -1 && len(text) >= index+2 {
 		// Keep only the first line plus one character, we don't need more
 		text = text[:index+2]
@@ -149,7 +156,7 @@ func (p *TextLayout) setTabs() {
 	width := int(tabSize.Value)
 	if tabSize.Unit == 0 { // no unit, means a multiple of the advance width of the space character
 		layout := NewTextLayout(p.Context, pr.Fl(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
-		layout.SetText(strings.Repeat(" ", width), false)
+		layout.SetText(strings.Repeat(" ", width))
 		line, _ := layout.GetFirstLine()
 		widthTmp, _ := LineSize(line, p.Style)
 		width = int(widthTmp + 0.5)
