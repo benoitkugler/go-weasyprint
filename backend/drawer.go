@@ -115,7 +115,7 @@ type Output interface {
 	// CreateAnchors register a list of anchors per page, which are named targets of internal links.
 	// `anchors` is a 0-based list, meaning anchors in page 1 are at index 0.
 	// The origin of internal link has been be added by `OutputPage.AddInternalLink`.
-	// `CreateAnchors` is called after all the pages have been create and processed
+	// `CreateAnchors` is called after all the pages have been created and processed
 	CreateAnchors(anchors [][]Anchor)
 
 	// Add global attachments to the file
@@ -177,19 +177,31 @@ type RasterImage struct {
 	ID int
 }
 
+// BackgroundImage groups all possible image format for backgrounds,
+// like raster image, svg, or gradient
 type BackgroundImage interface {
-	Draw(context OutputGraphic, concreteWidth, concreteHeight fl, imageRendering string)
+	// Draw shall write the image on the given `context`
+	Draw(context GraphicTarget, concreteWidth, concreteHeight fl, imageRendering string)
 }
 
 type BackgroundImageOptions struct {
+	Rendering                 string // CSS rendering property
 	ImageWidth, ImageHeight   fl
 	RepeatWidth, RepeatHeight fl
-	X, Y                      fl     // where to paint the image
-	Rendering                 string // CSS rendering property
+	X, Y                      fl // where to paint the image
 }
 
 // OutputGraphic is a surface and the target of graphic operations
 type OutputGraphic interface {
+	GraphicTarget
+
+	// FillWithImage fills the current path using the given image.
+	// Usually, the given image would be painted on an temporary OutputGraphic,
+	// which would then be used as fill pattern.
+	FillWithImage(img BackgroundImage, options BackgroundImageOptions)
+}
+
+type GraphicTarget interface {
 	// Returns the current page rectangle
 	GetPageRectangle() (left, top, right, bottom fl)
 
@@ -293,11 +305,6 @@ type OutputGraphic interface {
 	// (each sub-path is implicitly closed before being filled).
 	// After `fill`, the current path will is cleared
 	Fill(evenOdd bool)
-
-	// FillWithImage fills the current path using the given image.
-	// Usually, the given image would be painted on an temporary OutputGraphic,
-	// which would then be used as fill pattern.
-	FillWithImage(img BackgroundImage, options BackgroundImageOptions)
 
 	// A drawing operator that strokes the current path
 	// according to the current line width, line join, line cap,

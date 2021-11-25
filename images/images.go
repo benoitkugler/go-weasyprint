@@ -154,7 +154,7 @@ func (r rasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, heigh
 	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value, r.intrinsicRatio
 }
 
-func (r rasterImage) Draw(context backend.OutputGraphic, concreteWidth, concreteHeight pr.Fl, imageRendering string) {
+func (r rasterImage) Draw(context backend.GraphicTarget, concreteWidth, concreteHeight pr.Fl, imageRendering string) {
 	hasSize := concreteWidth > 0 && concreteHeight > 0 && r.intrinsicWidth > 0 && r.intrinsicHeight > 0
 	if !hasSize {
 		return
@@ -249,7 +249,7 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (pr.MaybeFloat, pr.May
 	return intrinsicWidth, intrinsicHeight, ratio
 }
 
-func (SVGImage) Draw(context backend.OutputGraphic, concreteWidth, concreteHeight float64, imageRendering string) {
+func (SVGImage) Draw(context backend.GraphicTarget, concreteWidth, concreteHeight float64, imageRendering string) {
 	log.Println("SVG rendering not implemented yet")
 	// FIXME:
 	//         try {
@@ -429,7 +429,7 @@ func (g gradient) GetIntrinsicSize(_, _ pr.Value) (pr.MaybeFloat, pr.MaybeFloat,
 	return nil, nil, nil
 }
 
-func (g gradient) Draw(dst backend.OutputGraphic, concreteWidth, concreteHeight pr.Fl, imageRendering string) {
+func (g gradient) Draw(dst backend.GraphicTarget, concreteWidth, concreteHeight pr.Fl, imageRendering string) {
 	layout := g.layouter.Layout(pr.Float(concreteWidth), pr.Float(concreteHeight))
 	layout.Reapeating = g.repeating
 

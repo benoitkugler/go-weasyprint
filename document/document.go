@@ -125,7 +125,7 @@ type bookmarkData struct {
 	level    int
 }
 
-func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors map[string][2]fl, matrix *mt.Transform) {
+func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors anchors, matrix *mt.Transform) {
 	if transform, hasTransform := getMatrix(box_); hasTransform {
 		if matrix != nil {
 			t := mt.Mul(*matrix, transform)
@@ -188,13 +188,15 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 	}
 }
 
+type anchors = map[string][2]fl
+
 // Page represents a single rendered page.
 type Page struct {
 	pageBox *bo.PageBox
 
 	// The `dict` mapping each anchor name to its target, an
 	// `(x, y)` point in CSS pixels from the top-left of the page.
-	anchors map[string][2]fl
+	anchors anchors
 
 	// `bookmarkLevel` and `bookmarkLabel` are based on
 	// the CSS properties of the same names. `target` is an `(x, y)`
@@ -225,7 +227,7 @@ func newPage(pageBox *bo.PageBox) Page {
 		Bottom: fl(pageBox.Style.GetBleedBottom().Value),
 		Left:   fl(pageBox.Style.GetBleedLeft().Value),
 	}
-	d.anchors = map[string][2]fl{}
+	d.anchors = anchors{}
 
 	gatherLinksAndBookmarks(
 		pageBox, &d.bookmarks, &d.links, d.anchors, nil)
@@ -357,13 +359,15 @@ func (d *Document) resolveLinks(scale fl) ([][]Link, [][]backend.Anchor) {
 
 // Make a tree of all bookmarks in the document.
 func (d Document) makeBookmarkTree() []backend.BookmarkNode {
-	var root []backend.BookmarkNode
 	// At one point in the document, for each "output" depth, how much
 	// to add to get the source level (CSS values of bookmark-level).
 	// E.g. with <h1> then <h3>, levelShifts == [0, 1]
 	// 1 means that <h3> has depth 3 - 1 = 2 in the output.
-	var skippedLevels []int
-	lastByDepth := [][]backend.BookmarkNode{root}
+	var (
+		skippedLevels []int
+		root          []backend.BookmarkNode
+	)
+	lastByDepth := []*[]backend.BookmarkNode{&root} // initialise with the root
 	previousLevel := 0
 	for pageNumber, page := range d.Pages {
 		for _, bk := range page.bookmarks {
@@ -392,13 +396,13 @@ func (d Document) makeBookmarkTree() []backend.BookmarkNode {
 			previousLevel = level
 			depth := level - sum
 			if depth != len(skippedLevels) || depth < 1 {
-				log.Fatalf("expected depth >= 1 and depth == len(skippedLevels) got %d", depth)
+				panic(fmt.Sprintf("expected depth >= 1 and depth == len(skippedLevels) got %d", depth))
 			}
-			var children []backend.BookmarkNode
-			subtree := backend.BookmarkNode{Label: label, PageIndex: pageNumber, X: pos[0], Y: pos[1], Children: children, Open: open}
-			lastByDepth[depth-1] = append(lastByDepth[depth-1], subtree)
+			subtree := backend.BookmarkNode{Label: label, PageIndex: pageNumber, X: pos[0], Y: pos[1], Open: open}
+			(*lastByDepth[depth-1]) = append((*lastByDepth[depth-1]), subtree)
 			lastByDepth = lastByDepth[:depth]
-			lastByDepth = append(lastByDepth, children)
+			tmp := *lastByDepth[depth-1]
+			lastByDepth = append(lastByDepth, &tmp[len(tmp)-1].Children)
 		}
 	}
 	return root
