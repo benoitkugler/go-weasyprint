@@ -1,6 +1,11 @@
 package pdf
 
-import "testing"
+import (
+	"os"
+	"testing"
+
+	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+)
 
 // Test how text is drawn.
 
@@ -524,4 +529,53 @@ func TestTextLineThrough(t *testing.T) {
         }
       </style>
       <div>abc</div>`)
+}
+
+func TestTextUnderlineDashed(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	f := htmlToPDF(t, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 13px 7px;
+          background: white;
+          margin: 2px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 3px;
+          text-decoration: underline dashed blue;
+        }
+      </style
+      <div>abc</div>`, 1)
+	f.Close()
+	os.Remove(f.Name())
+}
+
+func TestTextUnderlineDotted(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	f := htmlToPDF(t, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 13px 7px;
+          background: white;
+          margin: 2px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 3px;
+          text-decoration: underline dotted blue;
+        }
+      </style
+      <div>abc</div>`, 1)
+
+	f.Close()
+	os.Remove(f.Name())
 }

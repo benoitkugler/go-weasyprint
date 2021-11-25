@@ -105,6 +105,10 @@ func pdfToImage(f *os.File, zoom utils.Fl) (image.Image, error) {
 		return nil, err
 	}
 	pngs := output.Bytes()
+	return pngsToImage(pngs)
+}
+
+func pngsToImage(pngs []byte) (image.Image, error) {
 	const MAGIC_NUMBER = "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"
 
 	if !bytes.HasPrefix(pngs, []byte(MAGIC_NUMBER)) {
@@ -386,6 +390,11 @@ func assertSameRendering(t *testing.T, context, input1, input2 string, tolerance
 	if !arePixelsAlmostEqual(gotPixels1, gotPixels2, tolerance) {
 		t.Fatal(context, "got different rendering", got1.Name(), got2.Name())
 	}
+
+	got1.Close()
+	got2.Close()
+	os.Remove(got1.Name())
+	os.Remove(got2.Name())
 }
 
 func TestTableVerticalAlign(t *testing.T) {

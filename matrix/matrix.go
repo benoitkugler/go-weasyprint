@@ -14,8 +14,8 @@ type fl = utils.Fl
 // 		x_new = a * x + c * y + e
 //		y_new = b * x + d * y + f
 // which is equivalent to the vector notation
-// 	A = | A C | B = | E |
-//		| B	D |		| F |
+// 	A = | A C | ;  B = 	| E |
+//		| B	D |			| F |
 type Transform struct {
 	a, b, c, d, e, f fl
 }
@@ -55,14 +55,14 @@ func (T Transform) Data() (a, b, c, d, e, f fl) {
 	return T.a, T.b, T.c, T.d, T.e, T.f
 }
 
-// write T_ * T in out
-func mult(T_, T Transform, out *Transform) {
-	out.a = T_.a*T.a + T_.c*T.b
-	out.b = T_.b*T.a + T_.d*T.b
-	out.c = T_.a*T.c + T_.c*T.d
-	out.d = T_.b*T.c + T_.d*T.d
-	out.e = T_.e*T.a + T_.f*T.b + T.e
-	out.f = T_.e*T.c + T_.f*T.d + T.f
+// write t * t_ in out
+func mult(t, t_ Transform, out *Transform) {
+	out.a = t.a*t_.a + t.c*t_.b
+	out.b = t.b*t_.a + t.d*t_.b
+	out.c = t.a*t_.c + t.c*t_.d
+	out.d = t.b*t_.c + t.d*t_.d
+	out.e = t.a*t_.e + t.c*t_.f + t.e
+	out.f = t.b*t_.e + t.d*t_.f + t.f
 }
 
 // Mul returns the transform T * U,
@@ -71,6 +71,12 @@ func Mul(T, U Transform) Transform {
 	out := Transform{}
 	mult(T, U, &out)
 	return out
+}
+
+// Mult update T in place with the result of T * U
+func (T *Transform) Mult(U Transform) {
+	tmp := *T
+	mult(tmp, U, T)
 }
 
 // Invert modify the matrix in place. Return an error
@@ -144,4 +150,10 @@ func (T *Transform) Scale(sx, sy fl) {
 func (T *Transform) Rotate(radians fl) {
 	cos, sin := fl(math.Cos(float64(radians))), fl(math.Sin(float64(radians)))
 	mult(*T, Transform{cos, sin, -sin, cos, 0, 0}, T)
+}
+
+// Skew applies a skew transformation
+func (T *Transform) Skew(thetax, thetay fl) {
+	b, c := fl(math.Tan(float64(thetax))), fl(math.Tan(float64(thetay)))
+	mult(*T, Transform{1, b, c, 1, 0, 0}, T)
 }

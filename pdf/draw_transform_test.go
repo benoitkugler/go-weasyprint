@@ -8,7 +8,6 @@ import (
 
 // Test transformations.
 
-// FIXME:
 func Test_2dTransform_1(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)

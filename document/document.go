@@ -4,6 +4,7 @@
 package document
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"net/url"
@@ -32,8 +33,8 @@ type fl = utils.Fl
 
 func toF(v pr.Dimension) fl { return fl(v.Value) }
 
-// Return the matrix for the CSS transforms on this box (possibly nil)
-func getMatrix(box_ Box) *mt.Transform {
+// Return the matrix for the CSS transform properties on this box (possibly nil).
+func getMatrix(box_ Box) (mt.Transform, bool) {
 	// "Transforms apply to block-level and atomic inline-level elements,
 	//  but do not apply to elements which may be split into
 	//  multiple inline-level boxes."
@@ -41,7 +42,7 @@ func getMatrix(box_ Box) *mt.Transform {
 	box := box_.Box()
 	trans := box.Style.GetTransform()
 	if len(trans) == 0 || bo.InlineBoxT.IsInstance(box_) {
-		return nil
+		return mt.Transform{}, false
 	}
 
 	borderWidth := box.BorderWidth()
@@ -56,37 +57,32 @@ func getMatrix(box_ Box) *mt.Transform {
 	for _, t := range trans {
 		name, args := t.String, t.Dimensions
 		// The length of args depends on `name`, see package validation for details.
+		rightMat := mt.Identity()
 		switch name {
 		case "scale":
 			sx, sy := toF(args[0]), toF(args[1])
-			matrix.Scale(sx, sy)
+			rightMat.Scale(sx, sy)
 		case "rotate":
 			angle := toF(args[0])
-			matrix.Rotate(angle)
+			rightMat.Rotate(angle)
 		case "translate":
 			translateX, translateY := args[0], args[1]
-			matrix.Translate(
+			rightMat.Translate(
 				fl(pr.ResoudPercentage(translateX.ToValue(), borderWidth).V()),
 				fl(pr.ResoudPercentage(translateY.ToValue(), borderHeight).V()),
 			)
+		case "skew":
+			rightMat.Skew(toF(args[0]), toF(args[1]))
+		case "matrix":
+			rightMat = mt.New(toF(args[0]), toF(args[1]), toF(args[2]),
+				toF(args[3]), toF(args[4]), toF(args[5]))
 		default:
-			var leftMat mt.Transform
-			switch name {
-			case "skewx":
-				leftMat = mt.New(1, 0, fl(math.Tan(float64(toF(args[0])))), 1, 0, 0)
-			case "skewy":
-				leftMat = mt.New(1, fl(math.Tan(float64(toF(args[0])))), 0, 1, 0, 0)
-			case "matrix":
-				leftMat = mt.New(toF(args[0]), toF(args[1]), toF(args[2]),
-					toF(args[3]), toF(args[4]), toF(args[5]))
-			default:
-				log.Fatalf("unexpected name for CSS transform property : %s", name)
-			}
-			matrix = mt.Mul(leftMat, matrix)
+			panic(fmt.Sprintf("unexpected name for CSS transform property : %s", name))
 		}
+		matrix.Mult(rightMat) // same as matrix = mt.Mul(matrix, rightMat)
 	}
-	matrix.Translate(-originX, -originY)
-	return &matrix
+	matrix.Translate(-originX, -originY) // same as matrix = mt.Mul(matrix, mt.New(1, 0, 0, 1, -originX, -originY))
+	return matrix, true
 }
 
 // Apply a transformation matrix to an axis-aligned rectangle
@@ -130,13 +126,12 @@ type bookmarkData struct {
 }
 
 func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Link, anchors map[string][2]fl, matrix *mt.Transform) {
-	transform := getMatrix(box_)
-	if transform != nil {
+	if transform, hasTransform := getMatrix(box_); hasTransform {
 		if matrix != nil {
-			t := mt.Mul(*matrix, *transform)
+			t := mt.Mul(*matrix, transform)
 			matrix = &t
 		} else {
-			matrix = transform
+			matrix = &transform
 		}
 	}
 	box := box_.Box()

@@ -2831,9 +2831,17 @@ func transformFunction(token Token) (pr.SDimensions, error) {
 		angle, notNone := getAngle(args[0])
 		length := getLength(args[0], true, true)
 		switch name {
-		case "rotate", "skewx", "skewy":
+		case "rotate":
 			if notNone && angle != 0 {
-				return pr.SDimensions{String: name, Dimensions: []pr.Dimension{pr.FToD(pr.Fl(angle))}}, nil
+				return pr.SDimensions{String: "rotate", Dimensions: []pr.Dimension{pr.FToD(pr.Fl(angle))}}, nil
+			}
+		case "skewx":
+			if notNone && angle != 0 {
+				return pr.SDimensions{String: "skew", Dimensions: []pr.Dimension{pr.FToD(pr.Fl(angle)), pr.ZeroPixels}}, nil
+			}
+		case "skewy":
+			if notNone && angle != 0 {
+				return pr.SDimensions{String: "skew", Dimensions: []pr.Dimension{pr.ZeroPixels, pr.FToD(pr.Fl(angle))}}, nil
 			}
 		case "translatex", "translate":
 			if !length.IsNone() {

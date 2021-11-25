@@ -269,9 +269,9 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 				pr.Fl(box.BorderWidth()), pr.Fl(box.BorderHeight()))
 		}
 
-		if mat := getMatrix(box_); mat != nil {
+		if mat, ok := getMatrix(box_); ok {
 			if mat.Determinant() != 0 {
-				ctx.dst.Transform(*mat)
+				ctx.dst.Transform(mat)
 			} else {
 				log.Printf("non invertible transformation matrix %v\n", mat)
 				return nil
@@ -1228,6 +1228,9 @@ func (ctx drawContext) drawReplacedbox(box_ bo.ReplacedBoxITF) {
 	}
 
 	drawWidth, drawHeight, drawX, drawY := layout.LayoutReplacedBox(box_)
+	if drawWidth <= 0 || drawHeight <= 0 {
+		return
+	}
 
 	ctx.dst.OnNewStack(func() error {
 		roundedBoxPath(ctx.dst, box.RoundedContentBox())

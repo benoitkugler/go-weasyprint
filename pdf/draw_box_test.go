@@ -234,3 +234,43 @@ func TestDisplayInlineBlockTwice(t *testing.T) {
 	doc.WriteDocument(output, 1, nil)
 	_ = output.Finalize()
 }
+
+func TestRoundedRect(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	// Regression test for inline blocks displayed twice.
+	// https://github.com/Kozea/WeasyPrint/issues/880
+	html := `
+	<style>
+	@page {
+		size: 40px 25px;
+		background: white;
+		margin: 2px;
+	}
+	</style>
+	<span style="background: red; border-radius: 5px; border: 2px solid blue;">abc</span>
+	`
+
+	f := htmlToPDF(t, html, 1)
+	got, err := pdfToImage(f, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pngs, err := os.ReadFile("../resources_test/rounded_rect_ref.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exp, err := pngsToImage(pngs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !arePixelsAlmostEqual(imagePixels(exp), imagePixels(got), 0) {
+		t.Fatal("unexpected pixels")
+	}
+
+	f.Close()
+	os.Remove(f.Name())
+}
