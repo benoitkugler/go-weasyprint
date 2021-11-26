@@ -152,20 +152,17 @@ func gatherLinksAndBookmarks(box_ bo.Box, bookmarks *[]bookmarkData, links *[]Li
 	isAttachment := box.IsAttachment
 
 	if hasBookmark || hasLink || hasAnchor {
-		posX, posY, width, height := box.HitArea().Unpack()
+		posX, posY, width, height := bo.HitArea(box_).Unpack()
 		if hasLink {
 			linkType, target := link.Name, link.String
 			if linkType == "external" && isAttachment {
 				linkType = "attachment"
 			}
-			var linkS Link
+			linkS := Link{Type: linkType, Target: target}
 			if matrix != nil {
-				linkS = Link{
-					Type: linkType, Target: target,
-					Rectangle: rectangleAabb(*matrix, posX, posY, width, height),
-				}
+				linkS.Rectangle = rectangleAabb(*matrix, posX, posY, width, height)
 			} else {
-				linkS = Link{Type: linkType, Target: target, Rectangle: [4]fl{posX, posY, width, height}}
+				linkS.Rectangle = [4]fl{posX, posY, posX + width, posY + height}
 			}
 			*links = append(*links, linkS)
 		}
@@ -321,15 +318,13 @@ func (d Document) Copy(pages []Page, all bool) Document {
 // ``(pageNumber, x, y)`` instead of an anchor name.
 // The page number is a 0-based index into the :attr:`pages` list,
 // and ``x, y`` have been scaled (origin is at the top-left of the page).
-func (d *Document) resolveLinks(scale fl) ([][]Link, [][]backend.Anchor) {
+func (d *Document) resolveLinks() ([][]Link, [][]backend.Anchor) {
 	anchors := utils.NewSet()
 	pagedAnchors := make([][]backend.Anchor, len(d.Pages))
 	for i, page := range d.Pages {
 		var current []backend.Anchor
 		for anchorName, pos := range page.anchors {
 			if !anchors.Has(anchorName) {
-				pos[0] *= scale
-				pos[1] *= scale
 				current = append(current, backend.Anchor{Name: anchorName, X: pos[0], Y: pos[1]})
 				anchors.Add(anchorName)
 			}
@@ -492,7 +487,7 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 	scale := zoom * 0.75
 
 	// Links and anchors
-	pagedLinks, pagedAnchors := d.resolveLinks(scale)
+	pagedLinks, pagedAnchors := d.resolveLinks()
 
 	logger.ProgressLogger.Println("Step 6 - Drawing pages")
 

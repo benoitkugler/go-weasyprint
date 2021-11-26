@@ -362,10 +362,12 @@ func (b *BoxFields) BorderBoxY() pr.Float {
 	return b.PositionY + b.MarginTop.V()
 }
 
-// Return the rectangle where the box is clickable."""
-// "Border area. That's the area that hit-testing is done on."
-// http://lists.w3.org/Archives/Public/www-style/2012Jun/0318.html
-func (b *BoxFields) HitArea() pr.Rectangle {
+// HitArea returns the rectangle where the box is clickable.
+func HitArea(box Box) pr.Rectangle {
+	b := box.Box()
+	if _, isInline := box.(InlineBoxITF); isInline {
+		return pr.Rectangle{b.BorderBoxX(), b.PositionY, b.BorderWidth(), b.MarginHeight()}
+	}
 	return pr.Rectangle{b.BorderBoxX(), b.BorderBoxY(), b.BorderWidth(), b.BorderHeight()}
 }
 

@@ -304,7 +304,7 @@ func TestLinks(t *testing.T) {
 		capt := testutils.CaptureLogs()
 
 		document := renderHTML(t, html, baseUrl, round)
-		resolvedLinks, resolvedAnchors := document.resolveLinks(0.75)
+		resolvedLinks, resolvedAnchors := document.resolveLinks()
 
 		logs := capt.Logs()
 		if len(logs) != len(warnings) {
@@ -388,47 +388,65 @@ func TestLinks(t *testing.T) {
 		},
 		baseUrl, nil, false)
 
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <a href="../lipsum/é%E9" style="display: block; margin: 10px 5px">
-	//     `, [[("external", "http://weasyprint.org/foo/lipsum/%C3%A9%E9",
-	//             (5, 10, 195, 10), None)]],
-	//     [{}], [([("external", "http://weasyprint.org/foo/lipsum/%C3%A9%E9",
-	//               (5, 10, 195, 10), None)], [])],
-	//     baseUrl="http://weasyprint.org/foo/bar/")
+	assertLinks(
+		`
+	        <body style="width: 200px">
+	        <a href="../lipsum/é%E9" style="display: block; margin: 10px 5px">
+	    `, [][]Link{{
+			{Type: "external", Target: "http://weasyprint.org/foo/lipsum/%C3%A9%E9", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[]anchors{{}},
+		[][]Link{{
+			{Type: "external", Target: "http://weasyprint.org/foo/lipsum/%C3%A9%E9", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[][]backend.Anchor{nil},
+		"http://weasyprint.org/foo/bar/", nil, false)
 
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <div style="display: block; margin: 10px 5px;
-	//                     -weasy-link: url(../lipsum/é%E9)">
-	//     `, [[("external", "http://weasyprint.org/foo/lipsum/%C3%A9%E9",
-	//             (5, 10, 195, 10), None)]],
-	//     [{}], [([("external", "http://weasyprint.org/foo/lipsum/%C3%A9%E9",
-	//               (5, 10, 195, 10), None)], [])],
-	//     baseUrl="http://weasyprint.org/foo/bar/")
+	assertLinks(
+		`
+	        <body style="width: 200px">
+	        <div style="display: block; margin: 10px 5px;
+	                    -weasy-link: url(../lipsum/é%E9)">
+	    `,
+		[][]Link{{
+			{Type: "external", Target: "http://weasyprint.org/foo/lipsum/%C3%A9%E9", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[]anchors{{}},
+		[][]Link{{
+			{Type: "external", Target: "http://weasyprint.org/foo/lipsum/%C3%A9%E9", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[][]backend.Anchor{nil},
+		"http://weasyprint.org/foo/bar/", nil, false)
 
-	// // Relative URI reference without a base URI: allowed for links
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <a href="../lipsum" style="display: block; margin: 10px 5px">
-	//     `, [[("external", "../lipsum", (5, 10, 195, 10), None)]], [{}],
-	//     [([("external", "../lipsum", (5, 10, 195, 10), None)], [])],
-	//     baseUrl=None)
+	// Relative URI reference without a base URI: allowed for links
+	assertLinks(
+		`
+	        <body style="width: 200px">
+	        <a href="../lipsum" style="display: block; margin: 10px 5px">
+	    `,
+		[][]Link{{
+			{Type: "external", Target: "../lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[]anchors{{}},
+		[][]Link{{
+			{Type: "external", Target: "../lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[][]backend.Anchor{nil},
+		"", nil, false)
 
-	// // Relative URI reference without a base URI: ! supported for -weasy-link
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <div style="-weasy-link: url(../lipsum);
-	//                     display: block; margin: 10px 5px">
-	//     `, [[]], [{}], [([], [])], baseUrl=None, warnings=[
-	//         "WARNING: Ignored `-weasy-link: url(../lipsum)` at 1:1, "
-	//         "Relative URI reference without a base URI"])
+	// Relative URI reference without a base URI: not supported for -weasy-link
+	assertLinks(
+		`
+	        <body style="width: 200px">
+	        <div style="-weasy-link: url(../lipsum);
+	                    display: block; margin: 10px 5px">
+	    `, [][]Link{nil}, []anchors{{}}, [][]Link{nil}, [][]backend.Anchor{nil},
+		"", []string{
+			"Ignored `-weasy-link: url(../lipsum)` , Relative URI reference without a base URI",
+		}, false)
 
-	// // Internal || absolute URI reference without a base URI: OK
+	// TODO:
+	// // Internal or absolute URI reference without a base URI: OK
 	// assertLinks(
 	//     `
 	//         <body style="width: 200px">
