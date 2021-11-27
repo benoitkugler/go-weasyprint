@@ -8,6 +8,7 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/utils"
 
+	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
 
@@ -28,7 +29,7 @@ var HTMLHandlers = map[string]handlerFunction{
 
 // HandleElement handle HTML elements that need special care.
 func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseUrl string) []Box {
-	handler, in := HTMLHandlers[box.Box().ElementTag]
+	handler, in := HTMLHandlers[box.Box().ElementTag()]
 	if in {
 		ls := handler(element, box, getImageFromUri, baseUrl)
 		return ls
@@ -43,10 +44,10 @@ func handleElement(element *utils.HTMLNode, box Box, getImageFromUri Gifu, baseU
 func makeReplacedBox(element *utils.HTMLNode, box Box, image images.Image) Box {
 	var newBox Box
 	if box.Box().Style.GetDisplay().Has("block") {
-		b := NewBlockReplacedBox(element.Data, box.Box().Style, image)
+		b := NewBlockReplacedBox(box.Box().Style, (*html.Node)(element), "", image)
 		newBox = &b
 	} else {
-		b := NewInlineReplacedBox(element.Data, box.Box().Style, image)
+		b := NewInlineReplacedBox(box.Box().Style, (*html.Node)(element), "", image)
 		newBox = &b
 	}
 	newBox.Box().StringSet = box.Box().StringSet

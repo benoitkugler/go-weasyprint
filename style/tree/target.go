@@ -89,6 +89,7 @@ type Box interface {
 	SetCachedCounterValues(cv CounterValues)
 	MissingLink() Box
 	SetMissingLink(b Box)
+	GetBookmarkLabel() string
 }
 
 type CounterValues map[string][]int

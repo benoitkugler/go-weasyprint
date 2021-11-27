@@ -47,10 +47,10 @@ type serializedStacking struct {
 
 func serializeStacking(context StackingContext) serializedStacking {
 	out := serializedStacking{
-		tag: context.box.Box().ElementTag,
+		tag: context.box.Box().ElementTag(),
 	}
 	for _, b := range context.blocksAndCells {
-		out.blockAndCells = append(out.blockAndCells, b.Box().ElementTag)
+		out.blockAndCells = append(out.blockAndCells, b.Box().ElementTag())
 	}
 	for _, c := range context.zeroZContexts {
 		out.zeroZs = append(out.zeroZs, serializeStacking(c))

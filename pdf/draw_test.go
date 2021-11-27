@@ -22,6 +22,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/pdf/model"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
 )
@@ -148,12 +149,7 @@ func pngsToImage(pngs []byte) (image.Image, error) {
 }
 
 // use the light UA stylesheet
-func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
-	target, err := ioutil.TempFile("", "weasyprint")
-	if err != nil {
-		t.Fatal(err)
-	}
-
+func htmlToModel(t *testing.T, html string, zoom utils.Fl) model.Document {
 	parsedHtml, err := tree.NewHTML(utils.InputString(html), ".", nil, "")
 	if err != nil {
 		t.Fatal(err)
@@ -162,7 +158,17 @@ func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
 	doc := document.Render(parsedHtml, nil, false, fontconfig)
 	output := NewOutput()
 	doc.WriteDocument(output, zoom, nil)
-	pdfDoc := output.Finalize()
+	return output.Finalize()
+}
+
+// use the light UA stylesheet
+func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
+	target, err := ioutil.TempFile("", "weasyprint")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pdfDoc := htmlToModel(t, html, zoom)
 	err = pdfDoc.Write(target, nil)
 	if err != nil {
 		t.Fatal(err)

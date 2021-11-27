@@ -115,60 +115,60 @@ func BuildFormattingStructure(elementTree *utils.HTMLNode, styleFor *tree.StyleF
 }
 
 // Maps values of the ``display`` CSS property to box types.
-func makeBox(elementTag string, style pr.ElementStyle, content []Box) (Box, error) {
+func makeBox(style pr.ElementStyle, content []Box, element *utils.HTMLNode, pseudoType string) (Box, error) {
 	tmp := style.GetDisplay()
 	display := [2]string{tmp[0], tmp[1]}
 	switch display {
 	case [2]string{"block", "flow"}:
-		b := NewBlockBox(elementTag, style, content)
+		b := NewBlockBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"inline", "flow"}:
-		b := NewInlineBox(elementTag, style, content)
+		b := NewInlineBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"block", "flow-root"}:
-		b := NewBlockBox(elementTag, style, content)
+		b := NewBlockBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"inline", "flow-root"}:
-		b := NewInlineBlockBox(elementTag, style, content)
+		b := NewInlineBlockBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"block", "table"}:
-		b := NewTableBox(elementTag, style, content)
+		b := NewTableBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"inline", "table"}:
-		b := NewInlineTableBox(elementTag, style, content)
+		b := NewInlineTableBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"block", "flex"}:
-		b := NewFlexBox(elementTag, style, content)
+		b := NewFlexBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"inline", "flex"}:
-		b := NewInlineFlexBox(elementTag, style, content)
+		b := NewInlineFlexBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-row"}:
-		b := NewTableRowBox(elementTag, style, content)
+		b := NewTableRowBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-row-group"}:
-		b := NewTableRowGroupBox(elementTag, style, content)
+		b := NewTableRowGroupBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-header-group"}:
-		b := NewTableRowGroupBox(elementTag, style, content)
+		b := NewTableRowGroupBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-footer-group"}:
-		b := NewTableRowGroupBox(elementTag, style, content)
+		b := NewTableRowGroupBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-column"}:
-		b := NewTableColumnBox(elementTag, style, content)
+		b := NewTableColumnBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-column-group"}:
-		b := NewTableColumnGroupBox(elementTag, style, content)
+		b := NewTableColumnGroupBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-cell"}:
-		b := NewTableCellBox(elementTag, style, content)
+		b := NewTableCellBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	case [2]string{"table-caption"}:
-		b := NewTableCaptionBox(elementTag, style, content)
+		b := NewTableCaptionBox(style, (*html.Node)(element), pseudoType, content)
 		return b, nil
 	default:
-		return nil, fmt.Errorf("Ignored box %s: display property %s not supported", elementTag, tmp)
+		return nil, fmt.Errorf("Ignored box %s: display property %s not supported", element.Data, tmp)
 	}
 }
 
@@ -208,7 +208,7 @@ func elementToBox(element *utils.HTMLNode, styleFor styleForI,
 		return nil
 	}
 
-	box, err := makeBox(element.Data, style, nil)
+	box, err := makeBox(style, nil, element, "")
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -333,7 +333,7 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 		return nil
 	}
 
-	box, err := makeBox(fmt.Sprintf("%s::%s", element.Data, pseudoType), style, nil)
+	box, err := makeBox(style, nil, element, pseudoType)
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -352,6 +352,10 @@ func beforeAfterToBox(element *utils.HTMLNode, pseudoType string, state *tree.Pa
 		style, box, state.QuoteDepth, state.CounterValues, getImageFromUri, targetCollector, cs, nil, nil)...)
 
 	box.Box().Children = children
+
+	// calculate the bookmark-label
+	computeBookmarkLabel(element, box, style.GetBookmarkLabel(), state.CounterValues, targetCollector, cs)
+
 	return []Box{box}
 }
 
@@ -361,7 +365,7 @@ func markerToBox(element *utils.HTMLNode, state *tree.PageState, parentStyle pr.
 	getImageFromUri Gifu, targetCollector *tree.TargetCollector, cs counters.CounterStyle) Box {
 	style := styleFor.Get(element, "marker")
 
-	box, err := makeBox(element.Data+"::marker", style, nil)
+	box, err := makeBox(style, nil, element, "marker")
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -455,7 +459,7 @@ func collectMissingTargetCounter(counterName string, lookupCounterValues tree.Co
 
 // Compute and return the boxes corresponding to the ``content_list``.
 //
-// ``parse_again`` is called to compute the ``content_list`` again when
+// ``parseAgain`` is called to compute the ``content_list`` again when
 // ``target_collector.lookup_target()`` detected a pending target.
 //
 // ``build_formatting_structure`` calls
@@ -463,7 +467,7 @@ func collectMissingTargetCounter(counterName string, lookupCounterValues tree.Co
 // required reparsing.
 func computeContentList(contentList pr.ContentProperties, parentBox Box, counterValues tree.CounterValues,
 	cssToken string, parseAgain tree.ParseFunc, targetCollector *tree.TargetCollector, cs counters.CounterStyle,
-	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page Box, _ *utils.HTMLNode) []Box {
+	getImageFromUri Gifu, quoteDepth []int, quoteStyle pr.Quotes, context Context, page Box) []Box {
 
 	contentBoxes := []Box{}
 
@@ -748,7 +752,7 @@ func ContentToBoxes(style pr.ElementStyle, parentBox Box, quoteDepth []int, coun
 	boxList := computeContentList(
 		style.GetContent().Contents, parentBox, counterValues, cssToken, parseAgain,
 		targetCollector, cs, getImageFromUri, quoteDepth, style.GetQuotes(),
-		context, page, nil)
+		context, page)
 	return boxList
 }
 
@@ -770,7 +774,7 @@ func computeStringSet(element *utils.HTMLNode, box Box, stringName string, conte
 
 	cssToken := "string-set::" + stringName
 	boxList := computeContentList(contentList, box, counterValues, cssToken, parseAgain,
-		targetCollector, cs, nil, nil, pr.Quotes{}, nil, nil, element)
+		targetCollector, cs, nil, nil, pr.Quotes{}, nil, nil)
 	if boxList != nil {
 		var builder strings.Builder
 		for _, box1 := range boxList {
@@ -811,7 +815,7 @@ func computeBookmarkLabel(element *utils.HTMLNode, box Box, contentList pr.Conte
 
 	cssToken := "bookmark-label"
 	boxList := computeContentList(contentList, box, counterValues, cssToken, parseAgain, targetCollector, cs,
-		nil, nil, pr.Quotes{}, nil, nil, element)
+		nil, nil, pr.Quotes{}, nil, nil)
 
 	var builder strings.Builder
 	for _, box := range boxList {
@@ -1925,11 +1929,11 @@ func innerBlockInInline(box Box, skipStack *tree.IntList) (Box, Box, *tree.IntLi
 //    See http://www.w3.org/TR/CSS21/visufx.html#overflow
 func setViewportOverflow(rootBox Box) Box {
 	chosenBox := rootBox
-	if strings.ToLower(rootBox.Box().ElementTag) == "html" &&
+	if strings.ToLower(rootBox.Box().ElementTag()) == "html" &&
 		rootBox.Box().Style.GetOverflow() == "visible" {
 
 		for _, child := range rootBox.Box().Children {
-			if strings.ToLower(child.Box().ElementTag) == "body" {
+			if strings.ToLower(child.Box().ElementTag()) == "body" {
 				chosenBox = child
 				break
 			}
@@ -1947,9 +1951,8 @@ func boxText(box Box) string {
 	var builder strings.Builder
 	if ParentBoxT.IsInstance(box) {
 		for _, child := range Descendants(box) {
-			et := child.Box().ElementTag
-			if child, ok := child.(*TextBox); ok &&
-				!strings.HasSuffix(et, "::before") && !strings.HasSuffix(et, "::after") && !strings.HasSuffix(et, "::marker") {
+			pt := child.Box().PseudoType
+			if child, ok := child.(*TextBox); ok && pt != "before" && pt != "after" && pt != "marker" {
 				builder.WriteString(child.Text)
 			}
 		}
@@ -1980,8 +1983,8 @@ func boxTextBefore(box Box) string {
 	var builder strings.Builder
 	if ParentBoxT.IsInstance(box) {
 		for _, child := range Descendants(box) {
-			et := child.Box().ElementTag
-			if strings.HasSuffix(et, "::before") && !ParentBoxT.IsInstance(child) {
+			et := child.Box().PseudoType
+			if et == "before" && !ParentBoxT.IsInstance(child) {
 				builder.WriteString(boxText(child))
 			}
 		}
@@ -1993,8 +1996,8 @@ func boxTextAfter(box Box) string {
 	var builder strings.Builder
 	if ParentBoxT.IsInstance(box) {
 		for _, child := range Descendants(box) {
-			et := child.Box().ElementTag
-			if strings.HasSuffix(et, "::after") && !ParentBoxT.IsInstance(child) {
+			et := child.Box().PseudoType
+			if et == "after" && !ParentBoxT.IsInstance(child) {
 				builder.WriteString(boxText(child))
 			}
 		}

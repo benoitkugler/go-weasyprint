@@ -2241,7 +2241,7 @@ func TestTablePageBreaksComplex1(t *testing.T) {
 		body := html.Box().Children[0]
 		tableWrapper := body.Box().Children[0]
 		if i == 0 {
-			tu.AssertEqual(t, tableWrapper.Box().ElementTag, "h1", "")
+			tu.AssertEqual(t, tableWrapper.Box().ElementTag(), "h1", "")
 		} else {
 			table := tableWrapper.Box().Children[0]
 			for _, group := range table.Box().Children {
@@ -2413,7 +2413,7 @@ func TestTablePageBreakAfter(t *testing.T) {
 	html = page6.Box().Children[0]
 	body = html.Box().Children[0]
 	p := body.Box().Children[0]
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "")
 }
 
 func TestTablePageBreakBefore(t *testing.T) {
@@ -2464,7 +2464,7 @@ func TestTablePageBreakBefore(t *testing.T) {
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
 	h1 := body.Box().Children[0]
-	tu.AssertEqual(t, h1.Box().ElementTag, "h1", "")
+	tu.AssertEqual(t, h1.Box().ElementTag(), "h1", "")
 
 	html = page2.Box().Children[0]
 	body = html.Box().Children[0]
@@ -2498,7 +2498,7 @@ func TestTablePageBreakBefore(t *testing.T) {
 	table = tableWrapper.Box().Children[0]
 	tableGroup = table.Box().Children[0]
 	tu.AssertEqual(t, len(tableGroup.Box().Children), 3, "")
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "")
 }
 
 func TestTablePageBreakAvoid(t *testing.T) {
@@ -2741,7 +2741,7 @@ func testTablePageBreakAvoid(t *testing.T, html string, rows []int) {
 	for _, page := range pages {
 		html := page.Box().Children[0]
 		body := html.Box().Children[0]
-		if body.Box().Children[0].Box().ElementTag == "p" {
+		if body.Box().Children[0].Box().ElementTag() == "p" {
 			rowsPerPage = append(rowsPerPage, len(body.Box().Children))
 			continue
 		}

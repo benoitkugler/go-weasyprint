@@ -82,7 +82,7 @@ func parseAndBuildExt(t *testing.T, htmlContent, baseUrl string) BlockLevelBoxIT
 // box: a Box object, starting with <html> and <body> blocks.
 // expected: a list of serialized <body> children as returned by to_lists().
 func assertTree(t *testing.T, box Box, expected []SerBox) {
-	if tag := box.Box().ElementTag; tag != "html" {
+	if tag := box.Box().ElementTag(); tag != "html" {
 		t.Fatalf("unexpected element: %s", tag)
 	}
 	if !BlockBoxT.IsInstance(box) {
@@ -96,7 +96,7 @@ func assertTree(t *testing.T, box Box, expected []SerBox) {
 	if !BlockBoxT.IsInstance(box) {
 		t.Fatal("expected block box")
 	}
-	if tag := box.Box().ElementTag; tag != "body" {
+	if tag := box.Box().ElementTag(); tag != "body" {
 		t.Fatalf("unexpected element: %s", tag)
 	}
 
@@ -1456,7 +1456,7 @@ func buildFile(t testing.TB, source utils.ContentInput, baseURL string) []SerBox
 		t.Fatalf("sanity check failed: %s", err)
 	}
 
-	if tag := box.Box().ElementTag; tag != "html" {
+	if tag := box.Box().ElementTag(); tag != "html" {
 		t.Fatalf("unexpected element: %s", tag)
 	}
 	if !BlockBoxT.IsInstance(box) {
@@ -1470,7 +1470,7 @@ func buildFile(t testing.TB, source utils.ContentInput, baseURL string) []SerBox
 	if !BlockBoxT.IsInstance(box) {
 		t.Fatal("expected block box")
 	}
-	if tag := box.Box().ElementTag; tag != "body" {
+	if tag := box.Box().ElementTag(); tag != "body" {
 		t.Fatalf("unexpected element: %s", tag)
 	}
 

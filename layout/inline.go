@@ -375,8 +375,8 @@ func firstLetterToBox(context *layoutContext, box Box, skipStack *tree.IntList, 
 	var childSkipStack *tree.IntList
 	if textBox, ok := child.(*bo.TextBox); ok {
 		letterStyle := tree.ComputedFromCascaded(nil, nil, firstLetterStyle, nil, "", "", nil, context)
-		if strings.HasSuffix(textBox.ElementTag, "::first-letter") {
-			letterBox := bo.NewInlineBox(textBox.ElementTag+"::first-letter", letterStyle, []Box{child})
+		if strings.HasSuffix(textBox.ElementTag(), "::first-letter") {
+			letterBox := bo.NewInlineBox(letterStyle, textBox.Element, "first-letter", []Box{child})
 			box.Box().Children[0] = letterBox
 		} else if textBox.Text != "" {
 			text := []rune(textBox.Text)
@@ -407,16 +407,16 @@ func firstLetterToBox(context *layoutContext, box Box, skipStack *tree.IntList, 
 				// inline-level element if its "float" property is "none",
 				// otherwise it is similar to a floated element."
 				if firstLetterStyle.GetFloat() == "none" {
-					letterBox := bo.NewInlineBox(textBox.ElementTag+"::first-letter", firstLetterStyle, nil)
-					textBox_ := bo.NewTextBox(textBox.ElementTag+"::first-letter", letterStyle, firstLetter)
+					letterBox := bo.NewInlineBox(firstLetterStyle, textBox.Element, "first-letter", nil)
+					textBox_ := bo.NewTextBox(letterStyle, textBox.Element, "first-letter", firstLetter)
 					letterBox.Children = []Box{&textBox_}
 					textBox.Children = append([]Box{letterBox}, textBox.Children...)
 				} else {
-					letterBox := bo.NewBlockBox(textBox.ElementTag+"::first-letter", firstLetterStyle, nil)
+					letterBox := bo.NewBlockBox(firstLetterStyle, textBox.Element, "first-letter", nil)
 					letterBox.FirstLetterStyle = nil
-					lineBox := bo.NewLineBox(textBox.ElementTag+"::first-letter", firstLetterStyle, nil)
+					lineBox := bo.NewLineBox(firstLetterStyle, textBox.Element, "first-letter", nil)
 					letterBox.Children = []Box{&lineBox}
-					textBox_ := bo.NewTextBox(textBox.ElementTag+"::first-letter", letterStyle, firstLetter)
+					textBox_ := bo.NewTextBox(letterStyle, textBox.Element, "first-letter", firstLetter)
 					lineBox.Children = []Box{&textBox_}
 					textBox.Children = append([]Box{letterBox}, textBox.Children...)
 				}

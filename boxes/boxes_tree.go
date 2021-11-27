@@ -9,6 +9,7 @@ import (
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"golang.org/x/net/html"
 )
 
 type BlockLevelBox struct {
@@ -45,7 +46,7 @@ type TextBox struct {
 
 func TextBoxAnonymousFrom(parent Box, text string) *TextBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
-	out := NewTextBox(parent.Box().ElementTag, style, text)
+	out := NewTextBox(style, parent.Box().Element, parent.Box().PseudoType, text)
 	return &out
 }
 
@@ -69,7 +70,7 @@ type InlineReplacedBox struct {
 
 func InlineReplacedBoxAnonymousFrom(parent Box, replacement images.Image) *InlineReplacedBox {
 	style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
-	out := NewInlineReplacedBox(parent.Box().ElementTag, style, replacement)
+	out := NewInlineReplacedBox(style, parent.Box().Element, parent.Box().PseudoType, replacement)
 	return &out
 }
 
@@ -142,23 +143,23 @@ func (b *BlockLevelBox) BlockLevel() *BlockLevelBox {
 	return b
 }
 
-func NewBlockBox(elementTag string, style pr.ElementStyle, children []Box) *BlockBox {
-	out := BlockBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewBlockBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *BlockBox {
+	out := BlockBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	return &out
 }
 
 func LineBoxAnonymousFrom(parent Box, children []Box) Box {
 	parentBox := parent.Box()
 	style := tree.ComputedFromCascaded(nil, nil, parentBox.Style, nil, "", "", nil, nil)
-	out := NewLineBox(parentBox.ElementTag, style, children)
+	out := NewLineBox(style, parentBox.Element, parentBox.PseudoType, children)
 	if parentBox.Style.GetOverflow() != "visible" {
 		out.TextOverflow = string(parentBox.Style.GetTextOverflow())
 	}
 	return &out
 }
 
-func NewLineBox(elementTag string, style pr.ElementStyle, children []Box) LineBox {
-	out := LineBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewLineBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) LineBox {
+	out := LineBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.TextOverflow = "clip"
 	out.BlockEllipsis = pr.NamedString{Name: "none"}
 	return out
@@ -185,16 +186,16 @@ func (*InlineLevelBox) RemoveDecoration(box *BoxFields, start, end bool) {
 	}
 }
 
-func NewInlineBox(elementTag string, style pr.ElementStyle, children []Box) *InlineBox {
-	out := InlineBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewInlineBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *InlineBox {
+	out := InlineBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	return &out
 }
 
-func NewTextBox(elementTag string, style pr.ElementStyle, text string) TextBox {
+func NewTextBox(style pr.ElementStyle, element *html.Node, pseudoType string, text string) TextBox {
 	if len(text) == 0 {
 		panic("NewTextBox called with empty text")
 	}
-	box := newBoxFields(elementTag, style, nil)
+	box := newBoxFields(style, element, pseudoType, nil)
 	out := TextBox{BoxFields: box, Text: text}
 	return out
 }
@@ -213,8 +214,8 @@ func (u TextBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.RemoveDecoration(b, start, end)
 }
 
-func NewInlineBlockBox(elementTag string, style pr.ElementStyle, children []Box) *InlineBlockBox {
-	out := InlineBlockBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewInlineBlockBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *InlineBlockBox {
+	out := InlineBlockBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	return &out
 }
 
@@ -222,8 +223,8 @@ func (u InlineBox) RemoveDecoration(b *BoxFields, start, end bool) {
 	u.InlineLevelBox.RemoveDecoration(b, start, end)
 }
 
-func NewReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) ReplacedBox {
-	out := ReplacedBox{BoxFields: newBoxFields(elementTag, style, nil)}
+func NewReplacedBox(style pr.ElementStyle, element *html.Node, pseudoType string, replacement images.Image) ReplacedBox {
+	out := ReplacedBox{BoxFields: newBoxFields(style, element, pseudoType, nil)}
 	out.Replacement = replacement
 	return out
 }
@@ -236,13 +237,13 @@ func (b *ReplacedBox) Replaced() *ReplacedBox {
 	return b
 }
 
-func NewBlockReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) BlockReplacedBox {
-	out := BlockReplacedBox{ReplacedBox: NewReplacedBox(elementTag, style, replacement)}
+func NewBlockReplacedBox(style pr.ElementStyle, element *html.Node, pseudoType string, replacement images.Image) BlockReplacedBox {
+	out := BlockReplacedBox{ReplacedBox: NewReplacedBox(style, element, pseudoType, replacement)}
 	return out
 }
 
-func NewInlineReplacedBox(elementTag string, style pr.ElementStyle, replacement images.Image) InlineReplacedBox {
-	out := InlineReplacedBox{ReplacedBox: NewReplacedBox(elementTag, style, replacement)}
+func NewInlineReplacedBox(style pr.ElementStyle, element *html.Node, pseudoType string, replacement images.Image) InlineReplacedBox {
+	out := InlineReplacedBox{ReplacedBox: NewReplacedBox(style, element, pseudoType, replacement)}
 	return out
 }
 
@@ -254,8 +255,8 @@ type methodsTableBox interface {
 	Table() *TableBox
 }
 
-func NewTableBox(elementTag string, style pr.ElementStyle, children []Box) *TableBox {
-	out := TableBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewTableBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableBox {
+	out := TableBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.tabularContainer = true
 	return &out
 }
@@ -284,13 +285,13 @@ func (b *TableBox) PageValues() (pr.Page, pr.Page) {
 	return s.GetPage(), s.GetPage()
 }
 
-func NewInlineTableBox(elementTag string, style pr.ElementStyle, children []Box) *InlineTableBox {
-	out := InlineTableBox{TableBox: *NewTableBox(elementTag, style, children)}
+func NewInlineTableBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *InlineTableBox {
+	out := InlineTableBox{TableBox: *NewTableBox(style, element, pseudoType, children)}
 	return &out
 }
 
-func NewTableRowGroupBox(elementTag string, style pr.ElementStyle, children []Box) *TableRowGroupBox {
-	out := TableRowGroupBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewTableRowGroupBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableRowGroupBox {
+	out := TableRowGroupBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.tabularContainer = true
@@ -299,16 +300,16 @@ func NewTableRowGroupBox(elementTag string, style pr.ElementStyle, children []Bo
 	return &out
 }
 
-func NewTableRowBox(elementTag string, style pr.ElementStyle, children []Box) *TableRowBox {
-	out := TableRowBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewTableRowBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableRowBox {
+	out := TableRowBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.tabularContainer = true
 	return &out
 }
 
-func NewTableColumnGroupBox(elementTag string, style pr.ElementStyle, children []Box) *TableColumnGroupBox {
-	out := TableColumnGroupBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewTableColumnGroupBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableColumnGroupBox {
+	out := TableColumnGroupBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.span = 1
@@ -327,8 +328,8 @@ func (b *TableColumnGroupBox) defaultGetCells() []Box {
 	return out
 }
 
-func NewTableColumnBox(elementTag string, style pr.ElementStyle, children []Box) *TableColumnBox {
-	out := TableColumnBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewTableColumnBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableColumnBox {
+	out := TableColumnBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	out.span = 1
@@ -336,23 +337,23 @@ func NewTableColumnBox(elementTag string, style pr.ElementStyle, children []Box)
 	return &out
 }
 
-func NewTableCellBox(elementTag string, style pr.ElementStyle, children []Box) *TableCellBox {
-	out := TableCellBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewTableCellBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableCellBox {
+	out := TableCellBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	out.internalTableOrCaption = true
 	out.Colspan = 1
 	out.Rowspan = 1
 	return &out
 }
 
-func NewTableCaptionBox(elementTag string, style pr.ElementStyle, children []Box) *TableCaptionBox {
-	out := TableCaptionBox{BlockBox: *NewBlockBox(elementTag, style, children)}
+func NewTableCaptionBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *TableCaptionBox {
+	out := TableCaptionBox{BlockBox: *NewBlockBox(style, element, pseudoType, children)}
 	out.properTableChild = true
 	out.internalTableOrCaption = true
 	return &out
 }
 
 func NewPageBox(pageType utils.PageElement, style pr.ElementStyle) *PageBox {
-	fields := newBoxFields("", style, nil)
+	fields := newBoxFields(style, nil, "", nil)
 	out := PageBox{BoxFields: fields, PageType: pageType}
 	return &out
 }
@@ -362,7 +363,7 @@ func (b *PageBox) String() string {
 }
 
 func NewMarginBox(atKeyword string, style pr.ElementStyle) *MarginBox {
-	fields := newBoxFields("", style, nil)
+	fields := newBoxFields(style, nil, "", nil)
 	out := MarginBox{BoxFields: fields, AtKeyword: atKeyword}
 	return &out
 }
@@ -371,13 +372,13 @@ func (b *MarginBox) String() string {
 	return fmt.Sprintf("<MarginBox %s>", b.AtKeyword)
 }
 
-func NewFlexBox(elementTag string, style pr.ElementStyle, children []Box) *FlexBox {
-	out := FlexBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewFlexBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *FlexBox {
+	out := FlexBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	return &out
 }
 
-func NewInlineFlexBox(elementTag string, style pr.ElementStyle, children []Box) *InlineFlexBox {
-	out := InlineFlexBox{BoxFields: newBoxFields(elementTag, style, children)}
+func NewInlineFlexBox(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) *InlineFlexBox {
+	out := InlineFlexBox{BoxFields: newBoxFields(style, element, pseudoType, children)}
 	return &out
 }
 

@@ -278,7 +278,7 @@ func TestFloatsPageBreaks1(t *testing.T) {
 	for _, page := range pages {
 		var images []pr.Float
 		for _, d := range bo.Descendants(page) {
-			if d.Box().ElementTag == "img" {
+			if d.Box().ElementTag() == "img" {
 				images = append(images, d.Box().PositionY)
 				tu.AssertEqual(t, d.Box().PositionX, pr.Float(10), "img")
 			}
@@ -310,7 +310,7 @@ func TestFloatsPageBreaks2(t *testing.T) {
 	for _, page := range pages {
 		var images []pr.Float
 		for _, d := range bo.Descendants(page) {
-			if d.Box().ElementTag == "img" {
+			if d.Box().ElementTag() == "img" {
 				images = append(images, d.Box().PositionY)
 				tu.AssertEqual(t, d.Box().PositionX, pr.Float(10), "img")
 			}
@@ -345,7 +345,7 @@ func TestFloatsPageBreaks3(t *testing.T) {
 	for _, page := range pages {
 		var images []pr.Float
 		for _, d := range bo.Descendants(page) {
-			if d.Box().ElementTag == "img" {
+			if d.Box().ElementTag() == "img" {
 				images = append(images, d.Box().PositionY)
 				tu.AssertEqual(t, d.Box().PositionX, pr.Float(10), "img")
 			}
@@ -388,7 +388,7 @@ func TestFloatsPageBreaks4(t *testing.T) {
 	for _, page := range pages {
 		var images []pr.Float
 		for _, d := range bo.Descendants(page) {
-			if d.Box().ElementTag == "div" {
+			if d.Box().ElementTag() == "div" {
 				images = append(images, d.Box().PositionY)
 			}
 		}
@@ -432,7 +432,7 @@ func TestFloatsPageBreaks5(t *testing.T) {
 	for _, page := range pages {
 		var images []pr.Float
 		for _, d := range bo.Descendants(page) {
-			if d.Box().ElementTag == "div" {
+			if d.Box().ElementTag() == "div" {
 				images = append(images, d.Box().PositionY)
 			}
 		}
@@ -475,7 +475,7 @@ func TestFloatsPageBreaks6(t *testing.T) {
 	for _, page := range pages {
 		var images []pr.Float
 		for _, d := range bo.Descendants(page) {
-			if d.Box().ElementTag == "div" {
+			if d.Box().ElementTag() == "div" {
 				images = append(images, d.Box().PositionY)
 			}
 		}

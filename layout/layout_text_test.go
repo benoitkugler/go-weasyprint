@@ -988,7 +988,7 @@ func TestWhiteSpace11(t *testing.T) {
 	line1, line2 := pre.Box().Children[0], pre.Box().Children[1]
 	text1, box := line1.Box().Children[0], line1.Box().Children[1]
 	tu.AssertEqual(t, text1.(*bo.TextBox).Text, "This", "text1")
-	tu.AssertEqual(t, box.Box().ElementTag, "br", "box")
+	tu.AssertEqual(t, box.Box().ElementTag(), "br", "box")
 	text2 := line2.Box().Children[0]
 	tu.AssertEqual(t, text2.(*bo.TextBox).Text, "is text", "text2")
 }
@@ -1008,7 +1008,7 @@ func TestWhiteSpace12(t *testing.T) {
 	line1 := pre.Box().Children[0]
 	text1, span, text2 := unpack3(line1)
 	tu.AssertEqual(t, text1.(*bo.TextBox).Text, "This is ", "text1")
-	tu.AssertEqual(t, span.Box().ElementTag, "span", "span")
+	tu.AssertEqual(t, span.Box().ElementTag(), "span", "span")
 	tu.AssertEqual(t, text2.(*bo.TextBox).Text, " text", "text2")
 }
 

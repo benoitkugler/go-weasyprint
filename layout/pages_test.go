@@ -53,13 +53,13 @@ func TestPageSizeWithMargin(t *testing.T) {
 	tu.AssertEqual(t, page.Box().Height, pr.Float(230), "page") // 300px - 10px - 20%
 
 	html := page.Box().Children[0]
-	tu.AssertEqual(t, html.Box().ElementTag, "html", "html")
+	tu.AssertEqual(t, html.Box().ElementTag(), "html", "html")
 	tu.AssertEqual(t, html.Box().PositionX, pr.Float(96), "html") // 1in
 	tu.AssertEqual(t, html.Box().PositionY, pr.Float(10), "html") // root element’s margins do ! collapse
 	tu.AssertEqual(t, html.Box().Width, pr.Float(84), "html")
 
 	body := html.Box().Children[0]
-	tu.AssertEqual(t, body.Box().ElementTag, "body", "body")
+	tu.AssertEqual(t, body.Box().ElementTag(), "body", "body")
 	tu.AssertEqual(t, body.Box().PositionX, pr.Float(96), "body") // 1in
 	tu.AssertEqual(t, body.Box().PositionY, pr.Float(10), "body")
 	// body has margins in the UA stylesheet
@@ -70,7 +70,7 @@ func TestPageSizeWithMargin(t *testing.T) {
 	tu.AssertEqual(t, body.Box().Width, pr.Float(68), "body")
 
 	paragraph := body.Box().Children[0]
-	tu.AssertEqual(t, paragraph.Box().ElementTag, "p", "paragraph")
+	tu.AssertEqual(t, paragraph.Box().ElementTag(), "p", "paragraph")
 	tu.AssertEqual(t, paragraph.Box().PositionX, pr.Float(104), "paragraph") // 1in + 8px
 	tu.AssertEqual(t, paragraph.Box().PositionY, pr.Float(18), "paragraph")  // 10px + 8px
 	tu.AssertEqual(t, paragraph.Box().Width, pr.Float(68), "paragraph")
@@ -87,7 +87,7 @@ func TestPageSizeWithMarginBorderPadding(t *testing.T) {
 	tu.AssertEqual(t, page.Box().Width, pr.Float(16), "page")  // 100 - 2 * 42
 	tu.AssertEqual(t, page.Box().Height, pr.Float(58), "page") // 100 - 2 * 21
 	html := page.Box().Children[0]
-	tu.AssertEqual(t, html.Box().ElementTag, "html", "html")
+	tu.AssertEqual(t, html.Box().ElementTag(), "html", "html")
 	tu.AssertEqual(t, html.Box().PositionX, pr.Float(42), "html") // 2 + 8 + 32
 	tu.AssertEqual(t, html.Box().PositionY, pr.Float(21), "html") // 1 + 4 + 16
 }
@@ -165,7 +165,7 @@ func TestPageBreaks(t *testing.T) {
 			children := body.Box().Children
 			var pos []pr.Float
 			for _, child := range children {
-				tu.AssertEqual(t, child.Box().ElementTag == "div" || child.Box().ElementTag == "img", true, "tag")
+				tu.AssertEqual(t, child.Box().ElementTag() == "div" || child.Box().ElementTag() == "img", true, "tag")
 				tu.AssertEqual(t, child.Box().PositionX, pr.Float(10), "positionX")
 				pos = append(pos, child.Box().PositionY)
 			}
@@ -208,7 +208,7 @@ func TestPageBreaksComplex1(t *testing.T) {
 	div := body.Box().Children[0]
 	line := div.Box().Children[0]
 	text := line.Box().Children[0]
-	tu.AssertEqual(t, div.Box().ElementTag, "div", "div")
+	tu.AssertEqual(t, div.Box().ElementTag(), "div", "div")
 	tu.AssertEqual(t, text.(*bo.TextBox).Text, "1", "text")
 
 	html = page2.Box().Children[0]
@@ -221,8 +221,8 @@ func TestPageBreaksComplex1(t *testing.T) {
 	html = page3.Box().Children[0]
 	body = html.Box().Children[0]
 	p1, p2 := unpack2(body)
-	tu.AssertEqual(t, p1.Box().ElementTag, "p", "p1")
-	tu.AssertEqual(t, p2.Box().ElementTag, "p", "p2")
+	tu.AssertEqual(t, p1.Box().ElementTag(), "p", "p1")
+	tu.AssertEqual(t, p2.Box().ElementTag(), "p", "p2")
 
 	tu.AssertEqual(t, page4.Box().MarginLeft, pr.Float(10), "page4")
 	tu.AssertEqual(t, page4.Box().MarginRight, pr.Float(50), "page4") // right page
@@ -231,7 +231,7 @@ func TestPageBreaksComplex1(t *testing.T) {
 	article := body.Box().Children[0]
 	section := article.Box().Children[0]
 	ulist := section.Box().Children[0]
-	tu.AssertEqual(t, ulist.Box().ElementTag, "ul", "ulist")
+	tu.AssertEqual(t, ulist.Box().ElementTag(), "ul", "ulist")
 }
 
 func TestPageBreaksComplex2(t *testing.T) {
@@ -660,8 +660,8 @@ func TestPageNames3(t *testing.T) {
 	body := html.Box().Children[0]
 	div := body.Box().Children[0]
 	section1, section2 := unpack2(div)
-	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
-	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section2")
+	tu.AssertEqual(t, section1.Box().ElementTag(), "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag(), "section", "section2")
 
 	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page1")
 	tu.AssertEqual(t, page2.Box().Height, pr.Float(200), "page1")
@@ -669,7 +669,7 @@ func TestPageNames3(t *testing.T) {
 	body = html.Box().Children[0]
 	div = body.Box().Children[0]
 	p := div.Box().Children[0]
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "p")
 }
 
 func TestPageNames4(t *testing.T) {
@@ -694,16 +694,16 @@ func TestPageNames4(t *testing.T) {
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
 	section1, section2 := unpack2(body)
-	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
-	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section1.Box().ElementTag(), "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag(), "section", "section1")
 
 	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page1")
 	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page1")
 	html = page2.Box().Children[0]
 	body = html.Box().Children[0]
 	p, section := unpack2(body)
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
-	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "p")
+	tu.AssertEqual(t, section.Box().ElementTag(), "section", "section")
 }
 
 func TestPageNames5(t *testing.T) {
@@ -726,8 +726,8 @@ func TestPageNames5(t *testing.T) {
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
 	section1, section2 := unpack2(body)
-	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
-	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section1.Box().ElementTag(), "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag(), "section", "section1")
 	_, _ = unpack2(section1)
 	_ = section2.Box().Children[0]
 
@@ -761,8 +761,8 @@ func TestPageNames6(t *testing.T) {
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
 	section1, section2 := unpack2(body)
-	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
-	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section1.Box().ElementTag(), "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag(), "section", "section1")
 	_, _, _ = unpack3(section1)
 	_ = section2.Box().Children[0]
 
@@ -803,8 +803,8 @@ func TestPageNames7(t *testing.T) {
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
 	section1, section2 := unpack2(body)
-	tu.AssertEqual(t, section1.Box().ElementTag, "section", "section1")
-	tu.AssertEqual(t, section2.Box().ElementTag, "section", "section1")
+	tu.AssertEqual(t, section1.Box().ElementTag(), "section", "section1")
+	tu.AssertEqual(t, section2.Box().ElementTag(), "section", "section1")
 
 	tu.AssertEqual(t, page2.Box().Width, pr.Float(200), "page2")
 	tu.AssertEqual(t, page2.Box().Height, pr.Float(200), "page2")
@@ -816,8 +816,8 @@ func TestPageNames7(t *testing.T) {
 	html = page3.Box().Children[0]
 	body = html.Box().Children[0]
 	p, section := unpack2(body)
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
-	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "p")
+	tu.AssertEqual(t, section.Box().ElementTag(), "section", "section")
 }
 
 func TestPageNames8(t *testing.T) {
@@ -843,8 +843,8 @@ func TestPageNames8(t *testing.T) {
 	body := html.Box().Children[0]
 	section := body.Box().Children[0]
 	p := section.Box().Children[0]
-	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+	tu.AssertEqual(t, section.Box().ElementTag(), "section", "section")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "p")
 
 	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page2")
 	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page2")
@@ -852,8 +852,8 @@ func TestPageNames8(t *testing.T) {
 	body = html.Box().Children[0]
 	section = body.Box().Children[0]
 	p = section.Box().Children[0]
-	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
-	tu.AssertEqual(t, p.Box().ElementTag, "p", "p")
+	tu.AssertEqual(t, section.Box().ElementTag(), "section", "section")
+	tu.AssertEqual(t, p.Box().ElementTag(), "p", "p")
 }
 
 func TestPageNames9(t *testing.T) {
@@ -883,14 +883,14 @@ func TestPageNames9(t *testing.T) {
 	html := page1.Box().Children[0]
 	body := html.Box().Children[0]
 	section := body.Box().Children[0]
-	tu.AssertEqual(t, section.Box().ElementTag, "section", "section")
+	tu.AssertEqual(t, section.Box().ElementTag(), "section", "section")
 
 	tu.AssertEqual(t, page2.Box().Width, pr.Float(100), "page2")
 	tu.AssertEqual(t, page2.Box().Height, pr.Float(100), "page2")
 	html = page2.Box().Children[0]
 	body = html.Box().Children[0]
 	article := body.Box().Children[0]
-	tu.AssertEqual(t, article.Box().ElementTag, "article", "article")
+	tu.AssertEqual(t, article.Box().ElementTag(), "article", "article")
 }
 
 func TestOrphansWidowsAvoid(t *testing.T) {
@@ -1319,7 +1319,7 @@ func testPageStyle(t *testing.T, css string, widths []pr.Float) {
         }
       </style>
     `, css))
-	tu.AssertEqual(t, page.Box().Children[0].Box().ElementTag, "html", "page")
+	tu.AssertEqual(t, page.Box().Children[0].Box().ElementTag(), "html", "page")
 	marginBoxes := page.Box().Children[1:]
 	tu.AssertEqual(t, len(marginBoxes), len(widths), "")
 	var gotAtKeywords []string

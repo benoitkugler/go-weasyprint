@@ -24,6 +24,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/textlayout/pango"
+	"golang.org/x/net/html"
 )
 
 // if true, print debug information into Stdout
@@ -35,7 +36,7 @@ type Box = bo.Box
 
 func printBoxes(boxes []Box) {
 	for _, b := range boxes {
-		fmt.Printf("<%s %s> ", b.Type(), b.Box().ElementTag)
+		fmt.Printf("<%s %s> ", b.Type(), b.Box().ElementTag())
 	}
 }
 
@@ -131,7 +132,7 @@ func layoutFixedBoxes(context *layoutContext, pages []*bo.PageBox, containingPag
 	return out
 }
 
-func layoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layoutContext, maxLoops int) []*bo.PageBox {
+func layoutDocument(doc *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layoutContext, maxLoops int) []*bo.PageBox {
 	initializePageMaker(context, *rootBox.Box())
 	if maxLoops == -1 {
 		maxLoops = 8 // default value
@@ -145,7 +146,7 @@ func layoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layou
 		}
 
 		initialTotalPages := actualTotalPages
-		pages = makeAllPages(context, rootBox, html, pages)
+		pages = makeAllPages(context, rootBox, doc, pages)
 		actualTotalPages = len(pages)
 
 		// Check whether another round is required
@@ -174,22 +175,53 @@ func layoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layou
 	// when pagination is finished. No need to do that (maybe multiple times) in
 	// makePage because they dont create boxes, only appear in MarginBoxes and
 	// in the final PDF.
+
+	// Prevent repetition of bookmarks (see #1145).
+	watchElements, watchElementsBefore, watchElementsAfter := map[*html.Node]bool{}, map[*html.Node]bool{}, map[*html.Node]bool{}
+
 	for i, page := range pages {
 		// We need the updated pageCounterValues
 		pageCounterValues := context.pageMaker[i+1].InitialPageState.CounterValues
 
 		for _, child := range bo.Descendants(page) {
-			// TODO: remove attribute or set a default value in Box class
+			childBox := child.Box()
+			// Only one bookmark per original box
+			if childBox.BookmarkLabel != "" {
+				var checklist map[*html.Node]bool
+				if childBox.PseudoType == "before" {
+					checklist = watchElementsBefore
+				} else if childBox.PseudoType == "after" {
+					checklist = watchElementsAfter
+				} else {
+					checklist = watchElements
+				}
+
+				if checklist[childBox.Element] {
+					childBox.BookmarkLabel = ""
+				} else {
+					checklist[childBox.Element] = true
+				}
+			}
+
 			if mLink := child.MissingLink(); mLink != nil {
 				for key, item := range context.TargetCollector.CounterLookupItems {
 					box, cssToken := key.SourceBox, key.CssToken
 					if mLink == box && cssToken != "content" {
+						if cssToken == "bookmark-label" && childBox.BookmarkLabel == "" {
+							// don't refill it!
+							continue
+						}
+
 						item.ParseAgain(pageCounterValues)
+
+						if cssToken == "bookmark-label" {
+							childBox.BookmarkLabel = box.GetBookmarkLabel()
+						}
 					}
 				}
 			}
 			// Collect the stringSets in the LayoutContext
-			stringSets := child.Box().StringSet
+			stringSets := childBox.StringSet
 			for _, stringSet := range stringSets {
 				stringName, text := stringSet.Type, string(stringSet.Content.(pr.String))
 				dict := context.stringSet[stringName]
@@ -201,6 +233,7 @@ func layoutDocument(html *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layou
 			}
 		}
 	}
+
 	out := make([]*bo.PageBox, len(pages))
 	// Add margin boxes
 	for i, page := range pages {

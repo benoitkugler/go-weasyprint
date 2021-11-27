@@ -71,13 +71,13 @@ func TestBreakingLinebox(t *testing.T) {
 	lines := paragraph.Box().Children
 	for _, line := range lines {
 		tu.AssertEqual(t, line.Box().Style.GetFontSize(), pr.FToV(13), "line")
-		tu.AssertEqual(t, line.Box().ElementTag, "p", "line")
+		tu.AssertEqual(t, line.Box().ElementTag(), "p", "line")
 		for _, child := range line.Box().Children {
-			tu.AssertEqual(t, child.Box().ElementTag == "em" || child.Box().ElementTag == "p", true, "child")
+			tu.AssertEqual(t, child.Box().ElementTag() == "em" || child.Box().ElementTag() == "p", true, "child")
 			tu.AssertEqual(t, child.Box().Style.GetFontSize(), pr.FToV(13), "child")
 			if bo.ParentBoxT.IsInstance(child) {
 				for _, childChild := range child.Box().Children {
-					tu.AssertEqual(t, childChild.Box().ElementTag == "em" || childChild.Box().ElementTag == "strong" || childChild.Box().ElementTag == "span", true, "childChild")
+					tu.AssertEqual(t, childChild.Box().ElementTag() == "em" || childChild.Box().ElementTag() == "strong" || childChild.Box().ElementTag() == "span", true, "childChild")
 					tu.AssertEqual(t, childChild.Box().Style.GetFontSize(), pr.FToV(13), "childChild")
 				}
 			}
@@ -582,7 +582,7 @@ func TestForcedLineBreaksPre(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	pre := body.Box().Children[0]
-	tu.AssertEqual(t, pre.Box().ElementTag, "pre", "pre")
+	tu.AssertEqual(t, pre.Box().ElementTag(), "pre", "pre")
 	lines := pre.Box().Children
 	tu.AssertEqual(t, len(lines), 7, "len")
 	for _, line := range lines {
@@ -609,7 +609,7 @@ func TestForcedLineBreaksParagraph(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	paragraph := body.Box().Children[0]
-	tu.AssertEqual(t, paragraph.Box().ElementTag, "p", "paragraph")
+	tu.AssertEqual(t, paragraph.Box().ElementTag(), "p", "paragraph")
 	lines := paragraph.Box().Children
 	tu.AssertEqual(t, len(lines), 7, "len")
 	for _, line := range lines {
@@ -1105,7 +1105,7 @@ func TestVerticalAlign13(t *testing.T) {
 	span := line1.Box().Children[0]
 	line2 := span.Box().Children[0]
 	img1 := line2.Box().Children[0]
-	tu.AssertEqual(t, img1.Box().ElementTag, "img", "img1")
+	tu.AssertEqual(t, img1.Box().ElementTag(), "img", "img1")
 	tu.AssertEqual(t, img1.Box().PositionY, pr.Float(0), "img1")
 }
 

@@ -122,8 +122,8 @@ func TestMarginBoxes(t *testing.T) {
 		t.Fatalf("expected 2 pages, got %v", pages)
 	}
 	page1, page2 := pages[0], pages[1]
-	tu.AssertEqual(t, page1.Children[0].Box().ElementTag, "html", "page1")
-	tu.AssertEqual(t, page2.Children[0].Box().ElementTag, "html", "page2")
+	tu.AssertEqual(t, page1.Children[0].Box().ElementTag(), "html", "page1")
+	tu.AssertEqual(t, page2.Children[0].Box().ElementTag(), "html", "page2")
 
 	var marginBoxes1, marginBoxes2 []string
 	for _, box := range page1.Children[1:] {

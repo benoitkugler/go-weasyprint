@@ -352,7 +352,7 @@ func TestFixedPositioning(t *testing.T) {
 	tags := func(boxes []Box) []string {
 		var out []string
 		for _, b := range boxes {
-			out = append(out, b.Box().ElementTag)
+			out = append(out, b.Box().ElementTag())
 		}
 		return out
 	}

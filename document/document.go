@@ -303,12 +303,12 @@ func Render(html *tree.HTML, stylesheets []tree.CSS, presentationalHints bool, f
 //		 	}
 //		 }
 //		documents[0].Copy(allPages).writePdf("combined.pdf")
-func (d Document) Copy(pages []Page, all bool) Document {
-	if all {
-		pages = d.Pages
-	}
-	return Document{Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher}
-}
+// func (d Document) Copy(pages []Page, all bool) Document {
+// 	if all {
+// 		pages = d.Pages
+// 	}
+// 	return Document{Pages: pages, Metadata: d.Metadata, urlFetcher: d.urlFetcher}
+// }
 
 // Resolve internal hyperlinks.
 // Links to a missing anchor are removed with a warning.

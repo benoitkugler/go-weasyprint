@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/benoitkugler/go-weasyprint/images"
+	"golang.org/x/net/html"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/style/tree"
@@ -138,6 +139,11 @@ type BackgroundLayer struct {
 
 // BoxFields is an abstract base class for all boxes.
 type BoxFields struct {
+	// Original html node, needed for post-processing
+	// May be nil, like for PageBox and MarginBox
+	Element    *html.Node
+	PseudoType string
+
 	// Keep track of removed collapsing spaces for wrap opportunities.
 	LeadingCollapsibleSpace  bool
 	TrailingCollapsibleSpace bool
@@ -160,8 +166,7 @@ type BoxFields struct {
 
 	StringSet pr.ContentProperties
 
-	ElementTag string
-	Style      pr.ElementStyle
+	Style pr.ElementStyle
 
 	FirstLetterStyle, firstLineStyle pr.ElementStyle
 
@@ -209,8 +214,20 @@ type BoxFields struct {
 	RemoveDecorationSides [4]bool
 }
 
-func newBoxFields(elementTag string, style pr.ElementStyle, children []Box) BoxFields {
-	return BoxFields{ElementTag: elementTag, Style: style, Children: children}
+func newBoxFields(style pr.ElementStyle, element *html.Node, pseudoType string, children []Box) BoxFields {
+	return BoxFields{PseudoType: pseudoType, Style: style, Element: element, Children: children}
+}
+
+// ElementTag returns the html tag name of the element
+// and an optionnal pseudo type (in the form tag::pseudoType)
+func (box *BoxFields) ElementTag() string {
+	if box.Element == nil {
+		return ""
+	}
+	if box.PseudoType != "" {
+		return box.Element.Data + "::" + box.PseudoType
+	}
+	return box.Element.Data
 }
 
 func (box *BoxFields) AllChildren() []Box {
@@ -241,6 +258,8 @@ func (box *BoxFields) MissingLink() tree.Box {
 func (box *BoxFields) SetMissingLink(b tree.Box) {
 	box.missingLink = b
 }
+
+func (box *BoxFields) GetBookmarkLabel() string { return box.BookmarkLabel }
 
 // Create a new equivalent box with given ``newChildren``."""
 func CopyWithChildren(box Box, newChildren []Box) Box {
@@ -608,7 +627,7 @@ func SerializedBoxEquals(l1, l2 []SerBox) bool {
 func Serialize(boxList []Box) []SerBox {
 	out := make([]SerBox, len(boxList))
 	for i, box := range boxList {
-		out[i].Tag = box.Box().ElementTag
+		out[i].Tag = box.Box().ElementTag()
 		out[i].Type = box.Type()
 		// all concrete boxes are either text, replaced, column or parent.
 		if boxT, ok := box.(*TextBox); ok {

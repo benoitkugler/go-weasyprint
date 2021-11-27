@@ -110,7 +110,7 @@ def get_itf_and_type_code(class_: type) -> str:
         itf_code += f"""
         func {class_name}AnonymousFrom(parent Box, children []Box) *{class_name} {{
             style := tree.ComputedFromCascaded(nil, nil, parent.Box().Style, nil, "", "", nil, nil)
-            out := New{class_name}(parent.Box().ElementTag, style, children)
+            out := New{class_name}(style, parent.Box().Element, parent.Box().pseudoType, children)
             return out
         }}
         """

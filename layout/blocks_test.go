@@ -49,9 +49,9 @@ func TestBlockWidths(t *testing.T) {
       </div>
     `)
 	html := page.Box().Children[0]
-	tu.AssertEqual(t, html.Box().ElementTag, "html", "html")
+	tu.AssertEqual(t, html.Box().ElementTag(), "html", "html")
 	body := html.Box().Children[0]
-	tu.AssertEqual(t, body.Box().ElementTag, "body", "body")
+	tu.AssertEqual(t, body.Box().ElementTag(), "body", "body")
 	tu.AssertEqual(t, body.Box().Width, pr.Float(120), "body")
 
 	divs := body.Box().Children
@@ -59,11 +59,11 @@ func TestBlockWidths(t *testing.T) {
 	var paragraphs []Box
 	for _, div := range divs {
 		tu.AssertEqual(t, bo.BlockBoxT.IsInstance(div), true, "isinstance")
-		tu.AssertEqual(t, div.Box().ElementTag, "div", "div")
+		tu.AssertEqual(t, div.Box().ElementTag(), "div", "div")
 		tu.AssertEqual(t, div.Box().Width, pr.Float(100), "div")
 		for _, paragraph := range div.Box().Children {
 			tu.AssertEqual(t, bo.BlockBoxT.IsInstance(paragraph), true, "isinstance")
-			tu.AssertEqual(t, paragraph.Box().ElementTag, "p", "paragraph")
+			tu.AssertEqual(t, paragraph.Box().ElementTag(), "p", "paragraph")
 			tu.AssertEqual(t, paragraph.Box().PaddingLeft, pr.Float(2), "paragraph")
 			tu.AssertEqual(t, paragraph.Box().PaddingRight, pr.Float(2), "paragraph")
 			tu.AssertEqual(t, paragraph.Box().BorderLeftWidth, pr.Float(1), "paragraph")
@@ -249,9 +249,9 @@ func TestBlockPercentageHeightsNoHtmlHeight(t *testing.T) {
       </style>
     `)
 	html := page.Box().Children[0]
-	tu.AssertEqual(t, html.Box().ElementTag, "html", "html")
+	tu.AssertEqual(t, html.Box().ElementTag(), "html", "html")
 	body := html.Box().Children[0]
-	tu.AssertEqual(t, body.Box().ElementTag, "body", "body")
+	tu.AssertEqual(t, body.Box().ElementTag(), "body", "body")
 
 	// Since html’s height depend on body’s, body’s 50% means "auto"
 	tu.AssertEqual(t, body.Box().Height, pr.Float(0), "body")
@@ -269,9 +269,9 @@ func TestBlockPercentageHeights(t *testing.T) {
       </style>
     `)
 	html := page.Box().Children[0]
-	tu.AssertEqual(t, html.Box().ElementTag, "html", "html")
+	tu.AssertEqual(t, html.Box().ElementTag(), "html", "html")
 	body := html.Box().Children[0]
-	tu.AssertEqual(t, body.Box().ElementTag, "body", "body")
+	tu.AssertEqual(t, body.Box().ElementTag(), "body", "body")
 
 	// This time the percentage makes sense
 	tu.AssertEqual(t, body.Box().Height, pr.Float(150), "body")

@@ -224,7 +224,7 @@ func TestImages12(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	img := body.Box().Children[0]
-	tu.AssertEqual(t, img.Box().ElementTag, "img", "")
+	tu.AssertEqual(t, img.Box().ElementTag(), "img", "")
 	tu.AssertEqual(t, img.Box().PositionX, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().PositionY, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().Width, pr.Float(40), "")
@@ -248,7 +248,7 @@ func TestImages13(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	img := body.Box().Children[0]
-	tu.AssertEqual(t, img.Box().ElementTag, "img", "")
+	tu.AssertEqual(t, img.Box().ElementTag(), "img", "")
 	tu.AssertEqual(t, img.Box().PositionX, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().PositionY, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().Width, pr.Float(40), "")
@@ -272,7 +272,7 @@ func TestImages14(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	img := body.Box().Children[0]
-	tu.AssertEqual(t, img.Box().ElementTag, "img", "")
+	tu.AssertEqual(t, img.Box().ElementTag(), "img", "")
 	tu.AssertEqual(t, img.Box().PositionX, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().PositionY, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().Width, pr.Float(40), "")
@@ -297,7 +297,7 @@ func TestImages15(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	img := body.Box().Children[0]
-	tu.AssertEqual(t, img.Box().ElementTag, "img", "")
+	tu.AssertEqual(t, img.Box().ElementTag(), "img", "")
 	tu.AssertEqual(t, img.Box().PositionX, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().PositionY, pr.Float(0), "")
 	tu.AssertEqual(t, img.Box().Width, pr.Float(2), "")
@@ -319,7 +319,7 @@ func TestImages16(t *testing.T) {
 	html := page.Box().Children[0]
 	body := html.Box().Children[0]
 	img := body.Box().Children[0]
-	tu.AssertEqual(t, img.Box().ElementTag, "img", "")
+	tu.AssertEqual(t, img.Box().ElementTag(), "img", "")
 	tu.AssertEqual(t, body.Box().Width, pr.Float(320), "body")
 	tu.AssertEqual(t, body.Box().Height, pr.Float(220), "body")
 	tu.AssertEqual(t, img.Box().Width, pr.Float(300), "img")
@@ -339,7 +339,7 @@ func TestImages17(t *testing.T) {
 	div := body.Box().Children[0]
 	line := div.Box().Children[0]
 	img := line.Box().Children[0]
-	tu.AssertEqual(t, img.Box().ElementTag, "img", "")
+	tu.AssertEqual(t, img.Box().ElementTag(), "img", "")
 	tu.AssertEqual(t, div.Box().Width, pr.Float(300), "div")
 	tu.AssertEqual(t, div.Box().Height, pr.Float(300), "div")
 	tu.AssertEqual(t, img.Box().Width, pr.Float(300), "img")

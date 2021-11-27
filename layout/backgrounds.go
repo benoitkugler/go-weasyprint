@@ -301,9 +301,9 @@ func setCanvasBackground(page *bo.PageBox, getImageFromUri bo.Gifu) {
 		panic("unexpected margin box as first child of page")
 	}
 	chosenBox_ := rootBox_
-	if strings.ToLower(rootBox.ElementTag) == "html" && rootBox.Background == nil {
+	if strings.ToLower(rootBox.ElementTag()) == "html" && rootBox.Background == nil {
 		for _, child := range rootBox.Children {
-			if strings.ToLower(child.Box().ElementTag) == "body" {
+			if strings.ToLower(child.Box().ElementTag()) == "body" {
 				chosenBox_ = child
 				break
 			}
