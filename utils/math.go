@@ -21,7 +21,7 @@ func MaxInt(x, y int) int {
 type Fl = float64
 
 func Maxs(values ...Fl) Fl {
-	var max Fl
+	max := values[0]
 	for _, w := range values {
 		if w > max {
 			max = w
@@ -31,7 +31,7 @@ func Maxs(values ...Fl) Fl {
 }
 
 func Mins(values ...Fl) Fl {
-	var min Fl
+	min := values[0]
 	for _, w := range values {
 		if w < min {
 			min = w

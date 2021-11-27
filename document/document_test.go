@@ -291,7 +291,6 @@ func assertBookmarks(t *testing.T, html string, expectedByPage [][]bookmarkData,
 	}
 }
 
-// FIXME:
 func TestLinks(t *testing.T) {
 	// capt := testutils.CaptureLogs()
 	// defer capt.AssertNoLogs(t)
@@ -300,6 +299,7 @@ func TestLinks(t *testing.T) {
 	// warnings=(), round=false
 	assertLinks := func(html string, expectedLinksByPage [][]Link, expectedAnchorsByPage []anchors,
 		expectedResolvedLinks [][]Link, expectedResolvedAnchors [][]backend.Anchor, baseUrl string, warnings []string, round bool) {
+		t.Helper()
 
 		capt := testutils.CaptureLogs()
 
@@ -338,21 +338,21 @@ func TestLinks(t *testing.T) {
 	}
 
 	assertLinks(`
-    <style>
-        body { font-size: 10px; line-height: 2; width: 200px }
-        p { height: 90px; margin: 0 0 10px 0 }
-        img { width: 30px; vertical-align: top }
-    </style>
-    <p><a href="http://weasyprint.org"><img src=pattern.png></a></p>
-    <p style="padding: 0 10px"><a
-        href="#lipsum"><img style="border: solid 1px"
-                            src=pattern.png></a></p>
-    <p id=hello>Hello, World</p>
-    <p id=lipsum>
-        <a style="display: block; page-break-before: always; height: 30px"
-           href="#hel%6Co"></a>
-    </p>
-`, [][]Link{
+	    <style>
+	        body { font-size: 10px; line-height: 2; width: 200px }
+	        p { height: 90px; margin: 0 0 10px 0 }
+	        img { width: 30px; vertical-align: top }
+	    </style>
+	    <p><a href="http://weasyprint.org"><img src=pattern.png></a></p>
+	    <p style="padding: 0 10px"><a
+	        href="#lipsum"><img style="border: solid 1px"
+	                            src=pattern.png></a></p>
+	    <p id=hello>Hello, World</p>
+	    <p id=lipsum>
+	        <a style="display: block; page-break-before: always; height: 30px"
+	           href="#hel%6Co"></a>
+	    </p>
+	`, [][]Link{
 		{
 			{Type: "external", Target: "http://weasyprint.org", Rectangle: [4]fl{0, 0, 30, 20}},
 			{Type: "external", Target: "http://weasyprint.org", Rectangle: [4]fl{0, 0, 30, 30}},
@@ -390,9 +390,9 @@ func TestLinks(t *testing.T) {
 
 	assertLinks(
 		`
-	        <body style="width: 200px">
-	        <a href="../lipsum/é%E9" style="display: block; margin: 10px 5px">
-	    `, [][]Link{{
+		        <body style="width: 200px">
+		        <a href="../lipsum/é%E9" style="display: block; margin: 10px 5px">
+		    `, [][]Link{{
 			{Type: "external", Target: "http://weasyprint.org/foo/lipsum/%C3%A9%E9", Rectangle: [4]fl{5, 10, 195, 10}},
 		}},
 		[]anchors{{}},
@@ -404,10 +404,10 @@ func TestLinks(t *testing.T) {
 
 	assertLinks(
 		`
-	        <body style="width: 200px">
-	        <div style="display: block; margin: 10px 5px;
-	                    -weasy-link: url(../lipsum/é%E9)">
-	    `,
+		        <body style="width: 200px">
+		        <div style="display: block; margin: 10px 5px;
+		                    -weasy-link: url(../lipsum/é%E9)">
+		    `,
 		[][]Link{{
 			{Type: "external", Target: "http://weasyprint.org/foo/lipsum/%C3%A9%E9", Rectangle: [4]fl{5, 10, 195, 10}},
 		}},
@@ -421,9 +421,9 @@ func TestLinks(t *testing.T) {
 	// Relative URI reference without a base URI: allowed for links
 	assertLinks(
 		`
-	        <body style="width: 200px">
-	        <a href="../lipsum" style="display: block; margin: 10px 5px">
-	    `,
+		        <body style="width: 200px">
+		        <a href="../lipsum" style="display: block; margin: 10px 5px">
+		    `,
 		[][]Link{{
 			{Type: "external", Target: "../lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
 		}},
@@ -437,80 +437,105 @@ func TestLinks(t *testing.T) {
 	// Relative URI reference without a base URI: not supported for -weasy-link
 	assertLinks(
 		`
-	        <body style="width: 200px">
-	        <div style="-weasy-link: url(../lipsum);
-	                    display: block; margin: 10px 5px">
-	    `, [][]Link{nil}, []anchors{{}}, [][]Link{nil}, [][]backend.Anchor{nil},
+		        <body style="width: 200px">
+		        <div style="-weasy-link: url(../lipsum);
+		                    display: block; margin: 10px 5px">
+		    `, [][]Link{nil}, []anchors{{}}, [][]Link{nil}, [][]backend.Anchor{nil},
 		"", []string{
 			"Ignored `-weasy-link: url(../lipsum)` , Relative URI reference without a base URI",
 		}, false)
 
-	// TODO:
-	// // Internal or absolute URI reference without a base URI: OK
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <a href="#lipsum" id="lipsum"
-	//             style="display: block; margin: 10px 5px"></a>
-	//         <a href="http://weasyprint.org/" style="display: block"></a>
-	//     `, [[
-	//         ("internal", "lipsum", (5, 10, 195, 10), None),
-	//         ("external", "http://weasyprint.org/", (0, 10, 200, 10), None)]],
-	//     [{"lipsum": (5, 10)}],
-	//     [([("internal", "lipsum", (5, 10, 195, 10), None),
-	//        ("external", "http://weasyprint.org/", (0, 10, 200, 10), None)],
-	//       [("lipsum", 5, 10)])],
-	//     baseUrl=None)
+	// Internal or absolute URI reference without a base URI: OK
+	assertLinks(
+		`
+		        <body style="width: 200px">
+		        <a href="#lipsum" id="lipsum"
+		            style="display: block; margin: 10px 5px"></a>
+		        <a href="http://weasyprint.org/" style="display: block"></a>
+		    `, [][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
+			{Type: "external", Target: "http://weasyprint.org/", Rectangle: [4]fl{0, 10, 200, 10}},
+		}},
+		[]anchors{{"lipsum": [2]fl{5, 10}}},
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
+			{Type: "external", Target: "http://weasyprint.org/", Rectangle: [4]fl{0, 10, 200, 10}},
+		}},
+		[][]backend.Anchor{{
+			{Name: "lipsum", X: 5, Y: 10},
+		}},
+		"", nil, false)
 
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <div style="-weasy-link: url(#lipsum);
-	//                     margin: 10px 5px" id="lipsum">
-	//     `,
-	//     [[("internal", "lipsum", (5, 10, 195, 10), None)]],
-	//     [{"lipsum": (5, 10)}],
-	//     [([("internal", "lipsum", (5, 10, 195, 10), None)],
-	//       [("lipsum", 5, 10)])],
-	//     baseUrl=None)
+	assertLinks(
+		`
+		        <body style="width: 200px">
+		        <div style="-weasy-link: url(#lipsum);
+		                    margin: 10px 5px" id="lipsum">
+		    `,
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[]anchors{{"lipsum": [2]fl{5, 10}}},
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[][]backend.Anchor{{
+			{Name: "lipsum", X: 5, Y: 10},
+		}},
+		"", nil, false)
 
-	// assertLinks(
-	//     `
-	//         <style> a { display: block; height: 15px } </style>
-	//         <body style="width: 200px">
-	//             <a href="#lipsum"></a>
-	//             <a href="#missing" id="lipsum"></a>
-	//     `,
-	//     [[("internal", "lipsum", (0, 0, 200, 15), None),
-	//       ("internal", "missing", (0, 15, 200, 30), None)]],
-	//     [{"lipsum": (0, 15)}],
-	//     [([("internal", "lipsum", (0, 0, 200, 15), None)],
-	//       [("lipsum", 0, 15)])],
-	//     baseUrl=None,
-	//     warnings=[
-	//         "ERROR: No anchor #missing for internal URI reference"])
+	assertLinks(
+		`
+		        <style> a { display: block; height: 15px } </style>
+		        <body style="width: 200px">
+		            <a href="#lipsum"></a>
+		            <a href="#missing" id="lipsum"></a>
+		    `,
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{0, 0, 200, 15}},
+			{Type: "internal", Target: "missing", Rectangle: [4]fl{0, 15, 200, 30}},
+		}},
+		[]anchors{{"lipsum": [2]fl{0, 15}}},
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{0, 0, 200, 15}},
+		}},
+		[][]backend.Anchor{{
+			{Name: "lipsum", X: 0, Y: 15},
+		}},
+		"", []string{"No anchor #missing for internal URI reference"}, false)
 
-	// assertLinks(
-	//     `
-	//         <body style="width: 100px; transform: translateY(100px)">
-	//         <a href="#lipsum" id="lipsum" style="display: block; height: 20px;
-	//             transform: rotate(90deg) scale(2)">
-	//     `,
-	//     [[("internal", "lipsum", (30, 10, 70, 210), None)]],
-	//     [{"lipsum": (70, 10)}],
-	//     [([("internal", "lipsum", (30, 10, 70, 210), None)],
-	//       [("lipsum", 70, 10)])],
-	//     round=true)
+	assertLinks(
+		`
+	        <body style="width: 100px; transform: translateY(100px)">
+	        <a href="#lipsum" id="lipsum" style="display: block; height: 20px;
+	            transform: rotate(90deg) scale(2)">
+	    `,
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{30, 10, 70, 210}},
+		}},
+		[]anchors{{"lipsum": [2]fl{70, 10}}},
+		[][]Link{{
+			{Type: "internal", Target: "lipsum", Rectangle: [4]fl{30, 10, 70, 210}},
+		}},
+		[][]backend.Anchor{{
+			{Name: "lipsum", X: 70, Y: 10},
+		}},
+		"", nil, true)
 
-	// // Download for attachment
-	// assertLinks(
-	//     `
-	//         <body style="width: 200px">
-	//         <a rel=attachment href="pattern.png" download="wow.png"
-	//             style="display: block; margin: 10px 5px">
-	//     `, [[("attachment", "pattern.png",
-	//             (5, 10, 195, 10), "wow.png")]],
-	//     [{}], [([("attachment", "pattern.png",
-	//               (5, 10, 195, 10), "wow.png")], [])],
-	//     baseUrl=None)
+	// Download for attachment
+	assertLinks(
+		`
+	        <body style="width: 200px">
+	        <a rel=attachment href="pattern.png" download="wow.png"
+	            style="display: block; margin: 10px 5px">
+	    `,
+		[][]Link{{
+			{Type: "attachment", Target: "pattern.png", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[]anchors{{}},
+		[][]Link{{
+			{Type: "attachment", Target: "pattern.png", Rectangle: [4]fl{5, 10, 195, 10}},
+		}},
+		[][]backend.Anchor{nil},
+		"", nil, false)
 }

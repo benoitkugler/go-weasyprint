@@ -94,20 +94,12 @@ func (T *Transform) Invert() error {
 	return nil
 }
 
-// Transforms the point `(x, y)` by this matrix
+// Transforms the point `(x, y)` by this matrix, that is
+// compute AX + B
 func (T Transform) TransformPoint(x, y fl) (outX, outY fl) {
-	tmpX, tmpY := T.TransformDistance(x, y)
-	return tmpX + T.e, tmpY + T.f
-}
-
-// Transforms the distance vector ``(dx, dy)`` by this matrix.
-// This is similar to `TransformPoint` except that the translation components
-// of the transformation are ignored.
-// The calculation of the returned vector is as follows::
-// 	dx2 = dx1 * xx + dy1 * xy
-// 	dy2 = dx1 * yx + dy1 * yy
-func (T Transform) TransformDistance(x, y fl) (outX, outY fl) {
-	return T.a*x + T.c*y, T.b*x + T.d*y
+	outX = T.a*x + T.c*y + T.e
+	outY = T.b*x + T.d*y + T.f
+	return
 }
 
 // Applies a translation by `tx`, `ty`
