@@ -227,11 +227,11 @@ func TestDisplayInlineBlockTwice(t *testing.T) {
 	doc := document.Render(parsedHtml, nil, false, fontconfig)
 
 	output := NewOutput()
-	doc.WriteDocument(output, 1, nil)
+	doc.Write(output, 1, nil)
 	_ = output.Finalize()
 
 	output = NewOutput()
-	doc.WriteDocument(output, 1, nil)
+	doc.Write(output, 1, nil)
 	_ = output.Finalize()
 }
 

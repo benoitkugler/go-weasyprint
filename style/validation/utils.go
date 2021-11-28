@@ -728,7 +728,7 @@ func getContentListToken(token Token, baseUrl string) (pr.ContentProperty, error
 
 	// contents
 	if getKeyword(token) == "contents" {
-		return pr.ContentProperty{Type: "content", Content: pr.String("text")}, nil
+		return pr.ContentProperty{Type: "content()", Content: pr.String("text")}, nil
 	}
 
 	// <uri>

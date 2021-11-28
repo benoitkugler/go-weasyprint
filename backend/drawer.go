@@ -152,7 +152,7 @@ type OutputPage interface {
 	AddExternalLink(xMin, yMin, xMax, yMax fl, url string)
 
 	// AddFileAnnotation adds a file annotation on the current page.
-	// The file content has been added with `Output.EmdedFile`.
+	// The file content has been added with `Output.EmbedFile`.
 	AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string)
 
 	// Adjust the media boxes

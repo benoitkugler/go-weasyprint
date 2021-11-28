@@ -158,7 +158,7 @@ func (p *TextLayout) setTabs() {
 		layout := NewTextLayout(p.Context, pr.Fl(p.Style.GetFontSize().Value), p.Style, p.JustificationSpacing, nil)
 		layout.SetText(strings.Repeat(" ", width))
 		line, _ := layout.GetFirstLine()
-		widthTmp, _ := LineSize(line, p.Style)
+		widthTmp, _ := LineSize(line, p.Style.GetLetterSpacing())
 		width = int(widthTmp + 0.5)
 	}
 	// 0 is not handled correctly by Pango
@@ -185,13 +185,13 @@ func (p *TextLayout) GetFirstLine() (*pango.LayoutLine, int) {
 
 // LineSize gets the logical width and height of the given `line`.
 // `style` is used to add letter spacing (if needed).
-func LineSize(line *pango.LayoutLine, style pr.StyleAccessor) (pr.Fl, pr.Fl) {
+func LineSize(line *pango.LayoutLine, letterSpacing pr.Value) (pr.Fl, pr.Fl) {
 	var logicalExtents pango.Rectangle
 	line.GetExtents(nil, &logicalExtents)
 	width := utils.PangoUnitsToFloat(logicalExtents.Width)
 	height := utils.PangoUnitsToFloat(logicalExtents.Height)
-	if ls := style.GetLetterSpacing(); ls.String != "normal" {
-		width += pr.Fl(ls.Value)
+	if letterSpacing.String != "normal" {
+		width += pr.Fl(letterSpacing.Value)
 	}
 	return width, height
 }

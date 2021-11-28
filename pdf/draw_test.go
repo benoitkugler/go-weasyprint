@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/document"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/logger"
@@ -149,15 +150,23 @@ func pngsToImage(pngs []byte) (image.Image, error) {
 }
 
 // use the light UA stylesheet
-func htmlToModel(t *testing.T, html string, zoom utils.Fl) model.Document {
-	parsedHtml, err := tree.NewHTML(utils.InputString(html), ".", nil, "")
+func htmlToModel(t *testing.T, html string) model.Document {
+	return htmlToModelExt(t, html, 1, ".")
+}
+
+func htmlToModelExt(t *testing.T, html string, zoom utils.Fl, baseURL string) model.Document {
+	return htmlToModelExt2(t, html, zoom, baseURL, nil)
+}
+
+func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, attachments []backend.Attachment) model.Document {
+	parsedHtml, err := tree.NewHTML(utils.InputString(html), baseURL, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	parsedHtml.UAStyleSheet = tree.TestUAStylesheet
 	doc := document.Render(parsedHtml, nil, false, fontconfig)
 	output := NewOutput()
-	doc.WriteDocument(output, zoom, nil)
+	doc.Write(output, zoom, attachments)
 	return output.Finalize()
 }
 
@@ -168,7 +177,7 @@ func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
 		t.Fatal(err)
 	}
 
-	pdfDoc := htmlToModel(t, html, zoom)
+	pdfDoc := htmlToModelExt(t, html, zoom, ".")
 	err = pdfDoc.Write(target, nil)
 	if err != nil {
 		t.Fatal(err)

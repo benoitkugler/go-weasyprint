@@ -22,7 +22,7 @@ import (
 )
 
 // warn if baseUrl is required but missing.
-func UrlJoin(baseUrl, urlS string, allowRelative bool, context ...interface{}) string {
+func UrlJoin(baseUrl, urlS string, allowRelative bool, context string) string {
 	out, err := SafeUrljoin(baseUrl, urlS, allowRelative)
 	if err != nil {
 		log.Println(err, context)
@@ -50,6 +50,7 @@ func basicUrlJoin(baseUrl string, urls *url.URL) (string, error) {
 	}
 	parsedBase.RawQuery = urls.RawQuery
 	parsedBase.RawFragment = urls.RawFragment
+	parsedBase.Fragment = urls.Fragment
 	return parsedBase.String(), nil
 }
 
@@ -105,36 +106,36 @@ func (u Url) IsNone() bool {
 }
 
 // Return ('external', absolute_uri) or
-// ('internal', unquoted_fragment_id) or nil.s
-func GetLinkAttribute(element HTMLNode, attrName string, baseUrl string) []string {
+// ('internal', unquoted_fragment_id) or false
+func GetLinkAttribute(element *HTMLNode, attrName string, baseUrl string) ([2]string, bool) {
 	attrValue := strings.TrimSpace(element.Get(attrName))
 	if strings.HasPrefix(attrValue, "#") && len(attrValue) > 1 {
 		// Do not require a baseUrl when the value is just a fragment.
 		unescaped := Unquote(attrValue[1:])
-		return []string{"internal", unescaped}
+		return [2]string{"internal", unescaped}, true
 	}
+
 	uri := element.GetUrlAttribute(attrName, baseUrl, true)
-	if uri != "" {
-		if baseUrl != "" {
-			parsed, err := url.Parse(uri)
-			if err != nil {
-				log.Println(err)
-				return nil
-			}
-			baseParsed, err := url.Parse(baseUrl)
-			if err != nil {
-				log.Println(err)
-				return nil
-			}
-			if parsed.Scheme == baseParsed.Scheme && parsed.Host == baseParsed.Host && parsed.Path == baseParsed.Path && parsed.RawQuery == baseParsed.RawQuery {
-				// Compare with fragments removed
-				unescaped := Unquote(parsed.Fragment)
-				return []string{"internal", unescaped}
-			}
-		}
-		return []string{"external", uri}
+	if uri == "" {
+		return [2]string{}, false
 	}
-	return nil
+	if baseUrl != "" {
+		parsed, err := url.Parse(uri)
+		if err != nil {
+			log.Println(err)
+			return [2]string{}, false
+		}
+		baseParsed, err := url.Parse(baseUrl)
+		if err != nil {
+			log.Println(err)
+			return [2]string{}, false
+		}
+		if parsed.Scheme == baseParsed.Scheme && parsed.Host == baseParsed.Host && parsed.Path == baseParsed.Path && parsed.RawQuery == baseParsed.RawQuery {
+			// Compare with fragments removed
+			return [2]string{"internal", parsed.Fragment}, true
+		}
+	}
+	return [2]string{"external", uri}, true
 }
 
 // Return file URL of `path`.

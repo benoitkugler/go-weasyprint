@@ -68,7 +68,7 @@ func TestWriteSimpleDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	finalDoc := Render(doc, nil, true, fc)
-	finalDoc.WriteDocument(output{}, 1, nil)
+	finalDoc.Write(output{}, 1, nil)
 }
 
 func TestWriteDocument(t *testing.T) {
@@ -77,7 +77,7 @@ func TestWriteDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	finalDoc := Render(doc, nil, true, fc)
-	finalDoc.WriteDocument(output{}, 1, nil)
+	finalDoc.Write(output{}, 1, nil)
 }
 
 func renderUrl(t testing.TB, url string) {
@@ -86,7 +86,7 @@ func renderUrl(t testing.TB, url string) {
 		t.Fatal(err)
 	}
 	finalDoc := Render(doc, nil, true, fc)
-	finalDoc.WriteDocument(output{}, 1, nil)
+	finalDoc.Write(output{}, 1, nil)
 }
 
 func TestRealPage(t *testing.T) {

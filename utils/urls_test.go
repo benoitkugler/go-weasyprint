@@ -129,3 +129,13 @@ func TestJoinUrl(t *testing.T) {
 		}
 	}
 }
+
+func TestUrlJoin(t *testing.T) {
+	got, err := SafeUrljoin("http://weasyprint.org/foo/bar/", "/foo/bar/#test", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "http://weasyprint.org/foo/bar/#test" {
+		t.Fatalf("unexpected joined url %s", got)
+	}
+}

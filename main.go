@@ -3,6 +3,7 @@ package goweasyprint
 import (
 	"io"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/document"
 	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/pdf"
@@ -34,14 +35,14 @@ func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, fontConfig *tex
 //	- `zoom` is a zoom factor
 //	- `attachements` is an additional list of attachements to include into the PDF file.
 func HtmlToPdfOptions(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher,
-	mediaType string, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []utils.Attachment) error {
+	mediaType string, stylesheets []tree.CSS, presentationalHints bool, fontConfig *text.FontConfiguration, zoom float64, attachments []backend.Attachment) error {
 	parsedHtml, err := tree.NewHTML(htmlContent, baseUrl, urlFetcher, mediaType)
 	if err != nil {
 		return err
 	}
 	doc := document.Render(parsedHtml, stylesheets, presentationalHints, fontConfig)
 	output := pdf.NewOutput()
-	doc.WriteDocument(output, zoom, attachments)
+	doc.Write(output, zoom, attachments)
 	pdfDoc := output.Finalize()
 	return pdfDoc.Write(target, nil)
 }

@@ -3,7 +3,6 @@ package pdf
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -92,7 +91,7 @@ func (s *Output) SetCreator(creator string) {
 }
 
 func (s *Output) SetAuthors(authors []string) {
-	s.document.Trailer.Info.Keywords = strings.Join(authors, ", ")
+	s.document.Trailer.Info.Author = strings.Join(authors, ", ")
 }
 
 func (s *Output) SetKeywords(keywords []string) {
@@ -139,12 +138,7 @@ func (c *Output) CreateAnchors(anchors [][]backend.Anchor) {
 // embedded files
 
 func newFileSpec(a backend.Attachment) *model.FileSpec {
-	stream, err := model.NewStream(a.Content, model.Filter{Name: model.Flate})
-	if err != nil {
-		log.Printf("failed to compress attachement %s: %s", a.Title, err)
-		// default to non compressed format
-		stream = model.Stream{Content: a.Content}
-	}
+	stream := model.NewCompressedStream(a.Content)
 	fs := &model.FileSpec{
 		UF:   a.Title,
 		Desc: a.Description,

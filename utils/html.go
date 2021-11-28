@@ -334,7 +334,7 @@ type DocumentMetadata struct {
 }
 
 type Attachment struct {
-	Url, Title string
+	URL, Title string
 }
 
 // Relevant specs:
@@ -397,7 +397,7 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 				if url == "" {
 					log.Println("Missing href in <link rel='attachment'>")
 				} else {
-					attachments = append(attachments, Attachment{Url: url, Title: attTitle})
+					attachments = append(attachments, Attachment{URL: url, Title: attTitle})
 				}
 			}
 		}
@@ -430,7 +430,7 @@ func stripWhitespace(s string) string {
 // YYYY-MM-DDThh:mm:ssTZD (eg 1997-07-16T19:20:30+01:00)
 // YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
 var (
-	W3CDateRe = regexp.MustCompile(
+	w3CDateRe = regexp.MustCompile(
 		`^` +
 			"[ \t\n\f\r]*" +
 			`(?P<year>\d\d\d\d)` +
@@ -445,11 +445,7 @@ var (
 			`:(?P<second>[0-5]\d)` +
 			`(?:\.\d+)?` + // Second fraction, ignored
 			`)?` +
-			`(?:` +
-			`Z |` + //# UTC
-			`(?P<tzHour>[+-](?:[01]\d|2[0-3]))` +
-			`:(?P<tzMinute>[0-5]\d)` +
-			`)` +
+			`(?:Z|(?P<tzHour>[+-](?:[01]\d|2[0-3])):(?P<tzMinute>[0-5]\d))` + // UTC
 			`)?` +
 			`)?` +
 			`)?` +
@@ -460,7 +456,7 @@ var (
 )
 
 func init() {
-	for i, name := range W3CDateRe.SubexpNames() {
+	for i, name := range w3CDateRe.SubexpNames() {
 		if i != 0 && name != "" {
 			W3CDateReGroupsIndexes[name] = i
 		}
@@ -480,7 +476,7 @@ func toInt(s string, defaut ...int) int {
 
 // http://www.w3.org/TR/NOTE-datetime
 func parseW3cDate(metaName, str string) time.Time {
-	match := W3CDateRe.FindStringSubmatch(str)
+	match := w3CDateRe.FindStringSubmatch(str)
 	if len(match) == 0 {
 		log.Printf("Invalid %s date: %s", metaName, str)
 		return time.Time{}

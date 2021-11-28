@@ -460,10 +460,6 @@ func getFilenameFromResult(rawurl string) string {
 		// Using guessExtension is a great idea, but sadly the extension is
 		// probably random, depending on the alignment of the stars, which car
 		// you're driving and which software has been installed on your machine.
-
-		// Unfortuneatly this isn't even imdepodent on one machine, because the
-		// extension can depend on PYTHONHASHSEED if mimetypes has multiple
-		// extensions to offer
 		extension := ".bin"
 		filename = "attachment" + extension
 	} else {
@@ -473,7 +469,7 @@ func getFilenameFromResult(rawurl string) string {
 	return filename
 }
 
-// WriteDocument paints the pages in the given `target`, with meta-data.
+// Write paints the pages in the given `target`, with meta-data.
 //
 // The zoom factor is in PDF units per CSS units, and should default to 1.
 // Warning : all CSS units are affected, including physical units like
@@ -482,12 +478,15 @@ func getFilenameFromResult(rawurl string) string {
 //
 // `attachments` is an optional list of additional file attachments for the
 // generated PDF document, added to those collected from the metadata.
-func (d *Document) WriteDocument(target backend.Output, zoom float64, attachments []utils.Attachment) {
+func (d *Document) Write(target backend.Output, zoom float64, attachments []backend.Attachment) {
 	// 0.75 = 72 PDF point per inch / 96 CSS pixel per inch
 	scale := zoom * 0.75
 
 	// Links and anchors
 	pagedLinks, pagedAnchors := d.resolveLinks()
+
+	// files must be embedded before being used on the pages
+	d.embedFileAnnotations(pagedLinks, target)
 
 	logger.ProgressLogger.Println("Step 6 - Drawing pages")
 
@@ -516,16 +515,14 @@ func (d *Document) WriteDocument(target backend.Output, zoom float64, attachment
 	logger.ProgressLogger.Println("Step 7 - Adding PDF metadata")
 
 	// embedded files
-	var as []backend.Attachment
-	for _, a := range append(d.Metadata.Attachments, attachments...) {
-		t := d.fetchAttachment(a.Url)
+	as := attachments
+	for _, a := range d.Metadata.Attachments {
+		t := d.fetchAttachment(a.URL)
 		if len(t.Content) != 0 {
 			as = append(as, t)
 		}
 	}
 	target.SetAttachments(as)
-
-	d.embedFileAnnotations(pagedLinks, target)
 
 	// Set bookmarks
 	target.SetBookmarks(d.makeBookmarkTree())

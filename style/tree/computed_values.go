@@ -385,11 +385,7 @@ func length2(computer *ComputedStyle, _ string, value pr.Value, fontSize pr.Floa
 		case pr.Ex:
 			result = value.Value * fontSize * text.ExRatio(computer, computer.textContext)
 		case pr.Ch:
-			layout := text.NewTextLayout(computer.textContext, float64(fontSize), computer, 0, nil)
-			layout.SetText("0")
-			line, _ := layout.GetFirstLine()
-			logicalWidth, _ := text.LineSize(line, computer)
-			result = value.Value * pr.Float(logicalWidth)
+			result = value.Value * text.ChWidth(computer, fontSize, computer.textContext)
 		case pr.Em:
 			result = value.Value * fontSize
 		case pr.Rem:
@@ -599,11 +595,11 @@ func bookmarkLabel(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.
 		out, err := contentList(computer, value)
 		if err != nil {
 			log.Printf("error computing bookmark-label : %s\n", err)
-			return nil
+			return pr.ContentProperties{}
 		}
 		return out
 	}
-	return nil
+	return pr.ContentProperties{}
 }
 
 // Compute the ``string-set`` property.
@@ -615,13 +611,13 @@ func stringSet(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssP
 			v, err := contentList(computer, sset.Contents)
 			if err != nil {
 				log.Printf("error computing string-set : %s \n", err)
-				return nil
+				return pr.StringSet{}
 			}
 			out[i] = pr.SContent{String: sset.String, Contents: v}
 		}
 		return pr.StringSet{String: stringset.String, Contents: out}
 	}
-	return nil
+	return pr.StringSet{}
 }
 
 // Compute the ``content`` property.
@@ -639,11 +635,11 @@ func content(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssPro
 		props, err := contentList(computer, value.Contents)
 		if err != nil {
 			log.Printf("error computing content : %s\n", err)
-			return nil
+			return pr.SContent{}
 		}
 		return pr.SContent{Contents: props}
 	}
-	return nil
+	return pr.SContent{}
 }
 
 // Compute the ``display`` property.
@@ -774,21 +770,21 @@ func link(computer *ComputedStyle, _ string, _value pr.CssProperty) pr.CssProper
 	switch value := _value.(type) {
 	case pr.NamedString:
 		if value.String == "none" {
-			return nil
+			return pr.NamedString{}
 		} else {
 			return value
 		}
 
 	case pr.AttrData:
 		if node, ok := computer.element.(*utils.HTMLNode); ok {
-			type_attr := utils.GetLinkAttribute(*node, value.Name, computer.baseUrl)
-			if len(type_attr) < 2 {
-				return nil
+			typeAttr, ok := utils.GetLinkAttribute(node, value.Name, computer.baseUrl)
+			if !ok {
+				return pr.NamedString{}
 			}
-			return pr.NamedString{Name: type_attr[0], String: type_attr[1]}
+			return pr.NamedString{Name: typeAttr[0], String: typeAttr[1]}
 		}
 	}
-	return nil
+	return pr.NamedString{}
 }
 
 // Compute the ``lang`` property.
