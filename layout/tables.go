@@ -13,7 +13,7 @@ import (
 // Layout for tables and internal table boxes.
 
 // Layout for a table box.
-func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.Float, skipStack *tree.IntList,
+func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.Float, skipStack tree.ResumeStack,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.BlockLevelBoxITF, blockLayout) {
 	table := table_.Table()
 	columnWidths := table.ColumnWidths
@@ -50,10 +50,10 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 	var skippedRows int
 	if table.Style.GetBorderCollapse() == "collapse" {
 		if skipStack != nil {
-			skippedGroups, groupSkipStack := skipStack.Value, skipStack.Next
+			skippedGroups, groupSkipStack := skipStack.Unpack()
 			skippedRows = 0
 			if groupSkipStack != nil {
-				skippedRows = groupSkipStack.Value
+				skippedRows, _ = groupSkipStack.Unpack()
 			}
 			for _, group := range table.Children[:skippedGroups] {
 				skippedRows += len(group.Box().Children)
@@ -73,8 +73,8 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 
 	// Make this a sub-function so that many local variables like rowsX
 	// don't need to be passed as parameters.
-	groupLayout := func(group_ Box, positionY, maxPositionY pr.Float, pageIsEmpty bool, skipStack *tree.IntList) (Box, *tree.IntList, tree.PageBreak) {
-		var resumeAt *tree.IntList
+	groupLayout := func(group_ Box, positionY, maxPositionY pr.Float, pageIsEmpty bool, skipStack tree.ResumeStack) (Box, tree.ResumeStack, tree.PageBreak) {
+		var resumeAt tree.ResumeStack
 		nextPage := tree.PageBreak{Break: "any"}
 		originalPageIsEmpty := pageIsEmpty
 		resolvePercentagesBox(group_, &table.BoxFields, "")
@@ -89,10 +89,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		isGroupStart := skipStack == nil
 		skip := 0
 		if !isGroupStart {
-			skip, skipStack = skipStack.Value, skipStack.Next
-			if skipStack != nil { // No breaks inside rows for now
-				log.Fatalf("expected empty skipStack here, got %v", skipStack)
-			}
+			skip, skipStack = skipStack.Unpack()
 		}
 		for i, row_ := range group.Children[skip:] {
 			row := row_.Box()
@@ -102,7 +99,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				pageBreak := blockLevelPageBreak(newGroupChildren[len(newGroupChildren)-1], row_)
 				if pageBreak == "page" || pageBreak == "recto" || pageBreak == "verso" || pageBreak == "left" || pageBreak == "right" {
 					nextPage.Break = pageBreak
-					resumeAt = &tree.IntList{Value: indexRow}
+					resumeAt = tree.ResumeStack{indexRow: nil}
 					break
 				}
 			}
@@ -157,6 +154,16 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				// The computed height is a minimum
 				cell.ComputedHeight = cell.Height
 				cell.Height = pr.Auto
+
+				// TODO:
+				// if skipStack:
+				// 	if indexCell in skipStack:
+				// 		cellSkipStack = skipStack[indexCell]
+				// 	else:
+				// 		cellSkipStack = {len(cell.children): None}
+				// else:
+				// 	cellSkipStack = None
+
 				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, false, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 				cell = cell_.Box()
 				any := false
@@ -290,12 +297,12 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 							break
 						}
 					} else {
-						resumeAt = &tree.IntList{Value: indexRow}
+						resumeAt = tree.ResumeStack{indexRow: nil}
 						break
 					}
 				}
 				if originalPageIsEmpty {
-					resumeAt = &tree.IntList{Value: indexRow}
+					resumeAt = tree.ResumeStack{indexRow: nil}
 				} else {
 					return nil, nil, nextPage
 				}
@@ -344,13 +351,13 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		return group_, resumeAt, nextPage
 	}
 
-	bodyGroupsLayout := func(skipStack *tree.IntList, positionY, maxPositionY pr.Float, pageIsEmpty bool) ([]Box, *tree.IntList, tree.PageBreak, pr.Float) {
+	bodyGroupsLayout := func(skipStack tree.ResumeStack, positionY, maxPositionY pr.Float, pageIsEmpty bool) ([]Box, tree.ResumeStack, tree.PageBreak, pr.Float) {
 		skip := 0
 		if skipStack != nil {
-			skip, skipStack = skipStack.Value, skipStack.Next
+			skip, skipStack = skipStack.Unpack()
 		}
 		newTableChildren := []Box{}
-		var resumeAt *tree.IntList
+		var resumeAt tree.ResumeStack
 		nextPage := tree.PageBreak{Break: "any"}
 
 		for i, group_ := range table.Children[skip:] {
@@ -366,7 +373,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				pageBreak := blockLevelPageBreak(newTableChildren[L-1], group_)
 				if pageBreak == "page" || pageBreak == "recto" || pageBreak == "verso" || pageBreak == "left" || pageBreak == "right" {
 					nextPage.Break = pageBreak
-					resumeAt = &tree.IntList{Value: indexGroup}
+					resumeAt = tree.ResumeStack{indexGroup: nil}
 					break
 				}
 			}
@@ -385,7 +392,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 							break
 						}
 					}
-					resumeAt = &tree.IntList{Value: indexGroup}
+					resumeAt = tree.ResumeStack{indexGroup: nil}
 				} else {
 					return nil, nil, nextPage, positionY
 				}
@@ -397,7 +404,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			pageIsEmpty = false
 
 			if resumeAt != nil {
-				resumeAt = &tree.IntList{Value: indexGroup, Next: resumeAt}
+				resumeAt = tree.ResumeStack{indexGroup: resumeAt}
 				break
 			}
 		}
@@ -414,11 +421,11 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		}
 	}
 
-	allGroupsLayout := func() (Box, []Box, Box, pr.Float, *tree.IntList, tree.PageBreak) {
+	allGroupsLayout := func() (Box, []Box, Box, pr.Float, tree.ResumeStack, tree.PageBreak) {
 		var (
 			header, footer             Box
 			headerHeight, footerHeight pr.Float
-			resumeAt                   *tree.IntList
+			resumeAt                   tree.ResumeStack
 			nextPage                   tree.PageBreak
 		)
 
@@ -458,7 +465,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		// Don't remove headers and footers if breaks are avoided in line groups
 		skip := 0
 		if skipStack != nil {
-			skip = skipStack.Value
+			skip, _ = skipStack.Unpack()
 		}
 		avoidBreaks := false
 		for _, group_ := range table.Children[skip:] {

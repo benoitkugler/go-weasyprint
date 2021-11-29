@@ -531,6 +531,31 @@ func TestTextLineThrough(t *testing.T) {
       <div>abc</div>`)
 }
 
+func TestZeroWidthCharacter(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1508
+	assertPixelsEqual(t, "zero_width_character", `
+        ______
+        _RRRR_
+        _RRRR_
+        ______
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 6px 4px;
+          background: white;
+          margin: 1px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+        }
+      </style>
+      <div>a&zwnj;b</div>`)
+}
+
 func TestTextUnderlineDashed(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)

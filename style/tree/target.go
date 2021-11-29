@@ -15,10 +15,6 @@ import (
 // The TargetCollector is a structure providing required targets"
 // counterValues && stuff needed to build Pending targets later,
 // when the layout of all targetted anchors has been done.
-//
-// :copyright: Copyright 2011-2019 Simon Sapin && contributors, see AUTHORS.
-// :license: BSD, see LICENSE for details.
-
 type RemakeState struct {
 	// first occurrence of anchor
 	Anchors []string
@@ -27,17 +23,41 @@ type RemakeState struct {
 	ContentChanged, PagesWanted bool
 }
 
-// IntList is a link list of int
-type IntList struct {
-	Next  *IntList
-	Value int
+// ResumeStack is a tree of index boxes where
+// layout has been interrupted and should resume,
+// following the box tree structure.
+// At each level, several boxes may be selected.
+type ResumeStack map[int]ResumeStack
+
+// Unpack returns the first element and the corresponding stack.
+// It will panic if the stack is empty.
+func (r ResumeStack) Unpack() (int, ResumeStack) {
+	for k, v := range r {
+		return k, v
+	}
+	panic("invalid use of Unpack on an empty stack")
 }
 
-func (l *IntList) String() string {
-	if l == nil {
-		return "<nil>"
+func (r ResumeStack) String() string {
+	if len(r) == 0 {
+		return ""
 	}
-	return fmt.Sprintf("[%d, %s]", l.Value, l.Next)
+	return fmt.Sprintf("%v", map[int]ResumeStack(r))
+}
+
+// Equals returns true if the two stacks are deeply equals.
+// nil and 0-sized map are compared equal.
+func (r ResumeStack) Equals(other ResumeStack) bool {
+	if len(r) != len(other) {
+		return false
+	}
+	for k, v1 := range r {
+		v2, has := other[k]
+		if !has || !v1.Equals(v2) {
+			return false
+		}
+	}
+	return true
 }
 
 type PageState struct {
@@ -77,7 +97,7 @@ type PageBreak struct {
 }
 
 type PageMaker struct {
-	InitialResumeAt  *IntList
+	InitialResumeAt  ResumeStack
 	InitialPageState PageState
 	InitialNextPage  PageBreak
 	RemakeState      RemakeState

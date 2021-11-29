@@ -18,7 +18,7 @@ type boxOrList struct {
 }
 
 // Lay out a multi-column ``box``.
-func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack *tree.IntList, containingBlock *bo.BoxFields,
+func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.Float, skipStack tree.ResumeStack, containingBlock *bo.BoxFields,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder, adjoiningMargins []pr.Float) (bo.BlockLevelBoxITF, blockLayout) {
 	// Implementation of the multi-column pseudo-algorithm :
 	// https://www.w3.org/TR/css3-multicol/#pseudo-algorithm
@@ -145,6 +145,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 		currentPositionY += collapseMargin(adjoiningMargins)
 		adjoiningMargins = nil
 		columnBox := createColumnBox(columnChildren)
+		columnBox.Box().PositionY = currentPositionY
 		newChild, _ := blockBoxLayout(context, columnBox, pr.Inf, skipStack, containingBlock,
 			pageIsEmpty, new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), new([]pr.Float), false)
 		height := newChild.Box().MarginHeight()
@@ -162,7 +163,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 
 			for i := 0; i < count; i += 1 {
 				// Render the column
-				newBox, tmp := blockBoxLayout(context, columnBox, box.ContentBoxY()+height,
+				newBox, tmp := blockBoxLayout(context, columnBox, currentPositionY+height,
 					columnSkipStack, containingBlock, pageIsEmpty, &[]*AbsolutePlaceholder{}, &[]*AbsolutePlaceholder{}, new([]pr.Float), false)
 				resumeAt := tmp.resumeAt
 				nextPage = tmp.nextPage
@@ -239,7 +240,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 			}
 		}
 
-		maxPositionY = pr.Min(maxPositionY, box.ContentBoxY()+height)
+		maxPositionY = pr.Min(maxPositionY, currentPositionY+height)
 
 		// Replace the current box children with columns
 		i := 0
@@ -290,7 +291,7 @@ func columnsLayout(context *layoutContext, box_ bo.BlockBoxITF, maxPositionY pr.
 
 	if len(box.Children) != 0 && len(newChildren) == 0 {
 		// The box has children but none can be drawn, let's skip the whole box
-		return nil, blockLayout{resumeAt: &tree.IntList{Value: 0}, nextPage: tree.PageBreak{Break: "any"}}
+		return nil, blockLayout{resumeAt: tree.ResumeStack{0: nil}, nextPage: tree.PageBreak{Break: "any"}}
 	}
 
 	// Set the height of box and the columns

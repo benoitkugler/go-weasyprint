@@ -111,11 +111,11 @@ func setDirection(box *bo.BoxFields, position string, value pr.Float) {
 }
 
 // the returned box as same concrete type than box_
-func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack *tree.IntList, containingBlock containingBlock,
+func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipStack tree.ResumeStack, containingBlock containingBlock,
 	pageIsEmpty bool, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder) (bo.Box, blockLayout) {
 
 	context.createBlockFormattingContext()
-	var resumeAt *tree.IntList
+	var resumeAt tree.ResumeStack
 	box := box_.Box()
 	// Step 1 is done in formattingStructure.Boxes
 	// Step 2
@@ -208,12 +208,13 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 	}
 	originalSkipStack := skipStack
 	if skipStack != nil {
+		var index int
+		index, skipStack = skipStack.Unpack()
 		if strings.HasSuffix(string(box.Style.GetFlexDirection()), "-reverse") {
-			children = children[:skipStack.Value+1]
+			children = children[:index+1]
 		} else {
-			children = children[skipStack.Value:]
+			children = children[index:]
 		}
-		skipStack = skipStack.Next
 	} else {
 		skipStack = nil
 	}
@@ -389,7 +390,7 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 				childHeight := child.HypotheticalMainSize + child.BorderTopWidth.V() + child.BorderBottomWidth.V() +
 					child.PaddingTop.V() + child.PaddingBottom.V()
 				if getAttr(box, axis, "") == pr.Auto && childHeight+box.Height.V() > availableMainSpace {
-					resumeAt = &tree.IntList{Value: i}
+					resumeAt = tree.ResumeStack{i: nil}
 					children = children[:i+1]
 					break
 				}
@@ -1128,20 +1129,23 @@ func flexLayout(context *layoutContext, box_ Box, maxPositionY pr.Float, skipSta
 					pageIsEmpty, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
 				childResumeAt := tmp.resumeAt
 				if newChild == nil {
-					if resumeAt != nil && resumeAt.Value != 0 {
-						resumeAt = &tree.IntList{Value: resumeAt.Value + i - 1}
+					if resumeAt != nil {
+						if resumeIndex, _ := resumeAt.Unpack(); resumeIndex != 0 {
+							resumeAt = tree.ResumeStack{resumeIndex + i - 1: nil}
+						}
 					}
 				} else {
 					box.Children = append(box.Children, newChild)
 					if childResumeAt != nil {
 						firstLevelSkip := 0
 						if originalSkipStack != nil {
-							firstLevelSkip = originalSkipStack.Value
+							firstLevelSkip, _ = originalSkipStack.Unpack()
 						}
 						if resumeAt != nil {
-							firstLevelSkip += resumeAt.Value
+							resumeIndex, _ := resumeAt.Unpack()
+							firstLevelSkip += resumeIndex
 						}
-						resumeAt = &tree.IntList{Value: firstLevelSkip + i, Next: childResumeAt}
+						resumeAt = tree.ResumeStack{firstLevelSkip + i: childResumeAt}
 					}
 				}
 				if resumeAt != nil {

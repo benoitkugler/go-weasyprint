@@ -11,7 +11,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-// reference commit : 223e97d99ac681a7a5f59b90ce6bfeba047d9fa8
+// reference commit : a149af9aaf902901d5d19134f5393e2637bcd219
 
 // HtmlToPdf performs the convertion of an HTML document (`htmlContent`) to a PDF file,
 // written in `target`.

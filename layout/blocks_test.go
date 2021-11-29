@@ -907,3 +907,49 @@ func TestContinueDiscardChildren(t *testing.T) {
 	tu.AssertEqual(t, div3.Box().PositionY, pr.Float(2+25*2), "div3")
 	tu.AssertEqual(t, article.Box().BorderBottomWidth, pr.Float(1), "article")
 }
+
+func TestBlockInBlockWithBottomPadding(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1476
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	pages := renderPages(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        @page { size: 8em 3.5em }
+        body { line-height: 1; orphans: 1; widows: 1; font-family: weasyprint }
+        div { padding-bottom: 1em }
+      </style>
+      abc def
+      <div>
+        <p>
+          ghi jkl
+          mno pqr
+        </p>
+      </div>
+      stu vwx`)
+	page1, page2 := pages[0], pages[1]
+
+	html := page1.Box().Children[0]
+	body := html.Box().Children[0]
+	anonBody, div := unpack2(body)
+	line := anonBody.Box().Children[0]
+	tu.AssertEqual(t, line.Box().Height, pr.Float(16), "line")
+	tu.AssertEqual(t, line.Box().Children[0].(*bo.TextBox).Text, "abc def", "line")
+	p := div.Box().Children[0]
+	line = p.Box().Children[0]
+	tu.AssertEqual(t, line.Box().Height, pr.Float(16), "line")
+	tu.AssertEqual(t, line.Box().Children[0].(*bo.TextBox).Text, "ghi jkl", "line")
+
+	html = page2.Box().Children[0]
+	body = html.Box().Children[0]
+	div, anonBody = unpack2(body)
+	p = div.Box().Children[0]
+	line = p.Box().Children[0]
+	tu.AssertEqual(t, line.Box().Height, pr.Float(16), "line")
+	tu.AssertEqual(t, line.Box().Children[0].(*bo.TextBox).Text, "mno pqr", "line")
+	line = anonBody.Box().Children[0]
+	tu.AssertEqual(t, line.Box().Height, pr.Float(16), "line")
+	tu.AssertEqual(t, line.Box().ContentBoxY(), pr.Float(16+16), "line") // p content + div padding
+	tu.AssertEqual(t, line.Box().Children[0].(*bo.TextBox).Text, "stu vwx", "line")
+}

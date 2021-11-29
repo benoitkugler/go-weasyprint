@@ -1412,6 +1412,10 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			width := glyphInfo.Geometry.Width
 			glyph := glyphInfo.Glyph
 
+			if glyph == pango.GLYPH_EMPTY {
+				continue
+			}
+
 			outGlyph.Offset = pr.Fl(glyphInfo.Geometry.XOffset) / fontSize
 			outGlyph.Glyph = glyph.GID()
 
@@ -1444,7 +1448,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			if i < len(glyphString.Glyphs)-1 {
 				endPos = runStart + glyphString.LogClusters[i+1]
 			}
-			if _, in := outFont.Cmap[outGlyph.Glyph]; !in && glyph != pango.GLYPH_EMPTY {
+			if _, in := outFont.Cmap[outGlyph.Glyph]; !in {
 				outFont.Cmap[outGlyph.Glyph] = textRunes[startPos:endPos]
 			}
 		}

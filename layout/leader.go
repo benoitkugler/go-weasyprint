@@ -3,21 +3,25 @@ package layout
 import (
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
-	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
 // Leader management.
 
+type leaderInd struct {
+	value int
+	next  *leaderInd
+}
+
 // get the index of the first leader box in ``box``.
-func leaderIndex(box Box) (*tree.IntList, Box) {
+func leaderIndex(box Box) (*leaderInd, Box) {
 	for i, child := range box.Box().Children {
 		if child.Box().IsLeader {
-			return &tree.IntList{Value: i}, child
+			return &leaderInd{value: i}, child
 		}
 		if bo.ParentBoxT.IsInstance(child) {
 			childLeaderIndex, childLeader := leaderIndex(child)
 			if childLeaderIndex != nil {
-				return &tree.IntList{Value: i, Next: childLeaderIndex}, childLeader
+				return &leaderInd{value: i, next: childLeaderIndex}, childLeader
 			}
 		}
 	}
@@ -88,7 +92,7 @@ func handleLeader(context *layoutContext, line *bo.LineBox, containingBlock cont
 	// Widen leader parent boxes and translate following boxes
 	var box Box = line
 	for index != nil {
-		for _, child := range box.Box().Children[index.Value+1:] {
+		for _, child := range box.Box().Children[index.value+1:] {
 			if child.Box().IsInNormalFlow() {
 				if line.Style.GetDirection() == "ltr" {
 					child.Translate(child, extraWidth, 0, false)
@@ -97,8 +101,8 @@ func handleLeader(context *layoutContext, line *bo.LineBox, containingBlock cont
 				}
 			}
 		}
-		box = box.Box().Children[index.Value]
+		box = box.Box().Children[index.value]
 		box.Box().Width = box.Box().Width.V() + extraWidth
-		index = index.Next
+		index = index.next
 	}
 }

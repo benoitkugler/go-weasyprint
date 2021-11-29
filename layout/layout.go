@@ -256,6 +256,12 @@ func layoutDocument(doc *tree.HTML, rootBox bo.BlockLevelBoxITF, context *layout
 
 var _ text.TextLayoutContext = (*layoutContext)(nil)
 
+type brokenBox struct {
+	box             Box
+	containingBlock *bo.BoxFields
+	resumeAt        tree.ResumeStack
+}
+
 // layoutContext stores the global context needed during layout,
 // such as various caches.
 type layoutContext struct {
@@ -274,6 +280,7 @@ type layoutContext struct {
 	pageMaker           []tree.PageMaker
 	excludedShapes      *[]*bo.BoxFields
 	excludedShapesLists [][]*bo.BoxFields
+	brokenOutOfFlow     []brokenBox
 	currentPage         int
 	marginClearance     bool
 	forcedBreak         bool

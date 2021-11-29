@@ -617,8 +617,8 @@ func pageHeight_(box Box, context *layoutContext, containingBlock containingBloc
 // :param pageNumber: integer, start at 1 for the first page
 // :param resumeAt: as returned by ``makePage()`` for the previous page,
 // 	or ``None`` for the first page.
-func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt *tree.IntList,
-	pageNumber int, pageState *tree.PageState) (*bo.PageBox, *tree.IntList, tree.PageBreak) {
+func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType utils.PageElement, resumeAt tree.ResumeStack,
+	pageNumber int, pageState *tree.PageState) (*bo.PageBox, tree.ResumeStack, tree.PageBreak) {
 	style := context.styleFor.Get(pageType, "")
 
 	// Propagated from the root or <body>.
@@ -639,7 +639,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	pageContentBottom := rootBox.Box().PositionY + page.Height.V()
 	initialContainingBlock := page
 
-	var previousResumeAt *tree.IntList
+	var previousResumeAt tree.ResumeStack
 	if pageType.Blank {
 		previousResumeAt = resumeAt
 		rootBox = bo.CopyWithChildren(rootBox, nil).(bo.BlockLevelBoxITF) // CopyWithChildren is type stable
@@ -652,8 +652,23 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 	}
 	context.createBlockFormattingContext()
 	context.currentPage = pageNumber
-	var adjoiningMargins []pr.Float
-	var positionedBoxes []*AbsolutePlaceholder // Mixed absolute and fixed
+	var (
+		adjoiningMargins []pr.Float
+		positionedBoxes  []*AbsolutePlaceholder // Mixed absolute and fixed
+		outOfFlowBoxes   []Box
+		brokenOutOfFlow  []brokenBox
+	)
+	for _, v := range context.brokenOutOfFlow {
+		box, containingBlock := v.box, v.containingBlock
+		box.Box().PositionY = 0
+		outOfFlowBox, outOfFlowResumeAt := floatLayout(context, box, containingBlock,
+			&positionedBoxes, &positionedBoxes, pageContentBottom, v.resumeAt)
+		outOfFlowBoxes = append(outOfFlowBoxes, outOfFlowBox)
+		if outOfFlowResumeAt != nil {
+			brokenOutOfFlow = append(brokenOutOfFlow, brokenBox{box, containingBlock, outOfFlowResumeAt})
+		}
+	}
+	context.brokenOutOfFlow = brokenOutOfFlow
 
 	if debugMode {
 		debugLogger.LineWithIndent("Making page...")
@@ -663,7 +678,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 		&initialContainingBlock.BoxFields, true, &positionedBoxes, &positionedBoxes, &adjoiningMargins, false)
 	resumeAt = tmp.resumeAt
 	if rootBox == nil {
-		panic("expected newBox got nil")
+		panic("expected non nil box for the root element")
 	}
 
 	for _, placeholder := range positionedBoxes {
@@ -810,7 +825,7 @@ func makePage(context *layoutContext, rootBox bo.BlockLevelBoxITF, pageType util
 // As the function"s name suggests: the plan is not to make all pages
 // repeatedly when a missing counter was resolved, but rather re-make the
 // single page where the ``contentChanged`` happened.
-func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, *tree.IntList) {
+func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tree.HTML) (*bo.PageBox, tree.ResumeStack) {
 	pageMaker := &context.pageMaker
 	tmp := (*pageMaker)[index]
 	// initialResumeAt, initialNextPage, rightPage, initialPageState,remakeState := tmp
@@ -870,7 +885,7 @@ func remakePage(index int, context *layoutContext, rootBox bo.BlockLevelBoxITF, 
 		// TODO: Find what we need to compare. Is resumeAt enough?
 		tmp := (*pageMaker)[index+1]
 		// (nextResumeAt, nextNextPage, nextRightPage,nextPageState, )
-		pageMakerNextChanged = tmp.InitialResumeAt != resumeAt ||
+		pageMakerNextChanged = !tmp.InitialResumeAt.Equals(resumeAt) ||
 			tmp.InitialNextPage != nextPage ||
 			tmp.RightPage != rightPage ||
 			!tmp.InitialPageState.Equal(pageState)
@@ -906,7 +921,7 @@ func makeAllPages(context *layoutContext, rootBox bo.BlockLevelBoxITF, html *tre
 	for {
 		remakeState := context.pageMaker[i].RemakeState
 		var (
-			resumeAt *tree.IntList
+			resumeAt tree.ResumeStack
 			page     *bo.PageBox
 		)
 		if len(pages) == 0 || remakeState.ContentChanged || remakeState.PagesWanted {

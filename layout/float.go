@@ -1,10 +1,11 @@
 package layout
 
 import (
-	"log"
+	"fmt"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/tree"
 )
 
 // Layout for floating boxes.
@@ -24,7 +25,7 @@ func floatWidth_(box Box, context *layoutContext, containingBlock containingBloc
 
 // Set the width and position of floating ``box``.
 func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields, absoluteBoxes,
-	fixedBoxes *[]*AbsolutePlaceholder) Box {
+	fixedBoxes *[]*AbsolutePlaceholder, maxPositionY pr.Float, skipStack tree.ResumeStack) (Box, tree.ResumeStack) {
 	cbWidth, cbHeight := containingBlock.Width, containingBlock.Height
 	resolvePercentages(box_, bo.MaybePoint{cbWidth, cbHeight}, "")
 
@@ -68,16 +69,22 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 		tableWrapperWidth(context, box_, bo.MaybePoint{cbWidth, cbHeight})
 	}
 
+	var (
+		resumeAt tree.ResumeStack
+		tmp      blockLayout
+	)
 	if bo.BlockContainerBoxT.IsInstance(box_) {
 		context.createBlockFormattingContext()
-		box_, _ = blockContainerLayout(context, box_, pr.Inf,
-			nil, false, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
+		box_, tmp = blockContainerLayout(context, box_, maxPositionY,
+			skipStack, true, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
+		resumeAt = tmp.resumeAt
 		context.finishBlockFormattingContext(box_)
 	} else if bo.FlexContainerBoxT.IsInstance(box_) {
-		box_, _ = flexLayout(context, box_, pr.Inf, nil, containingBlock,
-			false, absoluteBoxes, fixedBoxes)
+		box_, tmp = flexLayout(context, box_, maxPositionY, skipStack, containingBlock,
+			true, absoluteBoxes, fixedBoxes)
+		resumeAt = tmp.resumeAt
 	} else if !bo.BlockReplacedBoxT.IsInstance(box_) {
-		log.Fatalf("expected BlockReplaced , got %v", box)
+		panic(fmt.Sprintf("expected BlockReplaced , got %v", box))
 	}
 
 	box_ = findFloatPosition(context, box_, containingBlock)
@@ -88,7 +95,7 @@ func floatLayout(context *layoutContext, box_ Box, containingBlock *bo.BoxFields
 		debugLogger.LineWithDedent("")
 	}
 
-	return box_
+	return box_, resumeAt
 }
 
 // Get the right position of the float ``box``.

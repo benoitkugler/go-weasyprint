@@ -1501,13 +1501,7 @@ func flexChildren(box Box, children []Box) []Box {
 			}
 
 			if _, ok := child.(InlineLevelBoxITF); ok {
-				var anonymous *BlockBox
-				if _, ok := child.(ParentBoxITF); ok {
-					anonymous = BlockBoxAnonymousFrom(box, child.Box().Children)
-					anonymous.Style = child.Box().Style
-				} else {
-					anonymous = BlockBoxAnonymousFrom(box, []Box{child})
-				}
+				anonymous := BlockBoxAnonymousFrom(box, []Box{child})
 				anonymous.IsFlexItem = true
 				flexChildren = append(flexChildren, anonymous)
 			} else {
@@ -1816,7 +1810,7 @@ func BlockInInline(box Box) Box {
 			}
 
 			var (
-				stack          *tree.IntList
+				stack          tree.ResumeStack
 				newLine, block Box
 			)
 			for {
@@ -1862,10 +1856,10 @@ func BlockInInline(box Box) Box {
 // If no block-level box is found after the position marked by
 // ``skipStack``, return ``(newBox, None, None)``
 //
-func innerBlockInInline(box Box, skipStack *tree.IntList) (Box, Box, *tree.IntList) {
+func innerBlockInInline(box Box, skipStack tree.ResumeStack) (Box, Box, tree.ResumeStack) {
 	var newChildren []Box
 	var blockLevelBox Box
-	var resumeAt *tree.IntList
+	var resumeAt tree.ResumeStack
 	changed := false
 
 	isStart := skipStack == nil
@@ -1873,8 +1867,7 @@ func innerBlockInInline(box Box, skipStack *tree.IntList) (Box, Box, *tree.IntLi
 	if isStart {
 		skip = 0
 	} else {
-		skip = skipStack.Value
-		skipStack = skipStack.Next
+		skip, skipStack = skipStack.Unpack()
 	}
 
 	hasBroken := false
@@ -1906,7 +1899,7 @@ func innerBlockInInline(box Box, skipStack *tree.IntList) (Box, Box, *tree.IntLi
 		}
 
 		if blockLevelBox != nil {
-			resumeAt = &tree.IntList{Value: index, Next: resumeAt}
+			resumeAt = tree.ResumeStack{index: resumeAt}
 			box = CopyWithChildren(box, newChildren)
 			hasBroken = true
 			break

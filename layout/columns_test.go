@@ -97,7 +97,7 @@ func TestColumnGap(t *testing.T) {
 	}
 }
 
-func TestColumnSpan(t *testing.T) {
+func TestColumnSpan1(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
@@ -128,6 +128,38 @@ func TestColumnSpan(t *testing.T) {
 	tu.AssertEqual(t, [2]pr.Float{column4.Box().PositionX, column4.Box().PositionY}, [2]pr.Float{5 * 16, 96}, "column4")
 
 	tu.AssertEqual(t, column1.Box().Height, pr.Float(16), "column1")
+}
+
+func TestColumnSpan2(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+	<style>
+		@font-face { src: url(weasyprint.otf); font-family: weasyprint }
+		body { margin: 0; font-family: weasyprint; line-height: 1 }
+		div { columns: 2; width: 10em; column-gap: 0 }
+		section { column-span: all; margin: 1em 0 }
+	</style>
+
+	<div>
+		<section>test</section>
+		abc def
+		ghi jkl
+		mno pqr
+		stu vwx
+	</div>
+    `)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	div := body.Box().Children[0]
+	section1, column1, column2 := unpack3(div)
+	tu.AssertEqual(t, [2]pr.Float{section1.Box().ContentBoxX(), section1.Box().ContentBoxY()}, [2]pr.Float{0, 16}, "section1")
+	tu.AssertEqual(t, [2]pr.Float{column1.Box().PositionX, column1.Box().PositionY}, [2]pr.Float{0, 3 * 16}, "column1")
+	tu.AssertEqual(t, [2]pr.Float{column2.Box().PositionX, column2.Box().PositionY}, [2]pr.Float{5 * 16, 3 * 16}, "column2")
+
+	tu.AssertEqual(t, column1.Box().Height, pr.Float(16*4), "column1")
+	tu.AssertEqual(t, column2.Box().Height, pr.Float(16*4), "column1")
 }
 
 func TestColumnsMultipage(t *testing.T) {
