@@ -136,6 +136,7 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY, maxY
 		linebox.PositionX, linebox.PositionY = positionX, positionY
 		originalPositionX, originalPositionY := positionX, positionY
 		originalWidth := linebox.Width.V()
+		waitingFloats = waitingFloats[:0] // reset
 
 		maxX := positionX + availableWidth
 		positionX += linebox.TextIndent.V()
@@ -146,7 +147,7 @@ func getNextLinebox(context *layoutContext, linebox *bo.LineBox, positionY, maxY
 		)
 
 		spi := splitInlineBox(context, linebox, positionX, maxX, maxY, skipStack, containingBlock,
-			&lineAbsolutes, &lineFixed, &linePlaceholders, waitingFloats, nil)
+			&lineAbsolutes, &lineFixed, &linePlaceholders, &waitingFloats, nil)
 		resumeAt, preservedLineBreak, floatWidths = spi.resumeAt, spi.preservedLineBreak, spi.floatWidths
 		line_ = spi.newBox.(*bo.LineBox) // splitInlineBox preserve the concrete type
 
@@ -582,7 +583,7 @@ type splitedInline struct {
 // is no split is possible.)
 func splitInlineLevel(context *layoutContext, box_ Box, positionX, maxX, maxY pr.Float, skipStack tree.ResumeStack,
 	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes,
-	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
+	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats *[]Box, lineChildren []indexedBox) splitedInline {
 	box := box_.Box()
 	resolvePercentagesBox(box_, containingBlock, "")
 	floatWidths := widths{}
@@ -683,9 +684,9 @@ func isInBoxes(b Box, boxes []Box) bool {
 	return false
 }
 
-func breakWaitingChildren(context *layoutContext, box *bo.BoxFields, maxX, maxY pr.Float, initialSkipStack tree.ResumeStack,
+func breakWaitingChildren(context *layoutContext, box *bo.BoxFields, maxY pr.Float, initialSkipStack tree.ResumeStack,
 	absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
-	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox,
+	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats *[]Box, lineChildren []indexedBox,
 	children *[]indexedBox, waitingChildren []indexedBox) tree.ResumeStack {
 	if len(waitingChildren) != 0 {
 		// Too wide, let's try to cut inside waiting children,
@@ -782,7 +783,7 @@ func breakWaitingChildren(context *layoutContext, box *bo.BoxFields, maxX, maxY 
 // the returned newBox has same concrete type has box_
 func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.Float, skipStack tree.ResumeStack,
 	containingBlock *bo.BoxFields, absoluteBoxes, fixedBoxes *[]*AbsolutePlaceholder,
-	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats []Box, lineChildren []indexedBox) splitedInline {
+	linePlaceholders *[]*AbsolutePlaceholder, waitingFloats *[]Box, lineChildren []indexedBox) splitedInline {
 
 	if !IsLine(box_) {
 		panic(fmt.Sprintf("expected Line or Inline Box, got %T", box_))
@@ -833,10 +834,10 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.F
 		child.PositionY = box.PositionY
 		if !child.IsInNormalFlow() {
 			inlineOutOfFlowLayout(context, box_, containingBlock, index, child_, children, lineChildren,
-				&waitingChildren, &waitingFloats, absoluteBoxes, fixedBoxes, linePlaceholders, &floatWidths, maxX, positionX, maxY)
+				&waitingChildren, waitingFloats, absoluteBoxes, fixedBoxes, linePlaceholders, &floatWidths, maxX, positionX, maxY)
 			if child.IsFloated() {
 				floatResumeAt = index + 1
-				if !isInBoxes(child_, waitingFloats) {
+				if !isInBoxes(child_, *waitingFloats) {
 					maxX -= child.MarginWidth()
 				}
 			}
@@ -851,7 +852,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.F
 			debugLogger.LineWithIndent("Recursing for inline-level child %T...", child_)
 		}
 		v := splitInlineLevel(context, child_, positionX, availableWidth, maxY, skipStack,
-			containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
+			containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, &childWaitingFloats, lineChildren)
 		resumeAt = v.resumeAt
 		newChild, preserved, first, last, newFloatWidths := v.newBox, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
 
@@ -870,7 +871,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.F
 			availableWidth -= endSpacing
 
 			v := splitInlineLevel(context, child_, positionX, availableWidth, maxY, skipStack,
-				containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, childWaitingFloats, lineChildren)
+				containingBlock, absoluteBoxes, fixedBoxes, linePlaceholders, &childWaitingFloats, lineChildren)
 			newChild, resumeAt, preserved, first, last, newFloatWidths = v.newBox, v.resumeAt, v.preservedLineBreak, v.firstLetter, v.lastLetter, v.floatWidths
 		}
 
@@ -930,7 +931,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.F
 			marginWidth := newChild.Box().MarginWidth()
 			newPositionX := newChild.Box().PositionX + marginWidth
 			if newPositionX > maxX && !trailingWhitespace {
-				previousResumeAt := breakWaitingChildren(context, box, maxX, maxY, initialSkipStack, absoluteBoxes, fixedBoxes,
+				previousResumeAt := breakWaitingChildren(context, box, maxY, initialSkipStack, absoluteBoxes, fixedBoxes,
 					linePlaceholders, waitingFloats, lineChildren, &children, waitingChildren)
 				if previousResumeAt != nil {
 					resumeAt = previousResumeAt
@@ -941,7 +942,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.F
 			positionX = newPositionX
 			waitingChildren = append(waitingChildren, indexedBox{index: index, box: newChild})
 		}
-		waitingFloats = append(waitingFloats, childWaitingFloats...)
+		*waitingFloats = append(*waitingFloats, childWaitingFloats...)
 		if resumeAt != nil {
 			children = append(children, waitingChildren...)
 			resumeAt = tree.ResumeStack{index: resumeAt}
@@ -1038,7 +1039,7 @@ func splitInlineBox(context *layoutContext, box_ Box, positionX, maxX, maxY pr.F
 	}
 
 	if debugMode {
-		debugLogger.LineWithDedent("--> split inline box %T done", box_)
+		debugLogger.LineWithDedent("--> split inline box %T done (resumeAt: %s)", box_, resumeAt)
 	}
 
 	return splitedInline{
@@ -1190,6 +1191,7 @@ func splitTextBox(context *layoutContext, box *bo.TextBox, availableWidth pr.May
 		box.MarginBottom = halfLeading
 		// form the top of the content box
 		box.Baseline = baseline + box.MarginTop.V() // form the top of the margin box
+		fmt.Println("baseline", baseline, box.MarginTop.V())
 
 	} else {
 		box = nil

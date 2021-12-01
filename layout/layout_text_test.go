@@ -30,6 +30,25 @@ func TestTextFontSizeZero(t *testing.T) {
 	tu.AssertEqual(t, paragraph.Box().Height, pr.Float(0), "paragraph")
 }
 
+func TestTextFontSizeVerySmall(t *testing.T) {
+	cp := tu.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1499
+	page := renderOnePage(t, `
+      <style>
+        p { font-size: 0.00000001px }
+      </style>
+      <p>test font size zero</p>
+    `)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	paragraph := body.Box().Children[0]
+	line := paragraph.Box().Children[0]
+	tu.AssertEqual(t, line.Box().Height.V() < 0.001, true, "")
+	tu.AssertEqual(t, paragraph.Box().Height.V() < 0.001, true, "")
+}
+
 func TestTextSpacedInlines(t *testing.T) {
 	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)

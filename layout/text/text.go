@@ -1,6 +1,7 @@
 package text
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -74,21 +75,21 @@ type HyphenDictKey struct {
 func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutContext,
 	maxWidth pr.MaybeFloat, justificationSpacing pr.Float, minimum bool) Splitted {
 	// See https://www.w3.org/TR/css-text-3/#white-space-property
-	ws := style.GetWhiteSpace()
-	textWrap := "normal" == ws || "pre-wrap" == ws || "pre-line" == ws
-	spaceCollapse := "normal" == ws || "nowrap" == ws || "pre-line" == ws
-
-	originalMaxWidth := maxWidth
+	var (
+		ws               = style.GetWhiteSpace()
+		textWrap         = "normal" == ws || "pre-wrap" == ws || "pre-line" == ws
+		spaceCollapse    = "normal" == ws || "nowrap" == ws || "pre-line" == ws
+		originalMaxWidth = maxWidth
+		layout           *TextLayout
+		fontSize         = style.GetFontSize().Value
+		firstLine        *pango.LayoutLine
+		index            int
+	)
+	fmt.Println(text_, style.GetFontFamily())
 	if !textWrap {
 		maxWidth = nil
 	}
 	// Step #1: Get a draft layout with the first line
-	var (
-		layout    *TextLayout
-		fontSize  = style.GetFontSize().Value
-		firstLine *pango.LayoutLine
-		index     int
-	)
 	if maxWidth, ok := maxWidth.(pr.Float); ok && maxWidth != pr.Inf && fontSize != 0 {
 		var expectedLength int
 		if maxWidth <= 0 {
@@ -129,7 +130,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	}
 	maxWidthV := pr.Fl(maxWidth.V())
 
-	firstLineWidth, _ := LineSize(firstLine, style.GetLetterSpacing())
+	firstLineWidth, _ := lineSize(firstLine, style.GetLetterSpacing())
 	if index == -1 && firstLineWidth <= maxWidthV {
 		// The first line fits in the available width
 		return firstLineMetrics(firstLine, text, layout, resumeIndex, spaceCollapse, style, false, "")
@@ -165,7 +166,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 			newFirstLineText := firstLineText + nextWord
 			layout.SetText(newFirstLineText)
 			firstLine, index = layout.GetFirstLine()
-			firstLineWidth, _ = LineSize(firstLine, style.GetLetterSpacing())
+			firstLineWidth, _ = lineSize(firstLine, style.GetLetterSpacing())
 			if index == -1 && firstLineText != "" {
 				// The next word fits in the first line, keep the layout
 				resumeIndex = len([]rune(newFirstLineText)) + 1
@@ -210,7 +211,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 			nextWord = string(secondLineText[startWord:stopWord])
 			if stopWord-startWord >= total {
 				// This word is long enough
-				firstLineWidth, _ = LineSize(firstLine, style.GetLetterSpacing())
+				firstLineWidth, _ = lineSize(firstLine, style.GetLetterSpacing())
 				space := maxWidthV - firstLineWidth
 				zone := style.GetHyphenateLimitZone()
 				limitZone := pr.Fl(zone.Value)
@@ -277,7 +278,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 				hyphenatedFirstLineText = (newFirstLineText + hyphenateCharacter)
 				newLayout := CreateLayout(hyphenatedFirstLineText, style, context, maxWidth, justificationSpacing)
 				newFirstLine, newIndex := newLayout.GetFirstLine()
-				newFirstLineWidth, _ := LineSize(newFirstLine, style.GetLetterSpacing())
+				newFirstLineWidth, _ := lineSize(newFirstLine, style.GetLetterSpacing())
 				newSpace := maxWidthV - newFirstLineWidth
 				if newIndex == -1 && (newSpace >= 0 || firstWordPart == dictionaryIterations[len(dictionaryIterations)-1]) {
 					hyphenated = true
@@ -323,7 +324,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 
 	// Step 5: Try to break word if it's too long for the line
 	overflowWrap := style.GetOverflowWrap()
-	firstLineWidth, _ = LineSize(firstLine, style.GetLetterSpacing())
+	firstLineWidth, _ = lineSize(firstLine, style.GetLetterSpacing())
 	space := maxWidthV - firstLineWidth
 	// If we can break words and the first line is too long
 	if !minimum && overflowWrap == "break-word" && space < 0 {
@@ -382,9 +383,9 @@ func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *TextLayo
 		length += (len(firstLineText) - len(textNoHyphens)) / 2
 	}
 
-	width, height := LineSize(firstLine, style.GetLetterSpacing())
+	width, height := lineSize(firstLine, style.GetLetterSpacing())
 	baseline := utils.PangoUnitsToFloat(layout.Layout.GetBaseline())
-	// layout.deactivate()
+
 	return Splitted{Layout: layout, Length: length, ResumeAt: resumeAt, Width: pr.Float(width), Height: pr.Float(height), Baseline: pr.Float(baseline)}
 }
 
@@ -553,6 +554,6 @@ func ChWidth(style pr.ElementStyle, fontSize pr.Float, context TextLayoutContext
 	layout := NewTextLayout(context, float64(fontSize), style, 0, nil)
 	layout.Layout.SetText("0")
 	line, _ := layout.GetFirstLine()
-	logicalWidth, _ := LineSize(line, pr.Value{})
+	logicalWidth, _ := lineSize(line, pr.Value{})
 	return pr.Float(logicalWidth)
 }

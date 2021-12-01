@@ -40,7 +40,7 @@ func (r ResumeStack) Unpack() (int, ResumeStack) {
 
 func (r ResumeStack) String() string {
 	if len(r) == 0 {
-		return ""
+		return "-"
 	}
 	return fmt.Sprintf("%v", map[int]ResumeStack(r))
 }

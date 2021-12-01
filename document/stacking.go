@@ -181,7 +181,7 @@ func NewStackingContextFromBox(box Box, page *bo.PageBox, childContexts *[]Stack
 				newChildren = append(newChildren, result)
 			}
 		}
-		box.Box().Children = newChildren
+		box = bo.CopyWithChildren(box, newChildren)
 		return box
 	}
 	box = dispatchChildren(box)

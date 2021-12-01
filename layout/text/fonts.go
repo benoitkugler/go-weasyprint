@@ -79,6 +79,7 @@ func (f *FontConfiguration) AddFontFace(ruleDescriptors validation.FontFaceDescr
 			log.Println(err)
 			continue
 		}
+
 		return filename
 	}
 

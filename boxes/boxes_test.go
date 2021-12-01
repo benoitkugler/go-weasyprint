@@ -50,8 +50,7 @@ func parseBase(t testing.TB, content utils.ContentInput, baseUrl string) (*utils
 	cs := make(counters.CounterStyle)
 	style := tree.GetAllComputedStyles(document, nil, false, nil, cs, nil, nil, nil)
 	imgFetcher := func(url string, forcedMimeType string) images.Image {
-		out, _ := images.GetImageFromUri(images.NewCache(), document.UrlFetcher, false, url, forcedMimeType)
-		return out
+		return images.GetImageFromUri(images.NewCache(), document.UrlFetcher, false, url, forcedMimeType)
 	}
 	tr := tree.NewTargetCollector()
 	return document.Root, style, imgFetcher, html.BaseUrl, &tr, cs

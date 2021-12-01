@@ -297,8 +297,7 @@ func newLayoutContext(html *tree.HTML, stylesheets []tree.CSS,
 
 	cache := images.NewCache()
 	getImageFromUri := func(url, forcedMimeType string) images.Image {
-		out, _ := images.GetImageFromUri(cache, html.UrlFetcher, false, url, forcedMimeType)
-		return out
+		return images.GetImageFromUri(cache, html.UrlFetcher, false, url, forcedMimeType)
 	}
 
 	self := layoutContext{}

@@ -2,6 +2,7 @@ package layout
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	bo "github.com/benoitkugler/go-weasyprint/boxes"
@@ -576,7 +577,7 @@ func TestPreferredWidths5(t *testing.T) {
 	tu.AssertEqual(t, paragraph.Box().Width, pr.Float(40), "")
 }
 
-func TestFloatInInline(t *testing.T) {
+func TestFloatInInline1(t *testing.T) {
 	cp := tu.CaptureLogs()
 	defer cp.AssertNoLogs(t)
 
@@ -621,6 +622,120 @@ func TestFloatInInline(t *testing.T) {
 
 	p3 := line2.Box().Children[0]
 	tu.AssertEqual(t, p3.Box().Width, pr.Float(2*20), "")
+}
+
+func TestFloatInInline_2(t *testing.T) {
+	cp := tu.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        @page {
+          size: 10em;
+        }
+        article {
+          font-family: weasyprint;
+          line-height: 1;
+        }
+        div {
+          float: left;
+          width: 50%;
+        }
+      </style>
+      <article>
+        <span>
+          <div>a b c</div>
+          1 2 3 4 5 6
+        </span>
+      </article>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	line1, line2 := unpack2(article)
+	span1 := line1.Box().Children[0]
+	div, text := unpack2(span1)
+	tu.AssertEqual(t, strings.TrimSpace(div.Box().Children[0].Box().Children[0].(*bo.TextBox).Text), "a b c", "")
+	tu.AssertEqual(t, strings.TrimSpace(text.(*bo.TextBox).Text), "1 2 3", "")
+	span2 := line2.Box().Children[0]
+	text = span2.Box().Children[0]
+	tu.AssertEqual(t, strings.TrimSpace(text.(*bo.TextBox).Text), "4 5 6", "")
+}
+
+func TestFloatInInline_3(t *testing.T) {
+	cp := tu.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        @page {
+          size: 10em;
+        }
+        article {
+          font-family: weasyprint;
+          line-height: 1;
+        }
+        div {
+          float: left;
+          width: 50%;
+        }
+      </style>
+      <article>
+        <span>
+          1 2 3 <div>a b c</div> 4 5 6
+        </span>
+      </article>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	line1, line2 := unpack2(article)
+	span1 := line1.Box().Children[0]
+	text, div := unpack2(span1)
+	tu.AssertEqual(t, strings.TrimSpace(text.(*bo.TextBox).Text), "1 2 3", "")
+	tu.AssertEqual(t, strings.TrimSpace(div.Box().Children[0].Box().Children[0].(*bo.TextBox).Text), "a b c", "")
+	span2 := line2.Box().Children[0]
+	text = span2.Box().Children[0]
+	tu.AssertEqual(t, strings.TrimSpace(text.(*bo.TextBox).Text), "4 5 6", "")
+}
+
+func TestFloatInInline_4(t *testing.T) {
+	cp := tu.CaptureLogs()
+	defer cp.AssertNoLogs(t)
+
+	page := renderOnePage(t, `
+      <style>
+        @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+        @page {
+          size: 10em;
+        }
+        article {
+          font-family: weasyprint;
+          line-height: 1;
+        }
+        div {
+          float: left;
+          width: 50%;
+        }
+      </style>
+      <article>
+        <span>
+          1 2 3 4 <div>a b c</div> 5 6
+        </span>
+      </article>`)
+	html := page.Box().Children[0]
+	body := html.Box().Children[0]
+	article := body.Box().Children[0]
+	line1, line2 := unpack2(article)
+	span1, div := unpack2(line1)
+	text1, text2 := unpack2(span1)
+	tu.AssertEqual(t, strings.TrimSpace(text1.(*bo.TextBox).Text), "1 2 3 4", "")
+	tu.AssertEqual(t, strings.TrimSpace(text2.(*bo.TextBox).Text), "5", "")
+	tu.AssertEqual(t, div.Box().PositionY, pr.Float(16), "")
+	tu.AssertEqual(t, strings.TrimSpace(div.Box().Children[0].Box().Children[0].(*bo.TextBox).Text), "a b c", "")
+	span2 := line2.Box().Children[0]
+	text := span2.Box().Children[0]
+	tu.AssertEqual(t, strings.TrimSpace(text.(*bo.TextBox).Text), "6", "")
 }
 
 func TestFloatNextLine(t *testing.T) {

@@ -64,14 +64,19 @@ func (f pdfFont) newFontDescriptor(font pango.Font, content *model.FontFile) mod
 		flags |= model.FixedPitch
 	}
 
+	var ascent, descent fl
+	if fontSize != 0 {
+		ascent = fl(metrics.Ascent * 1000 / pango.GlyphUnit(fontSize))
+		descent = fl(metrics.Descent * 1000 / pango.GlyphUnit(fontSize))
+	}
 	return model.FontDescriptor{
 		FontName:    model.ObjName(hash + "+" + strings.ReplaceAll(desc.FamilyName, " ", "")),
 		FontFamily:  desc.FamilyName,
 		Flags:       flags,
 		FontBBox:    model.Rectangle{Llx: fl(f.Font.Bbox[0]), Lly: fl(f.Font.Bbox[1]), Urx: fl(f.Font.Bbox[2]), Ury: fl(f.Font.Bbox[3])},
 		ItalicAngle: 0,
-		Ascent:      fl(metrics.Ascent * 1000 / pango.GlyphUnit(fontSize)),
-		Descent:     fl(metrics.Descent * 1000 / pango.GlyphUnit(fontSize)),
+		Ascent:      ascent,
+		Descent:     descent,
 		CapHeight:   fl(f.Font.Bbox[3]),
 		StemV:       80,
 		StemH:       80,

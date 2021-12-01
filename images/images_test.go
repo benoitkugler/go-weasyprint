@@ -19,7 +19,7 @@ func TestLoadLocalImages(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		out, err := GetImageFromUri(NewCache(), utils.DefaultUrlFetcher, false, url, "")
+		out, err := getImageFromUri(utils.DefaultUrlFetcher, false, url, "")
 		if err != nil {
 			t.Fatal(err)
 		}

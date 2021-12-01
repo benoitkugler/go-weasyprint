@@ -4,6 +4,7 @@ package images
 import (
 	"bytes"
 	"fmt"
+	"hash/fnv"
 	"image"
 	"io"
 	"io/ioutil"
@@ -45,36 +46,36 @@ func imageLoadingError(err error) error {
 	return fmt.Errorf("error loading image : %s", err)
 }
 
-// Cache stores the result of fetching an image, or any error encoutered
-type Cache map[string]struct {
-	img Image
-	err error
-}
+// Cache stores the result of fetching an image.
+type Cache map[string]Image
 
 func NewCache() Cache { return make(Cache) }
 
 // Gets an image from an image URI.
-func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
+// In case of an error, a log is printed and nil is returned
+func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) Image {
 	res, in := cache[url]
 	if in {
-		return res.img, res.err
+		return res
 	}
 
+	img, err := getImageFromUri(fetcher, optimizeSize, url, forcedMimeType)
+
+	cache[url] = img
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	return img
+}
+
+func getImageFromUri(fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMimeType string) (Image, error) {
 	var (
 		img     Image
 		err     error
 		content utils.RemoteRessource
 	)
-	defer func() {
-		if err != nil {
-			log.Println(err)
-		}
-
-		cache[url] = struct {
-			img Image
-			err error
-		}{img, err}
-	}()
 
 	content, err = fetcher(url)
 	if err != nil {
@@ -116,11 +117,17 @@ func GetImageFromUri(cache Cache, fetcher utils.UrlFetcher, optimizeSize bool, u
 			}
 		} else {
 			content.Content.Seek(0, io.SeekStart)
-			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, len(cache), optimizeSize)
+			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, hash(url), optimizeSize)
 		}
 	}
 
 	return img, err
+}
+
+func hash(s string) int {
+	h := fnv.New32()
+	h.Write([]byte(s))
+	return int(h.Sum32())
 }
 
 type rasterImage struct {

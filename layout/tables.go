@@ -110,7 +110,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 			row.Width = rowsWidth
 			// Place cells at the top of the row and layout their content
 			var newRowChildren []Box
-			for cellIndex, cell_ := range row.Children {
+			for indexCell, cell_ := range row.Children {
 				cell := cell_.Box()
 				var spannedWidths []pr.Float
 				if cell.GridX < len(columnWidths) {
@@ -128,7 +128,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 					// The cell is entierly beyond the grid width, remove it
 					// entierly. Subsequent cells in the same row have greater
 					// gridX, so they are beyond too.
-					ignoredCells := row.Children[cellIndex:]
+					ignoredCells := row.Children[indexCell:]
 					log.Printf("This table row has more columns than the table, ignored %d cells: %v",
 						len(ignoredCells), ignoredCells)
 					break
@@ -155,17 +155,32 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				cell.ComputedHeight = cell.Height
 				cell.Height = pr.Auto
 
-				// TODO:
-				// if skipStack:
-				// 	if indexCell in skipStack:
-				// 		cellSkipStack = skipStack[indexCell]
-				// 	else:
-				// 		cellSkipStack = {len(cell.children): None}
-				// else:
-				// 	cellSkipStack = None
+				var cellSkipStack tree.ResumeStack
+				if skipStack != nil {
+					if rs, has := skipStack[indexCell]; has {
+						cellSkipStack = rs
+					} else {
+						cellSkipStack = tree.ResumeStack{len(cell.Children): nil}
+					}
+				}
 
-				cell_, _ = blockContainerLayout(context, cell_, pr.Inf, nil, false, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
+				newCell, tmp := blockContainerLayout(context, cell_, maxPositionY, cellSkipStack, false, absoluteBoxes, fixedBoxes, new([]pr.Float), false)
+				cellResumeAt := tmp.resumeAt
+				if newCell == nil {
+					cell_ = bo.CopyWithChildren(cell_, nil)
+					cell_, _ = blockContainerLayout(context, cell_, maxPositionY, cellSkipStack, true, new([]*AbsolutePlaceholder), new([]*AbsolutePlaceholder), new([]pr.Float), false)
+					cellResumeAt = tree.ResumeStack{0: nil}
+				} else {
+					cell_ = newCell
+				}
 				cell = cell_.Box()
+				if cellResumeAt != nil {
+					if resumeAt == nil {
+						resumeAt = tree.ResumeStack{indexRow: tree.ResumeStack{}}
+					}
+					resumeAt[indexRow][indexCell] = cellResumeAt
+				}
+
 				any := false
 				for _, child := range cell.Children {
 					if child.Box().IsFloated() || child.Box().IsInNormalFlow() {
@@ -283,7 +298,35 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				}
 			}
 
-			nextPositionY := row.PositionY + row.Height.V() + borderSpacingY
+			nextPositionY := row.PositionY + row.Height.V()
+			if resumeAt == nil {
+				nextPositionY += borderSpacingY
+			}
+
+			// Break if one cell was broken
+			if resumeAt != nil {
+				_, values := resumeAt.Unpack()
+				if len(row.Children) == len(values) {
+					hasBroken := false
+					for _, cellResumeAt := range values {
+						if !cellResumeAt.Equals(tree.ResumeStack{0: nil}) {
+							newGroupChildren = append(newGroupChildren, row_)
+							hasBroken = true
+							break
+						}
+					}
+					if !hasBroken {
+						// No cell was displayed, give up row
+						nextPositionY = pr.Inf
+						pageIsEmpty = false
+						resumeAt = nil
+					}
+				} else {
+					newGroupChildren = append(newGroupChildren, row_)
+					break
+				}
+			}
+
 			// Break if this row overflows the page, unless there is no
 			// other content on the page.
 			if nextPositionY > maxPositionY && !pageIsEmpty {
@@ -309,9 +352,14 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 				break
 			}
 
-			positionY = nextPositionY
 			newGroupChildren = append(newGroupChildren, row_)
+			positionY = nextPositionY
 			pageIsEmpty = false
+			skipStack = nil
+
+			if resumeAt != nil {
+				break
+			}
 		}
 
 		// Do not keep the row group if we made a page break
@@ -412,7 +460,11 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 	}
 
 	// Layout for row groups, rows and cells
-	positionY := table.ContentBoxY() + borderSpacingY
+	positionY := table.ContentBoxY()
+	if skipStack == nil {
+		positionY += borderSpacingY
+	}
+
 	initialPositionY := positionY
 	var tableRows []Box
 	for _, child := range table.Children {

@@ -7,6 +7,8 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/layout/text/hyphen"
 	pr "github.com/benoitkugler/go-weasyprint/style/properties"
+	"github.com/benoitkugler/go-weasyprint/style/validation"
+	"github.com/benoitkugler/go-weasyprint/utils"
 	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango"
@@ -146,4 +148,42 @@ func TestGetLastWordEnd(t *testing.T) {
 	if i := GetLastWordEnd([]rune{99, 99, 32, 99}); i != 2 {
 		t.Fatalf("expected %d, got %d", 2, i)
 	}
+}
+
+// FIXME:
+func TestHeightAndBaseline(t *testing.T) {
+	newStyle := pr.InitialValues.Copy()
+	newStyle.SetFontFamily(pr.Strings{
+		// "-apple-system",
+		// "BlinkMacSystemFont",
+		"Segoe UI",
+		"Helvetica",
+		"Arial",
+		"sans-serif",
+		"Apple Color Emoji",
+		// "Segoe UI Emoji",
+	})
+	newStyle.SetFontSize(pr.FToV(36))
+	ct := textContext{fontmap: fontmap, dict: make(map[HyphenDictKey]hyphen.Hyphener)}
+
+	fc := NewFontConfiguration(fontmap)
+	for _, desc := range []validation.FontFaceDescriptors{
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/googlesans/v36/4UaGrENHsxJlGDuGo1OIlL3Owps.ttf"}}, FontFamily: "Google Sans", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 400}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/googlesans/v36/4UabrENHsxJlGDuGo1OIlLU94YtzCwM.ttf"}}, FontFamily: "Google Sans", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 500}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/materialicons/v117/flUhRq6tzZclQEJ-Vdg-IuiaDsNZ.ttf"}}, FontFamily: "Material Icons", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 400}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/opensans/v27/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ0B4gaVc.ttf"}}, FontFamily: "Open Sans", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 400}, FontStretch: "normal"},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/roboto/v29/KFOmCnqEu92Fr1Mu4mxP.ttf"}}, FontFamily: "Roboto", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 400}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/roboto/v29/KFOlCnqEu92Fr1MmEU9fBBc9.ttf"}}, FontFamily: "Roboto", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 500}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/roboto/v29/KFOlCnqEu92Fr1MmWUlfBBc9.ttf"}}, FontFamily: "Roboto", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 700}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/worksans/v13/QGY_z_wNahGAdqQ43RhVcIgYT2Xz5u32K0nXBi8Jow.ttf"}}, FontFamily: "Work Sans", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 400}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/worksans/v13/QGY_z_wNahGAdqQ43RhVcIgYT2Xz5u32K3vXBi8Jow.ttf"}}, FontFamily: "Work Sans", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 500}},
+		{Src: []pr.NamedString{{Name: "external", String: "https://fonts.gstatic.com/s/worksans/v13/QGY_z_wNahGAdqQ43RhVcIgYT2Xz5u32K5fQBi8Jow.ttf"}}, FontFamily: "Work Sans", FontStyle: "normal", FontWeight: pr.IntString{String: "", Int: 600}},
+	} {
+		fc.AddFontFace(desc, utils.DefaultUrlFetcher)
+	}
+
+	spi := SplitFirstLine("Go 1.17 Release Notes", newStyle, ct, pr.Float(595), 0, false)
+	height, baseline := spi.Height, spi.Baseline
+
+	fmt.Println(height, baseline)
 }
