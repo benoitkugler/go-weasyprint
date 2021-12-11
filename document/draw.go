@@ -1298,7 +1298,6 @@ func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverfl
 		return
 	}
 
-	fmt.Println(textbox.PositionY, textbox.Baseline)
 	x, y := pr.Fl(textbox.PositionX), pr.Fl(textbox.PositionY+textbox.Baseline.V())
 	ctx.dst.SetColorRgba(textbox.Style.GetColor().RGBA, false)
 

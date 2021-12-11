@@ -150,19 +150,14 @@ func TestGetLastWordEnd(t *testing.T) {
 	}
 }
 
-// FIXME:
 func TestHeightAndBaseline(t *testing.T) {
 	newStyle := pr.InitialValues.Copy()
-	newStyle.SetFontFamily(pr.Strings{
-		// "-apple-system",
-		// "BlinkMacSystemFont",
-		"Segoe UI",
+	families := pr.Strings{
 		"Helvetica",
-		"Arial",
-		"sans-serif",
 		"Apple Color Emoji",
-		// "Segoe UI Emoji",
-	})
+	}
+	newStyle.SetFontFamily(families)
+
 	newStyle.SetFontSize(pr.FToV(36))
 	ct := textContext{fontmap: fontmap, dict: make(map[HyphenDictKey]hyphen.Hyphener)}
 
@@ -185,5 +180,10 @@ func TestHeightAndBaseline(t *testing.T) {
 	spi := SplitFirstLine("Go 1.17 Release Notes", newStyle, ct, pr.Float(595), 0, false)
 	height, baseline := spi.Height, spi.Baseline
 
-	fmt.Println(height, baseline)
+	if int((height-43)/10) != 0 {
+		t.Fatalf("unexpected height %f", height)
+	}
+	if int((baseline-33)/10) != 0 {
+		t.Fatalf("unexpected baseline %f", baseline)
+	}
 }

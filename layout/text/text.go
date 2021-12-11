@@ -1,7 +1,6 @@
 package text
 
 import (
-	"fmt"
 	"math"
 	"strings"
 
@@ -85,7 +84,6 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		firstLine        *pango.LayoutLine
 		index            int
 	)
-	fmt.Println(text_, style.GetFontFamily())
 	if !textWrap {
 		maxWidth = nil
 	}
@@ -385,7 +383,6 @@ func firstLineMetrics(firstLine *pango.LayoutLine, text []rune, layout *TextLayo
 
 	width, height := lineSize(firstLine, style.GetLetterSpacing())
 	baseline := utils.PangoUnitsToFloat(layout.Layout.GetBaseline())
-
 	return Splitted{Layout: layout, Length: length, ResumeAt: resumeAt, Width: pr.Float(width), Height: pr.Float(height), Baseline: pr.Float(baseline)}
 }
 
