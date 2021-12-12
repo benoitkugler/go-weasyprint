@@ -4,18 +4,19 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/textlayout/fonts"
 )
 
 func TestCIDWidths(t *testing.T) {
-	input := map[fonts.GID]int{
-		2: 10,
-		3: 11,
-		4: 5,
-		8: 13,
-		6: 0,
-		9: 11,
+	input := map[fonts.GID]backend.GlyphExtents{
+		2: {Width: 10},
+		3: {Width: 11},
+		4: {Width: 5},
+		8: {Width: 13},
+		6: {Width: 0},
+		9: {Width: 11},
 	}
 	expected := []model.CIDWidth{
 		model.CIDWidthArray{Start: 2, W: []int{10, 11, 5}},

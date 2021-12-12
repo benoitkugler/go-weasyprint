@@ -216,8 +216,9 @@ func (g *BytesCloser) Seek(off int64, whence int) (n int64, err error) {
 
 func (BytesCloser) Close() error { return nil }
 
-func NewBytesCloser(s string) *BytesCloser {
-	return (*BytesCloser)(bytes.NewReader([]byte(s)))
+// NewBytesCloser is a bytes.Reader with a Close method.
+func NewBytesCloser(data []byte) *BytesCloser {
+	return (*BytesCloser)(bytes.NewReader(data))
 }
 
 // Fetch an external resource such as an image or stylesheet.

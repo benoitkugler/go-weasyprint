@@ -169,7 +169,7 @@ func (outputPage) DrawText(text backend.TextDrawing) {
 
 func (outputPage) AddFont(pango.Font, []byte) *backend.Font {
 	outputLog.Println("AddFont")
-	return &backend.Font{Cmap: make(map[fonts.GID][]rune), Widths: make(map[fonts.GID]int)}
+	return &backend.Font{Cmap: make(map[fonts.GID][]rune), Extents: make(map[fonts.GID]backend.GlyphExtents)}
 }
 
 func (outputPage) DrawRasterImage(img backend.RasterImage, width, height fl) {

@@ -1380,6 +1380,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 		output               backend.TextDrawing
 		inkRect, logicalRect pango.Rectangle
 		lastFont             *backend.Font
+		xAdvance             pr.Fl
 	)
 	fontSize := pr.Fl(textbox.Style.GetFontSize().Value)
 	output.FontSize = fontSize
@@ -1420,7 +1421,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			outGlyph.Glyph = glyph.GID()
 
 			// Ink bounding box and logical widths in font
-			if _, in := outFont.Widths[outGlyph.Glyph]; !in {
+			if _, in := outFont.Extents[outGlyph.Glyph]; !in {
 				pangoFont.GlyphExtents(glyph, &inkRect, &logicalRect)
 				x1, y1, x2, y2 := inkRect.X, -inkRect.Y-inkRect.Height,
 					inkRect.X+inkRect.Width, -inkRect.Y
@@ -1436,11 +1437,15 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 				if int(y2) > outFont.Bbox[3] {
 					outFont.Bbox[3] = int(utils.PangoUnitsToFloat(y2*1000) / fontSize)
 				}
-				outFont.Widths[outGlyph.Glyph] = int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize)
+				outFont.Extents[outGlyph.Glyph] = backend.GlyphExtents{
+					Width:  int(utils.PangoUnitsToFloat(logicalRect.Width*1000) / fontSize),
+					Y:      int(utils.PangoUnitsToFloat(logicalRect.Y*1000) / fontSize),
+					Height: int(utils.PangoUnitsToFloat(logicalRect.Height*1000) / fontSize),
+				}
 			}
 
 			// Kerning, word spacing, letter spacing
-			outGlyph.Kerning = int(pr.Fl(outFont.Widths[outGlyph.Glyph]) - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
+			outGlyph.Kerning = int(pr.Fl(outFont.Extents[outGlyph.Glyph].Width) - utils.PangoUnitsToFloat(width*1000)/fontSize + outGlyph.Offset)
 
 			// Mapping between glyphs and characters
 			startPos := runStart + glyphString.LogClusters[i] // Positions of the glyphs in the UTF-8 string
@@ -1451,6 +1456,10 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 			if _, in := outFont.Cmap[outGlyph.Glyph]; !in {
 				outFont.Cmap[outGlyph.Glyph] = textRunes[startPos:endPos]
 			}
+
+			// advance
+			outGlyph.XAdvance = xAdvance
+			xAdvance += pr.Fl(outFont.Extents[outGlyph.Glyph].Width) + outGlyph.Offset
 		}
 	}
 

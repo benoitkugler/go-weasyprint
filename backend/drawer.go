@@ -43,28 +43,36 @@ type TextRun struct {
 
 // TextGlyph stores a glyph and it's position
 type TextGlyph struct {
-	Glyph   fonts.GID
-	Offset  utils.Fl // normalized by FontSize
-	Kerning int      // normalized by FontSize
+	Glyph    fonts.GID
+	Offset   utils.Fl // normalized by FontSize
+	Kerning  int      // normalized by FontSize
+	XAdvance utils.Fl // how much to move before drawing
+}
+
+// GlyphExtents exposes glyph metrics, normalized by the font size.
+type GlyphExtents struct {
+	Width  int
+	Y      int
+	Height int
 }
 
 // Font stores some metadata used in the output document.
 type Font struct {
-	Cmap   map[fonts.GID][]rune
-	Widths map[fonts.GID]int
-	Bbox   [4]int
+	Cmap    map[fonts.GID][]rune
+	Extents map[fonts.GID]GlyphExtents
+	Bbox    [4]int
 }
 
 // IsFixedPitch returns true if only one width is used,
 // that is if the font is monospaced.
 func (f *Font) IsFixedPitch() bool {
 	seen := -1
-	for _, w := range f.Widths {
+	for _, w := range f.Extents {
 		if seen == -1 {
-			seen = w
+			seen = w.Width
 			continue
 		}
-		if w != seen {
+		if w.Width != seen {
 			return false
 		}
 	}

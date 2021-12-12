@@ -117,14 +117,15 @@ func getImageFromUri(fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMim
 			}
 		} else {
 			content.Content.Seek(0, io.SeekStart)
-			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, hash(url), optimizeSize)
+			img = newRasterImage(imageConfig, content.Content, "image/"+imageFormat, Hash(url), optimizeSize)
 		}
 	}
 
 	return img, err
 }
 
-func hash(s string) int {
+// Hash creates an ID from a string.
+func Hash(s string) int {
 	h := fnv.New32()
 	h.Write([]byte(s))
 	return int(h.Sum32())

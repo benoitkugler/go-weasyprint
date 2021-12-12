@@ -3,10 +3,14 @@ package pdf
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
+	"github.com/benoitkugler/go-weasyprint/images"
+	"github.com/benoitkugler/go-weasyprint/matrix"
+	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/pdf/contentstream"
 	pdfFonts "github.com/benoitkugler/pdf/fonts"
 	"github.com/benoitkugler/pdf/fonts/cmaps"
@@ -32,13 +36,48 @@ func (g *group) DrawText(text backend.TextDrawing) {
 		pf := g.fonts[run.Font]
 		g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
 
+		font := run.Font.GetHarfbuzzFont()
+		fr, isRenderer := font.Face().(fonts.FaceRenderer)
+
 		var out []contentstream.SpacedGlyph
-		for _, g := range run.Glyphs {
+		for _, posGlyph := range run.Glyphs {
 			out = append(out, contentstream.SpacedGlyph{
-				SpaceSubtractedBefore: -int(g.Offset),
-				GID:                   g.Glyph,
-				SpaceSubtractedAfter:  g.Kerning,
+				SpaceSubtractedBefore: -int(posGlyph.Offset),
+				GID:                   posGlyph.Glyph,
+				SpaceSubtractedAfter:  posGlyph.Kerning,
 			})
+
+			// PDF readers don't support colored bitmap glyphs
+			// so we have to add them as an image
+
+			if isRenderer {
+				data := fr.GlyphData(posGlyph.Glyph, font.XPpem, font.YPpem)
+				switch data := data.(type) {
+				case fonts.GlyphBitmap:
+					if data.Format == fonts.PNG {
+						img := backend.RasterImage{
+							Content:   utils.NewBytesCloser(data.Data),
+							MimeType:  "image/png",
+							Rendering: "",
+							ID:        images.Hash(fmt.Sprintf("%p-%d", font.Face(), posGlyph.Glyph)),
+						}
+
+						extents := pf.Extents[posGlyph.Glyph]
+						d := fl(extents.Width) / 1000
+						a := fl(data.Width) / fl(data.Height) * d
+						f := fl(-extents.Y-extents.Height)/1000 - text.FontSize
+						f = text.Y + f
+						e := posGlyph.XAdvance / 1000
+						e = text.X + e*text.FontSize
+
+						g.OnNewStack(func() error {
+							g.Transform(matrix.New(a, 0, 0, d, e, f))
+							g.DrawRasterImage(img, text.FontSize, text.FontSize)
+							return nil
+						})
+					}
+				}
+			}
 		}
 
 		g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
@@ -94,8 +133,8 @@ func (g *group) AddFont(font pango.Font, content []byte) *backend.Font {
 		return ft.Font
 	}
 	out := &backend.Font{
-		Cmap:   make(map[fonts.GID][]rune),
-		Widths: make(map[fonts.GID]int),
+		Cmap:    make(map[fonts.GID][]rune),
+		Extents: make(map[fonts.GID]backend.GlyphExtents),
 	}
 	// we only initialize the FontDict pointer,
 	// which will be filled later in `writeFonts`
@@ -123,7 +162,7 @@ func (g *group) AddFont(font pango.Font, content []byte) *backend.Font {
 	return out
 }
 
-func cidWidths(dict map[fonts.GID]int) []model.CIDWidth {
+func cidWidths(dict map[fonts.GID]backend.GlyphExtents) []model.CIDWidth {
 	var (
 		widths       []model.CIDWidth
 		keys         = make([]fonts.GID, 0, len(dict))
@@ -143,7 +182,7 @@ func cidWidths(dict map[fonts.GID]int) []model.CIDWidth {
 			}
 			currentBlock = model.CIDWidthArray{Start: model.CID(gid)}
 		}
-		currentBlock.W = append(currentBlock.W, dict[gid])
+		currentBlock.W = append(currentBlock.W, dict[gid].Width)
 	}
 
 	if len(currentBlock.W) != 0 {
@@ -158,7 +197,7 @@ func (c *Output) writeFonts() {
 	for pangoFont, font := range c.cache.fonts {
 		content := c.cache.fontFiles[pangoFont.GetHarfbuzzFont().Face()]
 		desc := font.newFontDescriptor(pangoFont, content)
-		widths := cidWidths(font.Widths)
+		widths := cidWidths(font.Extents)
 
 		font.FontDict.Subtype = model.FontType0{
 			BaseFont: desc.FontName,
