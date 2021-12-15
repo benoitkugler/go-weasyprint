@@ -1,3 +1,4 @@
 .mypy_cache/**
 .idea/**
 macros/__pycache__/**
+svg/_svgicon
