@@ -63,21 +63,21 @@ func runTestOneToken(t *testing.T, css, resJson []string, fn func(input string) 
 func TestComponentValueList(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
 	runTest(t, inputs, resJson, func(s string) []Token {
-		return parseComponentValueList(s, true)
+		return tokenizeComponentValueList(s, true)
 	})
 }
 
 func TestOneComponentValue(t *testing.T) {
 	inputs, resJson := loadJson("one_component_value.json")
 	runTestOneToken(t, inputs, resJson, func(input string) jsonisable {
-		return ParseOneComponentValue2(input, true)
+		return parseOneComponentValueString(input, true)
 	})
 }
 
 func TestDeclarationList(t *testing.T) {
 	inputs, resJson := loadJson("declaration_list.json")
 	runTest(t, inputs, resJson, func(s string) []Token {
-		return ParseDeclarationList2(s, true, true)
+		return ParseDeclarationListString(s, true, true)
 	})
 }
 
@@ -91,21 +91,22 @@ func TestOneDeclaration(t *testing.T) {
 func TestStylesheet(t *testing.T) {
 	inputs, resJson := loadJson("stylesheet.json")
 	runTest(t, inputs, resJson, func(s string) []Token {
-		return ParseStylesheet2([]byte(s), true, true)
+		return ParseStylesheetBytes([]byte(s), true, true)
 	})
 }
 
 func TestRuleList(t *testing.T) {
 	inputs, resJson := loadJson("rule_list.json")
 	runTest(t, inputs, resJson, func(s string) []Token {
-		return ParseRuleList2(s, true, true)
+		return ParseRuleListString(s, true, true)
 	})
 }
 
 func TestOneRule(t *testing.T) {
 	inputs, resJson := loadJson("one_rule.json")
 	runTestOneToken(t, inputs, resJson, func(input string) jsonisable {
-		return ParseOneRule2(input, true)
+		l := tokenizeComponentValueList(input, true)
+		return ParseOneRule(l)
 	})
 }
 

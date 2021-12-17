@@ -292,7 +292,7 @@ func mustParseHexa(s string) utils.Fl {
 }
 
 func ParseColor2(color string) Color {
-	l := ParseOneComponentValue2(color, true)
+	l := parseOneComponentValueString(color, true)
 	return ParseColor(l)
 }
 

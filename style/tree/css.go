@@ -94,7 +94,7 @@ func NewCSS(input utils.ContentInput, baseUrl string,
 		return CSS{}, fmt.Errorf("error fetching css input : %s", err)
 	}
 
-	stylesheet := parser.ParseStylesheet2(ressource.Content, false, false)
+	stylesheet := parser.ParseStylesheetBytes(ressource.Content, false, false)
 
 	if matcher == nil {
 		matcher = newMatcher()

@@ -8,15 +8,15 @@ import (
 func TestSerialization(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
 	runTest(t, inputs, resJson, func(css string) []Token {
-		parsed := parseComponentValueList(css, true)
-		return parseComponentValueList(Serialize(parsed), true)
+		parsed := tokenizeComponentValueList(css, true)
+		return tokenizeComponentValueList(Serialize(parsed), true)
 	})
 }
 
 func TestIdentifiers(t *testing.T) {
 	source := "\fezeze"
-	ref := parseComponentValueList(source, false)
-	resToTest := parseComponentValueList(Serialize(ref), false)
+	ref := tokenizeComponentValueList(source, false)
+	resToTest := tokenizeComponentValueList(Serialize(ref), false)
 	res, err := marshalJSON(resToTest)
 	if err != nil {
 		t.Fatal(err)
@@ -40,9 +40,9 @@ func TestSkip(t *testing.T) {
         }
     }
     `
-	noWs := ParseStylesheet2([]byte(source), false, true)
-	noComment := ParseStylesheet2([]byte(source), true, false)
-	default_ := parseComponentValueList(source, false)
+	noWs := ParseStylesheetBytes([]byte(source), false, true)
+	noComment := ParseStylesheetBytes([]byte(source), true, false)
+	default_ := tokenizeComponentValueList(source, false)
 	if Serialize(noWs) == source {
 		t.Fail()
 	}
@@ -56,7 +56,7 @@ func TestSkip(t *testing.T) {
 
 func TestCommentEof(t *testing.T) {
 	source := "/* foo "
-	parsed := parseComponentValueList(source, false)
+	parsed := tokenizeComponentValueList(source, false)
 	if Serialize(parsed) != "/* foo */" {
 		t.Fail()
 	}
@@ -76,7 +76,7 @@ func TestParseDeclarationValueColor(t *testing.T) {
 
 func TestSerializeRules(t *testing.T) {
 	source := `@import "a.css"; foo#bar.baz { color: red } /**/ @media print{}`
-	rules := ParseRuleList2(source, false, false)
+	rules := ParseRuleListString(source, false, false)
 	if Serialize(rules) != source {
 		t.Fail()
 	}
@@ -84,7 +84,7 @@ func TestSerializeRules(t *testing.T) {
 
 func TestSerializeDeclarations(t *testing.T) {
 	source := "color: #123; /**/ @top-left {} width:7px !important;"
-	rules := ParseDeclarationList2(source, false, false)
+	rules := ParseDeclarationListString(source, false, false)
 	if Serialize(rules) != source {
 		t.Fail()
 	}
@@ -92,7 +92,7 @@ func TestSerializeDeclarations(t *testing.T) {
 
 func TestBackslashDelim(t *testing.T) {
 	source := "\\\nfoo"
-	tokens := parseComponentValueList(source, false)
+	tokens := tokenizeComponentValueList(source, false)
 	if len(tokens) != 3 {
 		t.Fatalf("bad token length : expected 3 got %d", len(tokens))
 	}
@@ -112,10 +112,10 @@ func TestBackslashDelim(t *testing.T) {
 func TestDataurl(t *testing.T) {
 	input := `@import "data:text/css;charset=utf-16le;base64,\
 				bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=";`
-	fmt.Println(Serialize(parseComponentValueList(input, true)))
+	fmt.Println(Serialize(tokenizeComponentValueList(input, true)))
 }
 
 func TestDebug(t *testing.T) {
-	ls := parseComponentValueList(`.foo\:bar`, false)
+	ls := tokenizeComponentValueList(`.foo\:bar`, false)
 	fmt.Println(Serialize(ls))
 }

@@ -10,7 +10,7 @@ import (
 )
 
 func processFontFace(css string, t *testing.T) FontFaceDescriptors {
-	stylesheet := parser.ParseStylesheet2([]byte(css), false, false)
+	stylesheet := parser.ParseStylesheetBytes([]byte(css), false, false)
 	atRule, ok := stylesheet[0].(parser.AtRule)
 	if !ok || atRule.AtKeyword != "font-face" {
 		t.Fatalf("expected @font-face got %v", stylesheet[0])

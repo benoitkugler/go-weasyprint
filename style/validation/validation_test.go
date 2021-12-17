@@ -23,7 +23,7 @@ func toValidated(d pr.Properties) map[string]pr.ValidatedProperty {
 
 // Helper to test shorthand properties expander functions.
 func expandToDict(t *testing.T, css string, expectedError string) map[string]pr.ValidatedProperty {
-	declarations := parser.ParseDeclarationList2(css, false, false)
+	declarations := parser.ParseDeclarationListString(css, false, false)
 
 	capt := testutils.CaptureLogs()
 	baseUrl := "http://weasyprint.org/foo/"

@@ -1,5 +1,4 @@
-// This package implements the construction of an Abstract Syntax Tree,
-// compatible with weasyprint one.
+// This package implements the construction of an Abstract Syntax Tree.
 package parser
 
 import (
@@ -66,8 +65,8 @@ func ParseOneComponentValue(input []Token) Token {
 
 // If `skipComments`,  ignore all CSS comments.
 //   skipComments = false
-func ParseOneComponentValue2(css string, skipComments bool) Token {
-	l := parseComponentValueList(css, skipComments)
+func parseOneComponentValueString(css string, skipComments bool) Token {
+	l := tokenizeComponentValueList(css, skipComments)
 	return ParseOneComponentValue(l)
 }
 
@@ -87,7 +86,7 @@ func ParseOneDeclaration(input []Token) Token {
 //     If  `skipComments`, ignore all CSS comments.
 // skipComments=false
 func ParseOneDeclaration2(css string, skipComments bool) Token {
-	l := parseComponentValueList(css, skipComments)
+	l := tokenizeComponentValueList(css, skipComments)
 	return ParseOneDeclaration(l)
 }
 
@@ -210,9 +209,9 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 	return result
 }
 
-// skipComments = false, skipWhitespace = false
-func ParseDeclarationList2(css string, skipComments, skipWhitespace bool) []Token {
-	l := parseComponentValueList(css, skipComments)
+// ParseDeclarationListString tokenizes `css` and calls `ParseDeclarationList`.
+func ParseDeclarationListString(css string, skipComments, skipWhitespace bool) []Token {
+	l := tokenizeComponentValueList(css, skipComments)
 	return ParseDeclarationList(l, skipComments, skipWhitespace)
 }
 
@@ -239,17 +238,10 @@ func ParseOneRule(input []Token) Token {
 	return rule
 }
 
-//     If `skipComments`, ignore all CSS comments.
-//     skipComments=false
-func ParseOneRule2(css string, skipComments bool) Token {
-	l := parseComponentValueList(css, skipComments)
-	return ParseOneRule(l)
-}
-
 // Parse a non-top-level :diagram:`rule list`.
 // This is used for parsing the `AtRule.content`
 // of nested rules like ``@media``.
-// This differs from :func:`parseStylesheet` in that
+// This differs from :func:`ParseStylesheet` in that
 // top-level ``<!--`` and ``-->`` tokens are not ignored.
 // :param skipComments:
 //     Ignore CSS comments at the top-level of the list.
@@ -281,24 +273,22 @@ func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 	return result
 }
 
-// skipComments=false, skipWhitespace=false
-func ParseRuleList2(css string, skipComments, skipWhitespace bool) []Token {
-	l := parseComponentValueList(css, skipComments)
+// ParseRuleListString tokenizes `css` and calls `ParseRuleListString`.
+func ParseRuleListString(css string, skipComments, skipWhitespace bool) []Token {
+	l := tokenizeComponentValueList(css, skipComments)
 	return ParseRuleList(l, skipComments, skipWhitespace)
 }
 
-// Parse a stylesheet from text.
-//     This is used e.g. for a ``<style>`` HTML element.
-//     This differs from `parseRuleList` in that
-//     top-level ``<!--`` && ``-->`` tokens are ignored.
-//     This is a legacy quirk for the ``<style>`` HTML element.
-//     If `skipComments` is true, ignore CSS comments at the top-level of the stylesheet.
-//     If the input is a string, ignore all comments.
-//     If `skipWhitespace` is true, ignore whitespace at the top-level of the stylesheet.
-//         Whitespace is still preserved
-//         in the `QualifiedRule.Prelude`
-//         and the `QualifiedRule.Content` of rules.
-// skipComments=false, skipWhitespace=false
+// Parse a stylesheet from tokens.
+// This is used e.g. for a ``<style>`` HTML element.
+// This differs from `parseRuleList` in that
+// top-level ``<!--`` && ``-->`` tokens are ignored.
+// This is a legacy quirk for the ``<style>`` HTML element.
+// If `skipComments` is true, ignore CSS comments at the top-level of the stylesheet.
+// If the input is a string, ignore all comments.
+// If `skipWhitespace` is true, ignore whitespace at the top-level of the stylesheet.
+// Whitespace is still preserved  in the `QualifiedRule.Prelude`
+// and the `QualifiedRule.Content` of rules.
 func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 	iter := NewTokenIterator(input)
 	var result []Token
@@ -324,8 +314,9 @@ func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 	return result
 }
 
-func ParseStylesheet2(input []byte, skipComments, skipWhitespace bool) []Token {
-	l := parseComponentValueList(string(input), skipComments)
+// ParseStylesheetBytes tokenizes `input` and calls `ParseStylesheet`.
+func ParseStylesheetBytes(input []byte, skipComments, skipWhitespace bool) []Token {
+	l := tokenizeComponentValueList(string(input), skipComments)
 	return ParseStylesheet(l, skipComments, skipWhitespace)
 }
 

@@ -25,7 +25,7 @@ func fakeHTML(html HTML) *HTML {
 }
 
 func TestDescriptors(t *testing.T) {
-	stylesheet := parser.ParseStylesheet2([]byte("@font-face{}"), false, false)
+	stylesheet := parser.ParseStylesheetBytes([]byte("@font-face{}"), false, false)
 	logs := testutils.CaptureLogs()
 	var descriptors []string
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
@@ -37,7 +37,7 @@ func TestDescriptors(t *testing.T) {
 		`Missing src descriptor in "@font-face" rule at 1:1`,
 	}, t)
 
-	stylesheet = parser.ParseStylesheet2([]byte("@font-face{src: url(test.woff)}"), false, false)
+	stylesheet = parser.ParseStylesheetBytes([]byte("@font-face{src: url(test.woff)}"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, nil, false)
@@ -48,7 +48,7 @@ func TestDescriptors(t *testing.T) {
 		`Missing font-family descriptor in "@font-face" rule at 1:1`,
 	}, t)
 
-	stylesheet = parser.ParseStylesheet2([]byte("@font-face{font-family: test}"), false, false)
+	stylesheet = parser.ParseStylesheetBytes([]byte("@font-face{font-family: test}"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, nil, false)
@@ -59,7 +59,7 @@ func TestDescriptors(t *testing.T) {
 		`Missing src descriptor in "@font-face" rule at 1:1`,
 	}, t)
 
-	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: test; src: wrong }"), false, false)
+	stylesheet = parser.ParseStylesheetBytes([]byte("@font-face { font-family: test; src: wrong }"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, nil, false)
@@ -71,7 +71,7 @@ func TestDescriptors(t *testing.T) {
 		`Missing src descriptor in "@font-face" rule at 1:1`,
 	}, t)
 
-	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: good, bad; src: url(test.woff) }"), false, false)
+	stylesheet = parser.ParseStylesheetBytes([]byte("@font-face { font-family: good, bad; src: url(test.woff) }"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, nil, false)
@@ -83,7 +83,7 @@ func TestDescriptors(t *testing.T) {
 		`Missing font-family descriptor in "@font-face" rule at 1:1`,
 	}, t)
 
-	stylesheet = parser.ParseStylesheet2([]byte("@font-face { font-family: good, bad; src: really bad }"), false, false)
+	stylesheet = parser.ParseStylesheetBytes([]byte("@font-face { font-family: good, bad; src: really bad }"), false, false)
 	logs = testutils.CaptureLogs()
 	preprocessStylesheet("print", "http://wp.org/foo/", stylesheet, nil, nil, nil,
 		&descriptors, nil, nil, false)
@@ -459,7 +459,7 @@ var tests = []testPageSelector{
 func TestPageSelectors(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	for _, te := range tests {
-		atRule_ := parser.ParseStylesheet2([]byte(te.sel), false, false)[0]
+		atRule_ := parser.ParseStylesheetBytes([]byte(te.sel), false, false)[0]
 		atRule, ok := atRule_.(parser.QualifiedRule)
 		if !ok {
 			atRule = atRule_.(parser.AtRule).QualifiedRule
@@ -611,7 +611,7 @@ func TestCounterStyleInvalid(t *testing.T) {
 		"@counter-style test {system: additive; additive-symbols: 10 x, 1 i, 5 v}",
 	}
 	for _, rule := range inputs {
-		stylesheet := parser.ParseStylesheet2([]byte(rule), false, false)
+		stylesheet := parser.ParseStylesheetBytes([]byte(rule), false, false)
 		cp := testutils.CaptureLogs()
 
 		var fonts []string

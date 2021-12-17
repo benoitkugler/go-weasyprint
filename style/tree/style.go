@@ -612,7 +612,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 // presentationalHints=false
 func findStyleAttributes(tree *utils.HTMLNode, presentationalHints bool, baseUrl string) (out []styleAttrSpec) {
 	checkStyleAttribute := func(element *utils.HTMLNode, styleAttribute string) styleAttr {
-		declarations := parser.ParseDeclarationList2(styleAttribute, false, false)
+		declarations := parser.ParseDeclarationListString(styleAttribute, false, false)
 		return styleAttr{element: element, declaration: declarations, baseUrl: baseUrl}
 	}
 
