@@ -16,6 +16,8 @@ import (
 // SVGImage is a parsed SVG file.
 type SVGImage struct {
 	root SVGNode
+
+	normalStyle, importantStyle matcher
 }
 
 // all fields are optional
@@ -46,6 +48,7 @@ type nodeAttributes struct {
 type SVGNode struct {
 	nodeAttributes
 	tag      string
+	text     []byte
 	children []SVGNode
 }
 
@@ -127,50 +130,85 @@ func parseViewbox(attr string) ([4]Fl, error) {
 // Parse parsed the given SVG data. Warnings are
 // logged for unsupported elements.
 // An error is returned for invalid documents.
-func Parse(svg io.Reader) (*SVGImage, error) {
-	decoder := xml.NewDecoder(svg)
-	decoder.CharsetReader = charset.NewReaderLabel
-	var root SVGNode
-	err := decoder.Decode(&root)
+// `baseURL` is used as base path for url resources.
+func Parse(svg io.Reader, baseURL string) (*SVGImage, error) {
+	var pr svgParser
+	err := pr.parse(svg)
 	if err != nil {
 		return nil, err
 	}
-	if root.tag != "svg" {
-		return nil, fmt.Errorf("invalid root tag: %s", root.tag)
-	}
-	return &SVGImage{root: root}, nil
+	var out SVGImage
+	out.root = *pr.root
+	out.normalStyle, out.importantStyle = parseStylesheets(pr.stylesheets, baseURL)
+
+	return &out, nil
 }
 
-func (node *SVGNode) UnmarshalXML(d *xml.Decoder, start xml.StartElement) (err error) {
+type svgParser struct {
+	root        *SVGNode
+	stylesheets [][]byte
+}
+
+func (pr *svgParser) parse(svg io.Reader) error {
+	decoder := xml.NewDecoder(svg)
+	decoder.CharsetReader = charset.NewReaderLabel
+	err := decoder.DecodeElement(&pr, nil)
+	if err != nil {
+		return err
+	}
+	if pr.root.tag != "svg" {
+		return fmt.Errorf("invalid root tag: %s", pr.root.tag)
+	}
+	return nil
+}
+
+func (pr *svgParser) UnmarshalXML(d *xml.Decoder, start xml.StartElement) (err error) {
+	pr.root, pr.stylesheets, err = unmarshalXML(d, start)
+	return err
+}
+
+func unmarshalXML(d *xml.Decoder, start xml.StartElement) (node *SVGNode, stylesheets [][]byte, err error) {
+	// special case for <style>
+	css, err := handleStyleElement(d, start)
+	if err != nil {
+		return nil, nil, err
+	}
+	if css != nil {
+		return nil, [][]byte{css}, nil
+	}
+
 	// start by handling the new element
+	node = new(SVGNode)
 	node.tag = start.Name.Local
 	node.nodeAttributes, err = parseNodeAttributes(start.Attr)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// then process the inner content: text or kid element
 	for {
 		next, err := d.Token()
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		// Token is one of StartElement, EndElement, CharData, Comment, ProcInst, or Directive
 		switch next := next.(type) {
 		case xml.CharData:
 			// handle text and keep going
-			// TODO:
+			node.text = append(node.text, next...)
 		case xml.EndElement:
 			// closing current element: return after processing
-			return nil
+			return node, stylesheets, nil
 		case xml.StartElement:
 			// new kid: recurse and keep going for other kids or text
-			var kid SVGNode
-			err = kid.UnmarshalXML(d, next)
+			kid, css, err := unmarshalXML(d, next)
 			if err != nil {
-				return err
+				return nil, nil, err
 			}
-			node.children = append(node.children, kid)
+			stylesheets = append(stylesheets, css...)
+			if kid != nil {
+				node.children = append(node.children, *kid)
+			}
 		default:
 			// ignored, just keep going
 		}

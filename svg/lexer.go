@@ -193,9 +193,17 @@ func parseFloatList(dataPoints string) (points []value, err error) {
 	return points, nil
 }
 
-// parse a URL, possibly in a "url(…)" string.
 // if the URL is invalid, the empty string is returned
 func parseURLFragment(url_ string) string {
+	u, err := parseURL(url_)
+	if err != nil {
+		return ""
+	}
+	return u.Fragment
+}
+
+// parse a URL, possibly in a "url(…)" string.
+func parseURL(url_ string) (*url.URL, error) {
 	if strings.HasPrefix(url_, "url(") && strings.HasSuffix(url_, ")") {
 		url_ = url_[4 : len(url_)-1]
 		if len(url_) >= 2 {
@@ -204,9 +212,5 @@ func parseURLFragment(url_ string) string {
 			}
 		}
 	}
-	u, err := url.Parse(url_)
-	if err != nil {
-		return ""
-	}
-	return u.Fragment
+	return url.Parse(url_)
 }
