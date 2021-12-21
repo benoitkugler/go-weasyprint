@@ -25,7 +25,7 @@ func TestParseStyle(t *testing.T) {
 		</g>
 	</svg>
 `
-	var pr svgParser
+	var pr xmlParser
 	if err := pr.parse(strings.NewReader(input)); err != nil {
 		t.Fatal(err)
 	}

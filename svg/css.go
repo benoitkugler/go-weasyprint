@@ -13,13 +13,13 @@ import (
 // Apply CSS to SVG documents.
 
 // http://www.w3.org/TR/SVG/styling.html#StyleElement
-func handleStyleElement(d *xml.Decoder, start xml.StartElement) ([]byte, error) {
+func (pr *xmlParser) handleStyleElement(d *xml.Decoder, start xml.StartElement) (bool, error) {
 	if start.Name.Local != "style" {
-		return nil, nil
+		return false, nil
 	}
 	for _, v := range start.Attr {
 		if v.Name.Local == "type" && v.Value != "text/css" {
-			return nil, nil
+			return false, nil
 		}
 	}
 
@@ -28,7 +28,7 @@ func handleStyleElement(d *xml.Decoder, start xml.StartElement) ([]byte, error) 
 	for {
 		next, err := d.Token()
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 		// Token is one of StartElement, EndElement, CharData, Comment, ProcInst, or Directive
 		switch next := next.(type) {
@@ -36,7 +36,8 @@ func handleStyleElement(d *xml.Decoder, start xml.StartElement) ([]byte, error) 
 			// handle text and keep going
 			css = append(css, next...)
 		case xml.EndElement:
-			return css, nil
+			pr.stylesheets = append(pr.stylesheets, css)
+			return true, nil
 		}
 	}
 }

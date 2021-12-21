@@ -15,106 +15,236 @@ import (
 
 // SVGImage is a parsed SVG file.
 type SVGImage struct {
-	root SVGNode
-
 	normalStyle, importantStyle matcher
+
+	// keys are #<id>
+	defs map[string]SVGNode
+
+	root SVGNode
 }
 
-// all fields are optional
-type nodeAttributes struct {
-	viewBox  *[4]Fl
-	filter   string
-	fontSize value
-	clipPath string
-	mask     string
+// type nodeAttributes struct {
+// 	viewBox *[4]Fl
 
-	marker                    string
-	markerPosition            [3]string // [start, mid, end] should default to marker
-	markerWidth, markerHeight value
-	markerUnitsUserSpace      bool
+// 	markerPosition [3]string // [start, mid, end] should default to marker
+// 	marker         string
 
-	transform, preserveAspectRatio, orient, overflow string
+// 	filter   string
+// 	clipPath string
+// 	mask     string
 
-	strokeDasharray  []value
-	strokeDashoffset value
-	fillEvenOdd      bool
+// 	transform, preserveAspectRatio, orient, overflow string
 
-	opacity              Fl // default to 1
-	width, height        value
-	noDisplay, noVisible bool
-}
+// 	strokeDasharray []value
+
+// 	fontSize                  value
+// 	strokeDashoffset          value
+// 	markerWidth, markerHeight value
+// 	width, height             value
+
+// 	opacity Fl // default to 1
+
+// 	fillEvenOdd          bool
+// 	markerUnitsUserSpace bool
+// 	noDisplay, noVisible bool
+
+// 	rawArgs map[string]string // parsing is deferred
+// }
 
 // SVGNode is a node in an SVG document.
 type SVGNode struct {
-	nodeAttributes
 	tag      string
 	text     []byte
 	children []SVGNode
+	nodeAttributes
 }
 
-func parseNodeAttributes(attrs []xml.Attr) (node nodeAttributes, err error) {
-	node.opacity = 1
-	var noDisplay, noVisible bool
+// raw attributes value of a node
+// attibutes will be updated in the post processing
+// step due to the cascade
+type nodeAttributes map[string]string
+
+func newNodeAttributes(attrs []xml.Attr) nodeAttributes {
+	out := make(nodeAttributes, len(attrs))
 	for _, attr := range attrs {
-		switch attr.Name.Local {
-		case "viewBox":
-			var vb [4]Fl
-			vb, err = parseViewbox(attr.Value)
-			node.viewBox = &vb
-		case "filter":
-			node.filter = parseURLFragment(attr.Value)
-		case "clip-path":
-			node.clipPath = parseURLFragment(attr.Value)
-		case "mask":
-			node.mask = parseURLFragment(attr.Value)
-		case "marker":
-			node.marker = parseURLFragment(attr.Value)
-		case "marker-start":
-			node.markerPosition[0] = parseURLFragment(attr.Value)
-		case "marker-mid":
-			node.markerPosition[1] = parseURLFragment(attr.Value)
-		case "marker-end":
-			node.markerPosition[2] = parseURLFragment(attr.Value)
-		case "transform":
-			node.transform = attr.Value
-		case "orient":
-			node.orient = attr.Value
-		case "overflow":
-			node.overflow = attr.Value
-		case "font-size":
-			node.fontSize, err = parseValue(attr.Value)
-		case "width":
-			node.width, err = parseValue(attr.Value)
-		case "height":
-			node.height, err = parseValue(attr.Value)
-		case "markerWidth":
-			node.markerWidth, err = parseValue(attr.Value)
-		case "markerHeight":
-			node.markerHeight, err = parseValue(attr.Value)
-		case "markerUnits":
-			node.markerUnitsUserSpace = attr.Value == "userSpaceOnUse"
-		case "opacity":
-			node.opacity, err = strconv.ParseFloat(attr.Value, 64)
-		case "display":
-			noDisplay = attr.Value == "none"
-		case "visibility":
-			noVisible = attr.Value == "hidden"
-		case "stroke-dasharray":
-			node.strokeDasharray, err = parseFloatList(attr.Value)
-		case "stroke-dashoffset":
-			node.strokeDashoffset, err = parseValue(attr.Value)
-		case "fill-rull":
-			node.fillEvenOdd = attr.Value == "evenodd"
-		}
-		if err != nil {
-			return nodeAttributes{}, err
-		}
+		out[attr.Name.Local] = attr.Value
 	}
-	node.noDisplay = noDisplay
-	node.noVisible = noDisplay || noVisible
-
-	return node, nil
+	return out
 }
+
+func (na nodeAttributes) viewBox() ([4]float64, error) {
+	attrValue := na["viewBox"]
+	return parseViewbox(attrValue)
+}
+
+func (na nodeAttributes) filter() string {
+	attrValue := na["filter"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) clipPath() string {
+	attrValue := na["clip-path"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) mask() string {
+	attrValue := na["mask"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) marker() string {
+	attrValue := na["marker"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) markerStart() string {
+	attrValue := na["marker-start"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) markerMid() string {
+	attrValue := na["marker-mid"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) markerEnd() string {
+	attrValue := na["marker-end"]
+	return parseURLFragment(attrValue)
+}
+
+func (na nodeAttributes) fontSize() (value, error) {
+	attrValue := na["font-size"]
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) width() (value, error) {
+	attrValue := na["width"]
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) height() (value, error) {
+	attrValue := na["height"]
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) markerWidth() (value, error) {
+	attrValue := na["markerWidth"]
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) markerHeight() (value, error) {
+	attrValue := na["markerHeight"]
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) markerUnitsUserSpace() bool {
+	attrValue := na["markerUnits"]
+	return attrValue == "userSpaceOnUse"
+}
+
+func (na nodeAttributes) opacity() (float64, error) {
+	if attrValue, has := na["opacity"]; has {
+		return strconv.ParseFloat(attrValue, 64)
+	}
+	return 1, nil
+}
+
+func (na nodeAttributes) noDisplay() bool {
+	attrValue := na["display"]
+	return attrValue == "none"
+}
+
+func (na nodeAttributes) noVisible() bool {
+	attrValue := na["visibility"]
+	noVisible := attrValue == "hidden"
+	return na.noDisplay() || noVisible
+}
+
+func (na nodeAttributes) strokeDasharray() ([]value, error) {
+	attrValue := na["stroke-dasharray"]
+	return parseFloatList(attrValue)
+}
+
+func (na nodeAttributes) strokeDashoffset() (value, error) {
+	attrValue := na["stroke-dashoffset"]
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) fillEvenOdd() bool {
+	attrValue := na["fill-rull"]
+	return attrValue == "evenodd"
+}
+
+func (na nodeAttributes) spacePreserve() bool {
+	return na["space"] == "preserve"
+}
+
+// func parseNodeAttributes(attrs []xml.Attr) (node nodeAttributes, err error) {
+// 	node.opacity = 1
+// 	var noDisplay, noVisible bool
+// 	node.rawArgs = make(map[string]string)
+// 	for _, attr := range attrs {
+// 		switch attr.Name.Local {
+// 		case "viewBox":
+// 			var vb [4]Fl
+// 			vb, err = parseViewbox(attr.Value)
+// 			node.viewBox = &vb
+// 		case "filter":
+// 			node.filter = parseURLFragment(attr.Value)
+// 		case "clip-path":
+// 			node.clipPath = parseURLFragment(attr.Value)
+// 		case "mask":
+// 			node.mask = parseURLFragment(attr.Value)
+// 		case "marker":
+// 			node.marker = parseURLFragment(attr.Value)
+// 		case "marker-start":
+// 			node.markerPosition[0] = parseURLFragment(attr.Value)
+// 		case "marker-mid":
+// 			node.markerPosition[1] = parseURLFragment(attr.Value)
+// 		case "marker-end":
+// 			node.markerPosition[2] = parseURLFragment(attr.Value)
+// 		case "transform":
+// 			node.transform = attr.Value
+// 		case "orient":
+// 			node.orient = attr.Value
+// 		case "overflow":
+// 			node.overflow = attr.Value
+// 		case "font-size":
+// 			node.fontSize, err = parseValue(attr.Value)
+// 		case "width":
+// 			node.width, err = parseValue(attr.Value)
+// 		case "height":
+// 			node.height, err = parseValue(attr.Value)
+// 		case "markerWidth":
+// 			node.markerWidth, err = parseValue(attr.Value)
+// 		case "markerHeight":
+// 			node.markerHeight, err = parseValue(attr.Value)
+// 		case "markerUnits":
+// 			node.markerUnitsUserSpace = attr.Value == "userSpaceOnUse"
+// 		case "opacity":
+// 			node.opacity, err = strconv.ParseFloat(attr.Value, 64)
+// 		case "display":
+// 			noDisplay = attr.Value == "none"
+// 		case "visibility":
+// 			noVisible = attr.Value == "hidden"
+// 		case "stroke-dasharray":
+// 			node.strokeDasharray, err = parseFloatList(attr.Value)
+// 		case "stroke-dashoffset":
+// 			node.strokeDashoffset, err = parseValue(attr.Value)
+// 		case "fill-rull":
+// 			node.fillEvenOdd = attr.Value == "evenodd"
+// 		default:
+// 			node.rawArgs[attr.Name.Local] = attr.Value
+// 		}
+// 		if err != nil {
+// 			return nodeAttributes{}, err
+// 		}
+// 	}
+// 	node.noDisplay = noDisplay
+// 	node.noVisible = noDisplay || noVisible
+
+// 	return node, nil
+// }
 
 func parseViewbox(attr string) ([4]Fl, error) {
 	points, err := parsePoints(attr)
@@ -132,64 +262,78 @@ func parseViewbox(attr string) ([4]Fl, error) {
 // An error is returned for invalid documents.
 // `baseURL` is used as base path for url resources.
 func Parse(svg io.Reader, baseURL string) (*SVGImage, error) {
-	var pr svgParser
+	pr := xmlParser{defs: make(map[string]SVGNode)}
 	err := pr.parse(svg)
 	if err != nil {
 		return nil, err
 	}
+
+	if pr.root.tag != "svg" {
+		return nil, fmt.Errorf("invalid root tag: %s", pr.root.tag)
+	}
+
 	var out SVGImage
 	out.root = *pr.root
 	out.normalStyle, out.importantStyle = parseStylesheets(pr.stylesheets, baseURL)
+	out.defs = pr.defs
+
+	out.postProcessNode(&out.root)
 
 	return &out, nil
 }
 
-type svgParser struct {
+type xmlParser struct {
 	root        *SVGNode
-	stylesheets [][]byte
+	defs        map[string]SVGNode
+	stylesheets [][]byte // raw style sheets
 }
 
-func (pr *svgParser) parse(svg io.Reader) error {
+func (pr *xmlParser) parse(svg io.Reader) error {
 	decoder := xml.NewDecoder(svg)
 	decoder.CharsetReader = charset.NewReaderLabel
 	err := decoder.DecodeElement(&pr, nil)
 	if err != nil {
 		return err
 	}
-	if pr.root.tag != "svg" {
-		return fmt.Errorf("invalid root tag: %s", pr.root.tag)
-	}
 	return nil
 }
 
-func (pr *svgParser) UnmarshalXML(d *xml.Decoder, start xml.StartElement) (err error) {
-	pr.root, pr.stylesheets, err = unmarshalXML(d, start)
+func (pr *xmlParser) UnmarshalXML(d *xml.Decoder, start xml.StartElement) (err error) {
+	pr.root, err = pr.unmarshalXML(d, start)
 	return err
 }
 
-func unmarshalXML(d *xml.Decoder, start xml.StartElement) (node *SVGNode, stylesheets [][]byte, err error) {
-	// special case for <style>
-	css, err := handleStyleElement(d, start)
-	if err != nil {
-		return nil, nil, err
+func (pr *xmlParser) handleDefs(element *SVGNode) *SVGNode {
+	if element.tag == "defs" {
+		// save the defined elements and return nil
+		for _, child := range element.children {
+			pr.defs[child.nodeAttributes["id"]] = child
+		}
+		return nil
 	}
-	if css != nil {
-		return nil, [][]byte{css}, nil
+	return element
+}
+
+func (pr *xmlParser) unmarshalXML(d *xml.Decoder, start xml.StartElement) (node *SVGNode, err error) {
+	// special case for <style>
+	isCSS, err := pr.handleStyleElement(d, start)
+	if err != nil {
+		return nil, err
+	}
+	if isCSS {
+		return nil, nil
 	}
 
 	// start by handling the new element
 	node = new(SVGNode)
 	node.tag = start.Name.Local
-	node.nodeAttributes, err = parseNodeAttributes(start.Attr)
-	if err != nil {
-		return nil, nil, err
-	}
+	node.nodeAttributes = newNodeAttributes(start.Attr)
 
 	// then process the inner content: text or kid element
 	for {
 		next, err := d.Token()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		// Token is one of StartElement, EndElement, CharData, Comment, ProcInst, or Directive
 		switch next := next.(type) {
@@ -198,14 +342,14 @@ func unmarshalXML(d *xml.Decoder, start xml.StartElement) (node *SVGNode, styles
 			node.text = append(node.text, next...)
 		case xml.EndElement:
 			// closing current element: return after processing
-			return node, stylesheets, nil
+			node = pr.handleDefs(node)
+			return node, nil
 		case xml.StartElement:
 			// new kid: recurse and keep going for other kids or text
-			kid, css, err := unmarshalXML(d, next)
+			kid, err := pr.unmarshalXML(d, next)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
-			stylesheets = append(stylesheets, css...)
 			if kid != nil {
 				node.children = append(node.children, *kid)
 			}

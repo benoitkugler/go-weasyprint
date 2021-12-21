@@ -34,7 +34,7 @@ func Test_parseViewbox(t *testing.T) {
 	}
 }
 
-func stringToXMLArgs(s string) []xml.Attr {
+func stringToXMLArgs(s string) nodeAttributes {
 	out := struct {
 		AllAttrs []xml.Attr `xml:",any,attr"`
 	}{}
@@ -42,46 +42,35 @@ func stringToXMLArgs(s string) []xml.Attr {
 	if err != nil {
 		panic(err)
 	}
-	return out.AllAttrs
+	return newNodeAttributes(out.AllAttrs)
+}
+
+func assertEqual(t *testing.T, exp, got interface{}) {
+	t.Helper()
+
+	if !reflect.DeepEqual(exp, got) {
+		t.Fatalf("expected %v, got %v", exp, got)
+	}
 }
 
 func Test_parseNodeAttributes(t *testing.T) {
-	tests := []struct {
-		args    []xml.Attr
-		want    nodeAttributes
-		wantErr bool
-	}{
-		{
-			args:    stringToXMLArgs(`width="50px" height="10pt" font-size="2em"`),
-			want:    nodeAttributes{opacity: 1, fontSize: value{2, Em}, width: value{50, Px}, height: value{10, Pt}},
-			wantErr: false,
-		},
-		{
-			args:    stringToXMLArgs(`visibility="hidden"`),
-			want:    nodeAttributes{opacity: 1, noVisible: true},
-			wantErr: false,
-		},
-		{
-			args:    stringToXMLArgs(`mask="url(#myMask)"`),
-			want:    nodeAttributes{opacity: 1, mask: "myMask"},
-			wantErr: false,
-		},
-		{
-			args:    stringToXMLArgs(`marker="url(#m1)" marker-mid="url(#m2)"`),
-			want:    nodeAttributes{opacity: 1, marker: "m1", markerPosition: [3]string{"", "m2", ""}},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		gotNode, err := parseNodeAttributes(tt.args)
-		if (err != nil) != tt.wantErr {
-			t.Errorf("parseNodeAttributes() error = %v, wantErr %v", err, tt.wantErr)
-			return
-		}
-		if !reflect.DeepEqual(gotNode, tt.want) {
-			t.Errorf("parseNodeAttributes() = %v, want %v", gotNode, tt.want)
-		}
-	}
+	attrs := stringToXMLArgs(`width="50px" height="10pt" font-size="2em"`)
+	got, _ := attrs.fontSize()
+	assertEqual(t, value{2, Em}, got)
+	got, _ = attrs.width()
+	assertEqual(t, value{50, Px}, got)
+	got, _ = attrs.height()
+	assertEqual(t, value{10, Pt}, got)
+
+	attrs = stringToXMLArgs(`visibility="hidden"`)
+	assertEqual(t, true, attrs.noVisible())
+
+	attrs = stringToXMLArgs(`mask="url(#myMask)"`)
+	assertEqual(t, "myMask", attrs.mask())
+
+	attrs = stringToXMLArgs(`marker="url(#m1)" marker-mid="url(#m2)"`)
+	assertEqual(t, "m1", attrs.marker())
+	assertEqual(t, "m2", attrs.markerMid())
 }
 
 func parseIcon(t *testing.T, iconPath string) {
@@ -139,5 +128,38 @@ func TestInvalidXML(t *testing.T) {
 	_, err = Parse(strings.NewReader("<not-svg></not-svg>"), "")
 	if err == nil {
 		t.Fatal("expected error on invalid input")
+	}
+}
+
+func TestParseDefs(t *testing.T) {
+	input := `
+	<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"
+	xmlns:xlink="http://www.w3.org/1999/xlink">
+	<!-- Some graphical objects to use -->
+	<defs>
+		<circle id="myCircle" cx="0" cy="0" r="5" />
+
+		<linearGradient id="myGradient" gradientTransform="rotate(90)">
+		<stop offset="20%" stop-color="gold" />
+		<stop offset="90%" stop-color="red" />
+		</linearGradient>
+	</defs>
+
+	<!-- using my graphical objects -->
+	<use x="5" y="5" href="#myCircle" fill="url('#myGradient')" />
+	</svg>
+	`
+	img, err := Parse(strings.NewReader(input), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(img.defs) != 2 {
+		t.Fatal("defs")
+	}
+	if c, has := img.defs["myCircle"]; !has || len(c.children) != 0 {
+		t.Fatal("defs circle")
+	}
+	if c, has := img.defs["myGradient"]; !has || len(c.children) != 2 {
+		t.Fatal("defs gradient")
 	}
 }
