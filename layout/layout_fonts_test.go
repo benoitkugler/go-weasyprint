@@ -15,15 +15,12 @@ func TestLoadFont(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	font, err := truetype.Parse(f, true)
+	font, err := truetype.Parse(f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	gsub, err := font.GSUBTable()
-	if err != nil {
-		t.Fatal(err)
-	}
+	gsub := font.LayoutTables().GSUB
 
 	_, ok := gsub.FindFeatureIndex(truetype.MustNewTag("liga"))
 	if !ok {
