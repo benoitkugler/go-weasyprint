@@ -75,6 +75,9 @@ func (h HTMLNode) HasAttr(name string) bool {
 	return false
 }
 
+// Iter return an iterator over the html tree.
+// If tags are given, only the node matching them
+// will be returned by the iterator.
 func (h *HTMLNode) Iter(tags ...atom.Atom) HtmlIterator {
 	return NewHtmlIterator((*html.Node)(h), tags...)
 }
@@ -116,11 +119,11 @@ func (h *HtmlIterator) HasNext() bool {
 	}
 
 	next := h.popNode()
-	if next.FirstChild != nil {
-		h.toVisit = append(h.toVisit, next.FirstChild)
-	}
 	if next.NextSibling != nil {
 		h.toVisit = append(h.toVisit, next.NextSibling)
+	}
+	if next.FirstChild != nil {
+		h.toVisit = append(h.toVisit, next.FirstChild)
 	}
 
 	if len(h.tagsMap) == 0 || h.tagsMap[next.DataAtom] { // found one element
@@ -137,27 +140,6 @@ func (h *HtmlIterator) Next() *HTMLNode {
 	h.result = nil
 	return out
 }
-
-// Iter recursively `element` (and its children and so on ...) and returns the elements matching one of the given tags
-//func Iter(element html.Node, tags ...atom.Atom) []html.Node {
-//	tagsMap := make(map[atom.Atom]bool)
-//	for _, tag := range tags {
-//		tagsMap[tag] = true
-//	}
-//	var aux func(html.Node) []html.Node
-//	aux = func(el html.Node) (out []html.Node) {
-//		if tagsMap[el.DataAtom] {
-//			out = append(out, el)
-//		}
-//		child := el.FirstChild
-//		for child != nil {
-//			out = append(out, aux(*child)...)
-//			child = child.NextSibling
-//		}
-//		return
-//	}
-//	return aux(element)
-//}
 
 // NodeChildren returns the direct children of `element`.
 // Skip empty text nodes
@@ -180,9 +162,9 @@ func (element HTMLNode) IsText() (bool, string) {
 	return false, ""
 }
 
-// GetChildText returns the text directly in the element, not descendants.
-// It's the concatenation of all child's TextNodes.
-func (element HTMLNode) GetChildText() string {
+// GetChildrenText returns the text directly in the element, but not descendants.
+// It's the concatenation of all children's TextNodes.
+func (element HTMLNode) GetChildrenText() string {
 	var content []string
 	if element.Type == html.TextNode {
 		content = []string{element.Data}
@@ -201,16 +183,6 @@ func (element HTMLNode) GetChildText() string {
 // attribute.
 func (element HTMLNode) GetText() string {
 	if c := element.FirstChild; c != nil && c.Type == html.TextNode {
-		return c.Data
-	}
-	return ""
-}
-
-// GetTail returns the content of the last text node child.
-// Due to Go html.Parse() behavior, this method mimic Python xml.etree.tail
-// attribute.
-func (element HTMLNode) GetTail() string {
-	if c := element.LastChild; c != nil && c.Type == html.TextNode {
 		return c.Data
 	}
 	return ""
@@ -357,7 +329,7 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 		switch element.DataAtom {
 		case atom.Title:
 			if title == "" {
-				title = element.GetChildText()
+				title = element.GetChildrenText()
 			}
 		case atom.Meta:
 			name := AsciiLower(element.Get("name"))

@@ -573,7 +573,7 @@ func findStylesheets(wrapperElement *utils.HTMLNode, deviceMediaType string, url
 		case atom.Style:
 			// Content is text that is directly in the <style> Element, not its
 			// descendants
-			content := element.GetChildText()
+			content := element.GetChildrenText()
 			// ElementTree should give us either unicode or  ASCII-only
 			// bytestrings, so we don"t need `encoding` here.
 			css, err := NewCSS(utils.InputString(content), baseUrl, urlFetcher, false, deviceMediaType,

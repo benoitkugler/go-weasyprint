@@ -1,17 +1,99 @@
-// Package svg implements parsing of SVG images.
-// It transforms SVG text files into an in-memory structure
-// that is easy to draw.
-// CSS is supported via the style and cascadia packages.
 package svg
 
 import (
-	"encoding/xml"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"golang.org/x/net/html"
 )
+
+func Test_parsePoints(t *testing.T) {
+	tests := []struct {
+		dataPoints string
+		wantPoints []Fl
+		wantErr    bool
+	}{
+		{"50 160 55 180.2 70 180", []Fl{50, 160, 55, 180.2, 70, 180}, false},
+		{"153.423,21.442,12.3e5,", []Fl{153.423, 21.442, 12.3e5}, false},
+		{"-11.231-1.388-22.118-3.789-32.621", []Fl{-11.231, -1.388, -22.118, -3.789, -32.621}, false},
+		{"7px 8% 10 px 72pt", []Fl{7, 8, 10, 72}, false}, // units are ignored
+		{"15,45.7e", nil, true},
+	}
+	for _, tt := range tests {
+		gotPoints, err := parsePoints(tt.dataPoints)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("getPoints() error = %v, wantErr %v", err, tt.wantErr)
+			return
+		}
+		if !reflect.DeepEqual(gotPoints, tt.wantPoints) {
+			t.Errorf("getPoints() = %v, want %v", gotPoints, tt.wantPoints)
+		}
+	}
+}
+
+func Test_parseURLFragment(t *testing.T) {
+	tests := []struct {
+		args string
+		want string
+	}{
+		{"www.google.com#test", "test"},
+		{"url(www.google.com#test)", "test"},
+		{"url('www.google.com#test')", "test"},
+		{`url("www.google.com#test")`, "test"},
+		{"www.google.com", ""},
+		{"789", ""},
+	}
+	for _, tt := range tests {
+		if got := parseURLFragment(tt.args); got != tt.want {
+			t.Errorf("parseURLFragment() = %v, want %v", got, tt.want)
+		}
+	}
+}
+
+func Test_parseFloatList(t *testing.T) {
+	tests := []struct {
+		args       string
+		wantPoints []value
+		wantErr    bool
+	}{
+		{"7px 8% 10px 72pt", []value{{7, Px}, {8, Perc}, {10, Px}, {72, Pt}}, false},
+	}
+	for _, tt := range tests {
+		gotPoints, err := parseFloatList(tt.args)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parseFloatList() error = %v, wantErr %v", err, tt.wantErr)
+			return
+		}
+		if !reflect.DeepEqual(gotPoints, tt.wantPoints) {
+			t.Errorf("parseFloatList() = %v, want %v", gotPoints, tt.wantPoints)
+		}
+	}
+}
+
+func Test_value_resolve(t *testing.T) {
+	type args struct {
+		fontSize            Fl
+		percentageReference Fl
+	}
+	tests := []struct {
+		value value
+		args  args
+		want  Fl
+	}{
+		{value: value{u: Px, v: 10}, args: args{}, want: 10},
+		{value: value{u: Pt, v: 72}, args: args{}, want: 96},
+		{value: value{u: Perc, v: 50}, args: args{percentageReference: 40}, want: 20},
+		{value: value{u: Em, v: 10}, args: args{fontSize: 20}, want: 200},
+		{value: value{u: Ex, v: 10}, args: args{fontSize: 20}, want: 100},
+	}
+	for _, tt := range tests {
+		if got := tt.value.resolve(tt.args.fontSize, tt.args.percentageReference); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("value.resolve() = %v, want %v", got, tt.want)
+		}
+	}
+}
 
 func Test_parseViewbox(t *testing.T) {
 	tests := []struct {
@@ -35,14 +117,11 @@ func Test_parseViewbox(t *testing.T) {
 }
 
 func stringToXMLArgs(s string) nodeAttributes {
-	out := struct {
-		AllAttrs []xml.Attr `xml:",any,attr"`
-	}{}
-	err := xml.Unmarshal([]byte(fmt.Sprintf("<p %s></p>", s)), &out)
+	node, err := html.Parse(strings.NewReader(fmt.Sprintf("<html %s></html>", s)))
 	if err != nil {
 		panic(err)
 	}
-	return newNodeAttributes(out.AllAttrs)
+	return newNodeAttributes(node.FirstChild.Attr)
 }
 
 func assertEqual(t *testing.T, exp, got interface{}) {
@@ -71,95 +150,4 @@ func Test_parseNodeAttributes(t *testing.T) {
 	attrs = stringToXMLArgs(`marker="url(#m1)" marker-mid="url(#m2)"`)
 	assertEqual(t, "m1", attrs.marker())
 	assertEqual(t, "m2", attrs.markerMid())
-}
-
-func parseIcon(t *testing.T, iconPath string) {
-	f, err := os.Open(iconPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	_, err = Parse(f, "")
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestCorpus(t *testing.T) {
-	for _, p := range []string{
-		"beach", "cape", "iceberg", "island",
-		"mountains", "sea", "trees", "village",
-	} {
-		parseIcon(t, "testdata/landscapeIcons/"+p+".svg")
-	}
-
-	for _, p := range []string{
-		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs",
-		"24px",
-	} {
-		parseIcon(t, "testdata/testIcons/"+p+".svg")
-	}
-
-	for _, p := range []string{
-		"OpacityStrokeDashTest.svg",
-		"OpacityStrokeDashTest2.svg",
-		"OpacityStrokeDashTest3.svg",
-		"TestShapes.svg",
-		"TestShapes2.svg",
-		"TestShapes3.svg",
-		"TestShapes4.svg",
-		"TestShapes5.svg",
-		"TestShapes6.svg",
-	} {
-		parseIcon(t, "testdata/"+p)
-	}
-}
-
-func TestPercentages(t *testing.T) {
-	parseIcon(t, "testdata/TestPercentages.svg")
-}
-
-func TestInvalidXML(t *testing.T) {
-	_, err := Parse(strings.NewReader("dummy"), "")
-	if err == nil {
-		t.Fatal("expected error on invalid input")
-	}
-	_, err = Parse(strings.NewReader("<not-svg></not-svg>"), "")
-	if err == nil {
-		t.Fatal("expected error on invalid input")
-	}
-}
-
-func TestParseDefs(t *testing.T) {
-	input := `
-	<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"
-	xmlns:xlink="http://www.w3.org/1999/xlink">
-	<!-- Some graphical objects to use -->
-	<defs>
-		<circle id="myCircle" cx="0" cy="0" r="5" />
-
-		<linearGradient id="myGradient" gradientTransform="rotate(90)">
-		<stop offset="20%" stop-color="gold" />
-		<stop offset="90%" stop-color="red" />
-		</linearGradient>
-	</defs>
-
-	<!-- using my graphical objects -->
-	<use x="5" y="5" href="#myCircle" fill="url('#myGradient')" />
-	</svg>
-	`
-	img, err := Parse(strings.NewReader(input), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(img.defs) != 2 {
-		t.Fatal("defs")
-	}
-	if c, has := img.defs["myCircle"]; !has || len(c.children) != 0 {
-		t.Fatal("defs circle")
-	}
-	if c, has := img.defs["myGradient"]; !has || len(c.children) != 2 {
-		t.Fatal("defs gradient")
-	}
 }

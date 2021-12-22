@@ -22,12 +22,11 @@ type nestedBlock struct {
 	endChar byte
 }
 
-// Parse a list of component values.
+// Tokenize parses a list of component values.
 // If `skipComments` is true, ignore CSS comments :
 // the return values (and recursively its blocks and functions)
 // will not contain any `Comment` object.
-// skipComments = false
-func tokenizeComponentValueList(css string, skipComments bool) []Token {
+func Tokenize(css string, skipComments bool) []Token {
 	// This turns out to be faster than a regexp:
 	css = strings.ReplaceAll(css, "\u0000", "\uFFFD")
 	css = strings.ReplaceAll(css, "\r\n", "\n")

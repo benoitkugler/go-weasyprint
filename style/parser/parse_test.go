@@ -63,7 +63,7 @@ func runTestOneToken(t *testing.T, css, resJson []string, fn func(input string) 
 func TestComponentValueList(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
 	runTest(t, inputs, resJson, func(s string) []Token {
-		return tokenizeComponentValueList(s, true)
+		return Tokenize(s, true)
 	})
 }
 
@@ -105,7 +105,7 @@ func TestRuleList(t *testing.T) {
 func TestOneRule(t *testing.T) {
 	inputs, resJson := loadJson("one_rule.json")
 	runTestOneToken(t, inputs, resJson, func(input string) jsonisable {
-		l := tokenizeComponentValueList(input, true)
+		l := Tokenize(input, true)
 		return ParseOneRule(l)
 	})
 }

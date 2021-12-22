@@ -1,45 +1,41 @@
 package svg
 
 import (
-	"encoding/xml"
 	"log"
 	"strings"
 
 	"github.com/benoitkugler/cascadia"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 // Apply CSS to SVG documents.
 
 // http://www.w3.org/TR/SVG/styling.html#StyleElement
-func (pr *xmlParser) handleStyleElement(d *xml.Decoder, start xml.StartElement) (bool, error) {
-	if start.Name.Local != "style" {
-		return false, nil
-	}
-	for _, v := range start.Attr {
-		if v.Name.Local == "type" && v.Value != "text/css" {
-			return false, nil
+// n has tag style
+func handleStyleElement(n *utils.HTMLNode) []byte {
+	for _, v := range n.Attr {
+		if v.Key == "type" && v.Val != "text/css" {
+			return nil
 		}
 	}
 
 	// extract the css
-	var css []byte
-	for {
-		next, err := d.Token()
-		if err != nil {
-			return false, err
-		}
-		// Token is one of StartElement, EndElement, CharData, Comment, ProcInst, or Directive
-		switch next := next.(type) {
-		case xml.CharData:
-			// handle text and keep going
-			css = append(css, next...)
-		case xml.EndElement:
-			pr.stylesheets = append(pr.stylesheets, css)
-			return true, nil
+	return []byte(n.GetChildrenText())
+}
+
+func fetchStylesheets(root *utils.HTMLNode) [][]byte {
+	var stylesheets [][]byte
+	iter := root.Iter(atom.Style)
+	for iter.HasNext() {
+		css := handleStyleElement(iter.Next())
+		if len(css) != 0 {
+			stylesheets = append(stylesheets, css)
 		}
 	}
+	return stylesheets
 }
 
 func fetchURL(url, baseURL string) ([]byte, string, error) {
@@ -95,7 +91,7 @@ func findStylesheetsRules(rules []parser.Token, baseUrl string) (out []parser.Qu
 
 type declaration struct {
 	property string
-	value    []parser.Token
+	value    string
 }
 
 // Parse declarations in a given rule content.
@@ -106,9 +102,9 @@ func parseDeclarations(input []parser.Token) (normalDeclarations, importantDecla
 				continue
 			}
 			if decl.Important {
-				importantDeclarations = append(importantDeclarations, declaration{decl.Name.Lower(), decl.Value})
+				importantDeclarations = append(importantDeclarations, declaration{decl.Name.Lower(), parser.Serialize(decl.Value)})
 			} else {
-				normalDeclarations = append(normalDeclarations, declaration{decl.Name.Lower(), decl.Value})
+				normalDeclarations = append(normalDeclarations, declaration{decl.Name.Lower(), parser.Serialize(decl.Value)})
 			}
 		}
 	}
@@ -145,4 +141,16 @@ func parseStylesheets(stylesheets [][]byte, url string) (matcher, matcher) {
 		}
 	}
 	return normalMatcher, importantMatcher
+}
+
+// returns (property, value) pairs
+func (m matcher) match(element *html.Node) (out []declaration) {
+	for _, mat := range m {
+		for _, sel := range mat.selector {
+			if sel.Match(element) {
+				out = append(out, mat.declarations...)
+			}
+		}
+	}
+	return
 }

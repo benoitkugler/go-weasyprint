@@ -66,7 +66,7 @@ func ParseOneComponentValue(input []Token) Token {
 // If `skipComments`,  ignore all CSS comments.
 //   skipComments = false
 func parseOneComponentValueString(css string, skipComments bool) Token {
-	l := tokenizeComponentValueList(css, skipComments)
+	l := Tokenize(css, skipComments)
 	return ParseOneComponentValue(l)
 }
 
@@ -86,7 +86,7 @@ func ParseOneDeclaration(input []Token) Token {
 //     If  `skipComments`, ignore all CSS comments.
 // skipComments=false
 func ParseOneDeclaration2(css string, skipComments bool) Token {
-	l := tokenizeComponentValueList(css, skipComments)
+	l := Tokenize(css, skipComments)
 	return ParseOneDeclaration(l)
 }
 
@@ -211,7 +211,7 @@ func ParseDeclarationList(input []Token, skipComments, skipWhitespace bool) []To
 
 // ParseDeclarationListString tokenizes `css` and calls `ParseDeclarationList`.
 func ParseDeclarationListString(css string, skipComments, skipWhitespace bool) []Token {
-	l := tokenizeComponentValueList(css, skipComments)
+	l := Tokenize(css, skipComments)
 	return ParseDeclarationList(l, skipComments, skipWhitespace)
 }
 
@@ -275,7 +275,7 @@ func ParseRuleList(input []Token, skipComments, skipWhitespace bool) []Token {
 
 // ParseRuleListString tokenizes `css` and calls `ParseRuleListString`.
 func ParseRuleListString(css string, skipComments, skipWhitespace bool) []Token {
-	l := tokenizeComponentValueList(css, skipComments)
+	l := Tokenize(css, skipComments)
 	return ParseRuleList(l, skipComments, skipWhitespace)
 }
 
@@ -316,7 +316,7 @@ func ParseStylesheet(input []Token, skipComments, skipWhitespace bool) []Token {
 
 // ParseStylesheetBytes tokenizes `input` and calls `ParseStylesheet`.
 func ParseStylesheetBytes(input []byte, skipComments, skipWhitespace bool) []Token {
-	l := tokenizeComponentValueList(string(input), skipComments)
+	l := Tokenize(string(input), skipComments)
 	return ParseStylesheet(l, skipComments, skipWhitespace)
 }
 

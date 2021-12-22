@@ -8,15 +8,15 @@ import (
 func TestSerialization(t *testing.T) {
 	inputs, resJson := loadJson("component_value_list.json")
 	runTest(t, inputs, resJson, func(css string) []Token {
-		parsed := tokenizeComponentValueList(css, true)
-		return tokenizeComponentValueList(Serialize(parsed), true)
+		parsed := Tokenize(css, true)
+		return Tokenize(Serialize(parsed), true)
 	})
 }
 
 func TestIdentifiers(t *testing.T) {
 	source := "\fezeze"
-	ref := tokenizeComponentValueList(source, false)
-	resToTest := tokenizeComponentValueList(Serialize(ref), false)
+	ref := Tokenize(source, false)
+	resToTest := Tokenize(Serialize(ref), false)
 	res, err := marshalJSON(resToTest)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestSkip(t *testing.T) {
     `
 	noWs := ParseStylesheetBytes([]byte(source), false, true)
 	noComment := ParseStylesheetBytes([]byte(source), true, false)
-	default_ := tokenizeComponentValueList(source, false)
+	default_ := Tokenize(source, false)
 	if Serialize(noWs) == source {
 		t.Fail()
 	}
@@ -56,7 +56,7 @@ func TestSkip(t *testing.T) {
 
 func TestCommentEof(t *testing.T) {
 	source := "/* foo "
-	parsed := tokenizeComponentValueList(source, false)
+	parsed := Tokenize(source, false)
 	if Serialize(parsed) != "/* foo */" {
 		t.Fail()
 	}
@@ -92,7 +92,7 @@ func TestSerializeDeclarations(t *testing.T) {
 
 func TestBackslashDelim(t *testing.T) {
 	source := "\\\nfoo"
-	tokens := tokenizeComponentValueList(source, false)
+	tokens := Tokenize(source, false)
 	if len(tokens) != 3 {
 		t.Fatalf("bad token length : expected 3 got %d", len(tokens))
 	}
@@ -112,10 +112,10 @@ func TestBackslashDelim(t *testing.T) {
 func TestDataurl(t *testing.T) {
 	input := `@import "data:text/css;charset=utf-16le;base64,\
 				bABpAHsAYwBvAGwAbwByADoAcgBlAGQAfQA=";`
-	fmt.Println(Serialize(tokenizeComponentValueList(input, true)))
+	fmt.Println(Serialize(Tokenize(input, true)))
 }
 
 func TestDebug(t *testing.T) {
-	ls := tokenizeComponentValueList(`.foo\:bar`, false)
+	ls := Tokenize(`.foo\:bar`, false)
 	fmt.Println(Serialize(ls))
 }

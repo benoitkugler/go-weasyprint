@@ -9,7 +9,7 @@ import (
 var nDashDigitRe = regexp.MustCompile("^n(-[0-9]+)$")
 
 func ParseNth2(css string) []int {
-	l := tokenizeComponentValueList(css, true)
+	l := Tokenize(css, true)
 	return ParseNth(l)
 }
 

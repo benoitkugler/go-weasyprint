@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
+	"golang.org/x/net/html"
 )
 
 func TestParseStyle(t *testing.T) {
@@ -25,16 +28,17 @@ func TestParseStyle(t *testing.T) {
 		</g>
 	</svg>
 `
-	var pr xmlParser
-	if err := pr.parse(strings.NewReader(input)); err != nil {
+	root, err := html.Parse(strings.NewReader(input))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(pr.stylesheets, [][]byte{
+	got := fetchStylesheets((*utils.HTMLNode)(root))
+	if !reflect.DeepEqual(got, [][]byte{
 		[]byte("css1"),
 		[]byte("css2"),
 		[]byte("css4"),
 	}) {
-		t.Fatalf("unexpected stylesheets %v", pr.stylesheets)
+		t.Fatalf("unexpected stylesheets %v", got)
 	}
 }
 
@@ -52,11 +56,17 @@ func TestProcessStyle(t *testing.T) {
 		</style> 
 	</svg>
 `
-	out, err := Parse(strings.NewReader(input), "")
+
+	root, err := html.Parse(strings.NewReader(input))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out.importantStyle) != 0 {
-		t.Fatalf("unexpected important style: %v", out.importantStyle)
+	got := fetchStylesheets((*utils.HTMLNode)(root))
+	normal, important := parseStylesheets(got, "")
+	if len(normal) != 1 {
+		t.Fatalf("unexpected normal style: %v", normal)
+	}
+	if len(important) != 0 {
+		t.Fatalf("unexpected important style: %v", important)
 	}
 }
