@@ -1,7 +1,3 @@
-// Package svg implements parsing of SVG images.
-// It transforms SVG text files into an in-memory structure
-// that is easy to draw.
-// CSS is supported via the style and cascadia packages.
 package svg
 
 import (
@@ -17,11 +13,14 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-// SVGImage is a parsed SVG file.
-type SVGImage struct {
-	defs map[string]*SVGNode
+// convert from html nodes to an intermediate svg tree
 
-	root *SVGNode // with tag svg
+// svgTree is a parsed SVG file,
+// where CSS has been applied, and text has been processed
+type svgTree struct {
+	defs map[string]*cascadedNode
+
+	root *cascadedNode // with tag svg
 }
 
 // type nodeAttributes struct {
@@ -52,12 +51,12 @@ type SVGImage struct {
 // 	rawArgs map[string]string // parsing is deferred
 // }
 
-// SVGNode is a node in an SVG document.
-type SVGNode struct {
+// cascadedNode is a node in an SVG document.
+type cascadedNode struct {
 	tag      string
 	text     []byte
 	attrs    nodeAttributes
-	children []*SVGNode
+	children []*cascadedNode
 }
 
 // raw attributes value of a node
@@ -73,58 +72,16 @@ func newNodeAttributes(attrs []html.Attribute) nodeAttributes {
 	return out
 }
 
-func (na nodeAttributes) viewBox() ([4]float64, error) {
+func (na nodeAttributes) viewBox() ([4]Fl, error) {
 	attrValue := na["viewBox"]
 	return parseViewbox(attrValue)
 }
 
-func (na nodeAttributes) filter() string {
-	attrValue := na["filter"]
-	return parseURLFragment(attrValue)
-}
-
-func (na nodeAttributes) clipPath() string {
-	attrValue := na["clip-path"]
-	return parseURLFragment(attrValue)
-}
-
-func (na nodeAttributes) mask() string {
-	attrValue := na["mask"]
-	return parseURLFragment(attrValue)
-}
-
-func (na nodeAttributes) marker() string {
-	attrValue := na["marker"]
-	return parseURLFragment(attrValue)
-}
-
-func (na nodeAttributes) markerStart() string {
-	attrValue := na["marker-start"]
-	return parseURLFragment(attrValue)
-}
-
-func (na nodeAttributes) markerMid() string {
-	attrValue := na["marker-mid"]
-	return parseURLFragment(attrValue)
-}
-
-func (na nodeAttributes) markerEnd() string {
-	attrValue := na["marker-end"]
-	return parseURLFragment(attrValue)
-}
-
 func (na nodeAttributes) fontSize() (value, error) {
-	attrValue := na["font-size"]
-	return parseValue(attrValue)
-}
-
-func (na nodeAttributes) width() (value, error) {
-	attrValue := na["width"]
-	return parseValue(attrValue)
-}
-
-func (na nodeAttributes) height() (value, error) {
-	attrValue := na["height"]
+	attrValue, has := na["font-size"]
+	if !has {
+		attrValue = "1em"
+	}
 	return parseValue(attrValue)
 }
 
@@ -143,22 +100,23 @@ func (na nodeAttributes) markerUnitsUserSpace() bool {
 	return attrValue == "userSpaceOnUse"
 }
 
-func (na nodeAttributes) opacity() (float64, error) {
+func (na nodeAttributes) opacity() (Fl, error) {
 	if attrValue, has := na["opacity"]; has {
-		return strconv.ParseFloat(attrValue, 64)
+		out, err := strconv.ParseFloat(attrValue, 32)
+		return Fl(out), err
 	}
 	return 1, nil
 }
 
-func (na nodeAttributes) noDisplay() bool {
+func (na nodeAttributes) display() bool {
 	attrValue := na["display"]
-	return attrValue == "none"
+	return attrValue != "none"
 }
 
-func (na nodeAttributes) noVisible() bool {
+func (na nodeAttributes) visible() bool {
 	attrValue := na["visibility"]
-	noVisible := attrValue == "hidden"
-	return na.noDisplay() || noVisible
+	visible := attrValue != "hidden"
+	return na.display() && visible
 }
 
 func (na nodeAttributes) strokeDasharray() ([]value, error) {
@@ -247,19 +205,26 @@ func (na nodeAttributes) spacePreserve() bool {
 // 	return node, nil
 // }
 
-// Parse parsed the given SVG data. Warnings are
-// logged for unsupported elements.
-// An error is returned for invalid documents.
-// `baseURL` is used as base path for url resources.
-func Parse(svg io.Reader, baseURL string) (*SVGImage, error) {
-	out, err := buildSVGTree(svg, baseURL)
-	if err != nil {
-		return nil, err
+// walk the tree to extract content needed to build the SVG tree
+func fetchStyleAndTextRefs(root *utils.HTMLNode) ([][]byte, map[string][]byte) {
+	var (
+		stylesheets [][]byte
+		trefs       = make(map[string][]byte)
+	)
+	iter := root.Iter()
+	for iter.HasNext() {
+		node := iter.Next()
+		if css := handleStyleElement(node); len(css) != 0 {
+			stylesheets = append(stylesheets, css)
+			continue
+		}
+
+		// register text refs
+		if id := node.Get("id"); id != "" {
+			trefs[id] = node.GetChildrenText()
+		}
 	}
-
-	// out.postProcess(baseURL)
-
-	return out, nil
+	return stylesheets, trefs
 }
 
 // Convert from the html representation to an internal,
@@ -267,7 +232,7 @@ func Parse(svg io.Reader, baseURL string) (*SVGImage, error) {
 // The stylesheets are processed and applied, the values
 // of the CSS properties begin stored as attributes
 // Inheritable attributes are cascaded and 'inherit' special values are resolved.
-func buildSVGTree(svg io.Reader, baseURL string) (*SVGImage, error) {
+func buildSVGTree(svg io.Reader, baseURL string) (*svgTree, error) {
 	root, err := html.Parse(svg)
 	if err != nil {
 		return nil, err
@@ -281,16 +246,16 @@ func buildSVGTree(svg io.Reader, baseURL string) (*SVGImage, error) {
 	}
 	svgRoot := iter.Next()
 
-	stylesheets := fetchStylesheets(svgRoot)
+	stylesheets, trefs := fetchStyleAndTextRefs(svgRoot)
 	normalMatcher, importantMatcher := parseStylesheets(stylesheets, baseURL)
 
 	// build the SVG tree and apply style attribute
-	out := SVGImage{defs: map[string]*SVGNode{}}
+	out := svgTree{defs: map[string]*cascadedNode{}}
 
 	// may return nil to discard the node
-	var buildTree func(node *html.Node, parentAttrs nodeAttributes) *SVGNode
+	var buildTree func(node *html.Node, parentAttrs nodeAttributes) *cascadedNode
 
-	buildTree = func(node *html.Node, parentAttrs nodeAttributes) *SVGNode {
+	buildTree = func(node *html.Node, parentAttrs nodeAttributes) *cascadedNode {
 		// text is handled by the parent
 		// style elements are no longer useful
 		if node.Type != html.ElementNode || node.DataAtom == atom.Style {
@@ -341,19 +306,22 @@ func buildSVGTree(svg io.Reader, baseURL string) (*SVGImage, error) {
 			}
 		}
 
+		nodeSVG := &cascadedNode{
+			tag:   node.Data,
+			text:  (*utils.HTMLNode)(node).GetChildrenText(),
+			attrs: attrs,
+		}
+
 		// recurse
-		var children []*SVGNode
 		for child := node.FirstChild; child != nil; child = child.NextSibling {
 			if childSVG := buildTree(child, attrs); childSVG != nil {
-				children = append(children, childSVG)
+				nodeSVG.children = append(nodeSVG.children, childSVG)
 			}
 		}
 
-		nodeSVG := &SVGNode{
-			tag:      node.Data,
-			text:     []byte((*utils.HTMLNode)(node).GetChildrenText()),
-			children: children,
-			attrs:    attrs,
+		// Fix text in text tags
+		if node.Data == "text" || node.Data == "textPath" || node.Data == "a" {
+			handleText(nodeSVG, true, true, trefs)
 		}
 
 		if node.Data == "defs" {
@@ -389,7 +357,7 @@ func processWhitespace(text []byte, preserveSpace bool) []byte {
 
 // handle text node by fixing whitespaces and flattening tails,
 // updating node 'children' and 'text'
-func (svg *SVGImage) handleText(node *SVGNode, trailingSpace, textRoot bool) bool {
+func handleText(node *cascadedNode, trailingSpace, textRoot bool, trefs map[string][]byte) bool {
 	preserve := node.attrs.spacePreserve()
 	node.text = processWhitespace(node.text, preserve)
 	if trailingSpace && !preserve {
@@ -400,19 +368,17 @@ func (svg *SVGImage) handleText(node *SVGNode, trailingSpace, textRoot bool) boo
 		trailingSpace = bytes.HasSuffix(node.text, []byte{' '})
 	}
 
-	var newChildren []*SVGNode
+	var newChildren []*cascadedNode
 	for _, child := range node.children {
 		if child.tag == "tref" {
 			// Retrieve the referenced node and get its flattened text
 			// and remove the node children.
-			id := parseURLFragment(child.attrs["xlink:href"])
-			if ref := svg.defs[id]; ref != nil {
-				node.text = append(node.text, ref.text...)
-			}
+			id := parseURLFragment(child.attrs["href"])
+			node.text = append(node.text, trefs[id]...)
 			continue
 		}
 
-		trailingSpace = svg.handleText(child, trailingSpace, false)
+		trailingSpace = handleText(child, trailingSpace, false, trefs)
 
 		newChildren = append(newChildren, child)
 	}
@@ -424,28 +390,6 @@ func (svg *SVGImage) handleText(node *SVGNode, trailingSpace, textRoot bool) boo
 	node.children = newChildren
 
 	return trailingSpace
-}
-
-// finalize the parsing by applying the following steps,
-// which require to have seen the whole document :
-//	- register defs element
-// 	- resolve text reference
-//
-func (svg *SVGImage) postProcess(baseURL string) {
-	svg.registerDefs()
-
-	// svg.postProcessNode(&svg.root)
-}
-
-// walk through the tree to register ids
-func (svg *SVGImage) registerDefs() {
-	// iter := svg.root.Iter()
-	// for iter.HasNext() {
-	// 	node := iter.Next()
-	// 	if id := node.Get("id"); id != "" {
-	// 		svg.defs[id] = node
-	// 	}
-	// }
 }
 
 // these attributes are not cascaded
@@ -480,41 +424,3 @@ var colorAttributes = utils.NewSet(
 	"stop-color",
 	"stroke",
 )
-
-func (svg *SVGImage) postProcessNode(node *utils.HTMLNode) {
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		// // Cascade attributes
-		// for _, attr := range node.attrs {
-		// 	if _, isNotInherited := notInheritedAttributes[key]; !isNotInherited {
-		// 		if _, isSet := child.attrs[key]; !isSet {
-		// 			child.attrs[key] = value
-		// 		}
-		// 	}
-		// }
-
-		// Apply style attribute
-		// var normal_attr, important_attr []declaration
-		// style_attr := child.attrs["style"]
-		// if style_attr != "" {
-		// 	normal_attr, important_attr = parseDeclarations(parser.Tokenize(style_attr, false))
-		// }
-		// normal_matcher, important_matcher := svg.normalStyle, svg.importantStyle
-		// for _, rule :=  range svg.normalStyle {
-		// 	rule.
-		// }
-		// normal = [rule[-1] for rule in normal_matcher.match(wrapper)]
-		// important = [rule[-1] for rule in important_matcher.match(wrapper)]
-		// declarations_lists = (
-		// 	normal, [normal_attr], important, [important_attr])
-		// for declarations_list in declarations_lists:
-		// 	for declarations in declarations_list:
-		// 		for name, value in declarations:
-		// 			child.attrib[name] = value.strip()
-
-		// svg.postProcessNode(child)
-	}
-	// if node.tag == "text" || node.tag == "textPath" || node.tag == "a" {
-	// 	svg.handleText(node, true, true)
-	// 	return
-	// }
-}

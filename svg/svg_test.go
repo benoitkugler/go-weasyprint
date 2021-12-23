@@ -35,7 +35,7 @@ func TestHandleText(t *testing.T) {
 				fill="none" stroke-width="2" />
 		</svg>
 		`
-	img, err := Parse(strings.NewReader(input), "")
+	img, err := buildSVGTree(strings.NewReader(input), "")
 	if err != nil {
 		t.Fatal(err)
 	}

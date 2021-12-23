@@ -164,18 +164,17 @@ func (element HTMLNode) IsText() (bool, string) {
 
 // GetChildrenText returns the text directly in the element, but not descendants.
 // It's the concatenation of all children's TextNodes.
-func (element HTMLNode) GetChildrenText() string {
-	var content []string
+func (element HTMLNode) GetChildrenText() (content []byte) {
 	if element.Type == html.TextNode {
-		content = []string{element.Data}
+		content = []byte(element.Data)
 	}
 
 	for _, child := range element.NodeChildren(false) {
 		if child.Type == html.TextNode {
-			content = append(content, child.Data)
+			content = append(content, child.Data...)
 		}
 	}
-	return strings.Join(content, "")
+	return content
 }
 
 // GetText returns the content of the first text node child.
@@ -329,7 +328,7 @@ func GetHtmlMetadata(wrapperElement *HTMLNode, baseUrl string) DocumentMetadata 
 		switch element.DataAtom {
 		case atom.Title:
 			if title == "" {
-				title = element.GetChildrenText()
+				title = string(element.GetChildrenText())
 			}
 		case atom.Meta:
 			name := AsciiLower(element.Get("name"))

@@ -1,7 +1,3 @@
-// Package svg implements parsing of SVG images.
-// It transforms SVG text files into an in-memory structure
-// that is easy to draw.
-// CSS is supported via the style and cascadia packages.
 package svg
 
 import (
@@ -112,7 +108,7 @@ func TestParseDefs(t *testing.T) {
 	<use x="5" y="5" href="#myCircle" fill="url('#myGradient')" />
 	</svg>
 	`
-	img, err := Parse(strings.NewReader(input), "")
+	img, err := buildSVGTree(strings.NewReader(input), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,5 +120,43 @@ func TestParseDefs(t *testing.T) {
 	}
 	if c, has := img.defs["myGradient"]; !has || len(c.children) != 2 {
 		t.Fatal("defs gradient")
+	}
+}
+
+func TestTrefs(t *testing.T) {
+	input := `
+	<svg width="100%" height="100%" viewBox="0 0 1000 300"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+	<defs>
+		<text id="ReferencedText">Referenced character data</text>
+	</defs>
+
+	<text x="100" y="100" font-size="45" >
+		Inline character data
+	</text>
+
+	<text x="100" y="200" font-size="45" fill="red" >
+		<tref xlink:href="#ReferencedText"/>
+	</text>
+	</svg>
+	`
+	img, err := buildSVGTree(strings.NewReader(input), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(img.root.children) != 2 {
+		t.Fatalf("unexpected children %v", img.root.children)
+	}
+	if t1 := img.root.children[0]; string(t1.text) != "Inline character data" {
+		t.Fatalf("unexpected text %s", t1.text)
+	}
+
+	t2 := img.root.children[1]
+	if len(t2.children) != 0 {
+		t.Fatalf("unexpected children %v", img.root.children)
+	}
+	if string(t2.text) != "Referenced character data" {
+		t.Fatalf("unexpected text %s", t2.text)
 	}
 }

@@ -20,9 +20,10 @@ func Test_parsePoints(t *testing.T) {
 		{"-11.231-1.388-22.118-3.789-32.621", []Fl{-11.231, -1.388, -22.118, -3.789, -32.621}, false},
 		{"7px 8% 10 px 72pt", []Fl{7, 8, 10, 72}, false}, // units are ignored
 		{"15,45.7e", nil, true},
+		{"50,0 21,90 98,35 2,35 79,90", []Fl{50, 0, 21, 90, 98, 35, 2, 35, 79, 90}, false},
 	}
 	for _, tt := range tests {
-		gotPoints, err := parsePoints(tt.dataPoints)
+		gotPoints, err := parsePoints(tt.dataPoints, nil)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("getPoints() error = %v, wantErr %v", err, tt.wantErr)
 			return
@@ -136,18 +137,18 @@ func Test_parseNodeAttributes(t *testing.T) {
 	attrs := stringToXMLArgs(`width="50px" height="10pt" font-size="2em"`)
 	got, _ := attrs.fontSize()
 	assertEqual(t, value{2, Em}, got)
-	got, _ = attrs.width()
+	got, _ = parseValue(attrs["width"])
 	assertEqual(t, value{50, Px}, got)
-	got, _ = attrs.height()
+	got, _ = parseValue(attrs["height"])
 	assertEqual(t, value{10, Pt}, got)
 
 	attrs = stringToXMLArgs(`visibility="hidden"`)
-	assertEqual(t, true, attrs.noVisible())
+	assertEqual(t, false, attrs.visible())
 
 	attrs = stringToXMLArgs(`mask="url(#myMask)"`)
-	assertEqual(t, "myMask", attrs.mask())
+	assertEqual(t, "myMask", parseURLFragment(attrs["mask"]))
 
 	attrs = stringToXMLArgs(`marker="url(#m1)" marker-mid="url(#m2)"`)
-	assertEqual(t, "m1", attrs.marker())
-	assertEqual(t, "m2", attrs.markerMid())
+	assertEqual(t, "m1", parseURLFragment(attrs["marker"]))
+	assertEqual(t, "m2", parseURLFragment(attrs["marker-mid"]))
 }

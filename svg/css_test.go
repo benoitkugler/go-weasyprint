@@ -32,7 +32,7 @@ func TestParseStyle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := fetchStylesheets((*utils.HTMLNode)(root))
+	got, _ := fetchStyleAndTextRefs((*utils.HTMLNode)(root))
 	if !reflect.DeepEqual(got, [][]byte{
 		[]byte("css1"),
 		[]byte("css2"),
@@ -61,7 +61,7 @@ func TestProcessStyle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := fetchStylesheets((*utils.HTMLNode)(root))
+	got, _ := fetchStyleAndTextRefs((*utils.HTMLNode)(root))
 	normal, important := parseStylesheets(got, "")
 	if len(normal) != 1 {
 		t.Fatalf("unexpected normal style: %v", normal)

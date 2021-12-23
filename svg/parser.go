@@ -7,13 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // provide low-level functions to read basic SVG data
 
-type Fl = utils.Fl
+type Fl = float32
 
 var root2 = math.Sqrt(2)
 
@@ -53,6 +51,10 @@ type value struct {
 // % is also supported
 func parseValue(s string) (value, error) {
 	s = strings.TrimSpace(s)
+	if s == "" {
+		return value{}, nil
+	}
+
 	resolvedUnit := Px
 	for u, suffix := range units {
 		if strings.HasSuffix(s, suffix) {
@@ -61,8 +63,8 @@ func parseValue(s string) (value, error) {
 			break
 		}
 	}
-	v, err := strconv.ParseFloat(s, 64)
-	return value{u: resolvedUnit, v: v}, err
+	v, err := strconv.ParseFloat(s, 32)
+	return value{u: resolvedUnit, v: Fl(v)}, err
 }
 
 // resolve convert `v` to pixels, resolving percentage and
@@ -161,19 +163,20 @@ func (v value) resolve(fontSize, percentageReference Fl) Fl {
 // 	return points, nil
 // }
 
-// parsePoints reads a set of floating point values from the SVG format number string/
-// units are not supported
-func parsePoints(dataPoints string) (points []Fl, err error) {
+// parsePoints reads a set of floating point values from the SVG format number string.
+// units are not supported.
+// values are appended to points, which is returned
+func parsePoints(dataPoints string, points []Fl) ([]Fl, error) {
 	lastIndex := -1
 	lr := ' '
 	for i, r := range dataPoints {
 		if !unicode.IsNumber(r) && r != '.' && !(r == '-' && lr == 'e') && r != 'e' {
 			if lastIndex != -1 {
-				value, err := strconv.ParseFloat(dataPoints[lastIndex:i], 64)
+				value, err := strconv.ParseFloat(dataPoints[lastIndex:i], 32)
 				if err != nil {
 					return nil, err
 				}
-				points = append(points, value)
+				points = append(points, Fl(value))
 			}
 			if r == '-' {
 				lastIndex = i
@@ -186,11 +189,11 @@ func parsePoints(dataPoints string) (points []Fl, err error) {
 		lr = r
 	}
 	if lastIndex != -1 && lastIndex != len(dataPoints) {
-		value, err := strconv.ParseFloat(dataPoints[lastIndex:], 64)
+		value, err := strconv.ParseFloat(dataPoints[lastIndex:], 32)
 		if err != nil {
 			return nil, err
 		}
-		points = append(points, value)
+		points = append(points, Fl(value))
 	}
 	return points, nil
 }
@@ -233,7 +236,7 @@ func parseURL(url_ string) (*url.URL, error) {
 }
 
 func parseViewbox(attr string) ([4]Fl, error) {
-	points, err := parsePoints(attr)
+	points, err := parsePoints(attr, nil)
 	if err != nil {
 		return [4]Fl{}, err
 	}

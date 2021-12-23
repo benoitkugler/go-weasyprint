@@ -16,6 +16,9 @@ import (
 // http://www.w3.org/TR/SVG/styling.html#StyleElement
 // n has tag style
 func handleStyleElement(n *utils.HTMLNode) []byte {
+	if n.DataAtom != atom.Style {
+		return nil
+	}
 	for _, v := range n.Attr {
 		if v.Key == "type" && v.Val != "text/css" {
 			return nil
@@ -23,19 +26,7 @@ func handleStyleElement(n *utils.HTMLNode) []byte {
 	}
 
 	// extract the css
-	return []byte(n.GetChildrenText())
-}
-
-func fetchStylesheets(root *utils.HTMLNode) [][]byte {
-	var stylesheets [][]byte
-	iter := root.Iter(atom.Style)
-	for iter.HasNext() {
-		css := handleStyleElement(iter.Next())
-		if len(css) != 0 {
-			stylesheets = append(stylesheets, css)
-		}
-	}
-	return stylesheets
+	return n.GetChildrenText()
 }
 
 func fetchURL(url, baseURL string) ([]byte, string, error) {
