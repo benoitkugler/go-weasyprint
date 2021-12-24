@@ -102,13 +102,14 @@ func (s SContentProps) isInnerContent() {}
 
 // url
 func (s NamedString) isInnerContent() {}
-func (s Dimension) isInnerContent()   {}
-func (s Float) isInnerContent()       {}
-func (s Int) isInnerContent()         {}
-func (s Color) isInnerContent()       {}
-func (s Quote) isInnerContent()       {}
-func (s AttrData) isInnerContent()    {}
-func (s VarData) isInnerContent()     {}
+
+func (s Dimension) isInnerContent() {}
+func (s Float) isInnerContent()     {}
+func (s Int) isInnerContent()       {}
+func (s Color) isInnerContent()     {}
+func (s Quote) isInnerContent()     {}
+func (s AttrData) isInnerContent()  {}
+func (s VarData) isInnerContent()   {}
 
 func (c ContentProperty) AsString() (value string) {
 	return string(c.Content.(String))

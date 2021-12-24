@@ -126,7 +126,7 @@ func minMax(box Box, width pr.Float) pr.Float {
 	}
 
 	if replaced, ok := box.(bo.ReplacedBoxITF); ok {
-		_, _, ratio := replaced.Replaced().Replacement.GetIntrinsicSize(pr.FToV(1), box.Box().Style.GetFontSize())
+		_, _, ratio := replaced.Replaced().Replacement.GetIntrinsicSize(1, box.Box().Style.GetFontSize().Value)
 		if ratio != nil {
 			minHeight := box.Box().Style.GetMinHeight()
 			if minHeight.String != "auto" && minHeight.Unit != pr.Percentage {
@@ -770,7 +770,7 @@ func replacedMinContentWidth(box *bo.ReplacedBox, outer bool) pr.Float {
 			w = pr.Float(0)
 		} else {
 			image := box.Replacement
-			iwidth, iheight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+			iwidth, iheight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution().Value, box.Style.GetFontSize().Value)
 			w, _ = defaultImageSizing(iwidth, iheight, ratio, pr.Auto, h, 300, 150)
 		}
 	} else if width.Unit == pr.Percentage {
@@ -802,7 +802,7 @@ func replacedMaxContentWidth(box *bo.ReplacedBox, outer bool) pr.Float {
 		}
 
 		image := box.Replacement
-		iwidth, iheight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+		iwidth, iheight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution().Value, box.Style.GetFontSize().Value)
 		w, _ = defaultImageSizing(iwidth, iheight, ratio, pr.Auto, h, 300, 150)
 
 	} else if width.Unit == pr.Percentage {

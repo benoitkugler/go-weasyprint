@@ -1191,8 +1191,6 @@ func splitTextBox(context *layoutContext, box *bo.TextBox, availableWidth pr.May
 		box.MarginBottom = halfLeading
 		// form the top of the content box
 		box.Baseline = baseline + box.MarginTop.V() // form the top of the margin box
-		fmt.Println("baseline", baseline, box.MarginTop.V())
-
 	} else {
 		box = nil
 	}

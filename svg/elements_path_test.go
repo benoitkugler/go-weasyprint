@@ -48,9 +48,14 @@ func Test_parsePath(t *testing.T) {
 				cubicToF(100, 100, 250, 100, 250, 200),
 			},
 		},
+		{
+			args:    "M100, ",
+			wantErr: true,
+		},
 	}
+	var c pathParser
 	for _, tt := range tests {
-		got, err := parsePath(tt.args)
+		got, err := c.parsePath(tt.args)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("parsePath() error = %v, wantErr %v", err, tt.wantErr)
 			return
@@ -73,8 +78,9 @@ func TestParsePathCrash(t *testing.T) {
 		"M200,300 Q400,50 600,300 T1000,300",
 		"M100,200 C100,100 250,100 250,200 S400,300 400,200",
 	}
+	var c pathParser
 	for _, path := range paths {
-		_, err := parsePath(path)
+		_, err := c.parsePath(path)
 		if err != nil {
 			t.Fatal(err)
 		}

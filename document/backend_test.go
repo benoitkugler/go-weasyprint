@@ -106,9 +106,9 @@ func (outputPage) SetBleedBox(left, top, right, bottom fl) {
 	outputLog.Println("SetBleedBox")
 }
 
-func (outputPage) OnNewStack(f func() error) error {
+func (outputPage) OnNewStack(f func()) {
 	outputLog.Println("OnNewStack")
-	return f()
+	f()
 }
 
 func (outputPage) Rectangle(x fl, y fl, width fl, height fl) {
@@ -139,7 +139,7 @@ func (outputPage) Fill(evenOdd bool) {
 	outputLog.Println("Fill")
 }
 
-func (outputPage) FillWithImage(backend.BackgroundImage, backend.BackgroundImageOptions) {
+func (outputPage) FillWithImage(backend.Image, backend.BackgroundImageOptions) {
 	outputLog.Println("Fill")
 }
 

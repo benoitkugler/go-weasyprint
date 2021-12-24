@@ -14,7 +14,7 @@ var errParamMismatch = errors.New("svg path: param mismatch")
 
 type pathItem struct {
 	op   pathOperation
-	args [3][2]Fl // up to three arguments
+	args [3][2]Fl // (x, y) up to three arguments
 }
 
 type pathOperation uint8
@@ -31,10 +31,31 @@ const (
 	cubicTo
 )
 
+// pathParser is used to parse SVG format path strings into a Path
+type pathParser struct {
+	path []pathItem // currently parsed
+
+	points                 []Fl
+	placeX, placeY         Fl
+	curX, curY             Fl
+	cntlPtX, cntlPtY       Fl
+	pathStartX, pathStartY Fl
+	lastKey                uint8
+	inPath                 bool
+}
+
+func (c *pathParser) reset() {
+	c.placeX = 0
+	c.placeY = 0
+	c.points = c.points[0:0]
+	c.lastKey = ' '
+	c.path = c.path[:0]
+	c.inPath = false
+}
+
 // parsePath translates the svgPath description string into a path.
-// The resulting path element is stored in the pathCursor.
-func parsePath(svgPath string) ([]pathItem, error) {
-	var c pathCursor
+func (c *pathParser) parsePath(svgPath string) ([]pathItem, error) {
+	c.reset()
 	lastIndex := -1
 	for i, v := range svgPath {
 		if unicode.IsLetter(v) && v != 'e' {
@@ -51,41 +72,31 @@ func parsePath(svgPath string) ([]pathItem, error) {
 			return nil, err
 		}
 	}
-	return c.path, nil
+	// return a copy so that the subsequent calls wont
+	// alter the path
+
+	return append([]pathItem(nil), c.path...), nil
 }
 
-// pathCursor is used to parse SVG format path strings into a Path
-type pathCursor struct {
-	path []pathItem // currently parsed
-
-	points                 []Fl
-	placeX, placeY         Fl
-	curX, curY             Fl
-	cntlPtX, cntlPtY       Fl
-	pathStartX, pathStartY Fl
-	lastKey                uint8
-	inPath                 bool
-}
-
-func (c *pathCursor) close() {
+func (c *pathParser) close() {
 	c.path = append(c.path, pathItem{op: close})
 }
 
-func (c *pathCursor) moveTo(x, y Fl) {
+func (c *pathParser) moveTo(x, y Fl) {
 	c.path = append(c.path, pathItem{op: moveTo, args: [3][2]Fl{{x, y}}})
 }
 
-func (c *pathCursor) lineTo(x, y Fl) {
+func (c *pathParser) lineTo(x, y Fl) {
 	c.path = append(c.path, pathItem{op: lineTo, args: [3][2]Fl{{x, y}}})
 }
 
-func (c *pathCursor) quadTo(x1, y1, x2, y2 Fl) {
+func (c *pathParser) quadTo(x1, y1, x2, y2 Fl) {
 	c.path = append(c.path, pathItem{op: quadTo, args: [3][2]Fl{
 		{x1, y1}, {x2, y2},
 	}})
 }
 
-func (c *pathCursor) cubicTo(x1, y1, x2, y2, x3, y3 Fl) {
+func (c *pathParser) cubicTo(x1, y1, x2, y2, x3, y3 Fl) {
 	c.path = append(c.path, pathItem{op: cubicTo, args: [3][2]Fl{
 		{x1, y1}, {x2, y2}, {x3, y3},
 	}})
@@ -95,14 +106,14 @@ func reflection(px, py, rx, ry Fl) (x, y Fl) {
 	return px*2 - rx, py*2 - ry
 }
 
-func (c *pathCursor) valsToAbs(last Fl) {
+func (c *pathParser) valsToAbs(last Fl) {
 	for i := 0; i < len(c.points); i++ {
 		last += c.points[i]
 		c.points[i] = last
 	}
 }
 
-func (c *pathCursor) pointsToAbs(sz int) {
+func (c *pathParser) pointsToAbs(sz int) {
 	lastX := c.placeX
 	lastY := c.placeY
 	for j := 0; j < len(c.points); j += sz {
@@ -115,7 +126,7 @@ func (c *pathCursor) pointsToAbs(sz int) {
 	}
 }
 
-func (c *pathCursor) hasSetsOrMore(sz int, rel bool) bool {
+func (c *pathParser) hasSetsOrMore(sz int, rel bool) bool {
 	if !(len(c.points) >= sz && len(c.points)%sz == 0) {
 		return false
 	}
@@ -127,13 +138,13 @@ func (c *pathCursor) hasSetsOrMore(sz int, rel bool) bool {
 
 // getPoints reads a set of floating point values from the SVG format number string,
 // and add them to the cursor's points slice.
-func (c *pathCursor) getPoints(dataPoints []byte) (err error) {
+func (c *pathParser) getPoints(dataPoints []byte) (err error) {
 	c.points = c.points[:0]
 	c.points, err = parsePoints(string(dataPoints), c.points)
 	return err
 }
 
-func (c *pathCursor) reflectControlQuad() {
+func (c *pathParser) reflectControlQuad() {
 	switch c.lastKey {
 	case 'q', 'Q', 'T', 't':
 		c.cntlPtX, c.cntlPtY = reflection(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
@@ -142,7 +153,7 @@ func (c *pathCursor) reflectControlQuad() {
 	}
 }
 
-func (c *pathCursor) reflectControlCube() {
+func (c *pathParser) reflectControlCube() {
 	switch c.lastKey {
 	case 'c', 'C', 's', 'S':
 		c.cntlPtX, c.cntlPtY = reflection(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
@@ -153,7 +164,7 @@ func (c *pathCursor) reflectControlCube() {
 
 // addSeg decodes an SVG segment string into equivalent raster path commands saved
 // in the cursor's Path
-func (c *pathCursor) addSeg(segString []byte) error {
+func (c *pathParser) addSeg(segString []byte) error {
 	// Parse the string describing the numeric points in SVG format
 	if err := c.getPoints(segString[1:]); err != nil {
 		return err
@@ -323,7 +334,7 @@ func (c *pathCursor) addSeg(segString []byte) error {
 // }
 
 // addArcFromA adds a path of an arc element to the cursor path to the pathCursor
-func (c *pathCursor) addArcFromA(points []Fl) {
+func (c *pathParser) addArcFromA(points []Fl) {
 	ra, rb := float64(points[0]), float64(points[1])
 	cx, cy := findEllipseCenter(&ra, &rb, float64(points[2])*math.Pi/180, float64(c.placeX),
 		float64(c.placeY), float64(points[5]), float64(points[6]), points[4] == 0, points[3] == 0)
@@ -333,7 +344,7 @@ func (c *pathCursor) addArcFromA(points []Fl) {
 }
 
 // addArc adds an arc to the adder p
-func (p *pathCursor) addArc(points []Fl, cx, cy, px, py Fl) (lx, ly Fl) {
+func (p *pathParser) addArc(points []Fl, cx, cy, px, py Fl) (lx, ly Fl) {
 	// maxDx is the maximum radians a cubic splice is allowed to span
 	// in ellipse parametric when approximating an off-axis ellipse.
 	const maxDx = math.Pi / 8

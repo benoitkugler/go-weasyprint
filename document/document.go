@@ -239,7 +239,7 @@ func newPage(pageBox *bo.PageBox) Page {
 // clip : whether to clip/cut content outside the page. If false, content can overflow.
 // (leftX=0, topY=0, scale=1, clip=false)
 func (d Page) Paint(dst backend.OutputPage, fc *text.FontConfiguration, leftX, topY, scale fl, clip bool) {
-	err := dst.OnNewStack(func() error {
+	dst.OnNewStack(func() {
 		// Make (0, 0) the top-left corner and make user units CSS pixels
 		dst.Transform(mt.New(scale, 0, 0, scale, leftX, topY))
 		if clip {
@@ -249,11 +249,8 @@ func (d Page) Paint(dst backend.OutputPage, fc *text.FontConfiguration, leftX, t
 			dst.Clip(false)
 		}
 		ctx := drawContext{dst: dst, fonts: fc}
-		return ctx.drawPage(d.pageBox)
+		ctx.drawPage(d.pageBox)
 	})
-	if err != nil {
-		log.Printf("Drawing page: %s", err)
-	}
 }
 
 // Document is a rendered document ready to be painted on a drawing target.

@@ -26,11 +26,11 @@ import (
 type Color = parser.RGBA
 
 // Image is the common interface for supported image format,
-// such as gradient, SVG, or JPEG, PNG, etc...
+// such as gradients, SVG, or JPEG, PNG, etc...
 type Image interface {
+	backend.Image
+
 	isImage()
-	GetIntrinsicSize(imageResolution, fontSize pr.Value) (width, height, ratio pr.MaybeFloat)
-	backend.BackgroundImage
 }
 
 var (
@@ -108,7 +108,7 @@ func getImageFromUri(fetcher utils.UrlFetcher, optimizeSize bool, url, forcedMim
 				return nil, err
 			}
 
-			// Last chance, try SVG in case mime type in incorrect
+			// Last chance, try SVG in case mime type is incorrect
 			content.Content.Seek(0, io.SeekStart)
 			img, errSvg = NewSVGImage(content.Content, url, fetcher)
 			if errSvg != nil {
@@ -157,9 +157,9 @@ func newRasterImage(imageConfig image.Config, content io.ReadCloser, mimeType st
 
 func (r rasterImage) isImage() {}
 
-func (r rasterImage) GetIntrinsicSize(imageResolution, _ pr.Value) (width, height, ratio pr.MaybeFloat) {
+func (r rasterImage) GetIntrinsicSize(imageResolution, _ pr.Float) (width, height, ratio pr.MaybeFloat) {
 	// Raster images are affected by the "image-resolution" property.
-	return r.intrinsicWidth / imageResolution.Value, r.intrinsicHeight / imageResolution.Value, r.intrinsicRatio
+	return r.intrinsicWidth / imageResolution, r.intrinsicHeight / imageResolution, r.intrinsicRatio
 }
 
 func (r rasterImage) Draw(context backend.GraphicTarget, concreteWidth, concreteHeight pr.Fl, imageRendering string) {
@@ -223,7 +223,7 @@ func NewSVGImage(svgData io.Reader, baseUrl string, urlFetcher utils.UrlFetcher)
 //         } return data["fileObj"].read()
 //     }
 
-func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (pr.MaybeFloat, pr.MaybeFloat, pr.MaybeFloat) {
+func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Float) (pr.MaybeFloat, pr.MaybeFloat, pr.MaybeFloat) {
 	width, height := s.icon.Width, s.icon.Height
 	if width == "" {
 		width = "100%"
@@ -234,10 +234,10 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Value) (pr.MaybeFloat, pr.May
 
 	var intrinsicWidth, intrinsicHeight, ratio pr.MaybeFloat
 	if !strings.ContainsRune(width, '%') {
-		intrinsicWidth = size(width, fontSize.Value, nil)
+		intrinsicWidth = size(width, fontSize, nil)
 	}
 	if !strings.ContainsRune(height, '%') {
-		intrinsicHeight = size(height, fontSize.Value, nil)
+		intrinsicHeight = size(height, fontSize, nil)
 	}
 
 	if intrinsicWidth == nil || intrinsicHeight == nil {
@@ -432,7 +432,7 @@ func newGradient(colorStops []pr.ColorStop, repeating bool) gradient {
 	return self
 }
 
-func (g gradient) GetIntrinsicSize(_, _ pr.Value) (pr.MaybeFloat, pr.MaybeFloat, pr.MaybeFloat) {
+func (g gradient) GetIntrinsicSize(_, _ pr.Float) (pr.MaybeFloat, pr.MaybeFloat, pr.MaybeFloat) {
 	// Gradients are not affected by image resolution, parent or font size.
 	return nil, nil, nil
 }

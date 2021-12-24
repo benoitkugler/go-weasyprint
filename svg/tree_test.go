@@ -14,7 +14,7 @@ func parseIcon(t *testing.T, iconPath string) {
 	}
 	defer f.Close()
 
-	_, err = Parse(f, "")
+	_, err = Parse(f, "", nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -55,11 +55,11 @@ func TestPercentages(t *testing.T) {
 }
 
 func TestInvalidXML(t *testing.T) {
-	_, err := Parse(strings.NewReader("dummy"), "")
+	_, err := Parse(strings.NewReader("dummy"), "", nil)
 	if err == nil {
 		t.Fatal("expected error on invalid input")
 	}
-	_, err = Parse(strings.NewReader("<not-svg></not-svg>"), "")
+	_, err = Parse(strings.NewReader("<not-svg></not-svg>"), "", nil)
 	if err == nil {
 		t.Fatal("expected error on invalid input")
 	}

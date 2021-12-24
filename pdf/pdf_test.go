@@ -37,11 +37,10 @@ func TestPaint(t *testing.T) {
 	page.Rectangle(20, 20, 30, 30)
 	page.SetLineWidth(2)
 	page.Stroke()
-	page.OnNewStack(func() error {
+	page.OnNewStack(func() {
 		page.Rectangle(20, 20, 30, 30)
 		// page.Clip(false)
 		page.Fill(false)
-		return nil
 	})
 
 	doc := c.Finalize()

@@ -7,21 +7,29 @@ package svg
 import (
 	"fmt"
 	"io"
+
+	"github.com/benoitkugler/go-weasyprint/backend"
 )
 
 // convert from an svg tree to the final form
 
 type SVGImage = *svgNode
 
+// ImageLoader is used to resolve and process image url found in SVG files.
+type ImageLoader = func(url string) (backend.Image, error)
+
 // Parse parsed the given SVG data. Warnings are
 // logged for unsupported elements.
 // An error is returned for invalid documents.
 // `baseURL` is used as base path for url resources.
-func Parse(svg io.Reader, baseURL string) (SVGImage, error) {
+// `imageLoader` is required to handle inner images.
+func Parse(svg io.Reader, baseURL string, imageLoader ImageLoader) (SVGImage, error) {
 	out, err := buildSVGTree(svg, baseURL)
 	if err != nil {
 		return nil, err
 	}
+
+	out.imageLoader = imageLoader
 
 	return out.postProcess()
 }
@@ -49,11 +57,11 @@ type attributes struct {
 }
 
 // Build the drawable items by parsing attributes
-func (tree *svgTree) postProcess() (SVGImage, error) {
-	return processNode(tree.root)
+func (tree *svgContext) postProcess() (SVGImage, error) {
+	return tree.processNode(tree.root)
 }
 
-func processNode(node *cascadedNode) (*svgNode, error) {
+func (tree *svgContext) processNode(node *cascadedNode) (*svgNode, error) {
 	var out svgNode
 	err := node.attrs.parseCommonAttributes(&out.attributes)
 	if err != nil {
@@ -62,10 +70,10 @@ func processNode(node *cascadedNode) (*svgNode, error) {
 
 	builder := elementBuilders[node.tag]
 	if builder == nil {
-		fmt.Println(node.tag)
+		fmt.Println(node.tag) // TODO:
 		// return nil, fmt.Errorf("unsupported element %s", node.tag)
 	} else {
-		out.content, err = builder(node)
+		out.content, err = builder(node, tree)
 		if err != nil {
 			return nil, fmt.Errorf("invalid element %s: %s", node.tag, err)
 		}
@@ -73,7 +81,7 @@ func processNode(node *cascadedNode) (*svgNode, error) {
 
 	out.children = make([]*svgNode, len(node.children))
 	for i, c := range node.children {
-		out.children[i], err = processNode(c)
+		out.children[i], err = tree.processNode(c)
 		if err != nil {
 			return nil, err
 		}

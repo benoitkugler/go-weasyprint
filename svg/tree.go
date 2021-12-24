@@ -15,12 +15,18 @@ import (
 
 // convert from html nodes to an intermediate svg tree
 
-// svgTree is a parsed SVG file,
+// svgContext is an intermediated representation of an SVG file,
 // where CSS has been applied, and text has been processed
-type svgTree struct {
+type svgContext struct {
 	defs map[string]*cascadedNode
 
 	root *cascadedNode // with tag svg
+
+	baseURL     string
+	imageLoader ImageLoader
+
+	// cache
+	pathParser pathParser
 }
 
 // type nodeAttributes struct {
@@ -232,7 +238,7 @@ func fetchStyleAndTextRefs(root *utils.HTMLNode) ([][]byte, map[string][]byte) {
 // The stylesheets are processed and applied, the values
 // of the CSS properties begin stored as attributes
 // Inheritable attributes are cascaded and 'inherit' special values are resolved.
-func buildSVGTree(svg io.Reader, baseURL string) (*svgTree, error) {
+func buildSVGTree(svg io.Reader, baseURL string) (*svgContext, error) {
 	root, err := html.Parse(svg)
 	if err != nil {
 		return nil, err
@@ -250,7 +256,7 @@ func buildSVGTree(svg io.Reader, baseURL string) (*svgTree, error) {
 	normalMatcher, importantMatcher := parseStylesheets(stylesheets, baseURL)
 
 	// build the SVG tree and apply style attribute
-	out := svgTree{defs: map[string]*cascadedNode{}}
+	out := svgContext{defs: map[string]*cascadedNode{}}
 
 	// may return nil to discard the node
 	var buildTree func(node *html.Node, parentAttrs nodeAttributes) *cascadedNode
@@ -339,6 +345,8 @@ func buildSVGTree(svg io.Reader, baseURL string) (*svgTree, error) {
 	}
 
 	out.root = buildTree((*html.Node)(svgRoot), nil)
+	out.baseURL = baseURL
+
 	return &out, nil
 }
 

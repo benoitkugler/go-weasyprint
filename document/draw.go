@@ -177,7 +177,7 @@ type drawContext struct {
 }
 
 // Draw the given PageBox.
-func (ctx drawContext) drawPage(page *bo.PageBox) error {
+func (ctx drawContext) drawPage(page *bo.PageBox) {
 	bleed := Bleed{
 		Top:    fl(page.Style.GetBleedTop().Value),
 		Bottom: fl(page.Style.GetBleedBottom().Value),
@@ -186,25 +186,17 @@ func (ctx drawContext) drawPage(page *bo.PageBox) error {
 	}
 	marks := page.Style.GetMarks()
 	stackingContext := NewStackingContextFromPage(page)
-	if err := ctx.drawBackground(stackingContext.box.Box().Background, false, bleed, marks); err != nil {
-		return err
-	}
-	if err := ctx.drawBackground(page.CanvasBackground, false, Bleed{}, pr.Marks{}); err != nil {
-		return err
-	}
+	ctx.drawBackground(stackingContext.box.Box().Background, false, bleed, marks)
+	ctx.drawBackground(page.CanvasBackground, false, Bleed{}, pr.Marks{})
 	ctx.drawBorder(page)
-	return ctx.drawStackingContext(stackingContext)
+	ctx.drawStackingContext(stackingContext)
 }
 
 func (ctx drawContext) drawBoxBackgroundAndBorder(box Box) error {
-	if err := ctx.drawBackground(box.Box().Background, true, Bleed{}, pr.Marks{}); err != nil {
-		return err
-	}
+	ctx.drawBackground(box.Box().Background, true, Bleed{}, pr.Marks{})
 	if box_, ok := box.(bo.TableBoxITF); ok {
 		box := box_.Table()
-		if err := ctx.drawTableBackgrounds(box_); err != nil {
-			return err
-		}
+		ctx.drawTableBackgrounds(box_)
 		if box.Style.GetBorderCollapse() == "separate" {
 			ctx.drawBorder(box)
 			for _, rowGroup := range box.Children {
@@ -226,9 +218,9 @@ func (ctx drawContext) drawBoxBackgroundAndBorder(box Box) error {
 }
 
 // Draw a ``stackingContext`` on ``context``.
-func (ctx drawContext) drawStackingContext(stackingContext StackingContext) error {
+func (ctx drawContext) drawStackingContext(stackingContext StackingContext) {
 	// See http://www.w3.org/TR/CSS2/zindex.html
-	return ctx.dst.OnNewStack(func() error {
+	ctx.dst.OnNewStack(func() {
 		box_ := stackingContext.box
 		box := box_.Box()
 
@@ -274,7 +266,7 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 				ctx.dst.Transform(mat)
 			} else {
 				log.Printf("non invertible transformation matrix %v\n", mat)
-				return nil
+				return
 			}
 		}
 
@@ -285,12 +277,10 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 			bo.InlineBlockBoxT.IsInstance(box_) || bo.TableCellBoxT.IsInstance(box_) ||
 			bo.FlexContainerBoxT.IsInstance(box_) {
 			// The canvas background was removed by setCanvasBackground
-			if err := ctx.drawBoxBackgroundAndBorder(box_); err != nil {
-				return err
-			}
+			ctx.drawBoxBackgroundAndBorder(box_)
 		}
 
-		err := ctx.dst.OnNewStack(func() error {
+		ctx.dst.OnNewStack(func() {
 			// dont clip the PageBox, see #35
 			if box.Style.GetOverflow() != "visible" && !bo.PageBoxT.IsInstance(box_) {
 				// Only clip the content and the children:
@@ -302,30 +292,22 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 
 			// Point 3
 			for _, childContext := range stackingContext.negativeZContexts {
-				if err := ctx.drawStackingContext(childContext); err != nil {
-					return err
-				}
+				ctx.drawStackingContext(childContext)
 			}
 
 			// Point 4
 			for _, block := range stackingContext.blockLevelBoxes {
-				if err := ctx.drawBoxBackgroundAndBorder(block); err != nil {
-					return err
-				}
+				ctx.drawBoxBackgroundAndBorder(block)
 			}
 
 			// Point 5
 			for _, childContext := range stackingContext.floatContexts {
-				if err := ctx.drawStackingContext(childContext); err != nil {
-					return err
-				}
+				ctx.drawStackingContext(childContext)
 			}
 
 			// Point 6
 			if bo.InlineBoxT.IsInstance(box_) {
-				if err := ctx.drawInlineLevel(stackingContext.page, box_, 0, "clip", pr.NamedString{Name: "none"}); err != nil {
-					return err
-				}
+				ctx.drawInlineLevel(stackingContext.page, box_, 0, "clip", pr.NamedString{Name: "none"})
 			}
 
 			// Point 7
@@ -335,9 +317,7 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 				} else {
 					for _, child := range block.Box().Children {
 						if bo.LineBoxT.IsInstance(child) {
-							if err := ctx.drawInlineLevel(stackingContext.page, child, 0, "clip", pr.NamedString{Name: "none"}); err != nil {
-								return err
-							}
+							ctx.drawInlineLevel(stackingContext.page, child, 0, "clip", pr.NamedString{Name: "none"})
 						}
 					}
 				}
@@ -345,23 +325,16 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 
 			// Point 8
 			for _, childContext := range stackingContext.zeroZContexts {
-				if err := ctx.drawStackingContext(childContext); err != nil {
-					return err
-				}
+				ctx.drawStackingContext(childContext)
 			}
 
 			// Point 9
 			for _, childContext := range stackingContext.positiveZContexts {
-				if err := ctx.drawStackingContext(childContext); err != nil {
-					return err
-				}
+				ctx.drawStackingContext(childContext)
 			}
 
-			return nil
+			return
 		})
-		if err != nil {
-			return err
-		}
 
 		// Point 10
 		ctx.drawOutlines(box_)
@@ -369,13 +342,10 @@ func (ctx drawContext) drawStackingContext(stackingContext StackingContext) erro
 		if opacity < 1 {
 			group := ctx.dst
 			ctx.dst = originalDst
-			ctx.dst.OnNewStack(func() error {
+			ctx.dst.OnNewStack(func() {
 				ctx.dst.DrawOpacityGroup(opacity, group)
-				return nil
 			})
 		}
-
-		return nil
 	})
 }
 
@@ -431,20 +401,20 @@ func reversed(in []bo.BackgroundLayer) []bo.BackgroundLayer {
 	return out
 }
 
-func (ctx drawContext) drawBackgroundDefaut(bg *bo.Background) error {
-	return ctx.drawBackground(bg, true, Bleed{}, pr.Marks{})
+func (ctx drawContext) drawBackgroundDefaut(bg *bo.Background) {
+	ctx.drawBackground(bg, true, Bleed{}, pr.Marks{})
 }
 
 // Draw the background color and image
 // If ``clipBox`` is set to ``false``, the background is not clipped to the
 // border box of the background, but only to the painting area
 // clipBox=true bleed=nil marks=()
-func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Bleed, marks pr.Marks) error {
+func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Bleed, marks pr.Marks) {
 	if bg == nil {
-		return nil
+		return
 	}
 
-	return ctx.dst.OnNewStack(func() error {
+	ctx.dst.OnNewStack(func() {
 		if clipBox {
 			for _, box := range bg.Layers[len(bg.Layers)-1].ClippedBoxes {
 				roundedBoxPath(ctx.dst, box)
@@ -454,7 +424,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 
 		// Background color
 		if bg.Color.A > 0 {
-			ctx.dst.OnNewStack(func() error {
+			ctx.dst.OnNewStack(func() {
 				paintingArea := bg.Layers[len(bg.Layers)-1].PaintingArea
 				if !paintingArea.IsNone() {
 					ptx, pty, ptw, pth := paintingArea.Unpack()
@@ -471,8 +441,7 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 				ctx.dst.Rectangle(ctx.dst.GetPageRectangle())
 				ctx.dst.SetColorRgba(bg.Color, false)
 				ctx.dst.Fill(false)
-				return nil
-			}) // can"t error
+			})
 		}
 
 		if (bleed != Bleed{}) && !marks.IsNone() {
@@ -497,11 +466,13 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 			}
 			svg, err := formatSVG(svg, svgArgs{Width: width, Height: height, Bleed: bleed, HalfBleed: halfBleed})
 			if err != nil {
-				return err
+				log.Println(err)
+				return
 			}
 			image, err := images.NewSVGImage(strings.NewReader(svg), "", nil)
 			if err != nil {
-				return err
+				log.Println(err)
+				return
 			}
 
 			// Painting area is the PDF media box
@@ -521,48 +492,34 @@ func (ctx drawContext) drawBackground(bg *bo.Background, clipBox bool, bleed Ble
 		for _, layer := range reversed(bg.Layers) {
 			ctx.drawBackgroundImage(layer, bg.ImageRendering)
 		}
-		return nil
 	})
 }
 
 // Draw the background color and image of the table children.
-func (ctx drawContext) drawTableBackgrounds(table_ bo.TableBoxITF) error {
+func (ctx drawContext) drawTableBackgrounds(table_ bo.TableBoxITF) {
 	table := table_.Table()
 	for _, columnGroup := range table.ColumnGroups {
-		err := ctx.drawBackgroundDefaut(columnGroup.Box().Background)
-		if err != nil {
-			return err
-		}
+		ctx.drawBackgroundDefaut(columnGroup.Box().Background)
+
 		for _, column := range columnGroup.Box().Children {
-			err = ctx.drawBackgroundDefaut(column.Box().Background)
-			if err != nil {
-				return err
-			}
+			ctx.drawBackgroundDefaut(column.Box().Background)
 		}
 	}
 	for _, rowGroup := range table.Children {
-		err := ctx.drawBackgroundDefaut(rowGroup.Box().Background)
-		if err != nil {
-			return err
-		}
+		ctx.drawBackgroundDefaut(rowGroup.Box().Background)
+
 		for _, row := range rowGroup.Box().Children {
-			err = ctx.drawBackgroundDefaut(row.Box().Background)
-			if err != nil {
-				return err
-			}
+			ctx.drawBackgroundDefaut(row.Box().Background)
+
 			for _, cell := range row.Box().Children {
 				cell := cell.Box()
 				if table.Style.GetBorderCollapse() == "collapse" ||
 					cell.Style.GetEmptyCells() == "show" || !cell.Empty {
-					err = ctx.drawBackgroundDefaut(cell.Background)
-					if err != nil {
-						return err
-					}
+					ctx.drawBackgroundDefaut(cell.Background)
 				}
 			}
 		}
 	}
-	return nil
 }
 
 func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRendering pr.String) {
@@ -598,7 +555,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 			repeatWidth = imageWidth
 		}
 	default:
-		log.Fatalf("unexpected repeatX %s", repeatX)
+		panic(fmt.Sprintf("unexpected repeatX %s", repeatX))
 	}
 
 	// Comments above apply here too.
@@ -616,7 +573,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 			repeatHeight = imageHeight
 		}
 	default:
-		log.Fatalf("unexpected repeatY %s", repeatY)
+		panic(fmt.Sprintf("unexpected repeatY %s", repeatY))
 	}
 
 	if repeatX == "no-repeat" && repeatY == "no-repeat" {
@@ -635,7 +592,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 		Y:            pr.Fl(positionY.V()) + positioningY,
 		Rendering:    string(imageRendering),
 	}
-	ctx.dst.OnNewStack(func() error {
+	ctx.dst.OnNewStack(func() {
 		if layer.Unbounded {
 			x1, y1, x2, y2 := ctx.dst.GetPageRectangle()
 			ctx.dst.Rectangle(x1, y1, x2-x1, y2-y1)
@@ -643,7 +600,6 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 			ctx.dst.Rectangle(paintingX, paintingY, paintingWidth, paintingHeight)
 		}
 		ctx.dst.FillWithImage(layer.Image, options)
-		return nil
 	})
 }
 
@@ -681,7 +637,7 @@ func (ctx drawContext) drawBorder(box_ Box) {
 		if crw := box.Style.GetColumnRuleWidth(); columns && !crw.IsNone() {
 			borderWidths := pr.Rectangle{0, 0, 0, crw.Value}
 			for _, child := range box.Children[1:] {
-				ctx.dst.OnNewStack(func() error {
+				ctx.dst.OnNewStack(func() {
 					positionX := child.Box().PositionX - (crw.Value+
 						box.Style.GetColumnGap().Value)/2
 					borderBox := pr.Rectangle{
@@ -694,7 +650,6 @@ func (ctx drawContext) drawBorder(box_ Box) {
 						box.Style.GetColumnRuleStyle(), styledColor(
 							box.Style.GetColumnRuleStyle(),
 							tree.ResolveColor(box.Style, "column_rule_color").RGBA, "left"))
-					return nil
 				})
 			}
 		}
@@ -743,14 +698,13 @@ func (ctx drawContext) drawBorder(box_ Box) {
 		if width == 0 || color.IsNone() {
 			continue
 		}
-		ctx.dst.OnNewStack(func() error {
+		ctx.dst.OnNewStack(func() {
 			rb := box.RoundedBorderBox()
 			roundedBox := pr.Rectangle{rb.X, rb.Y, rb.Width, rb.Height}
 			radii := [4]bo.Point{rb.TopLeft, rb.TopRight, rb.BottomRight, rb.BottomLeft}
 			clipBorderSegment(ctx.dst, style, float64(width), side,
 				roundedBox, &widths, &radii)
 			ctx.drawRoundedBorder(box, style, styledColor(style, color, side))
-			return nil
 		})
 	}
 
@@ -1029,11 +983,10 @@ func (ctx drawContext) drawOutlines(box_ Box) {
 			box.BorderWidth() + 2*width, box.BorderHeight() + 2*width,
 		}
 		for _, side := range sides {
-			ctx.dst.OnNewStack(func() error {
+			ctx.dst.OnNewStack(func() {
 				clipBorderSegment(ctx.dst, style, float64(width), side, outlineBox, nil, nil)
 				ctx.drawRectBorder(outlineBox, pr.Rectangle{width, width, width, width},
 					style, styledColor(style, color, side))
-				return nil
 			})
 		}
 	}
@@ -1210,12 +1163,11 @@ func (ctx drawContext) drawCollapsedBorders(table *bo.TableBox) {
 		if segment.side == "top" {
 			widths = pr.Rectangle{pr.Float(segment.Width), 0, 0, 0}
 		}
-		ctx.dst.OnNewStack(func() error {
+		ctx.dst.OnNewStack(func() {
 			clipBorderSegment(ctx.dst, segment.Style, segment.Width, segment.side, segment.borderBox,
 				&widths, nil)
 			ctx.drawRectBorder(segment.borderBox, widths, segment.Style,
 				styledColor(segment.Style, segment.Color.RGBA, segment.side))
-			return nil
 		})
 	}
 }
@@ -1232,32 +1184,26 @@ func (ctx drawContext) drawReplacedbox(box_ bo.ReplacedBoxITF) {
 		return
 	}
 
-	ctx.dst.OnNewStack(func() error {
+	ctx.dst.OnNewStack(func() {
 		roundedBoxPath(ctx.dst, box.RoundedContentBox())
 		ctx.dst.Clip(false)
 		ctx.dst.Transform(matrix.New(1, 0, 0, 1, pr.Fl(drawX), pr.Fl(drawY)))
-		ctx.dst.OnNewStack(func() error {
+		ctx.dst.OnNewStack(func() {
 			box.Replacement.Draw(ctx.dst, pr.Fl(drawWidth), pr.Fl(drawHeight), string(box.Style.GetImageRendering()))
-			return nil
 		})
-		return nil
 	})
 }
 
 // offsetX=0, textOverflow="clip"
-func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float64, textOverflow string, blockEllipsis pr.NamedString) error {
+func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float64, textOverflow string, blockEllipsis pr.NamedString) {
 	if stackingContext, ok := box_.(StackingContext); ok {
 		if !(bo.InlineBlockBoxT.IsInstance(stackingContext.box) || bo.InlineFlexBoxT.IsInstance(stackingContext.box)) {
-			log.Fatalf("expected InlineBlock or InlineFlex, got %v", stackingContext.box)
+			panic(fmt.Sprintf("expected InlineBlock or InlineFlex, got %v", stackingContext.box))
 		}
-		if err := ctx.drawStackingContext(stackingContext); err != nil {
-			return err
-		}
+		ctx.drawStackingContext(stackingContext)
 	} else {
 		box := box_.Box()
-		if err := ctx.drawBackgroundDefaut(box.Background); err != nil {
-			return err
-		}
+		ctx.drawBackgroundDefaut(box.Background)
 		ctx.drawBorder(box_)
 		textBox, isTextBox := box_.(*bo.TextBox)
 		replacedBox, isReplacedBox := box_.(bo.ReplacedBoxITF)
@@ -1274,9 +1220,7 @@ func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float
 				if childT, ok := child.(*bo.TextBox); ok {
 					ctx.drawText(childT, childOffsetX, textOverflow, blockEllipsis)
 				} else {
-					if err := ctx.drawInlineLevel(page, child, childOffsetX, textOverflow, blockEllipsis); err != nil {
-						return err
-					}
+					ctx.drawInlineLevel(page, child, childOffsetX, textOverflow, blockEllipsis)
 				}
 			}
 		} else if isReplacedBox {
@@ -1285,10 +1229,9 @@ func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float
 			// Should only happen for list markers
 			ctx.drawText(textBox, offsetX, textOverflow, blockEllipsis)
 		} else {
-			log.Fatalf("unexpected box %v", box)
+			panic(fmt.Sprintf("unexpected box %s", box_.Type()))
 		}
 	}
-	return nil
 }
 
 // Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``
@@ -1488,7 +1431,7 @@ func (ctx drawContext) drawWave(x, y, width, offsetX, radius pr.Fl) {
 func (ctx drawContext) drawTextDecoration(textbox *bo.TextBox, offsetX, offsetY, thickness pr.Fl, color Color) {
 	style := textbox.Style.GetTextDecorationStyle()
 
-	ctx.dst.OnNewStack(func() error {
+	ctx.dst.OnNewStack(func() {
 		ctx.dst.SetColorRgba(color, true)
 		ctx.dst.SetLineWidth(thickness)
 
@@ -1517,6 +1460,5 @@ func (ctx drawContext) drawTextDecoration(textbox *bo.TextBox, offsetX, offsetY,
 		}
 
 		ctx.dst.Stroke()
-		return nil
 	})
 }

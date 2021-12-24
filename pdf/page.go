@@ -132,11 +132,10 @@ func (g *group) GetPageRectangle() (left fl, top fl, right fl, bottom fl) {
 // execute the given closure, and restore the stack.
 // If an error is encoutered, the stack is still restored
 // and the error is returned
-func (g *group) OnNewStack(task func() error) error {
+func (g *group) OnNewStack(task func()) {
 	g.app.SaveState()
-	err := task()
+	task()
 	_ = g.app.RestoreState() // the calls are balanced
-	return err
 }
 
 // AddGroup creates a new drawing target with the given
@@ -216,7 +215,7 @@ func (g *group) Fill(evenOdd bool) {
 	}
 }
 
-func (g *group) FillWithImage(img backend.BackgroundImage, opts backend.BackgroundImageOptions) {
+func (g *group) FillWithImage(img backend.Image, opts backend.BackgroundImageOptions) {
 	mat := model.Matrix{1, 0, 0, 1, opts.X, opts.Y} // translate
 
 	mat = mat.Multiply(g.app.State.Matrix)

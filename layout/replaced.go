@@ -84,7 +84,7 @@ func LayoutReplacedBox(box_ bo.ReplacedBoxITF) (drawWidth, drawHeight, positionX
 	position := box.Style.GetObjectPosition()
 
 	image := box.Replacement
-	intrinsicWidth, intrinsicHeight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+	intrinsicWidth, intrinsicHeight, ratio := image.GetIntrinsicSize(box.Style.GetImageResolution().Value, box.Style.GetFontSize().Value)
 	if intrinsicWidth == nil || intrinsicHeight == nil {
 		intrinsicWidth, intrinsicHeight = containConstraintImageSizing(box.Width.V(), box.Height.V(), ratio)
 	}
@@ -138,7 +138,7 @@ func replacedBoxWidth_(box_ Box, _ *layoutContext, containingBlock containingBlo
 		panic(fmt.Sprintf("expected ReplacedBox instance, got %s", box_))
 	}
 	box := box__.Replaced()
-	intrinsicWidth, intrinsicHeight, ratio := box.Replacement.GetIntrinsicSize(box.Style.GetImageResolution(), box.Style.GetFontSize())
+	intrinsicWidth, intrinsicHeight, ratio := box.Replacement.GetIntrinsicSize(box.Style.GetImageResolution().Value, box.Style.GetFontSize().Value)
 
 	// This algorithm simply follows the different points of the specification
 	// http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-width
@@ -186,7 +186,7 @@ func replacedBoxHeight_(box_ Box, _ *layoutContext, _ containingBlock) (bool, pr
 	box := box__.Replaced()
 	// http://www.w3.org/TR/CSS21/visudet.html#inline-replaced-height
 	_, intrinsicHeight, ratio := box.Replacement.GetIntrinsicSize(
-		box.Style.GetImageResolution(), box.Style.GetFontSize())
+		box.Style.GetImageResolution().Value, box.Style.GetFontSize().Value)
 
 	// Test pr.Auto on the computed width, not the used width
 	if box.Height == pr.Auto && box.Width == pr.Auto {

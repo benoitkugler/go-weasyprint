@@ -8,17 +8,18 @@ import (
 
 	"github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
+	"github.com/benoitkugler/go-weasyprint/style/properties"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/textlayout/fonts"
 	"github.com/benoitkugler/textlayout/pango"
 )
 
-type fl = utils.Fl
+type Fl = utils.Fl
 
 type Anchor struct {
 	Name string
 	// Origin at the top-left of the page
-	X, Y fl
+	X, Y Fl
 }
 
 type Attachment struct {
@@ -31,8 +32,8 @@ type Attachment struct {
 type TextDrawing struct {
 	Runs []TextRun
 
-	FontSize utils.Fl
-	X, Y     utils.Fl // origin of the text
+	FontSize Fl
+	X, Y     Fl // origin of the text
 }
 
 // TextRun is a serie of glyphs with constant font.
@@ -44,9 +45,9 @@ type TextRun struct {
 // TextGlyph stores a glyph and it's position
 type TextGlyph struct {
 	Glyph    fonts.GID
-	Offset   utils.Fl // normalized by FontSize
-	Kerning  int      // normalized by FontSize
-	XAdvance utils.Fl // how much to move before drawing
+	Offset   Fl  // normalized by FontSize
+	Kerning  int // normalized by FontSize
+	XAdvance Fl  // how much to move before drawing
 }
 
 // GlyphExtents exposes glyph metrics, normalized by the font size.
@@ -87,13 +88,13 @@ type GradientInit struct {
 	// 	"radial": Coords is (cx0, cy0, radius0, cx1, cy1, radius1)
 	// 			  coordinates of the starting end ending circles
 	Kind   string
-	Coords [6]utils.Fl
+	Coords [6]Fl
 }
 
 type GradientLayout struct {
 	// list of floats in [0..1].
 	// 0 at the starting point, 1 at the ending point.
-	Positions []utils.Fl
+	Positions []Fl
 	Colors    []parser.RGBA
 
 	GradientInit
@@ -109,7 +110,7 @@ type BookmarkNode struct {
 	Children  []BookmarkNode
 	Open      bool // state of the outline item
 	PageIndex int  // page index (0-based) to link to
-	X, Y      fl   // position in the page
+	X, Y      Fl   // position in the page
 }
 
 // Output is the main target to the laid out document,
@@ -118,7 +119,7 @@ type Output interface {
 	// AddPage creates a new page with the given dimensions and returns
 	// it to be paint on.
 	// The y axis grows downward, meaning bottom > top
-	AddPage(left, top, right, bottom fl) OutputPage
+	AddPage(left, top, right, bottom Fl) OutputPage
 
 	// CreateAnchors register a list of anchors per page, which are named targets of internal links.
 	// `anchors` is a 0-based list, meaning anchors in page 1 are at index 0.
@@ -153,21 +154,21 @@ type Output interface {
 type OutputPage interface {
 	// AddInternalLink shows a link on the page, pointing to the
 	// named anchor, which will be registered with `Output.CreateAnchors`
-	AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName string)
+	AddInternalLink(xMin, yMin, xMax, yMax Fl, anchorName string)
 
 	// AddExternalLink shows a link on the page, pointing to
 	// the given url
-	AddExternalLink(xMin, yMin, xMax, yMax fl, url string)
+	AddExternalLink(xMin, yMin, xMax, yMax Fl, url string)
 
 	// AddFileAnnotation adds a file annotation on the current page.
 	// The file content has been added with `Output.EmbedFile`.
-	AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string)
+	AddFileAnnotation(xMin, yMin, xMax, yMax Fl, fileID string)
 
 	// Adjust the media boxes
 
-	SetMediaBox(left, top, right, bottom fl)
-	SetTrimBox(left, top, right, bottom fl)
-	SetBleedBox(left, top, right, bottom fl)
+	SetMediaBox(left, top, right, bottom Fl)
+	SetTrimBox(left, top, right, bottom Fl)
+	SetBleedBox(left, top, right, bottom Fl)
 
 	OutputGraphic
 }
@@ -185,18 +186,20 @@ type RasterImage struct {
 	ID int
 }
 
-// BackgroundImage groups all possible image format for backgrounds,
-// like raster image, svg, or gradient
-type BackgroundImage interface {
+// Image groups all possible image format,
+// like raster image, svg, or gradients.
+type Image interface {
+	GetIntrinsicSize(imageResolution, fontSize properties.Float) (width, height, ratio properties.MaybeFloat)
+
 	// Draw shall write the image on the given `context`
-	Draw(context GraphicTarget, concreteWidth, concreteHeight fl, imageRendering string)
+	Draw(context GraphicTarget, concreteWidth, concreteHeight Fl, imageRendering string)
 }
 
 type BackgroundImageOptions struct {
 	Rendering                 string // CSS rendering property
-	ImageWidth, ImageHeight   fl
-	RepeatWidth, RepeatHeight fl
-	X, Y                      fl // where to paint the image
+	ImageWidth, ImageHeight   Fl
+	RepeatWidth, RepeatHeight Fl
+	X, Y                      Fl // where to paint the image
 }
 
 // OutputGraphic is a surface and the target of graphic operations
@@ -206,32 +209,24 @@ type OutputGraphic interface {
 	// FillWithImage fills the current path using the given image.
 	// Usually, the given image would be painted on an temporary OutputGraphic,
 	// which would then be used as fill pattern.
-	FillWithImage(img BackgroundImage, options BackgroundImageOptions)
+	FillWithImage(img Image, options BackgroundImageOptions)
 }
 
 type GraphicTarget interface {
 	// Returns the current page rectangle
-	GetPageRectangle() (left, top, right, bottom fl)
+	GetPageRectangle() (left, top, right, bottom Fl)
 
 	// OnNewStack save the current graphic stack,
 	// execute the given closure, and restore the stack.
-	// If an error is encoutered, the stack is still restored
-	// and the error is returned
-	OnNewStack(func() error) error
+	OnNewStack(func())
 
 	// AddOpacityGroup creates a new drawing target with the given
 	// bounding box. The return `OutputGraphic` will be then
 	// passed to `DrawOpacityGroup`
-	AddOpacityGroup(x, y, width, height fl) OutputGraphic
+	AddOpacityGroup(x, y, width, height Fl) OutputGraphic
 
 	// DrawOpacityGroup draw the given target to the main target, applying the given opacity (in [0,1]).
-	DrawOpacityGroup(opacity fl, group OutputGraphic)
-
-	// Adds a rectangle
-	// of the given size to the current path,
-	// at position ``(x, y)`` in user-space coordinates.
-	// (X,Y) coordinates are the top left corner of the rectangle.
-	Rectangle(x fl, y fl, width fl, height fl)
+	DrawOpacityGroup(opacity Fl, group OutputGraphic)
 
 	// Establishes a new clip region
 	// by intersecting the current clip region
@@ -259,7 +254,7 @@ type GraphicTarget interface {
 
 	// Set current alpha
 	// `stroke` controls whether stroking or filling operations are concerned.
-	SetAlpha(alpha fl, stroke bool)
+	SetAlpha(alpha Fl, stroke bool)
 
 	// Sets the current line.
 	// The line width value specifies the diameter of a pen
@@ -282,7 +277,7 @@ type GraphicTarget interface {
 	// As with the other stroke parameters,
 	// the current line cap style is examined by
 	// `Stroke` but does not have any effect during path construction.
-	SetLineWidth(width fl)
+	SetLineWidth(width Fl)
 
 	// Sets the dash pattern to be used by Stroke.
 	// A dash pattern is specified by dashes, a list of positive values.
@@ -306,7 +301,7 @@ type GraphicTarget interface {
 	// If it is of length 1 a symmetric pattern is assumed
 	// with alternating on and off portions of the size specified
 	// by the single value.
-	SetDash(dashes []fl, offset fl)
+	SetDash(dashes []Fl, offset Fl)
 
 	// A drawing operator that fills the current path
 	// according to the current fill rule,
@@ -326,39 +321,44 @@ type GraphicTarget interface {
 	// after any existing transformation.
 	Transform(mt matrix.Transform)
 
+	// Adds a rectangle of the given size to the current path,
+	// at position ``(x, y)`` in user-space coordinates.
+	// (X,Y) coordinates are the top left corner of the rectangle.
+	// Note that this method may be expressed using MoveTo and LineTo,
+	// but may be implemented more efficiently.
+	Rectangle(x Fl, y Fl, width Fl, height Fl)
+
 	// Begin a new sub-path.
-	// After this call the current point will be ``(x, y)``.
-	//
-	// :param x: X position of the new point.
-	// :param y: Y position of the new point.
-	MoveTo(x fl, y fl)
+	// After this call the current point will be (x, y).
+	MoveTo(x Fl, y Fl)
 
 	// Adds a line to the path from the current point
-	// to position ``(x, y)`` in user-space coordinates.
-	// After this call the current point will be ``(x, y)``.
+	// to position (x, y) in user-space coordinates.
+	// After this call the current point will be (x, y).
 	// A current point must be defined before using this method.
-	LineTo(x fl, y fl)
+	LineTo(x Fl, y Fl)
 
 	// Add cubic Bézier curve to current path.
-	// The curve shall extend to ``(x3, y3)`` using ``(x1, y1)`` and ``(x2,
-	// y2)`` as the Bézier control points.
-	CurveTo(x1, y1, x2, y2, x3, y3 fl)
+	// The curve shall extend to (x3, y3) using (x1, y1) and (x2,
+	// y2) as the Bézier control points.
+	CurveTo(x1, y1, x2, y2, x3, y3 Fl)
+
+	// AddFont register a new font to be used in the output and return
+	// an object used to store associated metadata.
+	// This method will be called several times with the same `font` argument,
+	// so caching is advised.
+	AddFont(font pango.Font, content []byte) *Font
 
 	// DrawText draws the given text using the current fill color.
 	// The fonts of the runs have been registred with `AddFont`.
 	DrawText(TextDrawing)
 
-	// AddFont register a new font to be used in the output and return
-	// an object used to store associated metadata.
-	// This method will be called several times with the same `face` argument,
-	// so caching is advised.
-	AddFont(font pango.Font, content []byte) *Font
-
 	// DrawRasterImage draws the given image at the current point, with the given dimensions.
-	DrawRasterImage(img RasterImage, width, height fl)
+	// Typical format for image.Content are PNG, JPEG, GIF.
+	DrawRasterImage(image RasterImage, width, height Fl)
 
 	// DrawGradient draws the given gradient at the current point.
 	// Solid gradient are already handled, meaning that only linear and radial
 	// must be taken care of.
-	DrawGradient(gradient GradientLayout, width, height fl)
+	DrawGradient(gradient GradientLayout, width, height Fl)
 }

@@ -214,7 +214,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 
 	var intrinsicWidth, intrinsicHeight, ratio pr.MaybeFloat
 	if image != nil {
-		intrinsicWidth, intrinsicHeight, ratio = image.GetIntrinsicSize(resolution, box.Style.GetFontSize())
+		intrinsicWidth, intrinsicHeight, ratio = image.GetIntrinsicSize(resolution.Value, box.Style.GetFontSize().Value)
 	}
 	if image == nil || (intrinsicWidth == pr.Float(0) || intrinsicHeight == pr.Float(0)) {
 		return bo.BackgroundLayer{
@@ -240,7 +240,7 @@ func layoutBackgroundLayer(box_ Box, page *bo.PageBox, resolution pr.Value, imag
 		imageWidth, imageHeight = containConstraintImageSizing(positioningWidth, positioningHeight, ratio)
 	} else {
 		sizeWidth, sizeHeight := size.Width, size.Height
-		iwidth, iheight, iratio := image.GetIntrinsicSize(resolution, box.Style.GetFontSize())
+		iwidth, iheight, iratio := image.GetIntrinsicSize(resolution.Value, box.Style.GetFontSize().Value)
 		imageWidth, imageHeight = defaultImageSizing(iwidth, iheight, iratio,
 			pr.ResoudPercentage(sizeWidth, positioningWidth), pr.ResoudPercentage(sizeHeight, positioningHeight), positioningWidth, positioningHeight)
 	}

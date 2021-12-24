@@ -7,8 +7,7 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-// During layout, float numbers sometimes need special
-// values like "auto" or nil (None in Python).
+// During layout, float numbers sometimes need special values like "auto" or nil (None in Python).
 // This file define a float64-like type handling these cases.
 
 const (

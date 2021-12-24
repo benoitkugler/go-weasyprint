@@ -70,10 +70,9 @@ func (g *group) DrawText(text backend.TextDrawing) {
 						e := posGlyph.XAdvance / 1000
 						e = text.X + e*text.FontSize
 
-						g.OnNewStack(func() error {
+						g.OnNewStack(func() {
 							g.Transform(matrix.New(a, 0, 0, d, e, f))
 							g.DrawRasterImage(img, text.FontSize, text.FontSize)
-							return nil
 						})
 					}
 				}
