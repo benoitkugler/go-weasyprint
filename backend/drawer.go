@@ -341,7 +341,7 @@ type GraphicTarget interface {
 	// Add cubic Bézier curve to current path.
 	// The curve shall extend to (x3, y3) using (x1, y1) and (x2,
 	// y2) as the Bézier control points.
-	CurveTo(x1, y1, x2, y2, x3, y3 Fl)
+	CubicTo(x1, y1, x2, y2, x3, y3 Fl)
 
 	// AddFont register a new font to be used in the output and return
 	// an object used to store associated metadata.

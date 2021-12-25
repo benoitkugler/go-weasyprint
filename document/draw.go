@@ -29,7 +29,7 @@ import (
 var sides = [4]string{"top", "right", "bottom", "left"}
 
 const (
-	pi = float64(math.Pi)
+	pi = math.Pi
 
 	headerSVG = `
 	<svg height="{{ .Height }}" width="{{ .Width }}"
@@ -108,7 +108,7 @@ type svgArgs struct {
 // Transform a HSV color to a RGB color.
 func hsv2rgb(hue, saturation, value fl) (r, g, b fl) {
 	c := value * saturation
-	x := c * fl(1-math.Abs(utils.FloatModulo(float64(hue)/60, 2)-1))
+	x := c * fl(1-math.Abs(float64(utils.FloatModulo(hue/60, 2))-1))
 	m := value - c
 	switch {
 	case 0 <= hue && hue < 60:
@@ -138,7 +138,7 @@ func rgb2hsv(red, green, blue fl) (h, s, c fl) {
 	if delta == 0 {
 		hue = 0
 	} else if cmax == red {
-		hue = 60 * utils.FloatModulo(float64((green-blue)/delta), 6)
+		hue = 60 * utils.FloatModulo((green-blue)/delta, 6)
 	} else if cmax == green {
 		hue = 60 * ((blue-red)/delta + 2)
 	} else if cmax == blue {
@@ -366,17 +366,17 @@ func roundedBoxPath(context backend.OutputGraphic, radii bo.RoundedBox) {
 
 	context.MoveTo(x+pr.Fl(tl[0]), y)
 	context.LineTo(x+w-pr.Fl(tr[0]), y)
-	context.CurveTo(
+	context.CubicTo(
 		x+w-pr.Fl(tr[0])*r, y, x+w, y+pr.Fl(tr[1])*r, x+w, y+pr.Fl(tr[1]))
 	context.LineTo(x+w, y+h-pr.Fl(br[1]))
-	context.CurveTo(
+	context.CubicTo(
 		x+w, y+h-pr.Fl(br[1])*r, x+w-pr.Fl(br[0])*r, y+h, x+w-pr.Fl(br[0]),
 		y+h)
 	context.LineTo(x+pr.Fl(bl[0]), y+h)
-	context.CurveTo(
+	context.CubicTo(
 		x+pr.Fl(bl[0])*r, y+h, x, y+h-pr.Fl(bl[1])*r, x, y+h-pr.Fl(bl[1]))
 	context.LineTo(x, y+pr.Fl(tl[1]))
-	context.CurveTo(
+	context.CubicTo(
 		x, y+pr.Fl(tl[1])*r, x+pr.Fl(tl[0])*r, y, x+pr.Fl(tl[0]), y)
 }
 
@@ -542,13 +542,13 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 		// We repeat the image each imageWidth.
 		repeatWidth = imageWidth
 	case "space":
-		nRepeats := math.Floor(float64(positioningWidth / imageWidth))
+		nRepeats := pr.Fl(math.Floor(float64(positioningWidth / imageWidth)))
 		if nRepeats >= 2 {
 			// The repeat width is the whole positioning width with one image
 			// removed, divided by (the number of repeated images - 1). This
 			// way, we get the width of one image + one space. We ignore
 			// background-position for this dimension.
-			repeatWidth = (float64(positioningWidth) - imageWidth) / (nRepeats - 1)
+			repeatWidth = (positioningWidth - imageWidth) / (nRepeats - 1)
 			positionX = pr.Float(0)
 		} else {
 			// We don't repeat the image.
@@ -565,7 +565,7 @@ func (ctx drawContext) drawBackgroundImage(layer bo.BackgroundLayer, imageRender
 	case "repeat", "round":
 		repeatHeight = imageHeight
 	case "space":
-		nRepeats := math.Floor(positioningHeight / imageHeight)
+		nRepeats := fl(math.Floor(float64(positioningHeight / imageHeight)))
 		if nRepeats >= 2 {
 			repeatHeight = (positioningHeight - imageHeight) / (nRepeats - 1)
 			positionY = pr.Float(0)
@@ -645,7 +645,7 @@ func (ctx drawContext) drawBorder(box_ Box) {
 						crw.Value, box.Height.V(),
 					}
 					clipBorderSegment(ctx.dst, box.Style.GetColumnRuleStyle(),
-						float64(crw.Value), "left", borderBox, &borderWidths, nil)
+						fl(crw.Value), "left", borderBox, &borderWidths, nil)
 					ctx.drawRectBorder(borderBox, borderWidths,
 						box.Style.GetColumnRuleStyle(), styledColor(
 							box.Style.GetColumnRuleStyle(),
@@ -702,7 +702,7 @@ func (ctx drawContext) drawBorder(box_ Box) {
 			rb := box.RoundedBorderBox()
 			roundedBox := pr.Rectangle{rb.X, rb.Y, rb.Width, rb.Height}
 			radii := [4]bo.Point{rb.TopLeft, rb.TopRight, rb.BottomRight, rb.BottomLeft}
-			clipBorderSegment(ctx.dst, style, float64(width), side,
+			clipBorderSegment(ctx.dst, style, fl(width), side,
 				roundedBox, &widths, &radii)
 			ctx.drawRoundedBorder(box, style, styledColor(style, color, side))
 		})
@@ -714,13 +714,13 @@ func (ctx drawContext) drawBorder(box_ Box) {
 // Clip one segment of box border (border_widths=nil, radii=nil).
 // The strategy is to remove the zones not needed because of the style or the
 // side before painting.
-func clipBorderSegment(context backend.OutputGraphic, style pr.String, width float64, side string,
+func clipBorderSegment(context backend.OutputGraphic, style pr.String, width fl, side string,
 	borderBox pr.Rectangle, borderWidths *pr.Rectangle, radii *[4]bo.Point) {
 
 	bbx, bby, bbw, bbh := borderBox.Unpack()
-	var tlh, tlv, trh, trv, brh, brv, blh, blv float64
+	var tlh, tlv, trh, trv, brh, brv, blh, blv fl
 	if radii != nil {
-		tlh, tlv, trh, trv, brh, brv, blh, blv = float64((*radii)[0][0]), float64((*radii)[0][1]), float64((*radii)[1][0]), float64((*radii)[1][1]), float64((*radii)[2][0]), float64((*radii)[2][1]), float64((*radii)[3][0]), float64((*radii)[3][1])
+		tlh, tlv, trh, trv, brh, brv, blh, blv = fl((*radii)[0][0]), fl((*radii)[0][1]), fl((*radii)[1][0]), fl((*radii)[1][1]), fl((*radii)[2][0]), fl((*radii)[2][1]), fl((*radii)[3][0]), fl((*radii)[3][1])
 	}
 	bt, br, bb, bl := width, width, width, width
 	if borderWidths != nil {
@@ -735,8 +735,8 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 	// by the specification. We chose the corner of the transition zone. It"s
 	// easy to get and gives quite good results, but it seems to be different
 	// from what other browsers do.
-	transitionPoint := func(x1, y1, x2, y2 float64) (float64, float64, bool) {
-		if math.Abs(x1) > math.Abs(x2) && math.Abs(y1) > math.Abs(y2) {
+	transitionPoint := func(x1, y1, x2, y2 fl) (fl, fl, bool) {
+		if math.Abs(float64(x1)) > math.Abs(float64(x2)) && math.Abs(float64(y1)) > math.Abs(float64(y2)) {
 			return x1, y1, true
 		}
 		return x2, y2, false
@@ -749,12 +749,12 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 	// wonderfully explained by Dr Rob.
 
 	// http://mathforum.org/dr.math/faq/formulas/
-	cornerHalfLength := func(a, b float64) float64 {
+	cornerHalfLength := func(a, b fl) fl {
 		x := (a - b) / (a + b)
-		return pi / 8 * (a + b) * (1 + 3*x*x/(10+math.Sqrt(4-3*x*x)))
+		return pi / 8 * (a + b) * (1 + 3*x*x/(10+fl(math.Sqrt(float64(4-3*x*x)))))
 	}
 	var (
-		px1, px2, py1, py2, way, angle, mainOffset float64
+		px1, px2, py1, py2, way, angle, mainOffset fl
 		rounded1, rounded2                         bool
 	)
 	if side == "top" {
@@ -787,7 +787,7 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 		mainOffset = bbx
 	}
 
-	var a1, b1, a2, b2, lineLength, length float64
+	var a1, b1, a2, b2, lineLength, length fl
 	if side == "top" || side == "bottom" {
 		a1, b1 = px1-bl/2, way*py1-width/2
 		a2, b2 = -px2-br/2, way*py2-width/2
@@ -818,7 +818,7 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 			chl1 := cornerHalfLength(a1, b1)
 			chl2 := cornerHalfLength(a2, b2)
 			length = lineLength + chl1 + chl2
-			dashLength := math.Round(length / dash)
+			dashLength := fl(math.Round(float64(length / dash)))
 			if rounded1 && rounded2 {
 				// 2x dashes
 				dash = length / (dashLength + utils.FloatModulo(dashLength, 2))
@@ -826,25 +826,25 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 				// 2x - 1/2 dashes
 				dash = length / (dashLength + utils.FloatModulo(dashLength, 2) - 0.5)
 			}
-			dashes1 := int(math.Ceil((chl1 - dash/2) / dash))
-			dashes2 := int(math.Ceil((chl2 - dash/2) / dash))
-			line := int(math.Floor(lineLength / dash))
+			dashes1 := int(math.Ceil(float64((chl1 - dash/2) / dash)))
+			dashes2 := int(math.Ceil(float64((chl2 - dash/2) / dash)))
+			line := int(math.Floor(float64(lineLength / dash)))
 
-			drawDots := func(dashes, line int, way, x, y, px, py, chl float64) (int, float64) {
+			drawDots := func(dashes, line int, way, x, y, px, py, chl fl) (int, fl) {
 				if dashes == 0 {
 					return line + 1, 0
 				}
 				var (
 					hasBroken              bool
-					offset, angle1, angle2 float64
+					offset, angle1, angle2 fl
 				)
 				for i_ := 0; i_ < dashes; i_ += 2 {
-					i := float64(i_) + 0.5 // half dash
+					i := fl(i_) + 0.5 // half dash
 					angle1 = ((2*angle - way) + i*way*dash/chl) / 4 * pi
 
-					fn := math.Max
+					fn := utils.MaxF
 					if way > 0 {
-						fn = math.Min
+						fn = utils.MinF
 					}
 					angle2 = fn(
 						((2*angle-way)+(i+1)*way*dash/chl)/4*pi,
@@ -852,12 +852,12 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 					)
 					if side == "top" || side == "bottom" {
 						context.MoveTo(x+px, mainOffset+py)
-						context.LineTo(x+px-way*px*1/math.Tan(angle2), mainOffset)
-						context.LineTo(x+px-way*px*1/math.Tan(angle1), mainOffset)
+						context.LineTo(x+px-way*px*1/fl(math.Tan(float64(angle2))), mainOffset)
+						context.LineTo(x+px-way*px*1/fl(math.Tan(float64(angle1))), mainOffset)
 					} else if side == "left" || side == "right" {
 						context.MoveTo(mainOffset+px, y+py)
-						context.LineTo(mainOffset, y+py+way*py*math.Tan(angle2))
-						context.LineTo(mainOffset, y+py+way*py*math.Tan(angle1))
+						context.LineTo(mainOffset, y+py+way*py*fl(math.Tan(float64(angle2))))
+						context.LineTo(mainOffset, y+py+way*py*fl(math.Tan(float64(angle1))))
 					}
 					if angle2 == angle*pi/2 {
 						offset = (angle1 - angle2) / ((((2*angle - way) + (i+1)*way*dash/chl) /
@@ -872,25 +872,25 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 				}
 				return line, offset
 			}
-			var offset float64
+			var offset fl
 			line, offset = drawDots(dashes1, line, way, bbx, bby, px1, py1, chl1)
 			line, _ = drawDots(dashes2, line, -way, bbx+bbw, bby+bbh, px2, py2, chl2)
 
 			if lineLength > 1e-6 {
 				for i_ := 0; i_ < line; i_ += 2 {
-					i := float64(i_) + offset
-					var x1, x2, y1, y2 float64
+					i := fl(i_) + offset
+					var x1, x2, y1, y2 fl
 					if side == "top" || side == "bottom" {
-						x1 = math.Max(bbx+px1+i*dash, bbx+px1)
-						x2 = math.Min(bbx+px1+(i+1)*dash, bbx+bbw+px2)
+						x1 = utils.MaxF(bbx+px1+i*dash, bbx+px1)
+						x2 = utils.MinF(bbx+px1+(i+1)*dash, bbx+bbw+px2)
 						y1 = mainOffset
 						if way < 0 {
 							y1 -= width
 						}
 						y2 = y1 + width
 					} else if side == "left" || side == "right" {
-						y1 = math.Max(bby+py1+i*dash, bby+py1)
-						y2 = math.Min(bby+py1+(i+1)*dash, bby+bbh+py2)
+						y1 = utils.MaxF(bby+py1+i*dash, bby+py1)
+						y2 = utils.MinF(bby+py1+(i+1)*dash, bby+bbh+py2)
 						x1 = mainOffset
 						if way > 0 {
 							x1 -= width
@@ -903,14 +903,15 @@ func clipBorderSegment(context backend.OutputGraphic, style pr.String, width flo
 		} else {
 			// 2x + 1 dashes
 			context.Clip(true)
-			denom := math.Round(length/dash) - utils.FloatModulo(math.Round(length/dash)+1, 2)
+			ld := fl(math.Round(float64(length / dash)))
+			denom := ld - utils.FloatModulo(ld+1, 2)
 			dash = length
 			if denom != 0 {
 				dash /= denom
 			}
-			maxI := int(math.Round(length / dash))
+			maxI := int(math.Round(float64(length / dash)))
 			for i_ := 0; i_ < maxI; i_ += 2 {
-				i := float64(i_)
+				i := fl(i_)
 				switch side {
 				case "top":
 					context.Rectangle(bbx+i*dash, bby, dash, width)
@@ -984,7 +985,7 @@ func (ctx drawContext) drawOutlines(box_ Box) {
 		}
 		for _, side := range sides {
 			ctx.dst.OnNewStack(func() {
-				clipBorderSegment(ctx.dst, style, float64(width), side, outlineBox, nil, nil)
+				clipBorderSegment(ctx.dst, style, fl(width), side, outlineBox, nil, nil)
 				ctx.drawRectBorder(outlineBox, pr.Rectangle{width, width, width, width},
 					style, styledColor(style, color, side))
 			})
@@ -1195,7 +1196,7 @@ func (ctx drawContext) drawReplacedbox(box_ bo.ReplacedBoxITF) {
 }
 
 // offsetX=0, textOverflow="clip"
-func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float64, textOverflow string, blockEllipsis pr.NamedString) {
+func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX fl, textOverflow string, blockEllipsis pr.NamedString) {
 	if stackingContext, ok := box_.(StackingContext); ok {
 		if !(bo.InlineBlockBoxT.IsInstance(stackingContext.box) || bo.InlineFlexBoxT.IsInstance(stackingContext.box)) {
 			panic(fmt.Sprintf("expected InlineBlock or InlineFlex, got %v", stackingContext.box))
@@ -1215,7 +1216,7 @@ func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float
 			for _, child := range box.Children {
 				childOffsetX := offsetX
 				if _, ok := child.(StackingContext); !ok {
-					childOffsetX = offsetX + float64(child.Box().PositionX) - float64(box.PositionX)
+					childOffsetX = offsetX + fl(child.Box().PositionX) - fl(box.PositionX)
 				}
 				if childT, ok := child.(*bo.TextBox); ok {
 					ctx.drawText(childT, childOffsetX, textOverflow, blockEllipsis)
@@ -1236,7 +1237,7 @@ func (ctx drawContext) drawInlineLevel(page *bo.PageBox, box_ Box, offsetX float
 
 // Draw ``textbox`` to a ``cairo.Context`` from ``PangoCairo.Context``
 // 	(offsetX=0,textOverflow="clip")
-func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX float64, textOverflow string, blockEllipsis pr.NamedString) {
+func (ctx drawContext) drawText(textbox *bo.TextBox, offsetX fl, textOverflow string, blockEllipsis pr.NamedString) {
 	if textbox.Style.GetVisibility() != "visible" {
 		return
 	}
@@ -1419,7 +1420,7 @@ func (ctx drawContext) drawWave(x, y, width, offsetX, radius pr.Fl) {
 	ctx.dst.MoveTo(x, y)
 
 	for x < maxX {
-		ctx.dst.CurveTo(x+radius/2, y+up*radius,
+		ctx.dst.CubicTo(x+radius/2, y+up*radius,
 			x+3*radius/2, y+up*radius,
 			x+2*radius, y)
 		x += 2 * radius
@@ -1436,12 +1437,12 @@ func (ctx drawContext) drawTextDecoration(textbox *bo.TextBox, offsetX, offsetY,
 		ctx.dst.SetLineWidth(thickness)
 
 		if style == "dashed" {
-			ctx.dst.SetDash([]float64{5 * thickness}, offsetX)
+			ctx.dst.SetDash([]fl{5 * thickness}, offsetX)
 		} else if style == "dotted" {
-			ctx.dst.SetDash([]float64{thickness}, offsetX)
+			ctx.dst.SetDash([]fl{thickness}, offsetX)
 		}
 
-		posX, posY, width := float64(textbox.PositionX), float64(textbox.PositionY), float64(textbox.Width.V())
+		posX, posY, width := fl(textbox.PositionX), fl(textbox.PositionY), fl(textbox.Width.V())
 
 		if style == "wavy" {
 			thickness *= 0.75

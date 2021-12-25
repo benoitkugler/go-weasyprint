@@ -3,8 +3,6 @@ package properties
 import (
 	"fmt"
 	"math"
-
-	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // During layout, float numbers sometimes need special values like "auto" or nil (None in Python).
@@ -85,14 +83,6 @@ func Mins(values ...Float) Float {
 		}
 	}
 	return min
-}
-
-// FloatModulo implements Python modulo for float numbers, like
-//	4.456 % 3
-func FloatModulo(x Float, i int) Float {
-	x2 := Floor(x)
-	diff := x - x2
-	return Float(utils.ModLikePython(int(x2), i)) + diff
 }
 
 func Hypot(a, b Float) Float {

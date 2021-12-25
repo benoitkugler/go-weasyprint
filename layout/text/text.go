@@ -548,7 +548,7 @@ func ChWidth(style pr.ElementStyle, fontSize pr.Float, context TextLayoutContext
 		return 1
 	}
 
-	layout := NewTextLayout(context, float64(fontSize), style, 0, nil)
+	layout := NewTextLayout(context, pr.Fl(fontSize), style, 0, nil)
 	layout.Layout.SetText("0")
 	line, _ := layout.GetFirstLine()
 	logicalWidth, _ := lineSize(line, pr.Value{})

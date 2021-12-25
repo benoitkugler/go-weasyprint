@@ -1268,7 +1268,7 @@ func (s Score) Lower(other Score) bool {
 type Border struct {
 	Style pr.String
 	Score Score
-	Width float64
+	Width utils.Fl
 	Color pr.Color
 }
 
@@ -1322,7 +1322,7 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 		previousScore := borderGrid[gridY][gridX].Score
 		// Strict < so that the earlier call wins in case of a tie.
 		if previousScore.Lower(score) {
-			borderGrid[gridY][gridX] = Border{Score: score, Style: style, Width: float64(width.Value), Color: color}
+			borderGrid[gridY][gridX] = Border{Score: score, Style: style, Width: utils.Fl(width.Value), Color: color}
 		}
 	}
 
@@ -1398,7 +1398,7 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 	// Now that all conflicts are resolved, set transparent borders of
 	// the correct widths on each box. The actual border grid will be
 	// painted separately.
-	setTransparentBorder := func(box Box, side string, twiceWidth float64) {
+	setTransparentBorder := func(box Box, side string, twiceWidth utils.Fl) {
 		st := box.Box().Style
 		st.Set(fmt.Sprintf("border_%s_style", side), pr.String("solid"))
 		st.Set(fmt.Sprintf("border_%s_width", side), pr.FToV(twiceWidth/2))
@@ -1412,8 +1412,8 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 		setTransparentBorder(box, "left", 0)
 	}
 
-	maxVerticalWidth := func(x, y, h int) float64 {
-		var max float64
+	maxVerticalWidth := func(x, y, h int) utils.Fl {
+		var max utils.Fl
 		for _, gridRow := range verticalBorders[y : y+h] {
 			width := gridRow[x].Width
 			if width > max {
@@ -1423,8 +1423,8 @@ func collapseTableBorders(table TableBoxITF, gridWidth, gridHeight int) BorderGr
 		return max
 	}
 
-	maxHorizontalWidth := func(x, y, w int) float64 {
-		var max float64
+	maxHorizontalWidth := func(x, y, w int) utils.Fl {
+		var max utils.Fl
 		for _, _s := range horizontalBorders[y][x : x+w] {
 			width := _s.Width
 			if width > max {

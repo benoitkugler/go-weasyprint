@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // convert from an svg tree to the final form
@@ -40,7 +41,24 @@ type svgNode struct {
 	attributes
 }
 
-type drawable interface{}
+type drawable interface {
+	// draw the node onto `dst` with the given font size
+	draw(dst backend.GraphicTarget, attrs *attributes, ctx drawingContext)
+}
+
+// drawingContext stores the configuration to use
+// when drawing
+type drawingContext struct {
+	fontSize                Fl
+	innerWidth, innerHeight Fl
+}
+
+// resolve the size of an x/y or width/height couple.
+func (ctx drawingContext) point(xv, yv value) (x, y utils.Fl) {
+	x = utils.Fl(xv.resolve(ctx.fontSize, ctx.innerWidth))
+	y = utils.Fl(yv.resolve(ctx.fontSize, ctx.innerHeight))
+	return
+}
 
 // attributes stores the SVG attributes
 // shared by all node types.
@@ -62,22 +80,10 @@ func (tree *svgContext) postProcess() (SVGImage, error) {
 }
 
 func (tree *svgContext) processNode(node *cascadedNode) (*svgNode, error) {
-	var out svgNode
-	err := node.attrs.parseCommonAttributes(&out.attributes)
-	if err != nil {
-		return nil, err
-	}
-
-	builder := elementBuilders[node.tag]
-	if builder == nil {
-		fmt.Println(node.tag) // TODO:
-		// return nil, fmt.Errorf("unsupported element %s", node.tag)
-	} else {
-		out.content, err = builder(node, tree)
-		if err != nil {
-			return nil, fmt.Errorf("invalid element %s: %s", node.tag, err)
-		}
-	}
+	var (
+		out svgNode
+		err error
+	)
 
 	out.children = make([]*svgNode, len(node.children))
 	for i, c := range node.children {
@@ -85,6 +91,22 @@ func (tree *svgContext) processNode(node *cascadedNode) (*svgNode, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	builder := elementBuilders[node.tag]
+	if builder == nil {
+		// this node is not drawn, return early
+		return &out, nil
+	}
+
+	err = node.attrs.parseCommonAttributes(&out.attributes)
+	if err != nil {
+		return nil, err
+	}
+
+	out.content, err = builder(node, tree)
+	if err != nil {
+		return nil, fmt.Errorf("invalid element %s: %s", node.tag, err)
 	}
 
 	return &out, nil

@@ -75,7 +75,7 @@ type bracketsBlock struct {
 type numericToken struct {
 	Representation string
 	position
-	Value     float64
+	Value     utils.Fl
 	IsInteger bool
 }
 

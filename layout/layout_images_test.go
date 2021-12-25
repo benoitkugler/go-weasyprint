@@ -360,7 +360,7 @@ func TestImages18(t *testing.T) {
 func approxEqual(t *testing.T, got, exp pr.Fl, context string) {
 	const float64EqualityThreshold = 1e-9
 
-	if diff := math.Abs(exp - got); diff > float64EqualityThreshold {
+	if diff := math.Abs(float64(exp - got)); diff > float64EqualityThreshold {
 		t.Fatalf("%s: expected %v, got %v (diff: %v)", context, exp, got, diff)
 	}
 }
@@ -505,17 +505,17 @@ func TestRadialGradient(t *testing.T) {
 	layout("radial-gradient(circle closest-corner at 340px 80px, blue, lime)", "radial", [6]pr.Fl{340, 80, 0, 100}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 	layout("radial-gradient(circle closest-corner at 0 342px, blue, lime)", "radial", [6]pr.Fl{0, 342, 0, 42}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 
-	layout("radial-gradient(closest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
-	layout("radial-gradient(closest-corner at 450px 100px, blue, lime)", "radial", [6]pr.Fl{450, 100, 0, 50 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 100./50)
-	layout("radial-gradient(closest-corner at 40px 210px, blue, lime)", "radial", [6]pr.Fl{40, 210, 0, 40 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 90./40)
+	layout("radial-gradient(closest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200 * math.Sqrt2}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
+	layout("radial-gradient(closest-corner at 450px 100px, blue, lime)", "radial", [6]pr.Fl{450, 100, 0, 50 * math.Sqrt2}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 100./50)
+	layout("radial-gradient(closest-corner at 40px 210px, blue, lime)", "radial", [6]pr.Fl{40, 210, 0, 40 * math.Sqrt2}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 90./40)
 
 	layout("radial-gradient(circle farthest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 250}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 	layout("radial-gradient(circle farthest-corner at 300px -100px, blue, lime)", "radial", [6]pr.Fl{300, -100, 0, 500}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 	layout("radial-gradient(circle farthest-corner at 400px 0, blue, lime)", "radial", [6]pr.Fl{400, 0, 0, 500}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 1)
 
-	layout("radial-gradient(farthest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
-	layout("radial-gradient(farthest-corner at 450px 100px, blue, lime)", "radial", [6]pr.Fl{450, 100, 0, 450 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 200./450)
-	layout("radial-gradient(farthest-corner at 40px 210px, blue, lime)", "radial", [6]pr.Fl{40, 210, 0, 360 * math.Pow(2, 0.5)}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 210./360)
+	layout("radial-gradient(farthest-corner, blue, lime)", "radial", [6]pr.Fl{200, 150, 0, 200 * math.Sqrt2}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 150./200)
+	layout("radial-gradient(farthest-corner at 450px 100px, blue, lime)", "radial", [6]pr.Fl{450, 100, 0, 450 * math.Sqrt2}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 200./450)
+	layout("radial-gradient(farthest-corner at 40px 210px, blue, lime)", "radial", [6]pr.Fl{40, 210, 0, 360 * math.Sqrt2}, []pr.Fl{0, 1}, []parser.RGBA{blue, lime}, 210./360)
 }
 
 func TestImageMinMaxWidth(t *testing.T) {

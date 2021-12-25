@@ -2,6 +2,7 @@ package svg
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
@@ -61,6 +62,16 @@ func newLine(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
+func (l line) draw(dst backend.GraphicTarget, _ *attributes, ctx drawingContext) {
+	x1, y1 := ctx.point(l.x1, l.y1)
+	x2, y2 := ctx.point(l.x2, l.y2)
+	dst.MoveTo(x1, y1)
+	dst.LineTo(x2, y2)
+	// TODO:
+	// angle = atan2(y2 - y1, x2 - x1)
+	// node.vertices = [(x1, y1), (pi - angle, angle), (x2, y2)]
+}
+
 // <rect> tag
 type rect struct {
 	// x, y, width, height are common attributes
@@ -90,6 +101,45 @@ func newRect(node *cascadedNode, _ *svgContext) (drawable, error) {
 	}
 
 	return out, nil
+}
+
+func (r rect) draw(dst backend.GraphicTarget, attrs *attributes, ctx drawingContext) {
+	width, height := ctx.point(attrs.width, attrs.height)
+	if width <= 0 || height <= 0 { // nothing to draw
+		return
+	}
+	x, y := ctx.point(attrs.x, attrs.y)
+	rx, ry := ctx.point(r.rx, r.ry)
+
+	if rx == 0 || ry == 0 { // no border radius
+		dst.Rectangle(x, y, width, height)
+		return
+	}
+
+	if rx > width/2 {
+		rx = width / 2
+	}
+	if ry > height/2 {
+		ry = height / 2
+	}
+
+	// Inspired by Cairo Cookbook
+	// http://cairographics.org/cookbook/roundedrectangles/
+	const ARC_TO_BEZIER = 4 * (math.Sqrt2 - 1) / 3
+	c1, c2 := ARC_TO_BEZIER*rx, ARC_TO_BEZIER*ry
+
+	dst.MoveTo(x+rx, y)
+	dst.LineTo(x+width-rx, y)
+	dst.CubicTo(x+width-rx+c1, y, x+width, y+c2, x+width, y+ry)
+	dst.LineTo(x+width, y+height-ry)
+	dst.CubicTo(
+		x+width, y+height-ry+c2, x+width+c1-rx, y+height,
+		x+width-rx, y+height)
+	dst.LineTo(x+rx, y+height)
+	dst.CubicTo(x+rx-c1, y+height, x, y+height-c2, x, y+height-ry)
+	dst.LineTo(x, y+ry)
+	dst.CubicTo(x, y+ry-c2, x+rx-c1, y, x+rx, y)
+	dst.LineTo(x+rx, y)
 }
 
 // polyline or polygon
@@ -124,6 +174,14 @@ func parsePoly(node *cascadedNode) (polyline, error) {
 	}
 
 	return out, nil
+}
+
+func (r polyline) draw(dst backend.GraphicTarget, attrs *attributes, ctx drawingContext) {
+	if len(r.points) == 0 {
+		return
+	}
+	p1, points := r.points[0], r.points[1:]
+	dst.MoveTo(p1[0], p1[1])
 }
 
 // ellipse or circle
