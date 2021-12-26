@@ -474,9 +474,9 @@ func getFilenameFromResult(rawurl string) string {
 //
 // `attachments` is an optional list of additional file attachments for the
 // generated PDF document, added to those collected from the metadata.
-func (d *Document) Write(target backend.Output, zoom float64, attachments []backend.Attachment) {
+func (d *Document) Write(target backend.Output, zoom pr.Fl, attachments []backend.Attachment) {
 	// 0.75 = 72 PDF point per inch / 96 CSS pixel per inch
-	scale := fl(zoom * 0.75)
+	scale := zoom * 0.75
 
 	// Links and anchors
 	pagedLinks, pagedAnchors := d.resolveLinks()

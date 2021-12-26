@@ -88,7 +88,7 @@ func pdfToColor(img image.Image) (color.RGBA, error) {
 }
 
 // convert a PDF file to an image using Ghostscript
-func pdfToImage(f *os.File, zoom utils.Fl) (image.Image, error) {
+func pdfToImage(f *os.File, zoom float64) (image.Image, error) {
 	const (
 		resolution   = 96.
 		antialiasing = 1

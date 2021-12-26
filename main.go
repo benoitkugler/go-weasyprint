@@ -42,7 +42,7 @@ func HtmlToPdfOptions(target io.Writer, htmlContent utils.ContentInput, baseUrl 
 	}
 	doc := document.Render(parsedHtml, stylesheets, presentationalHints, fontConfig)
 	output := pdf.NewOutput()
-	doc.Write(output, zoom, attachments)
+	doc.Write(output, utils.Fl(zoom), attachments)
 	pdfDoc := output.Finalize()
 	return pdfDoc.Write(target, nil)
 }

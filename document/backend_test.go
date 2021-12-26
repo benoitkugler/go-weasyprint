@@ -1,8 +1,8 @@
 package document
 
 import (
+	"io"
 	"log"
-	"os"
 	"time"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
@@ -14,9 +14,9 @@ import (
 
 // implements a no-op backend, which can be used to test for crashes
 
-var outputLog = log.New(os.Stdout, "output: ", log.Ltime)
+// var outputLog = log.New(os.Stdout, "output: ", log.Ltime)
 
-// var outputLog = log.New(io.Discard, "output: ", log.Ltime)
+var outputLog = log.New(io.Discard, "output: ", log.Ltime)
 
 var _ backend.Output = output{}
 

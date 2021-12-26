@@ -467,7 +467,7 @@ const (
 )
 
 func round(x fl) fl {
-	n := math.Pow10(8)
+	n := math.Pow10(4)
 	return fl(math.Round(float64(x)*n) / n)
 }
 
@@ -676,7 +676,7 @@ func TestRelativeLinksInternal(t *testing.T) {
 	location := dest.(model.DestinationExplicitIntern).Location.(model.DestinationLocationXYZ)
 	location.Top = model.ObjFloat(round(fl(location.Top.(model.ObjFloat))))
 	if location != (model.DestinationLocationXYZ{Left: model.ObjFloat(0), Top: model.ObjFloat(round(TOP)), Zoom: 0}) {
-		t.Fatalf("unexpected destination: %v", dest)
+		t.Fatalf("unexpected destination: %v", location)
 	}
 	exp := roundRect(model.Rectangle{Llx: 0, Lly: TOP, Urx: RIGHT, Ury: TOP})
 	if rect := roundRect(annots[0].Rect); rect != exp {

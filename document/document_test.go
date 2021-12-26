@@ -13,7 +13,7 @@ import (
 )
 
 func round(x fl) fl {
-	n := math.Pow10(6)
+	n := math.Pow10(4)
 	return fl(math.Round(float64(x)*n) / n)
 }
 
@@ -277,6 +277,8 @@ func renderHTML(t *testing.T, html string, baseUrl string, round bool) Document 
 }
 
 func assertBookmarks(t *testing.T, html string, expectedByPage [][]bookmarkData, expectedTree []backend.BookmarkNode, round bool) {
+	t.Helper()
+
 	document := renderHTML(t, html, baseUrl, round)
 
 	var gotByPage [][]bookmarkData
@@ -284,7 +286,7 @@ func assertBookmarks(t *testing.T, html string, expectedByPage [][]bookmarkData,
 		gotByPage = append(gotByPage, page.bookmarks)
 	}
 	if !reflect.DeepEqual(gotByPage, expectedByPage) {
-		t.Fatal("unexpected bookmark per page")
+		t.Fatalf("html %s : unexpected bookmark per page: %v \n %v", html, gotByPage, expectedByPage)
 	}
 	if got := document.makeBookmarkTree(); !reflect.DeepEqual(got, expectedTree) {
 		t.Fatalf("unexpected bookmark tree %v", got)

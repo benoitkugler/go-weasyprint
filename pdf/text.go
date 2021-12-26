@@ -194,6 +194,9 @@ func cidWidths(dict map[fonts.GID]backend.GlyphExtents) []model.CIDWidth {
 // post-process the font used
 func (c *Output) writeFonts() {
 	for pangoFont, font := range c.cache.fonts {
+		if len(font.Cmap) == 0 {
+			continue
+		}
 		content := c.cache.fontFiles[pangoFont.GetHarfbuzzFont().Face()]
 		desc := font.newFontDescriptor(pangoFont, content)
 		widths := cidWidths(font.Extents)
