@@ -47,6 +47,8 @@ func runTest(t *testing.T, css, resJson []string, fn func(input string) []Token)
 }
 
 func runTestOneToken(t *testing.T, css, resJson []string, fn func(input string) jsonisable) {
+	t.Helper()
+
 	for i, input := range css {
 		resToTest := fn(input)
 		b, err := json.Marshal(resToTest.toJson())

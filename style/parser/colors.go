@@ -413,13 +413,13 @@ func parseHsl(args []Token, alpha utils.Fl) (RGBA, bool) {
 
 //  returns (r, g, b) as floats in the 0..1 range
 func hslToRgb(_hue int, saturation, lightness utils.Fl) (utils.Fl, utils.Fl, utils.Fl) {
-	hue := utils.Fl(_hue) / 360
-	hue = hue - utils.Fl(math.Floor(float64(hue)))
+	hue := float64(_hue) / 360
+	hue = hue - math.Floor(hue)
 	saturation = utils.MinF(1., utils.MaxF(0, saturation/100))
 	lightness = utils.MinF(1, utils.MaxF(0, lightness/100))
 
 	// Translated from ABC: http://www.w3.org/TR/css3-color/#hsl-color
-	hueToRgb := func(m1, m2, h utils.Fl) utils.Fl {
+	hueToRgb := func(m1, m2, h float64) utils.Fl {
 		if h < 0 {
 			h += 1.
 		}
@@ -427,23 +427,23 @@ func hslToRgb(_hue int, saturation, lightness utils.Fl) (utils.Fl, utils.Fl, uti
 			h -= 1.
 		}
 		if h*6 < 1 {
-			return m1 + (m2-m1)*h*6
+			return utils.Fl(m1 + (m2-m1)*h*6)
 		}
 		if h*2 < 1 {
-			return m2
+			return utils.Fl(m2)
 		}
 		if h*3 < 2 {
-			return m1 + (m2-m1)*(2./3-h)*6
+			return utils.Fl(m1 + (m2-m1)*(2./3-h)*6)
 		}
-		return m1
+		return utils.Fl(m1)
 	}
-	var m1, m2 utils.Fl
+	var m1, m2 float64
 	if lightness <= 0.5 {
-		m2 = lightness * (saturation + 1.)
+		m2 = float64(lightness * (saturation + 1.))
 	} else {
-		m2 = lightness + saturation - lightness*saturation
+		m2 = float64(lightness + saturation - lightness*saturation)
 	}
-	m1 = lightness*2 - m2
+	m1 = float64(lightness*2) - m2
 	return hueToRgb(m1, m2, hue+1./3), hueToRgb(m1, m2, hue), hueToRgb(m1, m2, hue-1./3)
 }
 

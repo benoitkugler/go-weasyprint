@@ -209,7 +209,7 @@ func (t PercentageToken) IntValue() int {
 // ---------------- JSON -------------------------------------------
 type (
 	myString string
-	myFloat  float64
+	myFloat  utils.Fl
 	myBool   bool
 	myInt    int
 )
