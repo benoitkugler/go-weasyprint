@@ -165,7 +165,7 @@ func (p *TextLayout) setTabs() {
 	if width == 0 {
 		width = 1
 	}
-	tabs := &pango.TabArray{Tabs: []pango.Tab{{Alignment: pango.TAB_LEFT, Location: pango.GlyphUnit(width)}}, PositionsInPixels: true}
+	tabs := &pango.TabArray{Tabs: []pango.Tab{{Alignment: pango.TAB_LEFT, Location: pango.Unit(width)}}, PositionsInPixels: true}
 	p.Layout.SetTabs(tabs)
 }
 

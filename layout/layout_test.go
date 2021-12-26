@@ -16,7 +16,7 @@ import (
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
 )
 
-var baseUrl, _ = utils.Path2url("../resources_test/")
+var baseUrl, _ = utils.PathToURL("../resources_test/")
 
 const fontmapCache = "../layout/text/test/cache.fc"
 

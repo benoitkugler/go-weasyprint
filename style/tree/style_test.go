@@ -255,7 +255,7 @@ func TestAnnotateDocument(t *testing.T) {
 	span1 := styleFor.Get(span1_, "")
 	span2 := styleFor.Get(span2_, "")
 
-	u, err := utils.Path2url(resourceFilename("logo_small.png"))
+	u, err := utils.PathToURL(resourceFilename("logo_small.png"))
 	if err != nil {
 		t.Fatal(err)
 	}

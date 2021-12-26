@@ -66,7 +66,7 @@ func FetchSource(input ContentInput, baseUrl string, urlFetcher UrlFetcher,
 	switch data := input.(type) {
 	case InputFilename:
 		if baseUrl == "" {
-			baseUrl, err = Path2url(string(data))
+			baseUrl, err = PathToURL(string(data))
 			if err != nil {
 				return
 			}

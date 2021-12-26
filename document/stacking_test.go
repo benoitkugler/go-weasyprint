@@ -27,7 +27,7 @@ const zIndexSource = `
     <nav></nav>
   </div>`
 
-var baseUrl, _ = utils.Path2url("../resources_test/")
+var baseUrl, _ = utils.PathToURL("../resources_test/")
 
 // lay out a document and return a list of PageBox objects
 func renderPages(t *testing.T, htmlContent string) []*bo.PageBox {

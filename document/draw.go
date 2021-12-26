@@ -1286,7 +1286,7 @@ func (ctx drawContext) drawFirstLine(textbox *bo.TextBox, textOverflow string, b
 	if textOverflow == "ellipsis" || blockEllipsis.Name != "none" {
 		// assert textbox.PangoLayout.maxWidth is not nil
 		maxWidth := textbox.PangoLayout.MaxWidth.V()
-		layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(pr.Fl(maxWidth))))
+		layout.SetWidth(pango.Unit(utils.PangoUnitsFromFloat(pr.Fl(maxWidth))))
 		if textOverflow == "ellipsis" {
 			layout.SetEllipsize(pango.ELLIPSIZE_END)
 		} else {

@@ -859,7 +859,7 @@ func TestEmbeddedFilesAttachments(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	absoluteUrl, err := utils.Path2url(f.Name())
+	absoluteUrl, err := utils.PathToURL(f.Name())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -138,23 +138,23 @@ func GetLinkAttribute(element *HTMLNode, attrName string, baseUrl string) ([2]st
 	return [2]string{"external", uri}, true
 }
 
-// Return file URL of `path`.
-func Path2url(urlPath string) (out string, err error) {
-	urlPath, err = filepath.Abs(urlPath)
+// Return a file URL for the given `file` path.
+func PathToURL(file string) (out string, err error) {
+	file, err = filepath.Abs(file)
 	if err != nil {
 		return "", err
 	}
-	fileinfo, err := os.Lstat(urlPath)
+	fileinfo, err := os.Lstat(file)
 	if err != nil {
 		return "", err
 	}
 	if fileinfo.IsDir() {
 		// Make sure directory names have a trailing slash.
 		// Otherwise relative URIs are resolved from the parent directory.
-		urlPath += string(filepath.Separator)
+		file += string(filepath.Separator)
 	}
-	urlPath = filepath.ToSlash(urlPath)
-	return "file://" + urlPath, nil
+	file = filepath.ToSlash(file)
+	return "file://" + file, nil
 }
 
 // Get a ``scheme://path`` URL from ``string``.
@@ -169,7 +169,7 @@ func ensureUrl(urlS string) (string, error) {
 	if parsed.IsAbs() {
 		return urlS, nil
 	}
-	return Path2url(urlS)
+	return PathToURL(urlS)
 }
 
 type content interface {

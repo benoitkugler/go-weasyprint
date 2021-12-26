@@ -177,7 +177,7 @@ func sanityChecks(box Box) error {
 //         document.etree_element, style_for, get_image_from_uri, base_url,
 //         target_collector, counter_style)
 
-var baseUrl, _ = utils.Path2url("../resources_test/")
+var baseUrl, _ = utils.PathToURL("../resources_test/")
 
 func getGrid(t *testing.T, html string) ([][]Border, [][]Border) {
 	root := parseAndBuild(t, html)

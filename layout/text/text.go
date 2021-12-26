@@ -41,13 +41,14 @@ type Splitted struct {
 // `maxWidth` is the maximum available width in the same unit as style.GetFontSize(),
 // or `nil` for unlimited width.
 func CreateLayout(text string, style pr.StyleAccessor, context TextLayoutContext, maxWidth pr.MaybeFloat, justificationSpacing pr.Float) *TextLayout {
-	layout := NewTextLayout(context, pr.Fl(style.GetFontSize().Value), style, pr.Fl(justificationSpacing), maxWidth)
-	// Make sure that maxWidth * Pango.SCALE == maxWidth * 1024 fits in a
-	// signed integer. Treat bigger values same as None: unconstrained width.
+	fontSize := style.GetFontSize().Value
+	layout := NewTextLayout(context, pr.Fl(fontSize), style, pr.Fl(justificationSpacing), maxWidth)
 	ws := style.GetWhiteSpace()
 	textWrap := "normal" == ws || "pre-wrap" == ws || "pre-line" == ws
 	if maxWidth, ok := maxWidth.(pr.Float); ok && textWrap && maxWidth < 2<<21 {
-		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(utils.Maxs(0, pr.Fl(maxWidth)))))
+		// Make sure that maxWidth * Pango.SCALE == maxWidth * 1024 fits in a
+		// signed integer. Treat bigger values same as None: unconstrained width.
+		layout.Layout.SetWidth(pango.Unit(utils.PangoUnitsFromFloat(utils.Maxs(0, pr.Fl(maxWidth)))))
 	}
 
 	layout.SetText(text)
@@ -118,6 +119,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		layout = CreateLayout(text_, style, context, originalMaxWidth, justificationSpacing)
 		firstLine, index = layout.GetFirstLine()
 	}
+
 	resumeIndex := index
 	text := []rune(text_)
 
@@ -137,10 +139,11 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	// Step #3: Try to put the first word of the second line on the first line
 	// https://mail.gnome.org/archives/gtk-i18n-list/2013-September/msg00006
 	// is a good thread related to this problem.
-	if index == -1 || index >= len(text) {
-		index = len(text)
+
+	firstLineText := text_
+	if index != -1 && index <= len(text) {
+		firstLineText = string(text[:index])
 	}
-	firstLineText := string(text[:index])
 	// We can’t rely on firstLineWidth, see
 	// https://github.com/Kozea/WeasyPrint/issues/1051
 	firstLineFits := (firstLineWidth <= maxWidthV ||
@@ -149,7 +152,11 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 	var secondLineText []rune
 	if firstLineFits {
 		// The first line fits but may have been cut too early by Pango
-		secondLineText = text[index:]
+		if index == -1 {
+			secondLineText = text
+		} else {
+			secondLineText = text[index:]
+		}
 	} else {
 		// The line can't be split earlier, try to hyphenate the first word.
 		firstLineText = ""
@@ -181,7 +188,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 			}
 		}
 	} else if firstLineText != "" {
-		// We found something on the first line but we did ! find a word on
+		// We found something on the first line but we did not find a word on
 		// the next line, no need to hyphenate, we can keep the current layout
 		return firstLineMetrics(firstLine, text, layout, resumeIndex, spaceCollapse, style, false, "")
 	}
@@ -329,7 +336,7 @@ func SplitFirstLine(text_ string, style pr.StyleAccessor, context TextLayoutCont
 		// Is it really OK to remove hyphenation for word-break ?
 		hyphenated = false
 		layout.SetText(string(text))
-		layout.Layout.SetWidth(pango.GlyphUnit(utils.PangoUnitsFromFloat(maxWidthV)))
+		layout.Layout.SetWidth(pango.Unit(utils.PangoUnitsFromFloat(maxWidthV)))
 		layout.Layout.SetWrap(pango.WRAP_CHAR)
 		firstLine, index = layout.GetFirstLine()
 		resumeIndex = index

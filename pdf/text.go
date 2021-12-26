@@ -104,8 +104,8 @@ func (f pdfFont) newFontDescriptor(font pango.Font, content *model.FontFile) mod
 
 	var ascent, descent fl
 	if fontSize != 0 {
-		ascent = fl(metrics.Ascent * 1000 / pango.GlyphUnit(fontSize))
-		descent = fl(metrics.Descent * 1000 / pango.GlyphUnit(fontSize))
+		ascent = fl(metrics.Ascent * 1000 / pango.Unit(fontSize))
+		descent = fl(metrics.Descent * 1000 / pango.Unit(fontSize))
 	}
 	return model.FontDescriptor{
 		FontName:    model.ObjName(hash + "+" + strings.ReplaceAll(desc.FamilyName, " ", "")),

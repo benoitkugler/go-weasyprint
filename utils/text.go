@@ -288,4 +288,4 @@ var LST_TO_ISO = map[string]language.Language{
 
 func PangoUnitsFromFloat(v Fl) int32 { return int32(v*pango.Scale + 0.5) }
 
-func PangoUnitsToFloat(v pango.GlyphUnit) Fl { return Fl(v) / pango.Scale }
+func PangoUnitsToFloat(v pango.Unit) Fl { return Fl(v) / pango.Scale }

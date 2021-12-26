@@ -187,3 +187,27 @@ func TestHeightAndBaseline(t *testing.T) {
 		t.Fatalf("unexpected baseline %f", baseline)
 	}
 }
+
+func TestLayoutFirstLine(t *testing.T) {
+	newStyle := pr.InitialValues.Copy()
+	newStyle.SetFontFamily(pr.Strings{"weasyprint"})
+	newStyle.SetFontSize(pr.FToV(16))
+	newStyle.SetWhiteSpace("normal")
+
+	ct := textContext{fontmap: fontmap, dict: make(map[HyphenDictKey]hyphen.Hyphener)}
+	fc := NewFontConfiguration(fontmap)
+	url, err := utils.PathToURL("../../resources_test/weasyprint.otf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fc.AddFontFace(validation.FontFaceDescriptors{
+		Src:        []pr.NamedString{{Name: "external", String: url}},
+		FontFamily: "weasyprint",
+	}, utils.DefaultUrlFetcher)
+
+	layout := CreateLayout("a a ", newStyle, ct, pr.Float(63), 0)
+	_, index := layout.GetFirstLine()
+	if index != -1 {
+		t.Fatalf("unexpected first line index: %d", index)
+	}
+}

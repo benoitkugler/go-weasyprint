@@ -1032,8 +1032,8 @@ func TestWhiteSpace12(t *testing.T) {
 }
 
 func TestTabSize(t *testing.T) {
-	// cp := tu.CaptureLogs()
-	// defer cp.AssertNoLogs(t)
+	cp := tu.CaptureLogs()
+	defer cp.AssertNoLogs(t)
 
 	for _, v := range []struct {
 		value string

@@ -15,7 +15,7 @@ func TestLoadLocalImages(t *testing.T) {
 		"../resources_test/pattern.svg",
 	}
 	for _, path := range paths {
-		url, err := utils.Path2url(path)
+		url, err := utils.PathToURL(path)
 		if err != nil {
 			t.Fatal(err)
 		}
