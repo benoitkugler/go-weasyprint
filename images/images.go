@@ -257,7 +257,7 @@ func (s *SVGImage) GetIntrinsicSize(_, fontSize pr.Float) (pr.MaybeFloat, pr.May
 	return intrinsicWidth, intrinsicHeight, ratio
 }
 
-func (SVGImage) Draw(context backend.GraphicTarget, concreteWidth, concreteHeight float64, imageRendering string) {
+func (SVGImage) Draw(context backend.GraphicTarget, concreteWidth, concreteHeight pr.Fl, imageRendering string) {
 	log.Println("SVG rendering not implemented yet")
 	// FIXME:
 	//         try {

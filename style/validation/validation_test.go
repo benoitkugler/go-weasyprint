@@ -425,10 +425,10 @@ func TestStringSet(t *testing.T) {
 }
 
 var (
-	red          = pr.NewColor(1, 0, 0, 1)
-	lime         = pr.NewColor(0, 1, 0, 1)
-	blue         = pr.NewColor(0, 0, 1, 1)
-	pi   float64 = math.Pi
+	red           = pr.NewColor(1, 0, 0, 1)
+	lime          = pr.NewColor(0, 1, 0, 1)
+	blue          = pr.NewColor(0, 0, 1, 1)
+	pi   utils.Fl = math.Pi
 )
 
 func checkGradientGeneric(t *testing.T, css string, expected pr.Image) {

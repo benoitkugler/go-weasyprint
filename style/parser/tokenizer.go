@@ -136,7 +136,7 @@ mainLoop:
 		if match != nil {
 			repr := css[pos+match[0] : pos+match[1]]
 			pos += match[1]
-			value, _ := strconv.ParseFloat(repr, 64)
+			value, _ := strconv.ParseFloat(repr, 32)
 			if value == 0 {
 				value = 0. // workaround -0
 			}
@@ -146,7 +146,7 @@ mainLoop:
 				position:       tokenPos,
 				Representation: repr,
 				IsInteger:      isInt,
-				Value:          value,
+				Value:          utils.Fl(value),
 			}
 			if pos < length && isIdentStart(css, pos) {
 				var unit string

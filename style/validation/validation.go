@@ -48,7 +48,7 @@ var (
 
 	// http://dev.w3.org/csswg/css3-values/#angles
 	// 1<unit> is this many radians.
-	ANGLETORADIANS = map[pr.Unit]float64{
+	ANGLETORADIANS = map[pr.Unit]utils.Fl{
 		pr.Rad:  1,
 		pr.Turn: 2 * math.Pi,
 		pr.Deg:  math.Pi / 180,
@@ -56,10 +56,10 @@ var (
 	}
 
 	// http://dev.w3.org/csswg/css-values/#resolution
-	RESOLUTIONTODPPX = map[string]float64{
+	RESOLUTIONTODPPX = map[string]utils.Fl{
 		"dppx": 1,
-		"dpi":  float64(1 / pr.LengthsToPixels[pr.In]),
-		"dpcm": float64(1 / pr.LengthsToPixels[pr.Cm]),
+		"dpi":  utils.Fl(1 / pr.LengthsToPixels[pr.In]),
+		"dpcm": utils.Fl(1 / pr.LengthsToPixels[pr.Cm]),
 	}
 
 	couplesLigatures = [][]string{
@@ -2000,7 +2000,7 @@ func opacity(tokens []Token, _ string) pr.CssProperty {
 	}
 	token := tokens[0]
 	if number, ok := token.(parser.NumberToken); ok {
-		return pr.Float(math.Min(1, math.Max(0, number.Value)))
+		return pr.Float(utils.MinF(1, utils.MaxF(0, number.Value)))
 	}
 	return nil
 }

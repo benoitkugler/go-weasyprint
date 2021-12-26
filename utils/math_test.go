@@ -1,11 +1,11 @@
-package properties
+package utils
 
 import (
 	"math"
 	"testing"
 )
 
-func equals(x, y Float) bool {
+func equals(x, y Fl) bool {
 	return math.Abs(float64(x-y)) < 1e-6
 }
 

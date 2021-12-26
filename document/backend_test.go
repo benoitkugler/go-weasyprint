@@ -159,8 +159,8 @@ func (outputPage) LineTo(x fl, y fl) {
 	outputLog.Println("LineTo")
 }
 
-func (outputPage) CurveTo(x1, y1, x2, y2, x3, y3 fl) {
-	outputLog.Println("CurveTo")
+func (outputPage) CubicTo(x1, y1, x2, y2, x3, y3 fl) {
+	outputLog.Println("CubicTo")
 }
 
 func (outputPage) DrawText(text backend.TextDrawing) {

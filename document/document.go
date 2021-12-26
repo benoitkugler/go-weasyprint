@@ -6,7 +6,6 @@ package document
 import (
 	"fmt"
 	"log"
-	"math"
 	"net/url"
 	"path"
 
@@ -477,7 +476,7 @@ func getFilenameFromResult(rawurl string) string {
 // generated PDF document, added to those collected from the metadata.
 func (d *Document) Write(target backend.Output, zoom float64, attachments []backend.Attachment) {
 	// 0.75 = 72 PDF point per inch / 96 CSS pixel per inch
-	scale := zoom * 0.75
+	scale := fl(zoom * 0.75)
 
 	// Links and anchors
 	pagedLinks, pagedAnchors := d.resolveLinks()
@@ -488,8 +487,8 @@ func (d *Document) Write(target backend.Output, zoom float64, attachments []back
 	logger.ProgressLogger.Println("Step 6 - Drawing pages")
 
 	for i, page := range d.Pages {
-		pageWidth := scale * (page.Width + float64(page.Bleed.Left) + float64(page.Bleed.Right))
-		pageHeight := scale * (page.Height + float64(page.Bleed.Top) + float64(page.Bleed.Bottom))
+		pageWidth := scale * (page.Width + fl(page.Bleed.Left) + fl(page.Bleed.Right))
+		pageHeight := scale * (page.Height + fl(page.Bleed.Top) + fl(page.Bleed.Bottom))
 		left := -scale * page.Bleed.Left
 		top := -scale * page.Bleed.Top
 		right := left + pageWidth
@@ -565,10 +564,10 @@ func (bleed Bleed) setMediaBoxes(mediaBox [4]fl, target backend.OutputPage) {
 
 	// Arbitrarly set PDF BleedBox between CSS bleed box (PDF MediaBox) and
 	// CSS page box (PDF TrimBox), at most 10 px from the TrimBox.
-	bleedLeft := trimLeft - math.Min(10, bleed.Left)
-	bleedTop := trimTop - math.Min(10, bleed.Top)
-	bleedRight := trimRight + math.Min(10, bleed.Right)
-	bleedBottom := trimBottom + math.Min(10, bleed.Bottom)
+	bleedLeft := trimLeft - utils.MinF(10, bleed.Left)
+	bleedTop := trimTop - utils.MinF(10, bleed.Top)
+	bleedRight := trimRight + utils.MinF(10, bleed.Right)
+	bleedBottom := trimBottom + utils.MinF(10, bleed.Bottom)
 
 	target.SetMediaBox(left, top, right, bottom)
 	target.SetTrimBox(trimLeft, trimTop, trimRight, trimBottom)

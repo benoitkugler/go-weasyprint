@@ -18,7 +18,21 @@ func MaxInt(x, y int) int {
 	return y
 }
 
-type Fl = float64
+func MinF(x, y Fl) Fl {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func MaxF(x, y Fl) Fl {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+type Fl = float32
 
 func Maxs(values ...Fl) Fl {
 	max := values[0]
@@ -51,9 +65,9 @@ func ModLikePython(d, m int) int {
 // FloatModulo implements Python modulo for float numbers, like
 //	4.456 % 3
 func FloatModulo(x Fl, i int) Fl {
-	x2 := math.Floor(x)
+	x2 := Fl(math.Floor(float64(x)))
 	diff := x - x2
-	return float64(ModLikePython(int(x2), i)) + diff
+	return Fl(ModLikePython(int(x2), i)) + diff
 }
 
 // Round rounds f with 12 digits precision

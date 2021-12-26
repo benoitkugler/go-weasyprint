@@ -61,7 +61,7 @@ func tableLayout(context *layoutContext, table_ bo.TableBoxITF, maxPositionY pr.
 		}
 		horizontalBorders := table.CollapsedBorderGrid.Horizontal
 		if len(horizontalBorders) != 0 {
-			var max float64
+			var max pr.Fl
 			for _, tmp := range horizontalBorders[skippedRows] {
 				if tmp.Width > max {
 					max = tmp.Width
