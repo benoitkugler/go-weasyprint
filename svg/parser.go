@@ -7,11 +7,13 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // provide low-level functions to read basic SVG data
 
-type Fl = float32
+type Fl = utils.Fl
 
 var root2 = math.Sqrt(2)
 
@@ -38,6 +40,9 @@ var toPx = [...]Fl{
 	Px: 1, Cm: 96. / 2.54, Mm: 9.6 / 2.54, Pt: 96. / 72., In: 96., Q: 96. / 40. / 2.54, Pc: 96. / 6.,
 	// other units depend on context
 }
+
+// 12pt
+const defaultFontSize Fl = 96 * 12 / 72
 
 // value is a value expressed in a unit.
 // it may be relative, meaning that context is needed
@@ -235,13 +240,13 @@ func parseURL(url_ string) (*url.URL, error) {
 	return url.Parse(url_)
 }
 
-func parseViewbox(attr string) ([4]Fl, error) {
+func parseViewbox(attr string) (Rectangle, error) {
 	points, err := parsePoints(attr, nil)
 	if err != nil {
-		return [4]Fl{}, err
+		return Rectangle{}, err
 	}
 	if len(points) != 4 {
-		return [4]Fl{}, fmt.Errorf("expected 4 numbers for viewbox, got %s", attr)
+		return Rectangle{}, fmt.Errorf("expected 4 numbers for viewbox, got %s", attr)
 	}
-	return [4]Fl{points[0], points[1], points[2], points[3]}, nil
+	return Rectangle{points[0], points[1], points[2], points[3]}, nil
 }

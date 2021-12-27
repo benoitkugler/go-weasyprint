@@ -1,6 +1,7 @@
 package svg
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -44,5 +45,33 @@ func TestHandleText(t *testing.T) {
 	}
 	if c, has := img.defs["ReferencedText"]; !has || len(c.children) != 0 {
 		t.Fatal("defs circle")
+	}
+}
+
+func TestFilter(t *testing.T) {
+	input := `
+	<svg width="230" height="120" xmlns="http://www.w3.org/2000/svg">
+		<filter id="blurMe">
+			<feBlend in="SourceGraphic" in2="floodFill" mode="multiply"/>
+			<feOffset in="SourceGraphic" dx="60" dy="60" />
+			<feGaussianBlur stdDeviation="5"/>
+		</filter>
+		
+		<circle cx="60" cy="60" r="50" fill="green"/>
+		
+		<circle cx="170" cy="60" r="50" fill="green" filter="url(#blurMe)"/>
+	</svg>
+	`
+	out, err := Parse(strings.NewReader(input), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(out.definitions.filters, map[string][]filter{
+		"blurMe": {
+			filterBlend("multiply"),
+			filterOffset{dx: value{v: 60}, dy: value{v: 60}, isUnitsBBox: false},
+		},
+	}) {
+		t.Fatal(out.definitions.filters)
 	}
 }

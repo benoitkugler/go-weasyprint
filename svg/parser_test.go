@@ -99,11 +99,11 @@ func Test_value_resolve(t *testing.T) {
 func Test_parseViewbox(t *testing.T) {
 	tests := []struct {
 		args    string
-		want    [4]Fl
+		want    Rectangle
 		wantErr bool
 	}{
-		{"0 0 100 100", [4]Fl{0, 0, 100, 100}, false},
-		{"0 0 100", [4]Fl{}, true},
+		{"0 0 100 100", Rectangle{0, 0, 100, 100}, false},
+		{"0 0 100", Rectangle{}, true},
 	}
 	for _, tt := range tests {
 		got, err := parseViewbox(tt.args)

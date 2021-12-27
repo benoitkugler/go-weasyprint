@@ -6,21 +6,15 @@ import (
 )
 
 func moveToF(x, y Fl) pathItem {
-	return pathItem{op: moveTo, args: [3][2]Fl{{x, y}}}
+	return pathItem{op: moveTo, args: [3]point{{x, y}}}
 }
 
 func lineToF(x, y Fl) pathItem {
-	return pathItem{op: lineTo, args: [3][2]Fl{{x, y}}}
-}
-
-func quadToF(x1, y1, x2, y2 Fl) pathItem {
-	return pathItem{op: quadTo, args: [3][2]Fl{
-		{x1, y1}, {x2, y2},
-	}}
+	return pathItem{op: lineTo, args: [3]point{{x, y}}}
 }
 
 func cubicToF(x1, y1, x2, y2, x3, y3 Fl) pathItem {
-	return pathItem{op: cubicTo, args: [3][2]Fl{
+	return pathItem{op: cubicTo, args: [3]point{
 		{x1, y1}, {x2, y2}, {x3, y3},
 	}}
 }

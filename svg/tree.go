@@ -18,7 +18,7 @@ import (
 // svgContext is an intermediated representation of an SVG file,
 // where CSS has been applied, and text has been processed
 type svgContext struct {
-	defs map[string]*cascadedNode
+	defs map[string]*cascadedNode // TODO: replace by typed elements ?
 
 	root *cascadedNode // with tag svg
 
@@ -29,33 +29,11 @@ type svgContext struct {
 	pathParser pathParser
 }
 
-// type nodeAttributes struct {
-// 	viewBox *[4]Fl
-
-// 	markerPosition [3]string // [start, mid, end] should default to marker
-// 	marker         string
-
-// 	filter   string
-// 	clipPath string
-// 	mask     string
-
-// 	transform, preserveAspectRatio, orient, overflow string
-
-// 	strokeDasharray []value
-
-// 	fontSize                  value
-// 	strokeDashoffset          value
-// 	markerWidth, markerHeight value
-// 	width, height             value
-
-// 	opacity Fl // default to 1
-
-// 	fillEvenOdd          bool
-// 	markerUnitsUserSpace bool
-// 	noDisplay, noVisible bool
-
-// 	rawArgs map[string]string // parsing is deferred
-// }
+func newSVGContext() *svgContext {
+	return &svgContext{
+		defs: make(map[string]*cascadedNode),
+	}
+}
 
 // cascadedNode is a node in an SVG document.
 type cascadedNode struct {
@@ -78,15 +56,26 @@ func newNodeAttributes(attrs []html.Attribute) nodeAttributes {
 	return out
 }
 
-func (na nodeAttributes) viewBox() ([4]Fl, error) {
-	attrValue := na["viewBox"]
-	return parseViewbox(attrValue)
+func (na nodeAttributes) viewBox() (*Rectangle, error) {
+	if attrValue := na["viewBox"]; attrValue != "" {
+		v, err := parseViewbox(attrValue)
+		return &v, err
+	}
+	return nil, nil
 }
 
 func (na nodeAttributes) fontSize() (value, error) {
 	attrValue, has := na["font-size"]
 	if !has {
 		attrValue = "1em"
+	}
+	return parseValue(attrValue)
+}
+
+func (na nodeAttributes) strokeWidth() (value, error) {
+	attrValue, has := na["stroke-width"]
+	if !has {
+		attrValue = "1px"
 	}
 	return parseValue(attrValue)
 }
@@ -144,73 +133,6 @@ func (na nodeAttributes) spacePreserve() bool {
 	return na["space"] == "preserve"
 }
 
-// func parseNodeAttributes(attrs []xml.Attr) (node nodeAttributes, err error) {
-// 	node.opacity = 1
-// 	var noDisplay, noVisible bool
-// 	node.rawArgs = make(map[string]string)
-// 	for _, attr := range attrs {
-// 		switch attr.Name.Local {
-// 		case "viewBox":
-// 			var vb [4]Fl
-// 			vb, err = parseViewbox(attr.Value)
-// 			node.viewBox = &vb
-// 		case "filter":
-// 			node.filter = parseURLFragment(attr.Value)
-// 		case "clip-path":
-// 			node.clipPath = parseURLFragment(attr.Value)
-// 		case "mask":
-// 			node.mask = parseURLFragment(attr.Value)
-// 		case "marker":
-// 			node.marker = parseURLFragment(attr.Value)
-// 		case "marker-start":
-// 			node.markerPosition[0] = parseURLFragment(attr.Value)
-// 		case "marker-mid":
-// 			node.markerPosition[1] = parseURLFragment(attr.Value)
-// 		case "marker-end":
-// 			node.markerPosition[2] = parseURLFragment(attr.Value)
-// 		case "transform":
-// 			node.transform = attr.Value
-// 		case "orient":
-// 			node.orient = attr.Value
-// 		case "overflow":
-// 			node.overflow = attr.Value
-// 		case "font-size":
-// 			node.fontSize, err = parseValue(attr.Value)
-// 		case "width":
-// 			node.width, err = parseValue(attr.Value)
-// 		case "height":
-// 			node.height, err = parseValue(attr.Value)
-// 		case "markerWidth":
-// 			node.markerWidth, err = parseValue(attr.Value)
-// 		case "markerHeight":
-// 			node.markerHeight, err = parseValue(attr.Value)
-// 		case "markerUnits":
-// 			node.markerUnitsUserSpace = attr.Value == "userSpaceOnUse"
-// 		case "opacity":
-// 			node.opacity, err = strconv.ParseFloat(attr.Value, 64)
-// 		case "display":
-// 			noDisplay = attr.Value == "none"
-// 		case "visibility":
-// 			noVisible = attr.Value == "hidden"
-// 		case "stroke-dasharray":
-// 			node.strokeDasharray, err = parseFloatList(attr.Value)
-// 		case "stroke-dashoffset":
-// 			node.strokeDashoffset, err = parseValue(attr.Value)
-// 		case "fill-rull":
-// 			node.fillEvenOdd = attr.Value == "evenodd"
-// 		default:
-// 			node.rawArgs[attr.Name.Local] = attr.Value
-// 		}
-// 		if err != nil {
-// 			return nodeAttributes{}, err
-// 		}
-// 	}
-// 	node.noDisplay = noDisplay
-// 	node.noVisible = noDisplay || noVisible
-
-// 	return node, nil
-// }
-
 // walk the tree to extract content needed to build the SVG tree
 func fetchStyleAndTextRefs(root *utils.HTMLNode) ([][]byte, map[string][]byte) {
 	var (
@@ -256,7 +178,7 @@ func buildSVGTree(svg io.Reader, baseURL string) (*svgContext, error) {
 	normalMatcher, importantMatcher := parseStylesheets(stylesheets, baseURL)
 
 	// build the SVG tree and apply style attribute
-	out := svgContext{defs: map[string]*cascadedNode{}}
+	out := newSVGContext()
 
 	// may return nil to discard the node
 	var buildTree func(node *html.Node, parentAttrs nodeAttributes) *cascadedNode
@@ -347,7 +269,7 @@ func buildSVGTree(svg io.Reader, baseURL string) (*svgContext, error) {
 	out.root = buildTree((*html.Node)(svgRoot), nil)
 	out.baseURL = baseURL
 
-	return &out, nil
+	return out, nil
 }
 
 var (

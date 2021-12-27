@@ -2,6 +2,7 @@ package svg
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strings"
 
@@ -62,9 +63,9 @@ func newLine(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
-func (l line) draw(dst backend.GraphicTarget, _ *attributes, ctx drawingContext) {
-	x1, y1 := ctx.point(l.x1, l.y1)
-	x2, y2 := ctx.point(l.x2, l.y2)
+func (l line) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims) {
+	x1, y1 := dims.point(l.x1, l.y1)
+	x2, y2 := dims.point(l.x2, l.y2)
 	dst.MoveTo(x1, y1)
 	dst.LineTo(x2, y2)
 	// TODO:
@@ -103,13 +104,13 @@ func newRect(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
-func (r rect) draw(dst backend.GraphicTarget, attrs *attributes, ctx drawingContext) {
-	width, height := ctx.point(attrs.width, attrs.height)
+func (r rect) draw(dst backend.GraphicTarget, attrs *attributes, dims drawingDims) {
+	width, height := dims.point(attrs.width, attrs.height)
 	if width <= 0 || height <= 0 { // nothing to draw
 		return
 	}
-	x, y := ctx.point(attrs.x, attrs.y)
-	rx, ry := ctx.point(r.rx, r.ry)
+	x, y := dims.point(attrs.x, attrs.y)
+	rx, ry := dims.point(r.rx, r.ry)
 
 	if rx == 0 || ry == 0 { // no border radius
 		dst.Rectangle(x, y, width, height)
@@ -176,12 +177,22 @@ func parsePoly(node *cascadedNode) (polyline, error) {
 	return out, nil
 }
 
-func (r polyline) draw(dst backend.GraphicTarget, attrs *attributes, ctx drawingContext) {
+func (r polyline) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
 	if len(r.points) == 0 {
 		return
 	}
 	p1, points := r.points[0], r.points[1:]
 	dst.MoveTo(p1[0], p1[1])
+	// node.vertices = [(x, y)]
+	for _, point := range points {
+		// angle = atan2(x - x_old, y - y_old)
+		// node.vertices.append((pi - angle, angle))
+		dst.LineTo(point[0], point[1])
+		// node.vertices.append((x, y))
+	}
+	if r.close {
+		dst.LineTo(p1[0], p1[1])
+	}
 }
 
 // ellipse or circle
@@ -222,6 +233,23 @@ func newEllipse(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
+func (e ellipse) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims) {
+	rx, ry := dims.point(e.rx, e.ry)
+	if rx == 0 || ry == 0 {
+		return
+	}
+	ratioX := rx / math.SqrtPi
+	ratioY := ry / math.SqrtPi
+	cx, cy := dims.point(e.cx, e.cy)
+
+	dst.MoveTo(cx+rx, cy)
+	dst.CubicTo(cx+rx, cy+ratioY, cx+ratioX, cy+ry, cx, cy+ry)
+	dst.CubicTo(cx-ratioX, cy+ry, cx-rx, cy+ratioY, cx-rx, cy)
+	dst.CubicTo(cx-rx, cy-ratioY, cx-ratioX, cy-ry, cx, cy-ry)
+	dst.CubicTo(cx+ratioX, cy-ry, cx+rx, cy-ratioY, cx+rx, cy)
+	dst.LineTo(cx+rx, cy)
+}
+
 // <path> tag
 type path []pathItem
 
@@ -231,7 +259,13 @@ func newPath(node *cascadedNode, context *svgContext) (drawable, error) {
 		return nil, err
 	}
 
-	return out, err
+	return path(out), err
+}
+
+func (p path) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
+	for _, item := range p {
+		item.draw(dst)
+	}
 }
 
 // <image> tag
@@ -269,6 +303,56 @@ func newImage(node *cascadedNode, context *svgContext) (drawable, error) {
 	var out image
 	copy(out.preserveAspectRatio[:], l)
 	out.img = img
+
+	return out, nil
+}
+
+func (img image) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
+	// FIXME: support nested images
+	log.Println("nested image are not supported")
+}
+
+type filter interface {
+	isFilter()
+}
+
+func (filterOffset) isFilter() {}
+func (filterBlend) isFilter()  {}
+
+type filterOffset struct {
+	dx, dy      value
+	isUnitsBBox bool
+}
+
+type filterBlend string
+
+// parse a <filter> node
+func newFilter(node *cascadedNode) (out []filter, err error) {
+	for _, child := range node.children {
+		switch child.tag {
+		case "feOffset":
+			fi := filterOffset{
+				isUnitsBBox: node.attrs["primitiveUnits"] == "objectBoundingBox",
+			}
+			fi.dx, err = parseValue(child.attrs["dx"])
+			if err != nil {
+				return nil, err
+			}
+			fi.dy, err = parseValue(child.attrs["dy"])
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, fi)
+		case "feBlend":
+			fi := filterBlend("normal")
+			if mode, has := child.attrs["mode"]; has {
+				fi = filterBlend(mode)
+			}
+			out = append(out, fi)
+		default:
+			log.Printf("unsupported filter element: %s", child.tag)
+		}
+	}
 
 	return out, nil
 }

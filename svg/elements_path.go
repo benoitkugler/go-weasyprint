@@ -8,36 +8,62 @@ import (
 	"log"
 	"math"
 	"unicode"
+
+	"github.com/benoitkugler/go-weasyprint/backend"
 )
 
 var errParamMismatch = errors.New("svg path: param mismatch")
 
+type point struct {
+	x, y Fl
+}
+
 type pathItem struct {
 	op   pathOperation
-	args [3][2]Fl // (x, y) up to three arguments
+	args [3]point // (x, y) up to three arguments
 }
 
 type pathOperation uint8
 
 const (
-	close pathOperation = iota
 	// moveTo moves the current point.
-	moveTo
+	moveTo pathOperation = iota
 	// lineTo draws a line from the current point, and updates it.
 	lineTo
-	// quadTo draws a quadratic Bezier curve from the current point, and updates it.
-	quadTo
 	// cubicTo draws a cubic Bezier curve from the current point, and updates it.
 	cubicTo
+
+	// NOTE: to simplify the backend requirement, we do not use
+	// quadratic curves
 )
+
+func (pi pathItem) draw(dst backend.GraphicTarget) {
+	switch pi.op {
+	case moveTo:
+		dst.MoveTo(pi.args[0].x, pi.args[0].y)
+	case lineTo:
+		dst.LineTo(pi.args[0].x, pi.args[0].y)
+	case cubicTo:
+		dst.CubicTo(pi.args[0].x, pi.args[0].y, pi.args[1].x, pi.args[1].y, pi.args[2].x, pi.args[2].y)
+	}
+}
+
+// convert to a cubic
+// CP1 = QP0 + 2/3 *(QP1-QP0)
+// CP2 = QP2 + 2/3 *(QP1-QP2)
+func quadraticToCubic(x0, y0, x1, y1, x2, y2 Fl) [3]point {
+	cp1 := point{x0 + 2/3*(x1-x0), y0 + 2/3*(y1-y0)}
+	cp2 := point{x2 + 2/3*(x1-x2), y2 + 2/3*(y1-y2)}
+	cp3 := point{x2, y2}
+	return [3]point{cp1, cp2, cp3}
+}
 
 // pathParser is used to parse SVG format path strings into a Path
 type pathParser struct {
 	path []pathItem // currently parsed
 
 	points                 []Fl
-	placeX, placeY         Fl
-	curX, curY             Fl
+	currentX, currentY     Fl // current position after the last drawing operation
 	cntlPtX, cntlPtY       Fl
 	pathStartX, pathStartY Fl
 	lastKey                uint8
@@ -45,8 +71,8 @@ type pathParser struct {
 }
 
 func (c *pathParser) reset() {
-	c.placeX = 0
-	c.placeY = 0
+	c.currentX = 0
+	c.currentY = 0
 	c.points = c.points[0:0]
 	c.lastKey = ' '
 	c.path = c.path[:0]
@@ -79,25 +105,25 @@ func (c *pathParser) parsePath(svgPath string) ([]pathItem, error) {
 }
 
 func (c *pathParser) close() {
-	c.path = append(c.path, pathItem{op: close})
+	c.path = append(c.path, pathItem{op: lineTo, args: [3]point{{c.pathStartX, c.pathStartY}}})
 }
 
 func (c *pathParser) moveTo(x, y Fl) {
-	c.path = append(c.path, pathItem{op: moveTo, args: [3][2]Fl{{x, y}}})
+	c.path = append(c.path, pathItem{op: moveTo, args: [3]point{{x, y}}})
 }
 
 func (c *pathParser) lineTo(x, y Fl) {
-	c.path = append(c.path, pathItem{op: lineTo, args: [3][2]Fl{{x, y}}})
+	c.path = append(c.path, pathItem{op: lineTo, args: [3]point{{x, y}}})
 }
 
+// also update the current point
 func (c *pathParser) quadTo(x1, y1, x2, y2 Fl) {
-	c.path = append(c.path, pathItem{op: quadTo, args: [3][2]Fl{
-		{x1, y1}, {x2, y2},
-	}})
+	c.path = append(c.path, pathItem{op: cubicTo, args: quadraticToCubic(c.currentX, c.currentY, x1, y1, x2, y2)})
+	c.currentX, c.currentY = x2, y2
 }
 
 func (c *pathParser) cubicTo(x1, y1, x2, y2, x3, y3 Fl) {
-	c.path = append(c.path, pathItem{op: cubicTo, args: [3][2]Fl{
+	c.path = append(c.path, pathItem{op: cubicTo, args: [3]point{
 		{x1, y1}, {x2, y2}, {x3, y3},
 	}})
 }
@@ -114,8 +140,8 @@ func (c *pathParser) valsToAbs(last Fl) {
 }
 
 func (c *pathParser) pointsToAbs(sz int) {
-	lastX := c.placeX
-	lastY := c.placeY
+	lastX := c.currentX
+	lastY := c.currentY
 	for j := 0; j < len(c.points); j += sz {
 		for i := 0; i < sz; i += 2 {
 			c.points[i+j] += lastX
@@ -147,18 +173,18 @@ func (c *pathParser) getPoints(dataPoints []byte) (err error) {
 func (c *pathParser) reflectControlQuad() {
 	switch c.lastKey {
 	case 'q', 'Q', 'T', 't':
-		c.cntlPtX, c.cntlPtY = reflection(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
+		c.cntlPtX, c.cntlPtY = reflection(c.currentX, c.currentY, c.cntlPtX, c.cntlPtY)
 	default:
-		c.cntlPtX, c.cntlPtY = c.placeX, c.placeY
+		c.cntlPtX, c.cntlPtY = c.currentX, c.currentY
 	}
 }
 
 func (c *pathParser) reflectControlCube() {
 	switch c.lastKey {
 	case 'c', 'C', 's', 'S':
-		c.cntlPtX, c.cntlPtY = reflection(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
+		c.cntlPtX, c.cntlPtY = reflection(c.currentX, c.currentY, c.cntlPtX, c.cntlPtY)
 	default:
-		c.cntlPtX, c.cntlPtY = c.placeX, c.placeY
+		c.cntlPtX, c.cntlPtY = c.currentX, c.currentY
 	}
 }
 
@@ -181,8 +207,8 @@ func (c *pathParser) addSeg(segString []byte) error {
 		}
 		if c.inPath {
 			c.close()
-			c.placeX = c.pathStartX
-			c.placeY = c.pathStartY
+			c.currentX = c.pathStartX
+			c.currentY = c.pathStartY
 			c.inPath = false
 		}
 	case 'm':
@@ -194,12 +220,12 @@ func (c *pathParser) addSeg(segString []byte) error {
 		}
 		c.pathStartX, c.pathStartY = c.points[0], c.points[1]
 		c.inPath = true
-		c.moveTo(c.pathStartX+c.curX, c.pathStartY+c.curY)
+		c.moveTo(c.pathStartX, c.pathStartY)
 		for i := 2; i < l-1; i += 2 {
-			c.lineTo(c.points[i]+c.curX, c.points[i+1]+c.curY)
+			c.lineTo(c.points[i], c.points[i+1])
 		}
-		c.placeX = c.points[l-2]
-		c.placeY = c.points[l-1]
+		c.currentX = c.points[l-2]
+		c.currentY = c.points[l-1]
 	case 'l':
 		rel = true
 		fallthrough
@@ -208,32 +234,32 @@ func (c *pathParser) addSeg(segString []byte) error {
 			return errParamMismatch
 		}
 		for i := 0; i < l-1; i += 2 {
-			c.lineTo(c.points[i]+c.curX, c.points[i+1]+c.curY)
+			c.lineTo(c.points[i], c.points[i+1])
 		}
-		c.placeX = c.points[l-2]
-		c.placeY = c.points[l-1]
+		c.currentX = c.points[l-2]
+		c.currentY = c.points[l-1]
 	case 'v':
-		c.valsToAbs(c.placeY)
+		c.valsToAbs(c.currentY)
 		fallthrough
 	case 'V':
 		if !c.hasSetsOrMore(1, false) {
 			return errParamMismatch
 		}
 		for _, p := range c.points {
-			c.lineTo(c.placeX+c.curX, p+c.curY)
+			c.lineTo(c.currentX, p)
 		}
-		c.placeY = c.points[l-1]
+		c.currentY = c.points[l-1]
 	case 'h':
-		c.valsToAbs(c.placeX)
+		c.valsToAbs(c.currentX)
 		fallthrough
 	case 'H':
 		if !c.hasSetsOrMore(1, false) {
 			return errParamMismatch
 		}
 		for _, p := range c.points {
-			c.lineTo(p+c.curX, c.placeY+c.curY)
+			c.lineTo(p, c.currentY)
 		}
-		c.placeX = c.points[l-1]
+		c.currentX = c.points[l-1]
 	case 'q':
 		rel = true
 		fallthrough
@@ -243,13 +269,13 @@ func (c *pathParser) addSeg(segString []byte) error {
 		}
 		for i := 0; i < l-3; i += 4 {
 			c.quadTo(
-				c.points[i]+c.curX, c.points[i+1]+c.curY,
-				c.points[i+2]+c.curX, c.points[i+3]+c.curY,
+				c.points[i], c.points[i+1],
+				c.points[i+2], c.points[i+3],
 			)
 		}
 		c.cntlPtX, c.cntlPtY = c.points[l-4], c.points[l-3]
-		c.placeX = c.points[l-2]
-		c.placeY = c.points[l-1]
+		c.currentX = c.points[l-2]
+		c.currentY = c.points[l-1]
 	case 't':
 		rel = true
 		fallthrough
@@ -260,12 +286,10 @@ func (c *pathParser) addSeg(segString []byte) error {
 		for i := 0; i < l-1; i += 2 {
 			c.reflectControlQuad()
 			c.quadTo(
-				c.cntlPtX+c.curX, c.cntlPtY+c.curY,
-				c.points[i]+c.curX, c.points[i+1]+c.curY,
+				c.cntlPtX, c.cntlPtY,
+				c.points[i], c.points[i+1],
 			)
 			c.lastKey = k
-			c.placeX = c.points[i]
-			c.placeY = c.points[i+1]
 		}
 	case 'c':
 		rel = true
@@ -276,14 +300,14 @@ func (c *pathParser) addSeg(segString []byte) error {
 		}
 		for i := 0; i < l-5; i += 6 {
 			c.cubicTo(
-				c.points[i]+c.curX, c.points[i+1]+c.curY,
-				c.points[i+2]+c.curX, c.points[i+3]+c.curY,
-				c.points[i+4]+c.curX, c.points[i+5]+c.curY,
+				c.points[i], c.points[i+1],
+				c.points[i+2], c.points[i+3],
+				c.points[i+4], c.points[i+5],
 			)
 		}
 		c.cntlPtX, c.cntlPtY = c.points[l-4], c.points[l-3]
-		c.placeX = c.points[l-2]
-		c.placeY = c.points[l-1]
+		c.currentX = c.points[l-2]
+		c.currentY = c.points[l-1]
 	case 's':
 		rel = true
 		fallthrough
@@ -294,14 +318,14 @@ func (c *pathParser) addSeg(segString []byte) error {
 		for i := 0; i < l-3; i += 4 {
 			c.reflectControlCube()
 			c.cubicTo(
-				c.cntlPtX+c.curX, c.cntlPtY+c.curY,
-				c.points[i]+c.curX, c.points[i+1]+c.curY,
-				c.points[i+2]+c.curX, c.points[i+3]+c.curY,
+				c.cntlPtX, c.cntlPtY,
+				c.points[i], c.points[i+1],
+				c.points[i+2], c.points[i+3],
 			)
 			c.lastKey = k
 			c.cntlPtX, c.cntlPtY = c.points[i], c.points[i+1]
-			c.placeX = c.points[i+2]
-			c.placeY = c.points[i+3]
+			c.currentX = c.points[i+2]
+			c.currentY = c.points[i+3]
 		}
 	case 'a', 'A':
 		if !c.hasSetsOrMore(7, false) {
@@ -309,8 +333,8 @@ func (c *pathParser) addSeg(segString []byte) error {
 		}
 		for i := 0; i < l-6; i += 7 {
 			if k == 'a' {
-				c.points[i+5] += c.placeX
-				c.points[i+6] += c.placeY
+				c.points[i+5] += c.currentX
+				c.points[i+6] += c.currentY
 			}
 			c.addArcFromA(c.points[i:])
 		}
@@ -336,11 +360,11 @@ func (c *pathParser) addSeg(segString []byte) error {
 // addArcFromA adds a path of an arc element to the cursor path to the pathCursor
 func (c *pathParser) addArcFromA(points []Fl) {
 	ra, rb := float64(points[0]), float64(points[1])
-	cx, cy := findEllipseCenter(&ra, &rb, float64(points[2])*math.Pi/180, float64(c.placeX),
-		float64(c.placeY), float64(points[5]), float64(points[6]), points[4] == 0, points[3] == 0)
+	cx, cy := findEllipseCenter(&ra, &rb, float64(points[2])*math.Pi/180, float64(c.currentX),
+		float64(c.currentY), float64(points[5]), float64(points[6]), points[4] == 0, points[3] == 0)
 	points[0], points[1] = Fl(ra), Fl(rb)
 
-	c.placeX, c.placeY = c.addArc(c.points, Fl(cx)+c.curX, Fl(cy)+c.curY, c.placeX+c.curX, c.placeY+c.curY)
+	c.currentX, c.currentY = c.addArc(c.points, Fl(cx), Fl(cy), c.currentX, c.currentY)
 }
 
 // addArc adds an arc to the adder p
