@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/backend"
+	"github.com/benoitkugler/go-weasyprint/matrix"
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
@@ -406,4 +407,56 @@ func newMask(node *cascadedNode, children []*svgNode) (mask, error) {
 		out.height = value{120, Perc} // 120%
 	}
 	return out, err
+}
+
+// transformation matrices
+
+type transformKind uint8
+
+const (
+	_                transformKind = iota
+	rotate                         // 1 argument
+	rotateWithOrigin               // 3 arguments
+	translate                      // 2 arguments
+	skew                           // 2 argument
+	scale                          // 2 arguments
+	customMatrix                   // 6 arguments
+)
+
+type transform struct {
+	kind transformKind
+	args [6]value // the actual number of arguments depends on kind
+}
+
+// right multiply `mat` to apply the transformation, after resolving units
+func (tr transform) applyTo(mat *matrix.Transform, dims drawingDims) {
+	switch tr.kind {
+	case rotate:
+		angle := dims.length(tr.args[0])
+		mat.RightMult(matrix.Rotation(angle * math.Pi / 180))
+	case rotateWithOrigin:
+		x, y := dims.length(tr.args[1]), dims.length(tr.args[2])
+		angle := dims.length(tr.args[0])
+		mat.RightMult(matrix.Translation(x, y))
+		mat.RightMult(matrix.Rotation(angle * math.Pi / 180))
+		mat.RightMult(matrix.Translation(-x, -y))
+	case translate:
+		x, y := dims.length(tr.args[0]), dims.length(tr.args[1])
+		mat.RightMult(matrix.Translation(x, y))
+	case skew:
+		thetaX, thetaY := dims.length(tr.args[0]), dims.length(tr.args[1])
+		mat.RightMult(matrix.Skew(thetaX*math.Pi/180, thetaY*math.Pi/180))
+	case scale:
+		sx, sy := dims.length(tr.args[0]), dims.length(tr.args[1])
+		mat.RightMult(matrix.Scaling(sx, sy))
+	case customMatrix:
+		mat.RightMult(matrix.New(
+			dims.length(tr.args[0]),
+			dims.length(tr.args[1]),
+			dims.length(tr.args[2]),
+			dims.length(tr.args[3]),
+			dims.length(tr.args[4]),
+			dims.length(tr.args[5]),
+		))
+	}
 }

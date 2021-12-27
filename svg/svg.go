@@ -78,8 +78,7 @@ func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims dra
 		dst = dst.AddOpacityGroup(x, y, width, height)
 	}
 
-	// TODO: apply transform attribute
-	// self.transform(node.get('transform'), font_size)
+	applyTransform(dst, node.attributes.transforms, dims)
 
 	// clip
 	if cp, has := svg.definitions.clipPaths[node.clipPathID]; has {
@@ -115,6 +114,21 @@ func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims dra
 
 	// if fill_stroke:
 	// self.stream.pop_state()
+}
+
+func applyTransform(dst backend.GraphicTarget, transforms []transform, dims drawingDims) {
+	if len(transforms) == 0 { // do not apply a useless identity transform
+		return
+	}
+
+	// aggregate the transformations
+	mat := matrix.Identity()
+	for _, transform := range transforms {
+		transform.applyTo(&mat, dims)
+	}
+	if mat.Determinant() != 0 {
+		dst.Transform(mat)
+	}
 }
 
 func applyFilters(dst backend.GraphicTarget, filters []filter, node *svgNode, dims drawingDims) {
@@ -281,9 +295,11 @@ type box struct {
 // attributes stores the SVG attributes
 // shared by all node types.
 type attributes struct {
-	transform, clipPathID, maskID, filterID   string
+	clipPathID, maskID, filterID              string
 	marker, markerStart, markerMid, markerEnd string
 	stroke                                    string
+
+	transforms []transform
 
 	fontSize    value
 	strokeWidth value
@@ -405,7 +421,11 @@ func (na nodeAttributes) parseCommonAttributes(out *attributes) error {
 	if err != nil {
 		return err
 	}
-	out.transform = na["transform"]
+	out.transforms, err = parseTransform(na["transform"])
+	if err != nil {
+		return err
+	}
+
 	out.stroke = na["stroke"] // TODO: preprocess
 	out.filterID = parseURLFragment(na["filter"])
 	out.clipPathID = parseURLFragment(na["clip-path"])

@@ -116,7 +116,7 @@ func (na nodeAttributes) visible() bool {
 
 func (na nodeAttributes) strokeDasharray() ([]value, error) {
 	attrValue := na["stroke-dasharray"]
-	return parseFloatList(attrValue)
+	return parseValues(attrValue)
 }
 
 func (na nodeAttributes) strokeDashoffset() (value, error) {

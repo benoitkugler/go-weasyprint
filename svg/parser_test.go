@@ -62,7 +62,7 @@ func Test_parseFloatList(t *testing.T) {
 		{"7px 8% 10px 72pt", []value{{7, Px}, {8, Perc}, {10, Px}, {72, Pt}}, false},
 	}
 	for _, tt := range tests {
-		gotPoints, err := parseFloatList(tt.args)
+		gotPoints, err := parseValues(tt.args)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("parseFloatList() error = %v, wantErr %v", err, tt.wantErr)
 			return
@@ -151,4 +151,69 @@ func Test_parseNodeAttributes(t *testing.T) {
 	attrs = stringToXMLArgs(`marker="url(#m1)" marker-mid="url(#m2)"`)
 	assertEqual(t, "m1", parseURLFragment(attrs["marker"]))
 	assertEqual(t, "m2", parseURLFragment(attrs["marker-mid"]))
+}
+
+func Test_parseTransform(t *testing.T) {
+	tests := []struct {
+		args    string
+		wantOut []transform
+		wantErr bool
+	}{
+		{
+			`rotate(-10 50 100)
+                translate(-36 45.5%)
+                skewX(40pt)
+                scale(1em 0.5)
+				matrix(1,2,3,4,5,6)
+				`,
+			[]transform{
+				{rotateWithOrigin, [6]value{
+					{-10, Px}, {50, Px}, {100, Px},
+				}},
+				{translate, [6]value{
+					{-36, Px}, {45.5, Perc},
+				}},
+				{skew, [6]value{
+					{40, Pt},
+				}},
+				{scale, [6]value{
+					{1, Em}, {0.5, Px},
+				}},
+				{customMatrix, [6]value{
+					{1, Px}, {2, Px}, {3, Px}, {4, Px}, {5, Px}, {6, Px},
+				}},
+			},
+			false,
+		},
+		{
+			`rotate(50 100)`,
+			nil,
+			true,
+		},
+		{
+			`scale(20 50 100)`,
+			nil,
+			true,
+		},
+		{
+			`translate(20 50 100)`,
+			nil,
+			true,
+		},
+		{
+			` `,
+			nil,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		gotOut, err := parseTransform(tt.args)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("parseTransform() error = %v, wantErr %v", err, tt.wantErr)
+			return
+		}
+		if !reflect.DeepEqual(gotOut, tt.wantOut) {
+			t.Errorf("parseTransform() = %v, want %v", gotOut, tt.wantOut)
+		}
+	}
 }

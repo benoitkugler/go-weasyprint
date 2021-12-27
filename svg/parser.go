@@ -210,9 +210,9 @@ func parsePoints(dataPoints string, points []Fl) ([]Fl, error) {
 	return points, nil
 }
 
-// parseFloatList reads a list of whitespace or comma-separated list of value,
+// parseValues reads a list of whitespace or comma-separated list of value,
 // with units.
-func parseFloatList(dataPoints string) (points []value, err error) {
+func parseValues(dataPoints string) (points []value, err error) {
 	fields := strings.FieldsFunc(dataPoints, func(r rune) bool { return r == ' ' || r == ',' })
 	points = make([]value, len(fields))
 	for i, v := range fields {
@@ -257,3 +257,170 @@ func parseViewbox(attr string) (Rectangle, error) {
 	}
 	return Rectangle{points[0], points[1], points[2], points[3]}, nil
 }
+
+func parseTransform(attr string) (out []transform, err error) {
+	ts := strings.Split(attr, ")")
+	for _, t := range ts {
+		t = strings.TrimSpace(t)
+		if len(t) == 0 {
+			continue
+		}
+
+		d := strings.Split(t, "(")
+		if len(d) != 2 || d[1] == "" {
+			return nil, errParamMismatch // badly formed transformation
+		}
+		points, err := parseValues(d[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid transform: %s", err)
+		}
+
+		transformKind := strings.ToLower(strings.TrimSpace(d[0]))
+		L := len(points)
+		var tr transform
+		copy(tr.args[:], points)
+
+		switch transformKind {
+		case "rotate":
+			if L == 1 {
+				tr.kind = rotate
+			} else if L == 3 {
+				tr.kind = rotateWithOrigin
+			} else {
+				return nil, errParamMismatch
+			}
+		case "translate":
+			if L == 1 {
+				tr.args[1] = value{0, Px}
+				tr.kind = translate
+			} else if L == 2 {
+				tr.kind = translate
+			} else {
+				return nil, errParamMismatch
+			}
+		case "skew":
+			if L == 2 {
+				tr.kind = skew
+			} else {
+				return nil, errParamMismatch
+			}
+		case "skewx":
+			if L == 1 {
+				tr.kind = skew
+			} else {
+				return nil, errParamMismatch
+			}
+		case "skewy":
+			if L == 1 {
+				tr.kind = skew
+				tr.args[1] = tr.args[0]
+				tr.args[0] = value{0, Px}
+			} else {
+				return nil, errParamMismatch
+			}
+		case "scale":
+			if L == 1 {
+				tr.args[1] = value{0, Px}
+				tr.kind = scale
+			} else if L == 2 {
+				tr.kind = scale
+			} else {
+				return nil, errParamMismatch
+			}
+		case "matrix":
+			if L == 6 {
+				tr.kind = customMatrix
+			} else {
+				return nil, errParamMismatch
+			}
+		default:
+			return nil, errParamMismatch
+		}
+
+		out = append(out, tr)
+
+	}
+
+	return out, nil
+}
+
+// func parseTransform(attr string) (matrix.Transform, error) {
+// 	mat := matrix.Identity()
+// 	ts := strings.Split(attr, ")")
+// 	for _, t := range ts {
+// 		t = strings.TrimSpace(t)
+// 		if len(t) == 0 {
+// 			continue
+// 		}
+
+// 		d := strings.Split(t, "(")
+// 		if len(d) != 2 || d[1] == "" {
+// 			return mat, errParamMismatch // badly formed transformation
+// 		}
+// 		points, err := parseValues(d[1])
+// 		if err != nil {
+// 			return mat, err
+// 		}
+
+// 		transformKind := strings.ToLower(strings.TrimSpace(d[0]))
+// 		L := len(points)
+// 		switch transformKind {
+// 		case "rotate":
+// 			if L == 1 {
+// 				m1 = m1.Rotate(points[0] * math.Pi / 180)
+// 			} else if L == 3 {
+// 				m1 = m1.Translate(points[1], points[2]).
+// 					Rotate(points[0]*math.Pi/180).
+// 					Translate(-points[1], -points[2])
+// 			} else {
+// 				return nil, errParamMismatch
+// 			}
+// 		case "translate":
+// 			if L == 1 {
+// 				m1 = m1.Translate(points[0], 0)
+// 			} else if L == 2 {
+// 				m1 = m1.Translate(points[0], points[1])
+// 			} else {
+// 				return nil, errParamMismatch
+// 			}
+// 		case "skewx":
+// 			if L == 1 {
+// 				m1 = m1.SkewX(points[0] * math.Pi / 180)
+// 			} else {
+// 				return nil, errParamMismatch
+// 			}
+// 		case "skewy":
+// 			if L == 1 {
+// 				m1 = m1.SkewY(points[0] * math.Pi / 180)
+// 			} else {
+// 				return nil, errParamMismatch
+// 			}
+// 		case "scale":
+// 			if L == 1 {
+// 				m1 = m1.Scale(points[0], 0)
+// 			} else if L == 2 {
+// 				m1 = m1.Scale(points[0], points[1])
+// 			} else {
+// 				return nil, errParamMismatch
+// 			}
+// 		case "matrix":
+// 			if L == 6 {
+// 				m1 = m1.Mult(Matrix2D{
+// 					A: points[0],
+// 					B: points[1],
+// 					C: points[2],
+// 					D: points[3],
+// 					E: points[4],
+// 					F: points[5],
+// 				})
+// 			} else {
+// 				return nil, errParamMismatch
+// 			}
+// 		default:
+// 			return nil, errParamMismatch
+// 		}
+// 		return m1, nil
+
+// 	}
+// 	return m1, nil
+// }
