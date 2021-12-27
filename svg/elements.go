@@ -312,6 +312,8 @@ func (img image) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
 	log.Println("nested image are not supported")
 }
 
+// definitions
+
 type filter interface {
 	isFilter()
 }
@@ -355,4 +357,53 @@ func newFilter(node *cascadedNode) (out []filter, err error) {
 	}
 
 	return out, nil
+}
+
+// clipPath is a container for
+// graphic nodes, which will use as clipping path,
+// that is drawn but not stroked nor filled.
+type clipPath struct {
+	children    []*svgNode
+	isUnitsBBox bool
+}
+
+func newClipPath(node *cascadedNode, children []*svgNode) clipPath {
+	return clipPath{
+		children:    children,
+		isUnitsBBox: node.attrs["clipPathUnits"] == "objectBoundingBox",
+	}
+}
+
+// mask is a container for shape that will
+// be used as an alpha mask
+type mask struct {
+	svgNode
+	isUnitsBBox bool
+}
+
+func newMask(node *cascadedNode, children []*svgNode) (mask, error) {
+	out := mask{
+		svgNode: svgNode{
+			children: children,
+		},
+		isUnitsBBox: node.attrs["maskUnits"] == "objectBoundingBox",
+	}
+	err := node.attrs.parseCommonAttributes(&out.svgNode.attributes)
+	if err != nil {
+		return mask{}, err
+	}
+	// default values
+	if out.x.u == 0 {
+		out.x = value{-10, Perc} // -10%
+	}
+	if out.y.u == 0 {
+		out.y = value{-10, Perc} // -10%
+	}
+	if out.width.u == 0 {
+		out.width = value{120, Perc} // 120%
+	}
+	if out.height.u == 0 {
+		out.height = value{120, Perc} // 120%
+	}
+	return out, err
 }

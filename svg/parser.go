@@ -21,7 +21,8 @@ type unit uint8
 
 // Units supported.
 const (
-	Px unit = iota
+	_ unit = iota
+	Px
 	Cm
 	Mm
 	Pt
@@ -54,6 +55,7 @@ type value struct {
 
 // look for an absolute unit, or nothing (considered as pixels)
 // % is also supported
+// it returns an empty value when 's' is empty
 func parseValue(s string) (value, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -62,6 +64,9 @@ func parseValue(s string) (value, error) {
 
 	resolvedUnit := Px
 	for u, suffix := range units {
+		if u == 0 {
+			continue
+		}
 		if strings.HasSuffix(s, suffix) {
 			s = strings.TrimSpace(strings.TrimSuffix(s, suffix))
 			resolvedUnit = unit(u)
@@ -76,6 +81,8 @@ func parseValue(s string) (value, error) {
 // relative units
 func (v value) resolve(fontSize, percentageReference Fl) Fl {
 	switch v.u {
+	case Px: // fast path for a common case
+		return v.v
 	case Perc:
 		return v.v * percentageReference / 100
 	case Em:

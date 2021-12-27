@@ -19,12 +19,16 @@ import (
 // nodes that are not directly draw but may be referenced
 // from other nodes
 type definitions struct {
-	filters map[string][]filter
+	filters   map[string][]filter
+	clipPaths map[string]clipPath
+	masks     map[string]mask
 }
 
 func newDefinitions() definitions {
 	return definitions{
-		filters: make(map[string][]filter),
+		filters:   make(map[string][]filter),
+		clipPaths: make(map[string]clipPath),
+		masks:     make(map[string]mask),
 	}
 }
 
@@ -74,8 +78,34 @@ func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims dra
 		dst = dst.AddOpacityGroup(x, y, width, height)
 	}
 
-	// apply transform attribute
+	// TODO: apply transform attribute
 	// self.transform(node.get('transform'), font_size)
+
+	// clip
+	if cp, has := svg.definitions.clipPaths[node.clipPathID]; has {
+		applyClipPath(dst, cp, node, dims)
+	}
+
+	// manage display and visibility
+	display := node.attributes.display
+	visible := node.attributes.visible
+
+	// draw the node itself.
+	if visible && node.content != nil {
+		node.content.draw(dst, &node.attributes, dims)
+	}
+
+	// then recurse
+	if display {
+		for _, child := range node.children {
+			svg.drawNode(dst, child, dims, fillStroke)
+		}
+	}
+
+	// apply mask
+	if ma, has := svg.definitions.masks[node.maskID]; has {
+		applyMask(dst, ma, node, dims)
+	}
 
 	// apply opacity group and restore original target
 	if fillStroke && 0 <= opacity && opacity < 1 {
@@ -105,6 +135,74 @@ func applyFilters(dst backend.GraphicTarget, filters []filter, node *svgNode, di
 			log.Println("blend filter not implemented")
 		}
 	}
+}
+
+func applyClipPath(dst backend.GraphicTarget, clipPath clipPath, node *svgNode, dims drawingDims) {
+	// old_ctm = self.stream.ctm
+	if clipPath.isUnitsBBox {
+		x, y := dims.point(node.attributes.x, node.attributes.y)
+		width, height := dims.point(node.attributes.width, node.attributes.height)
+		dst.Transform(matrix.New(width, 0, 0, height, x, y))
+	}
+
+	// FIXME:
+	log.Println("applying clip path is not supported")
+	// clip_path._etree_node.tag = 'g'
+	// self.draw_node(clip_path, font_size, fill_stroke=False)
+
+	// At least set the clipping area to an empty path, so that it’s
+	// totally clipped when the clipping path is empty.
+	dst.Rectangle(0, 0, 0, 0)
+	dst.Clip(false)
+	// new_ctm = self.stream.ctm
+	// if new_ctm.determinant:
+	//     self.stream.transform(*(old_ctm @ new_ctm.invert).values)
+}
+
+func applyMask(dst backend.GraphicTarget, mask mask, node *svgNode, dims drawingDims) {
+	// mask._etree_node.tag = 'g'
+
+	widthRef, heightRef := dims.innerWidth, dims.innerHeight
+	if mask.isUnitsBBox {
+		widthRef, heightRef = dims.point(node.width, node.height)
+	}
+
+	x := mask.x.resolve(dims.fontSize, widthRef)
+	y := mask.y.resolve(dims.fontSize, heightRef)
+	width := mask.width.resolve(dims.fontSize, widthRef)
+	height := mask.height.resolve(dims.fontSize, heightRef)
+
+	mask.x = value{x, Px}
+	mask.y = value{y, Px}
+	mask.width = value{width, Px}
+	mask.height = value{height, Px}
+
+	if mask.isUnitsBBox {
+		x, y, width, height = 0, 0, widthRef, heightRef
+	} else {
+		// TODO: update viewbox if needed
+		//     mask.attrib['viewBox'] = f'{x} {y} {width} {height}'
+	}
+
+	// FIXME:
+	log.Println("mask not implemented")
+	// alpha_stream = svg.stream.add_group([x, y, width, height])
+	// state = pydyf.Dictionary({
+	//     'Type': '/ExtGState',
+	//     'SMask': pydyf.Dictionary({
+	//         'Type': '/Mask',
+	//         'S': '/Luminance',
+	//         'G': alpha_stream,
+	//     }),
+	//     'ca': 1,
+	//     'AIS': 'false',
+	// })
+	// svg.stream.set_state(state)
+
+	// svg_stream = svg.stream
+	// svg.stream = alpha_stream
+	// svg.draw_node(mask, font_size)
+	// svg.stream = svg_stream
 }
 
 // ImageLoader is used to resolve and process image url found in SVG files.
@@ -176,17 +274,21 @@ func (dims drawingDims) length(length value) Fl {
 	return length.resolve(dims.fontSize, dims.innerDiagonal)
 }
 
+type box struct {
+	x, y, width, height value
+}
+
 // attributes stores the SVG attributes
 // shared by all node types.
 type attributes struct {
-	transform, clipPath, mask, filterID       string
+	transform, clipPathID, maskID, filterID   string
 	marker, markerStart, markerMid, markerEnd string
 	stroke                                    string
 
 	fontSize    value
 	strokeWidth value
 
-	x, y, width, height value
+	box
 
 	opacity Fl // default to 1
 
@@ -211,29 +313,41 @@ func (tree *svgContext) postProcess() (*SVGImage, error) {
 }
 
 func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgNode, error) {
-	var out svgNode
-
-	out.children = make([]*svgNode, len(node.children))
+	children := make([]*svgNode, len(node.children))
 	for i, c := range node.children {
 		var err error
-		out.children[i], err = tree.processNode(c, defs)
+		children[i], err = tree.processNode(c, defs)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// actual processing of the node, with the following cases
+	//	- node used as definition, extracted from the svg tree
 	//	- graphic element to display -> elementBuilders
-	//	- node used as definition
+
+	id := node.attrs["id"]
 	switch node.tag {
 	case "filter":
 		filters, err := newFilter(node)
 		if err != nil {
 			return nil, err
 		}
-		defs.filters[node.attrs["id"]] = filters
+		defs.filters[id] = filters
+		return nil, nil
+	case "clipPath":
+		defs.clipPaths[id] = newClipPath(node, children)
+		return nil, nil
+	case "mask":
+		ma, err := newMask(node, children)
+		if err != nil {
+			return nil, err
+		}
+		defs.masks[id] = ma
+		return nil, nil
 	}
 
+	out := svgNode{children: children}
 	builder := elementBuilders[node.tag]
 	if builder == nil {
 		// this node is not drawn, return early
@@ -253,31 +367,7 @@ func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgN
 	return &out, nil
 }
 
-func (na nodeAttributes) parseCommonAttributes(out *attributes) error {
-	var err error
-	out.fontSize, err = na.fontSize()
-	if err != nil {
-		return err
-	}
-	out.strokeWidth, err = na.strokeWidth()
-	if err != nil {
-		return err
-	}
-	out.opacity, err = na.opacity()
-	if err != nil {
-		return err
-	}
-	out.transform = na["transform"]
-	out.stroke = na["stroke"] // TODO: preprocess
-	out.filterID = parseURLFragment(na["filter"])
-	out.clipPath = parseURLFragment(na["clip-path"])
-	out.mask = parseURLFragment(na["mask"])
-
-	out.marker = parseURLFragment(na["marker"])
-	out.markerStart = parseURLFragment(na["marker-start"])
-	out.markerMid = parseURLFragment(na["marker-mid"])
-	out.markerEnd = parseURLFragment(na["marker-end"])
-
+func (na nodeAttributes) parseBox(out *box) (err error) {
 	out.x, err = parseValue(na["x"])
 	if err != nil {
 		return err
@@ -294,6 +384,37 @@ func (na nodeAttributes) parseCommonAttributes(out *attributes) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (na nodeAttributes) parseCommonAttributes(out *attributes) error {
+	err := na.parseBox(&out.box)
+	if err != nil {
+		return err
+	}
+	out.fontSize, err = na.fontSize()
+	if err != nil {
+		return err
+	}
+	out.strokeWidth, err = na.strokeWidth()
+	if err != nil {
+		return err
+	}
+	out.opacity, err = na.opacity()
+	if err != nil {
+		return err
+	}
+	out.transform = na["transform"]
+	out.stroke = na["stroke"] // TODO: preprocess
+	out.filterID = parseURLFragment(na["filter"])
+	out.clipPathID = parseURLFragment(na["clip-path"])
+	out.maskID = parseURLFragment(na["mask"])
+
+	out.marker = parseURLFragment(na["marker"])
+	out.markerStart = parseURLFragment(na["marker-start"])
+	out.markerMid = parseURLFragment(na["marker-mid"])
+	out.markerEnd = parseURLFragment(na["marker-end"])
 
 	out.display = na.display()
 	out.visible = na.visible()
