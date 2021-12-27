@@ -24,6 +24,7 @@ func New(a, b, c, d, e, f fl) Transform {
 	return Transform{a: a, b: b, c: c, d: d, e: e, f: f}
 }
 
+// Identity returns a new matrix initialized to the identity.
 func Identity() Transform {
 	return New(1, 0, 0, 1, 0, 0)
 }
@@ -32,18 +33,6 @@ func Identity() Transform {
 // non zero if and only if the transformation is reversible.
 func (t Transform) Determinant() fl {
 	return t.a*t.d - t.b*t.c
-}
-
-func Translation(tx, ty fl) Transform {
-	mt := Identity()
-	mt.Translate(tx, ty)
-	return mt
-}
-
-func Scaling(sx, sy fl) Transform {
-	mt := Identity()
-	mt.Scale(sx, sy)
-	return mt
 }
 
 // Copy() method returns a copy of M
@@ -71,6 +60,12 @@ func Mul(T, U Transform) Transform {
 	out := Transform{}
 	mult(T, U, &out)
 	return out
+}
+
+// Mult update T in place with the result of U * T
+func (T *Transform) RightMult(U Transform) {
+	tmp := *T
+	mult(U, tmp, T)
 }
 
 // Mult update T in place with the result of T * U
@@ -114,6 +109,14 @@ func (T *Transform) Translate(tx, ty fl) {
 	T.e, T.f = T.TransformPoint(tx, ty)
 }
 
+func Translation(tx, ty fl) Transform {
+	return Transform{1, 0, 0, 1, tx, ty}
+}
+
+func Scaling(sx, sy fl) Transform {
+	return Transform{sx, 0, 0, sy, 0, 0}
+}
+
 // Applies scaling by `sx`, `sy`
 // to the transformation in this matrix.
 //
@@ -123,7 +126,7 @@ func (T *Transform) Translate(tx, ty fl) {
 //
 // This changes the matrix in-place.
 func (T *Transform) Scale(sx, sy fl) {
-	mult(*T, Transform{sx, 0, 0, sy, 0, 0}, T)
+	mult(*T, Scaling(sx, sy), T)
 }
 
 // Applies a rotation by `radians`
@@ -133,19 +136,29 @@ func (T *Transform) Scale(sx, sy fl) {
 // first rotate the coordinates by `radians`,
 // then apply the original transformation to the coordinates.
 //
-// 	This changes the matrix in-place.
+// This changes the matrix in-place.
+func (T *Transform) Rotate(radians fl) {
+	mult(*T, Rotation(radians), T)
+}
+
+// Rotation returns a rotation.
 //
 // `radians` is the angle of rotation, in radians.
-// 	The direction of rotation is defined such that positive angles
-// 	rotate in the direction from the positive X axis
-// 	toward the positive Y axis.
-func (T *Transform) Rotate(radians fl) {
+// The direction of rotation is defined such that positive angles
+// rotate in the direction from the positive X axis
+// toward the positive Y axis.
+func Rotation(radians fl) Transform {
 	cos, sin := fl(math.Cos(float64(radians))), fl(math.Sin(float64(radians)))
-	mult(*T, Transform{cos, sin, -sin, cos, 0, 0}, T)
+	return Transform{cos, sin, -sin, cos, 0, 0}
+}
+
+// Skew returns a skew transformation
+func Skew(thetax, thetay fl) Transform {
+	b, c := fl(math.Tan(float64(thetax))), fl(math.Tan(float64(thetay)))
+	return Transform{1, b, c, 1, 0, 0}
 }
 
 // Skew applies a skew transformation
 func (T *Transform) Skew(thetax, thetay fl) {
-	b, c := fl(math.Tan(float64(thetax))), fl(math.Tan(float64(thetay)))
-	mult(*T, Transform{1, b, c, 1, 0, 0}, T)
+	mult(*T, Skew(thetax, thetay), T)
 }
