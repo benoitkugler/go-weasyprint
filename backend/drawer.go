@@ -1,7 +1,7 @@
 // Package backend defines a common interface, providing graphics primitives.
 //
 // It aims at supporting the operations defined in HTML and SVG files in an output-agnostic manner,
-// so that various output formats may be generated (raster image or PDF files for instance).
+// so that various output formats may be generated (GUI canvas, raster image or PDF files for instance).
 //
 // The types implementing this interface will be used to convert a document.Document to the final output,
 // or to draw an svg.SVGImage
