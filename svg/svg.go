@@ -19,16 +19,18 @@ import (
 // nodes that are not directly draw but may be referenced
 // from other nodes
 type definitions struct {
-	filters   map[string][]filter
-	clipPaths map[string]clipPath
-	masks     map[string]mask
+	filters      map[string][]filter
+	clipPaths    map[string]clipPath
+	masks        map[string]mask
+	paintServers map[string]paintServer
 }
 
 func newDefinitions() definitions {
 	return definitions{
-		filters:   make(map[string][]filter),
-		clipPaths: make(map[string]clipPath),
-		masks:     make(map[string]mask),
+		filters:      make(map[string][]filter),
+		clipPaths:    make(map[string]clipPath),
+		masks:        make(map[string]mask),
+		paintServers: make(map[string]paintServer),
 	}
 }
 
@@ -293,20 +295,25 @@ type box struct {
 }
 
 // attributes stores the SVG attributes
-// shared by all node types.
+// shared by all node types in the final rendering tree
 type attributes struct {
+	transforms []transform
+
 	clipPathID, maskID, filterID              string
 	marker, markerStart, markerMid, markerEnd string
-	stroke                                    string
 
-	transforms []transform
+	dashArray []value
+
+	stroke, fill painter
+
+	box
 
 	fontSize    value
 	strokeWidth value
 
-	box
+	dashOffset value
 
-	opacity Fl // default to 1
+	opacity, strokeOpacity, fillOpacity Fl // default to 1
 
 	display, visible bool
 }
@@ -360,6 +367,17 @@ func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgN
 			return nil, err
 		}
 		defs.masks[id] = ma
+		return nil, nil
+	case "linearGradient", "radialGradient":
+		grad, err := newGradient(node)
+		if err != nil {
+			return nil, err
+		}
+		defs.paintServers[id] = grad
+		return nil, nil
+	case "defs":
+		// children has been processed and registred,
+		// so we discard the node, which is not needed anymore
 		return nil, nil
 	}
 
@@ -417,16 +435,43 @@ func (na nodeAttributes) parseCommonAttributes(out *attributes) error {
 	if err != nil {
 		return err
 	}
-	out.opacity, err = na.opacity()
+
+	out.opacity, err = parseOpacity(na["opacity"])
 	if err != nil {
 		return err
 	}
+	out.strokeOpacity, err = parseOpacity(na["stroke-opacity"])
+	if err != nil {
+		return err
+	}
+	out.fillOpacity, err = parseOpacity(na["fill-opacity"])
+	if err != nil {
+		return err
+	}
+
 	out.transforms, err = parseTransform(na["transform"])
 	if err != nil {
 		return err
 	}
 
-	out.stroke = na["stroke"] // TODO: preprocess
+	out.stroke, err = newPainter(na["stroke"])
+	if err != nil {
+		return err
+	}
+	out.fill, err = newPainter(na["fill"])
+	if err != nil {
+		return err
+	}
+
+	out.dashOffset, err = parseValue(na["stroke-dashoffset"])
+	if err != nil {
+		return err
+	}
+	out.dashArray, err = parseValues(na["stroke-dasharray"])
+	if err != nil {
+		return err
+	}
+
 	out.filterID = parseURLFragment(na["filter"])
 	out.clipPathID = parseURLFragment(na["clip-path"])
 	out.maskID = parseURLFragment(na["mask"])

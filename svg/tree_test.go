@@ -145,14 +145,14 @@ func TestTrefs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(img.root.children) != 2 {
+	if len(img.root.children) != 3 {
 		t.Fatalf("unexpected children %v", img.root.children)
 	}
-	if t1 := img.root.children[0]; string(t1.text) != "Inline character data" {
+	if t1 := img.root.children[1]; string(t1.text) != "Inline character data" {
 		t.Fatalf("unexpected text %s", t1.text)
 	}
 
-	t2 := img.root.children[1]
+	t2 := img.root.children[2]
 	if len(t2.children) != 0 {
 		t.Fatalf("unexpected children %v", img.root.children)
 	}

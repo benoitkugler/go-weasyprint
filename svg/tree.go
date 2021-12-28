@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/benoitkugler/go-weasyprint/style/parser"
@@ -18,7 +17,7 @@ import (
 // svgContext is an intermediated representation of an SVG file,
 // where CSS has been applied, and text has been processed
 type svgContext struct {
-	defs map[string]*cascadedNode // TODO: replace by typed elements ?
+	defs map[string]*cascadedNode // TODO: replace by typed elements and delete field
 
 	root *cascadedNode // with tag svg
 
@@ -93,14 +92,6 @@ func (na nodeAttributes) markerHeight() (value, error) {
 func (na nodeAttributes) markerUnitsUserSpace() bool {
 	attrValue := na["markerUnits"]
 	return attrValue == "userSpaceOnUse"
-}
-
-func (na nodeAttributes) opacity() (Fl, error) {
-	if attrValue, has := na["opacity"]; has {
-		out, err := strconv.ParseFloat(attrValue, 32)
-		return Fl(out), err
-	}
-	return 1, nil
 }
 
 func (na nodeAttributes) display() bool {
@@ -250,12 +241,6 @@ func buildSVGTree(svg io.Reader, baseURL string) (*svgContext, error) {
 		// Fix text in text tags
 		if node.Data == "text" || node.Data == "textPath" || node.Data == "a" {
 			handleText(nodeSVG, true, true, trefs)
-		}
-
-		if node.Data == "defs" {
-			// defs children have been registered
-			// and defs elements are not used anymore
-			return nil
 		}
 
 		// register the node used as "defs"

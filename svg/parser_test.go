@@ -60,6 +60,8 @@ func Test_parseFloatList(t *testing.T) {
 		wantErr    bool
 	}{
 		{"7px 8% 10px 72pt", []value{{7, Px}, {8, Perc}, {10, Px}, {72, Pt}}, false},
+		{"", nil, false},
+		{"none", nil, false},
 	}
 	for _, tt := range tests {
 		gotPoints, err := parseValues(tt.args)

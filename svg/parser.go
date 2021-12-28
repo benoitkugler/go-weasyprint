@@ -54,7 +54,7 @@ type value struct {
 }
 
 // look for an absolute unit, or nothing (considered as pixels)
-// % is also supported
+// % is also supported.
 // it returns an empty value when 's' is empty
 func parseValue(s string) (value, error) {
 	s = strings.TrimSpace(s)
@@ -81,7 +81,7 @@ func parseValue(s string) (value, error) {
 // relative units
 func (v value) resolve(fontSize, percentageReference Fl) Fl {
 	switch v.u {
-	case Px: // fast path for a common case
+	case Px, 0: // fast path for a common case
 		return v.v
 	case Perc:
 		return v.v * percentageReference / 100
@@ -212,7 +212,12 @@ func parsePoints(dataPoints string, points []Fl) ([]Fl, error) {
 
 // parseValues reads a list of whitespace or comma-separated list of value,
 // with units.
+// the empty string or "none" are matched to a nil slice
 func parseValues(dataPoints string) (points []value, err error) {
+	if dataPoints == "" || dataPoints == "none" {
+		return nil, nil
+	}
+
 	fields := strings.FieldsFunc(dataPoints, func(r rune) bool { return r == ' ' || r == ',' })
 	points = make([]value, len(fields))
 	for i, v := range fields {
@@ -223,6 +228,16 @@ func parseValues(dataPoints string) (points []value, err error) {
 		points[i] = val
 	}
 	return points, nil
+}
+
+// parses opacity, stroke-opacity, fill-opacity attributes,
+// returning 1 as a default value
+func parseOpacity(op string) (Fl, error) {
+	if op == "" {
+		return 1, nil
+	}
+	out, err := strconv.ParseFloat(op, 32)
+	return Fl(out), err
 }
 
 // if the URL is invalid, the empty string is returned
@@ -258,6 +273,7 @@ func parseViewbox(attr string) (Rectangle, error) {
 	return Rectangle{points[0], points[1], points[2], points[3]}, nil
 }
 
+// return an empty list for empty attributes
 func parseTransform(attr string) (out []transform, err error) {
 	ts := strings.Split(attr, ")")
 	for _, t := range ts {
@@ -343,84 +359,3 @@ func parseTransform(attr string) (out []transform, err error) {
 
 	return out, nil
 }
-
-// func parseTransform(attr string) (matrix.Transform, error) {
-// 	mat := matrix.Identity()
-// 	ts := strings.Split(attr, ")")
-// 	for _, t := range ts {
-// 		t = strings.TrimSpace(t)
-// 		if len(t) == 0 {
-// 			continue
-// 		}
-
-// 		d := strings.Split(t, "(")
-// 		if len(d) != 2 || d[1] == "" {
-// 			return mat, errParamMismatch // badly formed transformation
-// 		}
-// 		points, err := parseValues(d[1])
-// 		if err != nil {
-// 			return mat, err
-// 		}
-
-// 		transformKind := strings.ToLower(strings.TrimSpace(d[0]))
-// 		L := len(points)
-// 		switch transformKind {
-// 		case "rotate":
-// 			if L == 1 {
-// 				m1 = m1.Rotate(points[0] * math.Pi / 180)
-// 			} else if L == 3 {
-// 				m1 = m1.Translate(points[1], points[2]).
-// 					Rotate(points[0]*math.Pi/180).
-// 					Translate(-points[1], -points[2])
-// 			} else {
-// 				return nil, errParamMismatch
-// 			}
-// 		case "translate":
-// 			if L == 1 {
-// 				m1 = m1.Translate(points[0], 0)
-// 			} else if L == 2 {
-// 				m1 = m1.Translate(points[0], points[1])
-// 			} else {
-// 				return nil, errParamMismatch
-// 			}
-// 		case "skewx":
-// 			if L == 1 {
-// 				m1 = m1.SkewX(points[0] * math.Pi / 180)
-// 			} else {
-// 				return nil, errParamMismatch
-// 			}
-// 		case "skewy":
-// 			if L == 1 {
-// 				m1 = m1.SkewY(points[0] * math.Pi / 180)
-// 			} else {
-// 				return nil, errParamMismatch
-// 			}
-// 		case "scale":
-// 			if L == 1 {
-// 				m1 = m1.Scale(points[0], 0)
-// 			} else if L == 2 {
-// 				m1 = m1.Scale(points[0], points[1])
-// 			} else {
-// 				return nil, errParamMismatch
-// 			}
-// 		case "matrix":
-// 			if L == 6 {
-// 				m1 = m1.Mult(Matrix2D{
-// 					A: points[0],
-// 					B: points[1],
-// 					C: points[2],
-// 					D: points[3],
-// 					E: points[4],
-// 					F: points[5],
-// 				})
-// 			} else {
-// 				return nil, errParamMismatch
-// 			}
-// 		default:
-// 			return nil, errParamMismatch
-// 		}
-// 		return m1, nil
-
-// 	}
-// 	return m1, nil
-// }

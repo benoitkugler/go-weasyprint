@@ -156,3 +156,73 @@ func TestMask(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestGradient(t *testing.T) {
+	input := `
+	<svg width="120" height="240" version="1.1" xmlns="http://www.w3.org/2000/svg">
+	<defs>
+		<linearGradient id="LinearGradient1">
+			<stop class="stop1" offset="0%"/>
+			<stop class="stop2" offset="50%"/>
+			<stop class="stop3" offset="100%"/>
+		</linearGradient>
+		<linearGradient id="LinearGradient2" x1="0" x2="0" y1="0" y2="1">
+			<stop offset="0%" stop-color="red"/>
+			<stop offset="50%" stop-color="black" stop-opacity="0"/>
+			<stop offset="100%" stop-color="blue"/>
+		</linearGradient>
+		<style type="text/css"><![CDATA[
+			#rect1 { fill: url(#LinearGradient1); }
+			.stop1 { stop-color: red; }
+			.stop2 { stop-color: black; stop-opacity: 0; }
+			.stop3 { stop-color: blue; }
+		]]></style>
+
+		<radialGradient id="RadialGradient1">
+			<stop offset="0%" stop-color="red"/>
+			<stop offset="100%" stop-color="blue"/>
+		</radialGradient>
+		<radialGradient id="RadialGradient2" cx="0.25" cy="0.25" r="0.25">
+			<stop offset="0%" stop-color="red"/>
+			<stop offset="100%" stop-color="blue"/>
+		</radialGradient>
+	</defs>
+
+	</svg>
+	`
+	out, err := Parse(strings.NewReader(input), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.definitions.paintServers) != 4 {
+		t.Fatal(out.definitions.paintServers)
+	}
+	g1, ok := out.definitions.paintServers["LinearGradient1"].(gradient)
+	if !ok {
+		t.Fatal()
+	}
+	if _, ok = g1.kind.(gradientLinear); !ok {
+		t.Fatal()
+	}
+	g2, ok := out.definitions.paintServers["LinearGradient2"].(gradient)
+	if !ok {
+		t.Fatal()
+	}
+	if _, ok = g2.kind.(gradientLinear); !ok {
+		t.Fatal()
+	}
+	g3, ok := out.definitions.paintServers["RadialGradient1"].(gradient)
+	if !ok {
+		t.Fatal()
+	}
+	if _, ok = g3.kind.(gradientRadial); !ok {
+		t.Fatal()
+	}
+	g4, ok := out.definitions.paintServers["RadialGradient2"].(gradient)
+	if !ok {
+		t.Fatal()
+	}
+	if _, ok = g4.kind.(gradientRadial); !ok {
+		t.Fatal()
+	}
+}
