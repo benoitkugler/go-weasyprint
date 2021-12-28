@@ -203,6 +203,14 @@ func (g *group) SetDash(dashes []fl, offset fl) {
 	g.app.Ops(cs.OpSetDash{Dash: model.DashPattern{Array: dashes, Phase: offset}})
 }
 
+func (g *group) SetStrokeOptions(opts backend.StrokeOptions) {
+	g.app.Ops(
+		cs.OpSetLineCap{Style: uint8(opts.LineCap)},
+		cs.OpSetLineJoin{Style: uint8(opts.LineJoin)},
+		cs.OpSetMiterLimit{Limit: opts.MiterLimit},
+	)
+}
+
 // A drawing operator that fills the current path
 // according to the current fill rule,
 // (each sub-path is implicitly closed before being filled).

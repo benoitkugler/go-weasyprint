@@ -1,8 +1,14 @@
-// Package backend defines a common interface, responsible for graphics primitives.
-// This interface is then used to convert a document.Document to the final output.
+// Package backend defines a common interface, providing graphics primitives.
+//
+// It aims at supporting the operations defined in HTML and SVG files in an output-agnostic manner,
+// so that various output formats may be generated (raster image or PDF files for instance).
+//
+// The types implementing this interface will be used to convert a document.Document to the final output,
+// or to draw an svg.SVGImage
 package backend
 
 import (
+	"fmt"
 	"io"
 	"time"
 
@@ -202,6 +208,61 @@ type BackgroundImageOptions struct {
 	X, Y                      Fl // where to paint the image
 }
 
+// StrokeJoinMode type to specify how segments join when stroking.
+type StrokeJoinMode uint8
+
+// StrokeJoinMode constants determine how stroke segments bridge the gap at a join
+const (
+	Miter StrokeJoinMode = iota
+	Round
+	Bevel
+)
+
+func (s StrokeJoinMode) String() string {
+	switch s {
+	case Round:
+		return "Round"
+	case Bevel:
+		return "Bevel"
+	case Miter:
+		return "Miter"
+	default:
+		return fmt.Sprintf("<unknown JoinMode %s>", string(s))
+	}
+}
+
+// StrokeCapMode defines how to draw caps on the ends of lines
+// when stroking.
+type StrokeCapMode uint8
+
+const (
+	ButtCap StrokeCapMode = iota // default value
+	RoundCap
+	SquareCap
+)
+
+func (c StrokeCapMode) String() string {
+	switch c {
+	case ButtCap:
+		return "ButtCap"
+	case SquareCap:
+		return "SquareCap"
+	case RoundCap:
+		return "RoundCap"
+	default:
+		return fmt.Sprintf("<unknown CapMode %s>", string(c))
+	}
+}
+
+// StrokeOptions specifies advanced stroking options.
+type StrokeOptions struct {
+	LineCap  StrokeCapMode
+	LineJoin StrokeJoinMode
+
+	// MiterLimit is the miter cutoff value for `Miter`, `Arc`, `Miterclip` and `ArcClip` join modes
+	MiterLimit Fl
+}
+
 // OutputGraphic is a surface and the target of graphic operations
 type OutputGraphic interface {
 	GraphicTarget
@@ -256,46 +317,31 @@ type GraphicTarget interface {
 	// `stroke` controls whether stroking or filling operations are concerned.
 	SetAlpha(alpha Fl, stroke bool)
 
-	// Sets the current line.
+	// Fill fills the current path  according to the given fill rule,
+	// and current fill color (or painter) in place.
+	// (each sub-path is implicitly closed before being filled).
+	// After `fill`, the current path will is cleared.
+	Fill(evenOdd bool)
+
+	// Sets the current line width to be used by `Stroke`.
 	// The line width value specifies the diameter of a pen
 	// that is circular in user space,
 	// (though device-space pen may be an ellipse in general
 	// due to scaling / shear / rotation of the CTM).
-	//
-	// When the description above refers to user space and CTM
-	// it refers to the user space and CTM in effect
-	// at the time of the stroking operation,
-	// not the user space and CTM in effect
-	// at the time of the call to `SetLineWidth`.
-	// The simplest usage makes both of these spaces identical.
-	// That is, if there is no change to the CTM
-	// between a call to `SetLineWidth`
-	// and the stroking operation,
-	// then one can just pass user-space values to `SetLineWidth`
-	// and ignore this note.
-	//
-	// As with the other stroke parameters,
-	// the current line cap style is examined by
-	// `Stroke` but does not have any effect during path construction.
 	SetLineWidth(width Fl)
 
-	// Sets the dash pattern to be used by Stroke.
+	// Sets the dash pattern to be used by `Stroke`.
 	// A dash pattern is specified by dashes, a list of positive values.
 	// Each value provides the length of alternate "on" and "off"
 	// portions of the stroke.
-	// `offset` specifies an offset into the pattern
+	// `offset` specifies a non negative offset into the pattern
 	// at which the stroke begins.
 	//
 	// Each "on" segment will have caps applied
 	// as if the segment were a separate sub-path.
 	// In particular, it is valid to use an "on" length of 0
-	// with `LINE_CAP_ROUND` or `LINE_CAP_SQUARE`
+	// with `RoundCap` or `SquareCap`
 	// in order to distribute dots or squares along a path.
-	//
-	// Note: The length values are in user-space units
-	// as evaluated at the time of stroking.
-	// This is not necessarily the same as the user space
-	// at the time of SetDash.
 	//
 	// If `dashes` is empty dashing is disabled.
 	// If it is of length 1 a symmetric pattern is assumed
@@ -303,13 +349,11 @@ type GraphicTarget interface {
 	// by the single value.
 	SetDash(dashes []Fl, offset Fl)
 
-	// A drawing operator that fills the current path
-	// according to the current fill rule,
-	// (each sub-path is implicitly closed before being filled).
-	// After `fill`, the current path will is cleared
-	Fill(evenOdd bool)
+	// SetStrokeOptions sets additionnal options to be used when stroking
+	// (in addition to SetLineWidth and SetDash)
+	SetStrokeOptions(StrokeOptions)
 
-	// A drawing operator that strokes the current path
+	// Stroke strokes the current path
 	// according to the current line width, line join, line cap,
 	// and dash settings.
 	// After `Stroke`, the current path will be cleared.

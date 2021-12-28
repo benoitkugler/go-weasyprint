@@ -188,3 +188,7 @@ func (outputPage) AddOpacityGroup(x, y, width, height fl) backend.OutputGraphic 
 func (outputPage) DrawOpacityGroup(opacity fl, group backend.OutputGraphic) {
 	outputLog.Println("DrawGroup")
 }
+
+func (outputPage) SetStrokeOptions(backend.StrokeOptions) {
+	outputLog.Println("SetStrokeOptions")
+}
