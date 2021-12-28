@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
 	"github.com/benoitkugler/go-weasyprint/utils"
 	"golang.org/x/net/html"
@@ -79,6 +81,40 @@ func (na nodeAttributes) strokeWidth() (value, error) {
 	return parseValue(attrValue)
 }
 
+func (na nodeAttributes) lineCap() backend.StrokeCapMode {
+	switch na["stroke-linecap"] {
+	case "round":
+		return backend.RoundCap
+	case "square":
+		return backend.SquareCap
+	default:
+		return backend.ButtCap
+	}
+}
+
+func (na nodeAttributes) lineJoin() backend.StrokeJoinMode {
+	switch na["stroke-linejoin"] {
+	case "round":
+		return backend.Round
+	case "bevel":
+		return backend.Bevel
+	default:
+		return backend.Miter
+	}
+}
+
+func (na nodeAttributes) miterLimit() (Fl, error) {
+	attrValue, has := na["stroke-miterlimit"]
+	if !has {
+		attrValue = "4"
+	}
+	v, err := strconv.ParseFloat(attrValue, 32)
+	if v < 0 {
+		v = 4
+	}
+	return Fl(v), err
+}
+
 func (na nodeAttributes) markerWidth() (value, error) {
 	attrValue := na["markerWidth"]
 	return parseValue(attrValue)
@@ -113,11 +149,6 @@ func (na nodeAttributes) strokeDasharray() ([]value, error) {
 func (na nodeAttributes) strokeDashoffset() (value, error) {
 	attrValue := na["stroke-dashoffset"]
 	return parseValue(attrValue)
-}
-
-func (na nodeAttributes) fillEvenOdd() bool {
-	attrValue := na["fill-rull"]
-	return attrValue == "evenodd"
 }
 
 func (na nodeAttributes) spacePreserve() bool {

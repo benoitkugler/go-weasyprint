@@ -60,3 +60,25 @@ func Test_newPainter(t *testing.T) {
 		}
 	}
 }
+
+func Test_clampModulo(t *testing.T) {
+	type args struct {
+		offset Fl
+		total  Fl
+	}
+	tests := []struct {
+		args args
+		want Fl
+	}{
+		{args{10, 20}, 10},
+		{args{11.2, 22.3}, 11.2},
+		{args{-1, 22.3}, 21.3},
+		{args{-10.5, 22.3}, 11.799999},
+		{args{-30, 22.3}, 14.599998},
+	}
+	for _, tt := range tests {
+		if got := clampModulo(tt.args.offset, tt.args.total); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("clampModulo() = %v, want %v", got, tt.want)
+		}
+	}
+}

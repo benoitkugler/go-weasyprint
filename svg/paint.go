@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/go-weasyprint/style/parser"
+	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
 // handle painter for fill and stroke values
@@ -45,6 +47,87 @@ func newPainter(attr string) (painter, error) {
 	out.valid = true
 
 	return out, nil
+}
+
+// ensure that v is positive and equal to offset modulo total
+func clampModulo(offset, total Fl) Fl {
+	if offset < 0 { // shift to [0, dashesLength]
+		offset = -offset
+		quotient := utils.Floor(offset / total)
+		remainder := offset - quotient*total
+		return total - remainder
+	}
+	return offset
+}
+
+func (dims drawingDims) resolveDashes(dashArray []value, dashOffset value) ([]Fl, Fl) {
+	dashes := make([]Fl, len(dashArray))
+	var dashesLength Fl
+	for i, v := range dashArray {
+		dashes[i] = dims.length(v)
+		if dashes[i] < 0 {
+			return nil, 0
+		}
+		dashesLength += dashes[i]
+	}
+	if dashesLength == 0 {
+		return nil, 0
+	}
+	offset := dims.length(dashOffset)
+	offset = clampModulo(offset, dashesLength)
+	return dashes, offset
+}
+
+// paint by filling and stroking the given node onto the graphic target
+func (svg *SVGImage) paintNode(dst backend.GraphicTarget, node *svgNode, dims drawingDims) {
+	// TODO: handle text
+	// if node.tag in ('text', 'textPath', 'a') and not text:
+	// return
+
+	strokeWidth := dims.length(node.strokeWidth)
+	doFill := node.fill.valid
+	doStroke := node.stroke.valid && strokeWidth > 0
+
+	// fill
+	if doFill {
+		svg.applyPainter(dst, node.fill, node.fillOpacity, dims, false)
+	}
+
+	// stroke
+	if doStroke {
+		svg.applyPainter(dst, node.stroke, node.strokeOpacity, dims, true)
+
+		// stroke options
+		dashes, offset := dims.resolveDashes(node.dashArray, node.dashOffset)
+		dst.SetDash(dashes, offset)
+
+		dst.SetLineWidth(strokeWidth)
+		dst.SetStrokeOptions(node.strokeOptions)
+	}
+
+	if doFill {
+		dst.Fill(node.isFillEvenOdd)
+	}
+	if doStroke {
+		dst.Stroke()
+	}
+}
+
+// apply the given painter to the graphic target
+// opacity is an additional opacity factor
+func (svg *SVGImage) applyPainter(dst backend.GraphicTarget, pt painter, opacity Fl, dims drawingDims, stroke bool) {
+	if !pt.valid {
+		return
+	}
+
+	// check for a paintServer
+	if ps := svg.definitions.paintServers[pt.refID]; ps != nil {
+		// TODO:
+		return
+	}
+
+	pt.color.A *= opacity // apply the opacity factor
+	dst.SetColorRgba(pt.color, stroke)
 }
 
 // gradient or pattern
@@ -208,4 +291,26 @@ func newGradient(node *cascadedNode) (out gradient, err error) {
 }
 
 type pattern struct { // TODO:
+	transforms []transform
+
+	box
+
+	isUnitsUserSpace   bool // patternUnits
+	isContentUnitsBBox bool // patternContentUnits
+}
+
+func newPattern(node *cascadedNode) (out pattern, err error) {
+	out.isUnitsUserSpace = node.attrs["patternUnits"] == "userSpaceOnUse"
+	out.isContentUnitsBBox = node.attrs["patternContentUnits"] == "objectBoundingBox"
+	err = node.attrs.parseBox(&out.box)
+	if err != nil {
+		return out, fmt.Errorf("parsing pattern element: %s", err)
+	}
+
+	out.transforms, err = parseTransform(node.attrs["patternTransform"])
+	if err != nil {
+		return out, fmt.Errorf("parsing pattern element: %s", err)
+	}
+
+	return out, nil
 }

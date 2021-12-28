@@ -92,8 +92,8 @@ func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims dra
 	visible := node.attributes.visible
 
 	// draw the node itself.
-	if visible && node.content != nil {
-		node.content.draw(dst, &node.attributes, dims)
+	if visible && node.graphicContent != nil {
+		node.graphicContent.draw(dst, &node.attributes, dims)
 	}
 
 	// then recurse
@@ -106,6 +106,11 @@ func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims dra
 	// apply mask
 	if ma, has := svg.definitions.masks[node.maskID]; has {
 		applyMask(dst, ma, node, dims)
+	}
+
+	// do the actual painting
+	if fillStroke {
+		svg.paintNode(dst, node, dims)
 	}
 
 	// apply opacity group and restore original target
@@ -241,8 +246,8 @@ func Parse(svg io.Reader, baseURL string, imageLoader ImageLoader) (*SVGImage, e
 }
 
 type svgNode struct {
-	content  drawable
-	children []*svgNode
+	graphicContent drawable
+	children       []*svgNode
 	attributes
 }
 
@@ -290,6 +295,8 @@ func (dims drawingDims) length(length value) Fl {
 	return length.resolve(dims.fontSize, dims.innerDiagonal)
 }
 
+// box is a shared type for dimensions
+// found in several SVG elements
 type box struct {
 	x, y, width, height value
 }
@@ -308,13 +315,15 @@ type attributes struct {
 
 	box
 
-	fontSize    value
-	strokeWidth value
+	fontSize      value
+	strokeWidth   value // default to 1px
+	strokeOptions backend.StrokeOptions
 
 	dashOffset value
 
 	opacity, strokeOpacity, fillOpacity Fl // default to 1
 
+	isFillEvenOdd    bool
 	display, visible bool
 }
 
@@ -347,7 +356,7 @@ func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgN
 
 	// actual processing of the node, with the following cases
 	//	- node used as definition, extracted from the svg tree
-	//	- graphic element to display -> elementBuilders
+	//	- graphic element to display -> processGraphicNode
 
 	id := node.attrs["id"]
 	switch node.tag {
@@ -357,34 +366,43 @@ func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgN
 			return nil, err
 		}
 		defs.filters[id] = filters
-		return nil, nil
 	case "clipPath":
 		defs.clipPaths[id] = newClipPath(node, children)
-		return nil, nil
 	case "mask":
 		ma, err := newMask(node, children)
 		if err != nil {
 			return nil, err
 		}
 		defs.masks[id] = ma
-		return nil, nil
 	case "linearGradient", "radialGradient":
 		grad, err := newGradient(node)
 		if err != nil {
 			return nil, err
 		}
 		defs.paintServers[id] = grad
-		return nil, nil
+	case "pattern":
+		pat, err := newPattern(node)
+		if err != nil {
+			return nil, err
+		}
+		defs.paintServers[id] = pat
 	case "defs":
 		// children has been processed and registred,
 		// so we discard the node, which is not needed anymore
-		return nil, nil
+	default:
+		return tree.processGraphicNode(node, children)
 	}
 
+	return nil, nil
+}
+
+// process a node to be displayed by building its content
+func (tree *svgContext) processGraphicNode(node *cascadedNode, children []*svgNode) (*svgNode, error) {
 	out := svgNode{children: children}
 	builder := elementBuilders[node.tag]
 	if builder == nil {
-		// this node is not drawn, return early
+		// this node is not drawn, return an empty node
+		// with its children
 		return &out, nil
 	}
 
@@ -393,7 +411,7 @@ func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgN
 		return nil, err
 	}
 
-	out.content, err = builder(node, tree)
+	out.graphicContent, err = builder(node, tree)
 	if err != nil {
 		return nil, fmt.Errorf("invalid element %s: %s", node.tag, err)
 	}
@@ -462,12 +480,20 @@ func (na nodeAttributes) parseCommonAttributes(out *attributes) error {
 	if err != nil {
 		return err
 	}
+	out.isFillEvenOdd = na["fill-rull"] == "evenodd"
 
 	out.dashOffset, err = parseValue(na["stroke-dashoffset"])
 	if err != nil {
 		return err
 	}
 	out.dashArray, err = parseValues(na["stroke-dasharray"])
+	if err != nil {
+		return err
+	}
+
+	out.strokeOptions.LineCap = na.lineCap()
+	out.strokeOptions.LineJoin = na.lineJoin()
+	out.strokeOptions.MiterLimit, err = na.miterLimit()
 	if err != nil {
 		return err
 	}

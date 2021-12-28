@@ -108,7 +108,7 @@ func TestClipPath(t *testing.T) {
 	if len(cp.children) != 1 {
 		t.Fatal()
 	}
-	if _, ok := cp.children[0].content.(ellipse); !ok {
+	if _, ok := cp.children[0].graphicContent.(ellipse); !ok {
 		t.Fatal()
 	}
 }
@@ -149,10 +149,10 @@ func TestMask(t *testing.T) {
 	if len(ma.children) != 2 {
 		t.Fatal()
 	}
-	if _, ok := ma.children[0].content.(rect); !ok {
+	if _, ok := ma.children[0].graphicContent.(rect); !ok {
 		t.Fatal()
 	}
-	if _, ok := ma.children[1].content.(path); !ok {
+	if _, ok := ma.children[1].graphicContent.(path); !ok {
 		t.Fatal()
 	}
 }
@@ -226,3 +226,5 @@ func TestGradient(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+// TODO: test pattern

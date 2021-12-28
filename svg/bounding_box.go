@@ -8,10 +8,10 @@ import (
 
 // if withStroke is true, add the stroke shape
 func (node *svgNode) resolveBoundingBox(dims drawingDims, withStroke bool) (Rectangle, bool) {
-	if node.content == nil {
+	if node.graphicContent == nil {
 		return Rectangle{}, false
 	}
-	bbox, ok := node.content.boundingBox(&node.attributes, dims)
+	bbox, ok := node.graphicContent.boundingBox(&node.attributes, dims)
 	if !ok {
 		return Rectangle{}, false
 	}
