@@ -68,9 +68,9 @@ func (pl polyline) boundingBox(_ *attributes, dims drawingDims) (Rectangle, bool
 	if len(pl.points) == 0 {
 		return Rectangle{}, false
 	}
-	bbox := Rectangle{X: pl.points[0][0], Y: pl.points[0][1]}
+	bbox := Rectangle{X: pl.points[0].x, Y: pl.points[0].y}
 	for _, point := range pl.points[1:] {
-		bbox.add(point[0], point[1])
+		bbox.add(point.x, point.y)
 	}
 	return bbox, true
 }

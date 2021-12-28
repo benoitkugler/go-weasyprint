@@ -34,6 +34,17 @@ var elementBuilders = map[string]elementBuilder{
 // reduce allocations
 type elementBuilder = func(node *cascadedNode, context *svgContext) (drawable, error)
 
+type drawable interface {
+	// Draws the node onto `dst` with the given dimensions.
+	// It should return the vertices of the path for path, line, polyline and polygon elements
+	// or nil
+	draw(dst backend.GraphicTarget, attrs *attributes, dims drawingDims) []vertex
+
+	// computes the bounding box of the node, or returns false
+	// if the node has no valid bounding box, like empty paths.
+	boundingBox(attrs *attributes, dims drawingDims) (Rectangle, bool)
+}
+
 // <line> tag
 type line struct {
 	x1, y1, x2, y2 value
@@ -64,14 +75,19 @@ func newLine(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
-func (l line) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims) {
+func atan2(x, y Fl) Fl { return Fl(math.Atan2(float64(x), float64(y))) }
+
+func (l line) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims) []vertex {
 	x1, y1 := dims.point(l.x1, l.y1)
 	x2, y2 := dims.point(l.x2, l.y2)
 	dst.MoveTo(x1, y1)
 	dst.LineTo(x2, y2)
-	// TODO:
-	// angle = atan2(y2 - y1, x2 - x1)
-	// node.vertices = [(x1, y1), (pi - angle, angle), (x2, y2)]
+
+	angle := atan2(y2-y1, x2-x1)
+	return []vertex{
+		{x1, y1, angle},
+		{x2, y2, angle},
+	}
 }
 
 // <rect> tag
@@ -105,17 +121,17 @@ func newRect(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
-func (r rect) draw(dst backend.GraphicTarget, attrs *attributes, dims drawingDims) {
+func (r rect) draw(dst backend.GraphicTarget, attrs *attributes, dims drawingDims) []vertex {
 	width, height := dims.point(attrs.width, attrs.height)
 	if width <= 0 || height <= 0 { // nothing to draw
-		return
+		return nil
 	}
 	x, y := dims.point(attrs.x, attrs.y)
 	rx, ry := dims.point(r.rx, r.ry)
 
 	if rx == 0 || ry == 0 { // no border radius
 		dst.Rectangle(x, y, width, height)
-		return
+		return nil
 	}
 
 	if rx > width/2 {
@@ -142,11 +158,13 @@ func (r rect) draw(dst backend.GraphicTarget, attrs *attributes, dims drawingDim
 	dst.LineTo(x, y+ry)
 	dst.CubicTo(x, y+ry-c2, x+rx-c1, y, x+rx, y)
 	dst.LineTo(x+rx, y)
+
+	return nil
 }
 
 // polyline or polygon
 type polyline struct {
-	points [][2]Fl // x, y
+	points []point // x, y
 	close  bool    // true for polygon
 }
 
@@ -169,31 +187,42 @@ func parsePoly(node *cascadedNode) (polyline, error) {
 	}
 
 	// "If the attribute contains an odd number of coordinates, the last one will be ignored."
-	out.points = make([][2]Fl, len(pts)/2)
+	out.points = make([]point, len(pts)/2)
 	for i := range out.points {
-		out.points[i][0] = pts[2*i]
-		out.points[i][1] = pts[2*i+1]
+		out.points[i].x = pts[2*i]
+		out.points[i].y = pts[2*i+1]
 	}
 
 	return out, nil
 }
 
-func (r polyline) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
+func (r polyline) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) []vertex {
 	if len(r.points) == 0 {
-		return
+		return nil
 	}
 	p1, points := r.points[0], r.points[1:]
-	dst.MoveTo(p1[0], p1[1])
-	// node.vertices = [(x, y)]
+	dst.MoveTo(p1.x, p1.y)
+
+	oldPoint := p1
+
+	var angle Fl
+	if len(r.points) != 0 {
+		next := points[1]
+		angle = atan2(next.x-oldPoint.x, next.y-oldPoint.y)
+	} // else use 0 as angle
+	vertices := []vertex{{p1.x, p1.y, angle}}
+	// FIXME: angle computation
+
 	for _, point := range points {
-		// angle = atan2(x - x_old, y - y_old)
-		// node.vertices.append((pi - angle, angle))
-		dst.LineTo(point[0], point[1])
-		// node.vertices.append((x, y))
+		dst.LineTo(point.x, point.y)
+		angle := atan2(point.x-oldPoint.x, point.y-oldPoint.y)
+		vertices = append(vertices, vertex{point.x, point.y, angle})
 	}
 	if r.close {
-		dst.LineTo(p1[0], p1[1])
+		dst.LineTo(p1.x, p1.y)
 	}
+
+	return vertices
 }
 
 // ellipse or circle
@@ -234,10 +263,10 @@ func newEllipse(node *cascadedNode, _ *svgContext) (drawable, error) {
 	return out, nil
 }
 
-func (e ellipse) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims) {
+func (e ellipse) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims) []vertex {
 	rx, ry := dims.point(e.rx, e.ry)
 	if rx == 0 || ry == 0 {
-		return
+		return nil
 	}
 	ratioX := rx / math.SqrtPi
 	ratioY := ry / math.SqrtPi
@@ -249,6 +278,8 @@ func (e ellipse) draw(dst backend.GraphicTarget, _ *attributes, dims drawingDims
 	dst.CubicTo(cx-rx, cy-ratioY, cx-ratioX, cy-ry, cx, cy-ry)
 	dst.CubicTo(cx+ratioX, cy-ry, cx+rx, cy-ratioY, cx+rx, cy)
 	dst.LineTo(cx+rx, cy)
+
+	return nil
 }
 
 // <path> tag
@@ -263,10 +294,11 @@ func newPath(node *cascadedNode, context *svgContext) (drawable, error) {
 	return path(out), err
 }
 
-func (p path) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
+func (p path) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) []vertex {
 	for _, item := range p {
 		item.draw(dst)
 	}
+	return nil // FIXME:
 }
 
 // <image> tag
@@ -308,9 +340,10 @@ func newImage(node *cascadedNode, context *svgContext) (drawable, error) {
 	return out, nil
 }
 
-func (img image) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) {
+func (img image) draw(dst backend.GraphicTarget, _ *attributes, _ drawingDims) []vertex {
 	// FIXME: support nested images
 	log.Println("nested image are not supported")
+	return nil
 }
 
 // definitions
@@ -373,6 +406,72 @@ func newClipPath(node *cascadedNode, children []*svgNode) clipPath {
 		children:    children,
 		isUnitsBBox: node.attrs["clipPathUnits"] == "objectBoundingBox",
 	}
+}
+
+// marker is a container for a marker to draw
+// on a path (start, middle or end)
+type marker struct {
+	viewbox *Rectangle
+
+	preserveAspectRatio string // default to "xMidYMid"
+	overflow            string // default to "hidden"
+	orient              string // angle or "auto" or "auto-start-reverse"
+
+	children []*svgNode
+
+	markerWidth, markerHeight value
+	refX, refY                value
+
+	isUnitsUserSpace bool
+}
+
+func newMarker(node *cascadedNode, children []*svgNode) (out marker, err error) {
+	out = marker{
+		children:         children,
+		isUnitsUserSpace: node.attrs["markerUnits"] == "userSpaceOnUse",
+		orient:           node.attrs["orient"],
+	}
+
+	out.viewbox, err = node.attrs.viewBox()
+	if err != nil {
+		return out, err
+	}
+
+	out.preserveAspectRatio = "xMidYMid"
+	if s, has := node.attrs["preserveAspectRatio"]; has {
+		out.preserveAspectRatio = s
+	}
+	out.overflow = "hidden"
+	if s, has := node.attrs["overflow"]; has {
+		out.overflow = s
+	}
+
+	mw, mh := "3", "3"
+	if s, has := node.attrs["markerWidth"]; has {
+		mw = s
+	}
+	if s, has := node.attrs["markerHeight"]; has {
+		mh = s
+	}
+	out.markerWidth, err = parseValue(mw)
+	if err != nil {
+		return out, err
+	}
+	out.markerHeight, err = parseValue(mh)
+	if err != nil {
+		return out, err
+	}
+
+	out.refX, err = parseValue(node.attrs["refX"])
+	if err != nil {
+		return out, err
+	}
+	out.refY, err = parseValue(node.attrs["refY"])
+	if err != nil {
+		return out, err
+	}
+
+	return out, nil
 }
 
 // mask is a container for shape that will

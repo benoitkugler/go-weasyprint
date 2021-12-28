@@ -14,6 +14,13 @@ import (
 
 var errParamMismatch = errors.New("svg path: param mismatch")
 
+type vertex struct {
+	x, y Fl // point position
+	// orientation given by the shape, used
+	// with orient="auto" or "auto-start-reverse"
+	angle Fl
+}
+
 type point struct {
 	x, y Fl
 }

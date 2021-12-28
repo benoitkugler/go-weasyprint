@@ -157,6 +157,48 @@ func TestMask(t *testing.T) {
 	}
 }
 
+func TestMarker(t *testing.T) {
+	input := `
+	<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+	<defs>
+		<marker id="triangle" viewBox="0 0 10 10"
+			refX="1" refY="5"
+			markerUnits="strokeWidth"
+			markerWidth="10" markerHeight="10"
+			orient="auto">
+			<path d="M 0 0 L 10 5 L 0 10 z" fill="#f00"/>
+		</marker>
+	</defs>
+	<polyline fill="none" stroke="black"
+		points="20,100 40,60 70,80 100,20" marker-start="url(#triangle)"/>
+	</svg>
+	`
+	out, err := Parse(strings.NewReader(input), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.definitions.markers) != 1 {
+		t.Fatal()
+	}
+	ma := out.definitions.markers["triangle"]
+	if ma.refX != (value{1, Px}) {
+		t.Fatal(ma.refX)
+	}
+	if ma.refY != (value{5, Px}) {
+		t.Fatal(ma.refY)
+	}
+	if ma.viewbox == nil || *ma.viewbox != (Rectangle{0, 0, 10, 10}) {
+		t.Fatal(ma.viewbox)
+	}
+
+	if len(ma.children) != 1 {
+		t.Fatal()
+	}
+	if _, ok := ma.children[0].graphicContent.(path); !ok {
+		t.Fatal()
+	}
+}
+
 func TestGradient(t *testing.T) {
 	input := `
 	<svg width="120" height="240" version="1.1" xmlns="http://www.w3.org/2000/svg">

@@ -16,13 +16,14 @@ import (
 
 // convert from an svg tree to the final form
 
-// nodes that are not directly draw but may be referenced
+// nodes that are not directly draw but may be referenced by ID
 // from other nodes
 type definitions struct {
 	filters      map[string][]filter
 	clipPaths    map[string]clipPath
 	masks        map[string]mask
 	paintServers map[string]paintServer
+	markers      map[string]marker
 }
 
 func newDefinitions() definitions {
@@ -31,6 +32,7 @@ func newDefinitions() definitions {
 		clipPaths:    make(map[string]clipPath),
 		masks:        make(map[string]mask),
 		paintServers: make(map[string]paintServer),
+		markers:      make(map[string]marker),
 	}
 }
 
@@ -57,70 +59,86 @@ func (svg *SVGImage) Draw(dst backend.OutputGraphic, width, height Fl) {
 	ctx.setupDiagonal()
 }
 
-func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims drawingDims, fillStroke bool) {
+// if paint is false, only the path operations are executed, not the actual filling or drawing
+// moreover, no new graphic stack is created
+func (svg *SVGImage) drawNode(dst backend.OutputGraphic, node *svgNode, dims drawingDims, paint bool) {
 	dims.fontSize = node.attributes.fontSize.resolve(dims.fontSize, dims.fontSize)
 
-	// if fill_stroke:
-	// self.stream.push_state()
-
-	// apply filters
-	if filters := svg.definitions.filters[node.filterID]; filters != nil {
-		applyFilters(dst, filters, node, dims)
-	}
-
-	// create sub group for opacity
-	opacity := node.attributes.opacity
-	var originalDst backend.OutputGraphic
-	if fillStroke && 0 <= opacity && opacity < 1 {
-		originalDst = dst
-		var x, y, width, height Fl = 0, 0, dims.concreteWidth, dims.concreteHeight
-		if box, ok := node.resolveBoundingBox(dims, true); ok {
-			x, y, width, height = box.X, box.Y, box.Width, box.Height
+	paintTask := func() {
+		// apply filters
+		if filters := svg.definitions.filters[node.filterID]; filters != nil {
+			applyFilters(dst, filters, node, dims)
 		}
-		dst = dst.AddOpacityGroup(x, y, width, height)
-	}
 
-	applyTransform(dst, node.attributes.transforms, dims)
+		// create sub group for opacity
+		opacity := node.attributes.opacity
+		var originalDst backend.OutputGraphic
+		if paint && 0 <= opacity && opacity < 1 {
+			originalDst = dst
+			var x, y, width, height Fl = 0, 0, dims.concreteWidth, dims.concreteHeight
+			if box, ok := node.resolveBoundingBox(dims, true); ok {
+				x, y, width, height = box.X, box.Y, box.Width, box.Height
+			}
+			dst = dst.AddOpacityGroup(x, y, width, height)
+		}
 
-	// clip
-	if cp, has := svg.definitions.clipPaths[node.clipPathID]; has {
-		applyClipPath(dst, cp, node, dims)
-	}
+		applyTransform(dst, node.attributes.transforms, dims)
 
-	// manage display and visibility
-	display := node.attributes.display
-	visible := node.attributes.visible
+		// clip
+		if cp, has := svg.definitions.clipPaths[node.clipPathID]; has {
+			applyClipPath(dst, cp, node, dims)
+		}
 
-	// draw the node itself.
-	if visible && node.graphicContent != nil {
-		node.graphicContent.draw(dst, &node.attributes, dims)
-	}
+		// manage display and visibility
+		display := node.attributes.display
+		visible := node.attributes.visible
 
-	// then recurse
-	if display {
-		for _, child := range node.children {
-			svg.drawNode(dst, child, dims, fillStroke)
+		// draw the node itself.
+		var vertices []vertex
+		if visible && node.graphicContent != nil {
+			vertices = node.graphicContent.draw(dst, &node.attributes, dims)
+		}
+
+		// then recurse
+		if display {
+			for _, child := range node.children {
+				svg.drawNode(dst, child, dims, paint)
+			}
+		}
+
+		// apply mask
+		if ma, has := svg.definitions.masks[node.maskID]; has {
+			applyMask(dst, ma, node, dims)
+		}
+
+		// do the actual painting
+		if paint {
+			svg.paintNode(dst, node, dims)
+		}
+
+		// draw markers
+		if vertices != nil {
+			svg.drawMarkers(dst, vertices, node, dims, paint)
+		}
+
+		// apply opacity group and restore original target
+		if paint && 0 <= opacity && opacity < 1 {
+			originalDst.DrawOpacityGroup(opacity, dst)
+			dst = originalDst
 		}
 	}
 
-	// apply mask
-	if ma, has := svg.definitions.masks[node.maskID]; has {
-		applyMask(dst, ma, node, dims)
+	if paint {
+		dst.OnNewStack(paintTask)
+	} else {
+		paintTask()
 	}
+}
 
-	// do the actual painting
-	if fillStroke {
-		svg.paintNode(dst, node, dims)
-	}
-
-	// apply opacity group and restore original target
-	if fillStroke && 0 <= opacity && opacity < 1 {
-		originalDst.DrawOpacityGroup(opacity, dst)
-		dst = originalDst
-	}
-
-	// if fill_stroke:
-	// self.stream.pop_state()
+// vertices are the resolved vertices computed when drawing the shape
+func (svg *SVGImage) drawMarkers(dst backend.GraphicTarget, vertices []vertex, node *svgNode, dims drawingDims, paint bool) {
+	// FIXME:
+	log.Println("drawing markers is not implemented")
 }
 
 func applyTransform(dst backend.GraphicTarget, transforms []transform, dims drawingDims) {
@@ -235,29 +253,34 @@ type ImageLoader = func(url string) (backend.Image, error)
 // `baseURL` is used as base path for url resources.
 // `imageLoader` is required to handle inner images.
 func Parse(svg io.Reader, baseURL string, imageLoader ImageLoader) (*SVGImage, error) {
-	out, err := buildSVGTree(svg, baseURL)
+	tree, err := buildSVGTree(svg, baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	out.imageLoader = imageLoader
+	tree.imageLoader = imageLoader
 
-	return out.postProcess()
+	// Build the drawable items by parsing attributes
+	vb, err := tree.root.attrs.viewBox()
+	if err != nil {
+		return nil, err
+	}
+
+	var out SVGImage
+	out.definitions = newDefinitions()
+	out.ViewBox = vb
+	out.root, err = tree.processNode(tree.root, out.definitions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &out, nil
 }
 
 type svgNode struct {
 	graphicContent drawable
 	children       []*svgNode
 	attributes
-}
-
-type drawable interface {
-	// draws the node onto `dst` with the given font size
-	draw(dst backend.GraphicTarget, attrs *attributes, dims drawingDims)
-
-	// computes the bounding box of the node, or returns false
-	// if the node has no valid bounding box, like empty paths.
-	boundingBox(attrs *attributes, dims drawingDims) (Rectangle, bool)
 }
 
 // drawingDims stores the configuration to use
@@ -327,23 +350,6 @@ type attributes struct {
 	display, visible bool
 }
 
-// Build the drawable items by parsing attributes
-func (tree *svgContext) postProcess() (*SVGImage, error) {
-	vb, err := tree.root.attrs.viewBox()
-	if err != nil {
-		return nil, err
-	}
-	var out SVGImage
-	out.definitions = newDefinitions()
-	out.ViewBox = vb
-	out.root, err = tree.processNode(tree.root, out.definitions)
-	if err != nil {
-		return nil, err
-	}
-
-	return &out, nil
-}
-
 func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgNode, error) {
 	children := make([]*svgNode, len(node.children))
 	for i, c := range node.children {
@@ -374,6 +380,12 @@ func (tree *svgContext) processNode(node *cascadedNode, defs definitions) (*svgN
 			return nil, err
 		}
 		defs.masks[id] = ma
+	case "marker":
+		ma, err := newMarker(node, children)
+		if err != nil {
+			return nil, err
+		}
+		defs.markers[id] = ma
 	case "linearGradient", "radialGradient":
 		grad, err := newGradient(node)
 		if err != nil {
