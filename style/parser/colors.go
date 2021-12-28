@@ -10,12 +10,6 @@ import (
 	"github.com/benoitkugler/go-weasyprint/utils"
 )
 
-const (
-	ColorInvalid ColorType = iota
-	ColorCurrentColor
-	ColorRGBA
-)
-
 var (
 	hashRegexps = []hashRegexp{
 		{multiplier: 2., regexp: regexp.MustCompile("(?i)^([\\da-f])([\\da-f])([\\da-f])$")},
@@ -200,19 +194,19 @@ var (
 	}
 
 	// RGBA namedtuples of (r, g, b, a) in 0..1 or a string marker
-	colorKeywords = map[string]Color{}
+	ColorKeywords = map[string]Color{}
 )
 
 func init() {
 	for k, v := range specialColorKeywords {
-		colorKeywords[k] = v
+		ColorKeywords[k] = v
 	}
 	// 255 maps to 1, 0 to 0, the rest is linear.
 	for k, v := range basicColorKeywords {
-		colorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{utils.Fl(v[0]) / 255., utils.Fl(v[1]) / 255., utils.Fl(v[2]) / 255., 1.}}
+		ColorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{utils.Fl(v[0]) / 255., utils.Fl(v[1]) / 255., utils.Fl(v[2]) / 255., 1.}}
 	}
 	for k, v := range extendedColorKeywords {
-		colorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{utils.Fl(v[0]) / 255., utils.Fl(v[1]) / 255., utils.Fl(v[2]) / 255., 1.}}
+		ColorKeywords[k] = Color{Type: ColorRGBA, RGBA: RGBA{utils.Fl(v[0]) / 255., utils.Fl(v[1]) / 255., utils.Fl(v[2]) / 255., 1.}}
 	}
 }
 
@@ -254,6 +248,16 @@ func (c RGBA) RGBA() (r, g, b, a uint32) {
 
 type ColorType uint8
 
+const (
+	// ColorInvalid is an empty or invalid color specification.
+	ColorInvalid ColorType = iota
+	// ColorCurrentColor represents the special value "currentColor"
+	// which need document context to be resolved.
+	ColorCurrentColor
+	// ColorRGBA is a standard rgba color.
+	ColorRGBA
+)
+
 type Color struct {
 	Type ColorType
 	RGBA RGBA
@@ -291,22 +295,23 @@ func mustParseHexa(s string) utils.Fl {
 	return utils.Fl(out)
 }
 
-func ParseColor2(color string) Color {
+// ParseColorString tokenize the input before calling `ParseColor`.
+func ParseColorString(color string) Color {
 	l := parseOneComponentValueString(color, true)
 	return ParseColor(l)
 }
 
 // Parse a color value as defined in `CSS Color Level 3  <http://www.w3.org/TR/css3-color/>`.
 // Returns :
-//  - zero Color if the input is not a valid color value. (No exception is raised.)
+//  - zero Color if the input is not a valid color value. (No error is returned.)
 //  - CurrentColor for the *currentColor* keyword
 //  - RGBA color for every other values (including keywords, HSL && HSLA.)
-//    The alpha channel is clipped to [0, 1] but red, green, || blue can be out of range
+//    The alpha channel is clipped to [0, 1] but red, green, or blue can be out of range
 //    (eg. ``rgb(-10%, 120%, 0%)`` is represented as ``(-0.1, 1.2, 0, 1)``.
 func ParseColor(_token Token) Color {
 	switch token := _token.(type) {
 	case IdentToken:
-		return colorKeywords[token.Value.Lower()]
+		return ColorKeywords[token.Value.Lower()]
 	case HashToken:
 		for _, hashReg := range hashRegexps {
 			match := hashReg.regexp.FindStringSubmatch(token.Value)

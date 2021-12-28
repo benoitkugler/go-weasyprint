@@ -115,7 +115,7 @@ func TestOneRule(t *testing.T) {
 func TestColor3(t *testing.T) {
 	inputs, resJson := loadJson("color3.json")
 	runTestOneToken(t, inputs, resJson, func(input string) jsonisable {
-		return ParseColor2(input)
+		return ParseColorString(input)
 	})
 }
 
@@ -134,7 +134,7 @@ func TestNth(t *testing.T) {
 func TestColor3Hsl(t *testing.T) {
 	inputs, resJson := loadJson("color3_hsl.json")
 	runTestOneToken(t, inputs, resJson, func(input string) jsonisable {
-		return ParseColor2(input)
+		return ParseColorString(input)
 	})
 }
 
@@ -143,7 +143,7 @@ func TestColor3Keywords(t *testing.T) {
 
 	runTestOneToken(t, inputs, resJson, func(input string) jsonisable {
 		var resToTest jsonList
-		color := ParseColor2(input)
+		color := ParseColorString(input)
 		if !color.IsNone() {
 			resToTest = jsonList{myFloat(color.RGBA.R) * 255, myFloat(color.RGBA.G) * 255, myFloat(color.RGBA.B) * 255, myFloat(color.RGBA.A)}
 		}

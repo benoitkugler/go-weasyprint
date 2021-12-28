@@ -9,8 +9,8 @@ var InitialValues = Properties{
 	"bottom":       SToV("auto"),
 	"caption_side": String("top"),
 	"clear":        String("none"),
-	"clip":         Values{},                           // computed value for "auto"
-	"color":        Color(parser.ParseColor2("black")), // chosen by the user agent
+	"clip":         Values{},                                // computed value for "auto"
+	"color":        Color(parser.ParseColorString("black")), // chosen by the user agent
 
 	// Means "none", but allow `display: list-item` to increment the
 	// list-item counter. If we ever have a way for authors to query
@@ -52,7 +52,7 @@ var InitialValues = Properties{
 	// Backgrounds and Borders 3 (CR): https://www.w3.org/TR/css3-background/
 	"background_attachment": Strings{"scroll"},
 	"background_clip":       Strings{"border-box"},
-	"background_color":      Color(parser.ParseColor2("transparent")),
+	"background_color":      Color(parser.ParseColorString("transparent")),
 	"background_image":      Images{NoneImage{}},
 	"background_origin":     Strings{"padding-box"},
 	"background_position": Centers{

@@ -251,7 +251,7 @@ func parseColorStop(tokens []Token) (pr.ColorStop, error) {
 	case 1:
 		color := parser.ParseColor(tokens[0])
 		if color.Type == parser.ColorCurrentColor {
-			return pr.ColorStop{Color: pr.Color(parser.ParseColor2("black"))}, nil
+			return pr.ColorStop{Color: pr.Color(parser.ParseColorString("black"))}, nil
 		}
 		if !color.IsNone() {
 			return pr.ColorStop{Color: pr.Color(color)}, nil

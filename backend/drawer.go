@@ -92,7 +92,7 @@ type GradientInit struct {
 }
 
 type GradientLayout struct {
-	// list of floats in [0..1].
+	// Positions is a list of floats in [0..1].
 	// 0 at the starting point, 1 at the ending point.
 	Positions []Fl
 	Colors    []parser.RGBA

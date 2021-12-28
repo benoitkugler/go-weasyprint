@@ -497,7 +497,7 @@ func computeAttrFunction(computer *ComputedStyle, values pr.AttrData) (out pr.Co
 				prop = pr.NamedString{Name: "external", String: u}
 			}
 		case "color":
-			prop = pr.Color(parser.ParseColor2(strings.TrimSpace(attrValue)))
+			prop = pr.Color(parser.ParseColorString(strings.TrimSpace(attrValue)))
 		case "integer":
 			i, err := strconv.Atoi(strings.TrimSpace(attrValue))
 			if err != nil {

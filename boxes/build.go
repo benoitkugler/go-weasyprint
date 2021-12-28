@@ -44,7 +44,7 @@ var (
 		"outset": "groove",
 	}
 
-	transparent = pr.Color(parser.ParseColor2("transparent"))
+	transparent = pr.Color(parser.ParseColorString("transparent"))
 )
 
 func init() {
