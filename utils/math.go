@@ -54,7 +54,7 @@ func Mins(values ...Fl) Fl {
 	return min
 }
 
-func ModLikePython(d, m int) int {
+func modLikePython(d, m int) int {
 	var res int = d % m
 	if (res < 0 && m > 0) || (res > 0 && m < 0) {
 		return res + m
@@ -62,12 +62,16 @@ func ModLikePython(d, m int) int {
 	return res
 }
 
+func Floor(x Fl) Fl {
+	return Fl(math.Floor(float64(x)))
+}
+
 // FloatModulo implements Python modulo for float numbers, like
 //	4.456 % 3
 func FloatModulo(x Fl, i int) Fl {
-	x2 := Fl(math.Floor(float64(x)))
+	x2 := Floor(x)
 	diff := x - x2
-	return Fl(ModLikePython(int(x2), i)) + diff
+	return Fl(modLikePython(int(x2), i)) + diff
 }
 
 // Round rounds f with 12 digits precision
