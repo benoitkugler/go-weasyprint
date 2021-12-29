@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/textlayout/fonts"
+	"github.com/benoitkugler/webrender/backend"
 )
 
 func TestCIDWidths(t *testing.T) {

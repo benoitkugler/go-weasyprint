@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/document"
-	"github.com/benoitkugler/go-weasyprint/style/tree"
-	"github.com/benoitkugler/go-weasyprint/utils"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/webrender/html/document"
+	"github.com/benoitkugler/webrender/html/tree"
+	"github.com/benoitkugler/webrender/utils"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how boxes, borders, outlines are drawn.

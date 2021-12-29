@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how backgrounds are drawn.

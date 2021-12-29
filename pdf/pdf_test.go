@@ -17,13 +17,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
-	"github.com/benoitkugler/go-weasyprint/style/parser"
-	"github.com/benoitkugler/go-weasyprint/utils"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/pdf/reader"
 	pdfParser "github.com/benoitkugler/pdf/reader/parser"
+	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/css/parser"
+	"github.com/benoitkugler/webrender/utils"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 func TestPaint(t *testing.T) {

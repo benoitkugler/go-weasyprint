@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how text is drawn.

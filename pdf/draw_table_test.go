@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/boxes"
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/webrender/html/boxes"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how tables are drawn.

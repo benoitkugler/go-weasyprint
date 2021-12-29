@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how lists are drawn.

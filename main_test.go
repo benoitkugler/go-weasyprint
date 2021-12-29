@@ -6,27 +6,21 @@ import (
 	"os"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/layout/text"
-	"github.com/benoitkugler/go-weasyprint/logger"
-	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/pdf/reader/file"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
+	"github.com/benoitkugler/webrender/html/layout/text"
+	"github.com/benoitkugler/webrender/logger"
+	"github.com/benoitkugler/webrender/utils"
 )
 
-const fontmapCache = "layout/text/test/cache.fc"
+// see pdf/test/draw_test.go
+const fontmapCache = "pdf/test/cache.fc"
 
 var fontconfig *text.FontConfiguration
 
 func init() {
 	logger.ProgressLogger.SetOutput(io.Discard)
-
-	// this command has to run once
-	// fmt.Println("Scanning fonts...")
-	// _, err := fc.ScanAndCache(fontmapCache)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 
 	fs, err := fc.LoadFontsetFile(fontmapCache)
 	if err != nil {

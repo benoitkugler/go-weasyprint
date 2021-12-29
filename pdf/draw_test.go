@@ -16,19 +16,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
-	"github.com/benoitkugler/go-weasyprint/document"
-	"github.com/benoitkugler/go-weasyprint/layout/text"
-	"github.com/benoitkugler/go-weasyprint/logger"
-	"github.com/benoitkugler/go-weasyprint/style/tree"
-	"github.com/benoitkugler/go-weasyprint/utils"
-	tu "github.com/benoitkugler/go-weasyprint/utils/testutils"
 	"github.com/benoitkugler/pdf/model"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
+	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/html/document"
+	"github.com/benoitkugler/webrender/html/layout/text"
+	"github.com/benoitkugler/webrender/html/tree"
+	"github.com/benoitkugler/webrender/logger"
+	"github.com/benoitkugler/webrender/utils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
-const fontmapCache = "../layout/text/test/cache.fc"
+const fontmapCache = "test/cache.fc"
 
 var fontconfig *text.FontConfiguration
 

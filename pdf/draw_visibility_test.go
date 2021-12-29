@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test visibility.

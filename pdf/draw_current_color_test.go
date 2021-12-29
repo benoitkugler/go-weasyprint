@@ -3,7 +3,7 @@ package pdf
 import (
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test the currentColor value.

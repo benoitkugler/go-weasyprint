@@ -3,15 +3,13 @@ package goweasyprint
 import (
 	"io"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
-	"github.com/benoitkugler/go-weasyprint/document"
-	"github.com/benoitkugler/go-weasyprint/layout/text"
 	"github.com/benoitkugler/go-weasyprint/pdf"
-	"github.com/benoitkugler/go-weasyprint/style/tree"
-	"github.com/benoitkugler/go-weasyprint/utils"
+	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/html/document"
+	"github.com/benoitkugler/webrender/html/layout/text"
+	"github.com/benoitkugler/webrender/html/tree"
+	"github.com/benoitkugler/webrender/utils"
 )
-
-// reference commit : a149af9aaf902901d5d19134f5393e2637bcd219
 
 // HtmlToPdf performs the convertion of an HTML document (`htmlContent`) to a PDF file,
 // written in `target`.

@@ -1,16 +1,13 @@
 package pdf
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
-	"github.com/benoitkugler/go-weasyprint/images"
-	"github.com/benoitkugler/go-weasyprint/matrix"
-	"github.com/benoitkugler/go-weasyprint/utils"
 	"github.com/benoitkugler/pdf/contentstream"
 	pdfFonts "github.com/benoitkugler/pdf/fonts"
 	"github.com/benoitkugler/pdf/fonts/cmaps"
@@ -18,6 +15,9 @@ import (
 	"github.com/benoitkugler/textlayout/fonts"
 	"github.com/benoitkugler/textlayout/fonts/truetype"
 	"github.com/benoitkugler/textlayout/pango"
+	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/images"
+	"github.com/benoitkugler/webrender/matrix"
 )
 
 type pdfFont struct {
@@ -56,7 +56,7 @@ func (g *group) DrawText(text backend.TextDrawing) {
 				case fonts.GlyphBitmap:
 					if data.Format == fonts.PNG {
 						img := backend.RasterImage{
-							Content:   utils.NewBytesCloser(data.Data),
+							Content:   bytes.NewReader(data.Data),
 							MimeType:  "image/png",
 							Rendering: "",
 							ID:        images.Hash(fmt.Sprintf("%p-%d", font.Face(), posGlyph.Glyph)),

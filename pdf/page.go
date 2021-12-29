@@ -3,22 +3,22 @@ package pdf
 import (
 	"log"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
-	"github.com/benoitkugler/go-weasyprint/matrix"
-	"github.com/benoitkugler/go-weasyprint/style/parser"
-	"github.com/benoitkugler/go-weasyprint/utils"
 	cs "github.com/benoitkugler/pdf/contentstream"
 	"github.com/benoitkugler/pdf/model"
+	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/css/parser"
+	"github.com/benoitkugler/webrender/matrix"
+	"github.com/benoitkugler/webrender/utils"
 )
 
 type fl = utils.Fl
 
 var (
-	_ backend.OutputGraphic = (*group)(nil)
-	_ backend.OutputPage    = (*outputPage)(nil)
+	_ backend.Canvas = (*group)(nil)
+	_ backend.Page   = (*outputPage)(nil)
 )
 
-// group implements backend.OutputGraphic and
+// group implements backend.Canvas and
 // is represented by a XObjectForm in PDF
 type group struct {
 	cache
@@ -36,7 +36,7 @@ func newGroup(cache cache,
 	}
 }
 
-// outputPage implements backend.OutputPage
+// outputPage implements backend.Page
 type outputPage struct {
 	page model.PageObject // the content stream is written in `group`
 
@@ -124,7 +124,7 @@ func (cp *outputPage) SetBleedBox(left fl, top fl, right fl, bottom fl) {
 // graphic operations
 
 // Returns the current page rectangle
-func (g *group) GetPageRectangle() (left fl, top fl, right fl, bottom fl) {
+func (g *group) GetRectangle() (left fl, top fl, right fl, bottom fl) {
 	return g.pageRectangle[0], g.pageRectangle[1], g.pageRectangle[2], g.pageRectangle[3]
 }
 
@@ -140,14 +140,14 @@ func (g *group) OnNewStack(task func()) {
 
 // AddGroup creates a new drawing target with the given
 // bounding box.
-func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.OutputGraphic {
+func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas {
 	out := newGroup(g.cache, x, y, x+width, y+height)
 	return &out
 }
 
 // DrawGroup add the `gr` to the current target. It will panic
 // if `gr` was not created with `AddGroup`
-func (g *group) DrawOpacityGroup(opacity fl, gr backend.OutputGraphic) {
+func (g *group) DrawOpacityGroup(opacity fl, gr backend.Canvas) {
 	content := gr.(*group).app.ToXFormObject(false)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benoitkugler/go-weasyprint/backend"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/textlayout/fonts"
 	"github.com/benoitkugler/textlayout/pango"
+	"github.com/benoitkugler/webrender/backend"
 )
 
 // type graphicState struct {
@@ -29,8 +29,8 @@ import (
 // }
 
 var (
-	_ backend.Output     = (*Output)(nil)
-	_ backend.OutputPage = (*outputPage)(nil)
+	_ backend.Document = (*Output)(nil)
+	_ backend.Page     = (*outputPage)(nil)
 )
 
 type cache struct {
@@ -72,7 +72,7 @@ func NewOutput() *Output {
 	return &out
 }
 
-func (c *Output) AddPage(left, top, right, bottom fl) backend.OutputPage {
+func (c *Output) AddPage(left, top, right, bottom fl) backend.Page {
 	out := newContextPage(left, top, right, bottom, c.embeddedFiles, c.cache)
 	c.pages = append(c.pages, out)
 	return out
