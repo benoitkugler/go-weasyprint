@@ -264,8 +264,7 @@ func (g *group) Stroke() {
 // The new transformation of user space takes place
 // after any existing transformation.
 func (g *group) Transform(mt matrix.Transform) {
-	a, b, c, d, e, f := mt.Data()
-	g.app.Transform(model.Matrix{a, b, c, d, e, f})
+	g.app.Transform(model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F})
 }
 
 // Begin a new sub-path.
