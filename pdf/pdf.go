@@ -13,21 +13,6 @@ import (
 	"github.com/benoitkugler/webrender/backend"
 )
 
-// type graphicState struct {
-// 	clipNest      int // each ClipXXX increment clipNest by 1
-// 	transformNest int
-// 	alpha         float64
-// 	r, g, b       int
-// 	fillRule      int
-// }
-
-// func newGraphicState(f *gofpdf.Fpdf) graphicState {
-// 	out := graphicState{}
-// 	out.alpha, _ = f.GetAlpha()
-// 	out.r, out.g, out.b = f.GetFillColor()
-// 	return out
-// }
-
 var (
 	_ backend.Document = (*Output)(nil)
 	_ backend.Page     = (*outputPage)(nil)
@@ -44,6 +29,14 @@ type cache struct {
 	// the same face may be used at different size
 	// and we don't want to duplicate the font file
 	fontFiles map[fonts.Face]*model.FontFile
+}
+
+func newCache() cache {
+	return cache{
+		images:    make(map[int]*model.XObjectImage),
+		fonts:     make(map[pango.Font]pdfFont),
+		fontFiles: make(map[fonts.Face]*model.FontFile),
+	}
 }
 
 // Output implements backend.Output
@@ -63,11 +56,7 @@ type Output struct {
 func NewOutput() *Output {
 	out := Output{
 		embeddedFiles: make(map[string]*model.FileSpec),
-		cache: cache{
-			images:    make(map[int]*model.XObjectImage),
-			fonts:     make(map[pango.Font]pdfFont),
-			fontFiles: make(map[fonts.Face]*model.FontFile),
-		},
+		cache:         newCache(),
 	}
 	return &out
 }
