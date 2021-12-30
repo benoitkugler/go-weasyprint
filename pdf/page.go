@@ -147,7 +147,7 @@ func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas 
 
 // DrawGroup add the `gr` to the current target. It will panic
 // if `gr` was not created with `AddGroup`
-func (g *group) DrawOpacityGroup(opacity fl, gr backend.Canvas) {
+func (g *group) DrawOpacityGroup(opacity fl, gr backend.CanvasNoFill) {
 	content := gr.(*group).app.ToXFormObject(false)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,
