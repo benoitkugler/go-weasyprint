@@ -38,8 +38,9 @@ func TestRealPage(t *testing.T) {
 	// url := "http://www.google.com"
 	// url := "https://weasyprint.org/"
 	// url := "https://en.wikipedia.org/wiki/Go_(programming_language)" // rather big document
-	// FIXME: text spacing when changing font
-	url := "https://golang.org/doc/go1.17" // slow because of text layout
+	// url := "https://golang.org/doc/go1.17" // slow because of text layout
+	url := "https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/preserveAspectRatio"
+	log.SetOutput(io.Discard)
 	// url := "https://github.com/Kozea/WeasyPrint"
 	err = HtmlToPdf(f, utils.InputUrl(url), fontconfig)
 	if err != nil {
