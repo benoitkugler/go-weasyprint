@@ -36,11 +36,11 @@ func TestPaint(t *testing.T) {
 	// pdf.AddPage()
 	page.Rectangle(20, 20, 30, 30)
 	page.SetLineWidth(2)
-	page.Stroke()
+	page.Paint(backend.Stroke)
 	page.OnNewStack(func() {
 		page.Rectangle(20, 20, 30, 30)
 		// page.Clip(false)
-		page.Fill(false)
+		page.Paint(backend.FillNonZero)
 	})
 
 	doc := c.Finalize()

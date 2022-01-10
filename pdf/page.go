@@ -147,7 +147,7 @@ func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas 
 
 // DrawGroup add the `gr` to the current target. It will panic
 // if `gr` was not created with `AddGroup`
-func (g *group) DrawOpacityGroup(opacity fl, gr backend.CanvasNoFill) {
+func (g *group) DrawOpacityGroup(opacity fl, gr backend.Canvas) {
 	content := gr.(*group).app.ToXFormObject(false)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,
@@ -157,6 +157,41 @@ func (g *group) DrawOpacityGroup(opacity fl, gr backend.CanvasNoFill) {
 	g.app.SetFillAlpha(opacity)
 	g.app.SetStrokeAlpha(opacity)
 	g.app.AddXObject(form)
+}
+
+func (g *group) AddPattern(cellWidth, cellHeight fl) backend.Pattern {
+	out := newGroup(g.cache, 0, 0, cellWidth, cellHeight)
+	return &out
+}
+
+func (g *group) SetColorPattern(p backend.Pattern, contentWidth, contentHeight fl, mt matrix.Transform, stroke bool) {
+	mat := model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F}
+	mat = mat.Multiply(g.app.State.Matrix)
+
+	// initiate the pattern ...
+	_, _, gridWidth, gridHeight := p.GetRectangle()
+	pattern := &model.PatternTiling{
+		XStep: gridWidth, YStep: gridHeight,
+		Matrix:     mat,
+		PaintType:  1,
+		TilingType: 1,
+	}
+
+	contentXObject := p.(*group).app.ToXFormObject(true)
+	// wrap the content into a Do command
+	patternApp := cs.NewAppearance(contentWidth, contentHeight)
+	patternApp.AddXObject(contentXObject)
+	patternApp.ApplyToTilling(pattern)
+
+	// select the color space
+	patternName := g.app.AddPattern(pattern)
+	if stroke {
+		g.app.Ops(cs.OpSetStrokeColorSpace{ColorSpace: model.ColorSpacePattern})
+		g.app.Ops(cs.OpSetStrokeColorN{Pattern: patternName})
+	} else {
+		g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: model.ColorSpacePattern})
+		g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
+	}
 }
 
 // Adds a rectangle of the given size to the current path,
@@ -215,48 +250,27 @@ func (g *group) SetStrokeOptions(opts backend.StrokeOptions) {
 // according to the current fill rule,
 // (each sub-path is implicitly closed before being filled).
 // After `fill`, the current path will is cleared
-func (g *group) Fill(evenOdd bool) {
-	if evenOdd {
-		g.app.Ops(cs.OpEOFill{})
+func (g *group) Paint(op backend.PaintOp) {
+	fill := op&(backend.FillEvenOdd|backend.FillNonZero) != 0
+	stroke := op&backend.Stroke != 0
+	evenOdd := op&backend.FillEvenOdd != 0
+	if fill && stroke {
+		if evenOdd {
+			g.app.Ops(cs.OpEOFillStroke{})
+		} else {
+			g.app.Ops(cs.OpFillStroke{})
+		}
+	} else if fill {
+		if evenOdd {
+			g.app.Ops(cs.OpEOFill{})
+		} else {
+			g.app.Ops(cs.OpFill{})
+		}
+	} else if stroke {
+		g.app.Ops(cs.OpStroke{})
 	} else {
-		g.app.Ops(cs.OpFill{})
+		g.app.Ops(cs.OpEndPath{})
 	}
-}
-
-func (g *group) FillWithImage(img backend.Image, opts backend.BackgroundImageOptions) {
-	mat := model.Matrix{1, 0, 0, 1, opts.X, opts.Y} // translate
-
-	mat = mat.Multiply(g.app.State.Matrix)
-	// paint the image on an intermediate object
-	imageOutput := newGroup(g.cache, 0, 0, opts.RepeatWidth, opts.RepeatHeight)
-	img.Draw(&imageOutput, opts.ImageWidth, opts.ImageHeight, opts.Rendering)
-	imageXObject := imageOutput.app.ToXFormObject(false)
-
-	// initiate the pattern ...
-	pattern := &model.PatternTiling{
-		XStep: opts.RepeatWidth, YStep: opts.RepeatHeight,
-		Matrix:     mat,
-		PaintType:  1,
-		TilingType: 1,
-	}
-	// ... and insert the image in its content stream
-	patternApp := cs.NewAppearance(opts.ImageWidth, opts.ImageHeight)
-	patternApp.AddXObject(imageXObject)
-	patternApp.ApplyToTilling(pattern)
-
-	// select the color space and fill
-	patternName := g.app.AddPattern(pattern)
-	g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: "Pattern"})
-	g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
-	g.Fill(false)
-}
-
-// A drawing operator that strokes the current path
-// according to the current line width, line join, line cap,
-// and dash settings.
-// After `Stroke`, the current path will be cleared.
-func (g *group) Stroke() {
-	g.app.Ops(cs.OpStroke{})
 }
 
 // Modifies the current transformation matrix (CTM)
