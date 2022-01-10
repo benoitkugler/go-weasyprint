@@ -18,6 +18,9 @@ var (
 	_ backend.Page   = (*outputPage)(nil)
 )
 
+// may be set to false when debugging
+const compressStreams = true
+
 // group implements backend.Canvas and
 // is represented by a XObjectForm in PDF
 type group struct {
@@ -59,7 +62,7 @@ func newContextPage(left, top, right, bottom fl,
 func (cp *outputPage) finalize() {
 	// the MediaBox is the unsclaled BBox. TODO: why ?
 	mediaBox := *cp.page.MediaBox
-	cp.app.ApplyToPageObject(&cp.page, false)
+	cp.app.ApplyToPageObject(&cp.page, compressStreams)
 	cp.page.MediaBox = &mediaBox
 }
 
@@ -148,7 +151,7 @@ func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas 
 // DrawGroup add the `gr` to the current target. It will panic
 // if `gr` was not created with `AddGroup`
 func (g *group) DrawOpacityGroup(opacity fl, gr backend.Canvas) {
-	content := gr.(*group).app.ToXFormObject(false)
+	content := gr.(*group).app.ToXFormObject(compressStreams)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,
 		CS:          model.ColorSpaceRGB,
@@ -177,7 +180,7 @@ func (g *group) SetColorPattern(p backend.Pattern, contentWidth, contentHeight f
 		TilingType: 1,
 	}
 
-	contentXObject := p.(*group).app.ToXFormObject(true)
+	contentXObject := p.(*group).app.ToXFormObject(compressStreams)
 	// wrap the content into a Do command
 	patternApp := cs.NewAppearance(contentWidth, contentHeight)
 	patternApp.AddXObject(contentXObject)
@@ -271,6 +274,11 @@ func (g *group) Paint(op backend.PaintOp) {
 	} else {
 		g.app.Ops(cs.OpEndPath{})
 	}
+}
+
+func (g *group) GetTransform() matrix.Transform {
+	m := g.app.State.Matrix
+	return matrix.New(m[0], m[1], m[2], m[3], m[4], m[5])
 }
 
 // Modifies the current transformation matrix (CTM)
@@ -449,7 +457,7 @@ func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl)
 		alphaStream.Transform(model.Matrix{1, 0, 0, layout.ScaleY, 0, 0})
 		shName := alphaStream.AddShading(&alphaSh)
 		alphaStream.Ops(cs.OpShFill{Shading: shName})
-		transparency := alphaStream.ToXFormObject(false)
+		transparency := alphaStream.ToXFormObject(compressStreams)
 
 		alphaState := model.GraphicState{
 			SMask: model.SoftMaskDict{

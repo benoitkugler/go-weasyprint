@@ -9,6 +9,26 @@ import (
 	"github.com/benoitkugler/webrender/svg"
 )
 
+func drawStandaloneSVG(t *testing.T, input string, outFile string) {
+	dst := newGroup(newCache(), 0, 0, 500, 500)
+	dst.Transform(matrix.New(1, 0, 0, -1, 0, 500)) // SVG use "mathematical conventions"
+	img, err := svg.Parse(strings.NewReader(input), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	img.Draw(&dst, 500, 500)
+
+	var out model.Document
+	var page model.PageObject
+
+	dst.app.ApplyToPageObject(&page, false)
+	out.Catalog.Pages.Kids = append(out.Catalog.Pages.Kids, &page)
+
+	if err := out.WriteFile(outFile, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSVG(t *testing.T) {
 	input := `
 		<?xml version="1.0" encoding="iso-8859-1"?>
@@ -131,21 +151,22 @@ func TestSVG(t *testing.T) {
 	</g >
 	</svg>
 	`
-	dst := newGroup(newCache(), 0, 0, 500, 500)
-	dst.Transform(matrix.New(1, 0, 0, -1, 0, 500)) // SVG use "mathematical conventions"
-	img, err := svg.Parse(strings.NewReader(input), "", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	img.Draw(&dst, 500, 500)
+	drawStandaloneSVG(t, input, "/tmp/svg_test.pdf")
+}
 
-	var out model.Document
-	var page model.PageObject
-
-	dst.app.ApplyToPageObject(&page, false)
-	out.Catalog.Pages.Kids = append(out.Catalog.Pages.Kids, &page)
-
-	if err := out.WriteFile("/tmp/svg_test.pdf", nil); err != nil {
-		t.Fatal(err)
-	}
+func TestSVGVGradient(t *testing.T) {
+	input := `
+	<svg width="300px" height="300px" xmlns="http://www.w3.org/2000/svg">
+	        <defs>
+	          <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"
+	            gradientUnits="objectBoundingBox">
+	            <stop stop-color="blue" offset="5%"></stop>
+	            <stop stop-color="red" offset="30%"></stop>
+	            <stop stop-color="green" offset="50%"></stop>
+	          </linearGradient>
+	        </defs>
+	        <rect x="0" y="0" width="50" height="50" fill="url(#grad)" />
+	      </svg>
+	`
+	drawStandaloneSVG(t, input, "/tmp/svg_gradient_test.pdf")
 }
