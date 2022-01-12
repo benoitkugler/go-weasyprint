@@ -18,6 +18,9 @@ var (
 	_ backend.Page     = (*outputPage)(nil)
 )
 
+// may be set to false when debugging
+const compressStreams = false
+
 type cache struct {
 	// global shared cache for image content
 	images map[int]*model.XObjectImage

@@ -1,6 +1,7 @@
 package pdf
 
 import (
+	"fmt"
 	"log"
 
 	cs "github.com/benoitkugler/pdf/contentstream"
@@ -18,24 +19,19 @@ var (
 	_ backend.Page   = (*outputPage)(nil)
 )
 
-// may be set to false when debugging
-const compressStreams = true
-
 // group implements backend.Canvas and
 // is represented by a XObjectForm in PDF
 type group struct {
 	cache
 
-	app           cs.Appearance
-	pageRectangle [4]fl // left, top, right, bottom
+	app cs.Appearance
 }
 
 func newGroup(cache cache,
 	left, top, right, bottom fl) group {
 	return group{
-		cache:         cache,
-		pageRectangle: [4]fl{left, top, right, bottom},
-		app:           cs.NewAppearance(right-left, bottom-top), // y grows downward
+		cache: cache,
+		app:   cs.NewAppearance(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
 	}
 }
 
@@ -128,7 +124,8 @@ func (cp *outputPage) SetBleedBox(left fl, top fl, right fl, bottom fl) {
 
 // Returns the current page rectangle
 func (g *group) GetRectangle() (left fl, top fl, right fl, bottom fl) {
-	return g.pageRectangle[0], g.pageRectangle[1], g.pageRectangle[2], g.pageRectangle[3]
+	bbox := g.app.BoundingBox
+	return bbox.Llx, bbox.Lly, bbox.Urx, bbox.Ury
 }
 
 // OnNewStack save the current graphic stack,
@@ -144,6 +141,7 @@ func (g *group) OnNewStack(task func()) {
 // AddGroup creates a new drawing target with the given
 // bounding box.
 func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas {
+	fmt.Println("addGroup", x, y, x+width, y+height)
 	out := newGroup(g.cache, x, y, x+width, y+height)
 	return &out
 }
@@ -182,7 +180,7 @@ func (g *group) SetColorPattern(p backend.Pattern, contentWidth, contentHeight f
 
 	contentXObject := p.(*group).app.ToXFormObject(compressStreams)
 	// wrap the content into a Do command
-	patternApp := cs.NewAppearance(contentWidth, contentHeight)
+	patternApp := cs.NewAppearance(model.Rectangle{Llx: 0, Lly: 0, Urx: contentWidth, Ury: contentHeight})
 	patternApp.AddXObject(contentXObject)
 	patternApp.ApplyToTilling(pattern)
 
@@ -452,7 +450,7 @@ func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl)
 	g.Transform(matrix.New(1, 0, 0, layout.ScaleY, 0, 0))
 
 	if needOpacity {
-		alphaStream := cs.NewAppearance(width, height)
+		alphaStream := cs.NewAppearance(model.Rectangle{Llx: 0, Lly: 0, Urx: width, Ury: height})
 
 		alphaStream.Transform(model.Matrix{1, 0, 0, layout.ScaleY, 0, 0})
 		shName := alphaStream.AddShading(&alphaSh)

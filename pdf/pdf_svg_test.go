@@ -12,7 +12,7 @@ import (
 func drawStandaloneSVG(t *testing.T, input string, outFile string) {
 	dst := newGroup(newCache(), 0, 0, 500, 500)
 	dst.Transform(matrix.New(1, 0, 0, -1, 0, 500)) // SVG use "mathematical conventions"
-	img, err := svg.Parse(strings.NewReader(input), "", nil)
+	img, err := svg.Parse(strings.NewReader(input), "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
