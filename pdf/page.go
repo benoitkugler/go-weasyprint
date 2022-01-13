@@ -1,7 +1,6 @@
 package pdf
 
 import (
-	"fmt"
 	"log"
 
 	cs "github.com/benoitkugler/pdf/contentstream"
@@ -141,7 +140,6 @@ func (g *group) OnNewStack(task func()) {
 // AddGroup creates a new drawing target with the given
 // bounding box.
 func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas {
-	fmt.Println("addGroup", x, y, x+width, y+height)
 	out := newGroup(g.cache, x, y, x+width, y+height)
 	return &out
 }
@@ -212,21 +210,12 @@ func (g *group) Clip(evenOdd bool) {
 
 func (g *group) SetColorRgba(color parser.RGBA, stroke bool) {
 	alpha := color.A
-	color.A = 1 // do not take into account the opacity, it is handled by `SetAlpha`
+	color.A = 1 // do not take into account the opacity, it is handled by `setXXXAlpha`
 	if stroke {
 		g.app.SetColorStroke(color)
-	} else {
-		g.app.SetColorFill(color)
-	}
-	g.SetAlpha(alpha, stroke)
-}
-
-// Set current alpha
-// `stroke` controls whether stroking or filling operations are concerned.
-func (g *group) SetAlpha(alpha fl, stroke bool) {
-	if stroke {
 		g.app.SetStrokeAlpha(alpha)
 	} else {
+		g.app.SetColorFill(color)
 		g.app.SetFillAlpha(alpha)
 	}
 }
@@ -304,9 +293,12 @@ func (g *group) LineTo(x fl, y fl) {
 // Add cubic Bézier curve to current path.
 // The curve shall extend to ``(x3, y3)`` using ``(x1, y1)`` and ``(x2,
 // y2)`` as the Bézier control points.
-func (g *group) CubicTo(x1 fl, y1 fl, x2 fl, y2 fl, x3 fl, y3 fl) {
+func (g *group) CubicTo(x1, y1, x2, y2, x3, y3 fl) {
 	g.app.Ops(cs.OpCubicTo{X1: x1, Y1: y1, X2: x2, Y2: y2, X3: x3, Y3: y3})
 }
+
+// ClosePath close the current path, which will apply line join style.
+func (g *group) ClosePath() { g.app.Ops(cs.OpClosePath{}) }
 
 // DrawRasterImage draws the given image at the current point
 func (g *group) DrawRasterImage(img backend.RasterImage, width fl, height fl) {
