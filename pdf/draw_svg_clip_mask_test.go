@@ -73,8 +73,9 @@ func TestClipPathOnGroup(t *testing.T) {
 }
 
 func TestClipPathGroupOnGroup(t *testing.T) {
-	// TODO
-	// t.Skip()
+	// TODO: pytest.mark.xfail
+
+	t.Skip()
 
 	// capt := testutils.CaptureLogs()
 	// defer capt.AssertNoLogs(t)

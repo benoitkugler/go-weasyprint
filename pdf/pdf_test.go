@@ -22,6 +22,7 @@ import (
 	pdfParser "github.com/benoitkugler/pdf/reader/parser"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/css/parser"
+	"github.com/benoitkugler/webrender/matrix"
 	"github.com/benoitkugler/webrender/utils"
 	"github.com/benoitkugler/webrender/utils/testutils"
 )
@@ -45,6 +46,39 @@ func TestPaint(t *testing.T) {
 
 	doc := c.Finalize()
 	err := doc.Write(io.Discard, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGradientOp(t *testing.T) {
+	c := NewOutput()
+	page := c.AddPage(0, 200, 100, 0)
+	page.Transform(matrix.New(1, 0, 0, -1, 0, 200)) // PDF uses "mathematical conventions"
+
+	page.Rectangle(10, 10, 50, 50)
+	page.SetColorRgba(parser.RGBA{0, 0, 1, 1}, false)
+
+	alpha := page.NewGroup(0, 0, 50, 50)
+	alpha.SetColorRgba(parser.RGBA{1, 1, 1, 1}, false)
+	alpha.Rectangle(20, 20, 40, 20)
+	alpha.Rectangle(18, 18, 44, 24)
+	alpha.Paint(backend.FillEvenOdd)
+	page.DrawMask(alpha)
+
+	page.Paint(backend.FillEvenOdd)
+	// page.DrawGradient(backend.GradientLayout{
+	// 	Positions: []fl{0, 0.5, 1},
+	// 	Colors:    []parser.RGBA{{0, 0, 1, 1}, {1, 0, 0, 1}, {1, 0, 0, 0}},
+	// 	GradientKind: backend.GradientKind{
+	// 		Kind:   "linear",
+	// 		Coords: [6]float32{0, 0, 50, 50},
+	// 	},
+	// 	ScaleY: 1,
+	// }, 50, 50)
+
+	doc := c.Finalize()
+	err := doc.WriteFile("/tmp/op.pdf", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

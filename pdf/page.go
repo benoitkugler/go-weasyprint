@@ -23,20 +23,22 @@ var (
 type group struct {
 	cache
 
-	app cs.Appearance
+	app cs.GraphicStream
 }
 
 func newGroup(cache cache,
 	left, top, right, bottom fl) group {
 	return group{
 		cache: cache,
-		app:   cs.NewAppearance(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
+		app:   cs.NewGraphicStream(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
 	}
 }
 
 // outputPage implements backend.Page
 type outputPage struct {
 	page model.PageObject // the content stream is written in `group`
+
+	customMediaBox *model.Rectangle // overing bbox
 
 	embeddedFiles map[string]*model.FileSpec
 	group
@@ -56,9 +58,10 @@ func newContextPage(left, top, right, bottom fl,
 // update the underlying PageObject with the content stream
 func (cp *outputPage) finalize() {
 	// the MediaBox is the unsclaled BBox. TODO: why ?
-	mediaBox := *cp.page.MediaBox
 	cp.app.ApplyToPageObject(&cp.page, compressStreams)
-	cp.page.MediaBox = &mediaBox
+	if cp.customMediaBox != nil {
+		cp.page.MediaBox = cp.customMediaBox
+	}
 }
 
 func (cp *outputPage) AddInternalLink(xMin, yMin, xMax, yMax fl, anchorName string) {
@@ -108,7 +111,7 @@ func (cp *outputPage) AddFileAnnotation(xMin, yMin, xMax, yMax fl, fileID string
 
 // Adjust the media boxes
 func (cp *outputPage) SetMediaBox(left fl, top fl, right fl, bottom fl) {
-	cp.page.MediaBox = &model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}
+	cp.customMediaBox = &model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}
 }
 
 func (cp *outputPage) SetTrimBox(left fl, top fl, right fl, bottom fl) {
@@ -137,16 +140,16 @@ func (g *group) OnNewStack(task func()) {
 	_ = g.app.RestoreState() // the calls are balanced
 }
 
-// AddGroup creates a new drawing target with the given
+// NewGroup creates a new drawing target with the given
 // bounding box.
-func (g *group) AddOpacityGroup(x fl, y fl, width fl, height fl) backend.Canvas {
+func (g *group) NewGroup(x fl, y fl, width fl, height fl) backend.Canvas {
 	out := newGroup(g.cache, x, y, x+width, y+height)
 	return &out
 }
 
-// DrawGroup add the `gr` to the current target. It will panic
+// DrawGroup add the `gr` content to the current target. It will panic
 // if `gr` was not created with `AddGroup`
-func (g *group) DrawOpacityGroup(opacity fl, gr backend.Canvas) {
+func (g *group) DrawWithOpacity(opacity fl, gr backend.Canvas) {
 	content := gr.(*group).app.ToXFormObject(compressStreams)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,
@@ -158,12 +161,17 @@ func (g *group) DrawOpacityGroup(opacity fl, gr backend.Canvas) {
 	g.app.AddXObject(form)
 }
 
-func (g *group) AddPattern(cellWidth, cellHeight fl) backend.Pattern {
-	out := newGroup(g.cache, 0, 0, cellWidth, cellHeight)
-	return &out
+func (g *group) drawMask(app *cs.GraphicStream) {
+	transparency := app.ToXFormObject(compressStreams)
+	g.app.DrawMask(transparency)
 }
 
-func (g *group) SetColorPattern(p backend.Pattern, contentWidth, contentHeight fl, mt matrix.Transform, stroke bool) {
+func (g *group) DrawMask(mask backend.Canvas) {
+	alphaStream := mask.(*group).app
+	g.drawMask(&alphaStream)
+}
+
+func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl, mt matrix.Transform, stroke bool) {
 	mat := model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F}
 	mat = mat.Multiply(g.app.State.Matrix)
 
@@ -178,7 +186,7 @@ func (g *group) SetColorPattern(p backend.Pattern, contentWidth, contentHeight f
 
 	contentXObject := p.(*group).app.ToXFormObject(compressStreams)
 	// wrap the content into a Do command
-	patternApp := cs.NewAppearance(model.Rectangle{Llx: 0, Lly: 0, Urx: contentWidth, Ury: contentHeight})
+	patternApp := cs.NewGraphicStream(model.Rectangle{Llx: 0, Lly: 0, Urx: contentWidth, Ury: contentHeight})
 	patternApp.AddXObject(contentXObject)
 	patternApp.ApplyToTilling(pattern)
 
@@ -322,144 +330,34 @@ func (g *group) DrawRasterImage(img backend.RasterImage, width fl, height fl) {
 // Solid gradient are already handled, meaning that only linear and radial
 // must be taken care of.
 func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl) {
-	alphas := make([]fl, len(layout.Colors))
-	var needOpacity bool
+	grad := cs.GradientComplex{
+		Offsets:    layout.Positions,
+		Colors:     make([][4]fl, len(layout.Colors)),
+		Reapeating: layout.Reapeating,
+	}
 	for i, c := range layout.Colors {
-		alphas[i] = c.A
-		if c.A != 1 {
-			needOpacity = true
-		}
+		grad.Colors[i] = [4]fl{c.R, c.G, c.B, c.A}
 	}
 
-	alphaCouples := make([][2]fl, len(alphas)-1)
-	colorCouples := make([][2][3]fl, len(alphas)-1)
-	exponents := make([]int, len(alphas)-1)
-	for i := range alphaCouples {
-		alphaCouples[i] = [2]fl{alphas[i], alphas[i+1]}
-		colorCouples[i] = [2][3]fl{
-			{layout.Colors[i].R, layout.Colors[i].G, layout.Colors[i].B},
-			{layout.Colors[i+1].R, layout.Colors[i+1].G, layout.Colors[i+1].B},
-		}
-		exponents[i] = 1
-	}
-
-	// Premultiply colors
-	for i, alpha := range alphas {
-		if alpha == 0 {
-			if i > 0 {
-				colorCouples[i-1][1] = colorCouples[i-1][0]
-			}
-			if i < len(layout.Colors)-1 {
-				colorCouples[i][0] = colorCouples[i][1]
-			}
-		}
-	}
-	for i, v := range alphaCouples {
-		a0, a1 := v[0], v[1]
-		if a0 != 0 && a1 != 0 && v != ([2]fl{1, 1}) {
-			exponents[i] = int(a0 / a1)
-		}
-	}
-
-	var functions, alphaFunctions []model.FunctionDict
-	for i, v := range colorCouples {
-		c0, c1 := v[0], v[1]
-		n := exponents[i]
-		fn := model.FunctionDict{
-			Domain: []model.Range{{0, 1}},
-			FunctionType: model.FunctionExpInterpolation{
-				C0: c0[:],
-				C1: c1[:],
-				N:  n,
-			},
-		}
-		functions = append(functions, fn)
-
-		alphaFn := fn
-		a0, a1 := alphaCouples[i][0], alphaCouples[i][1]
-		alphaFn.FunctionType = model.FunctionExpInterpolation{
-			C0: []model.Fl{a0},
-			C1: []model.Fl{a1},
-			N:  1,
-		}
-		alphaFunctions = append(alphaFunctions, alphaFn)
-	}
-
-	stitching := model.FunctionStitching{
-		Functions: functions,
-		Bounds:    layout.Positions[1 : len(layout.Positions)-1],
-		Encode:    model.FunctionEncodeRepeat(len(layout.Colors) - 1),
-	}
-	stitchingAlpha := stitching
-	stitchingAlpha.Functions = alphaFunctions
-
-	bg := model.BaseGradient{
-		Domain: [2]fl{layout.Positions[0], layout.Positions[len(layout.Positions)-1]},
-		Function: []model.FunctionDict{{
-			Domain:       []model.Range{{layout.Positions[0], layout.Positions[len(layout.Positions)-1]}},
-			FunctionType: stitching,
-		}},
-	}
-
-	if !layout.Reapeating {
-		bg.Extend = [2]bool{true, true}
-	}
-
-	// alpha stream is similar
-	alphaBg := bg.Clone()
-	alphaBg.Function[0].FunctionType = stitchingAlpha
-
-	var type_, alphaType model.Shading
 	if layout.Kind == "linear" {
-		type_ = model.ShadingAxial{
-			BaseGradient: bg,
-			Coords:       [4]fl{layout.Coords[0], layout.Coords[1], layout.Coords[2], layout.Coords[3]},
-		}
-		alphaType = model.ShadingAxial{
-			BaseGradient: alphaBg,
-			Coords:       [4]fl{layout.Coords[0], layout.Coords[1], layout.Coords[2], layout.Coords[3]},
-		}
+		grad.Direction = cs.GradientLinear{layout.Coords[0], layout.Coords[1], layout.Coords[2], layout.Coords[3]}
 	} else {
-		type_ = model.ShadingRadial{
-			BaseGradient: bg,
-			Coords:       layout.Coords,
-		}
-		alphaType = model.ShadingRadial{
-			BaseGradient: alphaBg,
-			Coords:       layout.Coords,
-		}
+		grad.Direction = cs.GradientRadial(layout.Coords)
 	}
 
-	sh := model.ShadingDict{
-		ColorSpace:  model.ColorSpaceRGB,
-		ShadingType: type_,
-	}
-	alphaSh := model.ShadingDict{
-		ColorSpace:  model.ColorSpaceGray,
-		ShadingType: alphaType,
-	}
+	sh, alphaSh := grad.BuildShadings()
 
 	g.Transform(matrix.New(1, 0, 0, layout.ScaleY, 0, 0))
 
-	if needOpacity {
-		alphaStream := cs.NewAppearance(model.Rectangle{Llx: 0, Lly: 0, Urx: width, Ury: height})
+	if alphaSh != nil {
+		alphaStream := cs.NewGraphicStream(model.Rectangle{Llx: 0, Lly: 0, Urx: width, Ury: height})
 
 		alphaStream.Transform(model.Matrix{1, 0, 0, layout.ScaleY, 0, 0})
-		shName := alphaStream.AddShading(&alphaSh)
+		shName := alphaStream.AddShading(alphaSh)
 		alphaStream.Ops(cs.OpShFill{Shading: shName})
-		transparency := alphaStream.ToXFormObject(compressStreams)
 
-		alphaState := model.GraphicState{
-			SMask: model.SoftMaskDict{
-				S: model.ObjName("Luminosity"),
-				G: &model.XObjectTransparencyGroup{XObjectForm: *transparency},
-			},
-			Ca:  model.ObjFloat(1),
-			AIS: false,
-		}
-
-		g.app.SetGraphicState(&alphaState)
+		g.drawMask(&alphaStream)
 	}
 
-	g.app.Shading(&sh)
+	g.app.Shading(sh)
 }

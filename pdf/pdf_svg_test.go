@@ -10,13 +10,13 @@ import (
 )
 
 func drawStandaloneSVG(t *testing.T, input string, outFile string) {
-	dst := newGroup(newCache(), 0, 0, 500, 500)
-	dst.Transform(matrix.New(1, 0, 0, -1, 0, 500)) // SVG use "mathematical conventions"
+	dst := newGroup(newCache(), 0, 0, 600, 600)
+	dst.Transform(matrix.New(1, 0, 0, -1, 0, 600)) // SVG use "mathematical conventions"
 	img, err := svg.Parse(strings.NewReader(input), "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	img.Draw(&dst, 500, 500)
+	img.Draw(&dst, 600, 600)
 
 	var out model.Document
 	var page model.PageObject
@@ -169,4 +169,24 @@ func TestSVGVGradient(t *testing.T) {
 	      </svg>
 	`
 	drawStandaloneSVG(t, input, "/tmp/svg_gradient_test.pdf")
+}
+
+func TestSVGMask(t *testing.T) {
+	input := `
+	<svg viewBox="-10 -10 150 150">
+	<mask id="myMask">
+		<!-- Everything under a white pixel will be visible -->
+		<rect x="0" y="0" width="100" height="100" fill="white" />
+
+		<!-- Everything under a black pixel will be invisible -->
+		<path d="M10,35 A20,20,0,0,1,50,35 A20,20,0,0,1,90,35 Q90,65,50,95 Q10,65,10,35 Z" fill="black" />
+	</mask>
+
+	<polygon points="-10,110 110,110 110,-10" fill="orange" />
+
+	<!-- with this mask applied, we "punch" a heart shape hole into the circle -->
+	<circle cx="50" cy="50" r="50" mask="url(#myMask)" />
+	</svg>
+	`
+	drawStandaloneSVG(t, input, "/tmp/mask.pdf")
 }
