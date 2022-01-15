@@ -16,7 +16,7 @@ func drawStandaloneSVG(t *testing.T, input string, outFile string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	img.Draw(&dst, 600, 600)
+	img.Draw(&dst, 600, 600, nil)
 
 	var out model.Document
 	var page model.PageObject
