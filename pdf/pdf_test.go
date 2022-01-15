@@ -64,7 +64,7 @@ func TestGradientOp(t *testing.T) {
 	alpha.Rectangle(20, 20, 40, 20)
 	alpha.Rectangle(18, 18, 44, 24)
 	alpha.Paint(backend.FillEvenOdd)
-	page.DrawMask(alpha)
+	page.DrawAsMask(alpha)
 
 	page.Paint(backend.FillEvenOdd)
 	// page.DrawGradient(backend.GradientLayout{

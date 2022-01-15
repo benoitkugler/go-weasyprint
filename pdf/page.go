@@ -166,7 +166,7 @@ func (g *group) drawMask(app *cs.GraphicStream) {
 	g.app.DrawMask(transparency)
 }
 
-func (g *group) DrawMask(mask backend.Canvas) {
+func (g *group) DrawAsMask(mask backend.Canvas) {
 	alphaStream := mask.(*group).app
 	g.drawMask(&alphaStream)
 }
