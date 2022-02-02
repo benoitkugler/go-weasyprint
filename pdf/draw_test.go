@@ -21,9 +21,9 @@ import (
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/html/document"
-	"github.com/benoitkugler/webrender/html/layout/text"
 	"github.com/benoitkugler/webrender/html/tree"
 	"github.com/benoitkugler/webrender/logger"
+	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
 )

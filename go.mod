@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/benoitkugler/pdf v0.0.0-20211224133419-7f3afc58affd
-	github.com/benoitkugler/textlayout v0.0.5
+	github.com/benoitkugler/textlayout v0.0.9
 	github.com/benoitkugler/webrender v0.0.1
 )
 

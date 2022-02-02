@@ -9,8 +9,8 @@ import (
 	"github.com/benoitkugler/pdf/reader/file"
 	fc "github.com/benoitkugler/textlayout/fontconfig"
 	"github.com/benoitkugler/textlayout/pango/fcfonts"
-	"github.com/benoitkugler/webrender/html/layout/text"
 	"github.com/benoitkugler/webrender/logger"
+	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 )
 

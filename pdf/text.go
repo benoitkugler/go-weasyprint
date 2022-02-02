@@ -1,10 +1,8 @@
 package pdf
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -16,8 +14,7 @@ import (
 	"github.com/benoitkugler/textlayout/fonts/truetype"
 	"github.com/benoitkugler/textlayout/pango"
 	"github.com/benoitkugler/webrender/backend"
-	"github.com/benoitkugler/webrender/images"
-	"github.com/benoitkugler/webrender/matrix"
+	drawText "github.com/benoitkugler/webrender/text/draw"
 )
 
 type pdfFont struct {
@@ -37,7 +34,6 @@ func (g *group) DrawText(text backend.TextDrawing) {
 		g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
 
 		font := run.Font.GetHarfbuzzFont()
-		fr, isRenderer := font.Face().(fonts.FaceRenderer)
 
 		var out []contentstream.SpacedGlyph
 		for _, posGlyph := range run.Glyphs {
@@ -49,34 +45,9 @@ func (g *group) DrawText(text backend.TextDrawing) {
 
 			// PDF readers don't support colored bitmap glyphs
 			// so we have to add them as an image
+			drawText.DrawEmoji(font, posGlyph.Glyph, pf.Extents[posGlyph.Glyph],
+				text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
 
-			if isRenderer {
-				data := fr.GlyphData(posGlyph.Glyph, font.XPpem, font.YPpem)
-				switch data := data.(type) {
-				case fonts.GlyphBitmap:
-					if data.Format == fonts.PNG {
-						img := backend.RasterImage{
-							Content:   bytes.NewReader(data.Data),
-							MimeType:  "image/png",
-							Rendering: "",
-							ID:        images.Hash(fmt.Sprintf("%p-%d", font.Face(), posGlyph.Glyph)),
-						}
-
-						extents := pf.Extents[posGlyph.Glyph]
-						d := fl(extents.Width) / 1000
-						a := fl(data.Width) / fl(data.Height) * d
-						f := fl(-extents.Y-extents.Height)/1000 - text.FontSize
-						f = text.Y + f
-						e := posGlyph.XAdvance / 1000
-						e = text.X + e*text.FontSize
-
-						g.OnNewStack(func() {
-							g.Transform(matrix.New(a, 0, 0, d, e, f))
-							g.DrawRasterImage(img, text.FontSize, text.FontSize)
-						})
-					}
-				}
-			}
 		}
 
 		g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
