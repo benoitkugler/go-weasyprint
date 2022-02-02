@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/benoitkugler/pdf/reader/file"
@@ -29,8 +30,14 @@ func init() {
 	fontconfig = text.NewFontConfiguration(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
+func tempFile(s string) string {
+	dir := os.TempDir()
+	return filepath.Join(dir, "test_svg_text.pdf")
+}
+
 func TestRealPage(t *testing.T) {
-	f, err := os.Create("/tmp/test_google.pdf")
+	path := tempFile("test_real_page.pdf")
+	f, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,14 +56,16 @@ func TestRealPage(t *testing.T) {
 
 	f.Close()
 
-	_, err = file.ReadFile("/tmp/test_google.pdf", nil)
+	_, err = file.ReadFile(path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestSVG(t *testing.T) {
-	f, err := os.Create("/tmp/test_svg.pdf")
+func TestSVGMask(t *testing.T) {
+	path := tempFile("test_svg_mask.pdf")
+
+	f, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +97,49 @@ func TestSVG(t *testing.T) {
 
 	f.Close()
 
-	_, err = file.ReadFile("/tmp/test_svg.pdf", nil)
+	_, err = file.ReadFile(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSVGText(t *testing.T) {
+	path := tempFile("test_svg_text.pdf")
+
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := `
+	<style>
+		@page { size: 400px }
+		svg { display: block }
+	</style>
+	<svg viewBox="0 0 240 80" xmlns="http://www.w3.org/2000/svg">
+		<style>
+		.small { font: italic 13px sans-serif; font-style: italic }
+		.heavy { font: bold 30px sans-serif; }
+	
+		/* Note that the color of the text is set with the    *
+		* fill property, the color property is for HTML only */
+		.Rrrrr { font: italic 40px serif; fill: red; }
+		</style>
+	
+		<text x="20" y="35" class="small">My</text>
+		<text x="40" y="35" class="heavy">cat</text>
+		<text x="55" y="55" class="small">is</text>
+		<text x="65" y="55" class="Rrrrr">Grumpy!</text>
+	</svg>
+	`
+	err = HtmlToPdf(f, utils.InputString(input), fontconfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.Close()
+
+	_, err = file.ReadFile(path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
