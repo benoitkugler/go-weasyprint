@@ -22,6 +22,23 @@ type pdfFont struct {
 	*model.FontDict
 }
 
+func (g *group) SetTextPaint(op backend.PaintOp) {
+	doFill := op&(backend.FillEvenOdd|backend.FillNonZero) != 0
+	doStroke := op&(backend.Stroke) != 0
+
+	var tr uint8
+	if doFill && doStroke {
+		tr = 2
+	} else if doFill {
+		tr = 0
+	} else if doStroke {
+		tr = 1
+	} else {
+		tr = 3
+	}
+	g.app.Ops(contentstream.OpSetTextRender{Render: tr})
+}
+
 // DrawText draws the given text using the current fill color.
 func (g *group) DrawText(text backend.TextDrawing) {
 	g.app.BeginText()
