@@ -2,6 +2,7 @@ package pdf
 
 import (
 	"log"
+	"strings"
 
 	cs "github.com/benoitkugler/pdf/contentstream"
 	"github.com/benoitkugler/pdf/model"
@@ -199,6 +200,16 @@ func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl
 		g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: model.ColorSpacePattern})
 		g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
 	}
+}
+
+func (g *group) SetBlendingMode(mode string) {
+	// PDF blend modes have TitleCase
+	chunks := strings.Split(mode, "-")
+	for i, s := range chunks {
+		chunks[i] = strings.Title(s)
+	}
+	bm := strings.Join(chunks, "")
+	g.app.SetGraphicState(&model.GraphicState{BM: []model.Name{model.ObjName(bm)}})
 }
 
 // Adds a rectangle of the given size to the current path,
