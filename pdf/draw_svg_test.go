@@ -179,9 +179,6 @@ func TestPattern_4(t *testing.T) {
 
 // Test how opacity is handled for SVG.
 
-// TODO: xfail tests fail because of GhostScript and are supposed to work with
-// real PDF files.
-
 const svgOpacitySource = `
   <style>
     @page { size: 9px }
@@ -216,6 +213,9 @@ func TestFillOpacity(t *testing.T) {
                   stroke="lime" fill="blue" fill-opacity="0.5" />
         `), 0)
 }
+
+// TODO: xfail tests fail because of GhostScript and are supposed to work with
+// real PDF files.
 
 // @pytest.mark.xfail
 
