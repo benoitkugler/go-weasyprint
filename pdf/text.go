@@ -14,6 +14,7 @@ import (
 	"github.com/benoitkugler/textlayout/fonts/truetype"
 	"github.com/benoitkugler/textlayout/pango"
 	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/matrix"
 	drawText "github.com/benoitkugler/webrender/text/draw"
 )
 
@@ -44,7 +45,12 @@ func (g *group) DrawText(text backend.TextDrawing) {
 	g.app.BeginText()
 	defer g.app.EndText()
 
-	g.app.SetTextMatrix(text.FontSize, 0, 0, -text.FontSize, text.X, text.Y)
+	mat := matrix.New(text.FontSize, 0, 0, -text.FontSize, text.X, text.Y)
+	if text.Angle != 0 { // avoid useless multiplication if angle == 0
+		mat.LeftMultBy(matrix.Rotation(text.Angle))
+	}
+
+	g.app.SetTextMatrix(mat.A, mat.B, mat.C, mat.D, mat.E, mat.F)
 
 	for _, run := range text.Runs {
 		pf := g.fonts[run.Font]
