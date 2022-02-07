@@ -41,39 +41,40 @@ func (g *group) SetTextPaint(op backend.PaintOp) {
 }
 
 // DrawText draws the given text using the current fill color.
-func (g *group) DrawText(text backend.TextDrawing) {
+func (g *group) DrawText(texts []backend.TextDrawing) {
 	g.app.BeginText()
 	defer g.app.EndText()
 
-	mat := matrix.New(text.FontSize, 0, 0, -text.FontSize, text.X, text.Y)
-	if text.Angle != 0 { // avoid useless multiplication if angle == 0
-		mat.LeftMultBy(matrix.Rotation(text.Angle))
-	}
-
-	g.app.SetTextMatrix(mat.A, mat.B, mat.C, mat.D, mat.E, mat.F)
-
-	for _, run := range text.Runs {
-		pf := g.fonts[run.Font]
-		g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
-
-		font := run.Font.GetHarfbuzzFont()
-
-		var out []contentstream.SpacedGlyph
-		for _, posGlyph := range run.Glyphs {
-			out = append(out, contentstream.SpacedGlyph{
-				SpaceSubtractedBefore: -int(posGlyph.Offset),
-				GID:                   posGlyph.Glyph,
-				SpaceSubtractedAfter:  posGlyph.Kerning,
-			})
-
-			// PDF readers don't support colored bitmap glyphs
-			// so we have to add them as an image
-			drawText.DrawEmoji(font, posGlyph.Glyph, pf.Extents[posGlyph.Glyph],
-				text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
-
+	for _, text := range texts {
+		mat := matrix.New(text.FontSize, 0, 0, -text.FontSize, text.X, text.Y)
+		if text.Angle != 0 { // avoid useless multiplication if angle == 0
+			mat.RightMultBy(matrix.Rotation(text.Angle))
 		}
+		g.app.SetTextMatrix(mat.A, mat.B, mat.C, mat.D, mat.E, mat.F)
 
-		g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
+		for _, run := range text.Runs {
+			pf := g.fonts[run.Font]
+			g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
+
+			font := run.Font.GetHarfbuzzFont()
+
+			var out []contentstream.SpacedGlyph
+			for _, posGlyph := range run.Glyphs {
+				out = append(out, contentstream.SpacedGlyph{
+					SpaceSubtractedBefore: -int(posGlyph.Offset),
+					GID:                   posGlyph.Glyph,
+					SpaceSubtractedAfter:  posGlyph.Kerning,
+				})
+
+				// PDF readers don't support colored bitmap glyphs
+				// so we have to add them as an image
+				drawText.DrawEmoji(font, posGlyph.Glyph, pf.Extents[posGlyph.Glyph],
+					text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
+
+			}
+
+			g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
+		}
 	}
 }
 
