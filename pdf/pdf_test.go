@@ -31,12 +31,12 @@ func TestPaint(t *testing.T) {
 	c := NewOutput()
 	page := c.AddPage(0, 200, 100, 0)
 	page.SetMediaBox(0, 200, 100, 0)
-	page.SetColorRgba(parser.RGBA{R: 0, G: 1, B: 0, A: 1}, true)
-	page.SetColorRgba(parser.RGBA{R: 0, G: 1, B: 1, A: 1}, false)
+	page.State().SetColorRgba(parser.RGBA{R: 0, G: 1, B: 0, A: 1}, true)
+	page.State().SetColorRgba(parser.RGBA{R: 0, G: 1, B: 1, A: 1}, false)
 	// pdf.SetFont("Helvetica", "", 15)
 	// pdf.AddPage()
 	page.Rectangle(20, 20, 30, 30)
-	page.SetLineWidth(2)
+	page.State().SetLineWidth(2)
 	page.Paint(backend.Stroke)
 	page.OnNewStack(func() {
 		page.Rectangle(20, 20, 30, 30)
@@ -54,17 +54,17 @@ func TestPaint(t *testing.T) {
 func TestGradientOp(t *testing.T) {
 	c := NewOutput()
 	page := c.AddPage(0, 200, 100, 0)
-	page.Transform(matrix.New(1, 0, 0, -1, 0, 200)) // PDF uses "mathematical conventions"
+	page.State().Transform(matrix.New(1, 0, 0, -1, 0, 200)) // PDF uses "mathematical conventions"
 
 	page.Rectangle(10, 10, 50, 50)
-	page.SetColorRgba(parser.RGBA{0, 0, 1, 1}, false)
+	page.State().SetColorRgba(parser.RGBA{0, 0, 1, 1}, false)
 
 	alpha := page.NewGroup(0, 0, 50, 50)
-	alpha.SetColorRgba(parser.RGBA{1, 1, 1, 1}, false)
+	alpha.State().SetColorRgba(parser.RGBA{1, 1, 1, 1}, false)
 	alpha.Rectangle(20, 20, 40, 20)
 	alpha.Rectangle(18, 18, 44, 24)
 	alpha.Paint(backend.FillEvenOdd)
-	page.DrawAsMask(alpha)
+	page.State().SetAlphaMask(alpha)
 
 	page.Paint(backend.FillEvenOdd)
 	// page.DrawGradient(backend.GradientLayout{

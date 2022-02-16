@@ -15,9 +15,104 @@ import (
 type fl = utils.Fl
 
 var (
-	_ backend.Canvas = (*group)(nil)
-	_ backend.Page   = (*outputPage)(nil)
+	_ backend.Canvas       = (*group)(nil)
+	_ backend.Page         = (*outputPage)(nil)
+	_ backend.GraphicState = (*group)(nil)
 )
+
+func (g *group) SetAlphaMask(mask backend.Canvas) {
+	alphaStream := mask.(*group).app
+	g.drawMask(&alphaStream)
+}
+
+func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl, mt matrix.Transform, stroke bool) {
+	mat := model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F}
+	mat = mat.Multiply(g.app.State.Matrix)
+
+	// initiate the pattern ...
+	_, _, gridWidth, gridHeight := p.GetRectangle()
+	pattern := &model.PatternTiling{
+		XStep: gridWidth, YStep: gridHeight,
+		Matrix:     mat,
+		PaintType:  1,
+		TilingType: 1,
+	}
+
+	contentXObject := p.(*group).app.ToXFormObject(compressStreams)
+	// wrap the content into a Do command
+	patternApp := cs.NewGraphicStream(model.Rectangle{Llx: 0, Lly: 0, Urx: contentWidth, Ury: contentHeight})
+	patternApp.AddXObject(contentXObject)
+	patternApp.ApplyToTilling(pattern)
+
+	// select the color space
+	patternName := g.app.AddPattern(pattern)
+	if stroke {
+		g.app.Ops(cs.OpSetStrokeColorSpace{ColorSpace: model.ColorSpacePattern})
+		g.app.Ops(cs.OpSetStrokeColorN{Pattern: patternName})
+	} else {
+		g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: model.ColorSpacePattern})
+		g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
+	}
+}
+
+func (g *group) SetBlendingMode(mode string) {
+	// PDF blend modes have TitleCase
+	chunks := strings.Split(mode, "-")
+	for i, s := range chunks {
+		chunks[i] = strings.Title(s)
+	}
+	bm := strings.Join(chunks, "")
+	g.app.SetGraphicState(&model.GraphicState{BM: []model.Name{model.ObjName(bm)}})
+}
+
+func (g *group) Clip(evenOdd bool) {
+	if evenOdd {
+		g.app.Ops(cs.OpEOClip{}, cs.OpEndPath{})
+	} else {
+		g.app.Ops(cs.OpClip{}, cs.OpEndPath{})
+	}
+}
+
+func (g *group) SetColorRgba(color parser.RGBA, stroke bool) {
+	alpha := color.A
+	color.A = 1 // do not take into account the opacity, it is handled by `setXXXAlpha`
+	if stroke {
+		g.app.SetColorStroke(color)
+		g.app.SetStrokeAlpha(alpha)
+	} else {
+		g.app.SetColorFill(color)
+		g.app.SetFillAlpha(alpha)
+	}
+}
+
+func (g *group) SetLineWidth(width fl) {
+	g.app.Ops(cs.OpSetLineWidth{W: width})
+}
+
+func (g *group) SetDash(dashes []fl, offset fl) {
+	g.app.Ops(cs.OpSetDash{Dash: model.DashPattern{Array: dashes, Phase: offset}})
+}
+
+func (g *group) SetStrokeOptions(opts backend.StrokeOptions) {
+	g.app.Ops(
+		cs.OpSetLineCap{Style: uint8(opts.LineCap)},
+		cs.OpSetLineJoin{Style: uint8(opts.LineJoin)},
+		cs.OpSetMiterLimit{Limit: opts.MiterLimit},
+	)
+}
+
+func (g *group) GetTransform() matrix.Transform {
+	m := g.app.State.Matrix
+	return matrix.New(m[0], m[1], m[2], m[3], m[4], m[5])
+}
+
+// Modifies the current transformation matrix (CTM)
+// by applying `mt` as an additional transformation.
+// The new transformation of user space takes place
+// after any existing transformation.
+func (g *group) Transform(mt matrix.Transform) {
+	g.app.Transform(model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F})
+}
 
 // group implements backend.Canvas and
 // is represented by a XObjectForm in PDF
@@ -34,6 +129,8 @@ func newGroup(cache cache,
 		app:   cs.NewGraphicStream(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
 	}
 }
+
+func (g *group) State() backend.GraphicState { return g }
 
 // outputPage implements backend.Page
 type outputPage struct {
@@ -164,52 +261,7 @@ func (g *group) DrawWithOpacity(opacity fl, gr backend.Canvas) {
 
 func (g *group) drawMask(app *cs.GraphicStream) {
 	transparency := app.ToXFormObject(compressStreams)
-	g.app.DrawMask(transparency)
-}
-
-func (g *group) DrawAsMask(mask backend.Canvas) {
-	alphaStream := mask.(*group).app
-	g.drawMask(&alphaStream)
-}
-
-func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl, mt matrix.Transform, stroke bool) {
-	mat := model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F}
-	mat = mat.Multiply(g.app.State.Matrix)
-
-	// initiate the pattern ...
-	_, _, gridWidth, gridHeight := p.GetRectangle()
-	pattern := &model.PatternTiling{
-		XStep: gridWidth, YStep: gridHeight,
-		Matrix:     mat,
-		PaintType:  1,
-		TilingType: 1,
-	}
-
-	contentXObject := p.(*group).app.ToXFormObject(compressStreams)
-	// wrap the content into a Do command
-	patternApp := cs.NewGraphicStream(model.Rectangle{Llx: 0, Lly: 0, Urx: contentWidth, Ury: contentHeight})
-	patternApp.AddXObject(contentXObject)
-	patternApp.ApplyToTilling(pattern)
-
-	// select the color space
-	patternName := g.app.AddPattern(pattern)
-	if stroke {
-		g.app.Ops(cs.OpSetStrokeColorSpace{ColorSpace: model.ColorSpacePattern})
-		g.app.Ops(cs.OpSetStrokeColorN{Pattern: patternName})
-	} else {
-		g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: model.ColorSpacePattern})
-		g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
-	}
-}
-
-func (g *group) SetBlendingMode(mode string) {
-	// PDF blend modes have TitleCase
-	chunks := strings.Split(mode, "-")
-	for i, s := range chunks {
-		chunks[i] = strings.Title(s)
-	}
-	bm := strings.Join(chunks, "")
-	g.app.SetGraphicState(&model.GraphicState{BM: []model.Name{model.ObjName(bm)}})
+	g.app.SetAlphaMask(transparency)
 }
 
 // Adds a rectangle of the given size to the current path,
@@ -217,42 +269,6 @@ func (g *group) SetBlendingMode(mode string) {
 // (X,Y) coordinates are the top left corner of the rectangle.
 func (g *group) Rectangle(x fl, y fl, width fl, height fl) {
 	g.app.Ops(cs.OpRectangle{X: x, Y: y, W: width, H: height})
-}
-
-func (g *group) Clip(evenOdd bool) {
-	if evenOdd {
-		g.app.Ops(cs.OpEOClip{}, cs.OpEndPath{})
-	} else {
-		g.app.Ops(cs.OpClip{}, cs.OpEndPath{})
-	}
-}
-
-func (g *group) SetColorRgba(color parser.RGBA, stroke bool) {
-	alpha := color.A
-	color.A = 1 // do not take into account the opacity, it is handled by `setXXXAlpha`
-	if stroke {
-		g.app.SetColorStroke(color)
-		g.app.SetStrokeAlpha(alpha)
-	} else {
-		g.app.SetColorFill(color)
-		g.app.SetFillAlpha(alpha)
-	}
-}
-
-func (g *group) SetLineWidth(width fl) {
-	g.app.Ops(cs.OpSetLineWidth{W: width})
-}
-
-func (g *group) SetDash(dashes []fl, offset fl) {
-	g.app.Ops(cs.OpSetDash{Dash: model.DashPattern{Array: dashes, Phase: offset}})
-}
-
-func (g *group) SetStrokeOptions(opts backend.StrokeOptions) {
-	g.app.Ops(
-		cs.OpSetLineCap{Style: uint8(opts.LineCap)},
-		cs.OpSetLineJoin{Style: uint8(opts.LineJoin)},
-		cs.OpSetMiterLimit{Limit: opts.MiterLimit},
-	)
 }
 
 // A drawing operator that fills the current path
@@ -280,19 +296,6 @@ func (g *group) Paint(op backend.PaintOp) {
 	} else {
 		g.app.Ops(cs.OpEndPath{})
 	}
-}
-
-func (g *group) GetTransform() matrix.Transform {
-	m := g.app.State.Matrix
-	return matrix.New(m[0], m[1], m[2], m[3], m[4], m[5])
-}
-
-// Modifies the current transformation matrix (CTM)
-// by applying `mt` as an additional transformation.
-// The new transformation of user space takes place
-// after any existing transformation.
-func (g *group) Transform(mt matrix.Transform) {
-	g.app.Transform(model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F})
 }
 
 // Begin a new sub-path.
