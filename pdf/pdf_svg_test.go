@@ -190,3 +190,29 @@ func TestSVGMask(t *testing.T) {
 	`
 	drawStandaloneSVG(t, input, "/tmp/mask.pdf")
 }
+
+func TestSVGGradient(t *testing.T) {
+	input := `
+	<svg width="500" height="500"
+		xmlns="http://www.w3.org/2000/svg"
+		xmlns:xlink="http://www.w3.org/1999/xlink">
+
+
+	<radialGradient id="rg2" cx="50%" cy="50%"   r="40%" gradientUnits="objectBoundingBox"  
+	spreadMethod="repeat" >
+	<stop offset="10%" stop-color="goldenrod" />
+	<stop offset="30%" stop-color="seagreen" />
+	<stop offset="50%" stop-color="cyan" />
+	<stop offset="70%" stop-color="black" />
+	<stop offset="100%" stop-color="orange" />
+	</radialGradient>
+
+	 
+
+
+	<ellipse cx="300" cy="150" rx="120" ry="100"  style="fill:url(#rg2)" /> 
+
+	</svg>
+	`
+	drawStandaloneSVG(t, input, "/tmp/gradient.pdf")
+}
