@@ -284,7 +284,7 @@ func TestImagesNotFound(t *testing.T) {
           <div><img src="inexistent1.png" alt=""></div>`)
 	logs := capt.Logs()
 	testutils.AssertEqual(t, len(logs), 1, "")
-	if !(strings.Contains(logs[0], "Failed to load image") && strings.Contains(logs[0], "inexistent1.png")) {
+	if !(strings.Contains(logs[0], "failed to load image") && strings.Contains(logs[0], "inexistent1.png")) {
 		t.Fatalf("unexpected log: %s", logs[0])
 	}
 }
@@ -321,7 +321,7 @@ func TestImagesAlt(t *testing.T) {
 
 	logs := capt.Logs()
 	testutils.AssertEqual(t, len(logs), 1, "")
-	if !(strings.Contains(logs[0], "Failed to load image") &&
+	if !(strings.Contains(logs[0], "failed to load image") &&
 		strings.Contains(logs[0], "inexistent2.png")) {
 		t.Fatalf("unexpected log: %s", logs[0])
 	}

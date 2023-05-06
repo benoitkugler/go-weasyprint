@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
@@ -881,7 +880,7 @@ func TestEmbeddedFilesAttachments(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	f, err := ioutil.TempFile("", "test_pdf_attachements*.txt")
+	f, err := os.CreateTemp("", "test_pdf_attachements*.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -898,7 +897,7 @@ func TestEmbeddedFilesAttachments(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f2, err := ioutil.TempFile("", "test_pdf_äöü*.txt")
+	f2, err := os.CreateTemp("", "test_pdf_äöü*.txt")
 	if err != nil {
 		t.Fatal(err)
 	}

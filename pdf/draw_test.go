@@ -8,7 +8,6 @@ import (
 	"image/draw"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -176,7 +175,7 @@ func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, a
 
 // use the light UA stylesheet
 func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
-	target, err := ioutil.TempFile("", "*weasyprint.pdf")
+	target, err := os.CreateTemp("", "*weasyprint.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}
