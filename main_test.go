@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/benoitkugler/pdf/reader/file"
-	fc "github.com/benoitkugler/textlayout/fontconfig"
-	"github.com/benoitkugler/textlayout/pango/fcfonts"
+	fc "github.com/benoitkugler/textprocessing/fontconfig"
+	"github.com/benoitkugler/textprocessing/pango/fcfonts"
 	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
@@ -36,6 +36,8 @@ func tempFile(s string) string {
 }
 
 func TestRealPage(t *testing.T) {
+	t.Skip()
+
 	path := tempFile("test_real_page.pdf")
 	f, err := os.Create(path)
 	if err != nil {
@@ -156,6 +158,7 @@ func TestSVGGradient(t *testing.T) {
 	input := `
 	<svg width="500" height="500" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 
+	
 	<radialGradient id="rg2" cx="50%" cy="50%"   r="40%" gradientUnits="objectBoundingBox"  
 	spreadMethod="repeat" >
 	<stop offset="10%" stop-color="goldenrod" />

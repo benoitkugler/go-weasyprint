@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/benoitkugler/webrender/html/boxes"
 	"github.com/benoitkugler/webrender/utils/testutils"
 )
 
@@ -22,14 +21,9 @@ func toPix(pixels_str string) [][]color.RGBA {
 	})
 }
 
-func init() {
-	boxes.HTMLHandlers["x-td"] = boxes.HTMLHandlers["td"]
-	boxes.HTMLHandlers["x-th"] = boxes.HTMLHandlers["th"]
-}
-
 const tables_source = `
   <style>
-    @page { size: 28px; background: #fff }
+    @page { size: 28px; }
     x-table { margin: 1px; padding: 1px; border-spacing: 1px;
               border: 1px solid transparent }
     x-td { width: 2px; height: 2px; padding: 1px;
@@ -69,26 +63,26 @@ func TestTables_1(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__r____r_r____r_r____r__B_
-        _B__r____r_r____r_r____r__B_
-        _B__r____r_r____r_r____r__B_
-        _B__r____r_r____r_r____r__B_
-        _B__rrrrrr_r____r_rrrrrr__B_
-        _B_________r____r_________B_
-        _B__rrrrrrrSrrrrS_rrrrrr__B_
-        _B__r______r____S_r____r__B_
-        _B__r______r____S_r____r__B_
-        _B__r______r____S_r____r__B_
-        _B__r______r____S_r____r__B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__s____s_s____s_s____s__B_
+        _B__s____s_s____s_s____s__B_
+        _B__s____s_s____s_s____s__B_
+        _B__s____s_s____s_s____s__B_
+        _B__ssssss_s____s_ssssss__B_
+        _B_________s____s_________B_
+        _B__sssssssSssssS_ssssss__B_
+        _B__s______s____S_s____s__B_
+        _B__s______s____S_s____s__B_
+        _B__s______s____S_s____s__B_
+        _B__s______s____S_s____s__B_
+        _B__sssssssSSSSSS_ssssss__B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__r____r_r____r_________B_
-        _B__r____r_r____r_________B_
-        _B__r____r_r____r_________B_
-        _B__r____r_r____r_________B_
-        _B__rrrrrr_rrrrrr_________B_
+        _B__ssssss_ssssss_________B_
+        _B__s____s_s____s_________B_
+        _B__s____s_s____s_________B_
+        _B__s____s_s____s_________B_
+        _B__s____s_s____s_________B_
+        _B__ssssss_ssssss_________B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -108,26 +102,26 @@ func TestTables_1Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__r____r_r____r_r____r__B_
-        _B__r____r_r____r_r____r__B_
-        _B__r____r_r____r_r____r__B_
-        _B__r____r_r____r_r____r__B_
-        _B__rrrrrr_r____r_rrrrrr__B_
-        _B_________r____r_________B_
-        _B__rrrrrr_SrrrrSrrrrrrr__B_
-        _B__r____r_S____r______r__B_
-        _B__r____r_S____r______r__B_
-        _B__r____r_S____r______r__B_
-        _B__r____r_S____r______r__B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__s____s_s____s_s____s__B_
+        _B__s____s_s____s_s____s__B_
+        _B__s____s_s____s_s____s__B_
+        _B__s____s_s____s_s____s__B_
+        _B__ssssss_s____s_ssssss__B_
+        _B_________s____s_________B_
+        _B__ssssss_SssssSsssssss__B_
+        _B__s____s_S____s______s__B_
+        _B__s____s_S____s______s__B_
+        _B__s____s_S____s______s__B_
+        _B__s____s_S____s______s__B_
+        _B__ssssss_SSSSSSsssssss__B_
         _B________________________B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________r____r_r____r__B_
-        _B_________r____r_r____r__B_
-        _B_________r____r_r____r__B_
-        _B_________r____r_r____r__B_
-        _B_________rrrrrr_rrrrrr__B_
+        _B_________ssssss_ssssss__B_
+        _B_________s____s_s____s__B_
+        _B_________s____s_s____s__B_
+        _B_________s____s_s____s__B_
+        _B_________s____s_s____s__B_
+        _B_________ssssss_ssssss__B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -147,20 +141,20 @@ func TestTables_2(t *testing.T) {
         ____________________________
         _BBBBBBBBBBBBBBBBBB_________
         _BBBBBBBBBBBBBBBBBB_________
-        _BB____r____r____BB_________
-        _BB____r____r____BB_________
-        _BB____r____r____BB_________
-        _BB____r____r____BB_________
-        _BBrrrrr____rrrrrBB_________
-        _BB_________r____BB_________
-        _BB_________r____BB_________
-        _BB_________r____BB_________
-        _BB_________r____BB_________
-        _BBrrrrrrrrrrrrrrBB_________
-        _BB____r____r____BB_________
-        _BB____r____r____BB_________
-        _BB____r____r____BB_________
-        _BB____r____r____BB_________
+        _BB____s____s____BB_________
+        _BB____s____s____BB_________
+        _BB____s____s____BB_________
+        _BB____s____s____BB_________
+        _BBsssss____sssssBB_________
+        _BB_________s____BB_________
+        _BB_________s____BB_________
+        _BB_________s____BB_________
+        _BB_________s____BB_________
+        _BBssssssssssssssBB_________
+        _BB____s____s____BB_________
+        _BB____s____s____BB_________
+        _BB____s____s____BB_________
+        _BB____s____s____BB_________
         _BBBBBBBBBBBBBBBBBB_________
         _BBBBBBBBBBBBBBBBBB_________
         ____________________________
@@ -187,20 +181,20 @@ func TestTables_2Rtl(t *testing.T) {
         ____________________________
         _________BBBBBBBBBBBBBBBBBB_
         _________BBBBBBBBBBBBBBBBBB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BBrrrrr____rrrrrBB_
-        _________BB____r_________BB_
-        _________BB____r_________BB_
-        _________BB____r_________BB_
-        _________BB____r_________BB_
-        _________BBrrrrrrrrrrrrrrBB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BBsssss____sssssBB_
+        _________BB____s_________BB_
+        _________BB____s_________BB_
+        _________BB____s_________BB_
+        _________BB____s_________BB_
+        _________BBssssssssssssssBB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
         _________BBBBBBBBBBBBBBBBBB_
         _________BBBBBBBBBBBBBBBBBB_
         ____________________________
@@ -225,58 +219,58 @@ func TestTables_3(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, "table_collapsed_borders_paged", toPix(`
-        ____________________________
-        _gggggggggggggggggggggggggg_
-        _g________________________g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BBrrrrr____rrrrrBB_____g_
-        _g_BB_________r____BB_____g_
-        _g_BB_________r____BB_____g_
-        _g_BB_________r____BB_____g_
-        _g_BB_________r____BB_____g_
-        _g_BBrrrrrrrrrrrrrrBB_____g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _gggggggggggggggggggggggggg_
-        ____________________________
-        ____________________________
-        _gggggggggggggggggggggggggg_
-        _g_BBrrrrrrrrrrrrrrBB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BB____r____r____BB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g_BBBBBBBBBBBBBBBBBB_____g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _gggggggggggggggggggggggggg_
-        ____________________________
+		____________________________
+		_tttttttttttttttttttttttttt_
+		_t________________________t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BBsssss____sssssBB_____t_
+		_t_BB_________s____BB_____t_
+		_t_BB_________s____BB_____t_
+		_t_BB_________s____BB_____t_
+		_t_BB_________s____BB_____t_
+		_t_BBssssssssssssssBB_____t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_tttttttttttttttttttttttttt_
+		____________________________
+		____________________________
+		_tttttttttttttttttttttttttt_
+		_t_BBssssssssssssssBB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BB____s____s____BB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t_BBBBBBBBBBBBBBBBBB_____t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_tttttttttttttttttttttttttt_
+		____________________________
     `), fmt.Sprintf(tables_source, `
       x-table { border: solid #00f; border-width: 8px 2px;
                 table-layout: fixed; border-collapse: collapse }
@@ -291,58 +285,58 @@ func TestTables_3Rtl(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, "table_collapsed_borders_paged_rtl", toPix(`
-        ____________________________
-        _gggggggggggggggggggggggggg_
-        _g________________________g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BBrrrrr____rrrrrBB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BBrrrrrrrrrrrrrrBB_g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _gggggggggggggggggggggggggg_
-        ____________________________
-        ____________________________
-        _gggggggggggggggggggggggggg_
-        _g_____BBrrrrrrrrrrrrrrBB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _gggggggggggggggggggggggggg_
-        ____________________________
+		____________________________
+		_tttttttttttttttttttttttttt_
+		_t________________________t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BBsssss____sssssBB_t_
+		_t_____BB____s_________BB_t_
+		_t_____BB____s_________BB_t_
+		_t_____BB____s_________BB_t_
+		_t_____BB____s_________BB_t_
+		_t_____BBssssssssssssssBB_t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_tttttttttttttttttttttttttt_
+		____________________________
+		____________________________
+		_tttttttttttttttttttttttttt_
+		_t_____BBssssssssssssssBB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BB____s____s____BB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t_____BBBBBBBBBBBBBBBBBB_t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_t________________________t_
+		_tttttttttttttttttttttttttt_
+		____________________________
     `), fmt.Sprintf(tables_source, `
       body { direction: rtl; }
       x-table { border: solid #00f; border-width: 8px 2px;
@@ -362,26 +356,26 @@ func TestTables_4(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_________B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
-        _B__rrrrrrrSSSSSS_rrrrrr__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B_________ssssss_________B_
+        _B__sssssssSSSSSS_ssssss__B_
+        _B__sssssssSSSSSS_ssssss__B_
+        _B__sssssssSSSSSS_ssssss__B_
+        _B__sssssssSSSSSS_ssssss__B_
+        _B__sssssssSSSSSS_ssssss__B_
+        _B__sssssssSSSSSS_ssssss__B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -401,26 +395,26 @@ func TestTables_4Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B__rrrrrr_rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_________B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
-        _B__rrrrrr_SSSSSSrrrrrrr__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B__ssssss_ssssss_ssssss__B_
+        _B_________ssssss_________B_
+        _B__ssssss_SSSSSSsssssss__B_
+        _B__ssssss_SSSSSSsssssss__B_
+        _B__ssssss_SSSSSSsssssss__B_
+        _B__ssssss_SSSSSSsssssss__B_
+        _B__ssssss_SSSSSSsssssss__B_
+        _B__ssssss_SSSSSSsssssss__B_
         _B________________________B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -441,26 +435,26 @@ func TestTables_5(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_________B_
-        _B__bbbbbbbpppppp_bbbbbb__B_
-        _B__bbbbbbbpppppp_bbbbbb__B_
-        _B__bbbbbbbpppppp_bbbbbb__B_
-        _B__bbbbbbbpppppp_bbbbbb__B_
-        _B__bbbbbbbpppppp_bbbbbb__B_
-        _B__bbbbbbbpppppp_bbbbbb__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_________B_
+        _B__uuuuuuupppppp_uuuuuu__B_
+        _B__uuuuuuupppppp_uuuuuu__B_
+        _B__uuuuuuupppppp_uuuuuu__B_
+        _B__uuuuuuupppppp_uuuuuu__B_
+        _B__uuuuuuupppppp_uuuuuu__B_
+        _B__uuuuuuupppppp_uuuuuu__B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__rrrrrr_rrrrrr_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
+        _B__ssssss_ssssss_________B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -481,26 +475,26 @@ func TestTables_5Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_________B_
-        _B__bbbbbb_ppppppbbbbbbb__B_
-        _B__bbbbbb_ppppppbbbbbbb__B_
-        _B__bbbbbb_ppppppbbbbbbb__B_
-        _B__bbbbbb_ppppppbbbbbbb__B_
-        _B__bbbbbb_ppppppbbbbbbb__B_
-        _B__bbbbbb_ppppppbbbbbbb__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_________B_
+        _B__uuuuuu_ppppppuuuuuuu__B_
+        _B__uuuuuu_ppppppuuuuuuu__B_
+        _B__uuuuuu_ppppppuuuuuuu__B_
+        _B__uuuuuu_ppppppuuuuuuu__B_
+        _B__uuuuuu_ppppppuuuuuuu__B_
+        _B__uuuuuu_ppppppuuuuuuu__B_
         _B________________________B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________rrrrrr_rrrrrr__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
+        _B_________ssssss_ssssss__B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -522,26 +516,26 @@ func TestTables_6(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__bbbbbb_bbbbbb_rrrrrr__B_
-        _B__bbbbbb_bbbbbb_rrrrrr__B_
-        _B__bbbbbb_bbbbbb_rrrrrr__B_
-        _B__bbbbbb_bbbbbb_rrrrrr__B_
-        _B__bbbbbb_bbbbbb_rrrrrr__B_
-        _B__bbbbbb_bbbbbb_rrrrrr__B_
-        _B_________bbbbbb_________B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
+        _B__uuuuuu_uuuuuu_ssssss__B_
+        _B__uuuuuu_uuuuuu_ssssss__B_
+        _B__uuuuuu_uuuuuu_ssssss__B_
+        _B__uuuuuu_uuuuuu_ssssss__B_
+        _B__uuuuuu_uuuuuu_ssssss__B_
+        _B__uuuuuu_uuuuuu_ssssss__B_
+        _B_________uuuuuu_________B_
+        _B__uuuuuuupppppp_ssssss__B_
+        _B__uuuuuuupppppp_ssssss__B_
+        _B__uuuuuuupppppp_ssssss__B_
+        _B__uuuuuuupppppp_ssssss__B_
+        _B__uuuuuuupppppp_ssssss__B_
+        _B__uuuuuuupppppp_ssssss__B_
         _B________________________B_
-        _B__bbbbbb_bbbbbb_________B_
-        _B__bbbbbb_bbbbbb_________B_
-        _B__bbbbbb_bbbbbb_________B_
-        _B__bbbbbb_bbbbbb_________B_
-        _B__bbbbbb_bbbbbb_________B_
-        _B__bbbbbb_bbbbbb_________B_
+        _B__uuuuuu_uuuuuu_________B_
+        _B__uuuuuu_uuuuuu_________B_
+        _B__uuuuuu_uuuuuu_________B_
+        _B__uuuuuu_uuuuuu_________B_
+        _B__uuuuuu_uuuuuu_________B_
+        _B__uuuuuu_uuuuuu_________B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -562,26 +556,26 @@ func TestTables_6Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__rrrrrr_bbbbbb_bbbbbb__B_
-        _B__rrrrrr_bbbbbb_bbbbbb__B_
-        _B__rrrrrr_bbbbbb_bbbbbb__B_
-        _B__rrrrrr_bbbbbb_bbbbbb__B_
-        _B__rrrrrr_bbbbbb_bbbbbb__B_
-        _B__rrrrrr_bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_________B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
+        _B__ssssss_uuuuuu_uuuuuu__B_
+        _B__ssssss_uuuuuu_uuuuuu__B_
+        _B__ssssss_uuuuuu_uuuuuu__B_
+        _B__ssssss_uuuuuu_uuuuuu__B_
+        _B__ssssss_uuuuuu_uuuuuu__B_
+        _B__ssssss_uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_________B_
+        _B__ssssss_ppppppuuuuuuu__B_
+        _B__ssssss_ppppppuuuuuuu__B_
+        _B__ssssss_ppppppuuuuuuu__B_
+        _B__ssssss_ppppppuuuuuuu__B_
+        _B__ssssss_ppppppuuuuuuu__B_
+        _B__ssssss_ppppppuuuuuuu__B_
         _B________________________B_
-        _B_________bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_bbbbbb__B_
-        _B_________bbbbbb_bbbbbb__B_
+        _B_________uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_uuuuuu__B_
+        _B_________uuuuuu_uuuuuu__B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -603,26 +597,26 @@ func TestTables_7(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bbbbbb_bBBBBb_bbbbbb__B_
-        _B_________bBBBBb_________B_
-        _B__rrrrrrrpbbbbp_rrrrrr__B_
-        _B__r______bBBBBp_r____r__B_
-        _B__r______bBBBBp_r____r__B_
-        _B__r______bBBBBp_r____r__B_
-        _B__r______bBBBBp_r____r__B_
-        _B__rrrrrrrpppppp_rrrrrr__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uuuuuu_uBBBBu_uuuuuu__B_
+        _B_________uBBBBu_________B_
+        _B__ssssssspuuuup_ssssss__B_
+        _B__s______uBBBBp_s____s__B_
+        _B__s______uBBBBp_s____s__B_
+        _B__s______uBBBBp_s____s__B_
+        _B__s______uBBBBp_s____s__B_
+        _B__ssssssspppppp_ssssss__B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_________B_
-        _B__r____r_r____r_________B_
-        _B__r____r_r____r_________B_
-        _B__r____r_r____r_________B_
-        _B__r____r_r____r_________B_
-        _B__rrrrrr_rrrrrr_________B_
+        _B__ssssss_ssssss_________B_
+        _B__s____s_s____s_________B_
+        _B__s____s_s____s_________B_
+        _B__s____s_s____s_________B_
+        _B__s____s_s____s_________B_
+        _B__ssssss_ssssss_________B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -643,26 +637,26 @@ func TestTables_7Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__bbbbbb_bbbbbb_bbbbbb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bBBBBb_bBBBBb_bBBBBb__B_
-        _B__bbbbbb_bBBBBb_bbbbbb__B_
-        _B_________bBBBBb_________B_
-        _B__rrrrrr_pbbbbprrrrrrr__B_
-        _B__r____r_pBBBBb______r__B_
-        _B__r____r_pBBBBb______r__B_
-        _B__r____r_pBBBBb______r__B_
-        _B__r____r_pBBBBb______r__B_
-        _B__rrrrrr_pppppprrrrrrr__B_
+        _B__uuuuuu_uuuuuu_uuuuuu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uBBBBu_uBBBBu_uBBBBu__B_
+        _B__uuuuuu_uBBBBu_uuuuuu__B_
+        _B_________uBBBBu_________B_
+        _B__ssssss_puuuupsssssss__B_
+        _B__s____s_pBBBBu______s__B_
+        _B__s____s_pBBBBu______s__B_
+        _B__s____s_pBBBBu______s__B_
+        _B__s____s_pBBBBu______s__B_
+        _B__ssssss_ppppppsssssss__B_
         _B________________________B_
-        _B_________rrrrrr_rrrrrr__B_
-        _B_________r____r_r____r__B_
-        _B_________r____r_r____r__B_
-        _B_________r____r_r____r__B_
-        _B_________r____r_r____r__B_
-        _B_________rrrrrr_rrrrrr__B_
+        _B_________ssssss_ssssss__B_
+        _B_________s____s_s____s__B_
+        _B_________s____s_s____s__B_
+        _B_________s____s_s____s__B_
+        _B_________s____s_s____s__B_
+        _B_________ssssss_ssssss__B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -684,26 +678,26 @@ func TestTables_8(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__bbbbbb_rrrrrr_rrrrrr__B_
-        _B__bBBBBb_r____r_r____r__B_
-        _B__bBBBBb_r____r_r____r__B_
-        _B__bBBBBb_r____r_r____r__B_
-        _B__bBBBBb_r____r_r____r__B_
-        _B__bbbbbb_r____r_rrrrrr__B_
-        _B_________r____r_________B_
-        _B__bbbbbbbpbbbbp_rrrrrr__B_
-        _B__bBBBBBBbBBBBp_r____r__B_
-        _B__bBBBBBBbBBBBp_r____r__B_
-        _B__bBBBBBBbBBBBp_r____r__B_
-        _B__bBBBBBBbBBBBp_r____r__B_
-        _B__bbbbbbbpppppp_rrrrrr__B_
+		_B__uuuuuu_ssssss_ssssss__B_
+        _B__uBBBBu_s____s_s____s__B_
+        _B__uBBBBu_s____s_s____s__B_
+        _B__uBBBBu_s____s_s____s__B_
+        _B__uBBBBu_s____s_s____s__B_
+        _B__uuuuuu_s____s_ssssss__B_
+        _B_________s____s_________B_
+        _B__uuuuuuupuuuup_ssssss__B_
+        _B__uBBBBBBuBBBBp_s____s__B_
+        _B__uBBBBBBuBBBBp_s____s__B_
+        _B__uBBBBBBuBBBBp_s____s__B_
+        _B__uBBBBBBuBBBBp_s____s__B_
+        _B__uuuuuuupppppp_ssssss__B_
         _B________________________B_
-        _B__bbbbbb_rrrrrr_________B_
-        _B__bBBBBb_r____r_________B_
-        _B__bBBBBb_r____r_________B_
-        _B__bBBBBb_r____r_________B_
-        _B__bBBBBb_r____r_________B_
-        _B__bbbbbb_rrrrrr_________B_
+        _B__uuuuuu_ssssss_________B_
+        _B__uBBBBu_s____s_________B_
+        _B__uBBBBu_s____s_________B_
+        _B__uBBBBu_s____s_________B_
+        _B__uBBBBu_s____s_________B_
+        _B__uuuuuu_ssssss_________B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -724,26 +718,26 @@ func TestTables_8Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
         _B________________________B_
-        _B__rrrrrr_rrrrrr_bbbbbb__B_
-        _B__r____r_r____r_bBBBBb__B_
-        _B__r____r_r____r_bBBBBb__B_
-        _B__r____r_r____r_bBBBBb__B_
-        _B__r____r_r____r_bBBBBb__B_
-        _B__rrrrrr_r____r_bbbbbb__B_
-        _B_________r____r_________B_
-        _B__rrrrrr_pbbbbpbbbbbbb__B_
-        _B__r____r_pBBBBbBBBBBBb__B_
-        _B__r____r_pBBBBbBBBBBBb__B_
-        _B__r____r_pBBBBbBBBBBBb__B_
-        _B__r____r_pBBBBbBBBBBBb__B_
-        _B__rrrrrr_ppppppbbbbbbb__B_
+		_B__ssssss_ssssss_uuuuuu__B_
+        _B__s____s_s____s_uBBBBu__B_
+        _B__s____s_s____s_uBBBBu__B_
+        _B__s____s_s____s_uBBBBu__B_
+        _B__s____s_s____s_uBBBBu__B_
+        _B__ssssss_s____s_uuuuuu__B_
+        _B_________s____s_________B_
+        _B__ssssss_puuuupuuuuuuu__B_
+        _B__s____s_pBBBBuBBBBBBu__B_
+        _B__s____s_pBBBBuBBBBBBu__B_
+        _B__s____s_pBBBBuBBBBBBu__B_
+        _B__s____s_pBBBBuBBBBBBu__B_
+        _B__ssssss_ppppppuuuuuuu__B_
         _B________________________B_
-        _B_________rrrrrr_bbbbbb__B_
-        _B_________r____r_bBBBBb__B_
-        _B_________r____r_bBBBBb__B_
-        _B_________r____r_bBBBBb__B_
-        _B_________r____r_bBBBBb__B_
-        _B_________rrrrrr_bbbbbb__B_
+        _B_________ssssss_uuuuuu__B_
+        _B_________s____s_uBBBBu__B_
+        _B_________s____s_uBBBBu__B_
+        _B_________s____s_uBBBBu__B_
+        _B_________s____s_uBBBBu__B_
+        _B_________ssssss_uuuuuu__B_
         _B________________________B_
         _B________________________B_
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
@@ -761,45 +755,45 @@ func TestTables_9(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	assertPixelsEqual(t, "collapsed_border_thead", `
-        ______________________
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBB____R____R____BBB_
-        _BBB____R____R____BBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        __R_____R____R_____R__
-        __R_____R____R_____R__
-        __RRRRRRRRRRRRRRRRRR__
-        __R_____R____R_____R__
-        __R_____R____R_____R__
-        __RRRRRRRRRRRRRRRRRR__
-        ______________________
-        ______________________
-        ______________________
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBB____R____R____BBB_
-        _BBB____R____R____BBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        _BBBBBBBBBBBBBBBBBBBB_
-        __R_____R____R_____R__
-        __RRRRRRRRRRRRRRRRRR__
-        ______________________
-        ______________________
-        ______________________
-        ______________________
-        ______________________
-        ______________________
-        ______________________
-        ______________________
+		______________________
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBB____R____R____BBB_
+		_BBB____R____R____BBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		__R_____R____R_____R__
+		__R_____R____R_____R__
+		__RRRRRRRRRRRRRRRRRR__
+		__R_____R____R_____R__
+		__R_____R____R_____R__
+		__RRRRRRRRRRRRRRRRRR__
+		______________________
+		______________________
+		______________________
+		______________________
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBB____R____R____BBB_
+		_BBB____R____R____BBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		_BBBBBBBBBBBBBBBBBBBB_
+		__R_____R____R_____R__
+		__RRRRRRRRRRRRRRRRRR__
+		______________________
+		______________________
+		______________________
+		______________________
+		______________________
+		______________________
+		______________________
     `, `
       <style>
-        @page { size: 22px 18px; margin: 1px; background: #fff }
+        @page { size: 22px 18px; margin: 1px; }
         td { border: 1px red solid; width: 4px; height: 2px; }
       </style>
       <table style="table-layout: fixed; border-collapse: collapse">
@@ -851,7 +845,7 @@ func TestTables_10(t *testing.T) {
         ______________________
     `, `
       <style>
-        @page { size: 22px 17px; margin: 1px; background: #fff }
+        @page { size: 22px 17px; margin: 1px }
         td { border: 1px red solid; width: 4px; height: 2px; }
       </style>
       <table style="table-layout: fixed; margin-left: 1px;
@@ -883,7 +877,7 @@ func TestTables_11(t *testing.T) {
       ____________________
     `, `
       <style>
-        @page { size: 20px 10px; margin: 1px; background: #fff }
+        @page { size: 20px 10px; margin: 1px }
         body { text-align: right; font-size: 0 }
         table { display: inline-table; width: 11px }
         td { border: 1px red solid; width: 4px; height: 3px }
@@ -900,20 +894,20 @@ func TestTables_12(t *testing.T) {
         ____________________________
         _________BBBBBBBBBBBBBBBBBB_
         _________BBBBBBBBBBBBBBBBBB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BBrrrrr____rrrrrBB_
-        _________BB____r_________BB_
-        _________BB____r_________BB_
-        _________BB____r_________BB_
-        _________BB____r_________BB_
-        _________BBrrrrrrrrrrrrrrBB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
-        _________BB____r____r____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BBsssss____sssssBB_
+        _________BB____s_________BB_
+        _________BB____s_________BB_
+        _________BB____s_________BB_
+        _________BB____s_________BB_
+        _________BBssssssssssssssBB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
+        _________BB____s____s____BB_
         _________BBBBBBBBBBBBBBBBBB_
         _________BBBBBBBBBBBBBBBBBB_
         ____________________________
@@ -939,56 +933,56 @@ func TestTables_13(t *testing.T) {
 
 	assertPixelsEqualFromPixels(t, "table_collapsed_borders_paged", toPix(`
         ____________________________
-        _gggggggggggggggggggggggggg_
-        _g________________________g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BBrrrrr____rrrrrBB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BB____r_________BB_g_
-        _g_____BBrrrrrrrrrrrrrrBB_g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _gggggggggggggggggggggggggg_
+        _tttttttttttttttttttttttttt_
+        _t________________________t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BBsssss____sssssBB_t_
+        _t_____BB____s_________BB_t_
+        _t_____BB____s_________BB_t_
+        _t_____BB____s_________BB_t_
+        _t_____BB____s_________BB_t_
+        _t_____BBssssssssssssssBB_t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _tttttttttttttttttttttttttt_
         ____________________________
         ____________________________
-        _gggggggggggggggggggggggggg_
-        _g_____BBrrrrrrrrrrrrrrBB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BB____r____r____BB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g_____BBBBBBBBBBBBBBBBBB_g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _g________________________g_
-        _gggggggggggggggggggggggggg_
+        _tttttttttttttttttttttttttt_
+        _t_____BBssssssssssssssBB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BB____s____s____BB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t_____BBBBBBBBBBBBBBBBBB_t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _t________________________t_
+        _tttttttttttttttttttttttttt_
         ____________________________
     `), fmt.Sprintf(tables_source, `
       body { direction: rtl }
@@ -1111,7 +1105,7 @@ func TestTables_15(t *testing.T) {
         ______________________
     `, `
       <style>
-        @page { size: 22px 18px; margin: 1px; background: #fff }
+        @page { size: 22px 18px; margin: 1px }
         td { border: 1px red solid; width: 4px; height: 3px; }
       </style>
       <table style="table-layout: fixed; margin-left: 1px;
@@ -1140,7 +1134,7 @@ func TestTables_16(t *testing.T) {
       ____________________
     `, `
       <style>
-        @page { size: 20px 10px; margin: 1px; background: #fff }
+        @page { size: 20px 10px; margin: 1px }
         body { text-align: right; font-size: 0 }
         table { position: absolute; width: 11px;
                 table-layout: fixed; border-collapse: collapse }
@@ -1150,4 +1144,236 @@ func TestTables_16(t *testing.T) {
         <tr><td></td><td></td></tr>
       <table style="bottom: 0; right: 0">
         <tr><td></td><td></td></tr>`)
+}
+
+func TestTables_17(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertPixelsEqual(t, "", `
+      ________________
+      _RRRRRRRRRRRRRR_
+      _RRRRRRRRRRRRRR_
+      _RR____RR____RR_
+      _RR_BB_RR_BB_RR_
+      _RR_BB_RR_BB_RR_
+      _RR_BB_RR____RR_
+      _RR_BB_RR____RR_
+      _RR____RR____RR_
+      ________________
+      ________________
+      _RR_BB_RR____RR_
+      _RR_BB_RR____RR_
+      _RR_BB_RR____RR_
+      _RR_BB_RR____RR_
+      _RR____RR____RR_
+      _RRRRRRRRRRRRRR_
+      _RRRRRRRRRRRRRR_
+      ________________
+      ________________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page { size: 16px 10px; margin: 1px }
+        table { border-collapse: collapse; font-size: 2px; line-height: 1;
+                color: blue; font-family: weasyprint }
+        td { border: 2px red solid; padding: 1px; line-height: 1 }
+      </style>
+      <table><tr><td>a a a a</td><td>a</td></tr>`)
+}
+
+func TestTables_18(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertPixelsEqual(t, "", `
+      ____________
+      _RRRRRRRRRR_
+      _R________R_
+      _R_RRRRRR_R_
+      _R_R____R_R_
+      _R_R_BB_R_R_
+      _R_R_BB_R_R_
+      _R_R_BB_R_R_
+      _R_R_BB_R_R_
+      _R_R____R_R_
+      ____________
+      ____________
+      _R_R_BB_R_R_
+      _R_R_BB_R_R_
+      _R_R_BB_R_R_
+      _R_R_BB_R_R_
+      _R_R____R_R_
+      _R_RRRRRR_R_
+      _R________R_
+      _RRRRRRRRRR_
+      ____________
+      ____________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page { size: 12px 11px; margin: 1px }
+        table { border: 1px red solid; border-spacing: 1px; font-size: 2px;
+                line-height: 1; color: blue; font-family: weasyprint }
+        td { border: 1px red solid; padding: 1px; line-height: 1; }
+      </style>
+      <table><tr><td>a a a a</td></tr>`)
+}
+
+func TestTables_19(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	// Regression test: https://github.com/Kozea/WeasyPrint/issues/1523
+	assertPixelsEqual(t, "", `
+      RR
+      RR
+      RR
+      RR
+      RR
+      RR
+      RR
+      RR
+    `, `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page { size: 2px 4px }
+        table { border-collapse: collapse; color: red }
+        body { font-size: 2px; font-family: weasyprint; line-height: 1 }
+      </style>
+      <table><tr><td>a a a a</td></tr></table>`)
+}
+
+func TestTables_20(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertPixelsEqual(t, "", `
+      ____________________
+      _RRRRRRRRRRRR_______
+      _RBBBBBBBBBBR_______
+      _RRRRRRRRRRRR_______
+      ____________________
+    `, `
+      <style>
+        @page { size: 20px 5px; margin: 1px }
+        table { width: 10px; border: 1px red solid }
+        td { height: 1px; background: blue }
+        col, tr, tbody, tfoot { background: lime }
+      </style>
+      <table>
+      <col></col><col></col>
+      <tbody><tr></tr><tr><td></td></tr></tbody>
+      <tfoot></tfoot>`)
+}
+
+func TestTables_21(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertPixelsEqual(t, "", `
+      _________________________
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rBBBBBBBBBBrBBBBBBBBBBr_
+      _rBKKKKKKBBBrBKKKKKKBBBr_
+      _rBKKKKKKBBBrBKKKKKKBBBr_
+      _rBBBBBBBBBBrBBBBBBBBBBr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _________________________
+      _________________________
+      _________________________
+      _________________________
+      _________________________
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rBBBBBBBBBBrBBBBBBBBBBr_
+      _rBKKKKKKBBBrBBBBBBBBBBr_
+      _rBKKKKKKBBBrBBBBBBBBBBr_
+      _rBBBBBBBBBBrBBBBBBBBBBr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _________________________
+      _________________________
+      _________________________
+      _________________________
+    `, `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page { size: 25px 11px; margin: 1px }
+        table { border-collapse: collapse; font: 2px weasyprint; width: 100% }
+        td { background: blue; padding: 1px; border: 1px solid red }
+      </style>
+      <table>
+        <tr><td>abc</td><td>abc</td></tr>
+        <tr><td>abc</td><td></td></tr>`)
+}
+
+func TestTables_22(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertPixelsEqual(t, "", `
+      _________________________
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rBBBBBBBBBBrBBBBBBBBBBr_
+      _________________________
+      _________________________
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _________________________
+    `, `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page { size: 25px 9px; margin: 1px }
+        table { border-collapse: collapse; font: 2px/1 weasyprint }
+        td { background: blue; border: 1px solid red }
+      </style>
+      <table>
+        <thead><tr><td>abcde</td><td>abcde</td></tr></thead>
+        <tbody><tr><td>abc abc</td><td></td></tr></tbody>`)
+}
+
+func TestTables_23(t *testing.T) {
+	t.Skip()
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertPixelsEqual(t, "", `
+      _________________________
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rBBBBBBBBBBrBBBBBBBBBBr_
+      _________________________
+      _________________________
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rKKKKKKKKKKrKKKKKKKKKKr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rKKKKKKBBBBrBBBBBBBBBBr_
+      _rrrrrrrrrrrrrrrrrrrrrrr_
+      _________________________
+      _________________________
+    `, `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page { size: 25px 9px; margin: 1px }
+        table { border-collapse: collapse; font: 2px/1 weasyprint }
+        td { background: blue; border: 1px solid red }
+        thead td { border-bottom: none }
+      </style>
+      <table>
+        <thead><tr><td>abcde</td><td>abcde</td></tr></thead>
+        <tbody><tr><td>abc abc</td><td></td></tr></tbody>`)
 }

@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/benoitkugler/pdf/model"
-	fc "github.com/benoitkugler/textlayout/fontconfig"
-	"github.com/benoitkugler/textlayout/pango/fcfonts"
+	fc "github.com/benoitkugler/textprocessing/fontconfig"
+	"github.com/benoitkugler/textprocessing/pango/fcfonts"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/html/document"
 	"github.com/benoitkugler/webrender/html/tree"
@@ -151,14 +151,18 @@ func pngsToImage(pngs []byte) (image.Image, error) {
 
 // use the light UA stylesheet
 func htmlToModel(t *testing.T, html string) model.Document {
+	t.Helper()
 	return htmlToModelExt(t, html, 1, ".")
 }
 
 func htmlToModelExt(t *testing.T, html string, zoom utils.Fl, baseURL string) model.Document {
+	t.Helper()
 	return htmlToModelExt2(t, html, zoom, baseURL, nil)
 }
 
 func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, attachments []backend.Attachment) model.Document {
+	t.Helper()
+
 	parsedHtml, err := tree.NewHTML(utils.InputString(html), baseURL, nil, "")
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +176,7 @@ func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, a
 
 // use the light UA stylesheet
 func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
-	target, err := ioutil.TempFile("", "weasyprint")
+	target, err := ioutil.TempFile("", "*weasyprint.pdf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +328,7 @@ func assertPixelsEqualFromPixels(t *testing.T, context string, expectedPixels []
 
 	gotPixels := imagePixels(img)
 	if len(gotPixels) != len(expectedPixels) {
-		t.Fatalf("%s (file %s): expected %d pixels rows, got %d", context, got.Name(), len(expectedPixels), len(gotPixels))
+		t.Fatalf("%s (file://%s): expected %d pixels rows, got %d", context, got.Name(), len(expectedPixels), len(gotPixels))
 	}
 
 	for i, exp := range expectedPixels {
@@ -335,19 +339,29 @@ func assertPixelsEqualFromPixels(t *testing.T, context string, expectedPixels []
 		}
 
 		if len(gotPixels[i]) != len(exp) {
-			t.Fatalf("%s (file %s): unexpected length for row %d : expected %d, got %d", context, got.Name(), i, len(exp), len(gotPixels[i]))
+			t.Fatalf("%s (file://%s): unexpected length for row %d : expected %d, got %d", context, got.Name(), i, len(exp), len(gotPixels[i]))
 		}
 
 		for j, v := range exp {
 			g := gotPixels[i][j]
 			if v != g {
-				t.Fatalf("%s (file: %s): pixel at (%d, %d): expected %v, got %v", context, got.Name(), i, j, v, g)
+				t.Fatalf("%s (file://%s): pixel at (%d, %d): expected %v, got %v", context, got.Name(), i, j,
+					formatColor(v), formatColor(g))
 			}
 		}
 	}
 
 	got.Close()
 	os.Remove(got.Name())
+}
+
+func formatColor(c color.RGBA) string {
+	for k, v := range colorByName {
+		if v == c {
+			return string(k)
+		}
+	}
+	return fmt.Sprint(c)
 }
 
 func assertPixelsEqual(t *testing.T, context, expected, input string) {

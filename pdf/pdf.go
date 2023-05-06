@@ -9,7 +9,7 @@ import (
 
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/textlayout/fonts"
-	"github.com/benoitkugler/textlayout/pango"
+	"github.com/benoitkugler/textprocessing/pango"
 	"github.com/benoitkugler/webrender/backend"
 )
 
