@@ -19,7 +19,7 @@ var (
 )
 
 // may be set to false when debugging
-const compressStreams = false
+const compressStreams = true
 
 type cache struct {
 	// global shared cache for image content
