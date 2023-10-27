@@ -62,13 +62,13 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 			for _, posGlyph := range run.Glyphs {
 				out = append(out, contentstream.SpacedGlyph{
 					SpaceSubtractedBefore: -int(posGlyph.Offset),
-					GID:                   uint32(posGlyph.Glyph),
+					GID:                   posGlyph.Glyph,
 					SpaceSubtractedAfter:  posGlyph.Kerning,
 				})
 
 				// PDF readers don't support colored bitmap glyphs
 				// so we have to add them as an image
-				drawText.DrawEmoji(font, fonts.GID( posGlyph.Glyph), pf.Extents[posGlyph.Glyph],
+				drawText.DrawEmoji(font, fonts.GID(posGlyph.Glyph), pf.Extents[posGlyph.Glyph],
 					text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
 
 			}
