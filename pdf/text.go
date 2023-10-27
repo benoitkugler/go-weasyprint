@@ -62,13 +62,13 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 			for _, posGlyph := range run.Glyphs {
 				out = append(out, contentstream.SpacedGlyph{
 					SpaceSubtractedBefore: -int(posGlyph.Offset),
-					GID:                   posGlyph.Glyph,
+					GID:                   uint32(posGlyph.Glyph),
 					SpaceSubtractedAfter:  posGlyph.Kerning,
 				})
 
 				// PDF readers don't support colored bitmap glyphs
 				// so we have to add them as an image
-				drawText.DrawEmoji(font, posGlyph.Glyph, pf.Extents[posGlyph.Glyph],
+				drawText.DrawEmoji(font, fonts.GID( posGlyph.Glyph), pf.Extents[posGlyph.Glyph],
 					text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
 
 			}
@@ -127,8 +127,8 @@ func (g *group) AddFont(font pango.Font, content []byte) *backend.Font {
 		return ft.Font
 	}
 	out := &backend.Font{
-		Cmap:    make(map[fonts.GID][]rune),
-		Extents: make(map[fonts.GID]backend.GlyphExtents),
+		Cmap:    make(map[backend.GID][]rune),
+		Extents: make(map[backend.GID]backend.GlyphExtents),
 	}
 	// we only initialize the FontDict pointer,
 	// which will be filled later in `writeFonts`
@@ -156,10 +156,10 @@ func (g *group) AddFont(font pango.Font, content []byte) *backend.Font {
 	return out
 }
 
-func cidWidths(dict map[fonts.GID]backend.GlyphExtents) []model.CIDWidth {
+func cidWidths(dict map[backend.GID]backend.GlyphExtents) []model.CIDWidth {
 	var (
 		widths       []model.CIDWidth
-		keys         = make([]fonts.GID, 0, len(dict))
+		keys         = make([]backend.GID, 0, len(dict))
 		currentBlock model.CIDWidthArray
 	)
 
@@ -176,7 +176,7 @@ func cidWidths(dict map[fonts.GID]backend.GlyphExtents) []model.CIDWidth {
 			}
 			currentBlock = model.CIDWidthArray{Start: model.CID(gid)}
 		}
-		currentBlock.W = append(currentBlock.W, dict[gid].Width)
+		currentBlock.W = append(currentBlock.W, model.Fl(dict[gid].Width))
 	}
 
 	if len(currentBlock.W) != 0 {
