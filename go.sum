@@ -1,5 +1,7 @@
 github.com/benoitkugler/pdf v0.0.1 h1:ucw4mQVJ3RVzKh9/q3iTHLRL8dZ/k1ltDj2Lz1QD3hY=
 github.com/benoitkugler/pdf v0.0.1/go.mod h1:onixplM3lVpQn+DrnykVCFKfuC/pvfxcCW3RRlH3jWM=
+github.com/benoitkugler/pdf v0.0.7 h1:959UFa5YoKLOARhK+EZL8GHjseE61/3juty4puwC3e0=
+github.com/benoitkugler/pdf v0.0.7/go.mod h1:r6/Weo/I6C80KgkJhnfbvlIygvj2sl/rWcTPWJdbfMs=
 github.com/benoitkugler/pstokenizer v1.0.0/go.mod h1:l1G2Voirz0q/jj0TQfabNxVsa8HZXh/VMxFSRALWTiE=
 github.com/benoitkugler/pstokenizer v1.0.1 h1:3+18uif4Dg4+w84AmkWPKOujhPKbLnkgxP1eb/KtiGg=
 github.com/benoitkugler/pstokenizer v1.0.1/go.mod h1:l1G2Voirz0q/jj0TQfabNxVsa8HZXh/VMxFSRALWTiE=
@@ -11,6 +13,8 @@ github.com/benoitkugler/textprocessing v0.0.3 h1:Q2X+Z6vxuW5Bxn1R9RaNt0qcprBfpc2
 github.com/benoitkugler/textprocessing v0.0.3/go.mod h1:/4bLyCf1QYywunMK3Gf89Nhb50YI/9POewqrLxWhxd4=
 github.com/benoitkugler/webrender v0.0.5 h1:CiMFePvx1kR+Zw/XxxEZ0PTHepjk8SnD/1X85Ns9MHE=
 github.com/benoitkugler/webrender v0.0.5/go.mod h1:9GlVnm/06qJ9FeDiaiQAHP0ksCgXuXQxkF5cL6O+s0Q=
+github.com/benoitkugler/webrender v0.0.6 h1:SjOH5pG9I1NdjlhU53zbEWfm+HApltURrJDEv2iBIsk=
+github.com/benoitkugler/webrender v0.0.6/go.mod h1:9GlVnm/06qJ9FeDiaiQAHP0ksCgXuXQxkF5cL6O+s0Q=
 github.com/hhrutter/lzw v0.0.0-20190829144645-6f07a24e8650/go.mod h1:yJBvOcu1wLQ9q9XZmfiPfur+3dQJuIhYQsMGLYcItZk=
 github.com/hhrutter/lzw v1.0.0 h1:laL89Llp86W3rRs83LvKbwYRx6INE8gDn0XNb1oXtm0=
 github.com/hhrutter/lzw v1.0.0/go.mod h1:2HC6DJSn/n6iAZfgM3Pg+cP1KxeWc3ezG8bBqW5+WEo=
@@ -24,6 +28,9 @@ golang.org/x/image v0.0.0-20211028202545-6944b10bf410/go.mod h1:023OzeP/+EPmXeap
 golang.org/x/image v0.0.0-20220413100746-70e8d0d3baa9/go.mod h1:023OzeP/+EPmXeapQh35lcL3II3LrY8Ic+EFFKVhULM=
 golang.org/x/image v0.7.0 h1:gzS29xtG1J5ybQlv0PuyfE3nmc6R4qB73m6LUUmvFuw=
 golang.org/x/image v0.7.0/go.mod h1:nd/q4ef1AKKYl/4kft7g+6UyGbdiqWqTP1ZAbRoV7Rg=
+golang.org/x/image v0.9.0/go.mod h1:jtrku+n79PfroUbvDdeUWMAI+heR786BofxrbiSF+J0=
+golang.org/x/image v0.13.0 h1:3cge/F/QTkNLauhf2QoE9zp+7sr+ZcL4HnoZmdwg9sg=
+golang.org/x/image v0.13.0/go.mod h1:6mmbMOeV28HuMTgA6OSRkdXKYw/t5W9Uwn2Yv1r3Yxk=
 golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
 golang.org/x/mod v0.8.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
 golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
@@ -34,6 +41,8 @@ golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug
 golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
 golang.org/x/net v0.9.0 h1:aWJ/m6xSmxWBx+V0XRHTlrYrPG56jKsLdTFmsSsCzOM=
 golang.org/x/net v0.9.0/go.mod h1:d48xBJpPfHeWQsugry2m+kC02ZBRGRgulfHnEXEuWns=
+golang.org/x/net v0.17.0 h1:pVaXccu2ozPjCXewfr1S7xza/zcXTity9cCdXQYSjIM=
+golang.org/x/net v0.17.0/go.mod h1:NxSsAGuq816PNPmqtQdLE42eU2Fs7NoRIZrHJAlaCOE=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
@@ -57,6 +66,9 @@ golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
 golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
 golang.org/x/text v0.9.0 h1:2sjJmO8cDvYveuX97RDLsxlyUxLl+GHoLxBiRdHllBE=
 golang.org/x/text v0.9.0/go.mod h1:e1OnstbJyHTd6l/uOt8jFFHp6TRDWZR/bV3emEE/zU8=
+golang.org/x/text v0.11.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
+golang.org/x/text v0.13.0 h1:ablQoSUd0tRdKxZewP80B+BaqeKJuVhuRxj/dkrun3k=
+golang.org/x/text v0.13.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc=
