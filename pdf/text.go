@@ -3,6 +3,7 @@ package pdf
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -10,16 +11,14 @@ import (
 	pdfFonts "github.com/benoitkugler/pdf/fonts"
 	"github.com/benoitkugler/pdf/fonts/cmaps"
 	"github.com/benoitkugler/pdf/model"
-	"github.com/benoitkugler/textlayout/fonts"
-	"github.com/benoitkugler/textlayout/fonts/truetype"
-	"github.com/benoitkugler/textprocessing/pango"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/matrix"
+	"github.com/benoitkugler/webrender/text"
 	drawText "github.com/benoitkugler/webrender/text/draw"
 )
 
 type pdfFont struct {
-	*backend.Font
+	*backend.FontChars
 	*model.FontDict
 }
 
@@ -56,8 +55,6 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 			pf := g.fonts[run.Font]
 			g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
 
-			font := run.Font.GetHarfbuzzFont()
-
 			var out []contentstream.SpacedGlyph
 			for _, posGlyph := range run.Glyphs {
 				out = append(out, contentstream.SpacedGlyph{
@@ -68,7 +65,7 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 
 				// PDF readers don't support colored bitmap glyphs
 				// so we have to add them as an image
-				drawText.DrawEmoji(font, fonts.GID(posGlyph.Glyph), pf.Extents[posGlyph.Glyph],
+				drawText.DrawEmoji(run.Font, posGlyph.Glyph, pf.Extents[posGlyph.Glyph],
 					text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
 
 			}
@@ -78,39 +75,34 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 	}
 }
 
-func (f pdfFont) newFontDescriptor(font pango.Font, content *model.FontFile) model.FontDescriptor {
-	desc := font.Describe(false)
-	fontSize := desc.Size
-	metrics := font.GetMetrics("")
+func (f pdfFont) newFontDescriptor(font backend.Font, content *model.FontFile) model.FontDescriptor {
+	desc := font.Description()
 
-	hash_ := md5.Sum([]byte(desc.String()))
+	hash_ := md5.Sum([]byte(fmt.Sprint(desc.Family,
+		desc.Style, desc.Weight, desc.Size)))
 	hash := string(hex.EncodeToString(hash_[:]))
 
 	flags := model.Symbolic // since we use a custom char set
-	if desc.Style != pango.STYLE_NORMAL {
+	if desc.Style != text.FSyNormal {
 		flags |= model.Italic
 	}
-	if strings.Contains(desc.FamilyName, "Serif") {
+	if strings.Contains(desc.Family, "Serif") {
 		flags |= model.Serif
 	}
-	if f.Font.IsFixedPitch() {
+	if f.FontChars.IsFixedPitch() {
 		flags |= model.FixedPitch
 	}
 
-	var ascent, descent fl
-	if fontSize != 0 {
-		ascent = fl(metrics.Ascent * 1000 / pango.Unit(fontSize))
-		descent = fl(metrics.Descent * 1000 / pango.Unit(fontSize))
-	}
+	bbox := f.FontChars.Bbox
 	return model.FontDescriptor{
-		FontName:    model.ObjName(hash + "+" + strings.ReplaceAll(desc.FamilyName, " ", "")),
-		FontFamily:  desc.FamilyName,
+		FontName:    model.ObjName(hash + "+" + strings.ReplaceAll(desc.Family, " ", "")),
+		FontFamily:  desc.Family,
 		Flags:       flags,
-		FontBBox:    model.Rectangle{Llx: fl(f.Font.Bbox[0]), Lly: fl(f.Font.Bbox[1]), Urx: fl(f.Font.Bbox[2]), Ury: fl(f.Font.Bbox[3])},
+		FontBBox:    model.Rectangle{Llx: fl(bbox[0]), Lly: fl(bbox[1]), Urx: fl(bbox[2]), Ury: fl(bbox[3])},
 		ItalicAngle: 0,
-		Ascent:      ascent,
-		Descent:     descent,
-		CapHeight:   fl(f.Font.Bbox[3]),
+		Ascent:      desc.Ascent,
+		Descent:     desc.Descent,
+		CapHeight:   fl(bbox[3]),
 		StemV:       80,
 		StemH:       80,
 		FontFile:    content,
@@ -121,36 +113,37 @@ func (f pdfFont) newFontDescriptor(font pango.Font, content *model.FontFile) mod
 // an object used to store associated metadata.
 // This method will be called several times with the same `face` argument,
 // so caching is advised.
-func (g *group) AddFont(font pango.Font, content []byte) *backend.Font {
+func (g *group) AddFont(font backend.Font, content []byte) *backend.FontChars {
 	// check the cache
 	if ft, has := g.fonts[font]; has {
-		return ft.Font
+		return ft.FontChars
 	}
-	out := &backend.Font{
+	out := &backend.FontChars{
 		Cmap:    make(map[backend.GID][]rune),
 		Extents: make(map[backend.GID]backend.GlyphExtents),
 	}
 	// we only initialize the FontDict pointer,
 	// which will be filled later in `writeFonts`
 	g.fonts[font] = pdfFont{
-		Font:     out,
-		FontDict: &model.FontDict{},
+		FontChars: out,
+		FontDict:  &model.FontDict{},
 	}
 
+	desc := font.Description()
+	origin := font.Origin()
 	// until then, we store the content
-	face := font.GetHarfbuzzFont().Face()
-	if g.fontFiles[face] == nil {
+	if g.fontFiles[origin] == nil {
 		fs := &model.FontFile{
 			Stream: model.Stream{Content: content},
 		}
-		if face, ok := face.(*truetype.Font); ok {
-			if isOpenType := face.Type == truetype.TypeOpenType; isOpenType {
+		if desc.IsOpentype {
+			if desc.IsOpentypeOpentype {
 				fs.Subtype = "OpenType"
 			} else {
 				fs.Length1 = len(content)
 			}
 		}
-		g.fontFiles[face] = fs
+		g.fontFiles[origin] = fs
 	}
 
 	return out
@@ -188,12 +181,12 @@ func cidWidths(dict map[backend.GID]backend.GlyphExtents) []model.CIDWidth {
 
 // post-process the font used
 func (c *Output) writeFonts() {
-	for pangoFont, font := range c.cache.fonts {
+	for bFont, font := range c.cache.fonts {
 		if len(font.Cmap) == 0 {
 			continue
 		}
-		content := c.cache.fontFiles[pangoFont.GetHarfbuzzFont().Face()]
-		desc := font.newFontDescriptor(pangoFont, content)
+		content := c.cache.fontFiles[bFont.Origin()]
+		desc := font.newFontDescriptor(bFont, content)
 		widths := cidWidths(font.Extents)
 
 		font.FontDict.Subtype = model.FontType0{

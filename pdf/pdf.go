@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/benoitkugler/pdf/model"
-	"github.com/benoitkugler/textlayout/fonts"
-	"github.com/benoitkugler/textprocessing/pango"
 	"github.com/benoitkugler/webrender/backend"
 )
 
@@ -26,19 +24,19 @@ type cache struct {
 	images map[int]*model.XObjectImage
 
 	// global shared cache for fonts
-	fonts map[pango.Font]pdfFont
+	fonts map[backend.Font]pdfFont
 
-	// global shared cache for font files
-	// the same face may be used at different size
+	// global shared cache for font files.
+	// The same face may be used at different sizes
 	// and we don't want to duplicate the font file
-	fontFiles map[fonts.Face]*model.FontFile
+	fontFiles map[backend.FontOrigin]*model.FontFile
 }
 
 func newCache() cache {
 	return cache{
 		images:    make(map[int]*model.XObjectImage),
-		fonts:     make(map[pango.Font]pdfFont),
-		fontFiles: make(map[fonts.Face]*model.FontFile),
+		fonts:     make(map[backend.Font]pdfFont),
+		fontFiles: make(map[backend.FontOrigin]*model.FontFile),
 	}
 }
 
