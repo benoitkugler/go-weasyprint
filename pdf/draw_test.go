@@ -29,7 +29,7 @@ import (
 
 const fontmapCache = "test/cache.fc"
 
-var fontconfig *text.FontConfiguration
+var fontconfig text.FontConfiguration
 
 var joker = color.RGBA{}
 
@@ -64,7 +64,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fontconfig = text.NewFontConfiguration(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
+	fontconfig = text.NewFontConfigurationPango(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
 // convert a PDF file to an image using Ghostscript, and extract the pixels,

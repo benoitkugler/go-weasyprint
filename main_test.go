@@ -18,7 +18,7 @@ import (
 // see pdf/test/draw_test.go
 const fontmapCache = "pdf/test/cache.fc"
 
-var fontconfig *text.FontConfiguration
+var fontconfig text.FontConfiguration
 
 func init() {
 	logger.ProgressLogger.SetOutput(io.Discard)
@@ -27,7 +27,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fontconfig = text.NewFontConfiguration(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
+	fontconfig = text.NewFontConfigurationPango(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
 func tempFile(s string) string {

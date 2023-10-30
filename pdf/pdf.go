@@ -9,6 +9,7 @@ import (
 
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/webrender/backend"
+	"github.com/benoitkugler/webrender/text"
 )
 
 var (
@@ -29,14 +30,14 @@ type cache struct {
 	// global shared cache for font files.
 	// The same face may be used at different sizes
 	// and we don't want to duplicate the font file
-	fontFiles map[backend.FontOrigin]*model.FontFile
+	fontFiles map[text.FontOrigin]*model.FontFile
 }
 
 func newCache() cache {
 	return cache{
 		images:    make(map[int]*model.XObjectImage),
 		fonts:     make(map[backend.Font]pdfFont),
-		fontFiles: make(map[backend.FontOrigin]*model.FontFile),
+		fontFiles: make(map[text.FontOrigin]*model.FontFile),
 	}
 }
 
