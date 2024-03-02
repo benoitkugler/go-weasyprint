@@ -1,9 +1,11 @@
 package pdf
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/benoitkugler/webrender/matrix"
 	"github.com/benoitkugler/webrender/text"
 	drawText "github.com/benoitkugler/webrender/text/draw"
+	"github.com/go-text/typesetting/opentype/api"
 )
 
 type pdfFont struct {
@@ -129,21 +132,10 @@ func (g *group) AddFont(font backend.Font, content []byte) *backend.FontChars {
 		FontDict:  &model.FontDict{},
 	}
 
-	desc := font.Description()
 	origin := font.Origin()
 	// until then, we store the content
 	if g.fontFiles[origin] == nil {
-		fs := &model.FontFile{
-			Stream: model.Stream{Content: content},
-		}
-		if desc.IsOpentype {
-			if desc.IsOpentypeOpentype {
-				fs.Subtype = "OpenType"
-			} else {
-				fs.Length1 = len(content)
-			}
-		}
-		g.fontFiles[origin] = fs
+		g.fontFiles[origin] = content
 	}
 
 	return out
@@ -179,14 +171,41 @@ func cidWidths(dict map[backend.GID]backend.GlyphExtents) []model.CIDWidth {
 	return widths
 }
 
+func newFontFile(fontDesc backend.FontDescription, font pdfFont, content []byte) *model.FontFile {
+	fs := &model.FontFile{}
+	if fontDesc.IsOpentype {
+		// subset the font
+		set := glyphSet{}
+		for gid := range font.Cmap {
+			set.Add(api.GID(gid))
+		}
+		contentS, err := subset(bytes.NewReader(content), set)
+		if err != nil {
+			log.Printf("font subsetting failed: %s", err)
+		} else {
+			content = contentS
+		}
+
+		if fontDesc.IsOpentypeOpentype {
+			fs.Subtype = "OpenType"
+		} else {
+			fs.Length1 = len(content)
+		}
+	}
+	fs.Stream = model.Stream{Content: content}
+	return fs
+}
+
 // post-process the font used
 func (c *Output) writeFonts() {
 	for bFont, font := range c.cache.fonts {
 		if len(font.Cmap) == 0 {
 			continue
 		}
+
 		content := c.cache.fontFiles[bFont.Origin()]
-		desc := font.newFontDescriptor(bFont, content)
+		fs := newFontFile(bFont.Description(), font, content)
+		desc := font.newFontDescriptor(bFont, fs)
 		widths := cidWidths(font.Extents)
 
 		font.FontDict.Subtype = model.FontType0{

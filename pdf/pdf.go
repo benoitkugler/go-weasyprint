@@ -30,14 +30,14 @@ type cache struct {
 	// global shared cache for font files.
 	// The same face may be used at different sizes
 	// and we don't want to duplicate the font file
-	fontFiles map[text.FontOrigin]*model.FontFile
+	fontFiles map[text.FontOrigin][]byte
 }
 
 func newCache() cache {
 	return cache{
 		images:    make(map[int]*model.XObjectImage),
 		fonts:     make(map[backend.Font]pdfFont),
-		fontFiles: make(map[text.FontOrigin]*model.FontFile),
+		fontFiles: make(map[text.FontOrigin][]byte),
 	}
 }
 

@@ -6,6 +6,7 @@ require (
 	github.com/benoitkugler/pdf v0.0.7
 	github.com/benoitkugler/textprocessing v0.0.3
 	github.com/benoitkugler/webrender v0.0.8
+	github.com/go-text/typesetting v0.1.0
 )
 
 require (
