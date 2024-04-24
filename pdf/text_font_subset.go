@@ -73,13 +73,15 @@ func subset(input loader.Resource, glyphs glyphSet) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("subsetting failed: %s", err)
 		}
-		glyfNew, err = ld.RawTable(glyfTag)
+		glyfRaw, err := ld.RawTable(glyfTag)
 		if err != nil {
 			return nil, fmt.Errorf("subsetting failed: %s", err)
 		}
 
-		glyfNew = subsetGlyf(loca, glyfNew, glyphs)
-		locaNew = writeLoca(loca, isLong)
+		// FIXME: subsetting must handle composite glyph
+		// disable it for now
+		_ = subsetGlyf(loca, glyfRaw, glyphs)
+		_ = writeLoca(loca, isLong)
 	}
 
 	origTablesTags := ld.Tables()

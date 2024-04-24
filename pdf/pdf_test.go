@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/pdf/reader"
@@ -81,10 +79,6 @@ func TestGradientOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 // Test PDF-related code, including metadata, bookmarks && hyperlinks.

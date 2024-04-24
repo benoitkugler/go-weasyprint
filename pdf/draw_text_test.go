@@ -604,3 +604,34 @@ func TestTextUnderlineDotted(t *testing.T) {
 	f.Close()
 	os.Remove(f.Name())
 }
+
+func TestTextSubsetComposite(t *testing.T) {
+	// check that subsetting does not remove
+	// composite glyphs deps
+	assertPixelsEqual(t, "text_subset_composite", `
+        _______
+        ____R__
+        ____R__
+        ___R___
+        _______
+        _RRRRR_
+        _R___R_
+        _RRRRR_
+        _R_____
+        _R___R_
+        __RRRR_
+        _______
+    `, `
+	<style>
+        @page {
+          size: 7px 12px;
+          background: white;
+          margin: 0px;
+        }
+        body {
+		  color: red;
+          font-size: 12px;
+        }
+      </style
+	<div>é</div>`)
+}
