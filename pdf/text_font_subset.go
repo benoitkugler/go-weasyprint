@@ -19,15 +19,19 @@ var (
 
 	fvarTag = loader.MustNewTag("fvar")
 	avarTag = loader.MustNewTag("avar")
-	MVARTag = loader.MustNewTag("MVAR")
+	mVARTag = loader.MustNewTag("MVAR")
 	gvarTag = loader.MustNewTag("gvar")
-	HVARTag = loader.MustNewTag("HVAR")
-	VVARTag = loader.MustNewTag("VVAR")
+	hVARTag = loader.MustNewTag("HVAR")
+	vVARTag = loader.MustNewTag("VVAR")
+
+	gSUBTag = loader.MustNewTag("GSUB")
+	gPOSTag = loader.MustNewTag("GPOS")
 )
 
-func isVar(table loader.Tag) bool {
+// several tables are not useful in PDF
+func ignoreTable(table loader.Tag) bool {
 	switch table {
-	case fvarTag, avarTag, MVARTag, gvarTag, HVARTag, VVARTag:
+	case fvarTag, avarTag, mVARTag, gvarTag, hVARTag, vVARTag, gSUBTag, gPOSTag:
 		return true
 	default:
 		return false
@@ -37,6 +41,41 @@ func isVar(table loader.Tag) bool {
 type glyphSet map[api.GID]struct{}
 
 func (gs glyphSet) Add(g api.GID) { gs[g] = struct{}{} }
+
+// recursively fetch composite glyphs deps, adding it to the set
+func handleComposite(glyphs glyphSet, glyf tables.Glyf) {
+	queue := make([]api.GID, 0, len(glyphs))
+	// start with the given glyphs
+	for g := range glyphs {
+		queue = append(queue, g)
+	}
+	for len(queue) != 0 {
+		// pop the last glyph
+		g := queue[len(queue)-1]
+		queue = queue[:len(queue)-1]
+		if int(g) >= len(glyf) { // invalid glyph
+			continue
+		}
+		switch data := glyf[g].Data.(type) {
+		case tables.SimpleGlyph:
+			// simply add it to the final set
+			glyphs.Add(g)
+		case tables.CompositeGlyph:
+			// fetch deps
+			for _, part := range data.Glyphs {
+				dep := api.GID(part.GlyphIndex)
+				// if not already seen, add it to the queue
+				if _, ok := glyphs[dep]; !ok {
+					glyphs.Add(dep)
+					queue = append(queue, dep)
+				}
+				// else : already processed, continue
+			}
+		default:
+			// nil : nothing to do
+		}
+	}
+}
 
 // Variables font are not supported : the variable tables will be dropped
 // TODO: For now, [subset] only supports the 'glyf' table
@@ -78,16 +117,21 @@ func subset(input loader.Resource, glyphs glyphSet) ([]byte, error) {
 			return nil, fmt.Errorf("subsetting failed: %s", err)
 		}
 
-		// FIXME: subsetting must handle composite glyph
-		// disable it for now
-		_ = subsetGlyf(loca, glyfRaw, glyphs)
-		_ = writeLoca(loca, isLong)
+		glyf, err := tables.ParseGlyf(glyfRaw, loca)
+		if err != nil {
+			return nil, fmt.Errorf("subsetting failed: %s", err)
+		}
+		// handle composite glyph
+		handleComposite(glyphs, glyf)
+
+		loca, glyfNew = subsetGlyf(loca, glyfRaw, glyphs)
+		locaNew = writeLoca(loca, isLong)
 	}
 
 	origTablesTags := ld.Tables()
 	tables := make([]loader.Table, 0, len(origTablesTags))
 	for _, tag := range origTablesTags {
-		if isVar(tag) {
+		if ignoreTable(tag) {
 			continue
 		}
 
@@ -110,11 +154,12 @@ func subset(input loader.Resource, glyphs glyphSet) ([]byte, error) {
 	return loader.WriteTTF(tables), nil
 }
 
-// mutate [loca] and [glyph] and return [glyf]
-func subsetGlyf(loca []uint32, glyf []byte, glyphs glyphSet) []byte {
-	// trim the unused glyp data, and adjust the offset to have start == end
+// mutate and returns [loca] and [glyph]
+func subsetGlyf(loca []uint32, glyf []byte, glyphs glyphSet) ([]uint32, []byte) {
+	// trim the unused glyph data, and adjust the offset to have start == end
 	currentStart := loca[0]
 	nbGlyphs := len(loca) - 1
+	maxGlyphUsed := api.GID(0)
 	for gid := api.GID(0); gid < api.GID(nbGlyphs); gid++ {
 		origStart, origEnd := loca[gid], loca[gid+1]
 		// start and end offsets will change, but not the length
@@ -125,6 +170,10 @@ func subsetGlyf(loca []uint32, glyf []byte, glyphs glyphSet) []byte {
 		if _, has := glyphs[gid]; has {
 			// keep the data
 			newEnd = newStart + glyphLength
+
+			if gid > maxGlyphUsed {
+				maxGlyphUsed = gid
+			}
 		} else {
 			// set the length to 0
 			newEnd = newStart
@@ -140,11 +189,14 @@ func subsetGlyf(loca []uint32, glyf []byte, glyphs glyphSet) []byte {
 		// update the offset
 		currentStart = newEnd
 	}
-
 	// update the final offset
 	loca[nbGlyphs] = currentStart
 	glyf = glyf[:currentStart]
-	return glyf
+
+	// trim the local table
+	loca = loca[:maxGlyphUsed+2]
+
+	return loca, glyf
 }
 
 // writeLoca performs the reverse operation implemented by [ParseLoca]
