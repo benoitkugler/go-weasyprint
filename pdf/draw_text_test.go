@@ -452,9 +452,9 @@ func TestTextUnderline(t *testing.T) {
 	assertPixelsEqual(t, "text_underline", `
         _____________
         _zzzzzzzzzzz_
-        _zRRRRRRRRRz_
-        _zRRRRRRRRRz_
-        _zBBBBBBBBBz_
+        _zsssssssssz_
+        _zsssssssssz_
+        _zuuuuuuuuuz_
         _zzzzzzzzzzz_
         _____________
     `, `
@@ -466,7 +466,7 @@ func TestTextUnderline(t *testing.T) {
           margin: 2px;
         }
         body {
-          color: red;
+          color: rgba(255, 0, 0, 0.5);
           font-family: weasyprint;
           font-size: 3px;
           text-decoration: underline blue;
@@ -482,8 +482,8 @@ func TestTextOverline(t *testing.T) {
         _____________
         _zzzzzzzzzzz_
         _zzzzzzzzzzz_
-        _zRRRRRRRRRz_
-        _zRRRRRRRRRz_
+        _zsssssssssz_
+        _zsssssssssz_
         _zzzzzzzzzzz_
         _____________
     `, `
@@ -495,7 +495,7 @@ func TestTextOverline(t *testing.T) {
           margin: 2px;
         }
         body {
-          color: red;
+          color: rgba(255, 0, 0, 0.5);
           font-family: weasyprint;
           font-size: 3px;
           text-decoration: overline blue;
@@ -508,9 +508,9 @@ func TestTextLineThrough(t *testing.T) {
 	assertPixelsEqual(t, "text_line_through", `
         _____________
         _zzzzzzzzzzz_
-        _zRRRRRRRRRz_
         _zBBBBBBBBBz_
-        _zRRRRRRRRRz_
+		_zuuuuuuuuuz_
+		_zBBBBBBBBBz_
         _zzzzzzzzzzz_
         _____________
     `, `
@@ -522,13 +522,70 @@ func TestTextLineThrough(t *testing.T) {
           margin: 2px;
         }
         body {
-          color: red;
+          color: blue;
           font-family: weasyprint;
           font-size: 3px;
-          text-decoration: line-through blue;
+          text-decoration: line-through rgba(255, 0, 0, 0.5);
         }
       </style>
       <div>abc</div>`)
+}
+
+func TestTextMultipleTextDecoration(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1621
+	assertPixelsEqual(t, "MultipleTextDecoration", `
+        _____________
+        _zzzzzzzzzzz_
+        _zsssssssssz_
+        _zBBBBBBBBBz_
+        _zuuuuuuuuuz_
+        _zzzzzzzzzzz_
+        _____________
+    `, `
+      <style>
+        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 13px 7px;
+          margin: 2px;
+        }
+        body {
+          color: rgba(255, 0, 0, 0.5);
+          font-family: weasyprint;
+          font-size: 3px;
+          text-decoration: underline line-through blue;
+        }
+      </style>
+      <div>abc</div>`)
+}
+
+func TestTextNestedTextDecoration(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1621
+	assertPixelsEqual(t, "TextNestedTextDecoration", `
+        _____________
+        _zzzzzzzzzzz_
+        _zsssssssssz_
+        _zsssBBBsssz_
+        _zuuuuuuuuuz_
+        _zzzzzzzzzzz_
+        _____________
+    `, `
+      <style>
+        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 13px 7px;
+          margin: 2px;
+        }
+        body {
+          color: rgba(255, 0, 0, 0.5);
+          font-family: weasyprint;
+          font-size: 3px;
+          text-decoration: underline blue;
+        }
+        span {
+          text-decoration: line-through blue;
+        }
+      </style>
+      <div>a<span>b</span>c</div>`)
 }
 
 func TestZeroWidthCharacter(t *testing.T) {

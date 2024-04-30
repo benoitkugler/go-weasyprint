@@ -11,6 +11,8 @@ github.com/benoitkugler/textprocessing v0.0.3 h1:Q2X+Z6vxuW5Bxn1R9RaNt0qcprBfpc2
 github.com/benoitkugler/textprocessing v0.0.3/go.mod h1:/4bLyCf1QYywunMK3Gf89Nhb50YI/9POewqrLxWhxd4=
 github.com/benoitkugler/webrender v0.0.8 h1:U+346kMSlBBUYYSZF666ErDrkQ7BDijMhA0QPEBf6tA=
 github.com/benoitkugler/webrender v0.0.8/go.mod h1:9GlVnm/06qJ9FeDiaiQAHP0ksCgXuXQxkF5cL6O+s0Q=
+github.com/benoitkugler/webrender v0.0.9 h1:kosTM7DM1qKhTUXoKGvnrq9/EZl0dPgCE6PpPorUgDI=
+github.com/benoitkugler/webrender v0.0.9/go.mod h1:9GlVnm/06qJ9FeDiaiQAHP0ksCgXuXQxkF5cL6O+s0Q=
 github.com/go-text/typesetting v0.1.0 h1:vioSaLPYcHwPEPLT7gsjCGDCoYSbljxoHJzMnKwVvHw=
 github.com/go-text/typesetting v0.1.0/go.mod h1:d22AnmeKq/on0HNv73UFriMKc4Ez6EqZAofLhAzpSzI=
 github.com/go-text/typesetting-utils v0.0.0-20231211103740-d9332ae51f04 h1:zBx+p/W2aQYtNuyZNcTfinWvXBQwYtDfme051PR/lAY=
