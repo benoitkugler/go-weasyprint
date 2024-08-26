@@ -54,10 +54,10 @@ func TestGradientOp(t *testing.T) {
 	page.State().Transform(matrix.New(1, 0, 0, -1, 0, 200)) // PDF uses "mathematical conventions"
 
 	page.Rectangle(10, 10, 50, 50)
-	page.State().SetColorRgba(parser.RGBA{0, 0, 1, 1}, false)
+	page.State().SetColorRgba(parser.RGBA{R: 0, G: 0, B: 1, A: 1}, false)
 
 	alpha := page.NewGroup(0, 0, 50, 50)
-	alpha.State().SetColorRgba(parser.RGBA{1, 1, 1, 1}, false)
+	alpha.State().SetColorRgba(parser.RGBA{R: 1, G: 1, B: 1, A: 1}, false)
 	alpha.Rectangle(20, 20, 40, 20)
 	alpha.Rectangle(18, 18, 44, 24)
 	alpha.Paint(backend.FillEvenOdd)
