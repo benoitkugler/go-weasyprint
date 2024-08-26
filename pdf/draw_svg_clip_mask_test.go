@@ -12,7 +12,7 @@ func TestClipPath(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "clip_path", `
+	assertPixelsEqual(t, `
         _________
         _________
         __RRRRR__
@@ -43,7 +43,7 @@ func TestClipPathOnGroup(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "clip_path_on_group", `
+	assertPixelsEqual(t, `
         _________
         _________
         __BBBB___
@@ -80,7 +80,7 @@ func TestClipPathGroupOnGroup(t *testing.T) {
 	// capt := testutils.CaptureLogs()
 	// defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "clip_path_group_on_group", `
+	assertPixelsEqual(t, `
         _________
         _________
         __BB_____

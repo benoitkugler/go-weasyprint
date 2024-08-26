@@ -12,7 +12,7 @@ func TestBoundingBoxRect(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxRect", `
+	assertPixelsEqual(t, `
         BBBBB
         BBBBR
         BBBRR
@@ -40,7 +40,7 @@ func TestBoundingBoxCircle(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxCircle", `
+	assertPixelsEqual(t, `
 		__________
 		__BBBBBB__
 		_BBBBBBBR_
@@ -73,7 +73,7 @@ func TestBoundingBoxEllipse(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxEllipse", `
+	assertPixelsEqual(t, `
 		__________
 		__BBBBBB__
 		_BBBBBBBR_
@@ -106,7 +106,7 @@ func TestBoundingBoxLine(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxLine", `
+	assertPixelsEqual(t, `
 		BB___
 		BBB__
 		_BRR_
@@ -135,7 +135,7 @@ func TestBoundingBoxPolygon(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxPolygon", `
+	assertPixelsEqual(t, `
         BBBBB
         BBBBR
         BBBRR
@@ -163,7 +163,7 @@ func TestBoundingBoxPolyline(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxPolyline", `
+	assertPixelsEqual(t, `
         BBBBB
         BBBBR
         BBBRR
@@ -192,12 +192,12 @@ func TestBoundingBoxPolyline(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-//     assertPixelsEqual(t, "boundingBoxText", 2, 2, `
+//     assertPixelsEqual(t,  2, 2, `
 //         BB
 //         BR
 //     `, `
 //       <style>
-//         @font-face { src: url(weasyprint.otf); font-family: weasyprint }
+//         @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
 //         @page { size: 2px }
 //         svg { display: block }
 //       </style>
@@ -220,7 +220,7 @@ func TestBoundingBoxPathHv(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxPathHv", `
+	assertPixelsEqual(t, `
         BBBBB
         BBBBR
         BBBRR
@@ -248,7 +248,7 @@ func TestBoundingBoxPathL(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "boundingBoxPathL", `
+	assertPixelsEqual(t, `
         BBBBB
         BBBBR
         BBBRR
@@ -277,7 +277,7 @@ func TestBoundingBoxPathL(t *testing.T) {
 // capt := testutils.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
-//     assertPixelsEqual(t, "boundingBoxPathC",  `
+//     assertPixelsEqual(t,   `
 //         BBB_
 //         BBR_
 //         ____
@@ -309,7 +309,7 @@ func TestBoundingBoxPathL(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-//     assertPixelsEqual(t, "boundingBoxPathS",  `
+//     assertPixelsEqual(t,   `
 //         BBB_
 //         BBR_
 //         ____

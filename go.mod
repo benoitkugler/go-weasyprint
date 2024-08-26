@@ -9,6 +9,8 @@ require (
 	github.com/go-text/typesetting v0.1.0
 )
 
+replace github.com/benoitkugler/webrender => ../webrender
+
 require (
 	github.com/benoitkugler/pstokenizer v1.0.1 // indirect
 	github.com/benoitkugler/textlayout v0.3.0 // indirect

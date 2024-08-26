@@ -18,6 +18,9 @@ import (
 	"github.com/benoitkugler/webrender/text"
 	drawText "github.com/benoitkugler/webrender/text/draw"
 	"github.com/go-text/typesetting/opentype/api"
+	"github.com/go-text/typesetting/opentype/api/font"
+	"github.com/go-text/typesetting/opentype/loader"
+	"github.com/go-text/typesetting/opentype/tables"
 )
 
 type pdfFont struct {
@@ -56,7 +59,13 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 
 		for _, run := range text.Runs {
 			pf := g.fonts[run.Font]
-			g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
+
+			// do not use bitmap fonts
+			useFont := g.cache.fontFiles[run.Font.Origin()].isSupported
+
+			if useFont {
+				g.app.SetFontAndSize(pdfFonts.BuiltFont{Meta: pf.FontDict}, 1)
+			}
 
 			var out []contentstream.SpacedGlyph
 			for _, posGlyph := range run.Glyphs {
@@ -70,10 +79,11 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 				// so we have to add them as an image
 				drawText.DrawEmoji(run.Font, posGlyph.Glyph, pf.Extents[posGlyph.Glyph],
 					text.FontSize, text.X, text.Y, posGlyph.XAdvance, g)
-
 			}
 
-			g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
+			if useFont {
+				g.app.Ops(contentstream.OpShowSpaceGlyph{Glyphs: out})
+			}
 		}
 	}
 }
@@ -134,8 +144,11 @@ func (g *group) AddFont(font backend.Font, content []byte) *backend.FontChars {
 
 	origin := font.Origin()
 	// until then, we store the content
-	if g.fontFiles[origin] == nil {
-		g.fontFiles[origin] = content
+	if _, ok := g.fontFiles[origin]; !ok {
+		g.fontFiles[origin] = fontContent{
+			content:     content,
+			isSupported: isSupportedFont(content),
+		}
 	}
 
 	return out
@@ -171,6 +184,41 @@ func cidWidths(dict map[backend.GID]backend.GlyphExtents) []model.CIDWidth {
 	return widths
 }
 
+// returns true if a valid 'glyf' or 'cff ' tables is present
+func isSupportedFont(content []byte) bool {
+	ld, err := loader.NewLoader(bytes.NewReader(content))
+	if err != nil {
+		return false
+	}
+
+	headT, _, err := font.LoadHeadTable(ld, nil)
+	if err != nil {
+		return false
+	}
+	maxp, err := ld.RawTable(maxpTag)
+	if err != nil {
+		return false
+	}
+	maxpT, _, err := tables.ParseMaxp(maxp)
+	if err != nil {
+		return false
+	}
+
+	var hasValidGlyf bool
+	if ld.HasTable(locaTag) && ld.HasTable(glyfTag) {
+		// load 'locaT' and 'glyf' tables
+		locaT, _ := ld.RawTable(locaTag)
+
+		isLong := headT.IndexToLocFormat == 1
+		loca, _ := tables.ParseLoca(locaT, int(maxpT.NumGlyphs), isLong)
+		glyfRaw, _ := ld.RawTable(glyfTag)
+		glyf, _ := tables.ParseGlyf(glyfRaw, loca)
+		hasValidGlyf = len(glyf) > 0
+	}
+	hasCff := ld.HasTable(loader.MustNewTag("CFF "))
+	return hasValidGlyf || hasCff
+}
+
 func newFontFile(fontDesc backend.FontDescription, font pdfFont, content []byte) *model.FontFile {
 	fs := &model.FontFile{}
 	if fontDesc.IsOpentype {
@@ -204,7 +252,12 @@ func (c *Output) writeFonts() {
 		}
 
 		content := c.cache.fontFiles[bFont.Origin()]
-		fs := newFontFile(bFont.Description(), font, content)
+		// PDF readers do not support bitmap fonts
+		if !content.isSupported {
+			continue
+		}
+
+		fs := newFontFile(bFont.Description(), font, content.content)
 		desc := font.newFontDescriptor(bFont, fs)
 		widths := cidWidths(font.Extents)
 

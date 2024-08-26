@@ -25,7 +25,7 @@ func TestVisibility_1(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_reference", `
+	assertPixelsEqual(t, `
         ____________
         _rBBB_rBBB__
         _BBBB_BBBB__
@@ -40,7 +40,7 @@ func TestVisibility_2(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_hidden", `
+	assertPixelsEqual(t, `
         ____________
         ____________
         ____________
@@ -55,7 +55,7 @@ func TestVisibility_3(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_mixed", `
+	assertPixelsEqual(t, `
         ____________
         ______rBBB__
         ______BBBB__

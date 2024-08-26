@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/benoitkugler/webrender/utils/testutils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
 //  Test how leaders are drawn.
@@ -44,7 +45,7 @@ func TestLeaderSimple(t *testing.T) {
       <div>bb</div>
       <div>c</div>
     `
-	assertPixelsEqual(t, "leader-simple", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 func TestLeaderTooLong(t *testing.T) {
@@ -91,7 +92,7 @@ func TestLeaderTooLong(t *testing.T) {
       <div>a a a a a a a</div>
       <div>a a a a a</div>
     `
-	assertPixelsEqual(t, "leader-too-long", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 func TestLeaderAlone(t *testing.T) {
@@ -122,7 +123,7 @@ func TestLeaderAlone(t *testing.T) {
       </style>
       <div>a</div>
     `
-	assertPixelsEqual(t, "leader-alone", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 func TestLeaderContent(t *testing.T) {
@@ -153,7 +154,7 @@ func TestLeaderContent(t *testing.T) {
       </style>
       <div>a</div>
     `
-	assertPixelsEqual(t, "leader-content", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 // @pytest.mark.xfail
@@ -196,7 +197,7 @@ func TestLeaderContent(t *testing.T) {
 //       <div>a<article>a</article></div>
 //       <div>a</div>
 //     `
-//     assertPixelsEqual(t, "leader-float" , expectedPixels, html)
+//     assertPixelsEqual(t, loat" , expectedPixels, html)
 // }
 
 func TestLeaderInInline(t *testing.T) {
@@ -230,7 +231,7 @@ func TestLeaderInInline(t *testing.T) {
       </style>
       <div>a <span>a</span> a</div>
     `
-	assertPixelsEqual(t, "leader-in-inline", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 // @pytest.mark.xfail
@@ -305,7 +306,7 @@ func TestLeaderSimpleRtl(t *testing.T) {
       <div>bb</div>
       <div>c</div>
     `
-	assertPixelsEqual(t, "leader-simple-rtl", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 func TestLeaderTooLongRtl(t *testing.T) {
@@ -354,7 +355,7 @@ func TestLeaderTooLongRtl(t *testing.T) {
       <div>a a a a a a a</div>
       <div>a a a a a</div>
     `
-	assertPixelsEqual(t, "leader-too-long-rtl", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 func TestLeaderFloatLeader(t *testing.T) {
@@ -395,5 +396,232 @@ func TestLeaderFloatLeader(t *testing.T) {
       <div>bb</div>
       <div>c</div>
     `
-	assertPixelsEqual(t, "leader-float-leader", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
+}
+
+func TestLeaderEmptyString(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        RRRR____
+        ________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 8px 2px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 1px;
+          line-height: 1;
+        }
+        div::after {
+          color: blue;
+          content: leader('');
+        }
+      </style>
+      <div>aaaa</div>
+    `)
+}
+
+func TestLeaderZeroWidthString(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        RRRR____
+        ________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 8px 2px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 1px;
+          line-height: 1;
+        }
+        div::after {
+          color: blue;
+          content: leader('​');  /* zero-width space */
+        }
+      </style>
+      <div>aaaa</div>
+    `)
+}
+
+func TestLeaderAbsolute(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        BBBBRRRR
+        ______GG
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 8px 2px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 1px;
+          line-height: 1;
+        }
+        div::before {
+          color: blue;
+          content: leader('z');
+        }
+        article {
+          bottom: 0;
+          color: lime;
+          position: absolute;
+          right: 0;
+        }
+      </style>
+      <div>aa<article>bb</article>aa</div>
+    `)
+}
+
+func TestLeaderPadding(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        RR__BBBBBBBB__BB
+        RR__BBBBBBBB__BB
+        __RR__BBBB__BBBB
+        __RR__BBBB__BBBB
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 16px 4px;
+        }
+        body {
+          color: red;
+          counter-reset: count;
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+        }
+        div::after {
+          color: blue;
+          content: ' ' leader(dotted) ' ' counter(count, lower-roman);
+          counter-increment: count;
+        }
+        div + div {
+          padding-left: 2px;
+        }
+      </style>
+      <div>a</div>
+      <div>b</div>
+    `)
+}
+
+func TestLeaderInlinePadding(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        RR__BBBBBBBB__BB
+        RR__BBBBBBBB__BB
+        __RR__BBBB__BBBB
+        __RR__BBBB__BBBB
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 16px 4px;
+        }
+        body {
+          color: red;
+          counter-reset: count;
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+        }
+        span::after {
+          color: blue;
+          content: ' ' leader(dotted) ' ' counter(count, lower-roman);
+          counter-increment: count;
+        }
+        div + div span {
+          padding-left: 2px;
+        }
+      </style>
+      <div><span>a</span></div>
+      <div><span>b</span></div>
+    `)
+}
+
+func TestLeaderMargin(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        RR__BBBBBBBB__BB
+        RR__BBBBBBBB__BB
+        __RR__BBBB__BBBB
+        __RR__BBBB__BBBB
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 16px 4px;
+        }
+        body {
+          color: red;
+          counter-reset: count;
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+        }
+        div::after {
+          color: blue;
+          content: ' ' leader(dotted) ' ' counter(count, lower-roman);
+          counter-increment: count;
+        }
+        div + div {
+          margin-left: 2px;
+        }
+      </style>
+      <div>a</div>
+      <div>b</div>
+    `)
+}
+
+func TestLeaderInlineMargin(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        RR__BBBBBBBB__BB
+        RR__BBBBBBBB__BB
+        __RR__BBBB__BBBB
+        __RR__BBBB__BBBB
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 16px 4px;
+        }
+        body {
+          color: red;
+          counter-reset: count;
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+        }
+        span::after {
+          color: blue;
+          content: ' ' leader(dotted) ' ' counter(count, lower-roman);
+          counter-increment: count;
+        }
+        div + div span {
+          margin-left: 2px;
+        }
+      </style>
+      <div><span>a</span></div>
+      <div><span>b</span></div>
+    `)
 }

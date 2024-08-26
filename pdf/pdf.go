@@ -20,6 +20,12 @@ var (
 // may be set to false when debugging
 const compressStreams = true
 
+type fontContent struct {
+	content []byte
+	// bitmap fonts are not supported by PDF readers
+	isSupported bool
+}
+
 type cache struct {
 	// global shared cache for image content
 	images map[int]*model.XObjectImage
@@ -30,14 +36,14 @@ type cache struct {
 	// global shared cache for font files.
 	// The same face may be used at different sizes
 	// and we don't want to duplicate the font file
-	fontFiles map[text.FontOrigin][]byte
+	fontFiles map[text.FontOrigin]fontContent
 }
 
 func newCache() cache {
 	return cache{
 		images:    make(map[int]*model.XObjectImage),
 		fonts:     make(map[backend.Font]pdfFont),
-		fontFiles: make(map[text.FontOrigin][]byte),
+		fontFiles: make(map[text.FontOrigin]fontContent),
 	}
 }
 

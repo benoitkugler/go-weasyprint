@@ -1,6 +1,7 @@
 package goweasyprint
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
+	"github.com/go-text/typesetting/opentype/loader"
 )
 
 // see pdf/test/draw_test.go
@@ -180,6 +182,35 @@ func TestSVGGradient(t *testing.T) {
 	f.Close()
 
 	_, err = file.ReadFile(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTmp(t *testing.T) {
+	f, _ := os.Open("resources_test/weasyprint.otb")
+	ft, err := loader.NewLoader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(ft.RawTable(loader.MustNewTag("loca")))
+	fmt.Println(ft.HasTable(loader.MustNewTag("glyf")))
+	var allTables []loader.Table
+	for _, table := range ft.Tables() {
+		if table == loader.MustNewTag("loca") || table == loader.MustNewTag("glyf") {
+			continue
+		}
+		fmt.Println(table)
+		b, err := ft.RawTable(table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		allTables = append(allTables, loader.Table{
+			Tag:     table,
+			Content: b,
+		})
+	}
+	err = os.WriteFile("weasyprint.otb_fixed", loader.WriteTTF(allTables), os.ModePerm)
 	if err != nil {
 		t.Fatal(err)
 	}

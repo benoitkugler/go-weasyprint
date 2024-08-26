@@ -11,6 +11,7 @@ import (
 	"github.com/benoitkugler/webrender/html/tree"
 	"github.com/benoitkugler/webrender/utils"
 	"github.com/benoitkugler/webrender/utils/testutils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how boxes, borders, outlines are drawn.
@@ -95,12 +96,36 @@ func testBorders(t *testing.T, cssMargin, prop string) {
 		}
 	}
 
-	assertPixelsEqual(t, prop+"_solid", string(bytes.Join(solidPixels, []byte{'\n'})), fmt.Sprintf(source, cssMargin, prop, "solid"))
+	assertPixelsEqual(t, string(bytes.Join(solidPixels, []byte{'\n'})), fmt.Sprintf(source, cssMargin, prop, "solid"))
 }
 
 // Test the rendering of borders
 func TestBorders(t *testing.T) {
 	testBorders(t, "10px", "border")
+}
+
+// Test the rendering of collapsing borders.
+func TestBordersTableCollapse(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	source := `
+      <style>
+        @page { size: 140px 110px }
+        table { width: 100px; height: 70px; margin: 10px;
+                border-collapse: collapse; border: 10px %s blue }
+      </style>
+      <table><td>abc</td>`
+
+	// Do not test the exact rendering of earch border style but at least
+	// check that they do not do the same.
+	var documents []string
+	for _, borderStyle := range []string{
+		"none", "solid", "dashed", "dotted", "double",
+		"inset", "outset", "groove", "ridge",
+	} {
+		documents = append(documents, fmt.Sprintf(source, borderStyle))
+	}
+	assertDifferentRenderings(t, documents)
 }
 
 func TestOutlines(t *testing.T) {
@@ -157,11 +182,39 @@ func TestEmBorders(t *testing.T) {
 	os.Remove(f.Name())
 }
 
+func TestBordersBoxSizing(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        ________
+        _RRRRRR_
+        _R____R_
+        _RRRRRR_
+        ________
+    `, `
+      <style>
+        @page {
+          size: 8px 5px;
+        }
+        div {
+          border: 1px solid red;
+          box-sizing: border-box;
+          height: 3px;
+          margin: 1px;
+          min-height: auto;
+          min-width: auto;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
 func TestMarginBoxes(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "margin_boxes", `
+	assertPixelsEqual(t, `
         _______________
         _GGG______BBBB_
         _GGG______BBBB_
@@ -273,4 +326,392 @@ func TestRoundedRect(t *testing.T) {
 
 	f.Close()
 	os.Remove(f.Name())
+}
+
+func TestDrawBorderRadius(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        ___zzzzz
+        __zzzzzz
+        _zzzzzzz
+        zzzzzzzz
+        zzzzzzzz
+        zzzzzzzR
+        zzzzzzRR
+        zzzzzRRR
+    `, `
+      <style>
+        @page {
+          size: 8px 8px;
+        }
+        div {
+          background: red;
+          border-radius: 50% 0 0 0;
+          height: 16px;
+          width: 16px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestDrawSplitBorderRadius(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        ___zzzzz
+        __zzzzzz
+        _zzzzzzz
+        zzzzzzzz
+        zzzzzzzz
+        zzzzzzzz
+        zzzzzzRR
+        zzzzzRRR
+
+        RRRRRRRR
+        RRRRRRRR
+        RRRRRRRR
+        RRRRRRRR
+        RRRRRRRR
+        RRRRRRRR
+        RRRRRRRR
+        RRRRRRRR
+
+        zzzzzzRR
+        zzzzzzzR
+        zzzzzzzz
+        zzzzzzzz
+        zzzzzzzz
+        zzzzzzzz
+        _zzzzzzz
+        __zzzzzz
+    `, `
+      <style>
+        @page {
+          size: 8px 8px;
+        }
+        div {
+          background: red;
+          color: transparent;
+          border-radius: 8px;
+          line-height: 9px;
+          width: 16px;
+        }
+      </style>
+      <div>a b c</div>
+    `)
+}
+
+func TestBorderImageStretch(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        __________
+        _RYYYMMMG_
+        _M______C_
+        _M______C_
+        _Y______Y_
+        _Y______Y_
+        _BYYYCCCK_
+        __________
+    `, `
+      <style>
+        @page {
+          size: 10px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border.svg);
+          border-image-slice: 25%;
+          height: 4px;
+          margin: 1px;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageFill(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        __________
+        _RYYYMMMG_
+        _MbbbgggC_
+        _MbbbgggC_
+        _YgggbbbY_
+        _YgggbbbY_
+        _BYYYCCCK_
+        __________
+    `, `
+      <style>
+        @page {
+          size: 10px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border.svg);
+          border-image-slice: 25% fill;
+          height: 4px;
+          margin: 1px;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageDefaultSlice(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        _____________
+        _RYMG___RYMG_
+        _MbgC___MbgC_
+        _YgbY___YgbY_
+        _BYCK___BYCK_
+        _____________
+        _____________
+        _RYMG___RYMG_
+        _MbgC___MbgC_
+        _YgbY___YgbY_
+        _BYCK___BYCK_
+        _____________
+    `, `
+      <style>
+        @page {
+          size: 13px 12px;
+        }
+        div {
+          border: 4px solid black;
+          border-image-source: url(border.svg);
+          height: 2px;
+          margin: 1px;
+          width: 3px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageUnevenWidth(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        ____________
+        _RRRYYYMMMG_
+        _MMM______C_
+        _MMM______C_
+        _YYY______Y_
+        _YYY______Y_
+        _BBBYYYCCCK_
+        ____________
+    `, `
+      <style>
+        @page {
+          size: 12px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-left-width: 3px;
+          border-image-source: url(border.svg);
+          border-image-slice: 25%;
+          height: 4px;
+          margin: 1px;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageNotPercent(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        __________
+        _RYYYMMMG_
+        _M______C_
+        _M______C_
+        _Y______Y_
+        _Y______Y_
+        _BYYYCCCK_
+        __________
+    `, `
+      <style>
+        @page {
+          size: 10px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border.svg);
+          border-image-slice: 1;
+          height: 4px;
+          margin: 1px;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageRepeat(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        ___________
+        _RYMYMYMYG_
+        _M_______C_
+        _Y_______Y_
+        _M_______C_
+        _Y_______Y_
+        _BYCYCYCYK_
+        ___________
+    `, `
+      <style>
+        @page {
+          size: 11px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border.svg);
+          border-image-slice: 25%;
+          border-image-repeat: repeat;
+          height: 4px;
+          margin: 1px;
+          width: 7px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageSpace(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        _________
+        _R_YMC_G_
+        _________
+        _M_____C_
+        _Y_____Y_
+        _C_____M_
+        _________
+        _B_YCM_K_
+        _________
+    `, `
+      <style>
+        @page {
+          size: 9px 9px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border2.svg);
+          border-image-slice: 20%;
+          border-image-repeat: space;
+          height: 5px;
+          margin: 1px;
+          width: 5px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageOutset(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        ____________
+        _RYYYYMMMMG_
+        _M________C_
+        _M_bbbbbb_C_
+        _M_bbbbbb_C_
+        _Y_bbbbbb_Y_
+        _Y_bbbbbb_Y_
+        _Y________Y_
+        _BYYYYCCCCK_
+        ____________
+    `, `
+      <style>
+        @page {
+          size: 12px 10px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border.svg);
+          border-image-slice: 25%;
+          border-image-outset: 2px;
+          height: 2px;
+          margin: 3px;
+          width: 4px;
+          background: #000080
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageWidth(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        __________
+        _RRYYMMGG_
+        _RRYYMMGG_
+        _MM____CC_
+        _YY____YY_
+        _BBYYCCKK_
+        _BBYYCCKK_
+        __________
+    `, `
+      <style>
+        @page {
+          size: 10px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: url(border.svg);
+          border-image-slice: 25%;
+          border-image-width: 2;
+          height: 4px;
+          margin: 1px;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
+}
+
+func TestBorderImageGradient(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        __________
+        _RRRRRRRR_
+        _RRRRRRRR_
+        _RR____RR_
+        _BB____BB_
+        _BBBBBBBB_
+        _BBBBBBBB_
+        __________
+    `, `
+      <style>
+        @page {
+          size: 10px 8px;
+        }
+        div {
+          border: 1px solid black;
+          border-image-source: linear-gradient(to bottom, red, red 50%, blue 50%, blue);
+          border-image-slice: 25%;
+          border-image-width: 2;
+          height: 4px;
+          margin: 1px;
+          width: 6px;
+        }
+      </style>
+      <div></div>
+    `)
 }

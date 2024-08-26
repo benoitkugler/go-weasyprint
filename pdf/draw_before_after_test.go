@@ -14,7 +14,7 @@ func TestBeforeAfter1(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertSameRendering(t, "pseudoBefore",
+	assertSameRendering(t,
 		`
             <style>
                 @page { size: 300px 30px }
@@ -35,7 +35,7 @@ func TestBeforeAfter2(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertSameRendering(t, "pseudoQuotes", `
+	assertSameRendering(t, `
             <style>
                 @page { size: 500px 30px }
                 body { margin: 0; background: #fff; quotes: "«" "»" "“" "”" }
@@ -59,7 +59,7 @@ func TestBeforeAfter3(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertSameRendering(t, "pseudoUrl", `
+	assertSameRendering(t, `
             <style>
                 @page { size: 100px 30px }
                 body { margin: 0; background: #fff; }

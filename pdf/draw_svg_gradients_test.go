@@ -12,7 +12,7 @@ func TestLinearGradient(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "linear_gradient", `
+	assertPixelsEqual(t, `
         BBBBBBBBBB
         BBBBBBBBBB
         BBBBBBBBBB
@@ -45,7 +45,7 @@ func TestLinearGradientUserspace(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "linear_gradient_userspace", `
+	assertPixelsEqual(t, `
         BBBBBBBBBB
         BBBBBBBBBB
         BBBBBBBBBB
@@ -78,7 +78,7 @@ func TestLinearGradientMulticolor(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "linear_gradient_multicolor", `
+	assertPixelsEqual(t, `
         BBBBBBBBBB
         BBBBBBBBBB
         RRRRRRRRRR
@@ -113,7 +113,7 @@ func TestLinearGradientMulticolorUserspace(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "linear_gradient_multicolor_userspace", `
+	assertPixelsEqual(t, `
         BBBBBBBBBB
         BBBBBBBBBB
         RRRRRRRRRR
@@ -149,7 +149,7 @@ func TestLinearGradientMulticolorUserspace(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-// 	assertPixelsEqual(t, "linear_gradient_transform", `
+// 	assertPixelsEqual(t,  `
 //         BBBBBBBBBB
 //         RRRRRRRRRR
 //         GGGGGGGGGG
@@ -184,7 +184,7 @@ func TestLinearGradientRepeat(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "linear_gradient_repeat", `
+	assertPixelsEqual(t, `
         BBBBBBBBBB
         BBBBBBBBBB
         RRRRRRRRRR
@@ -228,7 +228,7 @@ func TestLinearGradientRepeat(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-// 	assertPixelsEqual(t, "linear_gradient_repeat_long", `
+// 	assertPixelsEqual(t,  `
 //         BBBBBBBBBB
 //         RRRRRRRRRR
 //         GGGGGGGGGG
@@ -271,7 +271,7 @@ func TestLinearGradientReflect(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "linear_gradient_reflect", `
+	assertPixelsEqual(t, `
         BBBBBBBBBB
         BBBBBBBBBB
         RRRRRRRRRR
@@ -314,7 +314,7 @@ func TestRadialGradient(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "radial_gradient", `
+	assertPixelsEqual(t, `
         rrrrrrrrrr
         rrrrrrrrrr
         rrrrBBrrrr
@@ -348,7 +348,7 @@ func TestRadialGradientUserspace(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "radial_gradient_userspace", `
+	assertPixelsEqual(t, `
         rrrrrrrrrr
         rrrrrrrrrr
         rrrrBBrrrr
@@ -381,7 +381,7 @@ func TestRadialGradientMulticolor(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "radial_gradient_multicolor", `
+	assertPixelsEqual(t, `
         rrrrrrrrrr
         rrrGGGGrrr
         rrGGBBGGrr
@@ -417,7 +417,7 @@ func TestRadialGradientMulticolorUserspace(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "radial_gradient_multicolor_userspace", `
+	assertPixelsEqual(t, `
         rrrrrrrrrr
         rrrGGGGrrr
         rrGGBBGGrr
@@ -454,7 +454,7 @@ func TestRadialGradientMulticolorUserspace(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-// 	assertPixelsEqual(t, "radial_gradient_repeat", `
+// 	assertPixelsEqual(t,  `
 //         GBrrrrrrBG
 //         BrrGGGGrrB
 //         rrGGBBGGrr
@@ -491,7 +491,7 @@ func TestRadialGradientMulticolorUserspace(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-// 	assertPixelsEqual(t, "radial_gradient_reflect", `
+// 	assertPixelsEqual(t,  `
 //         BGrrrrrrGB
 //         GrrGGGGrrG
 //         rrGGBBGGrr

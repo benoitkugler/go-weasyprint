@@ -12,7 +12,7 @@ func TestFloat(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float", `
+	assertPixelsEqual(t, `
         rBBB__aaaa
         BBBB__aaaa
         BBBB__aaaa
@@ -33,7 +33,7 @@ func TestFloatRtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_rtl", `
+	assertPixelsEqual(t, `
         rBBB__aaaa
         BBBB__aaaa
         BBBB__aaaa
@@ -54,7 +54,7 @@ func TestFloatInline(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_inline", `
+	assertPixelsEqual(t, `
         rBBBGG_____aaaa
         BBBBGG_____aaaa
         BBBB_______aaaa
@@ -79,7 +79,7 @@ func TestFloatInlineRtl(t *testing.T) {
 	// capt := testutils.CaptureLogs()
 	// defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_inline_rtl", `
+	assertPixelsEqual(t, `
         rBBB_____GGaaaa
         BBBB_____GGaaaa
         BBBB_______aaaa
@@ -104,7 +104,7 @@ func TestFloatInlineBlock(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_inline_block", `
+	assertPixelsEqual(t, `
         rBBBGG_____aaaa
         BBBBGG_____aaaa
         BBBB_______aaaa
@@ -129,7 +129,7 @@ func TestFloatInlineBlockRtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_inline_block_rtl", `
+	assertPixelsEqual(t, `
         rBBB_____GGaaaa
         BBBB_____GGaaaa
         BBBB_______aaaa
@@ -154,7 +154,7 @@ func TestFloatTable(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_table", `
+	assertPixelsEqual(t, `
         rBBBGG_____aaaa
         BBBBGG_____aaaa
         BBBB_______aaaa
@@ -179,7 +179,7 @@ func TestFloatTableRtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_table_rtl", `
+	assertPixelsEqual(t, `
         rBBB_____GGaaaa
         BBBB_____GGaaaa
         BBBB_______aaaa
@@ -204,7 +204,7 @@ func TestFloatInlineTable(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_inline_table", `
+	assertPixelsEqual(t, `
         rBBBGG_____aaaa
         BBBBGG_____aaaa
         BBBB_______aaaa
@@ -230,7 +230,7 @@ func TestFloatInlineTableRtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_inline_table_rtl", `
+	assertPixelsEqual(t, `
         rBBB_____GGaaaa
         BBBB_____GGaaaa
         BBBB_______aaaa
@@ -256,7 +256,7 @@ func TestFloatReplacedBlock(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_replaced_block", `
+	assertPixelsEqual(t, `
         rBBBaaaa___rBBB
         BBBBaaaa___BBBB
         BBBBaaaa___BBBB
@@ -278,7 +278,7 @@ func TestFloatReplacedBlockRtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "float_replaced_block_rtl", `
+	assertPixelsEqual(t, `
         rBBB___aaaarBBB
         BBBB___aaaaBBBB
         BBBB___aaaaBBBB
@@ -301,7 +301,7 @@ func TestFloatReplacedBlockRtl(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-//     assertPixelsEqual(t, "float_replaced_inline", 15, 5, `
+//     assertPixelsEqual(t,  15, 5, `
 //         rBBBaaaa___rBBB
 //         BBBBaaaa___BBBB
 //         BBBBaaaa___BBBB
@@ -324,7 +324,7 @@ func TestFloatReplacedBlockRtl(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-//     assertPixelsEqual(t, "float_replaced_inline_rtl", 15, 5, `
+//     assertPixelsEqual(t,  15, 5, `
 //         rBBB___aaaarBBB
 //         BBBB___aaaaBBBB
 //         BBBB___aaaaBBBB

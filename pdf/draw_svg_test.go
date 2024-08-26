@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/benoitkugler/webrender/utils/testutils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
 func TestUse(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "use", `
+	assertPixelsEqual(t, `
         RRRRR_____
         RRRRR_____
         __________
@@ -42,10 +43,10 @@ func TestUse(t *testing.T) {
 // Test how SVG simple patterns are drawn.
 
 func TestPattern(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "pattern", `
+	assertPixelsEqual(t, `
         BBrrBBrr
         BBrrBBrr
         rrBBrrBB
@@ -76,10 +77,10 @@ func TestPattern(t *testing.T) {
 }
 
 func TestPattern_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "pattern_2", `
+	assertPixelsEqual(t, `
         BBrrBBrr
         BBrrBBrr
         rrBBrrBB
@@ -110,10 +111,10 @@ func TestPattern_2(t *testing.T) {
 }
 
 func TestPattern_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "pattern_3", `
+	assertPixelsEqual(t, `
         BBrrBBrr
         BBrrBBrr
         rrBBrrBB
@@ -144,10 +145,10 @@ func TestPattern_3(t *testing.T) {
 }
 
 func TestPattern_4(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "pattern_4", `
+	assertPixelsEqual(t, `
         BBrrBBrr
         BBrrBBrr
         rrBBrrBB
@@ -187,10 +188,10 @@ const svgOpacitySource = `
   <svg width="9px" height="9px" xmlns="http://www.w3.org/2000/svg">%s</svg>`
 
 func TestOpacity(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertSameRendering(t, "opacity", fmt.Sprintf(svgOpacitySource, `
+	assertSameRendering(t, fmt.Sprintf(svgOpacitySource, `
             <rect x="2" y="2" width="5" height="5" stroke-width="2"
                   stroke="rgb(127, 255, 127)" fill="rgb(127, 127, 255)" />
         `), fmt.Sprintf(svgOpacitySource, `
@@ -200,17 +201,17 @@ func TestOpacity(t *testing.T) {
 }
 
 func TestFillOpacity(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertSameRendering(t, "fill_opacity", fmt.Sprintf(svgOpacitySource, `
+	assertSameRendering(t, fmt.Sprintf(svgOpacitySource, `
             <rect x="2" y="2" width="5" height="5"
-                  fill="blue" opacity="0.5" />
+                  fill="blue" opacity="50%" />
             <rect x="2" y="2" width="5" height="5" stroke-width="2"
                   stroke="lime" fill="transparent" />
         `), fmt.Sprintf(svgOpacitySource, `
             <rect x="2" y="2" width="5" height="5" stroke-width="2"
-                  stroke="lime" fill="blue" fill-opacity="0.5" />
+                  stroke="lime" fill="blue" fill-opacity="50%" />
         `), 0)
 }
 
@@ -223,8 +224,7 @@ func TestFillOpacity(t *testing.T) {
 // capt := testutils.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
-//     assertSameRendering(t,  (
-//         ("stroke_opacity_reference", svgOpacitySource % `
+//     assertSameRendering(t, /         ("stroke_opacity_reference", svgOpacitySource % `
 //             <rect x="2" y="2" width="5" height="5"
 //                   fill="blue" />
 //             <rect x="2" y="2" width="5" height="5" stroke-width="2"
@@ -242,8 +242,7 @@ func TestFillOpacity(t *testing.T) {
 // capt := testutils.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
-//     assertSameRendering(t,  (
-//         ("stroke_fill_opacity_reference", svgOpacitySource % `
+//     assertSameRendering(t, /         ("stroke_fill_opacity_reference", svgOpacitySource % `
 //             <rect x="2" y="2" width="5" height="5"
 //                   fill="blue" opacity="0.5" />
 //             <rect x="2" y="2" width="5" height="5" stroke-width="2"
@@ -262,8 +261,7 @@ func TestFillOpacity(t *testing.T) {
 // capt := testutils.CaptureLogs()
 // defer capt.AssertNoLogs(t)
 
-//     assertSameRendering(t,  (
-//         ("pattern_gradient_stroke_fill_opacity_reference", svgOpacitySource % `
+//     assertSameRendering(t, /         ("pattern_gradient_stroke_fill_opacity_reference", svgOpacitySource % `
 //             <defs>
 //               <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1"
 //                               gradientUnits="objectBoundingBox">
@@ -306,13 +304,30 @@ func TestFillOpacity(t *testing.T) {
 //         `),
 //     ))
 
+func TestTranslateOpacity(t *testing.T) {
+	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1976
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	assertSameRendering(t,
+		fmt.Sprintf(svgOpacitySource, `
+            <rect transform="translate(2, 2)" width="5" height="5"
+                  fill="blue" opacity="0.5" />
+        `),
+		fmt.Sprintf(svgOpacitySource, `
+            <rect x="2" y="2" width="5" height="5"
+                  fill="blue" opacity="50%" />
+       `),
+		0)
+}
+
 // Test how SVG simple shapes are drawn.
 
 func TestRectStroke(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_stroke", `
+	assertPixelsEqual(t, `
         _________
         _RRRRRRR_
         _RRRRRRR_
@@ -338,7 +353,7 @@ func TestRectFill(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_fill", `
+	assertPixelsEqual(t, `
         _________
         _________
         __RRRRR__
@@ -363,7 +378,7 @@ func TestRectStrokeFill(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_stroke_fill", `
+	assertPixelsEqual(t, `
         _________
         _RRRRRRR_
         _RRRRRRR_
@@ -389,7 +404,7 @@ func TestRectRound(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_round", `
+	assertPixelsEqual(t, `
         _zzzzzzz_
         zzzzzzzzz
         zzRRRRRzz
@@ -414,7 +429,7 @@ func TestRectRoundZero(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_round_zero", `
+	assertPixelsEqual(t, `
         RRRRRRRRR
         RRRRRRRRR
         RRRRRRRRR
@@ -439,7 +454,7 @@ func TestLine(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "line", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -465,7 +480,7 @@ func TestPolyline(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "polyline", `
+	assertPixelsEqual(t, `
         _________
         RRRRRR___
         RRRRRR___
@@ -491,7 +506,7 @@ func TestPolylineFill(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "polyline_fill", `
+	assertPixelsEqual(t, `
         _________
         RRRRRR___
         RRRRRR___
@@ -517,7 +532,7 @@ func TestPolygon(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "polygon", `
+	assertPixelsEqual(t, `
         _________
         RRRRRR___
         RRRRRR___
@@ -543,7 +558,7 @@ func TestPolygonFill(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "polygon_fill", `
+	assertPixelsEqual(t, `
         _________
         RRRRRR___
         RRRRRR___
@@ -569,7 +584,7 @@ func TestCircleStroke(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "circle_stroke", `
+	assertPixelsEqual(t, `
         __________
         __RRRRRR__
         _RRRRRRRR_
@@ -596,7 +611,7 @@ func TestCircleFill(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "circle_fill", `
+	assertPixelsEqual(t, `
         __________
         __RRRRRR__
         _RRRRRRRR_
@@ -623,7 +638,7 @@ func TestEllipseStroke(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "ellipse_stroke", `
+	assertPixelsEqual(t, `
         __________
         __RRRRRR__
         _RRRRRRRR_
@@ -650,7 +665,7 @@ func TestEllipseFill(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "ellipse_fill", `
+	assertPixelsEqual(t, `
         __________
         __RRRRRR__
         _RRRRRRRR_
@@ -677,7 +692,7 @@ func TestRectInG(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_in_g", `
+	assertPixelsEqual(t, `
         RRRRR____
         RRRRR____
         RRRRR____
@@ -704,7 +719,7 @@ func TestRectXYInG(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_x_y_in_g", `
+	assertPixelsEqual(t, `
         _________
         _________
         __RRRRR__
@@ -731,7 +746,7 @@ func TestRectStrokeZero(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_stroke_zero", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -757,7 +772,7 @@ func TestRectWidthHeightZero(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "rect_fill", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -785,7 +800,7 @@ func TestVisibilityVisible(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_visible", `
+	assertPixelsEqual(t, `
         _________
         _________
         __RRRRR__
@@ -811,7 +826,7 @@ func TestVisibilityHidden(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_hidden", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -837,7 +852,7 @@ func TestVisibilityInheritHidden(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_inherit_hidden", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -864,7 +879,7 @@ func TestVisibilityInheritVisible(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "visibility_inherit_visible", `
+	assertPixelsEqual(t, `
         _________
         _________
         __RRRRR__
@@ -892,7 +907,7 @@ func TestDisplayInline(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "display_inline", `
+	assertPixelsEqual(t, `
         _________
         _________
         __RRRRR__
@@ -918,7 +933,7 @@ func TestDisplayNone(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "display_none", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -944,7 +959,7 @@ func TestDisplayInheritNone(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "display_inherit_none", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________
@@ -971,7 +986,7 @@ func TestDisplayInheritInline(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "display_inherit_inline", `
+	assertPixelsEqual(t, `
         _________
         _________
         _________

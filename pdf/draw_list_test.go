@@ -2,7 +2,6 @@ package pdf
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/benoitkugler/webrender/utils/testutils"
@@ -10,14 +9,12 @@ import (
 
 // Test how lists are drawn.
 
-var sansFonts = strings.Join([]string{"DejaVu Sans", "sans"}, " ")
-
 func TestListStyleImage(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	doTest := func(position, pixels string) {
-		assertPixelsEqual(t, "list_style_image_"+position, pixels, fmt.Sprintf(`
+		assertPixelsEqual(t, pixels, fmt.Sprintf(`
 		<style>
 		  @page { size: 12px 10px }
 		  body { margin: 0; background: white; font-family: %s }
@@ -66,7 +63,7 @@ func TestListStyleImageNone(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "list_style_none", `
+	assertPixelsEqual(t, `
         __________
         __________
         __________

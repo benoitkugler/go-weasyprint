@@ -14,7 +14,7 @@ func TestOverflow_1(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	// See test_images
-	assertPixelsEqual(t, "inline_image_overflow", `
+	assertPixelsEqual(t, `
         ________
         ________
         __rBBB__
@@ -38,7 +38,7 @@ func TestOverflow_2(t *testing.T) {
 
 	// <body> is only 1px high, but its overflow is propageted to the viewport
 	// ie. the padding edge of the page box.
-	assertPixelsEqual(t, "inline_image_viewport_overflow", `
+	assertPixelsEqual(t, `
         ________
         ________
         __rBBB__
@@ -60,7 +60,7 @@ func TestOverflow_3(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	// Assert that the border is not clipped by overflow: hidden
-	assertPixelsEqual(t, "border_box_overflow", `
+	assertPixelsEqual(t, `
         ________
         ________
         __BBBB__
@@ -83,7 +83,7 @@ func TestOverflow_4(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	// Assert that the page margins aren't clipped by body's overflow
-	assertPixelsEqual(t, "border_box_overflow", `
+	assertPixelsEqual(t, `
         rr______
         rr______
         __BBBB__
@@ -104,12 +104,37 @@ func TestOverflow_4(t *testing.T) {
     `)
 }
 
+func TestOverflow_5(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+
+	// Regression test for https://github.com/Kozea/WeasyPrint/issues/2026
+	assertPixelsEqual(t, `
+        BBBBBB__
+        BBBBBB__
+        BBBB____
+        BBBB____
+        BBBB____
+        ________
+        ________
+        ________
+    `, `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page { size: 8px }
+        body { font-family: weasyprint; line-height: 1; font-size: 2px }
+        p { color: blue }
+      </style>
+      <p>abc</p>
+      <p style="height: 3px; overflow: hidden">ab<br>ab<br>ab<br>ab</p>
+      `)
+}
+
 func TestClip(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	for _, data := range [][2]string{
-
 		{"5px, 5px, 9px, auto", `
 				______________
 				______________
@@ -185,7 +210,7 @@ func TestClip(t *testing.T) {
 	} {
 
 		css, pixels := data[0], data[1]
-		assertPixelsEqual(t, "background_repeat_clipped", pixels, fmt.Sprintf(`
+		assertPixelsEqual(t, pixels, fmt.Sprintf(`
       <style>
         @page { size: 14px 16px; background: #fff }
         div { margin: 1px; border: 1px green solid;

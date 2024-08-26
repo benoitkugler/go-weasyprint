@@ -42,7 +42,7 @@ func TestCanvasBackground(t *testing.T) {
 					</style>
 					<body>`},
 	} {
-		assertPixelsEqual(t, "", data[1], data[2])
+		assertPixelsEqual(t, data[1], data[2])
 	}
 }
 
@@ -72,7 +72,7 @@ func TestCanvasBackgroundSize(t *testing.T) {
          body { margin: 1px; background: lime; height: 1px }
       </style>
       <body>`
-	assertPixelsEqual(t, "", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
 }
 
 func TestBackgroundImage(t *testing.T) {
@@ -498,7 +498,7 @@ func testBackgroundImage(t *testing.T, name, css, pixels string) {
 	//    BBBB
 	//    BBBB
 
-	assertPixelsEqual(t, name, pixels, fmt.Sprintf(`
+	assertPixelsEqual(t, pixels, fmt.Sprintf(`
       <style>
         @page { size: 14px 16px }
         html { background: #fff }
@@ -514,7 +514,7 @@ func TestBackgroundImageZeroSizeBackground(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/217
-	assertPixelsEqual(t, "zero_size_background", `
+	assertPixelsEqual(t, `
         __________
         __________
         __________
@@ -545,7 +545,7 @@ func TestBackgroundOrigin(t *testing.T) {
 		if css == "" {
 			css = value
 		}
-		assertPixelsEqual(t, "background_origin_"+value, pixels, fmt.Sprintf(`
+		assertPixelsEqual(t, pixels, fmt.Sprintf(`
             <style>
                 @page { size: 12px }
                 html { background: #fff }
@@ -619,7 +619,7 @@ func TestBackgroundOrigin(t *testing.T) {
 func TestBackgroundRepeatSpace_1(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_space", `
+	assertPixelsEqual(t, `
         ____________
         _rBBB__rBBB_
         _BBBB__BBBB_
@@ -649,7 +649,7 @@ func TestBackgroundRepeatSpace_1(t *testing.T) {
 func TestBackgroundRepeatSpace_2(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_space", `
+	assertPixelsEqual(t, `
         ____________
         _rBBB__rBBB_
         _BBBB__BBBB_
@@ -677,7 +677,7 @@ func TestBackgroundRepeatSpace_2(t *testing.T) {
 func TestBackgroundRepeatSpace_3(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_space", `
+	assertPixelsEqual(t, `
         ____________
         _rBBBrBBBrB_
         _BBBBBBBBBB_
@@ -704,7 +704,7 @@ func TestBackgroundRepeatSpace_3(t *testing.T) {
 func TestBackgroundRepeatRound_1(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_round", `
+	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
         _rrBBBBBB_
@@ -733,7 +733,7 @@ func TestBackgroundRepeatRound_1(t *testing.T) {
 func TestBackgroundRepeatRound_2(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_round", `
+	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
         _rrBBBBBB_
@@ -766,7 +766,7 @@ func TestBackgroundRepeatRound_2(t *testing.T) {
 func TestBackgroundRepeatRound_3(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_round", `
+	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
         _rrBBBBBB_
@@ -795,7 +795,7 @@ func TestBackgroundRepeatRound_3(t *testing.T) {
 func TestBackgroundRepeatRound_4(t *testing.T) {
 	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
-	assertPixelsEqual(t, "background_repeat_round", `
+	assertPixelsEqual(t, `
         __________
         _rBBBrBBB_
         _rBBBrBBB_
@@ -868,7 +868,7 @@ func TestBackgroundClip(t *testing.T) {
 		`},
 	} {
 		value, pixels := data[0], data[1]
-		assertPixelsEqual(t, "background_clip_"+value, pixels, fmt.Sprintf(`
+		assertPixelsEqual(t, pixels, fmt.Sprintf(`
 		      <style>
 		        @page { size: 8px }
 		        html { background: #fff }
@@ -1021,7 +1021,7 @@ func TestBackgroundSize(t *testing.T) {
 	           </style>
 	           <body>`},
 	} {
-		assertPixelsEqual(t, data[0], data[1], data[2])
+		assertPixelsEqual(t, data[1], data[2])
 	}
 }
 
@@ -1040,5 +1040,131 @@ func TestBleedBackgroundSize(t *testing.T) {
          @page { size: 2px; background: red; bleed: 1px }
       </style>
       <body>`
-	assertPixelsEqual(t, "bleed_background_size", expectedPixels, html)
+	assertPixelsEqual(t, expectedPixels, html)
+}
+
+func TestBackgroundSizeClip(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        BBBB
+        BRBB
+        BBBB
+        BBBB
+    `, `
+      <style>
+         @page { size: 4px; margin: 1px;
+                 background: url(pattern.png) red;
+                 background-clip: content-box }
+      </style>
+      <body>`)
+}
+
+func TestPageBackgroundFixed(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1993
+	assertPixelsEqual(t, `
+        RBBB
+        BBBB
+        BBBB
+        BBBB
+    `, `
+      <style>
+         @page { size: 4px; margin: 1px;
+                 background: url(pattern.png) red;
+                 background-attachment: fixed; }
+      </style>
+      <body>`)
+}
+
+func TestPageBackgroundFixedBleed(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1993
+	assertPixelsEqual(t, `
+        RRRRRR
+        RRBBBR
+        RBBBBR
+        RBBBBR
+        RBBBBR
+        RRRRRR
+    `, `
+      <style>
+         @page { size: 4px; margin: 1px; bleed: 1px;
+                 background: url(pattern.png) no-repeat red;
+                 background-attachment: fixed; }
+      </style>
+      <body>`)
+}
+
+func TestBleedBackgroundSizeClip(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1943
+	assertPixelsEqual(t, `
+        BBBBBB
+        BBBBBB
+        BBRBBB
+        BBBBBB
+        BBBBBB
+        BBBBBB
+    `, `
+      <style>
+         @page { size: 4px; bleed: 1px; margin: 1px;
+                 background: url(pattern.png) red;
+                 background-clip: content-box }
+      </style>
+      <body>`)
+}
+
+func TestMarksCrop(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        KK__KK
+        K____K
+        ______
+        ______
+        K____K
+        KK__KK
+    `, `
+      <style>
+         @page { size: 4px; bleed: 1px; margin: 1px; marks: crop }
+      </style>
+      <body>`)
+}
+
+func TestMarksCross(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        __KK__
+        ______
+        K____K
+        K____K
+        ______
+        __KK__
+    `, `
+      <style>
+         @page { size: 4px; bleed: 1px; margin: 1px; marks: cross }
+      </style>
+      <body>`)
+}
+
+func TestMarksCropCross(t *testing.T) {
+	capt := tu.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, `
+        KKKKKK
+        K____K
+        K____K
+        K____K
+        K____K
+        KKKKKK
+    `, `
+      <style>
+         @page { size: 4px; bleed: 1px; margin: 1px; marks: crop cross }
+      </style>
+      <body>`)
 }

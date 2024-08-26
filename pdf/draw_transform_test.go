@@ -12,7 +12,7 @@ func Test_2dTransform_1(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_rotate90", `
+	assertPixelsEqual(t, `
         ________
         ________
         __BBBr__
@@ -33,7 +33,7 @@ func Test_2dTransform_2(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_translateX_rotate90", `
+	assertPixelsEqual(t, `
         ____________
         ____________
         _____BBBr___
@@ -60,7 +60,7 @@ func Test_2dTransform_3(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	// A translateX after the rotation is actually a translateY
-	assertPixelsEqual(t, "image_rotate90_translateX", `
+	assertPixelsEqual(t, `
         ____________
         ____________
         ____________
@@ -86,7 +86,7 @@ func Test_2dTransform_4(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "nested_rotate90_translateX", `
+	assertPixelsEqual(t, `
         ____________
         ____________
         ____________
@@ -112,7 +112,7 @@ func Test_2dTransform_5(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_reflection", `
+	assertPixelsEqual(t, `
         ________
         ________
         __BBBr__
@@ -133,7 +133,7 @@ func Test_2dTransform_6(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_translate", `
+	assertPixelsEqual(t, `
         ________
         ________
         ________
@@ -154,7 +154,7 @@ func Test_2dTransform_7(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_translate_percentage", `
+	assertPixelsEqual(t, `
         ________
         ________
         ___rBBB_
@@ -175,7 +175,7 @@ func Test_2dTransform_8(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_translateX", `
+	assertPixelsEqual(t, `
         ________
         ________
         _____rBB
@@ -197,7 +197,7 @@ func Test_2dTransform_9(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_translateY", `
+	assertPixelsEqual(t, `
         ________
         __rBBB__
         __BBBB__
@@ -218,7 +218,7 @@ func Test_2dTransform_10(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_scale", `
+	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
         _rrBBBBBB_
@@ -244,7 +244,7 @@ func Test_2dTransform_11(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_scale12", `
+	assertPixelsEqual(t, `
         __________
         __rBBB____
         __rBBB____
@@ -270,7 +270,7 @@ func Test_2dTransform_12(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_scaleY", `
+	assertPixelsEqual(t, `
         __________
         __rBBB____
         __rBBB____
@@ -296,7 +296,7 @@ func Test_2dTransform_13(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "image_scaleX", `
+	assertPixelsEqual(t, `
         __________
         __________
         _rrBBBBBB_

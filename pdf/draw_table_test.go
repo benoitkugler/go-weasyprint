@@ -3,6 +3,7 @@ package pdf
 import (
 	"fmt"
 	"image/color"
+	"strings"
 	"testing"
 
 	"github.com/benoitkugler/webrender/utils/testutils"
@@ -58,7 +59,7 @@ func TestTables_1(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_borders", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -97,7 +98,7 @@ func TestTables_1Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_borders_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -137,7 +138,7 @@ func TestTables_2(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_collapsed_borders", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBB_________
         _BBBBBBBBBBBBBBBBBB_________
@@ -177,7 +178,7 @@ func TestTables_2Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_collapsed_borders_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _________BBBBBBBBBBBBBBBBBB_
         _________BBBBBBBBBBBBBBBBBB_
@@ -218,7 +219,7 @@ func TestTables_3(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_collapsed_borders_paged", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
 		____________________________
 		_tttttttttttttttttttttttttt_
 		_t________________________t_
@@ -284,7 +285,7 @@ func TestTables_3Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_collapsed_borders_paged_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
 		____________________________
 		_tttttttttttttttttttttttttt_
 		_t________________________t_
@@ -351,7 +352,7 @@ func TestTables_4(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_td_backgrounds", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -390,7 +391,7 @@ func TestTables_4Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_td_backgrounds_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -430,7 +431,7 @@ func TestTables_5(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_row_backgrounds", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -470,7 +471,7 @@ func TestTables_5Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_row_backgrounds_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -511,7 +512,7 @@ func TestTables_6(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_column_backgrounds", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -551,7 +552,7 @@ func TestTables_6Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_column_backgrounds_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -592,7 +593,7 @@ func TestTables_7(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_borders_and_row_backgrounds", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -632,7 +633,7 @@ func TestTables_7Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_borders_and_row_backgrounds_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -673,7 +674,7 @@ func TestTables_8(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_borders_and_column_backgrounds", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -713,7 +714,7 @@ func TestTables_8Rtl(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_borders_and_column_backgrounds_rtl", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         _B________________________B_
@@ -754,7 +755,7 @@ func TestTables_9(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "collapsed_border_thead", `
+	assertPixelsEqual(t, `
 		______________________
 		_BBBBBBBBBBBBBBBBBBBB_
 		_BBBBBBBBBBBBBBBBBBBB_
@@ -808,7 +809,7 @@ func TestTables_10(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "collapsed_border_tfoot", `
+	assertPixelsEqual(t, `
         ______________________
         __RRRRRRRRRRRRRRRRRR__
         __R_____R____R_____R__
@@ -864,7 +865,7 @@ func TestTables_11(t *testing.T) {
 	// Regression test for inline table with collapsed border and alignment
 	// rendering borders incorrectly
 	// https://github.com/Kozea/WeasyPrint/issues/82
-	assertPixelsEqual(t, "inline_text_align", `
+	assertPixelsEqual(t, `
       ____________________
       ________RRRRRRRRRRR_
       ________R____R____R_
@@ -890,7 +891,7 @@ func TestTables_12(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_collapsed_borders", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _________BBBBBBBBBBBBBBBBBB_
         _________BBBBBBBBBBBBBBBBBB_
@@ -931,7 +932,7 @@ func TestTables_13(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqualFromPixels(t, "table_collapsed_borders_paged", toPix(`
+	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
         _tttttttttttttttttttttttttt_
         _t________________________t_
@@ -999,7 +1000,7 @@ func TestTables_13(t *testing.T) {
 // 	capt := testutils.CaptureLogs()
 // 	defer capt.AssertNoLogs(t)
 
-//     assertPixelsEqualFromPixels(t, "table_background_column_paged", toPix(`
+//     assertPixelsEqualFromPixels(t,  toPix(`
 //         ____________________________
 //         _RRR_RRR_RRR________________
 //         _RRR_RRR_RRR________________
@@ -1066,7 +1067,7 @@ func TestTables_15(t *testing.T) {
 
 	// Regression test for colspan in last body line with footer
 	// https://github.com/Kozea/WeasyPrint/issues/1250
-	assertPixelsEqual(t, "colspan_last_row", `
+	assertPixelsEqual(t, `
         ______________________
         __RRRRRRRRRRRRRRRRRR__
         __R_____R____R_____R__
@@ -1121,7 +1122,7 @@ func TestTables_16(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "table_absolute", `
+	assertPixelsEqual(t, `
       ____________________
       _RRRRRRRRRRR________
       _R____R____R________
@@ -1150,7 +1151,7 @@ func TestTables_17(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       ________________
       _RRRRRRRRRRRRRR_
       _RRRRRRRRRRRRRR_
@@ -1186,7 +1187,7 @@ func TestTables_18(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       ____________
       _RRRRRRRRRR_
       _R________R_
@@ -1225,7 +1226,7 @@ func TestTables_19(t *testing.T) {
 	defer capt.AssertNoLogs(t)
 
 	// Regression test: https://github.com/Kozea/WeasyPrint/issues/1523
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       RR
       RR
       RR
@@ -1248,7 +1249,7 @@ func TestTables_20(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       ____________________
       _RRRRRRRRRRRR_______
       _RBBBBBBBBBBR_______
@@ -1271,7 +1272,7 @@ func TestTables_21(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       _________________________
       _rrrrrrrrrrrrrrrrrrrrrrr_
       _rBBBBBBBBBBrBBBBBBBBBBr_
@@ -1310,7 +1311,7 @@ func TestTables_22(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       _________________________
       _rrrrrrrrrrrrrrrrrrrrrrr_
       _rKKKKKKKKKKrKKKKKKKKKKr_
@@ -1346,7 +1347,7 @@ func TestTables_23(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "", `
+	assertPixelsEqual(t, `
       _________________________
       _rrrrrrrrrrrrrrrrrrrrrrr_
       _rKKKKKKKKKKrKKKKKKKKKKr_
@@ -1376,4 +1377,228 @@ func TestTables_23(t *testing.T) {
       <table>
         <thead><tr><td>abcde</td><td>abcde</td></tr></thead>
         <tbody><tr><td>abc abc</td><td></td></tr></tbody>`)
+}
+
+func TestRunningElementsTableBorderCollapse(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, strings.Repeat(`
+      KK_____________
+      KK_____________
+      _______________
+      _______________
+      _______________
+      KKKKKKK________
+      KRRKRRK________
+      KRRKRRK________
+      KKKKKKK________
+      KRRKRRK________
+      KRRKRRK________
+      KKKKKKK________
+      _______________
+      _______________
+      _______________
+    `, 2), `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page {
+          margin: 0 0 10px 0;
+          size: 15px;
+          @bottom-left { content: element(table) }
+        }
+        body { font: 2px/1 weasyprint }
+        table {
+          border: 1px solid black;
+          border-collapse: collapse;
+          color: red;
+          position: running(table);
+        }
+        td { border: 1px solid black }
+        div { page-break-after: always }
+      </style>
+      <table>
+        <tr> <td>A</td> <td>B</td> </tr>
+        <tr> <td>C</td> <td>D</td> </tr>
+      </table>
+      <div>1</div>
+      <div>2</div>
+    `)
+}
+
+func TestRunningElementsTableBorderCollapseEmpty(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, strings.Repeat(`
+      KK________
+      KK________
+      __________
+      __________
+      __________
+      __________
+      __________
+      __________
+      __________
+      __________
+    `, 2), `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page {
+          margin: 0 0 5px 0;
+          size: 10px;
+          @bottom-left { content: element(table) }
+        }
+        body { font: 2px/1 weasyprint }
+        table {
+          border: 1px solid black;
+          border-collapse: collapse;
+          color: red;
+          position: running(table);
+        }
+        td { border: 1px solid black }
+        div { page-break-after: always }
+      </style>
+      <table></table>
+      <div>1</div>
+      <div>2</div>
+    `)
+}
+
+func TestRunningElementsTableBorderCollapseBorderStyle(t *testing.T) {
+	t.Skip()
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, strings.Repeat(`
+      KK_____________
+      KK_____________
+      _______________
+      _______________
+      _______________
+      KKKZ___________
+      KRR_RR_________
+      KRR_RR_________
+      KKKK__Z________
+      KRRKRRK________
+      KRRKRRK________
+      KKKKKKK________
+      _______________
+      _______________
+      _______________
+    `, 2), `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page {
+          margin: 0 0 10px 0;
+          size: 15px;
+          @bottom-left { content: element(table) }
+        }
+        body { font: 2px/1 weasyprint }
+        table {
+          border: 1px solid black;
+          border-collapse: collapse;
+          color: red;
+          position: running(table);
+        }
+        td { border: 1px solid black }
+        div { page-break-after: always }
+      </style>
+      <table>
+        <tr> <td>A</td> <td style="border-style: hidden">B</td> </tr>
+        <tr> <td>C</td> <td style="border-style: none">D</td> </tr>
+      </table>
+      <div>1</div>
+      <div>2</div>
+    `)
+}
+
+func TestRunningElementsTableBorderCollapseSpan(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, strings.Repeat(`
+      KK_____________
+      KK_____________
+      _______________
+      _______________
+      _______________
+      KKKKKKKKKK_____
+      KRRKRRKRRK_____
+      KRRKRRKRRK_____
+      K__KKKKKKK_____
+      K__KRR___K_____
+      K__KRR___K_____
+      KKKKKKKKKK_____
+      _______________
+      _______________
+      _______________
+    `, 2), `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page {
+          margin: 0 0 10px 0;
+          size: 15px;
+          @bottom-left { content: element(table) }
+        }
+        body { font: 2px/1 weasyprint }
+        table {
+          border: 1px solid black;
+          border-collapse: collapse;
+          color: red;
+          position: running(table);
+        }
+        td { border: 1px solid black }
+        div { page-break-after: always }
+      </style>
+      <table>
+        <tr> <td rowspan=2>A</td> <td>B</td> <td>C</td> </tr>
+        <tr> <td colspan=2>D</td> </tr>
+      </table>
+      <div>1</div>
+      <div>2</div>
+    `)
+}
+
+func TestRunningElementsTableBorderCollapseMargin(t *testing.T) {
+	capt := testutils.CaptureLogs()
+	defer capt.AssertNoLogs(t)
+	assertPixelsEqual(t, strings.Repeat(`
+      KK_____________
+      KK_____________
+      _______________
+      _______________
+      _______________
+      _______________
+      ____KKKKKKK____
+      ____KRRKRRK____
+      ____KRRKRRK____
+      ____KKKKKKK____
+      ____KRRKRRK____
+      ____KRRKRRK____
+      ____KKKKKKK____
+      _______________
+      _______________
+    `, 2), `
+      <style>
+        @font-face { src: url(../resources_test/weasyprint.otf); font-family: weasyprint }
+        @page {
+          margin: 0 0 10px 0;
+          size: 15px;
+          @bottom-center { content: element(table); width: 100% }
+        }
+        body { font: 2px/1 weasyprint }
+        table {
+          border: 1px solid black;
+          border-collapse: collapse;
+          color: red;
+          margin: 1px auto;
+          position: running(table);
+        }
+        td { border: 1px solid black }
+        div { page-break-after: always }
+      </style>
+      <table>
+        <tr> <td>A</td> <td>B</td> </tr>
+        <tr> <td>C</td> <td>D</td> </tr>
+      </table>
+      <div>1</div>
+      <div>2</div>
+    `)
 }

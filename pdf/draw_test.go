@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +41,9 @@ var colorByName = map[byte]color.RGBA{
 	'G': {R: 0, G: 255, B: 0, A: 255},     // lime green
 	'V': {R: 191, G: 0, B: 64, A: 255},    // average of 1*B and 3*R.
 	'S': {R: 255, G: 63, B: 63, A: 255},   // R above R above #fff
+	'C': {R: 0, G: 255, B: 255},           // cyan
+	'M': {R: 255, G: 0, B: 255},           // magenta
+	'Y': {R: 255, G: 255, B: 0},           // yellow
 	'r': {R: 255, G: 0, B: 0, A: 255},     // red
 	'g': {R: 0, G: 128, B: 0, A: 255},     // half green
 	'b': {R: 0, G: 0, B: 128, A: 255},     // half blue
@@ -315,19 +319,12 @@ func parsePixelsExt(pixels string, pixelsOveride map[byte]color.RGBA) [][]color.
 	return out
 }
 
-func assertPixelsEqualFromPixels(t *testing.T, context string, expectedPixels [][]color.RGBA, input string) {
+func assertPixelsEqualFromPixels(t *testing.T, expectedPixels [][]color.RGBA, input string) {
 	t.Helper()
 
-	got := htmlToPDF(t, input, pdfZoom)
-
-	img, err := pdfToImage(got, pdfZoom)
-	if err != nil {
-		t.Fatal(context, "file", got.Name(), err)
-	}
-
-	gotPixels := imagePixels(img)
+	got, gotPixels := htmlToPixels(t, input)
 	if len(gotPixels) != len(expectedPixels) {
-		t.Fatalf("%s (file://%s): expected %d pixels rows, got %d", context, got.Name(), len(expectedPixels), len(gotPixels))
+		t.Fatalf("(file://%s): expected %d pixels rows, got %d", got.Name(), len(expectedPixels), len(gotPixels))
 	}
 
 	for i, exp := range expectedPixels {
@@ -338,13 +335,13 @@ func assertPixelsEqualFromPixels(t *testing.T, context string, expectedPixels []
 		}
 
 		if len(gotPixels[i]) != len(exp) {
-			t.Fatalf("%s (file://%s): unexpected length for row %d : expected %d, got %d", context, got.Name(), i, len(exp), len(gotPixels[i]))
+			t.Fatalf("(file://%s): unexpected length for row %d : expected %d, got %d", got.Name(), i, len(exp), len(gotPixels[i]))
 		}
 
 		for j, v := range exp {
 			g := gotPixels[i][j]
 			if v != g {
-				t.Fatalf("%s (file://%s): pixel at (%d, %d): expected %v, got %v", context, got.Name(), i, j,
+				t.Fatalf("(file://%s): pixel at (%d, %d): expected %v, got %v", got.Name(), i, j,
 					formatColor(v), formatColor(g))
 			}
 		}
@@ -363,9 +360,9 @@ func formatColor(c color.RGBA) string {
 	return fmt.Sprint(c)
 }
 
-func assertPixelsEqual(t *testing.T, context, expected, input string) {
+func assertPixelsEqual(t *testing.T, expected, input string) {
 	t.Helper()
-	assertPixelsEqualFromPixels(t, context, parsePixels(expected), input)
+	assertPixelsEqualFromPixels(t, parsePixels(expected), input)
 }
 
 func arePixelsAlmostEqual(pix1, pix2 [][]color.RGBA, tolerance uint8) bool {
@@ -397,32 +394,54 @@ func arePixelsAlmostEqual(pix1, pix2 [][]color.RGBA, tolerance uint8) bool {
 	return true
 }
 
-func assertSameRendering(t *testing.T, context, input1, input2 string, tolerance uint8) {
+func htmlToPixels(t *testing.T, source string) (*os.File, [][]color.RGBA) {
+	pdf := htmlToPDF(t, source, pdfZoom)
+	img, err := pdfToImage(pdf, pdfZoom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pdf, imagePixels(img)
+}
+
+func assertSameRendering(t *testing.T, input1, input2 string, tolerance uint8) {
 	t.Helper()
 
-	got1 := htmlToPDF(t, input1, pdfZoom)
-	got2 := htmlToPDF(t, input2, pdfZoom)
-
-	img1, err := pdfToImage(got1, pdfZoom)
-	if err != nil {
-		t.Fatal(context, err)
-	}
-	img2, err := pdfToImage(got2, pdfZoom)
-	if err != nil {
-		t.Fatal(context, err)
-	}
-
-	gotPixels1 := imagePixels(img1)
-	gotPixels2 := imagePixels(img2)
+	got1, gotPixels1 := htmlToPixels(t, input1)
+	got2, gotPixels2 := htmlToPixels(t, input2)
 
 	if !arePixelsAlmostEqual(gotPixels1, gotPixels2, tolerance) {
-		t.Fatal(context, "got different rendering", got1.Name(), got2.Name())
+		t.Fatalf("got different rendering file://%s file://%s", got1.Name(), got2.Name())
 	}
 
 	got1.Close()
 	got2.Close()
 	os.Remove(got1.Name())
 	os.Remove(got2.Name())
+}
+
+// Render HTML documents to PNG and check that they’re different.
+func assertDifferentRenderings(t *testing.T, inputs []string) {
+	t.Helper()
+
+	var pixelsL [][][]color.RGBA
+	for _, html := range inputs {
+		f, pixels := htmlToPixels(t, html)
+		pixelsL = append(pixelsL, pixels)
+
+		defer func() {
+			f.Close()
+			os.Remove(f.Name())
+		}()
+	}
+
+	for i, pi := range pixelsL {
+		for j := i + 1; j < len(pixelsL); j++ {
+			pj := pixelsL[j]
+			if reflect.DeepEqual(pi, pj) {
+				t.Fatalf("documents %d and %d are the same", i+1, j+1)
+			}
+		}
+	}
 }
 
 func TestTableVerticalAlign(t *testing.T) {
@@ -491,5 +510,5 @@ func TestTableVerticalAlign(t *testing.T) {
         </tr>
       </table>
     `
-	assertPixelsEqual(t, "", pixels, input)
+	assertPixelsEqual(t, pixels, input)
 }

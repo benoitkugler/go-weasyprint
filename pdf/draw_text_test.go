@@ -1,7 +1,9 @@
 package pdf
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/benoitkugler/webrender/utils/testutils"
@@ -9,8 +11,10 @@ import (
 
 // Test how text is drawn.
 
+var sansFonts = strings.Join([]string{"DejaVu Sans", "sans"}, " ")
+
 func TestTextOverflowClip(t *testing.T) {
-	assertPixelsEqual(t, "text_overflow", `
+	assertPixelsEqual(t, `
         _________
         _RRRRRRR_
         _RRRRRRR_
@@ -42,7 +46,7 @@ func TestTextOverflowClip(t *testing.T) {
 }
 
 func TestTextOverflowEllipsis(t *testing.T) {
-	assertPixelsEqual(t, "text_overflow", `
+	assertPixelsEqual(t, `
         _________
         _RRRRRR__
         _RRRRRR__
@@ -93,7 +97,7 @@ func TestTextOverflowEllipsis(t *testing.T) {
 func TestTextAlignRtlTrailingWhitespace(t *testing.T) {
 	// Test text alignment for rtl text with trailing space.
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1111
-	assertPixelsEqual(t, "text_overflow", `
+	assertPixelsEqual(t, `
         _________
         _rrrrBBB_
         _________
@@ -119,7 +123,7 @@ func TestTextAlignRtlTrailingWhitespace(t *testing.T) {
 }
 
 func TestMaxLinesEllipsis(t *testing.T) {
-	assertPixelsEqual(t, "max_lines_ellipsis", `
+	assertPixelsEqual(t, `
         BBBBBBBB__
         BBBBBBBB__
         BBBBBBBBBB
@@ -150,7 +154,7 @@ func TestMaxLinesEllipsis(t *testing.T) {
 
 // @pytest.mark.xfail
 // func TestMaxLinesNested(t *testing.T) {
-//     assertPixelsEqual(t, "max_lines_nested", 10, 12, `
+//     assertPixelsEqual(t,  10, 12, `
 //         BBBBBBBBBB
 //         BBBBBBBBBB
 //         BBBBBBBBBB
@@ -196,7 +200,7 @@ func TestMaxLinesEllipsis(t *testing.T) {
 //     `)
 
 func TestLineClamp(t *testing.T) {
-	assertPixelsEqual(t, "line_clamp", `
+	assertPixelsEqual(t, `
         BBBB__BB__
         BBBB__BB__
         BBBB__BB__
@@ -233,7 +237,7 @@ func TestLineClamp(t *testing.T) {
 }
 
 func TestLineClampNone(t *testing.T) {
-	assertPixelsEqual(t, "line_clamp_none", `
+	assertPixelsEqual(t, `
         BBBB__BB__
         BBBB__BB__
         BBBB__BB__
@@ -268,7 +272,7 @@ func TestLineClampNone(t *testing.T) {
 }
 
 func TestLineClampNumber(t *testing.T) {
-	assertPixelsEqual(t, "line_clamp_number", `
+	assertPixelsEqual(t, `
         BBBB__BB__
         BBBB__BB__
         BBBB__BB__
@@ -303,7 +307,7 @@ func TestLineClampNumber(t *testing.T) {
 
 // @pytest.mark.xfail
 // func TestEllipsisNested(t *testing.T) {
-//     assertPixelsEqual(t, "ellipsis_nested", 10, 10, `
+//     assertPixelsEqual(t,  10, 10, `
 //         BBBBBB____
 //         BBBBBB____
 //         BBBBBB____
@@ -337,7 +341,7 @@ func TestLineClampNumber(t *testing.T) {
 //     `)
 
 func TestTextAlignRight(t *testing.T) {
-	assertPixelsEqual(t, "text_align_right", `
+	assertPixelsEqual(t, `
         _________
         __RR__RR_
         __RR__RR_
@@ -366,7 +370,7 @@ func TestTextAlignRight(t *testing.T) {
 }
 
 func TestTextAlignJustify(t *testing.T) {
-	assertPixelsEqual(t, "text_align_justify", `
+	assertPixelsEqual(t, `
         _________
         _RR___RR_
         _RR___RR_
@@ -395,7 +399,7 @@ func TestTextAlignJustify(t *testing.T) {
 }
 
 func TestTextWordSpacing(t *testing.T) {
-	assertPixelsEqual(t, "text_word_spacing", `
+	assertPixelsEqual(t, `
         ___________________
         _RR____RR____RR____
         _RR____RR____RR____
@@ -422,7 +426,7 @@ func TestTextWordSpacing(t *testing.T) {
 }
 
 func TestTextLetterSpacing(t *testing.T) {
-	assertPixelsEqual(t, "text_letter_spacing", `
+	assertPixelsEqual(t, `
         ___________________
         _RR____RR____RR____
         _RR____RR____RR____
@@ -449,7 +453,7 @@ func TestTextLetterSpacing(t *testing.T) {
 }
 
 func TestTextUnderline(t *testing.T) {
-	assertPixelsEqual(t, "text_underline", `
+	assertPixelsEqual(t, `
         _____________
         _zzzzzzzzzzz_
         _zsssssssssz_
@@ -478,7 +482,7 @@ func TestTextUnderline(t *testing.T) {
 func TestTextOverline(t *testing.T) {
 	// Ascent value seems to be a bit random, don’t try to get the exact
 	// position of the line
-	assertPixelsEqual(t, "text_overline", `
+	assertPixelsEqual(t, `
         _____________
         _zzzzzzzzzzz_
         _zzzzzzzzzzz_
@@ -505,7 +509,7 @@ func TestTextOverline(t *testing.T) {
 }
 
 func TestTextLineThrough(t *testing.T) {
-	assertPixelsEqual(t, "text_line_through", `
+	assertPixelsEqual(t, `
         _____________
         _zzzzzzzzzzz_
         _zBBBBBBBBBz_
@@ -533,7 +537,7 @@ func TestTextLineThrough(t *testing.T) {
 
 func TestTextMultipleTextDecoration(t *testing.T) {
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1621
-	assertPixelsEqual(t, "MultipleTextDecoration", `
+	assertPixelsEqual(t, `
         _____________
         _zzzzzzzzzzz_
         _zsssssssssz_
@@ -543,7 +547,7 @@ func TestTextMultipleTextDecoration(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           margin: 2px;
@@ -560,7 +564,7 @@ func TestTextMultipleTextDecoration(t *testing.T) {
 
 func TestTextNestedTextDecoration(t *testing.T) {
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1621
-	assertPixelsEqual(t, "TextNestedTextDecoration", `
+	assertPixelsEqual(t, `
         _____________
         _zzzzzzzzzzz_
         _zsssssssssz_
@@ -570,7 +574,7 @@ func TestTextNestedTextDecoration(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(weasyprint.otf); font-family: weasyprint}
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           margin: 2px;
@@ -590,7 +594,7 @@ func TestTextNestedTextDecoration(t *testing.T) {
 
 func TestZeroWidthCharacter(t *testing.T) {
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1508
-	assertPixelsEqual(t, "zero_width_character", `
+	assertPixelsEqual(t, `
         ______
         _RRRR_
         _RRRR_
@@ -665,7 +669,7 @@ func TestTextUnderlineDotted(t *testing.T) {
 func TestTextSubsetComposite(t *testing.T) {
 	// check that subsetting does not remove
 	// composite glyphs deps
-	assertPixelsEqual(t, "text_subset_composite", `
+	assertPixelsEqual(t, `
         _______
         ____R__
         ____R__
@@ -691,4 +695,131 @@ func TestTextSubsetComposite(t *testing.T) {
         }
       </style
 	<div>é</div>`)
+}
+
+func TestTextDecorationVar(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1697
+	assertPixelsEqual(t, `
+        _____________
+        _zzzzzzzzzzz_
+        _zRRRRRRRRRz_
+        _zBBBBBBBBBz_
+        _zRRRRRRRRRz_
+        _zzzzzzzzzzz_
+        _____________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 13px 7px;
+          margin: 2px;
+        }
+        body {
+          --blue: blue;
+          color: red;
+          font-family: weasyprint;
+          font-size: 3px;
+          text-decoration-color: var(--blue);
+          text-decoration-line: line-through;
+        }
+      </style>
+      <div>abc</div>`)
+}
+
+func TestFontSizeVerySmall(t *testing.T) {
+	assertPixelsEqual(t, `
+        __________
+        __________
+        __________
+        __________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 10px 4px;
+          margin: 1px;
+        }
+        body {
+          font-family: weasyprint;
+          font-size: 0.00000001px;
+        }
+      </style>
+      test font size zero
+    `)
+}
+
+func TestMissingGlyphFallback(t *testing.T) {
+	// The apostrophe is not included in weasyprint.otf
+	assertPixelsEqual(t, `
+        ___zzzzzzzzzzzzzzzzz
+        _RRzzzzzzzzzzzzzzzzz
+        _RRzzzzzzzzzzzzzzzzz
+        ___zzzzzzzzzzzzzzzzz
+    `, fmt.Sprintf(`
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 20px 4px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint, %s;
+          font-size: 2px;
+          line-height: 0;
+          margin: 2px 1px;
+        }
+      </style>a'`, sansFonts))
+}
+
+func TestTabulationCharacter(t *testing.T) {
+	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1515
+	assertPixelsEqual(t, `
+        __________
+        _RR____RR_
+        _RR____RR_
+        __________
+    `, `
+      <style>
+        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+        @page {
+          size: 10px 4px;
+          margin: 1px;
+        }
+        body {
+          color: red;
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+          tab-size: 3;
+        }
+      </style>
+      <pre>a&Tab;b</pre>`)
+}
+
+func TestOtbFont(t *testing.T) {
+	assertPixelsEqual(t, `
+        ____________________
+        __RR______RR________
+        __RR__RR__RR________
+        __RR__RR__RR________
+        ____________________
+        ____________________
+    `, `
+      <style>
+        @page {
+          size: 20px 6px;
+          margin: 1px;
+        }
+        @font-face {
+          src: url(../resources_test/weasyprint.otb_fixed);
+          font-family: weasyprint-otb;
+        }
+        body {
+          color: red;
+          font-family: weasyprint-otb;
+          font-size: 4px;
+          line-height: 0.8;
+        }
+      </style>
+      AaA`)
 }

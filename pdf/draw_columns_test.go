@@ -12,7 +12,7 @@ func TestColumnRule_1(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "solid", `
+	assertPixelsEqual(t, `
         a_r_a
         a_r_a
         _____
@@ -37,7 +37,7 @@ func TestColumnRule_2(t *testing.T) {
 	capt := testutils.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
-	assertPixelsEqual(t, "dotted", `
+	assertPixelsEqual(t, `
         a_r_a
         a___a
         a_r_a
