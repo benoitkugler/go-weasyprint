@@ -7,20 +7,16 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
-	"io"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/benoitkugler/go-weasyprint/pdf/test"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/html/document"
 	"github.com/benoitkugler/webrender/html/tree"
-	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
@@ -45,16 +41,6 @@ var colorByName = map[byte]color.RGBA{
 	'a': {R: 0, G: 0, B: 254, A: 255},     // JPG is lossy...
 	'p': {R: 192, G: 0, B: 63, A: 255},    // R above R above B above #fff.
 	'z': joker,                            // unspecified, accepts anything
-}
-
-func init() {
-	logger.ProgressLogger.SetOutput(io.Discard)
-
-	var err error
-	fontconfig, err = test.LoadTestFontConfig("test/")
-	if err != nil {
-		log.Fatalf("creating font configuration: %s", err)
-	}
 }
 
 // convert a PDF file to an image using Ghostscript, and extract the pixels,

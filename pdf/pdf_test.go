@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -14,15 +15,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/benoitkugler/go-weasyprint/pdf/test"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/pdf/reader"
 	pdfParser "github.com/benoitkugler/pdf/reader/parser"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/css/parser"
+	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/matrix"
 	"github.com/benoitkugler/webrender/utils"
 	"github.com/benoitkugler/webrender/utils/testutils"
 )
+
+func init() {
+	logger.ProgressLogger.SetOutput(io.Discard)
+
+	var err error
+	fontconfig, err = test.LoadTestFontConfig("test/")
+	if err != nil {
+		log.Fatalf("creating font configuration: %s", err)
+	}
+}
 
 func TestPaint(t *testing.T) {
 	c := NewOutput()
