@@ -15,9 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benoitkugler/go-weasyprint/pdf/test"
 	"github.com/benoitkugler/pdf/model"
-	fc "github.com/benoitkugler/textprocessing/fontconfig"
-	"github.com/benoitkugler/textprocessing/pango/fcfonts"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/html/document"
 	"github.com/benoitkugler/webrender/html/tree"
@@ -26,8 +25,6 @@ import (
 	"github.com/benoitkugler/webrender/utils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
-
-const fontmapCache = "test/cache.fc"
 
 var fontconfig text.FontConfiguration
 
@@ -53,18 +50,11 @@ var colorByName = map[byte]color.RGBA{
 func init() {
 	logger.ProgressLogger.SetOutput(io.Discard)
 
-	// this command has to run once
-	// fmt.Println("Scanning fonts...")
-	// _, err := fc.ScanAndCache(fontmapCache)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	fs, err := fc.LoadFontsetFile(fontmapCache)
+	var err error
+	fontconfig, err = test.LoadTestFontConfig("test/")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("creating font configuration: %s", err)
 	}
-	fontconfig = text.NewFontConfigurationPango(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
 // convert a PDF file to an image using Ghostscript, and extract the pixels,
