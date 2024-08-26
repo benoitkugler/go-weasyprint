@@ -123,7 +123,8 @@ type group struct {
 }
 
 func newGroup(cache cache,
-	left, top, right, bottom fl) group {
+	left, top, right, bottom fl,
+) group {
 	return group{
 		cache: cache,
 		app:   cs.NewGraphicStream(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
@@ -265,7 +266,7 @@ func (g *group) drawMask(app *cs.GraphicStream) {
 }
 
 // Adds a rectangle of the given size to the current path,
-// at position ``(x, y)`` in user-space coordinates.
+// at position “(x, y)“ in user-space coordinates.
 // (X,Y) coordinates are the top left corner of the rectangle.
 func (g *group) Rectangle(x fl, y fl, width fl, height fl) {
 	g.app.Ops(cs.OpRectangle{X: x, Y: y, W: width, H: height})
@@ -299,22 +300,22 @@ func (g *group) Paint(op backend.PaintOp) {
 }
 
 // Begin a new sub-path.
-// After this call the current point will be ``(x, y)``.
+// After this call the current point will be “(x, y)“.
 func (g *group) MoveTo(x fl, y fl) {
 	g.app.Ops(cs.OpMoveTo{X: x, Y: y})
 }
 
 // Adds a line to the path from the current point
-// to position ``(x, y)`` in user-space coordinates.
-// After this call the current point will be ``(x, y)``.
+// to position “(x, y)“ in user-space coordinates.
+// After this call the current point will be “(x, y)“.
 // A current point must be defined before using this method.
 func (g *group) LineTo(x fl, y fl) {
 	g.app.Ops(cs.OpLineTo{X: x, Y: y})
 }
 
 // Add cubic Bézier curve to current path.
-// The curve shall extend to ``(x3, y3)`` using ``(x1, y1)`` and ``(x2,
-// y2)`` as the Bézier control points.
+// The curve shall extend to “(x3, y3)“ using “(x1, y1)“ and “(x2,
+// y2)“ as the Bézier control points.
 func (g *group) CubicTo(x1, y1, x2, y2, x3, y3 fl) {
 	g.app.Ops(cs.OpCubicTo{X1: x1, Y1: y1, X2: x2, Y2: y2, X3: x3, Y3: y3})
 }

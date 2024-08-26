@@ -8,28 +8,24 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/benoitkugler/go-weasyprint/pdf/test"
 	"github.com/benoitkugler/pdf/reader/file"
-	fc "github.com/benoitkugler/textprocessing/fontconfig"
-	"github.com/benoitkugler/textprocessing/pango/fcfonts"
 	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 	"github.com/go-text/typesetting/opentype/loader"
 )
 
-// see pdf/test/draw_test.go
-const fontmapCache = "pdf/test/cache.fc"
-
 var fontconfig text.FontConfiguration
 
 func init() {
 	logger.ProgressLogger.SetOutput(io.Discard)
 
-	fs, err := fc.LoadFontsetFile(fontmapCache)
+	var err error
+	fontconfig, err = test.LoadTestFontConfig("pdf/test/")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("creating font configuration: %s", err)
 	}
-	fontconfig = text.NewFontConfigurationPango(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
 func tempFile(s string) string {

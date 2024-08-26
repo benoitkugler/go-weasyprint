@@ -7,8 +7,6 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
-	"io"
-	"log"
 	"os"
 	"os/exec"
 	"reflect"
@@ -17,18 +15,13 @@ import (
 	"time"
 
 	"github.com/benoitkugler/pdf/model"
-	fc "github.com/benoitkugler/textprocessing/fontconfig"
-	"github.com/benoitkugler/textprocessing/pango/fcfonts"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/html/document"
 	"github.com/benoitkugler/webrender/html/tree"
-	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
-
-const fontmapCache = "test/cache.fc"
 
 var fontconfig text.FontConfiguration
 
@@ -52,23 +45,6 @@ var colorByName = map[byte]color.RGBA{
 	'a': {R: 0, G: 0, B: 254, A: 255},     // JPG is lossy...
 	'p': {R: 192, G: 0, B: 63, A: 255},    // R above R above B above #fff.
 	'z': joker,                            // unspecified, accepts anything
-}
-
-func init() {
-	logger.ProgressLogger.SetOutput(io.Discard)
-
-	// this command has to run once
-	// fmt.Println("Scanning fonts...")
-	// _, err := fc.ScanAndCache(fontmapCache)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	fs, err := fc.LoadFontsetFile(fontmapCache)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fontconfig = text.NewFontConfigurationPango(fcfonts.NewFontMap(fc.Standard.Copy(), fs))
 }
 
 // convert a PDF file to an image using Ghostscript, and extract the pixels,

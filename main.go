@@ -11,7 +11,7 @@ import (
 	"github.com/benoitkugler/webrender/utils"
 )
 
-// HtmlToPdf performs the convertion of an HTML document (`htmlContent`) to a PDF file,
+// HtmlToPdf performs the conversion of an HTML document (`htmlContent`) to a PDF file,
 // written in `target`.
 // It is a wrapper around the following steps :
 //   - `tree.NewHTML` parses the input files (HTML and CSS)

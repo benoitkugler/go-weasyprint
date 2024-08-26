@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -14,15 +15,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/benoitkugler/go-weasyprint/pdf/test"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/pdf/reader"
 	pdfParser "github.com/benoitkugler/pdf/reader/parser"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/css/parser"
+	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/matrix"
 	"github.com/benoitkugler/webrender/utils"
 	"github.com/benoitkugler/webrender/utils/testutils"
 )
+
+func init() {
+	logger.ProgressLogger.SetOutput(io.Discard)
+
+	var err error
+	fontconfig, err = test.LoadTestFontConfig("test/")
+	if err != nil {
+		log.Fatalf("creating font configuration: %s", err)
+	}
+}
 
 func TestPaint(t *testing.T) {
 	c := NewOutput()
@@ -54,10 +67,10 @@ func TestGradientOp(t *testing.T) {
 	page.State().Transform(matrix.New(1, 0, 0, -1, 0, 200)) // PDF uses "mathematical conventions"
 
 	page.Rectangle(10, 10, 50, 50)
-	page.State().SetColorRgba(parser.RGBA{0, 0, 1, 1}, false)
+	page.State().SetColorRgba(parser.RGBA{R: 0, G: 0, B: 1, A: 1}, false)
 
 	alpha := page.NewGroup(0, 0, 50, 50)
-	alpha.State().SetColorRgba(parser.RGBA{1, 1, 1, 1}, false)
+	alpha.State().SetColorRgba(parser.RGBA{R: 1, G: 1, B: 1, A: 1}, false)
 	alpha.Rectangle(20, 20, 40, 20)
 	alpha.Rectangle(18, 18, 44, 24)
 	alpha.Paint(backend.FillEvenOdd)
