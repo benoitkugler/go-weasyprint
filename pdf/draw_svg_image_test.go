@@ -10,8 +10,7 @@ import (
 // Test how images are drawn in SVG.
 
 func TestImageSvg(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____
         ____
@@ -31,8 +30,7 @@ func TestImageSvg(t *testing.T) {
 }
 
 func TestImageSvgViewbox(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____
         ____
@@ -52,8 +50,7 @@ func TestImageSvgViewbox(t *testing.T) {
 }
 
 func TestImageSvgAlignDefault(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __BRRR__
         __BRRR__
@@ -78,8 +75,7 @@ func TestImageSvgAlignDefault(t *testing.T) {
 }
 
 func TestImageSvgAlignNone(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         BBRRRRRR
         BBRRRRRR
@@ -105,8 +101,7 @@ func TestImageSvgAlignNone(t *testing.T) {
 }
 
 func TestImageSvgAlignMeetX(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____BRRR
         ____BRRR
@@ -132,8 +127,7 @@ func TestImageSvgAlignMeetX(t *testing.T) {
 }
 
 func TestImageSvgAlignMeetY(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ________
         ________
@@ -159,8 +153,7 @@ func TestImageSvgAlignMeetY(t *testing.T) {
 }
 
 func TestImageSvgAlignSliceX(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         BBRRRRRR
         BBRRRRRR
@@ -186,8 +179,7 @@ func TestImageSvgAlignSliceX(t *testing.T) {
 }
 
 func TestImageSvgAlignSliceY(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         BBRR____
         BBRR____
@@ -214,8 +206,7 @@ func TestImageSvgAlignSliceY(t *testing.T) {
 
 func TestImageSvgPercentage(t *testing.T) {
 	t.Skip()
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____
         ____
@@ -252,8 +243,7 @@ func TestImageSvgWrong(t *testing.T) {
 }
 
 func TestImageImage(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         rBBB
         BBBB
