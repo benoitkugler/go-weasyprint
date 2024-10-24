@@ -30,7 +30,7 @@ func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl
 	mat = mat.Multiply(g.app.State.Matrix)
 
 	// initiate the pattern ...
-	_, _, gridWidth, gridHeight := p.GetRectangle()
+	_, _, gridWidth, gridHeight := p.GetBoundingBox()
 	pattern := &model.PatternTiling{
 		XStep: gridWidth, YStep: gridHeight,
 		Matrix:     mat,
@@ -224,9 +224,18 @@ func (cp *outputPage) SetBleedBox(left fl, top fl, right fl, bottom fl) {
 // graphic operations
 
 // Returns the current page rectangle
-func (g *group) GetRectangle() (left fl, top fl, right fl, bottom fl) {
+func (g *group) GetBoundingBox() (left, top, right, bottom fl) {
 	bbox := g.app.BoundingBox
 	return bbox.Llx, bbox.Lly, bbox.Urx, bbox.Ury
+}
+
+// Updates the current page rectangle
+func (g *group) SetBoundingBox(left, top, right, bottom fl) {
+	bbox := &g.app.BoundingBox
+	bbox.Llx = left
+	bbox.Lly = top
+	bbox.Urx = right
+	bbox.Ury = bottom
 }
 
 // OnNewStack save the current graphic stack,
