@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/benoitkugler/webrender/utils/testutils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
@@ -160,7 +159,7 @@ const (
 )
 
 func TestImages(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	for _, data := range [][2]string{
@@ -182,7 +181,7 @@ func TestImages(t *testing.T) {
 }
 
 func TestResizedImages(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	for _, filename := range [...]string{
 		"../resources_test/pattern.svg",
@@ -201,7 +200,7 @@ func TestResizedImages(t *testing.T) {
 }
 
 func TestImageOverflow(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, centeredImageOverflow, `
       <style>
@@ -212,7 +211,7 @@ func TestImageOverflow(t *testing.T) {
 }
 
 func TestSvgSizing(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	for _, data := range []struct {
@@ -253,7 +252,7 @@ func TestSvgSizing(t *testing.T) {
 }
 
 func TestSvgResizing(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	for _, data := range []struct {
@@ -295,7 +294,7 @@ func TestSvgResizing(t *testing.T) {
 }
 
 func TestImagesBlock(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	assertPixelsEqual(t, centeredImage, `
@@ -308,7 +307,7 @@ func TestImagesBlock(t *testing.T) {
 }
 
 func TestImagesNotFound(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	assertPixelsEqual(t, noImage, `
           <style>
             @page { size: 8px }
@@ -317,14 +316,14 @@ func TestImagesNotFound(t *testing.T) {
           </style>
           <div><img src="inexistent1.png" alt=""></div>`)
 	logs := capt.Logs()
-	testutils.AssertEqual(t, len(logs), 1, "")
+	tu.AssertEqual(t, len(logs), 1)
 	if !(strings.Contains(logs[0], "failed to load image") && strings.Contains(logs[0], "inexistent1.png")) {
 		t.Fatalf("unexpected log: %s", logs[0])
 	}
 }
 
 func TestImagesNoSrc(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, noImage, `
       <style>
@@ -336,7 +335,7 @@ func TestImagesNoSrc(t *testing.T) {
 }
 
 func TestImagesAlt(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 
 	base := `<style>
 		@page { size: 200px 30px }
@@ -354,7 +353,7 @@ func TestImagesAlt(t *testing.T) {
 	assertSameRendering(t, input0, input3, 0)
 
 	logs := capt.Logs()
-	testutils.AssertEqual(t, len(logs), 1, "")
+	tu.AssertEqual(t, len(logs), 1)
 	if !(strings.Contains(logs[0], "failed to load image") &&
 		strings.Contains(logs[0], "inexistent2.png")) {
 		t.Fatalf("unexpected log: %s", logs[0])
@@ -362,7 +361,7 @@ func TestImagesAlt(t *testing.T) {
 }
 
 func TestImagesRepeatTransparent(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1440
 	assertPixelsEqual(t, "_\n_\n_", `
@@ -374,7 +373,7 @@ func TestImagesRepeatTransparent(t *testing.T) {
 }
 
 func TestImagesNoWidth(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, noImage, `
       <style>
@@ -386,7 +385,7 @@ func TestImagesNoWidth(t *testing.T) {
 }
 
 func TestImagesNoHeight(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, noImage, `
       <style>
@@ -398,7 +397,7 @@ func TestImagesNoHeight(t *testing.T) {
 }
 
 func TestImagesNoWidthHeight(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, noImage, `
       <style>
@@ -410,7 +409,7 @@ func TestImagesNoWidthHeight(t *testing.T) {
 }
 
 func TestImagesPageBreak(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, pageBreak, `
       <style>
@@ -422,7 +421,7 @@ func TestImagesPageBreak(t *testing.T) {
 }
 
 func TestImageRepeatInline(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/808
 	assertPixelsEqual(t, table, `
@@ -446,7 +445,7 @@ func TestImageRepeatInline(t *testing.T) {
 }
 
 func TestImageRepeatBlock(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/808
 	assertPixelsEqual(t, table, `
@@ -470,7 +469,7 @@ func TestImageRepeatBlock(t *testing.T) {
 }
 
 func TestImagesPadding(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Regression test: padding used to be ignored on images
 	assertPixelsEqual(t, centeredImage, `
@@ -484,7 +483,7 @@ func TestImagesPadding(t *testing.T) {
 }
 
 func TestImagesInInlineBlock(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Regression test: this used to cause an exception
 	assertPixelsEqual(t, centeredImage, `
@@ -498,7 +497,7 @@ func TestImagesInInlineBlock(t *testing.T) {
 }
 
 func TestImagesTransparentText(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/2131
 	assertPixelsEqual(t, centeredImage, `<style>
@@ -511,7 +510,7 @@ func TestImagesTransparentText(t *testing.T) {
 }
 
 func TestImagesSharedPattern(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	// The same image is used in a repeating background,
 	// then in a non-repating <img>.
@@ -541,7 +540,7 @@ func TestImagesSharedPattern(t *testing.T) {
 }
 
 func TestImageResolution(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 
 	ref := `
@@ -569,7 +568,7 @@ func TestImageResolution(t *testing.T) {
 }
 
 func TestImageCover(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, coverImage, `
       <style>
@@ -581,7 +580,7 @@ func TestImageCover(t *testing.T) {
 }
 
 func TestImageContain(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, centeredImage, `
       <style>
@@ -593,7 +592,7 @@ func TestImageContain(t *testing.T) {
 }
 
 func TestImageNone(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, centeredImage, `
       <style>
@@ -605,7 +604,7 @@ func TestImageNone(t *testing.T) {
 }
 
 func TestImageScaleDown(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, centeredImage, `
       <style>
@@ -617,7 +616,7 @@ func TestImageScaleDown(t *testing.T) {
 }
 
 func TestImagePosition(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	defer capt.AssertNoLogs(t)
 	assertPixelsEqual(t, centeredImage, `
       <style>
@@ -698,5 +697,5 @@ func TestImageExifImageOrientationKeepFormat(t *testing.T) {
           <style>@page { size: 10px }</style>
           <img style="display: block; image-orientation: 180deg"
                src="../resources_test/not-optimized-exif.jpg">`)
-	tu.AssertEqual(t, true, bytes.Contains(pdf, []byte("DCTDecode")), "")
+	tu.AssertEqual(t, true, bytes.Contains(pdf, []byte("DCTDecode")))
 }
