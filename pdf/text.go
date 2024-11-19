@@ -16,10 +16,9 @@ import (
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/text"
 	drawText "github.com/benoitkugler/webrender/text/draw"
-	"github.com/go-text/typesetting/opentype/api"
-	"github.com/go-text/typesetting/opentype/api/font"
-	"github.com/go-text/typesetting/opentype/loader"
-	"github.com/go-text/typesetting/opentype/tables"
+	"github.com/go-text/typesetting/font"
+	ot "github.com/go-text/typesetting/font/opentype"
+	"github.com/go-text/typesetting/font/opentype/tables"
 )
 
 type pdfFont struct {
@@ -182,7 +181,7 @@ func cidWidths(dict map[backend.GID]backend.GlyphExtents) []model.CIDWidth {
 
 // returns true if a valid 'glyf' , 'cff ' 'or'  tables is present
 func isSupportedFont(content []byte) bool {
-	ld, err := loader.NewLoader(bytes.NewReader(content))
+	ld, err := ot.NewLoader(bytes.NewReader(content))
 	if err != nil {
 		return false
 	}
@@ -211,9 +210,9 @@ func isSupportedFont(content []byte) bool {
 		glyf, _ := tables.ParseGlyf(glyfRaw, loca)
 		hasValidGlyf = len(glyf) > 0
 	}
-	hasCff := ld.HasTable(loader.MustNewTag("CFF "))
+	hasCff := ld.HasTable(ot.MustNewTag("CFF "))
 
-	hasBitmap := ld.HasTable(loader.MustNewTag("EBDT")) && ld.HasTable(loader.MustNewTag("EBLC"))
+	hasBitmap := ld.HasTable(ot.MustNewTag("EBDT")) && ld.HasTable(ot.MustNewTag("EBLC"))
 
 	return hasValidGlyf || hasCff || hasBitmap
 }
@@ -224,7 +223,7 @@ func newFontFile(fontDesc backend.FontDescription, font pdfFont, content []byte)
 		// subset the font
 		set := glyphSet{}
 		for gid := range font.Cmap {
-			set.Add(api.GID(gid))
+			set.Add(ot.GID(gid))
 		}
 		contentS, err := subset(bytes.NewReader(content), set)
 		if err != nil {

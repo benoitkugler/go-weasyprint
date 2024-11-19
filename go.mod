@@ -3,13 +3,11 @@ module github.com/benoitkugler/go-weasyprint
 go 1.17
 
 require (
-	github.com/benoitkugler/pdf v0.0.7
+	github.com/benoitkugler/pdf v0.0.14
 	github.com/benoitkugler/textprocessing v0.0.3
-	github.com/benoitkugler/webrender v0.0.9
-	github.com/go-text/typesetting v0.1.0
+	github.com/benoitkugler/webrender v0.0.10
+	github.com/go-text/typesetting v0.2.0
 )
-
-replace github.com/benoitkugler/webrender => ../webrender
 
 require (
 	github.com/benoitkugler/pstokenizer v1.0.1 // indirect

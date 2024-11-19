@@ -4,32 +4,31 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/go-text/typesetting/opentype/api"
-	"github.com/go-text/typesetting/opentype/api/font"
-	"github.com/go-text/typesetting/opentype/loader"
-	"github.com/go-text/typesetting/opentype/tables"
+	"github.com/go-text/typesetting/font"
+	ot "github.com/go-text/typesetting/font/opentype"
+	"github.com/go-text/typesetting/font/opentype/tables"
 )
 
 // basic font subset
 
 var (
-	maxpTag = loader.MustNewTag("maxp")
-	locaTag = loader.MustNewTag("loca")
-	glyfTag = loader.MustNewTag("glyf")
+	maxpTag = ot.MustNewTag("maxp")
+	locaTag = ot.MustNewTag("loca")
+	glyfTag = ot.MustNewTag("glyf")
 
-	fvarTag = loader.MustNewTag("fvar")
-	avarTag = loader.MustNewTag("avar")
-	mVARTag = loader.MustNewTag("MVAR")
-	gvarTag = loader.MustNewTag("gvar")
-	hVARTag = loader.MustNewTag("HVAR")
-	vVARTag = loader.MustNewTag("VVAR")
+	fvarTag = ot.MustNewTag("fvar")
+	avarTag = ot.MustNewTag("avar")
+	mVARTag = ot.MustNewTag("MVAR")
+	gvarTag = ot.MustNewTag("gvar")
+	hVARTag = ot.MustNewTag("HVAR")
+	vVARTag = ot.MustNewTag("VVAR")
 
-	gSUBTag = loader.MustNewTag("GSUB")
-	gPOSTag = loader.MustNewTag("GPOS")
+	gSUBTag = ot.MustNewTag("GSUB")
+	gPOSTag = ot.MustNewTag("GPOS")
 )
 
 // several tables are not useful in PDF
-func ignoreTable(table loader.Tag) bool {
+func ignoreTable(table ot.Tag) bool {
 	switch table {
 	case fvarTag, avarTag, mVARTag, gvarTag, hVARTag, vVARTag, gSUBTag, gPOSTag:
 		return true
@@ -38,13 +37,13 @@ func ignoreTable(table loader.Tag) bool {
 	}
 }
 
-type glyphSet map[api.GID]struct{}
+type glyphSet map[ot.GID]struct{}
 
-func (gs glyphSet) Add(g api.GID) { gs[g] = struct{}{} }
+func (gs glyphSet) Add(g ot.GID) { gs[g] = struct{}{} }
 
 // recursively fetch composite glyphs deps, adding it to the set
 func handleComposite(glyphs glyphSet, glyf tables.Glyf) {
-	queue := make([]api.GID, 0, len(glyphs))
+	queue := make([]ot.GID, 0, len(glyphs))
 	// start with the given glyphs
 	for g := range glyphs {
 		queue = append(queue, g)
@@ -63,7 +62,7 @@ func handleComposite(glyphs glyphSet, glyf tables.Glyf) {
 		case tables.CompositeGlyph:
 			// fetch deps
 			for _, part := range data.Glyphs {
-				dep := api.GID(part.GlyphIndex)
+				dep := ot.GID(part.GlyphIndex)
 				// if not already seen, add it to the queue
 				if _, ok := glyphs[dep]; !ok {
 					glyphs.Add(dep)
@@ -79,8 +78,8 @@ func handleComposite(glyphs glyphSet, glyf tables.Glyf) {
 
 // Variables font are not supported : the variable tables will be dropped
 // TODO: For now, [subset] only supports the 'glyf' table
-func subset(input loader.Resource, glyphs glyphSet) ([]byte, error) {
-	ld, err := loader.NewLoader(input)
+func subset(input ot.Resource, glyphs glyphSet) ([]byte, error) {
+	ld, err := ot.NewLoader(input)
 	if err != nil {
 		return nil, fmt.Errorf("subsetting failed: %s", err)
 	}
@@ -129,13 +128,13 @@ func subset(input loader.Resource, glyphs glyphSet) ([]byte, error) {
 	}
 
 	origTablesTags := ld.Tables()
-	tables := make([]loader.Table, 0, len(origTablesTags))
+	tables := make([]ot.Table, 0, len(origTablesTags))
 	for _, tag := range origTablesTags {
 		if ignoreTable(tag) {
 			continue
 		}
 
-		table := loader.Table{Tag: tag}
+		table := ot.Table{Tag: tag}
 
 		if tag == glyfTag && glyfNew != nil {
 			table.Content = glyfNew
@@ -151,7 +150,7 @@ func subset(input loader.Resource, glyphs glyphSet) ([]byte, error) {
 		tables = append(tables, table)
 	}
 
-	return loader.WriteTTF(tables), nil
+	return ot.WriteTTF(tables), nil
 }
 
 // mutate and returns [loca] and [glyph]
@@ -159,8 +158,8 @@ func subsetGlyf(loca []uint32, glyf []byte, glyphs glyphSet) ([]uint32, []byte) 
 	// trim the unused glyph data, and adjust the offset to have start == end
 	currentStart := loca[0]
 	nbGlyphs := len(loca) - 1
-	maxGlyphUsed := api.GID(0)
-	for gid := api.GID(0); gid < api.GID(nbGlyphs); gid++ {
+	maxGlyphUsed := ot.GID(0)
+	for gid := ot.GID(0); gid < ot.GID(nbGlyphs); gid++ {
 		origStart, origEnd := loca[gid], loca[gid+1]
 		// start and end offsets will change, but not the length
 		glyphLength := origEnd - origStart

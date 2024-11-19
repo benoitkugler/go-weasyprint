@@ -269,8 +269,10 @@ func (g *group) DrawWithOpacity(opacity fl, gr backend.Canvas) {
 	content := gr.(*group).stream.ToXFormObject(compressStreams)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,
-		CS:          model.ColorSpaceRGB,
-		I:           true,
+		Group: model.TransparencyGroup{
+			CS: model.ColorSpaceRGB,
+			I:  true,
+		},
 	}
 	g.stream.SetFillAlpha(opacity)
 	g.stream.SetStrokeAlpha(opacity)

@@ -4,11 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/go-text/typesetting/opentype/api"
-	"github.com/go-text/typesetting/opentype/tables"
+	ot "github.com/go-text/typesetting/font/opentype"
+	"github.com/go-text/typesetting/font/opentype/tables"
 )
 
-func gs(gids ...api.GID) glyphSet {
+func gs(gids ...ot.GID) glyphSet {
 	out := make(glyphSet)
 	for _, gid := range gids {
 		out.Add(gid)
@@ -16,7 +16,7 @@ func gs(gids ...api.GID) glyphSet {
 	return out
 }
 
-func comp(deps ...api.GID) tables.Glyph {
+func comp(deps ...ot.GID) tables.Glyph {
 	var parts []tables.CompositeGlyphPart
 	for _, dep := range deps {
 		parts = append(parts, tables.CompositeGlyphPart{GlyphIndex: uint16(dep)})

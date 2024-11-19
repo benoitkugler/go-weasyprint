@@ -13,7 +13,7 @@ import (
 	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
-	"github.com/go-text/typesetting/opentype/loader"
+	ot "github.com/go-text/typesetting/font/opentype"
 )
 
 var fontconfig text.FontConfiguration
@@ -183,17 +183,18 @@ func TestSVGGradient(t *testing.T) {
 	}
 }
 
-func TestTmp(t *testing.T) {
+func TestFixUpstreamFont(t *testing.T) {
+	t.Skip()
 	f, _ := os.Open("resources_test/weasyprint.otb")
-	ft, err := loader.NewLoader(f)
+	ft, err := ot.NewLoader(f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(ft.RawTable(loader.MustNewTag("loca")))
-	fmt.Println(ft.HasTable(loader.MustNewTag("glyf")))
-	var allTables []loader.Table
+	fmt.Println(ft.RawTable(ot.MustNewTag("loca")))
+	fmt.Println(ft.HasTable(ot.MustNewTag("glyf")))
+	var allTables []ot.Table
 	for _, table := range ft.Tables() {
-		if table == loader.MustNewTag("loca") || table == loader.MustNewTag("glyf") {
+		if table == ot.MustNewTag("loca") || table == ot.MustNewTag("glyf") {
 			continue
 		}
 		fmt.Println(table)
@@ -201,12 +202,12 @@ func TestTmp(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		allTables = append(allTables, loader.Table{
+		allTables = append(allTables, ot.Table{
 			Tag:     table,
 			Content: b,
 		})
 	}
-	err = os.WriteFile("weasyprint.otb_fixed", loader.WriteTTF(allTables), os.ModePerm)
+	err = os.WriteFile("weasyprint.otb_fixed", ot.WriteTTF(allTables), os.ModePerm)
 	if err != nil {
 		t.Fatal(err)
 	}
