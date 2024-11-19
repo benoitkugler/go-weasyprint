@@ -21,13 +21,13 @@ var (
 )
 
 func (g *group) SetAlphaMask(mask backend.Canvas) {
-	alphaStream := mask.(*group).app
+	alphaStream := mask.(*group).stream
 	g.drawMask(&alphaStream)
 }
 
 func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl, mt matrix.Transform, stroke bool) {
 	mat := model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F}
-	mat = mat.Multiply(g.app.State.Matrix)
+	mat = mat.Multiply(g.stream.State.Matrix)
 
 	// initiate the pattern ...
 	_, _, gridWidth, gridHeight := p.GetBoundingBox()
@@ -38,20 +38,20 @@ func (g *group) SetColorPattern(p backend.Canvas, contentWidth, contentHeight fl
 		TilingType: 1,
 	}
 
-	contentXObject := p.(*group).app.ToXFormObject(compressStreams)
+	contentXObject := p.(*group).stream.ToXFormObject(compressStreams)
 	// wrap the content into a Do command
 	patternApp := cs.NewGraphicStream(model.Rectangle{Llx: 0, Lly: 0, Urx: contentWidth, Ury: contentHeight})
 	patternApp.AddXObject(contentXObject)
 	patternApp.ApplyToTilling(pattern)
 
 	// select the color space
-	patternName := g.app.AddPattern(pattern)
+	patternName := g.stream.AddPattern(pattern)
 	if stroke {
-		g.app.Ops(cs.OpSetStrokeColorSpace{ColorSpace: model.ColorSpacePattern})
-		g.app.Ops(cs.OpSetStrokeColorN{Pattern: patternName})
+		g.stream.Ops(cs.OpSetStrokeColorSpace{ColorSpace: model.ColorSpacePattern})
+		g.stream.Ops(cs.OpSetStrokeColorN{Pattern: patternName})
 	} else {
-		g.app.Ops(cs.OpSetFillColorSpace{ColorSpace: model.ColorSpacePattern})
-		g.app.Ops(cs.OpSetFillColorN{Pattern: patternName})
+		g.stream.Ops(cs.OpSetFillColorSpace{ColorSpace: model.ColorSpacePattern})
+		g.stream.Ops(cs.OpSetFillColorN{Pattern: patternName})
 	}
 }
 
@@ -62,14 +62,22 @@ func (g *group) SetBlendingMode(mode string) {
 		chunks[i] = strings.Title(s)
 	}
 	bm := strings.Join(chunks, "")
-	g.app.SetGraphicState(&model.GraphicState{BM: []model.Name{model.ObjName(bm)}})
+	g.stream.SetGraphicState(&model.GraphicState{BM: []model.Name{model.ObjName(bm)}})
 }
 
 func (g *group) Clip(evenOdd bool) {
 	if evenOdd {
-		g.app.Ops(cs.OpEOClip{}, cs.OpEndPath{})
+		g.stream.Ops(cs.OpEOClip{}, cs.OpEndPath{})
 	} else {
-		g.app.Ops(cs.OpClip{}, cs.OpEndPath{})
+		g.stream.Ops(cs.OpClip{}, cs.OpEndPath{})
+	}
+}
+
+func (g *group) SetAlpha(alpha fl, stroke bool) {
+	if stroke {
+		g.stream.SetStrokeAlpha(alpha)
+	} else {
+		g.stream.SetFillAlpha(alpha)
 	}
 }
 
@@ -77,24 +85,24 @@ func (g *group) SetColorRgba(color parser.RGBA, stroke bool) {
 	alpha := color.A
 	color.A = 1 // do not take into account the opacity, it is handled by `setXXXAlpha`
 	if stroke {
-		g.app.SetColorStroke(color)
-		g.app.SetStrokeAlpha(alpha)
+		g.stream.SetColorStroke(color)
+		g.stream.SetStrokeAlpha(alpha)
 	} else {
-		g.app.SetColorFill(color)
-		g.app.SetFillAlpha(alpha)
+		g.stream.SetColorFill(color)
+		g.stream.SetFillAlpha(alpha)
 	}
 }
 
 func (g *group) SetLineWidth(width fl) {
-	g.app.Ops(cs.OpSetLineWidth{W: width})
+	g.stream.Ops(cs.OpSetLineWidth{W: width})
 }
 
 func (g *group) SetDash(dashes []fl, offset fl) {
-	g.app.Ops(cs.OpSetDash{Dash: model.DashPattern{Array: dashes, Phase: offset}})
+	g.stream.Ops(cs.OpSetDash{Dash: model.DashPattern{Array: dashes, Phase: offset}})
 }
 
 func (g *group) SetStrokeOptions(opts backend.StrokeOptions) {
-	g.app.Ops(
+	g.stream.Ops(
 		cs.OpSetLineCap{Style: uint8(opts.LineCap)},
 		cs.OpSetLineJoin{Style: uint8(opts.LineJoin)},
 		cs.OpSetMiterLimit{Limit: opts.MiterLimit},
@@ -102,7 +110,7 @@ func (g *group) SetStrokeOptions(opts backend.StrokeOptions) {
 }
 
 func (g *group) GetTransform() matrix.Transform {
-	m := g.app.State.Matrix
+	m := g.stream.State.Matrix
 	return matrix.New(m[0], m[1], m[2], m[3], m[4], m[5])
 }
 
@@ -111,7 +119,7 @@ func (g *group) GetTransform() matrix.Transform {
 // The new transformation of user space takes place
 // after any existing transformation.
 func (g *group) Transform(mt matrix.Transform) {
-	g.app.Transform(model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F})
+	g.stream.Transform(model.Matrix{mt.A, mt.B, mt.C, mt.D, mt.E, mt.F})
 }
 
 // group implements backend.Canvas and
@@ -119,15 +127,15 @@ func (g *group) Transform(mt matrix.Transform) {
 type group struct {
 	cache
 
-	app cs.GraphicStream
+	stream cs.GraphicStream
 }
 
 func newGroup(cache cache,
 	left, top, right, bottom fl,
 ) group {
 	return group{
-		cache: cache,
-		app:   cs.NewGraphicStream(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
+		cache:  cache,
+		stream: cs.NewGraphicStream(model.Rectangle{Llx: left, Lly: top, Urx: right, Ury: bottom}), // y grows downward
 	}
 }
 
@@ -157,7 +165,7 @@ func newContextPage(left, top, right, bottom fl,
 // update the underlying PageObject with the content stream
 func (cp *outputPage) finalize() {
 	// the MediaBox is the unsclaled BBox. TODO: why ?
-	cp.app.ApplyToPageObject(&cp.page, compressStreams)
+	cp.stream.ApplyToPageObject(&cp.page, compressStreams)
 	if cp.customMediaBox != nil {
 		cp.page.MediaBox = cp.customMediaBox
 	}
@@ -225,13 +233,13 @@ func (cp *outputPage) SetBleedBox(left fl, top fl, right fl, bottom fl) {
 
 // Returns the current page rectangle
 func (g *group) GetBoundingBox() (left, top, right, bottom fl) {
-	bbox := g.app.BoundingBox
+	bbox := g.stream.BoundingBox
 	return bbox.Llx, bbox.Lly, bbox.Urx, bbox.Ury
 }
 
 // Updates the current page rectangle
 func (g *group) SetBoundingBox(left, top, right, bottom fl) {
-	bbox := &g.app.BoundingBox
+	bbox := &g.stream.BoundingBox
 	bbox.Llx = left
 	bbox.Lly = top
 	bbox.Urx = right
@@ -243,9 +251,9 @@ func (g *group) SetBoundingBox(left, top, right, bottom fl) {
 // If an error is encoutered, the stack is still restored
 // and the error is returned
 func (g *group) OnNewStack(task func()) {
-	g.app.SaveState()
+	g.stream.SaveState()
 	task()
-	_ = g.app.RestoreState() // the calls are balanced
+	_ = g.stream.RestoreState() // the calls are balanced
 }
 
 // NewGroup creates a new drawing target with the given
@@ -258,27 +266,27 @@ func (g *group) NewGroup(x fl, y fl, width fl, height fl) backend.Canvas {
 // DrawGroup add the `gr` content to the current target. It will panic
 // if `gr` was not created with `AddGroup`
 func (g *group) DrawWithOpacity(opacity fl, gr backend.Canvas) {
-	content := gr.(*group).app.ToXFormObject(compressStreams)
+	content := gr.(*group).stream.ToXFormObject(compressStreams)
 	form := &model.XObjectTransparencyGroup{
 		XObjectForm: *content,
 		CS:          model.ColorSpaceRGB,
 		I:           true,
 	}
-	g.app.SetFillAlpha(opacity)
-	g.app.SetStrokeAlpha(opacity)
-	g.app.AddXObject(form)
+	g.stream.SetFillAlpha(opacity)
+	g.stream.SetStrokeAlpha(opacity)
+	g.stream.AddXObject(form)
 }
 
 func (g *group) drawMask(app *cs.GraphicStream) {
 	transparency := app.ToXFormObject(compressStreams)
-	g.app.SetAlphaMask(transparency)
+	g.stream.SetAlphaMask(transparency)
 }
 
 // Adds a rectangle of the given size to the current path,
 // at position “(x, y)“ in user-space coordinates.
 // (X,Y) coordinates are the top left corner of the rectangle.
 func (g *group) Rectangle(x fl, y fl, width fl, height fl) {
-	g.app.Ops(cs.OpRectangle{X: x, Y: y, W: width, H: height})
+	g.stream.Ops(cs.OpRectangle{X: x, Y: y, W: width, H: height})
 }
 
 // A drawing operator that fills the current path
@@ -291,27 +299,27 @@ func (g *group) Paint(op backend.PaintOp) {
 	evenOdd := op&backend.FillEvenOdd != 0
 	if fill && stroke {
 		if evenOdd {
-			g.app.Ops(cs.OpEOFillStroke{})
+			g.stream.Ops(cs.OpEOFillStroke{})
 		} else {
-			g.app.Ops(cs.OpFillStroke{})
+			g.stream.Ops(cs.OpFillStroke{})
 		}
 	} else if fill {
 		if evenOdd {
-			g.app.Ops(cs.OpEOFill{})
+			g.stream.Ops(cs.OpEOFill{})
 		} else {
-			g.app.Ops(cs.OpFill{})
+			g.stream.Ops(cs.OpFill{})
 		}
 	} else if stroke {
-		g.app.Ops(cs.OpStroke{})
+		g.stream.Ops(cs.OpStroke{})
 	} else {
-		g.app.Ops(cs.OpEndPath{})
+		g.stream.Ops(cs.OpEndPath{})
 	}
 }
 
 // Begin a new sub-path.
 // After this call the current point will be “(x, y)“.
 func (g *group) MoveTo(x fl, y fl) {
-	g.app.Ops(cs.OpMoveTo{X: x, Y: y})
+	g.stream.Ops(cs.OpMoveTo{X: x, Y: y})
 }
 
 // Adds a line to the path from the current point
@@ -319,18 +327,18 @@ func (g *group) MoveTo(x fl, y fl) {
 // After this call the current point will be “(x, y)“.
 // A current point must be defined before using this method.
 func (g *group) LineTo(x fl, y fl) {
-	g.app.Ops(cs.OpLineTo{X: x, Y: y})
+	g.stream.Ops(cs.OpLineTo{X: x, Y: y})
 }
 
 // Add cubic Bézier curve to current path.
 // The curve shall extend to “(x3, y3)“ using “(x1, y1)“ and “(x2,
 // y2)“ as the Bézier control points.
 func (g *group) CubicTo(x1, y1, x2, y2, x3, y3 fl) {
-	g.app.Ops(cs.OpCubicTo{X1: x1, Y1: y1, X2: x2, Y2: y2, X3: x3, Y3: y3})
+	g.stream.Ops(cs.OpCubicTo{X1: x1, Y1: y1, X2: x2, Y2: y2, X3: x3, Y3: y3})
 }
 
 // ClosePath close the current path, which will apply line join style.
-func (g *group) ClosePath() { g.app.Ops(cs.OpClosePath{}) }
+func (g *group) ClosePath() { g.stream.Ops(cs.OpClosePath{}) }
 
 // DrawRasterImage draws the given image at the current point
 func (g *group) DrawRasterImage(img backend.RasterImage, width fl, height fl) {
@@ -347,7 +355,7 @@ func (g *group) DrawRasterImage(img backend.RasterImage, width fl, height fl) {
 		g.images[img.ID] = obj
 	}
 
-	g.app.AddXObjectDims(obj, 0, height, width, -height)
+	g.stream.AddXObjectDims(obj, 0, height, width, -height)
 }
 
 // DrawGradient draws the given gradient at the current point.
@@ -383,5 +391,5 @@ func (g *group) DrawGradient(layout backend.GradientLayout, width fl, height fl)
 		g.drawMask(&alphaStream)
 	}
 
-	g.app.Shading(sh)
+	g.stream.Shading(sh)
 }

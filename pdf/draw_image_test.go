@@ -637,7 +637,7 @@ func TestImagesBorder(t *testing.T) {
         body { margin: 0; font-size: 0 }
         img { margin: 1px; border: 1px solid lime }
       </style>
-      <div><img src="pattern.png"></div>`)
+      <div><img src="../resources_test/pattern.png"></div>`)
 }
 
 func TestImagesBorderAbsolute(t *testing.T) {
@@ -649,7 +649,7 @@ func TestImagesBorderAbsolute(t *testing.T) {
         body { margin: 0; font-size: 0 }
         img { margin: 1px; border: 1px solid lime; position: absolute }
       </style>
-      <div><img src="pattern.png"></div>`)
+      <div><img src="../resources_test/pattern.png"></div>`)
 }
 
 func TestImageExif(t *testing.T) {

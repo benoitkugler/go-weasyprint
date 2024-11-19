@@ -816,6 +816,6 @@ func TestAbsoluteImageBackground(t *testing.T) {
             left: 1px;
           }
         </style>
-        <img src="pattern-transparent.svg" />
+        <img src="../resources_test/pattern-transparent.svg" />
     `)
 }

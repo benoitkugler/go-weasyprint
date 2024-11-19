@@ -34,9 +34,9 @@ var colorByName = map[byte]color.RGBA{
 	'G': {R: 0, G: 255, B: 0, A: 255},     // lime green
 	'V': {R: 191, G: 0, B: 64, A: 255},    // average of 1*B and 3*R.
 	'S': {R: 255, G: 63, B: 63, A: 255},   // R above R above #fff
-	'C': {R: 0, G: 255, B: 255},           // cyan
-	'M': {R: 255, G: 0, B: 255},           // magenta
-	'Y': {R: 255, G: 255, B: 0},           // yellow
+	'C': {R: 0, G: 255, B: 255, A: 255},   // cyan
+	'M': {R: 255, G: 0, B: 255, A: 255},   // magenta
+	'Y': {R: 255, G: 255, B: 0, A: 255},   // yellow
 	'r': {R: 255, G: 0, B: 0, A: 255},     // red
 	'g': {R: 0, G: 128, B: 0, A: 255},     // half green
 	'b': {R: 0, G: 0, B: 128, A: 255},     // half blue
@@ -317,7 +317,7 @@ func assertPixelsEqualFromPixels(t *testing.T, expectedPixels [][]color.RGBA, in
 		for j, v := range exp {
 			g := gotPixels[i][j]
 			if v != g {
-				t.Fatalf("(file://%s): pixel at (%d, %d): expected %v, got %v", got.Name(), i, j,
+				t.Fatalf("(file://%s): pixel at (row: %d, col: %d): expected %v, got %v", got.Name(), i+1, j+1,
 					formatColor(v), formatColor(g))
 			}
 		}

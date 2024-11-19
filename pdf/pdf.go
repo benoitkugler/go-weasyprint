@@ -18,7 +18,7 @@ var (
 )
 
 // may be set to false when debugging
-const compressStreams = true
+const compressStreams = false
 
 type fontContent struct {
 	content []byte

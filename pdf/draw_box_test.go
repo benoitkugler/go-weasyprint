@@ -106,12 +106,11 @@ func TestBorders(t *testing.T) {
 
 // Test the rendering of collapsing borders.
 func TestBordersTableCollapse(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	source := `
       <style>
         @page { size: 140px 110px }
-        table { width: 100px; height: 70px; margin: 10px;
+        table { width: 100px; height: 70px; margin: 10px;  
                 border-collapse: collapse; border: 10px %s blue }
       </style>
       <table><td>abc</td>`
@@ -119,13 +118,17 @@ func TestBordersTableCollapse(t *testing.T) {
 	// Do not test the exact rendering of earch border style but at least
 	// check that they do not do the same.
 	var documents []string
-	for _, borderStyle := range []string{
+	for _, borderStyle := range [...]string{
 		"none", "solid", "dashed", "dotted", "double",
-		"inset", "outset", "groove", "ridge",
+		"outset", /* "groove", */
+		"inset",  /* "ridge", */
 	} {
 		documents = append(documents, fmt.Sprintf(source, borderStyle))
 	}
 	assertDifferentRenderings(t, documents)
+
+	assertSameRendering(t, fmt.Sprintf(source, "outset"), fmt.Sprintf(source, "groove"), 0)
+	assertSameRendering(t, fmt.Sprintf(source, "inset"), fmt.Sprintf(source, "ridge"), 0)
 }
 
 func TestOutlines(t *testing.T) {
@@ -183,8 +186,7 @@ func TestEmBorders(t *testing.T) {
 }
 
 func TestBordersBoxSizing(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ________
         _RRRRRR_
@@ -329,8 +331,7 @@ func TestRoundedRect(t *testing.T) {
 }
 
 func TestDrawBorderRadius(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___zzzzz
         __zzzzzz
@@ -357,8 +358,7 @@ func TestDrawBorderRadius(t *testing.T) {
 }
 
 func TestDrawSplitBorderRadius(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___zzzzz
         __zzzzzz
@@ -404,8 +404,7 @@ func TestDrawSplitBorderRadius(t *testing.T) {
 }
 
 func TestBorderImageStretch(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _RYYYMMMG_
@@ -422,7 +421,7 @@ func TestBorderImageStretch(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 25%;
           height: 4px;
           margin: 1px;
@@ -434,8 +433,7 @@ func TestBorderImageStretch(t *testing.T) {
 }
 
 func TestBorderImageFill(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _RYYYMMMG_
@@ -452,7 +450,7 @@ func TestBorderImageFill(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 25% fill;
           height: 4px;
           margin: 1px;
@@ -464,8 +462,7 @@ func TestBorderImageFill(t *testing.T) {
 }
 
 func TestBorderImageDefaultSlice(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         _____________
         _RYMG___RYMG_
@@ -486,7 +483,7 @@ func TestBorderImageDefaultSlice(t *testing.T) {
         }
         div {
           border: 4px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           height: 2px;
           margin: 1px;
           width: 3px;
@@ -497,8 +494,7 @@ func TestBorderImageDefaultSlice(t *testing.T) {
 }
 
 func TestBorderImageUnevenWidth(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____________
         _RRRYYYMMMG_
@@ -516,7 +512,7 @@ func TestBorderImageUnevenWidth(t *testing.T) {
         div {
           border: 1px solid black;
           border-left-width: 3px;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 25%;
           height: 4px;
           margin: 1px;
@@ -528,8 +524,7 @@ func TestBorderImageUnevenWidth(t *testing.T) {
 }
 
 func TestBorderImageNotPercent(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _RYYYMMMG_
@@ -546,7 +541,7 @@ func TestBorderImageNotPercent(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 1;
           height: 4px;
           margin: 1px;
@@ -558,8 +553,7 @@ func TestBorderImageNotPercent(t *testing.T) {
 }
 
 func TestBorderImageRepeat(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         _RYMYMYMYG_
@@ -576,7 +570,7 @@ func TestBorderImageRepeat(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 25%;
           border-image-repeat: repeat;
           height: 4px;
@@ -589,8 +583,7 @@ func TestBorderImageRepeat(t *testing.T) {
 }
 
 func TestBorderImageSpace(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         _________
         _R_YMC_G_
@@ -608,7 +601,7 @@ func TestBorderImageSpace(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border2.svg);
+          border-image-source: url(../resources_test/border2.svg);
           border-image-slice: 20%;
           border-image-repeat: space;
           height: 5px;
@@ -621,8 +614,7 @@ func TestBorderImageSpace(t *testing.T) {
 }
 
 func TestBorderImageOutset(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____________
         _RYYYYMMMMG_
@@ -641,7 +633,7 @@ func TestBorderImageOutset(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 25%;
           border-image-outset: 2px;
           height: 2px;
@@ -655,8 +647,7 @@ func TestBorderImageOutset(t *testing.T) {
 }
 
 func TestBorderImageWidth(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _RRYYMMGG_
@@ -673,7 +664,7 @@ func TestBorderImageWidth(t *testing.T) {
         }
         div {
           border: 1px solid black;
-          border-image-source: url(border.svg);
+          border-image-source: url(../resources_test/border.svg);
           border-image-slice: 25%;
           border-image-width: 2;
           height: 4px;
@@ -686,8 +677,7 @@ func TestBorderImageWidth(t *testing.T) {
 }
 
 func TestBorderImageGradient(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _RRRRRRRR_

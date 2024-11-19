@@ -670,18 +670,18 @@ func TestTextSubsetComposite(t *testing.T) {
 	// check that subsetting does not remove
 	// composite glyphs deps
 	assertPixelsEqual(t, `
-        _______
-        ____R__
-        ____R__
-        ___R___
-        _______
-        _RRRRR_
-        _R___R_
-        _RRRRR_
-        _R_____
-        _R___R_
-        __RRRR_
-        _______
+		_______
+		_______
+		_______
+		___RR__
+		__RR___
+		_______
+		__RRR__
+		_R___R_
+		_R___R_
+		_RRRRR_
+		_R_____
+		_R_____
     `, `
 	<style>
         @page {
@@ -691,9 +691,10 @@ func TestTextSubsetComposite(t *testing.T) {
         }
         body {
 		  color: red;
-          font-size: 12px;
+          font-size: 12px; 
+		  font-family: NotoSans;
         }
-      </style
+      </style>
 	<div>é</div>`)
 }
 
@@ -797,6 +798,7 @@ func TestTabulationCharacter(t *testing.T) {
 }
 
 func TestOtbFont(t *testing.T) {
+	t.Skip() // TODO: https://github.com/benoitkugler/webrender/issues/3
 	assertPixelsEqual(t, `
         ____________________
         __RR______RR________

@@ -21,7 +21,7 @@ func drawStandaloneSVG(t *testing.T, input string, outFile string) {
 	var out model.Document
 	var page model.PageObject
 
-	dst.app.ApplyToPageObject(&page, false)
+	dst.stream.ApplyToPageObject(&page, false)
 	out.Catalog.Pages.Kids = append(out.Catalog.Pages.Kids, &page)
 
 	if err := out.WriteFile(outFile, nil); err != nil {

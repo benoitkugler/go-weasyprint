@@ -11,8 +11,7 @@ import (
 // Test how backgrounds are drawn.
 
 func TestCanvasBackground(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	for _, data := range [][3]string{
 		{"all_blue", strings.Repeat(strings.Repeat("B", 10)+"\n", 10), `
 								<style>
@@ -47,8 +46,7 @@ func TestCanvasBackground(t *testing.T) {
 }
 
 func TestCanvasBackgroundSize(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         __________
@@ -76,8 +74,7 @@ func TestCanvasBackgroundSize(t *testing.T) {
 }
 
 func TestBackgroundImage(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	for _, data := range [][3]string{
 		{"repeat", "url(../resources_test/pattern.png)", `
@@ -511,8 +508,7 @@ func testBackgroundImage(t *testing.T, name, css, pixels string) {
 }
 
 func TestBackgroundImageZeroSizeBackground(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/217
 	assertPixelsEqual(t, `
         __________
@@ -538,8 +534,7 @@ func TestBackgroundImageZeroSizeBackground(t *testing.T) {
 
 // Test the background-origin property.
 func TestBackgroundOrigin(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	testValue := func(value, pixels, css string) {
 		if css == "" {
@@ -617,8 +612,7 @@ func TestBackgroundOrigin(t *testing.T) {
 }
 
 func TestBackgroundRepeatSpace_1(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____________
         _rBBB__rBBB_
@@ -647,8 +641,7 @@ func TestBackgroundRepeatSpace_1(t *testing.T) {
 }
 
 func TestBackgroundRepeatSpace_2(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____________
         _rBBB__rBBB_
@@ -675,8 +668,7 @@ func TestBackgroundRepeatSpace_2(t *testing.T) {
 }
 
 func TestBackgroundRepeatSpace_3(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ____________
         _rBBBrBBBrB_
@@ -702,8 +694,7 @@ func TestBackgroundRepeatSpace_3(t *testing.T) {
 }
 
 func TestBackgroundRepeatRound_1(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
@@ -731,8 +722,7 @@ func TestBackgroundRepeatRound_1(t *testing.T) {
 }
 
 func TestBackgroundRepeatRound_2(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
@@ -764,8 +754,7 @@ func TestBackgroundRepeatRound_2(t *testing.T) {
 }
 
 func TestBackgroundRepeatRound_3(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _rrBBBBBB_
@@ -793,8 +782,7 @@ func TestBackgroundRepeatRound_3(t *testing.T) {
 }
 
 func TestBackgroundRepeatRound_4(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __________
         _rBBBrBBB_
@@ -822,8 +810,7 @@ func TestBackgroundRepeatRound_4(t *testing.T) {
 }
 
 func TestBackgroundClip(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	for _, data := range [][2]string{
 		{"#00f border-box", `
@@ -881,8 +868,7 @@ func TestBackgroundClip(t *testing.T) {
 }
 
 func TestBackgroundSize(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	for _, data := range [][3]string{
 		{"background_size", `
@@ -1026,8 +1012,7 @@ func TestBackgroundSize(t *testing.T) {
 }
 
 func TestBleedBackgroundSize(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         RRRR
@@ -1044,8 +1029,7 @@ func TestBleedBackgroundSize(t *testing.T) {
 }
 
 func TestBackgroundSizeClip(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         BBBB
         BRBB
@@ -1054,15 +1038,14 @@ func TestBackgroundSizeClip(t *testing.T) {
     `, `
       <style>
          @page { size: 4px; margin: 1px;
-                 background: url(pattern.png) red;
+                 background: url(../resources_test/pattern.png) red;
                  background-clip: content-box }
       </style>
       <body>`)
 }
 
 func TestPageBackgroundFixed(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1993
 	assertPixelsEqual(t, `
         RBBB
@@ -1072,15 +1055,14 @@ func TestPageBackgroundFixed(t *testing.T) {
     `, `
       <style>
          @page { size: 4px; margin: 1px;
-                 background: url(pattern.png) red;
+                 background: url(../resources_test/pattern.png) red;
                  background-attachment: fixed; }
       </style>
       <body>`)
 }
 
 func TestPageBackgroundFixedBleed(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1993
 	assertPixelsEqual(t, `
         RRRRRR
@@ -1092,15 +1074,14 @@ func TestPageBackgroundFixedBleed(t *testing.T) {
     `, `
       <style>
          @page { size: 4px; margin: 1px; bleed: 1px;
-                 background: url(pattern.png) no-repeat red;
+                 background: url(../resources_test/pattern.png) no-repeat red;
                  background-attachment: fixed; }
       </style>
       <body>`)
 }
 
 func TestBleedBackgroundSizeClip(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1943
 	assertPixelsEqual(t, `
         BBBBBB
@@ -1112,15 +1093,14 @@ func TestBleedBackgroundSizeClip(t *testing.T) {
     `, `
       <style>
          @page { size: 4px; bleed: 1px; margin: 1px;
-                 background: url(pattern.png) red;
+                 background: url(../resources_test/pattern.png) red;
                  background-clip: content-box }
       </style>
       <body>`)
 }
 
 func TestMarksCrop(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         KK__KK
         K____K
@@ -1136,8 +1116,7 @@ func TestMarksCrop(t *testing.T) {
 }
 
 func TestMarksCross(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         __KK__
         ______
@@ -1153,8 +1132,7 @@ func TestMarksCross(t *testing.T) {
 }
 
 func TestMarksCropCross(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         KKKKKK
         K____K

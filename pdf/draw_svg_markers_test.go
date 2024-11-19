@@ -7,8 +7,7 @@ import (
 )
 
 func TestMarkers(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ___________
@@ -44,8 +43,7 @@ func TestMarkers(t *testing.T) {
 }
 
 func TestMarkersViewbox(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ____RRR____
@@ -81,8 +79,7 @@ func TestMarkersViewbox(t *testing.T) {
 }
 
 func TestMarkersSize(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ____BBR____
@@ -120,8 +117,7 @@ func TestMarkersSize(t *testing.T) {
 }
 
 func TestMarkersViewboxSize(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ____RRR____
@@ -195,8 +191,7 @@ func TestMarkersOverflow(t *testing.T) {
 }
 
 func TestMarkersUserspace(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ___________
@@ -233,8 +228,7 @@ func TestMarkersUserspace(t *testing.T) {
 }
 
 func TestMarkersStrokeWidth(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ___________
@@ -271,8 +265,7 @@ func TestMarkersStrokeWidth(t *testing.T) {
 }
 
 func TestMarkersViewboxStrokeWidth(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         ___________
         ____BRR____
