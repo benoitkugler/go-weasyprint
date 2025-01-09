@@ -1,6 +1,6 @@
 module github.com/benoitkugler/go-weasyprint
 
-go 1.17
+go 1.19
 
 require (
 	github.com/benoitkugler/pdf v0.0.14
