@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/benoitkugler/pdf v0.0.14
 	github.com/benoitkugler/textprocessing v0.0.3
-	github.com/benoitkugler/webrender v0.0.12
+	github.com/benoitkugler/webrender v0.0.13
 	github.com/go-text/typesetting v0.2.1
 )
 
