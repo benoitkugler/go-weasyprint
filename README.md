@@ -7,7 +7,7 @@
 
 Golang port of [Weasyprint](https://github.com/Kozea/WeasyPrint) python Html to Pdf library.
 
-This is an **ongoing work**, not production ready just yet.
+This project is still in alpha state; you should try it carefully before using it in production. 
 
 ## Outline
 
