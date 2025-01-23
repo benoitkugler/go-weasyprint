@@ -11,6 +11,14 @@ import (
 	"github.com/benoitkugler/webrender/utils"
 )
 
+type (
+	ContentInput  = utils.ContentInput
+	InputFilename = utils.InputFilename
+	InputUrl      = utils.InputUrl
+	InputString   = utils.InputString
+	InputReader   = utils.InputReader
+)
+
 // HtmlToPdf performs the conversion of an HTML document (`htmlContent`) to a PDF file,
 // written in `target`.
 // It is a wrapper around the following steps :
@@ -20,7 +28,7 @@ import (
 //   - model.Write eventually serialize the PDF into `target`
 //
 // See `HtmlToPdfOptions` for more options.
-func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, fontConfig text.FontConfiguration) error {
+func HtmlToPdf(target io.Writer, htmlContent ContentInput, fontConfig text.FontConfiguration) error {
 	return HtmlToPdfOptions(target, htmlContent, "", nil, "", nil, false, fontConfig, 1, nil)
 }
 
@@ -29,10 +37,10 @@ func HtmlToPdf(target io.Writer, htmlContent utils.ContentInput, fontConfig text
 //     deduced from the html content.
 //   - `urlFetcher` is a function called when resolving resources. If nil, it defaults to `utils.DefautUrlFetcher`.
 //   - `mediaType` is the CSS media type used to query CSS rules. It defaults to "print".
-//   - `presentationHints` controls whether or not the additional presentation stylesheet is used.
-//   - `zoom` is a zoom factor
+//   - `presentationHints` controls whether or not the additional presentation stylesheet is used. It defaults to "false".
+//   - `zoom` is a zoom factor. It defaults to 1.
 //   - `attachements` is an additional list of attachements to include into the PDF file.
-func HtmlToPdfOptions(target io.Writer, htmlContent utils.ContentInput, baseUrl string, urlFetcher utils.UrlFetcher,
+func HtmlToPdfOptions(target io.Writer, htmlContent ContentInput, baseUrl string, urlFetcher utils.UrlFetcher,
 	mediaType string, stylesheets []tree.CSS, presentationalHints bool, fontConfig text.FontConfiguration, zoom float64, attachments []backend.Attachment,
 ) error {
 	parsedHtml, err := tree.NewHTML(htmlContent, baseUrl, urlFetcher, mediaType)
