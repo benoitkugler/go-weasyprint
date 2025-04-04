@@ -15,6 +15,7 @@ var (
 	maxpTag = ot.MustNewTag("maxp")
 	locaTag = ot.MustNewTag("loca")
 	glyfTag = ot.MustNewTag("glyf")
+	postTag = ot.MustNewTag("post")
 
 	fvarTag = ot.MustNewTag("fvar")
 	avarTag = ot.MustNewTag("avar")
@@ -77,7 +78,7 @@ func handleComposite(glyphs glyphSet, glyf tables.Glyf) {
 }
 
 // Variables font are not supported : the variable tables will be dropped
-// TODO: For now, [subset] only supports the 'glyf' table
+// TODO: For now, [subset] only supports the 'glyf' and 'post' tables
 func subset(input ot.Resource, glyphs glyphSet) ([]byte, error) {
 	ld, err := ot.NewLoader(input)
 	if err != nil {
@@ -97,7 +98,7 @@ func subset(input ot.Resource, glyphs glyphSet) ([]byte, error) {
 		return nil, fmt.Errorf("subsetting failed: %s", err)
 	}
 
-	var glyfNew, locaNew []byte
+	var glyfNew, locaNew, postNew []byte
 	if ld.HasTable(locaTag) && ld.HasTable(glyfTag) {
 		// load 'locaT' and 'glyf' tables
 		locaT, err := ld.RawTable(locaTag)
@@ -126,6 +127,21 @@ func subset(input ot.Resource, glyphs glyphSet) ([]byte, error) {
 		loca, glyfNew = subsetGlyf(loca, glyfRaw, glyphs)
 		locaNew = writeLoca(loca, isLong)
 	}
+	if ld.HasTable(postTag) {
+		raw, err := ld.RawTable(postTag)
+		if err != nil {
+			return nil, fmt.Errorf("subsetting failed: %s", err)
+		}
+		post, _, err := tables.ParsePost(raw)
+		if err != nil {
+			return nil, fmt.Errorf("subsetting failed: %s", err)
+		}
+		names := post.Names
+		if v20, isV20 := names.(tables.PostNames20); isV20 {
+			names = subsetPost20(v20, glyphs)
+		}
+		postNew = writePost(raw, names)
+	}
 
 	origTablesTags := ld.Tables()
 	tables := make([]ot.Table, 0, len(origTablesTags))
@@ -140,6 +156,8 @@ func subset(input ot.Resource, glyphs glyphSet) ([]byte, error) {
 			table.Content = glyfNew
 		} else if tag == locaTag && locaNew != nil {
 			table.Content = locaNew
+		} else if tag == postTag && postNew != nil {
+			table.Content = postNew
 		} else {
 			table.Content, err = ld.RawTable(tag)
 			if err != nil {
@@ -213,4 +231,57 @@ func writeLoca(offsets []uint32, isLong bool) []byte {
 		}
 		return out
 	}
+}
+
+func subsetPost20(names tables.PostNames20, glyphs glyphSet) tables.PostNames20 {
+	const numBuiltInPostNames = 258
+
+	out := tables.PostNames20{
+		GlyphNameIndexes: make([]uint16, 0, len(glyphs)),
+		Strings:          make([]string, 0, len(glyphs)),
+	}
+	for gid, index := range names.GlyphNameIndexes {
+		if _, has := glyphs[ot.GID(gid)]; !has {
+			continue // drop this glyph
+		}
+		// offsets are shifted to handle predefined glyphs
+		if index < numBuiltInPostNames { // just copy the builtin index
+			out.GlyphNameIndexes = append(out.GlyphNameIndexes, index)
+		} else {
+			// fetch and copy the name
+			index = index - numBuiltInPostNames
+			out.Strings = append(out.Strings, names.Strings[index])
+			// compute the new index
+			newIndex := uint16(len(out.Strings) - 1 + numBuiltInPostNames)
+			out.GlyphNameIndexes = append(out.GlyphNameIndexes, newIndex)
+		}
+	}
+	return out
+}
+
+func writePost(src []byte, names tables.PostNames) []byte {
+	// simple copy the header
+	out := make([]byte, 32)
+	copy(out, src)
+	switch names := names.(type) {
+	case tables.PostNames10, tables.PostNames30: // empty
+	case tables.PostNames20:
+		out = append(out, writePostNames20(names)...)
+	}
+	return out
+}
+
+func writePostNames20(names tables.PostNames20) []byte {
+	numG := len(names.GlyphNameIndexes)
+	out := make([]byte, 2+2*numG)
+	binary.BigEndian.PutUint16(out, uint16(numG))
+	for i, index := range names.GlyphNameIndexes {
+		binary.BigEndian.PutUint16(out[2+2*i:], index)
+	}
+	// strings as Pascal encoded
+	for _, name := range names.Strings {
+		out = append(out, byte(len(name)))
+		out = append(out, name...)
+	}
+	return out
 }

@@ -1,6 +1,8 @@
 package pdf
 
 import (
+	"bytes"
+	_ "embed"
 	"reflect"
 	"testing"
 
@@ -62,5 +64,47 @@ func Test_handleComposite(t *testing.T) {
 		if !reflect.DeepEqual(tt.glyphs, tt.want) {
 			t.Fatalf("expected %v, got %v", tt.want, tt.glyphs)
 		}
+	}
+}
+
+// extracted from /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+//
+//go:embed test/table_post_20.bin
+var post20 []byte
+
+func TestSubsetPost20(t *testing.T) {
+	table, _, err := tables.ParsePost(post20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := table.Names.(tables.PostNames20)
+	numG := len(names.GlyphNameIndexes)
+	if numG != 6253 {
+		t.Fatal()
+	}
+	exp1 := names.Strings[names.GlyphNameIndexes[456]-258]
+	exp2 := names.Strings[names.GlyphNameIndexes[2000]-258]
+	exp3 := names.Strings[names.GlyphNameIndexes[4566]-258]
+	set := gs(0, 1, 10, 155, 456, 4566, 2000)
+	namesSubsetted := subsetPost20(names, set)
+	if L := len(namesSubsetted.GlyphNameIndexes); L != len(set) {
+		t.Fatalf("expected %d, got %d", len(set), L)
+	}
+	if !reflect.DeepEqual(namesSubsetted.Strings, []string{exp1, exp2, exp3}) {
+		t.Fatal()
+	}
+
+	encoded := writePost(post20, names)
+	if !bytes.Equal(encoded, post20) {
+		t.Fatal()
+	}
+	// check the subsetted table is valid
+	final := writePost(post20, namesSubsetted)
+	table, _, err = tables.ParsePost(final)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(table.Names.(tables.PostNames20).GlyphNameIndexes) != len(set) {
+		t.Fatal()
 	}
 }
