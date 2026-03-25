@@ -11,8 +11,8 @@ import (
 
 // Test how tables are drawn.
 
-func toPix(pixels_str string) [][]color.RGBA {
-	return parsePixelsExt(pixels_str, map[byte]color.RGBA{
+func toPix(pixels string) [][]color.RGBA {
+	return parsePixelsExt(pixels, map[byte]color.RGBA{
 		// rgba(255, 0, 0, 0.5) above #fff
 		'r': {255, 127, 127, 255},
 		// rgba(0, 255, 0, 0.5) above #fff
@@ -24,40 +24,37 @@ func toPix(pixels_str string) [][]color.RGBA {
 
 const tables_source = `
   <style>
-    @page { size: 28px; }
-    x-table { margin: 1px; padding: 1px; border-spacing: 1px;
-              border: 1px solid transparent }
-    x-td { width: 2px; height: 2px; padding: 1px;
-           border: 1px solid transparent }
+    @page { size: 28px }
+    table { margin: 1px; padding: 1px; border-spacing: 1px; border: 1px solid transparent }
+    td { width: 2px; height: 2px; padding: 1px; border: 1px solid transparent }
     %s
   </style>
-  <x-table>
-    <x-colgroup>
-      <x-col></x-col>
-      <x-col></x-col>
-    </x-colgroup>
-    <x-col></x-col>
-    <x-tbody>
-      <x-tr>
-        <x-td></x-td>
-        <x-td rowspan=2></x-td>
-        <x-td></x-td>
-      </x-tr>
-      <x-tr>
-        <x-td colspan=2></x-td>
-        <x-td></x-td>
-      </x-tr>
-    </x-tbody>
-    <x-tr>
-      <x-td></x-td>
-      <x-td></x-td>
-    </x-tr>
-  </x-table>
+  <table>
+    <colgroup class=colgroup>
+      <col></col>
+      <col></col>
+    </colgroup>
+    <col></col>
+    <tbody id=tbody>
+      <tr>
+        <td></td>
+        <td rowspan=2></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan=2></td>
+        <td></td>
+      </tr>
+    </tbody>
+    <tr>
+      <td></td>
+      <td></td>
+    </tr>
+  </table>
 `
 
 func TestTables_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -89,14 +86,13 @@ func TestTables_1(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed }
-      x-td { border-color: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed }
+      td { border-color: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_1Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -128,15 +124,14 @@ func TestTables_1Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;
+      table { border-color: #00f; table-layout: fixed;
                 direction: rtl; }
-      x-td { border-color: rgba(255, 0, 0, 0.5) }
+      td { border-color: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -168,15 +163,14 @@ func TestTables_2(t *testing.T) {
         ____________________________
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border: 2px solid #00f; table-layout: fixed;
+      table { border: 2px solid #00f; table-layout: fixed;
                 border-collapse: collapse }
-      x-td { border-color: #ff7f7f }
+      td { border-color: #ff7f7f }
     `))
 }
 
 func TestTables_2Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -209,15 +203,14 @@ func TestTables_2Rtl(t *testing.T) {
         ____________________________
     `), fmt.Sprintf(tables_source, `
       body { direction: rtl; }
-      x-table { border: 2px solid #00f; table-layout: fixed;
+      table { border: 2px solid #00f; table-layout: fixed;
                 border-collapse: collapse; }
-      x-td { border-color: #ff7f7f }
+      td { border-color: #ff7f7f }
     `))
 }
 
 func TestTables_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
 		____________________________
@@ -273,17 +266,16 @@ func TestTables_3(t *testing.T) {
 		_tttttttttttttttttttttttttt_
 		____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border: solid #00f; border-width: 8px 2px;
+      table { border: solid #00f; border-width: 8px 2px;
                 table-layout: fixed; border-collapse: collapse }
-      x-td { border-color: #ff7f7f }
+      td { border-color: #ff7f7f }
       @page { size: 28px 26px; margin: 1px;
               border: 1px solid rgba(0, 255, 0, 0.5); }
     `))
 }
 
 func TestTables_3Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
 		____________________________
@@ -340,17 +332,16 @@ func TestTables_3Rtl(t *testing.T) {
 		____________________________
     `), fmt.Sprintf(tables_source, `
       body { direction: rtl; }
-      x-table { border: solid #00f; border-width: 8px 2px;
+      table { border: solid #00f; border-width: 8px 2px;
                 table-layout: fixed; border-collapse: collapse; }
-      x-td { border-color: #ff7f7f }
+      td { border-color: #ff7f7f }
       @page { size: 28px 26px; margin: 1px;
               border: 1px solid rgba(0, 255, 0, 0.5); }
     `))
 }
 
 func TestTables_4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -382,14 +373,13 @@ func TestTables_4(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed }
-      x-td { background: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed }
+      td { background: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_4Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -421,15 +411,14 @@ func TestTables_4Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;
+      table { border-color: #00f; table-layout: fixed;
                 direction: rtl; }
-      x-td { background: rgba(255, 0, 0, 0.5) }
+      td { background: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_5(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -461,15 +450,14 @@ func TestTables_5(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed }
-      x-tbody { background: rgba(0, 0, 255, 1) }
-      x-tr { background: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed }
+      tbody { background: rgba(0, 0, 255, 1) }
+      tr { background: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_5Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -501,16 +489,15 @@ func TestTables_5Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;
+      table { border-color: #00f; table-layout: fixed;
                 direction: rtl; }
-      x-tbody { background: rgba(0, 0, 255, 1) }
-      x-tr { background: rgba(255, 0, 0, 0.5) }
+      tbody { background: rgba(0, 0, 255, 1) }
+      tr { background: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_6(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -542,15 +529,14 @@ func TestTables_6(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;}
-      x-colgroup { background: rgba(0, 0, 255, 1) }
-      x-col { background: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed;}
+      colgroup { background: rgba(0, 0, 255, 1) }
+      col { background: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_6Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -582,16 +568,15 @@ func TestTables_6Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;
+      table { border-color: #00f; table-layout: fixed;
                 direction: rtl; }
-      x-colgroup { background: rgba(0, 0, 255, 1) }
-      x-col { background: rgba(255, 0, 0, 0.5) }
+      colgroup { background: rgba(0, 0, 255, 1) }
+      col { background: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_7(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -623,15 +608,14 @@ func TestTables_7(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed }
-      x-tr:first-child { background: blue }
-      x-td { border-color: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed }
+      #tbody tr:first-child { background: blue }
+      td { border-color: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_7Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -663,16 +647,14 @@ func TestTables_7Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;
-                direction: rtl; }
-      x-tr:first-child { background: blue }
-      x-td { border-color: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed; direction: rtl; }
+      #tbody tr:first-child { background: blue }
+      td { border-color: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_8(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -704,15 +686,14 @@ func TestTables_8(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed }
-      x-col:first-child { background: blue }
-      x-td { border-color: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed }
+      .colgroup col:first-child { background: blue }
+      td { border-color: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_8Rtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -744,16 +725,14 @@ func TestTables_8Rtl(t *testing.T) {
         _BBBBBBBBBBBBBBBBBBBBBBBBBB_
         ____________________________
     `), fmt.Sprintf(tables_source, `
-      x-table { border-color: #00f; table-layout: fixed;
-                direction: rtl; }
-      x-col:first-child { background: blue }
-      x-td { border-color: rgba(255, 0, 0, 0.5) }
+      table { border-color: #00f; table-layout: fixed; direction: rtl; }
+      .colgroup col:first-child { background: blue }
+      td { border-color: rgba(255, 0, 0, 0.5) }
     `))
 }
 
 func TestTables_9(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
 		______________________
@@ -806,8 +785,7 @@ func TestTables_9(t *testing.T) {
 }
 
 func TestTables_10(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ______________________
@@ -859,8 +837,7 @@ func TestTables_10(t *testing.T) {
 }
 
 func TestTables_11(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test for inline table with collapsed border and alignment
 	// rendering borders incorrectly
@@ -888,8 +865,7 @@ func TestTables_11(t *testing.T) {
 }
 
 func TestTables_12(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -922,15 +898,14 @@ func TestTables_12(t *testing.T) {
         ____________________________
     `), fmt.Sprintf(tables_source, `
       body { direction: rtl }
-      x-table { border: 2px solid #00f; table-layout: fixed;
+      table { border: 2px solid #00f; table-layout: fixed;
                 border-collapse: collapse }
-      x-td { border-color: #ff7f7f }
+      td { border-color: #ff7f7f }
     `))
 }
 
 func TestTables_13(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqualFromPixels(t, toPix(`
         ____________________________
@@ -987,9 +962,9 @@ func TestTables_13(t *testing.T) {
         ____________________________
     `), fmt.Sprintf(tables_source, `
       body { direction: rtl }
-      x-table { border: solid #00f; border-width: 8px 2px;
+      table { border: solid #00f; border-width: 8px 2px;
                 table-layout: fixed; border-collapse: collapse }
-      x-td { border-color: #ff7f7f }
+      td { border-color: #ff7f7f }
       @page { size: 28px 26px; margin: 1px;
               border: 1px solid rgba(0, 255, 0, 0.5); }
     `))
@@ -1055,15 +1030,14 @@ func TestTables_13(t *testing.T) {
 //         ____________________________
 //     `), fmt.Sprintf( tables_source, `
 //       @page { size: 28px 26px }
-//       x-table { margin: 0; padding: 0; border: 0 }
-//       x-col { background: red }
-//       x-td { padding: 0; width: 1px; height: 8px }
+//       table { margin: 0; padding: 0; border: 0 }
+//       col { background: red }
+//       td { padding: 0; width: 1px; height: 8px }
 //     `))
 // }
 
 func TestTables_15(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test for colspan in last body line with footer
 	// https://github.com/Kozea/WeasyPrint/issues/1250
@@ -1119,8 +1093,7 @@ func TestTables_15(t *testing.T) {
 }
 
 func TestTables_16(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       ____________________
@@ -1148,8 +1121,7 @@ func TestTables_16(t *testing.T) {
 }
 
 func TestTables_17(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       ________________
@@ -1184,8 +1156,7 @@ func TestTables_17(t *testing.T) {
 }
 
 func TestTables_18(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       ____________
@@ -1222,8 +1193,7 @@ func TestTables_18(t *testing.T) {
 }
 
 func TestTables_19(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test: https://github.com/Kozea/WeasyPrint/issues/1523
 	assertPixelsEqual(t, `
@@ -1246,8 +1216,7 @@ func TestTables_19(t *testing.T) {
 }
 
 func TestTables_20(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       ____________________
@@ -1269,8 +1238,7 @@ func TestTables_20(t *testing.T) {
 }
 
 func TestTables_21(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       _________________________
@@ -1308,8 +1276,7 @@ func TestTables_21(t *testing.T) {
 }
 
 func TestTables_22(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       _________________________
@@ -1344,8 +1311,7 @@ func TestTables_22(t *testing.T) {
 
 func TestTables_23(t *testing.T) {
 	t.Skip()
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
       _________________________
@@ -1380,8 +1346,7 @@ func TestTables_23(t *testing.T) {
 }
 
 func TestRunningElementsTableBorderCollapse(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, strings.Repeat(`
       KK_____________
       KK_____________
@@ -1426,8 +1391,7 @@ func TestRunningElementsTableBorderCollapse(t *testing.T) {
 }
 
 func TestRunningElementsTableBorderCollapseEmpty(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, strings.Repeat(`
       KK________
       KK________
@@ -1465,8 +1429,7 @@ func TestRunningElementsTableBorderCollapseEmpty(t *testing.T) {
 
 func TestRunningElementsTableBorderCollapseBorderStyle(t *testing.T) {
 	t.Skip()
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, strings.Repeat(`
       KK_____________
       KK_____________
@@ -1511,8 +1474,7 @@ func TestRunningElementsTableBorderCollapseBorderStyle(t *testing.T) {
 }
 
 func TestRunningElementsTableBorderCollapseSpan(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, strings.Repeat(`
       KK_____________
       KK_____________
@@ -1557,8 +1519,7 @@ func TestRunningElementsTableBorderCollapseSpan(t *testing.T) {
 }
 
 func TestRunningElementsTableBorderCollapseMargin(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, strings.Repeat(`
       KK_____________
       KK_____________

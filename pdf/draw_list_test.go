@@ -10,8 +10,7 @@ import (
 // Test how lists are drawn.
 
 func TestListStyleImage(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	doTest := func(position, pixels string) {
 		assertPixelsEqual(t, pixels, fmt.Sprintf(`
@@ -60,8 +59,7 @@ func TestListStyleImage(t *testing.T) {
 }
 
 func TestListStyleImageNone(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________

@@ -11,8 +11,7 @@ import (
 const tolerance = 2
 
 func TestBeforeAfter1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertSameRendering(t,
 		`
@@ -32,8 +31,7 @@ func TestBeforeAfter1(t *testing.T) {
 }
 
 func TestBeforeAfter2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertSameRendering(t, `
             <style>
@@ -56,8 +54,7 @@ func TestBeforeAfter2(t *testing.T) {
 }
 
 func TestBeforeAfter3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertSameRendering(t, `
             <style>

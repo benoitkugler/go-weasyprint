@@ -109,7 +109,6 @@ func TestTextAlignRtlTrailingWhitespace(t *testing.T) {
         _________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page { background: white; size: 9px }
         body { font-family: weasyprint; color: blue; font-size: 1px }
         p { background: red; line-height: 1; width: 7em; margin: 1em }
@@ -119,6 +118,62 @@ func TestTextAlignRtlTrailingWhitespace(t *testing.T) {
       <p style="direction: rtl"> &#8207;abc </p>
       <p style="direction: ltr"> abc </p>
       <p style="direction: ltr"> &#8207;abc </p>
+    `)
+}
+
+func TestRtlDefaultDirection(t *testing.T) {
+	assertPixelsEqual(t, `
+        _____BBBBB_____
+        _____BBBBB_____
+        _____BBBBB_____
+        _____BBBBB_____
+        BBBBBBBBBB_____
+    `, `
+      <style>
+        @page { size: 15px 5px }
+        body { font-family: weasyprint; color: blue; font-size: 5px; line-height: 1 }
+      </style>
+      اب
+    `)
+}
+
+func TestRtlForcedDirection(t *testing.T) {
+	assertPixelsEqual(t, `
+        __________BBBBB
+        __________BBBBB
+        __________BBBBB
+        __________BBBBB
+        _____BBBBBBBBBB
+    `, `
+      <style>
+        @page { size: 15px 5px }
+        body { font-family: weasyprint; color: blue; font-size: 5px; line-height: 1 }
+      </style>
+      <div style="direction: rtl">اب</div>
+    `)
+}
+
+func TestRtlNestedInline(t *testing.T) {
+	assertPixelsEqual(t, `
+        RRRRR________________BBBBB___________RRRRR___________BBBBB
+        RRRRR________________BBBBB___________RRRRR___________BBBBB
+        RRRRR________________BBBBB___________RRRRR___________BBBBB
+        RRRRR________________BBBBB___________RRRRR___________BBBBB
+        RRRRRRRRRR______BBBBBBBBBB______RRRRRRRRRR______BBBBBBBBBB
+        ______________________________________BBBBB__________RRRRR
+        ______________________________________BBBBB__________RRRRR
+        ______________________________________BBBBB__________RRRRR
+        ______________________________________BBBBB__________RRRRR
+        _________________________________BBBBBBBBBB_____RRRRRRRRRR
+    `, `
+      <style>
+        @page { size: 58px 10px }
+        body { font-family: weasyprint; color: blue; font-size: 5px; line-height: 1 }
+        span { color: red }
+      </style>
+      <div style="direction: rtl; text-align: justify">
+        اب <span>اب</span> اب <span>با اب</span> اب
+      </div>
     `)
 }
 
@@ -618,8 +673,7 @@ func TestZeroWidthCharacter(t *testing.T) {
 }
 
 func TestTextUnderlineDashed(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	f := htmlToPDF(t, `
       <style>
@@ -642,8 +696,7 @@ func TestTextUnderlineDashed(t *testing.T) {
 }
 
 func TestTextUnderlineDotted(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	f := htmlToPDF(t, `
       <style>

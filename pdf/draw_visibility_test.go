@@ -22,8 +22,7 @@ const visibilitySource = `
   </div>`
 
 func TestVisibility_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________
@@ -37,8 +36,7 @@ func TestVisibility_1(t *testing.T) {
 }
 
 func TestVisibility_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________
@@ -52,8 +50,7 @@ func TestVisibility_2(t *testing.T) {
 }
 
 func TestVisibility_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________

@@ -10,8 +10,7 @@ import (
 // Test overflow and clipping.
 
 func TestOverflow_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// See test_images
 	assertPixelsEqual(t, `
@@ -33,8 +32,7 @@ func TestOverflow_1(t *testing.T) {
 }
 
 func TestOverflow_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// <body> is only 1px high, but its overflow is propageted to the viewport
 	// ie. the padding edge of the page box.
@@ -56,8 +54,7 @@ func TestOverflow_2(t *testing.T) {
 }
 
 func TestOverflow_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Assert that the border is not clipped by overflow: hidden
 	assertPixelsEqual(t, `
@@ -79,8 +76,7 @@ func TestOverflow_3(t *testing.T) {
 }
 
 func TestOverflow_4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Assert that the page margins aren't clipped by body's overflow
 	assertPixelsEqual(t, `
@@ -105,8 +101,7 @@ func TestOverflow_4(t *testing.T) {
 }
 
 func TestOverflow_5(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/2026
 	assertPixelsEqual(t, `
@@ -131,8 +126,7 @@ func TestOverflow_5(t *testing.T) {
 }
 
 func TestClip(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	for _, data := range [][2]string{
 		{"5px, 5px, 9px, auto", `

@@ -9,8 +9,7 @@ import (
 // Test how gradients are drawn.
 
 func TestLinearGradients_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _____
@@ -28,8 +27,7 @@ func TestLinearGradients_1(t *testing.T) {
 }
 
 func TestLinearGradients_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _____
@@ -47,8 +45,7 @@ func TestLinearGradients_2(t *testing.T) {
 }
 
 func TestLinearGradients_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ___BBrrrr
@@ -62,8 +59,7 @@ func TestLinearGradients_3(t *testing.T) {
 }
 
 func TestLinearGradients_4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBrrrr
@@ -77,8 +73,7 @@ func TestLinearGradients_4(t *testing.T) {
 }
 
 func TestLinearGradients_5(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBrrrBrrrB
@@ -92,8 +87,7 @@ func TestLinearGradients_5(t *testing.T) {
 }
 
 func TestLinearGradients_6(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBrrrrrr
@@ -107,8 +101,7 @@ func TestLinearGradients_6(t *testing.T) {
 }
 
 func TestLinearGradients_7(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         hhhhhhhhh
@@ -122,8 +115,7 @@ func TestLinearGradients_7(t *testing.T) {
 }
 
 func TestLinearGradients_8(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBB
@@ -137,8 +129,7 @@ func TestLinearGradients_8(t *testing.T) {
 }
 
 func TestLinearGradients_9(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBB
@@ -152,8 +143,7 @@ func TestLinearGradients_9(t *testing.T) {
 }
 
 func TestLinearGradients_10(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBB
@@ -167,8 +157,7 @@ func TestLinearGradients_10(t *testing.T) {
 }
 
 func TestLinearGradients_11(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBrBBBBB
@@ -182,8 +171,7 @@ func TestLinearGradients_11(t *testing.T) {
 }
 
 func TestLinearGradients_12(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBB
@@ -197,8 +185,7 @@ func TestLinearGradients_12(t *testing.T) {
 }
 
 func TestLinearGradients_13(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _____
@@ -217,8 +204,7 @@ func TestLinearGradients_13(t *testing.T) {
 }
 
 func TestRadialGradients_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBB
@@ -232,8 +218,7 @@ func TestRadialGradients_1(t *testing.T) {
 }
 
 func TestRadialGradients_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         RRRRRR
@@ -247,8 +232,7 @@ func TestRadialGradients_2(t *testing.T) {
 }
 
 func TestRadialGradients_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BzzzzzzzzB
@@ -272,8 +256,7 @@ func TestRadialGradients_3(t *testing.T) {
 }
 
 func TestRadialGradients_4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BzzzzzzzzB
@@ -297,8 +280,7 @@ func TestRadialGradients_4(t *testing.T) {
 }
 
 func TestRadialGradients_5(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         SzzzzzzzzS

@@ -9,8 +9,7 @@ import (
 // Test how columns are drawn.
 
 func TestColumnRule_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         a_r_a
@@ -34,8 +33,7 @@ func TestColumnRule_1(t *testing.T) {
 }
 
 func TestColumnRule_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         a_r_a

@@ -12,6 +12,7 @@ import (
 	"github.com/benoitkugler/webrender/utils"
 	"github.com/benoitkugler/webrender/utils/testutils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils/fonts"
 )
 
 // Test how boxes, borders, outlines are drawn.
@@ -20,9 +21,7 @@ func inputToPixels(t *testing.T, input string) [][]color.RGBA {
 	doc := htmlToPDF(t, input, pdfZoom)
 
 	img, err := pdfToImage(doc, pdfZoom)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	// fmt.Println(doc.Name())
 	doc.Close()
@@ -45,8 +44,7 @@ func assertPixelsDifferents(t *testing.T, images [][][]color.RGBA) {
 }
 
 func testBorders(t *testing.T, cssMargin, prop string) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	source := `
       <style>
@@ -136,8 +134,7 @@ func TestOutlines(t *testing.T) {
 }
 
 func TestSmallBorders_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	for _, borderStyle := range []string{"none", "solid", "dashed", "dotted"} {
 		// Regression test for ZeroDivisionError on dashed or dotted borders
@@ -156,8 +153,7 @@ func TestSmallBorders_1(t *testing.T) {
 }
 
 func TestSmallBorders_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	for _, borderStyle := range []string{"none", "solid", "dashed", "dotted"} {
 		// Regression test for ZeroDivisionError on dashed or dotted borders
@@ -176,8 +172,7 @@ func TestSmallBorders_2(t *testing.T) {
 }
 
 func TestEmBorders(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1378
 	html := `<body style="border: 1em solid">`
@@ -213,8 +208,7 @@ func TestBordersBoxSizing(t *testing.T) {
 }
 
 func TestMarginBoxes(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _______________
@@ -267,18 +261,15 @@ func TestMarginBoxes(t *testing.T) {
 }
 
 func TestDisplayInlineBlockTwice(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test for inline blocks displayed twice.
 	// https://github.com/Kozea/WeasyPrint/issues/880
 	html := `<div style="background: red; display: inline-block">`
 
 	parsedHtml, err := tree.NewHTML(utils.InputString(html), ".", nil, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsedHtml.UAStyleSheet = tree.TestUAStylesheet
+	tu.AssertNoErr(t, err)
+	parsedHtml.UAStyleSheet = fonts.UAStylesheet
 	doc := document.Render(parsedHtml, nil, false, fontconfig)
 
 	output := NewOutput()
@@ -291,8 +282,7 @@ func TestDisplayInlineBlockTwice(t *testing.T) {
 }
 
 func TestRoundedRect(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Regression test for inline blocks displayed twice.
 	// https://github.com/Kozea/WeasyPrint/issues/880
@@ -306,28 +296,11 @@ func TestRoundedRect(t *testing.T) {
 	</style>
 	<span style="background: red; border-radius: 5px; border: 2px solid blue;">abc</span>
 	`
-
-	f := htmlToPDF(t, html, 1)
-	got, err := pdfToImage(f, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	pngs, err := os.ReadFile("../resources_test/rounded_rect_ref.png")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 	exp, err := pngsToImage(pngs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !arePixelsAlmostEqual(imagePixels(exp), imagePixels(got), 0) {
-		t.Fatal("unexpected pixels")
-	}
-
-	f.Close()
-	os.Remove(f.Name())
+	tu.AssertNoErr(t, err)
+	assertPixelsEqualFromPixels(t, imagePixels(exp), html)
 }
 
 func TestDrawBorderRadius(t *testing.T) {

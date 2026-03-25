@@ -21,6 +21,7 @@ import (
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils/fonts"
 )
 
 var fontconfig text.FontConfiguration
@@ -131,7 +132,12 @@ func pngsToImage(pngs []byte) (image.Image, error) {
 // use the light UA stylesheet
 func htmlToModel(t *testing.T, html string) model.Document {
 	t.Helper()
-	return htmlToModelExt(t, html, 1, ".")
+	baseUrl, err := utils.PathToURL("../resources_test/")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return htmlToModelExt(t, html, 1, baseUrl)
 }
 
 func htmlToModelExt(t *testing.T, html string, zoom utils.Fl, baseURL string) model.Document {
@@ -146,7 +152,7 @@ func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, a
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedHtml.UAStyleSheet = tree.TestUAStylesheet
+	parsedHtml.UAStyleSheet = fonts.UAStylesheet
 	doc := document.Render(parsedHtml, nil, false, fontconfig)
 	output := NewOutput()
 	doc.Write(output, zoom, attachments)

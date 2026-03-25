@@ -19,8 +19,7 @@ const opacitySource = `
     %s`
 
 func TestOpacityZero(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertSameRendering(t,
 		fmt.Sprintf(opacitySource, `<div></div>`),
@@ -31,8 +30,7 @@ func TestOpacityZero(t *testing.T) {
 }
 
 func TestOpacityNormalRange(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertSameRendering(t,
 		fmt.Sprintf(opacitySource, `<div style="background: rgb(102, 102, 102)"></div>`),
@@ -46,8 +44,7 @@ func TestOpacityNormalRange(t *testing.T) {
 }
 
 func TestOpacityNested(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertSameRendering(t, fmt.Sprintf(opacitySource, `
             <div style="background: rgb(102, 102, 102)"></div>

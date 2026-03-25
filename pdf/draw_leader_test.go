@@ -10,8 +10,7 @@ import (
 //  Test how leaders are drawn.
 
 func TestLeaderSimple(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         RR__BBBBBBBB__BB
@@ -49,8 +48,7 @@ func TestLeaderSimple(t *testing.T) {
 }
 
 func TestLeaderTooLong(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         RRRRRRRRRR______
@@ -96,8 +94,7 @@ func TestLeaderTooLong(t *testing.T) {
 }
 
 func TestLeaderAlone(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         RRBBBBBBBBBBBBBB
@@ -127,8 +124,7 @@ func TestLeaderAlone(t *testing.T) {
 }
 
 func TestLeaderContent(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         RR____BB______BB
@@ -201,8 +197,7 @@ func TestLeaderContent(t *testing.T) {
 // }
 
 func TestLeaderInInline(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         RR__GGBBBBBB__RR
@@ -269,8 +264,7 @@ func TestLeaderInInline(t *testing.T) {
 //     assertPixelsEqual(t, 'leader-in-inline', 16, 4, expectedPixels, html)
 
 func TestLeaderSimpleRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         BB__BBBBBBBB__RR
@@ -310,8 +304,7 @@ func TestLeaderSimpleRtl(t *testing.T) {
 }
 
 func TestLeaderTooLongRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	expectedPixels := `
         ______RRRRRRRRRR
@@ -359,8 +352,7 @@ func TestLeaderTooLongRtl(t *testing.T) {
 }
 
 func TestLeaderFloatLeader(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// Test regression: https://github.com/Kozea/WeasyPrint/issues/1409
 	// Leaders in floats are not displayed at all in many cases with the current

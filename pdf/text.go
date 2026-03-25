@@ -86,12 +86,11 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 func (f pdfFont) newFontDescriptor(font backend.Font, content *model.FontFile) model.FontDescriptor {
 	desc := font.Description()
 
-	hash_ := md5.Sum([]byte(fmt.Sprint(desc.Family,
-		desc.Style, desc.Weight, desc.Size)))
+	hash_ := md5.Sum(fmt.Append(nil, desc.Family, desc.Style, desc.Weight, desc.Size))
 	hash := string(hex.EncodeToString(hash_[:]))
 
 	flags := model.Symbolic // since we use a custom char set
-	if desc.Style != text.FSyNormal {
+	if desc.Style != text.FSty_Normal {
 		flags |= model.Italic
 	}
 	if strings.Contains(desc.Family, "Serif") {

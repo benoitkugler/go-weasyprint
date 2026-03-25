@@ -9,8 +9,7 @@ import (
 // Test transformations.
 
 func Test_2dTransform_1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ________
@@ -30,8 +29,7 @@ func Test_2dTransform_1(t *testing.T) {
 }
 
 func Test_2dTransform_2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________
@@ -56,8 +54,7 @@ func Test_2dTransform_2(t *testing.T) {
 }
 
 func Test_2dTransform_3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	// A translateX after the rotation is actually a translateY
 	assertPixelsEqual(t, `
@@ -83,8 +80,7 @@ func Test_2dTransform_3(t *testing.T) {
 }
 
 func Test_2dTransform_4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________
@@ -109,8 +105,7 @@ func Test_2dTransform_4(t *testing.T) {
 }
 
 func Test_2dTransform_5(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ________
@@ -130,8 +125,7 @@ func Test_2dTransform_5(t *testing.T) {
 }
 
 func Test_2dTransform_6(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ________
@@ -151,8 +145,7 @@ func Test_2dTransform_6(t *testing.T) {
 }
 
 func Test_2dTransform_7(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ________
@@ -172,8 +165,7 @@ func Test_2dTransform_7(t *testing.T) {
 }
 
 func Test_2dTransform_8(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ________
@@ -194,8 +186,7 @@ func Test_2dTransform_8(t *testing.T) {
 }
 
 func Test_2dTransform_9(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ________
@@ -215,8 +206,7 @@ func Test_2dTransform_9(t *testing.T) {
 }
 
 func Test_2dTransform_10(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -241,8 +231,7 @@ func Test_2dTransform_10(t *testing.T) {
 }
 
 func Test_2dTransform_11(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -267,8 +256,7 @@ func Test_2dTransform_11(t *testing.T) {
 }
 
 func Test_2dTransform_12(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -293,8 +281,7 @@ func Test_2dTransform_12(t *testing.T) {
 }
 
 func Test_2dTransform_13(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________

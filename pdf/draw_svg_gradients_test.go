@@ -9,8 +9,7 @@ import (
 // Test how SVG simple gradients are drawn.
 
 func TestLinearGradient(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBBB
@@ -42,8 +41,7 @@ func TestLinearGradient(t *testing.T) {
 }
 
 func TestLinearGradientUserspace(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBBB
@@ -75,8 +73,7 @@ func TestLinearGradientUserspace(t *testing.T) {
 }
 
 func TestLinearGradientMulticolor(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBBB
@@ -110,8 +107,7 @@ func TestLinearGradientMulticolor(t *testing.T) {
 }
 
 func TestLinearGradientMulticolorUserspace(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBBB
@@ -181,8 +177,7 @@ func TestLinearGradientMulticolorUserspace(t *testing.T) {
 // }
 
 func TestLinearGradientRepeat(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBBB
@@ -268,8 +263,7 @@ func TestLinearGradientRepeat(t *testing.T) {
 // }
 
 func TestLinearGradientReflect(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBBBB
@@ -311,8 +305,7 @@ func TestLinearGradientReflect(t *testing.T) {
 }
 
 func TestRadialGradient(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rrrrrrrrrr
@@ -345,8 +338,7 @@ func TestRadialGradient(t *testing.T) {
 }
 
 func TestRadialGradientUserspace(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rrrrrrrrrr
@@ -378,8 +370,7 @@ func TestRadialGradientUserspace(t *testing.T) {
 }
 
 func TestRadialGradientMulticolor(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rrrrrrrrrr
@@ -414,8 +405,7 @@ func TestRadialGradientMulticolor(t *testing.T) {
 }
 
 func TestRadialGradientMulticolorUserspace(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rrrrrrrrrr

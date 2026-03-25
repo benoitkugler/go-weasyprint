@@ -9,8 +9,7 @@ import (
 // Test how SVG simple paths are drawn.
 
 func TestPathHh(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBBB__
@@ -42,8 +41,7 @@ func TestPathHh(t *testing.T) {
 }
 
 func TestPathVv(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BB____GG__
@@ -75,8 +73,7 @@ func TestPathVv(t *testing.T) {
 }
 
 func TestPathLl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ______RR__
@@ -104,8 +101,7 @@ func TestPathLl(t *testing.T) {
 }
 
 func TestPathZz(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBB___
@@ -133,8 +129,7 @@ func TestPathZz(t *testing.T) {
 }
 
 func TestPathZzFill(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBBB___
@@ -162,8 +157,7 @@ func TestPathZzFill(t *testing.T) {
 }
 
 func TestPathCc(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -191,8 +185,7 @@ func TestPathCc(t *testing.T) {
 }
 
 func TestPathSs(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -220,8 +213,7 @@ func TestPathSs(t *testing.T) {
 }
 
 func TestPathCcSs(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __BBBBBB__
@@ -255,8 +247,7 @@ func TestPathCcSs(t *testing.T) {
 }
 
 func TestPathQq(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -284,8 +275,7 @@ func TestPathQq(t *testing.T) {
 }
 
 func TestPathTt(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________
@@ -313,8 +303,7 @@ func TestPathTt(t *testing.T) {
 }
 
 func TestPathQqTt(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _BBBB_______
@@ -344,8 +333,7 @@ func TestPathQqTt(t *testing.T) {
 }
 
 func TestPathQqTt2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _BBBB_______
@@ -375,8 +363,7 @@ func TestPathQqTt2(t *testing.T) {
 }
 
 func TestPathAa(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __BBBB______
@@ -406,8 +393,7 @@ func TestPathAa(t *testing.T) {
 }
 
 func TestPathAa2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ______GGGG__
@@ -435,8 +421,7 @@ func TestPathAa2(t *testing.T) {
 }
 
 func TestPathAa3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ______GGGG__
@@ -464,8 +449,7 @@ func TestPathAa3(t *testing.T) {
 }
 
 func TestPathAa4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________
@@ -495,8 +479,7 @@ func TestPathAa4(t *testing.T) {
 }
 
 func TestPathAa5(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __BBBBBBBB__
@@ -524,8 +507,7 @@ func TestPathAa5(t *testing.T) {
 }
 
 func TestPathAa6(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __BBBBBBBB__
@@ -553,8 +535,7 @@ func TestPathAa6(t *testing.T) {
 }
 
 func TestPathAa7(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________

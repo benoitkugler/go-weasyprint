@@ -9,8 +9,7 @@ import (
 // Test clip-path attribute.
 
 func TestClipPath(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _________
@@ -40,8 +39,7 @@ func TestClipPath(t *testing.T) {
 }
 
 func TestClipPathOnGroup(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _________

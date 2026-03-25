@@ -9,8 +9,7 @@ import (
 // Test how bounding boxes are defined for SVG tags.
 
 func TestBoundingBoxRect(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBB
@@ -37,8 +36,7 @@ func TestBoundingBoxRect(t *testing.T) {
 }
 
 func TestBoundingBoxCircle(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
 		__________
@@ -70,8 +68,7 @@ func TestBoundingBoxCircle(t *testing.T) {
 }
 
 func TestBoundingBoxEllipse(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
 		__________
@@ -103,8 +100,7 @@ func TestBoundingBoxEllipse(t *testing.T) {
 }
 
 func TestBoundingBoxLine(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
 		BB___
@@ -132,8 +128,7 @@ func TestBoundingBoxLine(t *testing.T) {
 }
 
 func TestBoundingBoxPolygon(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBB
@@ -160,8 +155,7 @@ func TestBoundingBoxPolygon(t *testing.T) {
 }
 
 func TestBoundingBoxPolyline(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBB
@@ -217,8 +211,7 @@ func TestBoundingBoxPolyline(t *testing.T) {
 //     `)
 
 func TestBoundingBoxPathHv(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBB
@@ -245,8 +238,7 @@ func TestBoundingBoxPathHv(t *testing.T) {
 }
 
 func TestBoundingBoxPathL(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBB

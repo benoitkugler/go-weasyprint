@@ -15,8 +15,7 @@ GG
 `
 
 func TestCurrentColor1(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, green2x2, `
       <style>
@@ -29,8 +28,7 @@ func TestCurrentColor1(t *testing.T) {
 }
 
 func TestCurrentColor2(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, green2x2, `
       <style>
@@ -43,8 +41,7 @@ func TestCurrentColor2(t *testing.T) {
 }
 
 func TestCurrentColor3(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, green2x2, `
       <style>
@@ -57,8 +54,7 @@ func TestCurrentColor3(t *testing.T) {
 }
 
 func TestCurrentColor4(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, green2x2, `
       <style>

@@ -10,8 +10,7 @@ import (
 // Test how SVG text is drawn.
 
 func TestTextFill(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBB__BBBBBB______
@@ -31,8 +30,7 @@ func TestTextFill(t *testing.T) {
 }
 
 func TestTextStroke(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _BBBBBBBBBBBB_______
@@ -55,8 +53,7 @@ func TestTextStroke(t *testing.T) {
 }
 
 func TestTextX(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BB__BB_BBBB_________
@@ -77,8 +74,7 @@ func TestTextX(t *testing.T) {
 }
 
 func TestTextY(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________BBBBB_____BBBBBBBBBB
@@ -107,8 +103,7 @@ func TestTextY(t *testing.T) {
 }
 
 func TestTextXy(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________BBBBB_____BBBBBBBBBB
@@ -137,8 +132,7 @@ func TestTextXy(t *testing.T) {
 }
 
 func TestTextDx(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BB__BB_BBBB_________
@@ -159,8 +153,7 @@ func TestTextDx(t *testing.T) {
 }
 
 func TestTextDy(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________BBBBB_____BBBBBBBBBB
@@ -189,8 +182,7 @@ func TestTextDy(t *testing.T) {
 }
 
 func TestTextDxDy(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __________BBBBB_____BBBBBBBBBB
@@ -219,8 +211,7 @@ func TestTextDxDy(t *testing.T) {
 }
 
 func TestTextAnchorStart(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         __BBBBBB____________
@@ -247,8 +238,7 @@ func TestTextAnchorStart(t *testing.T) {
 }
 
 func TestTextAnchorMiddle(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         _______BBBBBB_______
@@ -269,8 +259,7 @@ func TestTextAnchorMiddle(t *testing.T) {
 }
 
 func TestTextAnchorEnd(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         ____________BBBBBB__
@@ -291,8 +280,7 @@ func TestTextAnchorEnd(t *testing.T) {
 }
 
 func TestTextTspan(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         BBBBBB__BBBBBB______
@@ -394,8 +382,7 @@ func TestTextAnchorEndTspan(t *testing.T) {
 }
 
 func TestTextRotate(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer testutils.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
 	__RR__RR__RR________

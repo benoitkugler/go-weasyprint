@@ -3,14 +3,13 @@ package pdf
 import (
 	"testing"
 
-	"github.com/benoitkugler/webrender/utils/testutils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
 )
 
 // Test how floats are drawn.
 
 func TestFloat(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB__aaaa
@@ -20,7 +19,7 @@ func TestFloat(t *testing.T) {
         __________
     `, `
       <style>
-        @page { size: 10px 5px; background: white }
+        @page { size: 10px 5px }
       </style>
       <div>
         <img style="float: left" src="../resources_test/pattern.png">
@@ -30,8 +29,7 @@ func TestFloat(t *testing.T) {
 }
 
 func TestFloatRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB__aaaa
@@ -51,8 +49,7 @@ func TestFloatRtl(t *testing.T) {
 }
 
 func TestFloatInline(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBBGG_____aaaa
@@ -76,8 +73,7 @@ func TestFloatInline(t *testing.T) {
 }
 
 func TestFloatInlineRtl(t *testing.T) {
-	// capt := testutils.CaptureLogs()
-	// defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB_____GGaaaa
@@ -88,7 +84,7 @@ func TestFloatInlineRtl(t *testing.T) {
     `, `
       <style>
         @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
-        @page { size: 15px 5px; background: white }
+        @page { size: 15px 5px }
         body { font-family: weasyprint; font-size: 2px; line-height: 1;
                color: lime }
       </style>
@@ -101,8 +97,7 @@ func TestFloatInlineRtl(t *testing.T) {
 }
 
 func TestFloatInlineBlock(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBBGG_____aaaa
@@ -126,8 +121,7 @@ func TestFloatInlineBlock(t *testing.T) {
 }
 
 func TestFloatInlineBlockRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB_____GGaaaa
@@ -151,8 +145,7 @@ func TestFloatInlineBlockRtl(t *testing.T) {
 }
 
 func TestFloatTable(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBBGG_____aaaa
@@ -176,8 +169,7 @@ func TestFloatTable(t *testing.T) {
 }
 
 func TestFloatTableRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB_____GGaaaa
@@ -201,8 +193,7 @@ func TestFloatTableRtl(t *testing.T) {
 }
 
 func TestFloatInlineTable(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBBGG_____aaaa
@@ -227,8 +218,7 @@ func TestFloatInlineTable(t *testing.T) {
 }
 
 func TestFloatInlineTableRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB_____GGaaaa
@@ -253,8 +243,7 @@ func TestFloatInlineTableRtl(t *testing.T) {
 }
 
 func TestFloatReplacedBlock(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBBaaaa___rBBB
@@ -275,8 +264,7 @@ func TestFloatReplacedBlock(t *testing.T) {
 }
 
 func TestFloatReplacedBlockRtl(t *testing.T) {
-	capt := testutils.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	assertPixelsEqual(t, `
         rBBB___aaaarBBB
