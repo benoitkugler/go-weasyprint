@@ -6,9 +6,9 @@ toolchain go1.24.1
 
 require (
 	github.com/benoitkugler/pdf v0.0.15
-	github.com/benoitkugler/textprocessing v0.0.5
+	github.com/benoitkugler/textprocessing v0.0.6
 	github.com/benoitkugler/webrender v0.0.14
-	github.com/go-text/typesetting v0.3.1-0.20250404103358-86159049fd02
+	github.com/go-text/typesetting v0.3.4
 )
 
 require (
@@ -19,3 +19,5 @@ require (
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 )
+
+replace github.com/benoitkugler/webrender => ../webrender
