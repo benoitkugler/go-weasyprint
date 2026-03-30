@@ -24,7 +24,6 @@ func TestTextOverflowClip(t *testing.T) {
         _________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 9px 7px;
           background: white;
@@ -65,7 +64,6 @@ func TestTextOverflowEllipsis(t *testing.T) {
         _________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           background: white;
           size: 9px 16px;
@@ -192,7 +190,6 @@ func TestMaxLinesEllipsis(t *testing.T) {
     `, `
       <style>
         @page {size: 10px 10px;}
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         p {
           block-ellipsis: auto;
           color: blue;
@@ -225,8 +222,7 @@ func TestMaxLinesEllipsis(t *testing.T) {
 //     `, `
 //       <style>
 //         @page {size: 10px 12px;}
-//         @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
-//         div {
+// //         div {
 //           continue: discard;
 //           font-family: weasyprint;
 //           font-size: 2px;
@@ -269,7 +265,6 @@ func TestLineClamp(t *testing.T) {
     `, `
       <style>
         @page {size: 10px 10px;}
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         p {
           color: blue;
           font-family: weasyprint;
@@ -306,7 +301,6 @@ func TestLineClampNone(t *testing.T) {
     `, `
       <style>
         @page {size: 10px 10px;}
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         p {
           color: blue;
           font-family: weasyprint;
@@ -341,7 +335,6 @@ func TestLineClampNumber(t *testing.T) {
     `, `
       <style>
         @page {size: 10px 10px;}
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         p {
           color: blue;
           font-family: weasyprint;
@@ -376,8 +369,7 @@ func TestLineClampNumber(t *testing.T) {
 //     `, `
 //       <style>
 //         @page {size: 10px 10px;}
-//         @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
-//         div {
+// //         div {
 //           block-ellipsis: auto;
 //           color: blue;
 //           continue: discard;
@@ -405,7 +397,6 @@ func TestTextAlignRight(t *testing.T) {
         _________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 9px 6px;
           background: white;
@@ -434,7 +425,6 @@ func TestTextAlignJustify(t *testing.T) {
         _________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 9px 6px;
           background: white;
@@ -461,7 +451,6 @@ func TestTextWordSpacing(t *testing.T) {
         ___________________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 19px 4px;
           background: white;
@@ -488,7 +477,6 @@ func TestTextLetterSpacing(t *testing.T) {
         ___________________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 19px 4px;
           background: white;
@@ -518,7 +506,6 @@ func TestTextUnderline(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           background: white;
@@ -547,7 +534,6 @@ func TestTextOverline(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           background: white;
@@ -574,7 +560,6 @@ func TestTextLineThrough(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           background: white;
@@ -602,7 +587,6 @@ func TestTextMultipleTextDecoration(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           margin: 2px;
@@ -629,7 +613,6 @@ func TestTextNestedTextDecoration(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           margin: 2px;
@@ -656,7 +639,6 @@ func TestZeroWidthCharacter(t *testing.T) {
         ______
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 6px 4px;
           background: white;
@@ -677,7 +659,6 @@ func TestTextUnderlineDashed(t *testing.T) {
 
 	f := htmlToPDF(t, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           background: white;
@@ -700,7 +681,6 @@ func TestTextUnderlineDotted(t *testing.T) {
 
 	f := htmlToPDF(t, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           background: white;
@@ -763,7 +743,6 @@ func TestTextDecorationVar(t *testing.T) {
         _____________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 13px 7px;
           margin: 2px;
@@ -788,7 +767,6 @@ func TestFontSizeVerySmall(t *testing.T) {
         __________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 10px 4px;
           margin: 1px;
@@ -811,7 +789,6 @@ func TestMissingGlyphFallback(t *testing.T) {
         ___zzzzzzzzzzzzzzzzz
     `, fmt.Sprintf(`
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 20px 4px;
         }
@@ -834,7 +811,6 @@ func TestTabulationCharacter(t *testing.T) {
         __________
     `, `
       <style>
-        @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
         @page {
           size: 10px 4px;
           margin: 1px;

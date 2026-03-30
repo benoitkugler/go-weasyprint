@@ -14,7 +14,7 @@ import (
 
 var lock sync.Mutex
 
-const useGotext = false
+const useGotext = true
 
 // LoadTestFontConfig loads the font index in [cacheDir],
 // creating it if needed.

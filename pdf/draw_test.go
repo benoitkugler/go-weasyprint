@@ -18,13 +18,10 @@ import (
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/html/document"
 	"github.com/benoitkugler/webrender/html/tree"
-	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
 	tu "github.com/benoitkugler/webrender/utils/testutils"
 	"github.com/benoitkugler/webrender/utils/testutils/fonts"
 )
-
-var fontconfig text.FontConfiguration
 
 var joker = color.RGBA{}
 
@@ -133,9 +130,7 @@ func pngsToImage(pngs []byte) (image.Image, error) {
 func htmlToModel(t *testing.T, html string) model.Document {
 	t.Helper()
 	baseUrl, err := utils.PathToURL("../resources_test/")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	return htmlToModelExt(t, html, 1, baseUrl)
 }
@@ -148,12 +143,13 @@ func htmlToModelExt(t *testing.T, html string, zoom utils.Fl, baseURL string) mo
 func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, attachments []backend.Attachment) model.Document {
 	t.Helper()
 
-	parsedHtml, err := tree.NewHTML(utils.InputString(html), baseURL, nil, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsedHtml.UAStyleSheet = fonts.UAStylesheet
-	doc := document.Render(parsedHtml, nil, false, fontconfig)
+	parsedHTML, err := tree.NewHTML(utils.InputString(html), baseURL, nil, "")
+	tu.AssertNoErr(t, err)
+
+	baseUrlFonts, err := utils.PathToURL("../resources_test/")
+	tu.AssertNoErr(t, err)
+	parsedHTML.UAStyleSheet = fonts.UAStylesheet(baseUrlFonts)
+	doc := document.Render(parsedHTML, nil, false, fontconfig)
 	output := NewOutput()
 	doc.Write(output, zoom, attachments)
 	return output.Finalize()
@@ -162,15 +158,14 @@ func htmlToModelExt2(t *testing.T, html string, zoom utils.Fl, baseURL string, a
 // use the light UA stylesheet
 func htmlToPDF(t *testing.T, html string, zoom utils.Fl) *os.File {
 	target, err := os.CreateTemp("", "*weasyprint.pdf")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
-	pdfDoc := htmlToModelExt(t, html, zoom, ".")
+	baseUrl, err := utils.PathToURL("../resources_test/")
+	tu.AssertNoErr(t, err)
+
+	pdfDoc := htmlToModelExt(t, html, zoom, baseUrl)
 	err = pdfDoc.Write(target, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	return target
 }
@@ -195,9 +190,7 @@ func TestWriteSimpleDocument(t *testing.T) {
 
 	ti := time.Now()
 	_, err := pdfToImage(file, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	fmt.Println(time.Since(ti))
 }
@@ -379,9 +372,7 @@ func arePixelsAlmostEqual(pix1, pix2 [][]color.RGBA, tolerance uint8) bool {
 func htmlToPixels(t *testing.T, source string) (*os.File, [][]color.RGBA) {
 	pdf := htmlToPDF(t, source, pdfZoom)
 	img, err := pdfToImage(pdf, pdfZoom)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 	return pdf, imagePixels(img)
 }
 

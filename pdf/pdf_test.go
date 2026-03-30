@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -15,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/benoitkugler/go-weasyprint/pdf/test"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/pdf/reader"
 	pdfParser "github.com/benoitkugler/pdf/reader/parser"
@@ -24,17 +22,20 @@ import (
 	"github.com/benoitkugler/webrender/logger"
 	"github.com/benoitkugler/webrender/matrix"
 	"github.com/benoitkugler/webrender/utils"
-	"github.com/benoitkugler/webrender/utils/testutils"
+	tu "github.com/benoitkugler/webrender/utils/testutils"
+	"github.com/benoitkugler/webrender/utils/testutils/fonts"
 )
+
+var fontconfig = fonts.FontConfig
 
 func init() {
 	logger.ProgressLogger.SetOutput(io.Discard)
 
-	var err error
-	fontconfig, err = test.LoadTestFontConfig("test/")
-	if err != nil {
-		log.Fatalf("creating font configuration: %s", err)
-	}
+	// var err error
+	// fontconfig, err = test.LoadTestFontConfig("test/")
+	// if err != nil {
+	// 	log.Fatalf("creating font configuration: %s", err)
+	// }
 }
 
 func TestPaint(t *testing.T) {
@@ -56,9 +57,7 @@ func TestPaint(t *testing.T) {
 
 	doc := c.Finalize()
 	err := doc.Write(io.Discard, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 }
 
 func TestGradientOp(t *testing.T) {
@@ -89,18 +88,14 @@ func TestGradientOp(t *testing.T) {
 
 	doc := c.Finalize()
 	err := doc.WriteFile("/tmp/op.pdf", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 }
 
 // Test PDF-related code, including metadata, bookmarks && hyperlinks.
 func modelToBytes(t *testing.T, doc model.Document) []byte {
 	var target bytes.Buffer
 	err := doc.Write(&target, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 	return target.Bytes()
 }
 
@@ -110,7 +105,7 @@ func htmlToBytes(t *testing.T, html string) []byte {
 }
 
 func TestPageSizeZoom(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	for _, zoom := range [...]fl{1, 1.5, 0.5} {
 		pdf := modelToBytes(t, htmlToModelExt(t, "<style>@page{size:3in 4in", zoom, "."))
@@ -138,7 +133,7 @@ func findCountAndTitles(pdf []byte) ([]string, []string) {
 }
 
 func TestBookmarks1(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <h1>a</h1>  #
@@ -164,7 +159,7 @@ func TestBookmarks1(t *testing.T) {
 }
 
 func TestBookmarks2(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, "<body>")
 	if bytes.Contains(pdf, []byte("Outlines")) {
@@ -173,14 +168,12 @@ func TestBookmarks2(t *testing.T) {
 }
 
 func TestBookmarks3(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	pdf := htmlToBytes(t, "<h1>a nbsp…</h1>")
 	titles := findRE("/Title \\((.*)\\)", pdf)
 
 	o, err := pdfParser.ParseObject([]byte("(" + titles[0] + ")"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 	title, ok := model.IsString(o)
 	if !ok {
 		t.Fatalf("unexpected title %v", o)
@@ -191,7 +184,7 @@ func TestBookmarks3(t *testing.T) {
 }
 
 func TestBookmarks4(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <style>
@@ -233,7 +226,7 @@ func TestBookmarks4(t *testing.T) {
 }
 
 func TestBookmarks5(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <h2>1</h2> level 1
@@ -260,7 +253,7 @@ func TestBookmarks5(t *testing.T) {
 }
 
 func TestBookmarks6(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <h2>1</h2> h2 level 1
@@ -295,7 +288,7 @@ func TestBookmarks6(t *testing.T) {
 }
 
 func TestBookmarks7(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	parseDest := func(de string) int {
 		cs := strings.Split(strings.TrimSpace(de), " ")
@@ -326,7 +319,7 @@ func TestBookmarks7(t *testing.T) {
 }
 
 func TestBookmarks8(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <h1>a</h1>
@@ -357,7 +350,7 @@ func TestBookmarks8(t *testing.T) {
 }
 
 func TestBookmarks9(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <h1 style="bookmark-label: 'h1 on page ' counter(page)">a</h1>
@@ -373,7 +366,7 @@ func TestBookmarks9(t *testing.T) {
 }
 
 func TestBookmarks10(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <style>
@@ -397,7 +390,7 @@ func TestBookmarks10(t *testing.T) {
 }
 
 func TestBookmarks11(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <div style="display:inline; white-space:pre;
@@ -424,7 +417,7 @@ func TestBookmarks11(t *testing.T) {
 }
 
 func TestBookmarks12(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <div style="bookmark-level:1; bookmark-label:contents">a</div>
@@ -440,7 +433,7 @@ func TestBookmarks12(t *testing.T) {
 }
 
 func TestBookmarks13(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <div style="bookmark-level:1; bookmark-label:contents;
@@ -457,7 +450,7 @@ func TestBookmarks13(t *testing.T) {
 }
 
 func TestBookmarks14(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	pdf := htmlToBytes(t, `
       <h1>a</h1>
       <h1> b c d </h1>
@@ -475,7 +468,7 @@ func TestBookmarks14(t *testing.T) {
 }
 
 func TestLinksNone(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	pdf := htmlToBytes(t, "<body>")
 
 	if bytes.Contains(pdf, []byte("Annots")) {
@@ -604,7 +597,7 @@ func TestLinks(t *testing.T) {
 }
 
 func TestSortedLinks(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// Regression test for https://github.com/Kozea/WeasyPrint/issues/1352
 	pdf := htmlToBytes(t, `
       <p id="zzz">zzz</p>
@@ -619,7 +612,7 @@ func TestSortedLinks(t *testing.T) {
 }
 
 func TestRelativeLinksNoHeight(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	// 100% wide (block), 0pt high
 	pdf := htmlToModelExt(t, `<a href="../lipsum" style="display: block"></a>a`,
@@ -640,7 +633,7 @@ func TestRelativeLinksNoHeight(t *testing.T) {
 }
 
 func TestRelativeLinksMissingBase(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	// Relative URI reference without a base URI
 	pdf := htmlToModelExt(t, `<a href="../lipsum" style="display: block"></a>a`,
@@ -662,7 +655,7 @@ func TestRelativeLinksMissingBase(t *testing.T) {
 
 func TestRelativeLinksMissingBaseLink(t *testing.T) {
 	// Relative URI reference without a base URI: ! supported for -weasy-link
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	pdf := modelToBytes(t, htmlToModelExt(t, `<div style="-weasy-link: url(../lipsum)">`,
 		1, ""))
 	logs := capt.Logs()
@@ -679,7 +672,7 @@ func TestRelativeLinksMissingBaseLink(t *testing.T) {
 }
 
 func TestRelativeLinksInternal(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// Internal URI reference without a base URI: OK
 	pdf := htmlToModelExt(t, `<a href="#lipsum" id="lipsum" style="display: block"></a>a`,
 		1, "")
@@ -705,7 +698,7 @@ func TestRelativeLinksInternal(t *testing.T) {
 }
 
 func TestRelativeLinksAnchors(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToModelExt(t, `<div style="-weasy-link: url(#lipsum)" id="lipsum"></div>a`,
 		1, "")
@@ -731,7 +724,7 @@ func TestRelativeLinksAnchors(t *testing.T) {
 }
 
 func TestRelativeLinksDifferentBase(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := modelToBytes(t, htmlToModelExt(t, `<a href="/test/lipsum"></a>a`,
 		1, "http://weasyprint.org/foo/bar/"))
@@ -741,7 +734,7 @@ func TestRelativeLinksDifferentBase(t *testing.T) {
 }
 
 func TestRelativeLinksSameBase(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := modelToBytes(t, htmlToModelExt(t, `<a id="test" href="/foo/bar/#test"></a>a`,
 		1, "http://weasyprint.org/foo/bar/"))
@@ -751,7 +744,7 @@ func TestRelativeLinksSameBase(t *testing.T) {
 }
 
 func TestMissingLinks(t *testing.T) {
-	capt := testutils.CaptureLogs()
+	capt := tu.CaptureLogs()
 	pdf := htmlToModelExt(t, `
           <style> a { display: block; height: 15pt } </style>
           <a href="#lipsum"></a>
@@ -787,7 +780,7 @@ func TestMissingLinks(t *testing.T) {
 }
 
 func TestEmbedGif(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `<img src="../resources_test/pattern.gif">`)
 	if !bytes.Contains(pdf, []byte("/Filter [/FlateDecode]")) {
@@ -796,7 +789,7 @@ func TestEmbedGif(t *testing.T) {
 }
 
 func TestEmbedJpeg(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	// JPEG-encoded image, embedded in PDF
 	pdf := htmlToBytes(t, `<img src="../resources_test/blue.jpg">`)
 	if !bytes.Contains(pdf, []byte("/Filter [/DCTDecode]")) {
@@ -805,7 +798,7 @@ func TestEmbedJpeg(t *testing.T) {
 }
 
 func TestEmbedImageOnce(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	// Image repeated multiple times, embedded once
 	pdf := htmlToBytes(t, `
@@ -858,36 +851,26 @@ func TestDocumentInfo(t *testing.T) {
 }
 
 func TestEmbeddedFilesAttachments(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	f, err := os.CreateTemp("", "test_pdf_attachements*.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 	defer f.Close()
 	defer os.Remove(f.Name())
 
 	_, err = io.Copy(f, strings.NewReader("12345678"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	absoluteUrl, err := utils.PathToURL(f.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	f2, err := os.CreateTemp("", "test_pdf_äöü*.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 	defer f2.Close()
 	defer os.Remove(f2.Name())
 
 	_, err = io.Copy(f2, strings.NewReader("abcdefgh"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	tu.AssertNoErr(t, err)
 
 	pdf := modelToBytes(t, htmlToModelExt2(t, fmt.Sprintf(`
           <title>Test document</title>
@@ -936,7 +919,7 @@ func TestEmbeddedFilesAttachments(t *testing.T) {
 }
 
 func TestAttachmentsData(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <title>Test document 2</title>
@@ -951,7 +934,7 @@ func TestAttachmentsData(t *testing.T) {
 }
 
 func TestAttachmentsNone(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <title>Test document 3</title>
@@ -967,7 +950,7 @@ func TestAttachmentsNone(t *testing.T) {
 }
 
 func TestAttachmentsNoneEmpty(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	pdf := htmlToBytes(t, `
       <title>Test document 3</title>
       <meta charset="utf-8">
@@ -981,7 +964,7 @@ func TestAttachmentsNoneEmpty(t *testing.T) {
 }
 
 func TestAnnotations(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	pdf := htmlToBytes(t, `
       <title>Test document</title>
@@ -1010,7 +993,7 @@ func TestAnnotations(t *testing.T) {
 }
 
 func TestBleed(t *testing.T) {
-	defer testutils.CaptureLogs().AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 
 	for _, data := range []struct {
 		style              string

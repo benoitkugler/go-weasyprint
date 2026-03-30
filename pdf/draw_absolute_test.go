@@ -9,16 +9,14 @@ import (
 // Test how absolutes are drawn
 
 func TestAbsoluteSplit_1(t *testing.T) {
-	capt := tu.CaptureLogs()
-	defer capt.AssertNoLogs(t)
+	defer tu.CaptureLogs().AssertNoLogs(t)
 	assertPixelsEqual(t, `
         BBBBRRRRRRRR____
         BBBBRRRRRRRR____
         BBBBRR__________
         BBBBRR__________
     `, `
-        <style>
-            @font-face {src: url(../resources_test/weasyprint.otf); font-family: weasyprint}
+		<style>
             @page {
                 size: 16px 2px;
             }
@@ -38,7 +36,7 @@ func TestAbsoluteSplit_1(t *testing.T) {
         </style>
         <div class="split">aa aa</div>
         <div>bbbbbb bbb</div>
-    `)
+  `)
 }
 
 func TestAbsoluteSplit_2(t *testing.T) {

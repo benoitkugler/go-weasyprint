@@ -269,7 +269,10 @@ func TestDisplayInlineBlockTwice(t *testing.T) {
 
 	parsedHtml, err := tree.NewHTML(utils.InputString(html), ".", nil, "")
 	tu.AssertNoErr(t, err)
-	parsedHtml.UAStyleSheet = fonts.UAStylesheet
+
+	baseUrl, err := utils.PathToURL("../resources_test/")
+	tu.AssertNoErr(t, err)
+	parsedHtml.UAStyleSheet = fonts.UAStylesheet(baseUrl)
 	doc := document.Render(parsedHtml, nil, false, fontconfig)
 
 	output := NewOutput()
