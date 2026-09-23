@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/text"
+	"github.com/benoitkugler/webrender/utils"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 )
 
 // may be set to false when debugging
-const compressStreams = true
+const compressStreams = false
 
 type fontContent struct {
 	content []byte
@@ -75,36 +75,15 @@ func (c *Output) AddPage(left, top, right, bottom fl) backend.Page {
 	return out
 }
 
-func (s *Output) SetTitle(title string) {
-	s.document.Trailer.Info.Title = title
-}
-
-func (s *Output) SetDescription(description string) {
-	s.document.Trailer.Info.Subject = description
-}
-
-func (s *Output) SetCreator(creator string) {
-	s.document.Trailer.Info.Creator = creator
-}
-
-func (s *Output) SetAuthors(authors []string) {
-	s.document.Trailer.Info.Author = strings.Join(authors, ", ")
-}
-
-func (s *Output) SetKeywords(keywords []string) {
-	s.document.Trailer.Info.Keywords = strings.Join(keywords, ", ")
-}
-
-func (s *Output) SetProducer(producer string) {
+func (s *Output) SetMetadata(producer string, meta utils.DocumentMetadata) {
+	s.document.Trailer.Info.Title = meta.Title
+	s.document.Trailer.Info.Subject = meta.Description
+	s.document.Trailer.Info.Creator = meta.Generator
+	s.document.Trailer.Info.Author = strings.Join(meta.Authors, ", ")
+	s.document.Trailer.Info.Keywords = strings.Join(meta.Keywords, ", ")
 	s.document.Trailer.Info.Producer = producer
-}
-
-func (s *Output) SetDateCreation(d time.Time) {
-	s.document.Trailer.Info.CreationDate = d
-}
-
-func (s *Output) SetDateModification(d time.Time) {
-	s.document.Trailer.Info.ModDate = d
+	s.document.Trailer.Info.CreationDate = meta.Created
+	s.document.Trailer.Info.ModDate = meta.Modified
 }
 
 func (c *Output) CreateAnchors(anchors [][]backend.Anchor) {

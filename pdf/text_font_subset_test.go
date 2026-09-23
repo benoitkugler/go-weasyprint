@@ -3,6 +3,7 @@ package pdf
 import (
 	"bytes"
 	_ "embed"
+	"os"
 	"reflect"
 	"testing"
 
@@ -106,5 +107,23 @@ func TestSubsetPost20(t *testing.T) {
 	}
 	if len(table.Names.(tables.PostNames20).GlyphNameIndexes) != len(set) {
 		t.Fatal()
+	}
+}
+
+func TestSubsetWeasyprintFont(t *testing.T) {
+	f, err := os.Open("../resources_test/weasyprint.otf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := subset(f, glyphSet{1: struct{}{}, 207: struct{}{}, 208: struct{}{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	font, err := ot.NewLoader(bytes.NewReader(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if font.Type != ot.OpenType {
+		t.Fatal("unexpected subset flavor")
 	}
 }

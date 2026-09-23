@@ -168,7 +168,7 @@ func subset(input ot.Resource, glyphs glyphSet) ([]byte, error) {
 		tables = append(tables, table)
 	}
 
-	return ot.WriteTTF(tables), nil
+	return ot.WriteOpentype(tables, ld.Type), nil
 }
 
 // mutate and returns [loca] and [glyph]

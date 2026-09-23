@@ -54,7 +54,6 @@ func (g *group) DrawText(texts []backend.TextDrawing) {
 
 		for _, run := range text.Runs {
 			pf := g.fonts[run.Font]
-
 			// do not use bitmap fonts
 			useFont := g.cache.fontFiles[run.Font.Origin()].isSupported
 
@@ -416,6 +415,7 @@ func (c *Output) writeFonts() {
 		}
 
 		fs := newFontFile(bFont.Description(), font, content.content)
+
 		desc := font.newFontDescriptor(bFont, fs)
 		widths := cidWidths(font.Extents)
 
