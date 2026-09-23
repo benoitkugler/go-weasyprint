@@ -1,7 +1,9 @@
 package goweasyprint
 
 import (
+	"fmt"
 	"io"
+	"log"
 
 	"github.com/benoitkugler/go-weasyprint/pdf"
 	"github.com/benoitkugler/webrender/backend"
@@ -9,6 +11,7 @@ import (
 	"github.com/benoitkugler/webrender/html/tree"
 	"github.com/benoitkugler/webrender/text"
 	"github.com/benoitkugler/webrender/utils"
+	"github.com/go-text/typesetting/fontscan"
 )
 
 type (
@@ -52,4 +55,15 @@ func HtmlToPdfOptions(target io.Writer, htmlContent ContentInput, baseUrl string
 	doc.Write(output, utils.Fl(zoom), attachments)
 	pdfDoc := output.Finalize()
 	return pdfDoc.Write(target, nil)
+}
+
+// NewFontConfiguration returns a text engine instance,
+// NOT safe for concurrent use.
+func NewFontConfiguration(cacheDir string) (*text.FontConfigurationGotext, error) {
+	fm := fontscan.NewFontMap(log.Default())
+	err := fm.UseSystemFonts(cacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load system fonts: %s", err)
+	}
+	return text.NewFontConfigurationGotext(fm), nil
 }
