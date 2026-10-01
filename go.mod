@@ -8,7 +8,7 @@ require (
 	github.com/benoitkugler/pdf v0.0.15
 	github.com/benoitkugler/textprocessing v0.0.6
 	github.com/benoitkugler/webrender v0.0.14
-	github.com/go-text/typesetting v0.3.4
+	github.com/go-text/typesetting v0.3.6-0.20261001104650-7f66441ebcc8
 )
 
 require (
@@ -19,5 +19,3 @@ require (
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 )
-
-replace github.com/benoitkugler/webrender => ../webrender
