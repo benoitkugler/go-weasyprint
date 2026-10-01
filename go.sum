@@ -9,6 +9,8 @@ github.com/benoitkugler/textlayout-testdata v0.1.1 h1:AvFxBxpfrQd8v55qH59mZOJOQj
 github.com/benoitkugler/textlayout-testdata v0.1.1/go.mod h1:i/qZl09BbUOtd7Bu/W1CAubRwTWrEXWq6JwMkw8wYxo=
 github.com/benoitkugler/textprocessing v0.0.6 h1:obkMyj62GEPg3xUVYqROlCN22z1OleuZm6ULqX9Om1g=
 github.com/benoitkugler/textprocessing v0.0.6/go.mod h1:Io0gN08/PXEzrSOWFa88xHx2Xv3VjvLMY7H76YoI23A=
+github.com/benoitkugler/webrender v0.0.15 h1:8OO5eQFSyQ6rgc6yGeIndkHDDDsTGDZTQU8u8X77hnc=
+github.com/benoitkugler/webrender v0.0.15/go.mod h1:A2pDHQRTajxADBdyDBAuit+04YjsT0YT+clZ7cL8yi0=
 github.com/go-text/typesetting v0.3.6-0.20261001104650-7f66441ebcc8 h1:md4+TPwwGigFzFkLTOHmXN/W7mvJk9EYCsSvFg/f6bk=
 github.com/go-text/typesetting v0.3.6-0.20261001104650-7f66441ebcc8/go.mod h1:3pas/YiO4XBAhjF5UaNVRiY1hQJtKt2XbaiqaHNbzRk=
 github.com/go-text/typesetting-utils v0.0.0-20260922124329-7d4869a3934e h1:ARqqlg1JI1oiFHTGKXqh08omHnZuPrMcwtrEGELOW/E=
