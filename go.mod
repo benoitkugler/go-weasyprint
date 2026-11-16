@@ -19,3 +19,7 @@ require (
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 )
+
+// Local development only: remove this replace and require the next pdf
+// release (with the split fonts/reader/streams API) before publishing.
+replace github.com/benoitkugler/pdf => ../pdf
