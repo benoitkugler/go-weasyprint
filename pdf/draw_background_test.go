@@ -487,7 +487,7 @@ func TestBackgroundImage(t *testing.T) {
 	}
 }
 
-func testBackgroundImage(t *testing.T, name, css, pixels string) {
+func testBackgroundImage(t *testing.T, _, css, pixels string) {
 	// pattern.png looks like this:
 	//
 	//    rBBB
