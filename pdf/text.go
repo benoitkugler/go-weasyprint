@@ -11,7 +11,6 @@ import (
 
 	"github.com/benoitkugler/pdf/contentstream"
 	pdfFonts "github.com/benoitkugler/pdf/fonts"
-	"github.com/benoitkugler/pdf/fonts/cmaps"
 	"github.com/benoitkugler/pdf/model"
 	"github.com/benoitkugler/webrender/backend"
 	"github.com/benoitkugler/webrender/text"
@@ -434,7 +433,7 @@ func (c *Output) writeFonts() {
 				FontDescriptor: desc,
 			},
 		}
-		cmap := cmaps.WriteAdobeIdentityUnicodeCMap(font.Cmap)
+		cmap := pdfFonts.WriteAdobeIdentityUnicodeCMap(font.Cmap)
 		font.FontDict.ToUnicode = &model.UnicodeCMap{Stream: model.Stream{Content: cmap}}
 	}
 }
